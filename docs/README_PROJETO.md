@@ -30,6 +30,8 @@ sem ainda implementar lógica de autenticação ou banco de usuários.
 - Tela inicial interna (área logada) acessível em `/inicio/`, com menu lateral e o item "Meus Dados".
 - Fluxo de cadastro de aventureiro em `/cadastro/` (wizard de 7 etapas) que cria o `User` e salva
   a ficha de inscrição, a ficha médica e a autorização de imagem; confirmação em `/cadastro/sucesso/`.
+- Cadastro de outro aventureiro na mesma conta em `/cadastro/novo-aventureiro/` (wizard de 6 etapas,
+  sem "Conta de acesso"), com opção de reaproveitar os dados dos responsáveis do último cadastro.
 - Models de cadastro criados e migrados (`Aventureiro`, `FichaMedica`, `AutorizacaoImagem`).
 - Logo do clube exibido no login, no menu lateral e no cadastro.
 - **Autenticação ainda NÃO implementada** (o cadastro cria o `User`, mas não faz login).
@@ -120,8 +122,9 @@ PINHALJUNIOR2.0/
 
 - `/` — tela de login (view `core.views.login_view`, nome `core:login`).
 - `/inicio/` — tela inicial interna / área logada (view `core.views.inicio_view`, nome `core:inicio`).
-- `/cadastro/` — cadastro de aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
-- `/cadastro/sucesso/` — confirmação (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
+- `/cadastro/` — cadastro inicial: cria a conta + o primeiro aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/novo-aventureiro/` — cadastra outro aventureiro na mesma conta, sem etapa de conta (view `core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
+- `/cadastro/sucesso/` — confirmação, com opções "Cadastrar outro aventureiro" e "Ir para a tela inicial" (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
 - `/admin/` — Django admin (models de cadastro registrados).
 - `/media/...` — arquivos de mídia (uploads), servidos pelo Django em DEBUG.
 
@@ -158,13 +161,18 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 - Cadastro de aventureiro em `/cadastro/` (wizard de 7 etapas): conta de acesso, ficha de inscrição,
   responsáveis, ficha médica, declaração médica, autorização de imagem e revisão. Ao finalizar, cria
   o `User` e salva Aventureiro + FichaMedica + AutorizacaoImagem; confirma em `/cadastro/sucesso/`.
+- Cadastro de **múltiplos aventureiros na mesma conta**: a tela de sucesso oferece "Cadastrar outro
+  aventureiro", que leva a `/cadastro/novo-aventureiro/` (wizard de 6 etapas, sem "Conta de acesso").
+  Esse fluxo reaproveita o mesmo usuário (identificado por sessão, temporariamente) e permite preencher
+  automaticamente os dados de pai/mãe/responsável legal com base no último cadastro.
 
 ## Funcionalidades ainda NÃO implementadas
 
 - Autenticação real (login/logout) — o cadastro cria o `User`, mas não faz login.
+  O usuário atual é mantido apenas por sessão (`cadastro_usuario_id`), de forma **temporária**,
+  para permitir cadastrar vários aventureiros; isso será substituído por `request.user`.
 - Funcionalidade do link "Esqueci minha senha" (hoje aponta para `#`).
 - Página real de "Meus Dados" e listagem de aventureiros do responsável.
-- Reaproveitar dados de responsáveis em novos cadastros do mesmo usuário (previsto).
 - Controle de permissões / perfis de usuário.
 - Validação avançada de CPF e envio de e-mail.
 

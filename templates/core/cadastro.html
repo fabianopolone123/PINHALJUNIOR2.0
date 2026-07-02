@@ -15,24 +15,36 @@
             <!-- Cabeçalho -->
             <header class="cadastro-topo">
                 <img src="{% static 'img/logo.png' %}" alt="Logo do clube" class="cadastro-logo">
-                <h1 class="cadastro-titulo">Cadastro de Aventureiro</h1>
+                <h1 class="cadastro-titulo">
+                    {% if modo_novo %}Cadastrar outro aventureiro{% else %}Cadastro de Aventureiro{% endif %}
+                </h1>
                 <p class="cadastro-sub">
-                    Preencha os dados para criar sua conta e realizar a inscrição no
-                    Clube de Aventureiros Pinhal Júnior.
+                    {% if modo_novo %}
+                        Preencha os dados do novo aventureiro. A conta de acesso já foi criada.
+                    {% else %}
+                        Preencha os dados para criar sua conta e realizar a inscrição no
+                        Clube de Aventureiros Pinhal Júnior.
+                    {% endif %}
                 </p>
             </header>
 
-            <!-- Barra de progresso / etapas -->
+            {% if modo_novo %}
+            <div class="aviso-info">
+                Você está cadastrando outro aventureiro na mesma conta.
+            </div>
+            {% endif %}
+
+            <!-- Barra de progresso / etapas (os números são ajustados pelo JS) -->
             <div class="progresso" aria-hidden="true">
                 <div class="progresso-linha"><span class="progresso-preenchido" id="progressoPreenchido"></span></div>
                 <ol class="progresso-etapas" id="progressoEtapas">
-                    <li class="etapa-ponto ativo" data-passo="1"><span>1</span><em>Conta</em></li>
-                    <li class="etapa-ponto" data-passo="2"><span>2</span><em>Inscrição</em></li>
-                    <li class="etapa-ponto" data-passo="3"><span>3</span><em>Responsáveis</em></li>
-                    <li class="etapa-ponto" data-passo="4"><span>4</span><em>Ficha médica</em></li>
-                    <li class="etapa-ponto" data-passo="5"><span>5</span><em>Declaração</em></li>
-                    <li class="etapa-ponto" data-passo="6"><span>6</span><em>Imagem</em></li>
-                    <li class="etapa-ponto" data-passo="7"><span>7</span><em>Revisão</em></li>
+                    {% if conta_form %}<li class="etapa-ponto ativo"><span>1</span><em>Conta</em></li>{% endif %}
+                    <li class="etapa-ponto"><span>2</span><em>Inscrição</em></li>
+                    <li class="etapa-ponto"><span>3</span><em>Responsáveis</em></li>
+                    <li class="etapa-ponto"><span>4</span><em>Ficha médica</em></li>
+                    <li class="etapa-ponto"><span>5</span><em>Declaração</em></li>
+                    <li class="etapa-ponto"><span>6</span><em>Imagem</em></li>
+                    <li class="etapa-ponto"><span>7</span><em>Revisão</em></li>
                 </ol>
             </div>
 
@@ -46,6 +58,7 @@
             <form class="cadastro-form" method="post" action="" enctype="multipart/form-data" novalidate id="cadastroForm">
                 {% csrf_token %}
 
+                {% if conta_form %}
                 <!-- ===================== Etapa 1: Conta ===================== -->
                 <section class="passo ativo" data-passo="1">
                     <h2 class="passo-titulo">1. Conta de acesso</h2>
@@ -57,9 +70,10 @@
                         {% include "core/_campo.html" with campo=conta_form.confirmar_senha %}
                     </div>
                 </section>
+                {% endif %}
 
                 <!-- ===================== Etapa 2: Ficha de inscrição ===================== -->
-                <section class="passo" data-passo="2">
+                <section class="passo{% if not conta_form %} ativo{% endif %}" data-passo="2">
                     <h2 class="passo-titulo">2. Ficha de inscrição</h2>
 
                     <div class="bloco">
@@ -130,11 +144,20 @@
                         nem sempre é o pai ou a mãe.
                     </p>
 
-                    <!--
-                        FUTURO: quando o usuário já tiver aventureiros cadastrados, exibir aqui
-                        uma opção "Usar os mesmos dados dos responsáveis já cadastrados".
-                        Depende de autenticação (ainda não implementada nesta etapa).
-                    -->
+                    {% if dados_anteriores %}
+                    <div class="reuso-responsaveis">
+                        <div class="campo-checkbox">
+                            <input type="checkbox" id="reusarResponsaveis" class="campo-check">
+                            <label for="reusarResponsaveis">
+                                Usar os mesmos dados de pai, mãe e responsável legal do cadastro anterior
+                            </label>
+                        </div>
+                        <p class="ajuda" id="avisoReuso" hidden>
+                            Dados dos responsáveis preenchidos com base no último cadastro. Confira antes de finalizar.
+                        </p>
+                    </div>
+                    {{ dados_anteriores|json_script:"dadosResponsaveisAnteriores" }}
+                    {% endif %}
 
                     <div class="bloco">
                         <h3 class="bloco-titulo">Dados do pai</h3>
@@ -382,7 +405,13 @@
                 </div>
             </form>
 
-            <p class="voltar-login"><a href="{% url 'core:login' %}">Já tenho conta — voltar ao login</a></p>
+            <p class="voltar-login">
+                {% if modo_novo %}
+                    <a href="{% url 'core:inicio' %}">Cancelar e ir para a tela inicial</a>
+                {% else %}
+                    <a href="{% url 'core:login' %}">Já tenho conta — voltar ao login</a>
+                {% endif %}
+            </p>
         </section>
     </main>
 

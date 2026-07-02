@@ -18,6 +18,13 @@
     var total = passos.length;
     var atual = 0; // índice (0-based)
 
+    // Ajusta a numeração exibida nos pontos conforme o total real de etapas.
+    // (No fluxo de "novo aventureiro" a etapa "Conta" não existe.)
+    pontos.forEach(function (ponto, i) {
+        var numero = ponto.querySelector("span");
+        if (numero) numero.textContent = String(i + 1);
+    });
+
     function mostrar(indice) {
         atual = Math.max(0, Math.min(indice, total - 1));
 
@@ -114,6 +121,32 @@
     if (btnPai) btnPai.addEventListener("click", function () { copiar("pai", "Pai"); });
     if (btnMae) btnMae.addEventListener("click", function () { copiar("mae", "Mãe"); });
 
+    /* ---------- Reaproveitar dados dos responsáveis ---------- */
+    // No cadastro de um novo aventureiro, o backend envia os dados de
+    // pai/mãe/responsável legal do último cadastro em um <script> JSON.
+    var reusarCheck = document.getElementById("reusarResponsaveis");
+    var dadosAnterioresEl = document.getElementById("dadosResponsaveisAnteriores");
+    if (reusarCheck && dadosAnterioresEl) {
+        var dadosAnteriores = {};
+        try {
+            dadosAnteriores = JSON.parse(dadosAnterioresEl.textContent) || {};
+        } catch (e) {
+            dadosAnteriores = {};
+        }
+        var avisoReuso = document.getElementById("avisoReuso");
+        reusarCheck.addEventListener("change", function () {
+            if (!reusarCheck.checked) {
+                if (avisoReuso) avisoReuso.hidden = true;
+                return;
+            }
+            Object.keys(dadosAnteriores).forEach(function (campo) {
+                var destino = document.getElementById("id_av-" + campo);
+                if (destino) destino.value = dadosAnteriores[campo] || "";
+            });
+            if (avisoReuso) avisoReuso.hidden = false;
+        });
+    }
+
     /* ---------- Revisão final ---------- */
     function valor(id) {
         var el = document.getElementById(id);
@@ -130,8 +163,12 @@
     function montarRevisao() {
         var revisao = document.getElementById("revisao");
         if (!revisao) return;
-        var itens = [
-            ["Usuário", valor("id_conta-username")],
+        var itens = [];
+        // O usuário só existe no cadastro inicial (não no de novo aventureiro).
+        if (document.getElementById("id_conta-username")) {
+            itens.push(["Usuário", valor("id_conta-username")]);
+        }
+        itens = itens.concat([
             ["Nome do aventureiro", valor("id_av-nome_completo")],
             ["Sexo", valor("id_av-sexo")],
             ["Data de nascimento", valor("id_av-data_nascimento")],
@@ -141,7 +178,7 @@
             ["WhatsApp do responsável", valor("id_av-resp_whatsapp")],
             ["Declaração médica aceita", marcado("id_av-declaracao_medica_aceita")],
             ["Autorização de imagem aceita", marcado("id_av-autorizacao_imagem_aceita")],
-        ];
+        ]);
         revisao.innerHTML = itens
             .map(function (par) {
                 return (
@@ -156,18 +193,25 @@
     }
 
     /* ---------- Validação de envio (aceites obrigatórios) ---------- */
+    // Descobre o índice da etapa que contém um campo (os índices mudam quando
+    // a etapa "Conta" não existe, no fluxo de novo aventureiro).
+    function indicePasso(id) {
+        var el = document.getElementById(id);
+        var passo = el ? el.closest(".passo") : null;
+        return passo ? passos.indexOf(passo) : -1;
+    }
     form.addEventListener("submit", function (evento) {
         var decl = document.getElementById("id_av-declaracao_medica_aceita");
         var img = document.getElementById("id_av-autorizacao_imagem_aceita");
         if (decl && !decl.checked) {
             evento.preventDefault();
-            mostrar(4); // etapa 5 (declaração)
+            mostrar(indicePasso("id_av-declaracao_medica_aceita"));
             alert("É necessário aceitar a declaração médica para finalizar.");
             return;
         }
         if (img && !img.checked) {
             evento.preventDefault();
-            mostrar(5); // etapa 6 (autorização de imagem)
+            mostrar(indicePasso("id_av-autorizacao_imagem_aceita"));
             alert("É necessário aceitar a autorização de uso de imagem para finalizar.");
             return;
         }

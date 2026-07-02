@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-01 (link "Cadastre-se" mais discreto no login)
+**Última atualização:** 2026-07-02 (fluxo para cadastrar múltiplos aventureiros na mesma conta)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -25,6 +25,13 @@ servindo de base para o desenvolvimento futuro.
 - Link "Cadastre-se" na tela de login (entre "Entrar" e "Esqueci minha senha"), em estilo
   discreto de link de texto (levemente maior que "Esqueci minha senha").
 - Ao finalizar o cadastro, cria o `User` do Django e salva Aventureiro + FichaMedica + AutorizacaoImagem.
+- Cadastro de **múltiplos aventureiros na mesma conta**: a tela de sucesso mostra o nome cadastrado e
+  oferece "Cadastrar outro aventureiro" e "Ir para a tela inicial". A opção leva a
+  `/cadastro/novo-aventureiro/` (wizard de 6 etapas, sem "Conta de acesso"), que vincula o novo
+  aventureiro ao mesmo usuário — identificado temporariamente pela sessão (`cadastro_usuario_id`),
+  já que ainda não há login real. Sem usuário na sessão, essa rota redireciona para `/cadastro/`.
+- Nesse fluxo, é possível reaproveitar os dados de pai, mãe e responsável legal do último cadastro
+  marcando uma opção; os campos são preenchidos automaticamente e podem ser editados antes de finalizar.
 
 ## Padrão visual da tela de login (atual)
 - Fundo com gradiente azul→verde animado (movimento lento) e formas circulares desfocadas flutuando.
@@ -55,17 +62,17 @@ servindo de base para o desenvolvimento futuro.
 
 ## Funcionalidades incompletas / não implementadas
 - Autenticação real (login/logout) — NÃO implementada (o cadastro cria o `User`, mas não faz login).
+  O usuário atual é mantido apenas por sessão (`cadastro_usuario_id`), de forma **temporária**.
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
 - Página real de "Meus Dados" e listagem de aventureiros — NÃO criadas.
-- Opção "Usar os mesmos dados dos responsáveis já cadastrados" — apenas prevista (depende de autenticação).
 - Permissões / perfis de usuário — NÃO implementados.
 - Validação avançada de CPF — NÃO implementada (deixada para o futuro).
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- (A definir) Implementar autenticação de usuários (login/logout) usando o `User` criado no cadastro.
+- (A definir) Implementar autenticação de usuários (login/logout) usando o `User` criado no cadastro
+  e substituir a identificação temporária por sessão (`cadastro_usuario_id`) por `request.user`.
 - (A definir) Criar a página real de "Meus Dados" e a listagem de aventureiros do responsável.
-- (A definir) Reaproveitar dados de responsáveis em novos cadastros do mesmo usuário.
 - (A definir) Implementar o fluxo de "Esqueci minha senha".
 
 ## Apps existentes
@@ -85,14 +92,17 @@ servindo de base para o desenvolvimento futuro.
 - `static/css/cadastro.css`
 
 ## Arquivos JavaScript existentes
-- `static/js/cadastro.js` — wizard de etapas, barra de progresso, campos condicionais,
-  preview da foto, atalhos (copiar pai/mãe para responsável legal), revisão e validação dos aceites.
+- `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
+  tanto ao cadastro de 7 etapas quanto ao de 6 etapas), barra de progresso, campos condicionais,
+  preview da foto, atalhos (copiar pai/mãe para responsável legal), reaproveitamento dos dados dos
+  responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
 - Scripts inline em `login.html` (redireciona para `/inicio/`) e em `inicio.html` (menu recolhível).
 
 ## Rotas existentes
 - `/` — tela de login (`core.views.login_view`, nome `core:login`).
 - `/inicio/` — tela inicial interna (`core.views.inicio_view`, nome `core:inicio`).
-- `/cadastro/` — cadastro de aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
 - `/admin/` — Django admin (models de cadastro registrados).
 - Em DEBUG, o Django serve os arquivos de mídia em `/media/`.

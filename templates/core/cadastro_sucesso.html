@@ -14,8 +14,25 @@
             <img src="{% static 'img/logo.png' %}" alt="Logo do clube" class="cadastro-logo">
             <div class="sucesso-check" aria-hidden="true">✓</div>
             <h1 class="cadastro-titulo">Cadastro realizado com sucesso!</h1>
-            <p class="cadastro-sub">As informações do aventureiro foram registradas.</p>
+            <p class="cadastro-sub">
+                {% if nome_aventureiro %}
+                    O aventureiro <strong>{{ nome_aventureiro }}</strong> foi registrado.
+                {% else %}
+                    As informações do aventureiro foram registradas.
+                {% endif %}
+            </p>
+
+            {% if pode_cadastrar_outro %}
+            <p class="cadastro-sub sucesso-pergunta">
+                Deseja cadastrar outro aventureiro usando a mesma conta/responsável?
+            </p>
+            <div class="sucesso-acoes">
+                <a href="{% url 'core:cadastro_novo_aventureiro' %}" class="btn-primario btn-sucesso">Cadastrar outro aventureiro</a>
+                <a href="{% url 'core:inicio' %}" class="btn-secundario btn-sucesso">Ir para a tela inicial</a>
+            </div>
+            {% else %}
             <a href="{% url 'core:inicio' %}" class="btn-primario btn-sucesso">Ir para a tela inicial</a>
+            {% endif %}
         </section>
     </main>
 </body>

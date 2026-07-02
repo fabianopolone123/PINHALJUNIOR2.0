@@ -137,3 +137,29 @@ Ao criar novos cadastros/formulários, seguir o padrão de `/cadastro/`:
 - **Aceites obrigatórios**: validar no servidor (não confiar só no JS).
 - Reaproveitar os parciais `templates/core/_campo.html` e `_campo_check.html` para renderizar campos.
 - Sempre criar as migrations ao alterar models (`makemigrations` + `migrate`).
+
+## Padrão de cadastro de múltiplos aventureiros (mesma conta)
+
+Um mesmo usuário/responsável pode cadastrar vários aventureiros. O fluxo é:
+
+- **Cadastro inicial** (`/cadastro/`): cria a conta de acesso **e** o primeiro aventureiro.
+- **Novo aventureiro** (`/cadastro/novo-aventureiro/`, nome `core:cadastro_novo_aventureiro`):
+  cadastra outro aventureiro **na mesma conta**, sem a etapa "Conta de acesso".
+- Após o cadastro, a tela de sucesso (`/cadastro/sucesso/`) oferece "Cadastrar outro aventureiro"
+  e "Ir para a tela inicial".
+
+Regras técnicas deste fluxo:
+
+- **Identificação temporária do usuário**: enquanto a autenticação real (login/logout) não existe,
+  o id do usuário é guardado na sessão nas chaves `cadastro_usuario_id` e `cadastro_ultimo_nome`
+  (constantes `SESSAO_USUARIO_ID` / `SESSAO_ULTIMO_NOME` em `core/views.py`). Isso é **temporário**:
+  quando o login real existir, trocar por `request.user`.
+- A rota de novo aventureiro **exige** `cadastro_usuario_id` na sessão; sem ele, redireciona para
+  `/cadastro/`. Nunca cria um novo `User` nesse fluxo — apenas vincula o aventureiro ao usuário atual.
+- **Reaproveitar sem duplicar template**: o mesmo `templates/core/cadastro.html` serve os dois fluxos,
+  controlado pelas variáveis de contexto `modo_novo` e `conta_form` (a etapa "Conta" só aparece quando
+  `conta_form` existe). A numeração das etapas e os índices usados pelo JS são calculados
+  dinamicamente em `static/js/cadastro.js` (não fixar números de etapa no código).
+- **Reaproveitar dados dos responsáveis**: no fluxo de novo aventureiro, o backend envia os dados de
+  pai/mãe/responsável legal do último aventureiro (helper `_dados_responsaveis_anteriores`) via
+  `json_script`; o JS preenche os campos quando o usuário marca a opção, e ele ainda pode editar.

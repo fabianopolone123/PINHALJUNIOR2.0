@@ -411,6 +411,29 @@ body {
     margin: 6px 0 0 18px;
 }
 
+/* Aviso informativo (ex.: cadastrando outro aventureiro na mesma conta) */
+.aviso-info {
+    background: rgba(74, 144, 217, 0.12);
+    border: 1px solid rgba(74, 144, 217, 0.35);
+    color: var(--azul-escuro);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Bloco de reaproveitamento dos dados dos responsáveis */
+.reuso-responsaveis {
+    margin-bottom: 16px;
+}
+
+.reuso-responsaveis .campo-checkbox {
+    background: rgba(58, 157, 58, 0.08);
+    border-color: var(--verde);
+}
+
 .aviso-revisao {
     font-size: 0.88rem;
     color: var(--texto-suave);
@@ -524,6 +547,30 @@ body {
     margin-top: 20px;
     text-decoration: none;
     text-align: center;
+}
+
+.sucesso-pergunta {
+    margin-top: 18px;
+    font-weight: 600;
+    color: var(--texto);
+}
+
+.sucesso-acoes {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.sucesso-acoes .btn-sucesso {
+    margin-top: 0;
+}
+
+@media (min-width: 620px) {
+    .sucesso-acoes {
+        flex-direction: row;
+        justify-content: center;
+    }
 }
 
 /* ================= Responsividade ================= */

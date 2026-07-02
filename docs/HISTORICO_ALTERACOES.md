@@ -22,6 +22,77 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Fluxo para cadastrar múltiplos aventureiros na mesma conta
+
+### Resumo
+Implementação do fluxo que permite ao mesmo usuário/responsável cadastrar mais de um
+aventureiro sem criar uma nova conta. A tela de sucesso passou a oferecer "Cadastrar
+outro aventureiro" e "Ir para a tela inicial". Foi criada a rota
+`/cadastro/novo-aventureiro/` (wizard de 6 etapas, sem "Conta de acesso"), que vincula
+o novo aventureiro ao mesmo usuário e permite reaproveitar os dados dos responsáveis do
+último cadastro. NÃO foi implementado login real nem permissões: o usuário atual é
+mantido temporariamente na sessão.
+
+### Problema encontrado
+Apesar de o model já permitir `um usuário → vários aventureiros`, não havia caminho de
+UI para isso: `/cadastro/` sempre exigia criar uma conta nova; após o cadastro o usuário
+não era identificado (sem sessão/login); e a tela de sucesso só oferecia "Ir para a tela
+inicial". Na prática, cada aventureiro exigiria um novo usuário.
+
+### Solução implementada
+- Após o cadastro inicial, o id do usuário é guardado na sessão (`cadastro_usuario_id`)
+  junto com o nome do último aventureiro (`cadastro_ultimo_nome`) — solução **temporária**
+  até a autenticação real (basta trocar por `request.user` no futuro).
+- Nova rota `/cadastro/novo-aventureiro/` (nome `core:cadastro_novo_aventureiro`) que exige
+  esse usuário na sessão, não cria novo `User` e salva o aventureiro na mesma conta.
+- O mesmo template `cadastro.html` serve os dois fluxos (parametrizado por `modo_novo` e
+  `conta_form`), evitando duplicar o wizard. A numeração das etapas e os índices usados pelo
+  JS são calculados dinamicamente.
+- Reaproveitamento dos dados de pai/mãe/responsável legal do último aventureiro, enviados
+  pelo backend via `json_script` e preenchidos pelo JS quando o usuário marca a opção
+  (ainda editáveis).
+
+### Rotas criadas/alteradas
+- Criada: `/cadastro/novo-aventureiro/` (`core:cadastro_novo_aventureiro`).
+- Alteradas (comportamento): `/cadastro/` (grava usuário na sessão) e `/cadastro/sucesso/`
+  (mostra nome e as duas opções).
+
+### Arquivos criados/alterados
+- `core/urls.py`: nova rota `cadastro/novo-aventureiro/`.
+- `core/views.py`: refatorado — helpers `_instanciar_forms_aventureiro`, `_validar_aceites`,
+  `_salvar_aventureiro` e `_dados_responsaveis_anteriores`; `cadastro_view` grava usuário na
+  sessão; nova `cadastro_novo_aventureiro_view`; `cadastro_sucesso_view` passa nome e opções.
+  Constantes `SESSAO_USUARIO_ID` / `SESSAO_ULTIMO_NOME`.
+- `templates/core/cadastro.html`: cabeçalho/banner condicional (`modo_novo`), etapa "Conta"
+  condicional (`conta_form`), bloco de reuso dos responsáveis + `json_script`, link de rodapé
+  condicional.
+- `templates/core/cadastro_sucesso.html`: nome do aventureiro e botões "Cadastrar outro
+  aventureiro" / "Ir para a tela inicial".
+- `static/js/cadastro.js`: numeração das etapas e índices de validação dinâmicos; usuário
+  condicional na revisão; reaproveitamento dos dados dos responsáveis.
+- `static/css/cadastro.css`: estilos `.aviso-info`, `.reuso-responsaveis`, `.sucesso-acoes`,
+  `.sucesso-pergunta`.
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`, `docs/REGRAS_CODEX.md`,
+  `docs/README_PROJETO.md`: documentação atualizada.
+
+### Decisões tomadas
+- Reaproveitar um único template/JS/CSS em vez de duplicar o wizard, controlando as diferenças
+  por contexto (`modo_novo`, `conta_form`) e cálculo dinâmico das etapas no JS.
+- Manter a identificação do usuário por sessão como solução simples e segura enquanto não há
+  login real, documentando claramente que é temporária.
+- Não alterar models — a relação `ForeignKey` (um-para-muitos) já suportava o cenário; sem
+  migrations nesta tarefa.
+- Validação autoritativa no servidor (aceites, forms) preservada nos dois fluxos.
+- Fluxo testado ponta a ponta (cadastro inicial + segundo aventureiro na mesma conta, sem novo
+  usuário, com ficha médica/autorização/aceites; redirecionamento sem sessão; bloqueio sem aceites).
+
+### Pendências
+- Autenticação real (login/logout) ainda NÃO implementada — substituir a sessão temporária por `request.user`.
+- Página real de "Meus Dados" e listagem de aventureiros ainda NÃO criadas.
+- Permissões / perfis, validação avançada de CPF, "Esqueci minha senha" e envio de e-mail: futuros.
+
+---
+
 ## 2026-07-01 - Ajuste visual do link "Cadastre-se" no login
 
 ### Resumo
