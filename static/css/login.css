@@ -225,6 +225,25 @@ body {
 }
 
 /* ---------- Formulário ---------- */
+/* Aviso de erro do login (usuário/senha inválidos) */
+.aviso-login {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: var(--raio-campo);
+    background: rgba(192, 57, 43, 0.10);
+    border: 1px solid rgba(192, 57, 43, 0.35);
+    color: #a5281b;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    animation: surgir-aviso 0.3s ease;
+}
+
+@keyframes surgir-aviso {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .form-login {
     display: flex;
     flex-direction: column;

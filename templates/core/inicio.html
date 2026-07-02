@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0f4c81">
-    <title>Início - Clube de Aventureiros Pinhal Júnior</title>
+    <title>Meus Dados - Clube de Aventureiros Pinhal Júnior</title>
     <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
 </head>
 <body>
@@ -40,6 +40,16 @@
             </nav>
 
             <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair">
+                        <span aria-hidden="true">🚪</span> Sair
+                    </button>
+                </form>
                 <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
             </div>
         </aside>
@@ -57,96 +67,199 @@
                     <span class="botao-menu-barra"></span>
                     <span class="botao-menu-barra"></span>
                 </button>
-                <span class="topo-mobile-nome">Clube de Aventureiros Pinhal Júnior</span>
+                <span class="topo-mobile-nome">Meus Dados</span>
             </header>
 
             <div class="conteudo-interno">
                 <!-- Cabeçalho de boas-vindas -->
                 <header class="cabecalho">
-                    <h1 class="cabecalho-titulo">Bem-vindo ao Clube de Aventureiros Pinhal Júnior</h1>
-                    <p class="cabecalho-sub">Esta é a sua área inicial. Use o menu para navegar pelo sistema.</p>
+                    <h1 class="cabecalho-titulo">Olá, {{ user.username }}! 👋</h1>
+                    <p class="cabecalho-sub">
+                        Esta é a sua área. Aqui você acompanha os dados da sua conta e dos
+                        aventureiros cadastrados por você.
+                    </p>
                 </header>
 
-                <!-- Card principal relacionado ao menu "Meus Dados" -->
-                <section class="card card-destaque">
+                <!-- ===================== Card: Dados da Conta ===================== -->
+                <section class="card conta-card card-destaque">
                     <div class="card-cabecalho">
-                        <span class="card-icone" aria-hidden="true">👤</span>
-                        <h2 class="card-titulo">Meus Dados</h2>
+                        <span class="card-icone" aria-hidden="true">🗂️</span>
+                        <h2 class="card-titulo">Dados da Conta</h2>
                     </div>
+                    <div class="dados-grade">
+                        {% include "core/_dado.html" with rotulo="Usuário" valor=user.username %}
+                        {% include "core/_dado.html" with rotulo="E-mail" valor=user.email %}
+                        {% include "core/_dado.html" with rotulo="Conta criada em" valor=user.date_joined|date:"d/m/Y" %}
+                        <div class="dado">
+                            <span class="dado-rotulo">Aventureiros cadastrados</span>
+                            <span class="dado-valor"><strong>{{ total_aventureiros }}</strong></span>
+                        </div>
+                    </div>
+                    <a href="{% url 'core:cadastro_novo_aventureiro' %}" class="btn-acao">
+                        <span aria-hidden="true">➕</span> Cadastrar outro aventureiro
+                    </a>
+                </section>
+
+                {% if aventureiros %}
+                <!-- ===================== Lista de aventureiros ===================== -->
+                <h2 class="secao-titulo">Aventureiros</h2>
+                <section class="aventureiros-lista">
+                    {% for av in aventureiros %}
+                    <article class="card aventureiro-card">
+                        <div class="aventureiro-topo">
+                            <div class="aventureiro-foto">
+                                {% if av.foto %}
+                                    <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome_completo }}">
+                                {% else %}
+                                    <div class="foto-vazia" aria-hidden="true">Sem foto</div>
+                                {% endif %}
+                            </div>
+                            <div class="aventureiro-resumo">
+                                <h3 class="aventureiro-nome">{{ av.nome_completo }}</h3>
+                                <div class="pills">
+                                    <span class="pill">{{ av.get_sexo_display }}</span>
+                                    {% if av.idade is not None %}<span class="pill">{{ av.idade }} anos</span>{% endif %}
+                                    {% if av.data_nascimento %}<span class="pill">Nasc. {{ av.data_nascimento|date:"d/m/Y" }}</span>{% endif %}
+                                    {% if av.cidade %}<span class="pill">{{ av.cidade }}{% if av.estado %}/{{ av.estado }}{% endif %}</span>{% endif %}
+                                    {% if av.get_tamanho_camiseta_display %}<span class="pill">Camiseta {{ av.get_tamanho_camiseta_display }}</span>{% endif %}
+                                </div>
+                                <div class="mini-dados">
+                                    {% if av.colegio %}<p><span>Colégio:</span> {{ av.colegio }}{% if av.serie %} — {{ av.serie }}{% endif %}{% if av.ano %} ({{ av.ano }}){% endif %}</p>{% endif %}
+                                    <p><span>Bolsa Família:</span> {{ av.bolsa_familia|yesno:"Sim,Não" }}</p>
+                                    <p><span>Responsável legal:</span> {{ av.resp_nome }}</p>
+                                    <p><span>WhatsApp:</span> {{ av.resp_whatsapp }}</p>
+                                    {% if av.classes %}
+                                    <p class="mini-classes"><span>Classes:</span>
+                                        {% for c in av.classes %}<span class="pill pill-verde">{{ c }}</span>{% endfor %}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detalhes recolhíveis (accordion nativo) -->
+                        <details class="secao">
+                            <summary>Dados pessoais</summary>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome completo" valor=av.nome_completo %}
+                                {% include "core/_dado.html" with rotulo="Sexo" valor=av.get_sexo_display %}
+                                {% include "core/_dado.html" with rotulo="Data de nascimento" valor=av.data_nascimento|date:"d/m/Y" %}
+                                {% include "core/_dado.html" with rotulo="Idade" valor=av.idade %}
+                                {% include "core/_dado.html" with rotulo="Colégio" valor=av.colegio %}
+                                {% include "core/_dado.html" with rotulo="Série" valor=av.serie %}
+                                {% include "core/_dado.html" with rotulo="Ano" valor=av.ano %}
+                                {% include "core/_dado.html" with rotulo="Bolsa Família" valor=av.bolsa_familia|yesno:"Sim,Não" %}
+                                {% include "core/_dado.html" with rotulo="Classes investidas" valor=av.classes|join:", " %}
+                                {% include "core/_dado.html" with rotulo="Certidão de nascimento" valor=av.certidao_nascimento %}
+                                {% include "core/_dado.html" with rotulo="Religião" valor=av.religiao %}
+                                {% include "core/_dado.html" with rotulo="RG" valor=av.rg %}
+                                {% include "core/_dado.html" with rotulo="Órgão expedidor" valor=av.orgao_expedidor %}
+                                {% include "core/_dado.html" with rotulo="CPF" valor=av.cpf %}
+                                {% include "core/_dado.html" with rotulo="Tamanho da camiseta" valor=av.get_tamanho_camiseta_display %}
+                                {% include "core/_dado.html" with rotulo="Cidade da inscrição" valor=av.cidade_inscricao %}
+                                {% include "core/_dado.html" with rotulo="Data da inscrição" valor=av.data_inscricao|date:"d/m/Y" %}
+                            </div>
+                        </details>
+
+                        <details class="secao">
+                            <summary>Endereço</summary>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Endereço" valor=av.endereco %}
+                                {% include "core/_dado.html" with rotulo="Bairro" valor=av.bairro %}
+                                {% include "core/_dado.html" with rotulo="Cidade" valor=av.cidade %}
+                                {% include "core/_dado.html" with rotulo="CEP" valor=av.cep %}
+                                {% include "core/_dado.html" with rotulo="Estado" valor=av.estado %}
+                            </div>
+                        </details>
+
+                        <details class="secao">
+                            <summary>Responsáveis</summary>
+                            <h4 class="bloco-rotulo">Pai</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome" valor=av.pai_nome %}
+                                {% include "core/_dado.html" with rotulo="E-mail" valor=av.pai_email %}
+                                {% include "core/_dado.html" with rotulo="CPF" valor=av.pai_cpf %}
+                                {% include "core/_dado.html" with rotulo="Celular" valor=av.pai_celular %}
+                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.pai_whatsapp %}
+                            </div>
+                            <h4 class="bloco-rotulo">Mãe</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome" valor=av.mae_nome %}
+                                {% include "core/_dado.html" with rotulo="E-mail" valor=av.mae_email %}
+                                {% include "core/_dado.html" with rotulo="CPF" valor=av.mae_cpf %}
+                                {% include "core/_dado.html" with rotulo="Celular" valor=av.mae_celular %}
+                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.mae_whatsapp %}
+                            </div>
+                            <h4 class="bloco-rotulo">Responsável legal</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome" valor=av.resp_nome %}
+                                {% include "core/_dado.html" with rotulo="Grau de parentesco" valor=av.resp_parentesco %}
+                                {% include "core/_dado.html" with rotulo="CPF" valor=av.resp_cpf %}
+                                {% include "core/_dado.html" with rotulo="E-mail" valor=av.resp_email %}
+                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.resp_whatsapp %}
+                            </div>
+                        </details>
+
+                        {% if av.ficha_medica %}
+                        <details class="secao">
+                            <summary>Ficha médica</summary>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Possui plano de saúde" valor=av.ficha_medica.possui_plano_saude|yesno:"Sim,Não" %}
+                                {% include "core/_dado.html" with rotulo="Plano de saúde" valor=av.ficha_medica.qual_plano_saude %}
+                                {% include "core/_dado.html" with rotulo="Número do SUS" valor=av.ficha_medica.cartao_sus %}
+                                {% include "core/_dado.html" with rotulo="Tipo sanguíneo" valor=av.ficha_medica.get_tipo_sanguineo_display %}
+                            </div>
+                            <div class="listas">
+                                <p><span>Doenças:</span> {{ av.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                <p><span>Alergias:</span> {{ av.ficha_medica.alergias_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                <p><span>Condições de saúde:</span> {{ av.ficha_medica.condicoes_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                <p><span>Histórico recente:</span> {{ av.ficha_medica.historico_lista|join:", "|default:"Nada informado" }}</p>
+                                <p><span>Outros problemas/medicamentos:</span> {{ av.ficha_medica.outros_problemas|default:"—" }}</p>
+                            </div>
+                            <p class="aceite {% if av.declaracao_medica_aceita %}aceite-ok{% endif %}">
+                                {% if av.declaracao_medica_aceita %}✓ Declaração médica aceita{% else %}Declaração médica não aceita{% endif %}
+                            </p>
+                        </details>
+                        {% endif %}
+
+                        {% if av.autorizacao_imagem %}
+                        <details class="secao">
+                            <summary>Autorização de imagem</summary>
+                            <p class="aceite {% if av.autorizacao_imagem_aceita %}aceite-ok{% endif %}">
+                                {% if av.autorizacao_imagem_aceita %}✓ Termo de imagem aceito{% else %}Termo de imagem não aceito{% endif %}
+                            </p>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome do menor" valor=av.autorizacao_imagem.nome_menor %}
+                                {% include "core/_dado.html" with rotulo="Responsável legal" valor=av.autorizacao_imagem.resp_nome %}
+                                {% include "core/_dado.html" with rotulo="CPF do responsável" valor=av.autorizacao_imagem.resp_cpf %}
+                                {% include "core/_dado.html" with rotulo="Cidade/Estado" valor=av.autorizacao_imagem.resp_cidade %}
+                            </div>
+                            <p class="obs-termo">
+                                O responsável legal autorizou o uso de imagem do menor para fins
+                                institucionais do clube, conforme o termo aceito no cadastro.
+                            </p>
+                        </details>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                </section>
+                {% else %}
+                <!-- Nenhum aventureiro cadastrado -->
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">🧭</span>
+                    <h2 class="card-titulo">Nenhum aventureiro cadastrado ainda</h2>
                     <p class="card-texto">
-                        Aqui, futuramente, você poderá visualizar e editar seus dados
-                        pessoais, como nome, contato e informações do clube. Esta seção
-                        ainda está em preparação.
+                        Você ainda não cadastrou nenhum aventureiro nesta conta. Que tal começar agora?
                     </p>
-                    <span class="etiqueta">Em breve</span>
+                    <a href="{% url 'core:cadastro_novo_aventureiro' %}" class="btn-acao">
+                        <span aria-hidden="true">➕</span> Cadastrar aventureiro
+                    </a>
                 </section>
-
-                <!-- Blocos visuais leves (apenas ilustrativos, sem funcionalidade) -->
-                <section class="grade-cards">
-                    <article class="card">
-                        <div class="card-cabecalho">
-                            <span class="card-icone" aria-hidden="true">📋</span>
-                            <h3 class="card-titulo">Cadastro</h3>
-                        </div>
-                        <p class="card-texto">
-                            Suas informações de cadastro aparecerão aqui.
-                        </p>
-                    </article>
-
-                    <article class="card">
-                        <div class="card-cabecalho">
-                            <span class="card-icone" aria-hidden="true">🏕️</span>
-                            <h3 class="card-titulo">Atividades</h3>
-                        </div>
-                        <p class="card-texto">
-                            Em breve você acompanhará as atividades do clube.
-                        </p>
-                    </article>
-
-                    <article class="card">
-                        <div class="card-cabecalho">
-                            <span class="card-icone" aria-hidden="true">🏅</span>
-                            <h3 class="card-titulo">Conquistas</h3>
-                        </div>
-                        <p class="card-texto">
-                            Suas especialidades e conquistas ficarão registradas aqui.
-                        </p>
-                    </article>
-                </section>
+                {% endif %}
             </div>
         </main>
     </div>
 
-    <script>
-        // Menu recolhível no celular (abre/fecha a barra lateral).
-        // Sem autenticação nem lógica de negócio — apenas navegação visual.
-        (function () {
-            var barra = document.getElementById("barraLateral");
-            var botao = document.getElementById("botaoMenu");
-            var overlay = document.getElementById("overlay");
-
-            function abrirMenu() {
-                barra.classList.add("aberta");
-                overlay.hidden = false;
-                botao.setAttribute("aria-expanded", "true");
-            }
-
-            function fecharMenu() {
-                barra.classList.remove("aberta");
-                overlay.hidden = true;
-                botao.setAttribute("aria-expanded", "false");
-            }
-
-            botao.addEventListener("click", function () {
-                if (barra.classList.contains("aberta")) {
-                    fecharMenu();
-                } else {
-                    abrirMenu();
-                }
-            });
-
-            overlay.addEventListener("click", fecharMenu);
-        })();
-    </script>
+    <script src="{% static 'js/inicio.js' %}"></script>
 </body>
 </html>

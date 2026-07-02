@@ -2,23 +2,32 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 (comando de dados de teste: conta com 2 aventureiros)
+**Última atualização:** 2026-07-02 (autenticação real + tela "Meus Dados" funcional)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
 
 ## Objetivo do sistema
-Sistema web do clube. No momento possui apenas a tela inicial de login (visual),
-servindo de base para o desenvolvimento futuro.
+Sistema web do clube com autenticação real, cadastro de conta e de aventureiros e
+área interna "Meus Dados" que exibe os dados do usuário logado e de seus aventureiros.
 
 ## Funcionalidades prontas
 - Estrutura inicial do Django funcionando.
-- Tela de login visual e responsiva (mobile first) na rota `/`, com visual moderno.
+- Tela de login responsiva (mobile first) na rota `/`, com visual moderno.
+- **Autenticação real**: login por username/senha (`authenticate` + `login`), com mensagem
+  "Usuário ou senha inválidos." em caso de erro; após logar, vai para `/inicio/`.
+- **Logout** em `/sair/` (POST, botão "Sair" no menu lateral); volta para o login.
+- **Proteção de rota**: `/inicio/` usa `@login_required`; sem login, redireciona para `/`
+  (com `?next=`). Configurados `LOGIN_URL`, `LOGIN_REDIRECT_URL` e `LOGOUT_REDIRECT_URL`.
+- Tela interna "Meus Dados" (`/inicio/`) **funcional**: cabeçalho com saudação, card "Dados da
+  Conta" (usuário, e-mail, data de criação, total de aventureiros) e um card por aventureiro
+  com foto 3x4, pílulas de resumo e seções recolhíveis (`<details>`): dados pessoais, endereço,
+  responsáveis, ficha médica e autorização de imagem. Botão "Cadastrar outro aventureiro" e
+  estado vazio amigável quando não há aventureiros.
+- Menu lateral fixo (desktop) e recolhível/gaveta (mobile), com nome do usuário e botão "Sair".
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
-- Formulário visual: campos "Usuário" e "Senha", botão "Entrar", link "Esqueci minha senha".
-- Tela inicial interna (área logada) na rota `/inicio/`, com menu lateral fixo (desktop)
-  e menu recolhível/gaveta (mobile), item "Meus Dados" ativo e cards visuais.
-- Botão "Entrar" da tela de login navega (apenas visualmente) para `/inicio/`, sem autenticação.
+- Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
+  levado à tela de sucesso; "Ir para a tela inicial" abre `/inicio/` já logado.
 - Fluxo de cadastro de aventureiro em `/cadastro/`: wizard de 7 etapas (conta, ficha de inscrição,
   responsáveis, ficha médica, declaração médica, autorização de imagem, revisão), com barra de
   progresso, campos condicionais, upload/preview de foto e tela de sucesso em `/cadastro/sucesso/`.
@@ -28,8 +37,8 @@ servindo de base para o desenvolvimento futuro.
 - Cadastro de **múltiplos aventureiros na mesma conta**: a tela de sucesso mostra o nome cadastrado e
   oferece "Cadastrar outro aventureiro" e "Ir para a tela inicial". A opção leva a
   `/cadastro/novo-aventureiro/` (wizard de 6 etapas, sem "Conta de acesso"), que vincula o novo
-  aventureiro ao mesmo usuário — identificado temporariamente pela sessão (`cadastro_usuario_id`),
-  já que ainda não há login real. Sem usuário na sessão, essa rota redireciona para `/cadastro/`.
+  aventureiro ao usuário logado (`request.user`); como retaguarda, ainda aceita o usuário guardado
+  na sessão (`cadastro_usuario_id`). Sem nenhum dos dois, redireciona para o login.
 - Nesse fluxo, é possível reaproveitar os dados de pai, mãe e responsável legal do último cadastro
   marcando uma opção; os campos são preenchidos automaticamente e podem ser editados antes de finalizar.
 - Comando de gerenciamento `criar_dados_teste` para popular o banco local com uma conta de teste
@@ -52,10 +61,13 @@ servindo de base para o desenvolvimento futuro.
   e itens de menu; item ativo destacado em verde.
 - No celular, o menu vira gaveta recolhível: barra superior com botão hambúrguer,
   gaveta deslizante e overlay que fecha ao tocar fora.
-- Área principal com cabeçalho de boas-vindas, card em destaque "Meus Dados" e cards
-  ilustrativos (Cadastro, Atividades, Conquistas), com sombras suaves e hover.
-- Fundo claro com detalhes decorativos radiais suaves; animação de entrada do conteúdo.
-- Suporte a `prefers-reduced-motion`. Testado em mobile (390px, sem overflow) e desktop (1280px).
+- Rodapé da barra com o nome do usuário logado e o botão "Sair".
+- Área principal "Meus Dados": cabeçalho com saudação, card "Dados da Conta" e um card por
+  aventureiro (foto 3x4, pílulas de resumo e seções recolhíveis com todos os detalhes).
+- Pílulas/etiquetas para informações rápidas; cards com sombras suaves, bordas arredondadas
+  e hover leve; seções recolhíveis via `<details>/<summary>` nativos.
+- Fundo claro com detalhes decorativos radiais suaves; animação de entrada dos cards.
+- Suporte a `prefers-reduced-motion`. Layout responsivo (mobile first).
 
 ## Models existentes
 - `Aventureiro` — ficha de inscrição + dados dos responsáveis (pai, mãe, responsável legal);
@@ -64,30 +76,28 @@ servindo de base para o desenvolvimento futuro.
 - `AutorizacaoImagem` — OneToOne com `Aventureiro` (dados do menor e do responsável para o termo).
 
 ## Funcionalidades incompletas / não implementadas
-- Autenticação real (login/logout) — NÃO implementada (o cadastro cria o `User`, mas não faz login).
-  O usuário atual é mantido apenas por sessão (`cadastro_usuario_id`), de forma **temporária**.
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
-- Página real de "Meus Dados" e listagem de aventureiros — NÃO criadas.
+- Edição dos dados do aventureiro pela área logada — hoje "Meus Dados" é somente visualização.
 - Permissões / perfis de usuário — NÃO implementados.
 - Validação avançada de CPF — NÃO implementada (deixada para o futuro).
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- (A definir) Implementar autenticação de usuários (login/logout) usando o `User` criado no cadastro
-  e substituir a identificação temporária por sessão (`cadastro_usuario_id`) por `request.user`.
-- (A definir) Criar a página real de "Meus Dados" e a listagem de aventureiros do responsável.
+- (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Implementar o fluxo de "Esqueci minha senha".
+- (A definir) Novos itens de menu e controle de permissões/perfis.
 
 ## Apps existentes
 - `config` — projeto Django (settings, urls, wsgi, asgi).
 - `core` — app principal (views de login, tela inicial e cadastro; models de aventureiro).
 
 ## Templates existentes
-- `templates/core/login.html`
-- `templates/core/inicio.html`
+- `templates/core/login.html` (login real, com mensagem de erro)
+- `templates/core/inicio.html` (área "Meus Dados": conta + cards dos aventureiros)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
 - `templates/core/_campo.html` e `templates/core/_campo_check.html` (parciais de campo reutilizáveis)
+- `templates/core/_dado.html` (parcial rótulo+valor usada em "Meus Dados")
 
 ## Arquivos CSS existentes
 - `static/css/login.css`
@@ -99,11 +109,13 @@ servindo de base para o desenvolvimento futuro.
   tanto ao cadastro de 7 etapas quanto ao de 6 etapas), barra de progresso, campos condicionais,
   preview da foto, atalhos (copiar pai/mãe para responsável legal), reaproveitamento dos dados dos
   responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
-- Scripts inline em `login.html` (redireciona para `/inicio/`) e em `inicio.html` (menu recolhível).
+- `static/js/inicio.js` — menu recolhível no celular (as seções de detalhes usam `<details>` nativo,
+  sem JS). Substitui o script inline anterior de `inicio.html`.
 
 ## Rotas existentes
-- `/` — tela de login (`core.views.login_view`, nome `core:login`).
-- `/inicio/` — tela inicial interna (`core.views.inicio_view`, nome `core:inicio`).
+- `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
+- `/sair/` — logout (POST) (`core.views.sair_view`, nome `core:sair`).
+- `/inicio/` — área "Meus Dados", protegida por `@login_required` (`core.views.inicio_view`, nome `core:inicio`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
@@ -118,6 +130,8 @@ servindo de base para o desenvolvimento futuro.
 - `STATICFILES_DIRS` aponta para a pasta `static/`.
 - `MEDIA_URL = "media/"` e `MEDIA_ROOT = BASE_DIR / "media"` (uploads, ex.: foto 3x4).
 - `TEMPLATES DIRS` aponta para a pasta `templates/`.
+- Autenticação: `LOGIN_URL = "core:login"`, `LOGIN_REDIRECT_URL = "core:inicio"`,
+  `LOGOUT_REDIRECT_URL = "core:login"`.
 - `SECRET_KEY` é de desenvolvimento (trocar em produção).
 - Requer `Pillow` (já instalado) para o `ImageField` da foto.
 

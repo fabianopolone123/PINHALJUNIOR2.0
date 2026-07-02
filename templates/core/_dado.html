@@ -1,0 +1,5 @@
+{# Linha de dado: rótulo + valor. Uso: {% include "core/_dado.html" with rotulo="CPF" valor=av.cpf %} #}
+<div class="dado">
+    <span class="dado-rotulo">{{ rotulo }}</span>
+    <span class="dado-valor">{{ valor|default:"—" }}</span>
+</div>

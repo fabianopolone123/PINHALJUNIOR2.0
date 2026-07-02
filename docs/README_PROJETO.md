@@ -6,12 +6,13 @@ Clube de Aventureiros Pinhal Júnior
 
 ## Objetivo geral do sistema
 
-Sistema web para o Clube de Aventureiros Pinhal Júnior. No momento, o projeto
-possui apenas a **tela inicial de login** (visual), servindo de base para o
-desenvolvimento futuro (autenticação, área interna, cadastros, etc.).
+Sistema web para o Clube de Aventureiros Pinhal Júnior. O projeto já possui
+autenticação real (login/logout), cadastro de conta e de aventureiros (com ficha
+médica e autorização de imagem) e uma área interna "Meus Dados" que exibe os dados
+da conta e dos aventureiros do usuário logado.
 
-O foco atual é ter uma interface bonita, moderna e **responsiva (mobile first)**,
-sem ainda implementar lógica de autenticação ou banco de usuários.
+O foco continua sendo uma interface bonita, moderna e **responsiva (mobile first)**,
+com CSS próprio (sem frameworks externos).
 
 ## Stack usada
 
@@ -34,7 +35,8 @@ sem ainda implementar lógica de autenticação ou banco de usuários.
   sem "Conta de acesso"), com opção de reaproveitar os dados dos responsáveis do último cadastro.
 - Models de cadastro criados e migrados (`Aventureiro`, `FichaMedica`, `AutorizacaoImagem`).
 - Logo do clube exibido no login, no menu lateral e no cadastro.
-- **Autenticação ainda NÃO implementada** (o cadastro cria o `User`, mas não faz login).
+- **Autenticação real implementada** (login por username/senha, logout e `@login_required` na área interna).
+- Tela "Meus Dados" funcional: mostra os dados da conta e os aventureiros do usuário logado.
 - **Sem controle de permissões / perfis** (preparado para o futuro).
 
 ## Como rodar o projeto localmente
@@ -74,6 +76,16 @@ com 2 aventureiros completos — ficha de inscrição, ficha médica, autorizaç
 e fotos fictícias geradas com Pillow em `media/aventureiros/fotos_teste/`. O comando é
 seguro para rodar mais de uma vez (usa `get_or_create`/`update_or_create` e não apaga
 dados de outros usuários).
+
+### Como testar o login e a tela "Meus Dados"
+
+1. Rode `python manage.py criar_dados_teste` (se ainda não rodou).
+2. Acesse `http://127.0.0.1:8000/` e faça login com **usuário `teste_responsavel`** e
+   **senha `123456`** — você será levado a `/inicio/`.
+3. Em "Meus Dados" aparecem os dados da conta e os 2 aventureiros de teste (com foto,
+   ficha médica e autorização de imagem em seções recolhíveis).
+4. Para sair, use o botão **Sair** no menu lateral (volta ao login). Depois disso,
+   acessar `/inicio/` diretamente redireciona para a tela de login.
 
 ## Estrutura geral de pastas
 
@@ -135,8 +147,9 @@ PINHALJUNIOR2.0/
 
 ## Rotas existentes
 
-- `/` — tela de login (view `core.views.login_view`, nome `core:login`).
-- `/inicio/` — tela inicial interna / área logada (view `core.views.inicio_view`, nome `core:inicio`).
+- `/` — tela de login com autenticação real (view `core.views.login_view`, nome `core:login`).
+- `/sair/` — logout (POST); encerra a sessão e volta ao login (view `core.views.sair_view`, nome `core:sair`).
+- `/inicio/` — área logada "Meus Dados", protegida por `@login_required` (view `core.views.inicio_view`, nome `core:inicio`).
 - `/cadastro/` — cadastro inicial: cria a conta + o primeiro aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — cadastra outro aventureiro na mesma conta, sem etapa de conta (view `core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação, com opções "Cadastrar outro aventureiro" e "Ir para a tela inicial" (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
@@ -183,11 +196,8 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 
 ## Funcionalidades ainda NÃO implementadas
 
-- Autenticação real (login/logout) — o cadastro cria o `User`, mas não faz login.
-  O usuário atual é mantido apenas por sessão (`cadastro_usuario_id`), de forma **temporária**,
-  para permitir cadastrar vários aventureiros; isso será substituído por `request.user`.
 - Funcionalidade do link "Esqueci minha senha" (hoje aponta para `#`).
-- Página real de "Meus Dados" e listagem de aventureiros do responsável.
+- Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
 - Controle de permissões / perfis de usuário.
 - Validação avançada de CPF e envio de e-mail.
 

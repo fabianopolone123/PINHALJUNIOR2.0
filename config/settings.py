@@ -59,7 +59,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-# Banco de dados (padrão SQLite — ainda não usado para autenticação)
+# Autenticação: para onde redirecionar em login/logout.
+LOGIN_URL = "core:login"            # @login_required manda para cá quando não autenticado
+LOGIN_REDIRECT_URL = "core:inicio"  # destino padrão após o login
+LOGOUT_REDIRECT_URL = "core:login"  # destino após o logout
+
+
+# Banco de dados (padrão SQLite)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

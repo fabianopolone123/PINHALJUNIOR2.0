@@ -22,6 +22,81 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Autenticação real e tela "Meus Dados" funcional
+
+### Resumo
+Implementação da autenticação real do Django (login, logout e proteção de rota) e
+transformação da tela `/inicio/` em uma área funcional "Meus Dados", que exibe os dados
+da conta e os aventureiros do usuário logado (com foto, ficha médica e autorização de
+imagem em seções recolhíveis). O cadastro inicial passou a autenticar o usuário
+automaticamente. Nenhum model foi alterado — sem migrations.
+
+### Login real
+- `login_view` autentica com `authenticate` + `login` (campos `usuario`/`senha`). Em erro,
+  exibe "Usuário ou senha inválidos.". Sucesso vai para `/inicio/` (ou `next`, se seguro).
+  Removido o script inline que apenas navegava. Mantidos os links "Cadastre-se" e "Esqueci
+  minha senha" (este último ainda sem função).
+
+### Rotas protegidas / criadas
+- `/inicio/` agora usa `@login_required` (sem login, redireciona para `/?next=/inicio/`).
+- Criada `/sair/` (`core:sair`), logout via POST (`@require_POST`), redireciona para o login.
+
+### Área "Meus Dados"
+- Card "Dados da Conta": usuário, e-mail, data de criação e total de aventureiros.
+- Um card por aventureiro: foto 3x4, pílulas de resumo (sexo, idade, cidade/UF, camiseta) e
+  seções recolhíveis (`<details>`): Dados pessoais, Endereço, Responsáveis, Ficha médica e
+  Autorização de imagem. Idade e listas (classes, doenças, alergias, condições, histórico)
+  são calculadas na view. Estado vazio amigável quando não há aventureiros.
+- Menu lateral com nome do usuário e botão "Sair" (acessível também no mobile).
+- Botão "Cadastrar outro aventureiro" leva a `/cadastro/novo-aventureiro/`.
+
+### Cadastro ajustado para autenticação real
+- Após criar o `User`, o cadastro faz `login(...)` automático (backend `ModelBackend`) e mantém
+  a sessão como retaguarda. A tela de sucesso e o botão "Ir para a tela inicial" abrem `/inicio/`
+  já logado.
+- `cadastro_novo_aventureiro_view` prioriza `request.user`; sem usuário (nem sessão), vai ao login.
+
+### Arquivos criados/alterados
+- `config/settings.py`: `LOGIN_URL`, `LOGIN_REDIRECT_URL`, `LOGOUT_REDIRECT_URL`.
+- `core/views.py`: login/logout reais, `@login_required` em `inicio_view`, contexto de "Meus Dados"
+  (helpers `_idade`, `_classes_investidas`, `_preparar_ficha`), login automático no cadastro e uso
+  de `request.user` no fluxo de novo aventureiro.
+- `core/urls.py`: rota `/sair/`.
+- `templates/core/login.html`: formulário de login real + aviso de erro; sem JS de navegação falsa.
+- `templates/core/inicio.html`: reescrita como "Meus Dados" (conta + cards dos aventureiros + Sair);
+  usa `static/js/inicio.js`.
+- `templates/core/_dado.html`: nova parcial rótulo+valor.
+- `static/js/inicio.js`: novo (menu recolhível do mobile; detalhes via `<details>` nativo).
+- `static/css/login.css`: estilo `.aviso-login`.
+- `static/css/inicio.css`: estilos de "Meus Dados" (conta, cards de aventureiro, pílulas, accordion,
+  botões de ação e Sair, estado vazio) e responsividade.
+- `core/admin.py`: `list_display`/`search_fields` de Aventureiro com responsável legal e `criado_em`.
+- `docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`,
+  `docs/REGRAS_CODEX.md`: documentação atualizada.
+
+### Decisões tomadas
+- Reaproveitar a autenticação padrão do Django (sem libs). Login/logout com as rotas e settings
+  padrão; logout via POST + CSRF (não link GET), por segurança.
+- Seções recolhíveis com `<details>/<summary>` nativos (acessível e sem JS extra).
+- Cálculos de exibição na view (idade, listas) e parcial `_dado.html` para reduzir repetição.
+- Sem alterar models: a relação existente já bastava; sem migrations.
+- `.gitignore` inalterado: `media/` e `db.sqlite3` seguem fora do Git.
+
+### Validação (test client, ponta a ponta)
+- `/inicio/` sem login → redireciona para `/?next=/inicio/`.
+- Login errado → mensagem de erro; login `teste_responsavel`/`123456` → `/inicio/`.
+- "Meus Dados" mostra conta, os 2 aventureiros de teste, fotos, ficha médica (doenças/alergias),
+  autorização de imagem e os aceites.
+- Logout → volta ao login; depois `/inicio/` volta a exigir login.
+- Cadastro inicial autentica automaticamente (sessão com `_auth_user_id`); novo aventureiro na
+  conta logada aparece em "Meus Dados".
+
+### Pendências
+- "Esqueci minha senha", edição dos dados pela área logada, permissões/perfis, validação avançada
+  de CPF e envio de e-mail: futuros.
+
+---
+
 ## 2026-07-02 - Comando de gerenciamento para gerar dados de teste
 
 ### Resumo

@@ -163,3 +163,26 @@ Regras técnicas deste fluxo:
 - **Reaproveitar dados dos responsáveis**: no fluxo de novo aventureiro, o backend envia os dados de
   pai/mãe/responsável legal do último aventureiro (helper `_dados_responsaveis_anteriores`) via
   `json_script`; o JS preenche os campos quando o usuário marca a opção, e ele ainda pode editar.
+
+## Padrão de autenticação e área logada
+
+O sistema usa a **autenticação padrão do Django** (username + senha). Ao mexer em telas
+internas ou no fluxo de login, seguir estas regras:
+
+- **Login** (`core:login`, rota `/`): a view usa `authenticate` + `login`. Os campos do formulário
+  se chamam `usuario` e `senha`. Em erro, mostra "Usuário ou senha inválidos." (classe `.aviso-login`).
+  Respeita o parâmetro `next` (validado com `url_has_allowed_host_and_scheme`).
+- **Logout** (`core:sair`, rota `/sair/`): view protegida por `@require_POST` (usar sempre um
+  `<form method="post">` com `{% csrf_token %}`, nunca um link GET). Redireciona para o login.
+- **Proteção de telas internas**: usar `@login_required` nas views logadas. Estão configurados
+  em `settings.py`: `LOGIN_URL`, `LOGIN_REDIRECT_URL` e `LOGOUT_REDIRECT_URL` — reutilizar.
+- **Cadastro inicial**: após criar o `User` (com `create_user`, senha via hash — nunca texto puro),
+  fazer `login(request, usuario, backend="django.contrib.auth.backends.ModelBackend")` para já
+  deixar o usuário autenticado.
+- **Fluxos logados** devem usar `request.user` como fonte de verdade. A sessão
+  (`cadastro_usuario_id`) permanece apenas como retaguarda no cadastro de novo aventureiro.
+- **Preferir dados prontos na view**: cálculos de exibição (idade, listas de classes/doenças/alergias)
+  são feitos na view e anexados ao objeto; o template só exibe. Reutilizar a parcial
+  `templates/core/_dado.html` (rótulo + valor) para listar campos.
+- **Detalhes recolhíveis**: usar `<details>/<summary>` nativos (sem biblioteca), estilizados via CSS.
+- Preservar o layout da área interna (menu lateral fixo no desktop / gaveta no mobile) e a paleta.

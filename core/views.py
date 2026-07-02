@@ -1,6 +1,12 @@
+from datetime import date
+
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
 from .forms import (
     AutorizacaoImagemForm,
@@ -10,43 +16,150 @@ from .forms import (
 )
 
 # ---------------------------------------------------------------------------
-# Identificação temporária do usuário durante o fluxo de cadastro.
+# Identificação do usuário durante o cadastro.
 #
-# ATENÇÃO (temporário): enquanto a autenticação real (login/logout) não é
-# implementada, guardamos o id do usuário recém-criado na sessão para permitir
-# cadastrar mais de um aventureiro na mesma conta. Quando o login real existir,
-# basta trocar `request.session[SESSAO_USUARIO_ID]` por `request.user`.
+# Com a autenticação real, o fluxo correto usa `request.user`. As chaves de
+# sessão abaixo permanecem apenas como retaguarda (fallback) e para levar o
+# nome do último aventureiro à tela de sucesso.
 # ---------------------------------------------------------------------------
 SESSAO_USUARIO_ID = "cadastro_usuario_id"
 SESSAO_ULTIMO_NOME = "cadastro_ultimo_nome"
 
+BACKEND_PADRAO = "django.contrib.auth.backends.ModelBackend"
+
 
 def login_view(request):
-    """
-    Exibe a tela de login.
+    """Tela de login com autenticação real (username + senha)."""
+    # Já autenticado? Vai direto para a área interna.
+    if request.user.is_authenticated:
+        return redirect("core:inicio")
 
-    Por enquanto apenas renderiza o template — a autenticação real
-    ainda não está implementada.
-    """
-    return render(request, "core/login.html")
+    erro = None
+    usuario_digitado = ""
+    if request.method == "POST":
+        usuario_digitado = request.POST.get("usuario", "").strip()
+        senha = request.POST.get("senha", "")
+        usuario = authenticate(request, username=usuario_digitado, password=senha)
+        if usuario is not None:
+            login(request, usuario)
+            destino = request.POST.get("next") or request.GET.get("next")
+            if destino and url_has_allowed_host_and_scheme(
+                destino, allowed_hosts={request.get_host()}
+            ):
+                return redirect(destino)
+            return redirect("core:inicio")
+        erro = "Usuário ou senha inválidos."
+
+    contexto = {
+        "erro": erro,
+        "usuario_digitado": usuario_digitado,
+        "next": request.GET.get("next", ""),
+    }
+    return render(request, "core/login.html", contexto)
 
 
+@require_POST
+def sair_view(request):
+    """Encerra a sessão do usuário e volta para a tela de login."""
+    logout(request)
+    return redirect("core:login")
+
+
+def _idade(nascimento):
+    """Idade aproximada em anos completos a partir da data de nascimento."""
+    if not nascimento:
+        return None
+    hoje = date.today()
+    return hoje.year - nascimento.year - (
+        (hoje.month, hoje.day) < (nascimento.month, nascimento.day)
+    )
+
+
+def _classes_investidas(av):
+    """Lista de rótulos das classes marcadas para o aventureiro."""
+    mapa = [
+        (av.classe_abelhinhas, "Abelhinhas"),
+        (av.classe_luminares, "Luminares"),
+        (av.classe_edificadores, "Edificadores"),
+        (av.classe_maos_ajudadoras, "Mãos Ajudadoras"),
+    ]
+    return [rotulo for marcado, rotulo in mapa if marcado]
+
+
+def _preparar_ficha(fm):
+    """Anexa à ficha médica listas prontas para exibição (ou None)."""
+    if fm is None:
+        return None
+
+    doencas = [
+        (fm.catapora, "Catapora"), (fm.meningite, "Meningite"),
+        (fm.hepatite, "Hepatite"), (fm.dengue, "Dengue"),
+        (fm.pneumonia, "Pneumonia"), (fm.malaria, "Malária"),
+        (fm.febre_amarela, "Febre amarela"), (fm.h1n1, "H1N1"),
+        (fm.colera, "Cólera"), (fm.rubeola, "Rubéola"),
+        (fm.sarampo, "Sarampo"), (fm.tetano, "Tétano"),
+    ]
+    fm.doencas_lista = [r for marcado, r in doencas if marcado]
+
+    alergias = []
+    if fm.alergia_pele:
+        alergias.append("Cutânea/de pele" + (f": {fm.alergia_pele_qual}" if fm.alergia_pele_qual else ""))
+    if fm.alergia_alimentar:
+        alergias.append("Alimentar" + (f": {fm.alergia_alimentar_qual}" if fm.alergia_alimentar_qual else ""))
+    if fm.alergia_medicamentos:
+        alergias.append("Medicamentos" + (f": {fm.alergia_medicamentos_qual}" if fm.alergia_medicamentos_qual else ""))
+    fm.alergias_lista = alergias
+
+    condicoes = [
+        (fm.cardiaco, "Cardíacos", fm.cardiaco_medicamentos),
+        (fm.diabetico, "Diabetes", fm.diabetico_medicamentos),
+        (fm.renais, "Renais", fm.renais_medicamentos),
+        (fm.psicologicos, "Psicológicos", fm.psicologicos_medicamentos),
+    ]
+    fm.condicoes_lista = [
+        r + (f" (medicamentos: {med})" if med else "")
+        for marcado, r, med in condicoes if marcado
+    ]
+
+    historico = [
+        (fm.problema_recente, "Problema de saúde recente", fm.problema_recente_qual),
+        (fm.medicamento_recente, "Uso recente de medicamentos", fm.medicamento_recente_qual),
+        (fm.ferimento_recente, "Ferimento/fratura recente", fm.ferimento_recente_qual),
+        (fm.cirurgia, "Cirurgia", fm.cirurgia_qual),
+        (fm.internado_5anos, "Internação nos últimos 5 anos", fm.internado_5anos_motivo),
+    ]
+    fm.historico_lista = [
+        r + (f": {det}" if det else "")
+        for marcado, r, det in historico if marcado
+    ]
+    return fm
+
+
+@login_required
 def inicio_view(request):
-    """
-    Exibe a tela inicial interna (área logada).
+    """Área interna "Meus Dados": dados da conta + aventureiros do usuário."""
+    usuario = request.user
+    aventureiros = list(
+        usuario.aventureiros
+        .select_related("ficha_medica", "autorizacao_imagem")
+        .all()
+    )
 
-    Nesta etapa é apenas visual: NÃO há autenticação, permissões nem
-    controle de sessão. Será exibida futuramente após o login.
-    """
-    return render(request, "core/inicio.html")
+    for av in aventureiros:
+        av.idade = _idade(av.data_nascimento)
+        av.classes = _classes_investidas(av)
+        # Reverse OneToOne pode não existir; getattr evita exceção.
+        _preparar_ficha(getattr(av, "ficha_medica", None))
+
+    contexto = {
+        "aventureiros": aventureiros,
+        "total_aventureiros": len(aventureiros),
+    }
+    return render(request, "core/inicio.html", contexto)
 
 
 def _instanciar_forms_aventureiro(request):
-    """Cria os três formulários da ficha (com prefixos) para GET ou POST.
-
-    Usado tanto no cadastro inicial quanto no cadastro de um novo aventureiro
-    na mesma conta (que não tem a etapa de criação de conta).
-    """
+    """Cria os três formulários da ficha (com prefixos) para GET ou POST."""
     if request.method == "POST":
         aventureiro = AventureiroForm(request.POST, request.FILES, prefix="av")
         medica = FichaMedicaForm(request.POST, prefix="med")
@@ -90,11 +203,7 @@ def _salvar_aventureiro(usuario, aventureiro, medica, imagem):
 
 
 def _dados_responsaveis_anteriores(usuario):
-    """Retorna os dados de pai/mãe/responsável legal do último aventureiro.
-
-    Usado para oferecer o reaproveitamento no cadastro de um novo aventureiro
-    da mesma conta. Retorna ``None`` quando o usuário ainda não tem aventureiros.
-    """
+    """Dados de pai/mãe/responsável legal do último aventureiro (ou None)."""
     ultimo = usuario.aventureiros.order_by("-criado_em").first()
     if ultimo is None:
         return None
@@ -108,12 +217,10 @@ def _dados_responsaveis_anteriores(usuario):
 
 def cadastro_view(request):
     """
-    Cadastro inicial: cria a conta de acesso + o primeiro aventureiro
-    (ficha de inscrição, ficha médica e autorização de imagem).
+    Cadastro inicial: cria a conta de acesso + o primeiro aventureiro.
 
-    Fluxo visual em etapas (wizard) no front-end; no servidor tudo é
-    enviado de uma vez e validado em conjunto. NÃO faz login automático,
-    mas guarda o usuário na sessão para permitir cadastrar outros aventureiros.
+    Ao finalizar, o usuário é autenticado automaticamente (login real) e
+    redirecionado para a tela de sucesso.
     """
     conta = ContaForm(request.POST or None, prefix="conta")
     aventureiro, medica, imagem = _instanciar_forms_aventureiro(request)
@@ -136,7 +243,8 @@ def cadastro_view(request):
                 password=conta.cleaned_data["senha"],
             )
             aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem)
-            # Mantém o usuário "atual" durante o fluxo (temporário, ver topo).
+            # Login automático (autenticação real) + retaguarda por sessão.
+            login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk
             request.session[SESSAO_ULTIMO_NOME] = aventureiro_obj.nome_completo
             return redirect("core:cadastro_sucesso")
@@ -156,15 +264,16 @@ def cadastro_novo_aventureiro_view(request):
     """
     Cadastro de um NOVO aventureiro na mesma conta (sem etapa de conta).
 
-    Exige que exista um usuário identificado na sessão (criado no cadastro
-    inicial). Se não existir, redireciona para o cadastro inicial.
+    Prioriza o usuário autenticado (`request.user`); como retaguarda, aceita o
+    usuário guardado na sessão. Sem nenhum dos dois, redireciona para o login.
     """
-    usuario_id = request.session.get(SESSAO_USUARIO_ID)
-    usuario = User.objects.filter(pk=usuario_id).first() if usuario_id else None
+    if request.user.is_authenticated:
+        usuario = request.user
+    else:
+        usuario_id = request.session.get(SESSAO_USUARIO_ID)
+        usuario = User.objects.filter(pk=usuario_id).first() if usuario_id else None
     if usuario is None:
-        # Sem usuário identificado na sessão: volta para o cadastro inicial.
-        request.session.pop(SESSAO_USUARIO_ID, None)
-        return redirect("core:cadastro")
+        return redirect("core:login")
 
     aventureiro, medica, imagem = _instanciar_forms_aventureiro(request)
     erro_aceites = []
@@ -193,9 +302,12 @@ def cadastro_novo_aventureiro_view(request):
 
 def cadastro_sucesso_view(request):
     """Tela de confirmação: mostra o nome cadastrado e as próximas opções."""
+    pode_cadastrar_outro = (
+        request.user.is_authenticated
+        or bool(request.session.get(SESSAO_USUARIO_ID))
+    )
     contexto = {
         "nome_aventureiro": request.session.get(SESSAO_ULTIMO_NOME),
-        # Só oferece "cadastrar outro" se houver um usuário identificado.
-        "pode_cadastrar_outro": bool(request.session.get(SESSAO_USUARIO_ID)),
+        "pode_cadastrar_outro": pode_cadastrar_outro,
     }
     return render(request, "core/cadastro_sucesso.html", contexto)

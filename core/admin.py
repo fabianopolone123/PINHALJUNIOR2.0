@@ -5,8 +5,8 @@ from .models import Aventureiro, AutorizacaoImagem, FichaMedica
 
 @admin.register(Aventureiro)
 class AventureiroAdmin(admin.ModelAdmin):
-    list_display = ("nome_completo", "usuario", "cidade", "data_inscricao")
-    search_fields = ("nome_completo", "cpf", "usuario__username")
+    list_display = ("nome_completo", "usuario", "resp_nome", "cidade", "criado_em")
+    search_fields = ("nome_completo", "cpf", "usuario__username", "resp_nome")
     list_filter = ("sexo", "data_inscricao")
 
 
