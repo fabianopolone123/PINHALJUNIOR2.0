@@ -334,28 +334,21 @@ body {
     outline-offset: 2px;
 }
 
-/* ---------- Botão/link de cadastro ---------- */
+/* ---------- Link de cadastro (discreto) ---------- */
 .link-cadastro {
-    display: block;
-    text-align: center;
-    margin-top: 4px;
-    padding: 13px 16px;
-    font-size: 1rem;
-    font-weight: 700;
+    align-self: center;
+    margin-top: 6px;
+    padding: 6px 4px;
+    font-size: 0.95rem;
+    font-weight: 600;
     color: var(--azul);
     text-decoration: none;
-    background: rgba(74, 144, 217, 0.10);
-    border: 1.5px solid rgba(74, 144, 217, 0.45);
-    border-radius: var(--raio-campo);
-    min-height: 48px;
-    transition: background var(--transicao), border-color var(--transicao),
-        transform var(--transicao);
+    transition: color var(--transicao);
 }
 
 .link-cadastro:hover {
-    background: rgba(74, 144, 217, 0.18);
-    border-color: var(--azul-claro);
-    transform: translateY(-1px);
+    color: var(--verde);
+    text-decoration: underline;
 }
 
 /* ---------- Link secundário ---------- */

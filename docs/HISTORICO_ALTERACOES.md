@@ -22,6 +22,27 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-01 - Ajuste visual do link "Cadastre-se" no login
+
+### Resumo
+O link "Cadastre-se" da tela de login deixou de ser um botão em destaque e passou a
+ser um link de texto discreto, porém não menor que "Esqueci minha senha" (0.95rem,
+peso 600, contra 0.92rem do "Esqueci minha senha").
+
+### Arquivos criados/alterados
+- `static/css/login.css`: `.link-cadastro` reescrito como link de texto discreto (sem
+  caixa/borda/fundo), com hover de sublinhado.
+- `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Decisões tomadas
+- Manter o "Cadastre-se" visível e um pouco maior que o "Esqueci minha senha", conforme pedido.
+- Apenas CSS alterado; HTML e demais telas preservados.
+
+### Pendências
+- Sem novas pendências (mantêm-se as anteriores: autenticação, "Meus Dados", permissões, etc.).
+
+---
+
 ## 2026-07-01 - Fluxo de cadastro de aventureiro
 
 ### Resumo

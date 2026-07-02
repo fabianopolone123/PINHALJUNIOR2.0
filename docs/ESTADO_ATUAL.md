@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-01 (fluxo de cadastro de aventureiro)
+**Última atualização:** 2026-07-01 (link "Cadastre-se" mais discreto no login)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -22,7 +22,8 @@ servindo de base para o desenvolvimento futuro.
 - Fluxo de cadastro de aventureiro em `/cadastro/`: wizard de 7 etapas (conta, ficha de inscrição,
   responsáveis, ficha médica, declaração médica, autorização de imagem, revisão), com barra de
   progresso, campos condicionais, upload/preview de foto e tela de sucesso em `/cadastro/sucesso/`.
-- Link "Cadastre-se" na tela de login (entre "Entrar" e "Esqueci minha senha").
+- Link "Cadastre-se" na tela de login (entre "Entrar" e "Esqueci minha senha"), em estilo
+  discreto de link de texto (levemente maior que "Esqueci minha senha").
 - Ao finalizar o cadastro, cria o `User` do Django e salva Aventureiro + FichaMedica + AutorizacaoImagem.
 
 ## Padrão visual da tela de login (atual)
