@@ -1,0 +1,74 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+    <main class="tela-login">
+        <section class="card-login" aria-label="Formulário de acesso">
+            <div class="card-topo">
+                <div class="logo-caixa">
+                    <img
+                        src="{% static 'img/logo.png' %}"
+                        alt="Logo do Clube de Aventureiros Pinhal Júnior"
+                        class="logo"
+                        onerror="this.style.display='none'; this.parentNode.classList.add('sem-logo');"
+                    >
+                    <span class="logo-placeholder" aria-hidden="true">CA</span>
+                </div>
+                <h1 class="titulo">Clube de Aventureiros Pinhal Júnior</h1>
+                <p class="subtitulo">Acesse sua conta para continuar</p>
+            </div>
+
+            <form class="form-login" method="post" action="#" novalidate>
+                {% csrf_token %}
+
+                <div class="campo">
+                    <label for="usuario">Usuário</label>
+                    <input
+                        type="text"
+                        id="usuario"
+                        name="usuario"
+                        autocomplete="username"
+                        placeholder="Digite seu usuário"
+                        inputmode="text"
+                    >
+                </div>
+
+                <div class="campo">
+                    <label for="senha">Senha</label>
+                    <input
+                        type="password"
+                        id="senha"
+                        name="senha"
+                        autocomplete="current-password"
+                        placeholder="Digite sua senha"
+                    >
+                </div>
+
+                <button type="submit" class="botao-entrar">Entrar</button>
+
+                <a href="#" class="link-esqueci">Esqueci minha senha</a>
+            </form>
+        </section>
+
+        <footer class="rodape">
+            © {% now "Y" %} Clube de Aventureiros Pinhal Júnior
+        </footer>
+    </main>
+
+    <script>
+        // Ainda NÃO há autenticação real. Impede o envio real do formulário
+        // e apenas redireciona para a tela inicial interna (navegação de teste).
+        document.querySelector(".form-login").addEventListener("submit", function (evento) {
+            evento.preventDefault();
+            window.location.href = "{% url 'core:inicio' %}";
+        });
+    </script>
+</body>
+</html>

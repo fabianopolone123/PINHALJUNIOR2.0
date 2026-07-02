@@ -1,0 +1,152 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Início - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <!-- ===================== Menu lateral fixo ===================== -->
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img
+                        src="{% static 'img/logo.png' %}"
+                        alt="Logo do Clube de Aventureiros Pinhal Júnior"
+                        class="barra-logo-img"
+                    >
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+
+            <nav class="menu">
+                <!-- Primeiro item de menu. O item ativo recebe a classe "ativo". -->
+                <a href="{% url 'core:inicio' %}" class="menu-item ativo" aria-current="page">
+                    <span class="menu-icone" aria-hidden="true">👤</span>
+                    <span class="menu-texto">Meus Dados</span>
+                </a>
+
+                <!--
+                    FUTUROS ITENS DE MENU:
+                    Adicionar novos <a class="menu-item"> aqui.
+                    Futuramente, exibir/ocultar conforme o perfil/permissão do usuário
+                    (ex.: {% if pode_ver_algo %} ... {% endif %}).
+                -->
+            </nav>
+
+            <div class="barra-rodape">
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <!-- Fundo escuro que fecha o menu no celular -->
+        <div class="overlay" id="overlay" hidden></div>
+
+        <!-- ===================== Área principal ===================== -->
+        <main class="conteudo">
+
+            <!-- Barra superior visível apenas no celular (abre o menu lateral) -->
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <!-- Cabeçalho de boas-vindas -->
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Bem-vindo ao Clube de Aventureiros Pinhal Júnior</h1>
+                    <p class="cabecalho-sub">Esta é a sua área inicial. Use o menu para navegar pelo sistema.</p>
+                </header>
+
+                <!-- Card principal relacionado ao menu "Meus Dados" -->
+                <section class="card card-destaque">
+                    <div class="card-cabecalho">
+                        <span class="card-icone" aria-hidden="true">👤</span>
+                        <h2 class="card-titulo">Meus Dados</h2>
+                    </div>
+                    <p class="card-texto">
+                        Aqui, futuramente, você poderá visualizar e editar seus dados
+                        pessoais, como nome, contato e informações do clube. Esta seção
+                        ainda está em preparação.
+                    </p>
+                    <span class="etiqueta">Em breve</span>
+                </section>
+
+                <!-- Blocos visuais leves (apenas ilustrativos, sem funcionalidade) -->
+                <section class="grade-cards">
+                    <article class="card">
+                        <div class="card-cabecalho">
+                            <span class="card-icone" aria-hidden="true">📋</span>
+                            <h3 class="card-titulo">Cadastro</h3>
+                        </div>
+                        <p class="card-texto">
+                            Suas informações de cadastro aparecerão aqui.
+                        </p>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-cabecalho">
+                            <span class="card-icone" aria-hidden="true">🏕️</span>
+                            <h3 class="card-titulo">Atividades</h3>
+                        </div>
+                        <p class="card-texto">
+                            Em breve você acompanhará as atividades do clube.
+                        </p>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-cabecalho">
+                            <span class="card-icone" aria-hidden="true">🏅</span>
+                            <h3 class="card-titulo">Conquistas</h3>
+                        </div>
+                        <p class="card-texto">
+                            Suas especialidades e conquistas ficarão registradas aqui.
+                        </p>
+                    </article>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Menu recolhível no celular (abre/fecha a barra lateral).
+        // Sem autenticação nem lógica de negócio — apenas navegação visual.
+        (function () {
+            var barra = document.getElementById("barraLateral");
+            var botao = document.getElementById("botaoMenu");
+            var overlay = document.getElementById("overlay");
+
+            function abrirMenu() {
+                barra.classList.add("aberta");
+                overlay.hidden = false;
+                botao.setAttribute("aria-expanded", "true");
+            }
+
+            function fecharMenu() {
+                barra.classList.remove("aberta");
+                overlay.hidden = true;
+                botao.setAttribute("aria-expanded", "false");
+            }
+
+            botao.addEventListener("click", function () {
+                if (barra.classList.contains("aberta")) {
+                    fecharMenu();
+                } else {
+                    abrirMenu();
+                }
+            });
+
+            overlay.addEventListener("click", fecharMenu);
+        })();
+    </script>
+</body>
+</html>

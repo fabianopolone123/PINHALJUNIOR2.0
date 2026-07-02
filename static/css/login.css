@@ -1,0 +1,414 @@
+/* =========================================================
+   Clube de Aventureiros Pinhal Júnior — Tela de Login
+   Estilo mobile first, moderno e responsivo.
+   CSS puro, sem frameworks externos.
+   ========================================================= */
+
+/* ---------- Variáveis de tema (paleta azul + verde do logo) ---------- */
+:root {
+    --azul-escuro: #0f4c81;
+    --azul: #1769aa;
+    --azul-claro: #4a90d9;
+    --verde: #3a9d3a;
+    --verde-claro: #62c462;
+
+    --texto: #1c2733;
+    --texto-suave: #5b6b7b;
+    --branco: #ffffff;
+    --borda: #dfe6ee;
+
+    /* Superfície do card (glassmorphism suave) */
+    --card-bg: rgba(255, 255, 255, 0.92);
+    --card-borda: rgba(255, 255, 255, 0.55);
+
+    --sombra-card: 0 24px 60px rgba(9, 42, 74, 0.35);
+    --sombra-botao: 0 10px 22px rgba(15, 76, 129, 0.32);
+
+    --raio: 22px;
+    --raio-campo: 13px;
+    --transicao: 0.25s ease;
+}
+
+/* ---------- Reset básico ---------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto);
+    min-height: 100vh;
+    /* Gradiente de fundo animado (movimento bem suave) */
+    background: linear-gradient(150deg, #0d3a63 0%, #1769aa 45%, #2f8f4e 100%);
+    background-size: 200% 200%;
+    animation: fundoGradiente 18s ease infinite;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes fundoGradiente {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ---------- Estrutura da tela: centraliza o card ---------- */
+.tela-login {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 18px;
+    overflow: hidden;
+    /* Brilhos radiais suaves fixos no fundo */
+    background-image:
+        radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.14), transparent 42%),
+        radial-gradient(circle at 85% 82%, rgba(98, 196, 98, 0.20), transparent 46%);
+}
+
+/* Formas decorativas circulares e desfocadas (flutuam devagar) */
+.tela-login::before,
+.tela-login::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(8px);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.tela-login::before {
+    width: 320px;
+    height: 320px;
+    top: -90px;
+    left: -80px;
+    background: radial-gradient(circle, rgba(98, 196, 98, 0.55), transparent 70%);
+    animation: flutuar 12s ease-in-out infinite;
+}
+
+.tela-login::after {
+    width: 380px;
+    height: 380px;
+    bottom: -120px;
+    right: -110px;
+    background: radial-gradient(circle, rgba(74, 144, 217, 0.55), transparent 70%);
+    animation: flutuar 15s ease-in-out infinite reverse;
+}
+
+@keyframes flutuar {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(20px, -24px) scale(1.08); }
+    100% { transform: translate(0, 0) scale(1); }
+}
+
+/* ---------- Card de login (glassmorphism suave) ---------- */
+.card-login {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-borda);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra-card);
+    padding: 34px 28px 30px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    animation: surgir 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes surgir {
+    from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ---------- Topo do card: logo + títulos ---------- */
+.card-topo {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.logo-caixa {
+    position: relative;
+    width: 130px;
+    max-width: 58%;
+    margin: 0 auto 16px;
+}
+
+/* Brilho suave atrás do logo, dando profundidade */
+.logo-caixa::before {
+    content: "";
+    position: absolute;
+    inset: -12%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(74, 144, 217, 0.22), transparent 68%);
+    z-index: 0;
+}
+
+.logo {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: auto;
+    display: block;
+    /* Sombra leve para destacar o escudo sobre o card */
+    filter: drop-shadow(0 6px 12px rgba(9, 42, 74, 0.25));
+}
+
+/* Marcador exibido só enquanto o logo.png não existir */
+.logo-placeholder {
+    display: none;
+    width: 120px;
+    height: 120px;
+    max-width: 100%;
+    margin: 0 auto;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--branco);
+    background: linear-gradient(135deg, var(--azul) 0%, var(--verde) 100%);
+    border-radius: 50%;
+    box-shadow: var(--sombra-botao);
+}
+
+.logo-caixa.sem-logo .logo-placeholder {
+    display: flex;
+}
+
+.titulo {
+    font-size: 1.4rem;
+    line-height: 1.22;
+    color: var(--azul-escuro);
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    /* Evita quebras feias e mantém boa leitura */
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+}
+
+.subtitulo {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    color: var(--texto-suave);
+}
+
+/* Linha decorativa curta abaixo do subtítulo */
+.subtitulo::after {
+    content: "";
+    display: block;
+    width: 54px;
+    height: 3px;
+    margin: 14px auto 0;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--azul), var(--verde));
+}
+
+/* ---------- Formulário ---------- */
+.form-login {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.campo label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--texto);
+}
+
+.campo input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    color: var(--texto);
+    background: #f6f9fd;
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-campo);
+    transition: border-color var(--transicao), box-shadow var(--transicao),
+        background var(--transicao), transform var(--transicao);
+    /* Alvos de toque confortáveis no celular */
+    min-height: 50px;
+}
+
+.campo input::placeholder {
+    color: #9aa8b6;
+}
+
+/* Foco visual bonito e destacado */
+.campo input:hover {
+    border-color: #c4d2e2;
+}
+
+.campo input:focus {
+    outline: none;
+    background: var(--branco);
+    border-color: var(--azul-claro);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.20);
+    transform: translateY(-1px);
+}
+
+/* ---------- Botão principal ---------- */
+.botao-entrar {
+    position: relative;
+    margin-top: 6px;
+    padding: 15px 16px;
+    font-size: 1.08rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--branco);
+    background: linear-gradient(135deg, var(--azul) 0%, var(--verde) 100%);
+    background-size: 160% 160%;
+    background-position: 0% 50%;
+    border: none;
+    border-radius: var(--raio-campo);
+    cursor: pointer;
+    min-height: 52px;
+    overflow: hidden;
+    box-shadow: var(--sombra-botao);
+    transition: transform var(--transicao), box-shadow var(--transicao),
+        background-position 0.4s ease, filter var(--transicao);
+}
+
+/* Brilho que desliza ao passar o mouse (efeito shine) */
+.botao-entrar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -75%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.35),
+        transparent
+    );
+    transform: skewX(-20deg);
+    transition: left 0.6s ease;
+}
+
+.botao-entrar:hover {
+    background-position: 100% 50%;
+    box-shadow: 0 14px 28px rgba(15, 76, 129, 0.40);
+    transform: translateY(-2px);
+}
+
+.botao-entrar:hover::before {
+    left: 130%;
+}
+
+.botao-entrar:active {
+    transform: translateY(0) scale(0.99);
+    box-shadow: 0 6px 14px rgba(15, 76, 129, 0.26);
+}
+
+.botao-entrar:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.85);
+    outline-offset: 2px;
+}
+
+/* ---------- Link secundário ---------- */
+.link-esqueci {
+    align-self: center;
+    margin-top: 8px;
+    font-size: 0.92rem;
+    color: var(--azul);
+    text-decoration: none;
+    padding: 6px 4px;
+    transition: color var(--transicao);
+}
+
+/* Sublinhado animado suave */
+.link-esqueci::after {
+    content: "";
+    display: block;
+    width: 0;
+    height: 2px;
+    margin-top: 2px;
+    background: var(--verde);
+    transition: width var(--transicao);
+}
+
+.link-esqueci:hover {
+    color: var(--verde);
+}
+
+.link-esqueci:hover::after {
+    width: 100%;
+}
+
+/* ---------- Rodapé ---------- */
+.rodape {
+    position: relative;
+    z-index: 1;
+    margin-top: 24px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.88);
+    text-align: center;
+}
+
+/* ================= Responsividade ================= */
+
+/* Telas muito pequenas */
+@media (max-width: 360px) {
+    .card-login {
+        padding: 26px 18px 24px;
+    }
+
+    .titulo {
+        font-size: 1.22rem;
+    }
+}
+
+/* Desktop / telas maiores */
+@media (min-width: 768px) {
+    .card-login {
+        max-width: 440px;
+        padding: 44px 40px 36px;
+    }
+
+    .titulo {
+        font-size: 1.55rem;
+    }
+
+    .logo-caixa {
+        width: 150px;
+    }
+}
+
+/* ---------- Acessibilidade: reduzir animações se o usuário preferir ---------- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}

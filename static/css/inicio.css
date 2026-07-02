@@ -1,0 +1,398 @@
+/* =========================================================
+   Clube de Aventureiros Pinhal Júnior — Tela inicial interna
+   Layout com menu lateral fixo (desktop) e menu recolhível (mobile).
+   Mobile first. CSS puro, sem frameworks externos.
+   Segue o padrão visual azul/verde do sistema.
+   ========================================================= */
+
+/* ---------- Variáveis de tema (mesma paleta do sistema) ---------- */
+:root {
+    --azul-escuro: #0f4c81;
+    --azul: #1769aa;
+    --azul-claro: #4a90d9;
+    --verde: #3a9d3a;
+    --verde-claro: #62c462;
+
+    --texto: #1c2733;
+    --texto-suave: #5b6b7b;
+    --branco: #ffffff;
+    --borda: #e2e9f1;
+
+    --fundo-conteudo: #eef3f9;
+    --sombra-card: 0 12px 30px rgba(15, 76, 129, 0.10);
+    --sombra-card-hover: 0 18px 40px rgba(15, 76, 129, 0.18);
+
+    --raio: 18px;
+    --raio-item: 12px;
+    --largura-barra: 272px;
+    --transicao: 0.25s ease;
+}
+
+/* ---------- Reset básico ---------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    min-height: 100%;
+}
+
+body {
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto);
+    background: var(--fundo-conteudo);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.app-layout {
+    min-height: 100vh;
+}
+
+/* ===================== Menu lateral ===================== */
+.barra-lateral {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    width: var(--largura-barra);
+    max-width: 84vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 22px 16px;
+    color: var(--branco);
+    background: linear-gradient(180deg, #0f4c81 0%, #145a97 55%, #1769aa 100%);
+    box-shadow: 4px 0 24px rgba(9, 42, 74, 0.28);
+    /* Mobile first: escondida fora da tela até ser aberta */
+    transform: translateX(-100%);
+    transition: transform var(--transicao);
+    overflow-y: auto;
+}
+
+.barra-lateral.aberta {
+    transform: translateX(0);
+}
+
+/* Topo da barra: logo + nome do sistema */
+.barra-topo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.barra-logo {
+    width: 88px;
+    height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    padding: 8px;
+}
+
+.barra-logo-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
+}
+
+.barra-nome {
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.2px;
+    text-wrap: balance;
+}
+
+/* Lista de itens do menu */
+.menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 20px;
+    flex: 1;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    min-height: 48px;
+    border-radius: var(--raio-item);
+    color: rgba(255, 255, 255, 0.88);
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background var(--transicao), color var(--transicao),
+        transform var(--transicao);
+}
+
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--branco);
+    transform: translateX(3px);
+}
+
+/* Item ativo em destaque */
+.menu-item.ativo {
+    background: linear-gradient(135deg, var(--verde) 0%, var(--verde-claro) 100%);
+    color: var(--branco);
+    box-shadow: 0 8px 18px rgba(58, 157, 58, 0.35);
+}
+
+.menu-icone {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.barra-rodape {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    text-align: center;
+}
+
+.barra-rodape-txt {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Fundo escuro que fecha o menu no celular */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(9, 42, 74, 0.45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+/* ===================== Área principal ===================== */
+.conteudo {
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    /* Detalhes decorativos suaves no fundo */
+    background-image:
+        radial-gradient(circle at 12% 8%, rgba(74, 144, 217, 0.10), transparent 40%),
+        radial-gradient(circle at 90% 100%, rgba(98, 196, 98, 0.12), transparent 42%);
+}
+
+/* Barra superior (só no celular) */
+.topo-mobile {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    color: var(--branco);
+    background: linear-gradient(135deg, var(--azul-escuro) 0%, var(--azul) 100%);
+    box-shadow: 0 4px 14px rgba(9, 42, 74, 0.25);
+}
+
+.topo-mobile-nome {
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* Botão hambúrguer */
+.botao-menu {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: background var(--transicao);
+}
+
+.botao-menu:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.botao-menu-barra {
+    display: block;
+    width: 100%;
+    height: 2.5px;
+    border-radius: 3px;
+    background: var(--branco);
+}
+
+/* Conteúdo interno com espaçamento confortável */
+.conteudo-interno {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 22px 18px 40px;
+    animation: entrar 0.5s ease both;
+}
+
+@keyframes entrar {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cabeçalho de boas-vindas */
+.cabecalho {
+    margin-bottom: 22px;
+}
+
+.cabecalho-titulo {
+    font-size: 1.4rem;
+    line-height: 1.25;
+    font-weight: 800;
+    color: var(--azul-escuro);
+    text-wrap: balance;
+}
+
+.cabecalho-sub {
+    margin-top: 8px;
+    font-size: 0.98rem;
+    color: var(--texto-suave);
+}
+
+/* ---------- Cards ---------- */
+.card {
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra-card);
+    padding: 22px;
+    transition: transform var(--transicao), box-shadow var(--transicao);
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--sombra-card-hover);
+}
+
+.card-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.card-icone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(74, 144, 217, 0.16), rgba(98, 196, 98, 0.16));
+}
+
+.card-titulo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--azul-escuro);
+}
+
+.card-texto {
+    font-size: 0.96rem;
+    line-height: 1.5;
+    color: var(--texto-suave);
+}
+
+/* Card principal em destaque */
+.card-destaque {
+    position: relative;
+    margin-bottom: 24px;
+    border-top: 4px solid transparent;
+    background:
+        linear-gradient(var(--branco), var(--branco)) padding-box,
+        linear-gradient(135deg, var(--azul), var(--verde)) border-box;
+    border: 1px solid transparent;
+}
+
+.etiqueta {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--azul-escuro);
+    background: rgba(74, 144, 217, 0.14);
+    border-radius: 999px;
+}
+
+/* Grade de cards ilustrativos */
+.grade-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+/* ===================== Responsividade ===================== */
+
+/* Tablet: 2 colunas de cards */
+@media (min-width: 560px) {
+    .grade-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Desktop: menu lateral fixo visível e conteúdo ao lado */
+@media (min-width: 900px) {
+    .barra-lateral {
+        transform: translateX(0);
+        max-width: var(--largura-barra);
+    }
+
+    .topo-mobile {
+        display: none;
+    }
+
+    .overlay {
+        display: none !important;
+    }
+
+    .conteudo {
+        margin-left: var(--largura-barra);
+        width: auto;
+    }
+
+    .conteudo-interno {
+        padding: 34px 30px 48px;
+    }
+
+    .cabecalho-titulo {
+        font-size: 1.75rem;
+    }
+
+    .grade-cards {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ---------- Acessibilidade: reduzir animações ---------- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
