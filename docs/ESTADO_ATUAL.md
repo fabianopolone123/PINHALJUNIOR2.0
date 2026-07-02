@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 ("Meus Dados" reorganizado: card do responsável (com edição) + aventureiros clicáveis)
+**Última atualização:** 2026-07-02 (correção de fotos + dados completos + fechar painéis ao clicar fora em "Meus Dados")
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -26,9 +26,15 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     Sem aventureiros, exibe os dados básicos da conta.
   - Seção **Aventureiros cadastrados**: um card clicável por aventureiro com foto 3x4 destacada,
     nome, pílulas (idade, camiseta, classes) e status de ficha médica/autorização; ao abrir, mostra
-    todos os dados em seções recolhíveis: Dados pessoais, Endereço, Pai, Mãe, Responsável legal,
-    Ficha médica e Autorização de imagem. Botão "Editar dados do aventureiro" ainda desabilitado
-    (edição completa prevista para depois).
+    **todos** os dados em seções recolhíveis: Dados pessoais, Documentos, Endereço, Pai, Mãe,
+    Responsável legal, Ficha médica (com medicamentos por condição), Declaração médica e
+    Autorização de imagem (completa). Botão "Editar dados do aventureiro" ainda desabilitado.
+  - **Foto**: só é exibida se o arquivo existir fisicamente (a view checa `storage.exists`); caso
+    contrário, mostra um placeholder com as **iniciais** do nome. O `<img>` ainda tem `onerror`
+    que troca para o placeholder se a imagem falhar ao carregar (nunca quebra a página).
+  - **Fechar ao clicar fora**: painéis `<details>` abertos (responsável, aventureiro e seções
+    internas) recolhem ao clicar fora deles; abrir um recolhe os outros (accordion); `Esc` fecha
+    tudo. Implementado em `static/js/inicio.js` (clique dentro não fecha).
   - Botão "Cadastrar outro aventureiro" e estado vazio amigável quando não há aventureiros.
 - Edição do responsável em `/meus-dados/responsavel/editar/` (form `ResponsavelLegalForm`): altera
   nome, parentesco, CPF, e-mail e WhatsApp de todos os aventureiros do usuário com o mesmo CPF de
@@ -124,8 +130,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   tanto ao cadastro de 7 etapas quanto ao de 6 etapas), barra de progresso, campos condicionais,
   preview da foto, atalhos (copiar pai/mãe para responsável legal), reaproveitamento dos dados dos
   responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
-- `static/js/inicio.js` — menu recolhível no celular (as seções de detalhes usam `<details>` nativo,
-  sem JS). Substitui o script inline anterior de `inicio.html`.
+- `static/js/inicio.js` — menu recolhível no celular e o fechamento dos painéis `<details>` de
+  "Meus Dados" ao clicar fora / abrir outro / `Esc` (clique dentro não fecha).
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).

@@ -204,3 +204,13 @@ internas ou no fluxo de login, seguir estas regras:
 - **Responsividade**: em flex com texto longo (nomes, e-mails), usar `min-width: 0` +
   `overflow-wrap: anywhere` para permitir quebra; manter `overflow-x: hidden` no `body` como guarda.
 - **Placeholders**: foto ausente → placeholder; campos vazios → "Não informado" (parcial `_dado.html`).
+- **Foto do aventureiro**: exibir a imagem só quando o arquivo existir de fato — a view marca
+  `av.foto_ok` via `foto.storage.exists(...)` (ter só o nome no banco não basta). Sem foto válida,
+  mostrar placeholder com as iniciais do nome (`av.iniciais`). No `<img>`, incluir `onerror` que
+  troca para o placeholder, para nunca exibir imagem quebrada.
+- **Fechar painéis ao clicar fora**: em telas com `<details>` (ex.: "Meus Dados"), o
+  `static/js/inicio.js` fecha os painéis abertos ao clicar fora deles e ao apertar `Esc`, e recolhe
+  os demais quando um é aberto (accordion). Clique dentro do painel não fecha. Sem bibliotecas.
+- **Cobertura de dados**: "Meus Dados" deve exibir TODOS os campos do cadastro, agrupados por seção
+  (Dados pessoais, Documentos, Endereço, Pai, Mãe, Responsável legal, Ficha médica, Declaração
+  médica e Autorização de imagem). Ao adicionar campos ao cadastro, refletir aqui também.

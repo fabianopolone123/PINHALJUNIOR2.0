@@ -77,6 +77,26 @@ def _idade(nascimento):
     )
 
 
+def _iniciais(nome):
+    """Iniciais (até 2 letras) do nome, para o placeholder de foto."""
+    partes = [p for p in (nome or "").split() if p]
+    if not partes:
+        return "?"
+    if len(partes) == 1:
+        return partes[0][0].upper()
+    return (partes[0][0] + partes[-1][0]).upper()
+
+
+def _foto_valida(av):
+    """True apenas se o campo tem valor E o arquivo existe fisicamente."""
+    if not av.foto:
+        return False
+    try:
+        return av.foto.storage.exists(av.foto.name)
+    except Exception:
+        return False
+
+
 def _classes_investidas(av):
     """Lista de rótulos das classes marcadas para o aventureiro."""
     mapa = [
@@ -134,6 +154,17 @@ def _preparar_ficha(fm):
         r + (f": {det}" if det else "")
         for marcado, r, det in historico if marcado
     ]
+
+    # Condição -> "Sim (medicamentos: X)" / "Não", para exibição direta.
+    def _cond(marcado, med):
+        if not marcado:
+            return "Não"
+        return "Sim" + (f" (medicamentos: {med})" if med else "")
+
+    fm.cardiaco_txt = _cond(fm.cardiaco, fm.cardiaco_medicamentos)
+    fm.diabetico_txt = _cond(fm.diabetico, fm.diabetico_medicamentos)
+    fm.renais_txt = _cond(fm.renais, fm.renais_medicamentos)
+    fm.psicologicos_txt = _cond(fm.psicologicos, fm.psicologicos_medicamentos)
     return fm
 
 
@@ -150,6 +181,8 @@ def inicio_view(request):
     for av in aventureiros:
         av.idade = _idade(av.data_nascimento)
         av.classes = _classes_investidas(av)
+        av.foto_ok = _foto_valida(av)
+        av.iniciais = _iniciais(av.nome_completo)
         # Reverse OneToOne pode não existir; getattr evita exceção.
         _preparar_ficha(getattr(av, "ficha_medica", None))
 

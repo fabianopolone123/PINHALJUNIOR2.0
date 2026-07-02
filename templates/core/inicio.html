@@ -158,10 +158,12 @@
                     <details class="card av-card">
                         <summary class="av-summary">
                             <div class="av-foto-grande">
-                                {% if av.foto %}
-                                    <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome_completo }}">
+                                {% if av.foto_ok %}
+                                    <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome_completo }}"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                    <div class="foto-vazia-grande" style="display:none">{{ av.iniciais }}</div>
                                 {% else %}
-                                    <div class="foto-vazia-grande" aria-hidden="true">👤</div>
+                                    <div class="foto-vazia-grande" title="Sem foto">{{ av.iniciais }}</div>
                                 {% endif %}
                             </div>
                             <div class="av-info">
@@ -196,14 +198,20 @@
                                     {% include "core/_dado.html" with rotulo="Ano" valor=av.ano %}
                                     {% include "core/_dado.html" with rotulo="Bolsa Família" valor=av.bolsa_familia|yesno:"Sim,Não" %}
                                     {% include "core/_dado.html" with rotulo="Classes investidas" valor=av.classes|join:", " %}
+                                    {% include "core/_dado.html" with rotulo="Cidade da inscrição" valor=av.cidade_inscricao %}
+                                    {% include "core/_dado.html" with rotulo="Data da inscrição" valor=av.data_inscricao|date:"d/m/Y" %}
+                                </div>
+                            </details>
+
+                            <details class="secao">
+                                <summary>Documentos e informações pessoais</summary>
+                                <div class="dados-grade">
                                     {% include "core/_dado.html" with rotulo="Certidão de nascimento" valor=av.certidao_nascimento %}
                                     {% include "core/_dado.html" with rotulo="Religião" valor=av.religiao %}
                                     {% include "core/_dado.html" with rotulo="RG" valor=av.rg %}
                                     {% include "core/_dado.html" with rotulo="Órgão expedidor" valor=av.orgao_expedidor %}
                                     {% include "core/_dado.html" with rotulo="CPF" valor=av.cpf %}
                                     {% include "core/_dado.html" with rotulo="Tamanho da camiseta" valor=av.get_tamanho_camiseta_display %}
-                                    {% include "core/_dado.html" with rotulo="Cidade da inscrição" valor=av.cidade_inscricao %}
-                                    {% include "core/_dado.html" with rotulo="Data da inscrição" valor=av.data_inscricao|date:"d/m/Y" %}
                                 </div>
                             </details>
 
@@ -259,23 +267,36 @@
                                     {% include "core/_dado.html" with rotulo="Nome do plano" valor=av.ficha_medica.qual_plano_saude %}
                                     {% include "core/_dado.html" with rotulo="Número do SUS" valor=av.ficha_medica.cartao_sus %}
                                     {% include "core/_dado.html" with rotulo="Tipo sanguíneo" valor=av.ficha_medica.get_tipo_sanguineo_display %}
-                                    {% include "core/_dado.html" with rotulo="Problemas cardíacos" valor=av.ficha_medica.cardiaco|yesno:"Sim,Não" %}
-                                    {% include "core/_dado.html" with rotulo="Diabetes" valor=av.ficha_medica.diabetico|yesno:"Sim,Não" %}
-                                    {% include "core/_dado.html" with rotulo="Problemas renais" valor=av.ficha_medica.renais|yesno:"Sim,Não" %}
-                                    {% include "core/_dado.html" with rotulo="Problemas psicológicos" valor=av.ficha_medica.psicologicos|yesno:"Sim,Não" %}
+                                </div>
+                                <h4 class="bloco-rotulo">Condições de saúde</h4>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Problemas cardíacos" valor=av.ficha_medica.cardiaco_txt %}
+                                    {% include "core/_dado.html" with rotulo="Diabetes" valor=av.ficha_medica.diabetico_txt %}
+                                    {% include "core/_dado.html" with rotulo="Problemas renais" valor=av.ficha_medica.renais_txt %}
+                                    {% include "core/_dado.html" with rotulo="Problemas psicológicos" valor=av.ficha_medica.psicologicos_txt %}
                                 </div>
                                 <div class="listas">
-                                    <p><span>Doenças:</span> {{ av.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                    <p><span>Doenças que já teve/tem:</span> {{ av.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
                                     <p><span>Alergias:</span> {{ av.ficha_medica.alergias_lista|join:", "|default:"Nenhuma informada" }}</p>
                                     <p><span>Histórico recente (problemas/medicamentos/ferimentos/cirurgia/internação):</span>
                                         {{ av.ficha_medica.historico_lista|join:", "|default:"Nada informado" }}</p>
                                     <p><span>Outros problemas/medicamentos:</span> {{ av.ficha_medica.outros_problemas|default:"Não informado" }}</p>
                                 </div>
+                            </details>
+                            {% endif %}
+
+                            <details class="secao">
+                                <summary>Declaração médica</summary>
                                 <p class="aceite {% if av.declaracao_medica_aceita %}aceite-ok{% endif %}">
                                     {% if av.declaracao_medica_aceita %}✓ Declaração médica aceita{% else %}Declaração médica não aceita{% endif %}
                                 </p>
+                                <p class="obs-termo">
+                                    O responsável atestou serem verdadeiras todas as informações médicas
+                                    preenchidas e assumiu a responsabilidade por acidentes decorrentes de
+                                    informação médica omitida.
+                                </p>
+                                {% include "core/_dado.html" with rotulo="Data do cadastro" valor=av.data_inscricao|date:"d/m/Y" %}
                             </details>
-                            {% endif %}
 
                             {% if av.autorizacao_imagem %}
                             <details class="secao">
@@ -285,9 +306,15 @@
                                 </p>
                                 <div class="dados-grade">
                                     {% include "core/_dado.html" with rotulo="Nome do menor" valor=av.autorizacao_imagem.nome_menor %}
+                                    {% include "core/_dado.html" with rotulo="Nacionalidade do menor" valor=av.autorizacao_imagem.nacionalidade_menor %}
                                     {% include "core/_dado.html" with rotulo="Responsável legal" valor=av.autorizacao_imagem.resp_nome %}
-                                    {% include "core/_dado.html" with rotulo="CPF do responsável" valor=av.autorizacao_imagem.resp_cpf %}
+                                    {% include "core/_dado.html" with rotulo="Nacionalidade do responsável" valor=av.autorizacao_imagem.resp_nacionalidade %}
+                                    {% include "core/_dado.html" with rotulo="Estado civil" valor=av.autorizacao_imagem.resp_estado_civil %}
                                     {% include "core/_dado.html" with rotulo="RG do responsável" valor=av.autorizacao_imagem.resp_rg %}
+                                    {% include "core/_dado.html" with rotulo="CPF do responsável" valor=av.autorizacao_imagem.resp_cpf %}
+                                    {% include "core/_dado.html" with rotulo="Endereço" valor=av.autorizacao_imagem.resp_endereco %}
+                                    {% include "core/_dado.html" with rotulo="Número" valor=av.autorizacao_imagem.resp_numero %}
+                                    {% include "core/_dado.html" with rotulo="Bairro" valor=av.autorizacao_imagem.resp_bairro %}
                                     {% include "core/_dado.html" with rotulo="Cidade" valor=av.autorizacao_imagem.resp_cidade %}
                                     {% include "core/_dado.html" with rotulo="Estado" valor=av.autorizacao_imagem.resp_estado %}
                                     {% include "core/_dado.html" with rotulo="Data do cadastro" valor=av.data_inscricao|date:"d/m/Y" %}

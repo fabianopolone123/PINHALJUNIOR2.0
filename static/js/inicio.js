@@ -34,3 +34,42 @@
 
     overlay.addEventListener("click", fecharMenu);
 })();
+
+/* =========================================================
+   Painéis expansíveis (<details>) de "Meus Dados":
+   - clicar fora fecha os painéis abertos;
+   - abrir um painel recolhe os outros que não contêm o clique
+     (comportamento de accordion, evita tela poluída);
+   - clicar dentro NÃO fecha;
+   - tecla Esc fecha tudo.
+   ========================================================= */
+(function () {
+    "use strict";
+
+    var container = document.querySelector(".conteudo-interno");
+    if (!container) return;
+
+    function detalhesAbertos() {
+        return Array.prototype.slice.call(
+            container.querySelectorAll("details[open]")
+        );
+    }
+
+    // Fecha todo painel aberto que NÃO contém o elemento clicado.
+    document.addEventListener("click", function (evento) {
+        detalhesAbertos().forEach(function (d) {
+            if (!d.contains(evento.target)) {
+                d.open = false;
+            }
+        });
+    });
+
+    // Esc recolhe todos os painéis abertos.
+    document.addEventListener("keydown", function (evento) {
+        if (evento.key === "Escape") {
+            detalhesAbertos().forEach(function (d) {
+                d.open = false;
+            });
+        }
+    });
+})();

@@ -22,6 +22,69 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Correção de fotos, dados completos e fechar painéis ao clicar fora em "Meus Dados"
+
+### Resumo
+Revisão da tela `/inicio/` ("Meus Dados") para: (1) exibir a foto do aventureiro de forma robusta,
+com placeholder quando o arquivo não existe; (2) mostrar TODOS os dados do cadastro, organizados
+por seção; e (3) fechar os painéis expansíveis ao clicar fora, abrir um recolhendo os outros, com
+`Esc`. Nenhum model foi alterado — sem migrations.
+
+### Fotos
+- Investigação: o serving de mídia em DEBUG e a URL estão corretos (verificado: `GET /media/...`
+  responde HTTP 200 e o `<img>` renderiza `src="/media/aventureiros/fotos_teste/..."`). A falha
+  real acontecia quando o banco referenciava uma foto cujo **arquivo não existe fisicamente**
+  (situação comum, pois `media/` é gitignored): `{% if av.foto %}` era verdadeiro e gerava um
+  `<img>` quebrado.
+- Correção: a view marca `av.foto_ok` usando `foto.storage.exists(...)`; o template só mostra a
+  imagem quando o arquivo existe. Caso contrário (ou se a imagem falhar ao carregar, via `onerror`),
+  exibe um **placeholder com as iniciais** do nome (`av.iniciais`). A página nunca quebra.
+- As fotos dos aventureiros de teste continuam em `media/aventureiros/fotos_teste/`
+  (`lucas_teste.png` / `ana_teste.png`), geradas/mantidas pelo comando `criar_dados_teste`.
+
+### Dados completos (auditoria cadastro × Meus Dados)
+- Seções reorganizadas: **Dados pessoais**, **Documentos e informações pessoais** (nova, separada),
+  **Endereço**, **Pai**, **Mãe**, **Responsável legal**, **Ficha médica**, **Declaração médica**
+  (nova, separada) e **Autorização de imagem**.
+- Campos adicionados que faltavam:
+  - Ficha médica: medicamentos por condição (cardíaco/diabetes/renais/psicológicos), exibidos como
+    "Sim (medicamentos: …)"/"Não"; listas de doenças, alergias (com "qual") e histórico recente.
+  - Declaração médica: status do aceite + resumo do termo + data.
+  - Autorização de imagem: nacionalidade do menor, nacionalidade do responsável, estado civil,
+    endereço, número e bairro (além dos que já apareciam).
+
+### Fechar ao clicar fora
+- `static/js/inicio.js`: um listener de clique fecha todo `<details>` aberto que não contém o
+  elemento clicado (fecha ao clicar fora e recolhe os demais ao abrir um — accordion); `Esc` fecha
+  tudo; clique dentro não fecha. Funciona no celular. As seções continuam sendo `<details>` nativos.
+
+### Arquivos criados/alterados
+- `core/views.py`: helpers `_iniciais` e `_foto_valida`; `inicio_view` marca `foto_ok`/`iniciais`;
+  `_preparar_ficha` passou a montar os textos das condições com medicamentos.
+- `templates/core/inicio.html`: foto com `foto_ok` + placeholder de iniciais + `onerror`; seções
+  Documentos e Declaração médica separadas; Ficha médica com medicamentos; Autorização de imagem
+  completa.
+- `static/js/inicio.js`: fechamento dos painéis ao clicar fora / `Esc` / accordion.
+- `static/css/inicio.css`: placeholder de foto (iniciais) mais bonito.
+- `docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`,
+  `docs/REGRAS_CODEX.md`: documentação atualizada.
+
+### Validação
+- Servidor real: `GET /media/aventureiros/fotos_teste/ana_teste.png` → HTTP 200 (image/png);
+  `/inicio/` (logado) renderiza `<img src="/media/...">` para os dois aventureiros.
+- Test client: auditoria confirma todas as seções/campos (Documentos, Declaração médica,
+  medicamentos por condição, nacionalidades, estado civil, endereço/número/bairro, etc.);
+  placeholder de iniciais quando o arquivo não existe ("FQ") e quando não há foto ("SS"), sem
+  quebrar a página (200).
+- Visual (Chrome headless): card totalmente expandido com todas as seções, responsivo e sem
+  overflow horizontal.
+
+### Pendências
+- Edição completa dos dados do aventureiro; "Esqueci minha senha"; permissões/perfis; validação
+  avançada de CPF; envio de e-mail.
+
+---
+
 ## 2026-07-02 - "Meus Dados" reorganizado: responsável (com edição) + aventureiros clicáveis
 
 ### Resumo
