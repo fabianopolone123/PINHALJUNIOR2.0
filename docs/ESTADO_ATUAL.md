@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 (autenticação real + tela "Meus Dados" funcional)
+**Última atualização:** 2026-07-02 (fotos fictícias dos aventureiros de teste, com verificação de existência)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -43,7 +43,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   marcando uma opção; os campos são preenchidos automaticamente e podem ser editados antes de finalizar.
 - Comando de gerenciamento `criar_dados_teste` para popular o banco local com uma conta de teste
   (`teste_responsavel` / `123456`) e 2 aventureiros completos (ficha de inscrição, ficha médica,
-  autorização de imagem e fotos fictícias geradas com Pillow). Idempotente (pode rodar várias vezes).
+  autorização de imagem e fotos 3x4 fictícias geradas com Pillow: `lucas_teste.png`/`ana_teste.png`).
+  Idempotente (pode rodar várias vezes); as fotos só são regeradas quando estão faltando ou apontam
+  para arquivo inexistente — se já estiverem corretas, são mantidas.
 
 ## Padrão visual da tela de login (atual)
 - Fundo com gradiente azul→verde animado (movimento lento) e formas circulares desfocadas flutuando.

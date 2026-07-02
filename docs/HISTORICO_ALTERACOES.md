@@ -22,6 +22,43 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Fotos fictícias dos aventureiros de teste (com verificação de existência)
+
+### Resumo
+Ajuste no comando `criar_dados_teste` para garantir que cada aventureiro de teste tenha
+uma foto 3x4 fictícia associada e válida. Antes, a foto era regerada a cada execução;
+agora o comando **verifica se a foto está correta** (campo preenchido, apontando para o
+caminho esperado e com o arquivo existindo em `media/`) e só (re)gera quando está faltando
+ou quebrada — caso contrário, mantém. Nenhum model foi alterado — sem migrations.
+
+### O que muda
+- `Lucas Henrique Oliveira Santos` → `media/aventureiros/fotos_teste/lucas_teste.png` (iniciais "LH").
+- `Ana Clara Oliveira Santos` → `media/aventureiros/fotos_teste/ana_teste.png` (iniciais "AC").
+- O comando informa, por aventureiro, "foto mantida" ou "foto gerada".
+
+### Arquivos criados/alterados
+- `core/management/commands/criar_dados_teste.py`: bloco da foto agora verifica a existência
+  física do arquivo e a correspondência do caminho antes de decidir manter ou regerar; a
+  saída passou a informar o status da foto de cada aventureiro.
+- `docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Como recriar os dados de teste
+```
+python manage.py criar_dados_teste
+```
+
+### Validação
+- Rodado com as fotos já corretas → "foto mantida" para os dois.
+- Apagado o arquivo do Lucas e rodado de novo → "foto gerada" só para o Lucas, "foto mantida"
+  para a Ana; ambos os arquivos existem no disco e os campos `foto` apontam para eles.
+- A tela "Meus Dados" exibe as fotos dos dois aventureiros (validado no passo anterior).
+
+### Pendências
+- Sem novas pendências (mantêm-se as anteriores: "Esqueci minha senha", edição pela área logada,
+  permissões/perfis, validação avançada de CPF, envio de e-mail).
+
+---
+
 ## 2026-07-02 - Autenticação real e tela "Meus Dados" funcional
 
 ### Resumo

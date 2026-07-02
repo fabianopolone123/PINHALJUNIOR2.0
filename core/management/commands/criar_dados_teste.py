@@ -298,7 +298,7 @@ class Command(BaseCommand):
             (_dados_aventureiro_2(), _ficha_medica_2(), "AC", (47, 143, 78), "ana_teste.png"),
         ]
 
-        nomes_criados = []
+        resultados = []  # (nome, status_da_foto)
         for dados_av, dados_med, iniciais, cor, arquivo_foto in aventureiros_config:
             cpf = dados_av["cpf"]
             defaults = {k: v for k, v in dados_av.items() if k != "cpf"}
@@ -307,13 +307,23 @@ class Command(BaseCommand):
                 usuario=usuario, cpf=cpf, defaults=defaults,
             )
 
-            # Foto fictícia (gerada/atualizada a cada execução).
-            caminho_rel = os.path.join(PASTA_FOTOS_TESTE, arquivo_foto)
-            caminho_abs = os.path.join(settings.MEDIA_ROOT, caminho_rel)
-            _gerar_foto_ficticia(caminho_abs, iniciais, cor)
-            # Guarda o caminho relativo ao MEDIA_ROOT (barra normal em qualquer SO).
-            aventureiro.foto.name = caminho_rel.replace(os.sep, "/")
-            aventureiro.save(update_fields=["foto"])
+            # Foto fictícia: só (re)gera se estiver faltando ou apontando para
+            # um arquivo inexistente; se já estiver correta, mantém.
+            # Caminho relativo ao MEDIA_ROOT sempre com barra normal ("/").
+            caminho_rel = f"{PASTA_FOTOS_TESTE}/{arquivo_foto}".replace(os.sep, "/")
+            caminho_abs = os.path.join(settings.MEDIA_ROOT, PASTA_FOTOS_TESTE, arquivo_foto)
+            foto_correta = (
+                bool(aventureiro.foto)
+                and aventureiro.foto.name == caminho_rel
+                and os.path.exists(caminho_abs)
+            )
+            if foto_correta:
+                status_foto = "mantida"
+            else:
+                _gerar_foto_ficticia(caminho_abs, iniciais, cor)
+                aventureiro.foto.name = caminho_rel
+                aventureiro.save(update_fields=["foto"])
+                status_foto = "gerada"
 
             # Ficha médica (uma por aventureiro).
             FichaMedica.objects.update_or_create(
@@ -326,7 +336,7 @@ class Command(BaseCommand):
                 defaults=_autorizacao_imagem(dados_av["nome_completo"]),
             )
 
-            nomes_criados.append(aventureiro.nome_completo)
+            resultados.append((aventureiro.nome_completo, status_foto))
 
         # 3) Mensagem de saída.
         ja_existiam = havia_aventureiros and not usuario_criado
@@ -342,5 +352,5 @@ class Command(BaseCommand):
         self.stdout.write(f"Usuário: {USERNAME_TESTE}")
         self.stdout.write(f"Senha: {SENHA_TESTE}")
         self.stdout.write("Aventureiros criados:")
-        for nome in nomes_criados:
-            self.stdout.write(f"- {nome}")
+        for nome, status_foto in resultados:
+            self.stdout.write(f"- {nome} (foto {status_foto})")
