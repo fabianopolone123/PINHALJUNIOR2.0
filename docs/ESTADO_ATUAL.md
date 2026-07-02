@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 (fluxo para cadastrar múltiplos aventureiros na mesma conta)
+**Última atualização:** 2026-07-02 (comando de dados de teste: conta com 2 aventureiros)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -32,6 +32,9 @@ servindo de base para o desenvolvimento futuro.
   já que ainda não há login real. Sem usuário na sessão, essa rota redireciona para `/cadastro/`.
 - Nesse fluxo, é possível reaproveitar os dados de pai, mãe e responsável legal do último cadastro
   marcando uma opção; os campos são preenchidos automaticamente e podem ser editados antes de finalizar.
+- Comando de gerenciamento `criar_dados_teste` para popular o banco local com uma conta de teste
+  (`teste_responsavel` / `123456`) e 2 aventureiros completos (ficha de inscrição, ficha médica,
+  autorização de imagem e fotos fictícias geradas com Pillow). Idempotente (pode rodar várias vezes).
 
 ## Padrão visual da tela de login (atual)
 - Fundo com gradiente azul→verde animado (movimento lento) e formas circulares desfocadas flutuando.

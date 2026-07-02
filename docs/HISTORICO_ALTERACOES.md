@@ -22,6 +22,57 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Comando de gerenciamento para gerar dados de teste
+
+### Resumo
+Criação do management command `criar_dados_teste`, que popula o banco local com uma
+conta de teste (`teste_responsavel`, senha `123456`) e 2 aventureiros fictícios completos
+(ficha de inscrição, ficha médica, autorização de imagem e fotos fictícias geradas com
+Pillow). O comando é idempotente: pode ser rodado várias vezes sem duplicar dados e sem
+tocar em dados de outros usuários. Nenhum model foi alterado — sem migrations.
+
+### Como rodar
+```
+python manage.py criar_dados_teste
+```
+- Conta: usuário `teste_responsavel`, senha `123456`, e-mail `teste.responsavel@example.com`.
+- Aventureiros: "Lucas Henrique Oliveira Santos" e "Ana Clara Oliveira Santos" (mesma família,
+  mesmos responsáveis; a mãe é a responsável legal).
+- Fotos fictícias salvas em `media/aventureiros/fotos_teste/lucas_teste.png` e `ana_teste.png`.
+
+### Arquivos criados/alterados
+- `core/management/__init__.py`: novo (pacote de comandos).
+- `core/management/commands/__init__.py`: novo.
+- `core/management/commands/criar_dados_teste.py`: novo — o comando em si (dados fictícios,
+  geração das fotos com Pillow e mensagens de saída).
+- `docs/README_PROJETO.md`: seção "Popular o banco com dados de teste".
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Decisões tomadas
+- Idempotência: `get_or_create` no `User` (reutiliza se existir) e `update_or_create` para
+  Aventureiro (chaveado por `usuario` + `cpf`), FichaMedica e AutorizacaoImagem (por aventureiro).
+  A senha é sempre redefinida para `123456` para garantir o acesso de teste.
+- Fotos geradas localmente com Pillow (fundo colorido + iniciais + "Foto teste", proporção 3x4),
+  sem imagens externas nem fotos reais. O campo `foto` aponta para o arquivo em
+  `media/aventureiros/fotos_teste/` (caminho de teste solicitado, distinto do `upload_to` padrão).
+- Carregamento de fonte robusto (tenta Arial/DejaVu e a fonte que acompanha o Pillow; cai na
+  fonte padrão se nenhuma existir), para as iniciais aparecerem grandes.
+- Não foram alterados models, admin nem o fluxo de cadastro do usuário final.
+- `media/` e `db.sqlite3` continuam fora do Git (`.gitignore`); os dados/fotos de teste são
+  recriados pelo comando quando necessário.
+
+### Validação
+- Comando executado duas vezes: 1ª "criados com sucesso", 2ª "já existiam e foram atualizados",
+  sem duplicar (segue 1 usuário, 2 aventureiros, 2 fichas médicas, 2 autorizações).
+- Conferido: `check_password("123456")` verdadeiro, fotos existentes em disco, aceites (declaração
+  médica e imagem) verdadeiros, e os três models visíveis no admin (já registrados).
+
+### Pendências
+- Sem novas pendências específicas. Mantêm-se as anteriores (autenticação real, "Meus Dados",
+  permissões, validação avançada de CPF, "Esqueci minha senha", envio de e-mail).
+
+---
+
 ## 2026-07-02 - Fluxo para cadastrar múltiplos aventureiros na mesma conta
 
 ### Resumo

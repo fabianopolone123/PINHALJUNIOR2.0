@@ -60,6 +60,21 @@ Observação: ao rodar, o Django pode exibir um aviso sobre migrações pendente
 das apps internas (admin, auth, sessions). Isso é normal e não afeta a tela de
 login. Se quiser remover o aviso, rode `python manage.py migrate`.
 
+### Popular o banco com dados de teste
+
+Para validar rapidamente uma conta com 2 aventureiros já cadastrados, use o
+comando de gerenciamento que gera dados fictícios (sem pessoas nem imagens reais):
+
+```bash
+python manage.py criar_dados_teste
+```
+
+Ele cria (ou atualiza, se já existirem) o usuário `teste_responsavel` (senha `123456`)
+com 2 aventureiros completos — ficha de inscrição, ficha médica, autorização de imagem
+e fotos fictícias geradas com Pillow em `media/aventureiros/fotos_teste/`. O comando é
+seguro para rodar mais de uma vez (usa `get_or_create`/`update_or_create` e não apaga
+dados de outros usuários).
+
 ## Estrutura geral de pastas
 
 ```
