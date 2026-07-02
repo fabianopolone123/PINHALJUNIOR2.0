@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-01 (versionamento Git e regras de commit/push)
+**Última atualização:** 2026-07-01 (fluxo de cadastro de aventureiro)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -19,6 +19,11 @@ servindo de base para o desenvolvimento futuro.
 - Tela inicial interna (área logada) na rota `/inicio/`, com menu lateral fixo (desktop)
   e menu recolhível/gaveta (mobile), item "Meus Dados" ativo e cards visuais.
 - Botão "Entrar" da tela de login navega (apenas visualmente) para `/inicio/`, sem autenticação.
+- Fluxo de cadastro de aventureiro em `/cadastro/`: wizard de 7 etapas (conta, ficha de inscrição,
+  responsáveis, ficha médica, declaração médica, autorização de imagem, revisão), com barra de
+  progresso, campos condicionais, upload/preview de foto e tela de sucesso em `/cadastro/sucesso/`.
+- Link "Cadastre-se" na tela de login (entre "Entrar" e "Esqueci minha senha").
+- Ao finalizar o cadastro, cria o `User` do Django e salva Aventureiro + FichaMedica + AutorizacaoImagem.
 
 ## Padrão visual da tela de login (atual)
 - Fundo com gradiente azul→verde animado (movimento lento) e formas circulares desfocadas flutuando.
@@ -41,52 +46,66 @@ servindo de base para o desenvolvimento futuro.
 - Fundo claro com detalhes decorativos radiais suaves; animação de entrada do conteúdo.
 - Suporte a `prefers-reduced-motion`. Testado em mobile (390px, sem overflow) e desktop (1280px).
 
+## Models existentes
+- `Aventureiro` — ficha de inscrição + dados dos responsáveis (pai, mãe, responsável legal);
+  FK `usuario` (um usuário pode ter vários aventureiros); `data_inscricao` e `criado_em` automáticos.
+- `FichaMedica` — OneToOne com `Aventureiro` (plano de saúde, doenças, alergias, condições, tipo sanguíneo).
+- `AutorizacaoImagem` — OneToOne com `Aventureiro` (dados do menor e do responsável para o termo).
+
 ## Funcionalidades incompletas / não implementadas
-- Autenticação real (login/logout) — NÃO implementada.
-- Cadastro / banco de usuários do sistema — NÃO implementado.
+- Autenticação real (login/logout) — NÃO implementada (o cadastro cria o `User`, mas não faz login).
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
-- Menu com um único item ("Meus Dados"); o item ainda não abre página própria (aponta para `/inicio/`).
-- Permissões / perfis de usuário — NÃO implementados (menu preparado para isso via comentários).
-- Models e migrations de negócio — não existem.
+- Página real de "Meus Dados" e listagem de aventureiros — NÃO criadas.
+- Opção "Usar os mesmos dados dos responsáveis já cadastrados" — apenas prevista (depende de autenticação).
+- Permissões / perfis de usuário — NÃO implementados.
+- Validação avançada de CPF — NÃO implementada (deixada para o futuro).
+- Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- (A definir) Implementar autenticação de usuários.
-- (A definir) Criar a página real de "Meus Dados" (visualizar/editar dados).
-- (A definir) Adicionar novos itens de menu conforme perfil/permissão do usuário.
+- (A definir) Implementar autenticação de usuários (login/logout) usando o `User` criado no cadastro.
+- (A definir) Criar a página real de "Meus Dados" e a listagem de aventureiros do responsável.
+- (A definir) Reaproveitar dados de responsáveis em novos cadastros do mesmo usuário.
 - (A definir) Implementar o fluxo de "Esqueci minha senha".
-
-> Observação: nenhuma dessas etapas foi iniciada.
 
 ## Apps existentes
 - `config` — projeto Django (settings, urls, wsgi, asgi).
-- `core` — app principal (views da tela de login e da tela inicial interna; sem models).
+- `core` — app principal (views de login, tela inicial e cadastro; models de aventureiro).
 
 ## Templates existentes
 - `templates/core/login.html`
 - `templates/core/inicio.html`
+- `templates/core/cadastro.html` (wizard de cadastro)
+- `templates/core/cadastro_sucesso.html`
+- `templates/core/_campo.html` e `templates/core/_campo_check.html` (parciais de campo reutilizáveis)
 
 ## Arquivos CSS existentes
 - `static/css/login.css`
 - `static/css/inicio.css`
+- `static/css/cadastro.css`
 
 ## Arquivos JavaScript existentes
-- Nenhum arquivo `.js` separado.
-- Script inline em `templates/core/login.html`: impede o envio real e redireciona para `/inicio/` (navegação de teste).
-- Script inline em `templates/core/inicio.html`: abre/fecha o menu recolhível no celular.
+- `static/js/cadastro.js` — wizard de etapas, barra de progresso, campos condicionais,
+  preview da foto, atalhos (copiar pai/mãe para responsável legal), revisão e validação dos aceites.
+- Scripts inline em `login.html` (redireciona para `/inicio/`) e em `inicio.html` (menu recolhível).
 
 ## Rotas existentes
 - `/` — tela de login (`core.views.login_view`, nome `core:login`).
 - `/inicio/` — tela inicial interna (`core.views.inicio_view`, nome `core:inicio`).
-- `/admin/` — Django admin padrão (sem uso específico do projeto).
+- `/cadastro/` — cadastro de aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
+- `/admin/` — Django admin (models de cadastro registrados).
+- Em DEBUG, o Django serve os arquivos de mídia em `/media/`.
 
 ## Configurações importantes
 - `DEBUG = True` (desenvolvimento).
 - `ALLOWED_HOSTS = []` (desenvolvimento).
 - Idioma: `pt-br`. Fuso horário: `America/Sao_Paulo`.
-- Banco: SQLite (`db.sqlite3`), ainda sem dados do sistema.
+- Banco: SQLite (`db.sqlite3`), já com os models de cadastro migrados.
 - `STATICFILES_DIRS` aponta para a pasta `static/`.
+- `MEDIA_URL = "media/"` e `MEDIA_ROOT = BASE_DIR / "media"` (uploads, ex.: foto 3x4).
 - `TEMPLATES DIRS` aponta para a pasta `templates/`.
 - `SECRET_KEY` é de desenvolvimento (trocar em produção).
+- Requer `Pillow` (já instalado) para o `ImageField` da foto.
 
 ## Versionamento (Git)
 - Repositório Git inicializado; branch principal: `main`.

@@ -1,0 +1,22 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Cadastro realizado - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/cadastro.css' %}">
+</head>
+<body>
+    <main class="tela-cadastro">
+        <section class="cadastro-card sucesso-card">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do clube" class="cadastro-logo">
+            <div class="sucesso-check" aria-hidden="true">✓</div>
+            <h1 class="cadastro-titulo">Cadastro realizado com sucesso!</h1>
+            <p class="cadastro-sub">As informações do aventureiro foram registradas.</p>
+            <a href="{% url 'core:inicio' %}" class="btn-primario btn-sucesso">Ir para a tela inicial</a>
+        </section>
+    </main>
+</body>
+</html>

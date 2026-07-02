@@ -1,0 +1,7 @@
+{# Campo padrão: label em cima + widget. Uso: {% include "core/_campo.html" with campo=form.nome %} #}
+<div class="campo">
+    <label for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} <span class="obrigatorio">*</span>{% endif %}</label>
+    {{ campo }}
+    {% if campo.help_text %}<small class="ajuda">{{ campo.help_text }}</small>{% endif %}
+    {% if campo.errors %}<div class="erros">{{ campo.errors }}</div>{% endif %}
+</div>

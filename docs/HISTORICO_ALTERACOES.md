@@ -22,6 +22,62 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-01 - Fluxo de cadastro de aventureiro
+
+### Resumo
+Implementação da estrutura inicial de criação de conta e cadastro completo de
+aventureiro: link "Cadastre-se" no login, tela de cadastro em formato wizard de
+7 etapas (`/cadastro/`), models para salvar os dados, upload de foto, aceites
+obrigatórios e tela de confirmação (`/cadastro/sucesso/`). Ao finalizar, é criado
+o `User` do Django e salvos os dados do aventureiro. NÃO há login automático,
+permissões, recuperação de senha nem envio de e-mail.
+
+### Models criados
+- `Aventureiro`: FK `usuario` (um usuário pode ter vários aventureiros); dados principais,
+  classes investidas (4 BooleanFields), endereço, documentos, dados de pai/mãe/responsável legal,
+  cidade e data da inscrição (`data_inscricao` automática), aceites e `criado_em`.
+- `FichaMedica`: OneToOne com `Aventureiro` (plano de saúde, doenças, alergias, condições de saúde,
+  outras informações e tipo sanguíneo). Campos "qual/motivo" condicionais.
+- `AutorizacaoImagem`: OneToOne com `Aventureiro` (dados do menor e do responsável legal para o termo).
+
+### Rotas criadas
+- `/cadastro/` (`core:cadastro`) e `/cadastro/sucesso/` (`core:cadastro_sucesso`).
+- Em DEBUG, o Django passa a servir `/media/` (uploads).
+
+### Arquivos criados/alterados
+- `core/models.py`: novos models Aventureiro, FichaMedica, AutorizacaoImagem (com `choices`, `verbose_name`, BooleanFields, TextField, DateField/DateTimeField).
+- `core/forms.py`: novo — ContaForm, AventureiroForm, FichaMedicaForm, AutorizacaoImagemForm (com mixin de estilo e validações de senha/username).
+- `core/views.py`: novas views `cadastro_view` e `cadastro_sucesso_view` (validação conjunta + criação transacional).
+- `core/urls.py`: novas rotas de cadastro e sucesso.
+- `core/admin.py`: registro dos três models no admin.
+- `core/migrations/0001_initial.py`: migration inicial dos models (criada e aplicada).
+- `templates/core/cadastro.html`, `templates/core/cadastro_sucesso.html`, `templates/core/_campo.html`, `templates/core/_campo_check.html`: novos templates.
+- `static/css/cadastro.css` e `static/js/cadastro.js`: novos (wizard, progresso, condicionais, preview de foto, atalhos, revisão).
+- `templates/core/login.html`: link "Cadastre-se" entre "Entrar" e "Esqueci minha senha".
+- `static/css/login.css`: estilo do link "Cadastre-se".
+- `config/settings.py`: `MEDIA_URL` e `MEDIA_ROOT`.
+- `config/urls.py`: serve mídia em DEBUG.
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`, `docs/REGRAS_CODEX.md`, `docs/README_PROJETO.md`: documentação atualizada.
+
+### Decisões tomadas
+- Wizard de 7 etapas em uma única página/`<form>` (etapas mostradas/ocultadas via JS); validação
+  autoritativa no servidor. Solução simples, bonita e segura, sem bibliotecas externas.
+- Quatro formulários combinados com `prefix` (conta/av/med/img) para evitar colisão de nomes.
+- Uso do `User` padrão do Django para a conta; aventureiros ligados por FK (um-para-muitos),
+  preparando o reaproveitamento de responsáveis no futuro.
+- Aceites obrigatórios (declaração médica e autorização de imagem) validados no servidor e no JS.
+- Foto via `ImageField` (requer Pillow, já instalado); preview no navegador antes do envio.
+- Validação básica: senha obrigatória e confirmada, username único. CPF sem validação avançada (futuro).
+- Fluxo testado ponta a ponta (criação de User + models, casos negativos) e visual validado em mobile/desktop.
+
+### Pendências
+- Autenticação real (login/logout) ainda NÃO implementada.
+- Página real de "Meus Dados" e listagem de aventureiros ainda NÃO criadas.
+- Reaproveitamento de responsáveis em novos cadastros ainda NÃO implementado (depende de login).
+- Validação avançada de CPF, permissões, recuperação de senha e envio de e-mail: futuros.
+
+---
+
 ## 2026-07-01 - Configuração do versionamento Git e regras de commit/push
 
 ### Resumo

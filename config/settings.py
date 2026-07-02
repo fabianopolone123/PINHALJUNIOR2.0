@@ -96,5 +96,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+# Arquivos de mídia (uploads dos usuários, ex.: foto 3x4 do aventureiro)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 # Tipo de chave primária padrão
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

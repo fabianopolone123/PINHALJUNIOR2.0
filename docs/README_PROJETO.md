@@ -19,18 +19,21 @@ sem ainda implementar lógica de autenticação ou banco de usuários.
 - **Python** (3.10+)
 - **HTML** — templates
 - **CSS** — estilos próprios, sem frameworks externos
-- **JavaScript** — apenas o mínimo necessário (pequeno script inline na tela de login)
-- **Banco de dados**: SQLite (padrão do Django, ainda não utilizado para dados do sistema)
+- **JavaScript** — puro, sem frameworks (wizard do cadastro em `static/js/cadastro.js` + scripts inline)
+- **Pillow** — necessário para o `ImageField` (upload da foto 3x4)
+- **Banco de dados**: SQLite (padrão do Django), com os models de cadastro migrados
 
 ## Estado atual do sistema
 
 - Estrutura inicial do Django criada e funcionando.
-- Tela de login visual acessível na rota principal `/`.
+- Tela de login visual acessível na rota principal `/` (com link "Cadastre-se").
 - Tela inicial interna (área logada) acessível em `/inicio/`, com menu lateral e o item "Meus Dados".
-- Logo do clube exibido na tela de login e no menu lateral.
-- **Autenticação ainda NÃO implementada** (o botão "Entrar" apenas redireciona para `/inicio/`).
-- **Sem controle de permissões / perfis** (menu preparado para isso futuramente).
-- **Sem models / sem cadastro de usuários próprios.**
+- Fluxo de cadastro de aventureiro em `/cadastro/` (wizard de 7 etapas) que cria o `User` e salva
+  a ficha de inscrição, a ficha médica e a autorização de imagem; confirmação em `/cadastro/sucesso/`.
+- Models de cadastro criados e migrados (`Aventureiro`, `FichaMedica`, `AutorizacaoImagem`).
+- Logo do clube exibido no login, no menu lateral e no cadastro.
+- **Autenticação ainda NÃO implementada** (o cadastro cria o `User`, mas não faz login).
+- **Sem controle de permissões / perfis** (preparado para o futuro).
 
 ## Como rodar o projeto localmente
 
@@ -72,25 +75,35 @@ PINHALJUNIOR2.0/
 │   └── asgi.py
 ├── core/                     # App principal
 │   ├── __init__.py
-│   ├── admin.py
+│   ├── admin.py              # Models registrados no admin
 │   ├── apps.py
-│   ├── models.py             # Sem models por enquanto
+│   ├── models.py             # Aventureiro, FichaMedica, AutorizacaoImagem
+│   ├── forms.py              # Formulários do cadastro
 │   ├── urls.py
 │   ├── views.py
 │   └── migrations/
-│       └── __init__.py
+│       ├── __init__.py
+│       └── 0001_initial.py
 ├── templates/
 │   └── core/
-│       ├── login.html        # Template da tela de login
-│       └── inicio.html       # Template da tela inicial interna
+│       ├── login.html            # Tela de login
+│       ├── inicio.html           # Tela inicial interna
+│       ├── cadastro.html         # Wizard de cadastro (7 etapas)
+│       ├── cadastro_sucesso.html # Confirmação do cadastro
+│       ├── _campo.html           # Parcial de campo (label + widget)
+│       └── _campo_check.html     # Parcial de campo checkbox
 ├── static/
 │   ├── css/
-│   │   ├── login.css         # Estilos da tela de login
-│   │   └── inicio.css        # Estilos da tela inicial interna
+│   │   ├── login.css
+│   │   ├── inicio.css
+│   │   └── cadastro.css
+│   ├── js/
+│   │   └── cadastro.js       # Wizard, condicionais, preview de foto
 │   └── img/
-│       ├── logo.png                  # Logo do clube (usado na tela de login)
-│       ├── logo_original_backup.png  # Backup do logo original (antes do recorte)
-│       └── LEIA-ME.txt               # Instruções sobre o logo
+│       ├── logo.png
+│       ├── logo_original_backup.png
+│       └── LEIA-ME.txt
+├── media/                    # Uploads dos usuários (ex.: fotos) — não versionado
 └── docs/                     # Documentação interna (este diretório)
     ├── README_PROJETO.md
     ├── REGRAS_CODEX.md
@@ -101,50 +114,59 @@ PINHALJUNIOR2.0/
 ## Apps existentes
 
 - **config**: projeto Django (settings, urls, wsgi, asgi). Não é um app de negócio.
-- **core**: app principal. Contém as views da tela de login e da tela inicial interna.
+- **core**: app principal. Views de login, tela inicial e cadastro; models de aventureiro.
 
 ## Rotas existentes
 
-- `/` — tela de login (view `core.views.login_view`, nome de rota `core:login`).
+- `/` — tela de login (view `core.views.login_view`, nome `core:login`).
 - `/inicio/` — tela inicial interna / área logada (view `core.views.inicio_view`, nome `core:inicio`).
-- `/admin/` — Django admin padrão (habilitado por padrão, sem uso específico do projeto).
+- `/cadastro/` — cadastro de aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/sucesso/` — confirmação (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
+- `/admin/` — Django admin (models de cadastro registrados).
+- `/media/...` — arquivos de mídia (uploads), servidos pelo Django em DEBUG.
+
+## Models existentes
+
+- **Aventureiro** — ficha de inscrição + dados dos responsáveis; FK `usuario` (um usuário pode ter vários).
+- **FichaMedica** — OneToOne com Aventureiro (dados médicos).
+- **AutorizacaoImagem** — OneToOne com Aventureiro (dados do termo de imagem).
 
 ## Templates existentes
 
-- `templates/core/login.html` — tela de login (logo, título, campos usuário/senha,
-  botão "Entrar" e link "Esqueci minha senha").
-- `templates/core/inicio.html` — tela inicial interna (menu lateral com "Meus Dados",
-  cabeçalho de boas-vindas e cards visuais).
+- `templates/core/login.html` — tela de login (com link "Cadastre-se").
+- `templates/core/inicio.html` — tela inicial interna.
+- `templates/core/cadastro.html` — wizard de cadastro (7 etapas).
+- `templates/core/cadastro_sucesso.html` — confirmação do cadastro.
+- `templates/core/_campo.html` e `_campo_check.html` — parciais reutilizáveis de campo.
 
 ## Arquivos estáticos existentes
 
-- `static/css/login.css` — estilos da tela de login (mobile first, gradiente, card, etc.).
-- `static/css/inicio.css` — estilos da tela inicial interna (menu lateral, gaveta mobile, cards).
-- `static/img/logo.png` — logo do clube (usado na tela de login e no menu lateral; fundo transparente).
+- `static/css/login.css`, `static/css/inicio.css`, `static/css/cadastro.css` — estilos por tela.
+- `static/js/cadastro.js` — wizard do cadastro (etapas, progresso, condicionais, preview de foto, atalhos, revisão).
+- `static/img/logo.png` — logo do clube (usado no login, no menu lateral e no cadastro).
 - `static/img/logo_original_backup.png` — backup do logo original recebido.
-- `static/img/LEIA-ME.txt` — instruções sobre onde colocar / nomear o logo.
+- `static/img/LEIA-ME.txt` — instruções sobre o logo.
 
-JavaScript: não há arquivo `.js` separado. Existem apenas pequenos scripts inline:
-em `login.html` (redireciona para `/inicio/` ao enviar, sem autenticar) e em
-`inicio.html` (abre/fecha o menu recolhível no celular).
+Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inicio.html`
+(abre/fecha o menu recolhível no celular).
 
 ## Funcionalidades existentes
 
-- Tela de login visual e responsiva na rota `/`.
-- Exibição do logo no topo, com fallback visual ("CA") caso a imagem não carregue.
-- Formulário com campos "Usuário" e "Senha", botão "Entrar" e link "Esqueci minha senha".
-- Tela inicial interna em `/inicio/` com menu lateral fixo (desktop) / gaveta (mobile),
-  item "Meus Dados" ativo, cabeçalho de boas-vindas e cards visuais.
+- Tela de login visual e responsiva na rota `/`, com link "Cadastre-se".
+- Tela inicial interna em `/inicio/` com menu lateral (desktop) / gaveta (mobile) e cards.
 - Navegação de teste: o botão "Entrar" leva para `/inicio/` (sem autenticação real).
+- Cadastro de aventureiro em `/cadastro/` (wizard de 7 etapas): conta de acesso, ficha de inscrição,
+  responsáveis, ficha médica, declaração médica, autorização de imagem e revisão. Ao finalizar, cria
+  o `User` e salva Aventureiro + FichaMedica + AutorizacaoImagem; confirma em `/cadastro/sucesso/`.
 
 ## Funcionalidades ainda NÃO implementadas
 
-- Autenticação real (login/logout).
-- Cadastro / banco de usuários do sistema.
+- Autenticação real (login/logout) — o cadastro cria o `User`, mas não faz login.
 - Funcionalidade do link "Esqueci minha senha" (hoje aponta para `#`).
-- Página real de "Meus Dados" (visualizar/editar dados pessoais).
-- Controle de permissões / perfis de usuário (menu já preparado para isso).
-- Models e migrations de negócio (o app `core` não possui models).
+- Página real de "Meus Dados" e listagem de aventureiros do responsável.
+- Reaproveitar dados de responsáveis em novos cadastros do mesmo usuário (previsto).
+- Controle de permissões / perfis de usuário.
+- Validação avançada de CPF e envio de e-mail.
 
 ## Observações importantes para futuros desenvolvimentos
 

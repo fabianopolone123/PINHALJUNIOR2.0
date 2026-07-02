@@ -1,0 +1,6 @@
+{# Campo checkbox (Sim/Não): widget + label ao lado. Uso: {% include "core/_campo_check.html" with campo=form.catapora %} #}
+<div class="campo-checkbox">
+    {{ campo }}
+    <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+    {% if campo.errors %}<div class="erros">{{ campo.errors }}</div>{% endif %}
+</div>

@@ -116,3 +116,24 @@ Para as telas internas (após o login), preservar o padrão criado em
 - O menu foi preparado para permissões futuras: exibir/ocultar itens conforme o perfil do usuário
   (ex.: envolver o item em `{% if ... %}`), quando a autenticação for implementada.
 - Ícones podem ser emoji, caractere ou SVG inline — nunca biblioteca externa.
+
+## Padrão de models, formulários e cadastro (wizard)
+
+Ao criar novos cadastros/formulários, seguir o padrão de `/cadastro/`:
+
+- **Models**: separar em models coesos (evitar um único model gigante); usar `verbose_name`,
+  `choices` para seleção, `BooleanField` para sim/não, `TextField` para textos longos,
+  `DateField` para datas e `DateTimeField(auto_now_add=True)` para criação. Relacionar por FK/OneToOne.
+- Um `User` pode ter vários registros de negócio (ex.: `Aventureiro`) — usar `ForeignKey` para
+  permitir reaproveitar dados no futuro.
+- **Forms**: usar `ModelForm` sempre que possível; combinar vários forms num mesmo envio com `prefix`
+  distinto para evitar colisão de nomes; centralizar o estilo dos widgets num mixin (classes CSS).
+- **Wizard**: etapas em uma única página/`<form>`, mostradas/ocultadas via JS, com barra de progresso.
+  A validação autoritativa é sempre no servidor; o JS apenas guia o preenchimento.
+- **Campos condicionais**: campos "qual/motivo" aparecem só quando o "Sim" é marcado (JS), mas o
+  backend deve aceitar o envio mesmo quando ocultos.
+- **Uploads**: usar `ImageField`/`FileField` com `MEDIA_URL`/`MEDIA_ROOT`; em DEBUG o Django serve a mídia.
+  Requer `Pillow` para imagens. Mostrar preview no navegador quando possível.
+- **Aceites obrigatórios**: validar no servidor (não confiar só no JS).
+- Reaproveitar os parciais `templates/core/_campo.html` e `_campo_check.html` para renderizar campos.
+- Sempre criar as migrations ao alterar models (`makemigrations` + `migrate`).
