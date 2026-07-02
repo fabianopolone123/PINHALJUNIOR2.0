@@ -29,9 +29,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     **todos** os dados em seções recolhíveis: Dados pessoais, Documentos, Endereço, Pai, Mãe,
     Responsável legal, Ficha médica (com medicamentos por condição), Declaração médica e
     Autorização de imagem (completa). Botão "Editar dados do aventureiro" ainda desabilitado.
-  - **Foto**: só é exibida se o arquivo existir fisicamente (a view checa `storage.exists`); caso
-    contrário, mostra um placeholder com as **iniciais** do nome. O `<img>` ainda tem `onerror`
-    que troca para o placeholder se a imagem falhar ao carregar (nunca quebra a página).
+  - **Foto**: exibida em **moldura redonda** (foto de perfil). Só aparece se o arquivo existir
+    fisicamente (a view checa `storage.exists`); caso contrário, mostra um placeholder com as
+    **iniciais** do nome. O `<img>` tem `onerror` que troca para o placeholder se a imagem falhar
+    (nunca quebra a página). As fotos de teste são **avatares fictícios** desenhados com Pillow
+    (silhueta com rosto sorridente) — nunca fotos reais de crianças.
   - **Fechar ao clicar fora**: painéis `<details>` abertos (responsável, aventureiro e seções
     internas) recolhem ao clicar fora deles; abrir um recolhe os outros (accordion); `Esc` fecha
     tudo. Implementado em `static/js/inicio.js` (clique dentro não fecha).

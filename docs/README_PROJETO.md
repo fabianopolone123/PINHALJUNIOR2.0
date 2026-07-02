@@ -74,8 +74,8 @@ python manage.py criar_dados_teste
 
 Ele cria (ou atualiza, se já existirem) o usuário `teste_responsavel` (senha `123456`)
 com 2 aventureiros completos — ficha de inscrição, ficha médica, autorização de imagem
-e fotos 3x4 fictícias geradas com Pillow em `media/aventureiros/fotos_teste/`
-(`lucas_teste.png` e `ana_teste.png`). O comando é seguro para rodar mais de uma vez
+e fotos 3x4 fictícias (avatar de desenho, sem pessoas reais) geradas com Pillow em
+`media/aventureiros/fotos_teste/` (`lucas_teste.png` e `ana_teste.png`). O comando é seguro para rodar mais de uma vez
 (usa `get_or_create`/`update_or_create` e não apaga dados de outros usuários). As fotos só
 são regeradas quando estão faltando ou apontando para um arquivo inexistente; se já
 estiverem corretas, são mantidas (o comando informa "foto mantida" ou "foto gerada").

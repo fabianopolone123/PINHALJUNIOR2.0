@@ -220,9 +220,11 @@ def _autorizacao_imagem(nome_menor):
 
 
 def _gerar_foto_ficticia(caminho_absoluto, iniciais, cor_fundo):
-    """Gera uma imagem 3x4 simples (fundo colorido + iniciais + 'Foto teste').
+    """Gera um AVATAR de desenho fictício 3x4 (silhueta com rosto sorridente).
 
-    Não usa imagens externas nem pessoas reais — apenas desenha com Pillow.
+    NÃO usa imagens externas nem pessoas reais — é apenas um desenho de formas
+    geométricas com Pillow (cabeça, ombros, olhos e um sorriso), sobre um fundo
+    colorido, com o texto "Foto teste". Serve só para popular a tela nos testes.
     """
     from PIL import Image, ImageDraw, ImageFont
 
@@ -230,42 +232,40 @@ def _gerar_foto_ficticia(caminho_absoluto, iniciais, cor_fundo):
     imagem = Image.new("RGB", (largura, altura), cor_fundo)
     desenho = ImageDraw.Draw(imagem)
 
-    def carregar_fonte(tamanho, negrito=False):
-        # Tenta fontes comuns (Windows/Linux) e a que acompanha o Pillow;
-        # se nenhuma for encontrada, cai na fonte padrão (pequena).
-        candidatas = (
-            ["arialbd.ttf", "DejaVuSans-Bold.ttf"]
-            if negrito
-            else ["arial.ttf", "DejaVuSans.ttf"]
-        )
-        for nome in candidatas:
+    branco = (255, 255, 255)
+    cx = largura // 2
+
+    # Ombros/corpo: meia-elipse (dome) branca na parte de baixo.
+    desenho.pieslice([cx - 95, 250, cx + 95, 470], start=180, end=360, fill=branco)
+    # Cabeça: círculo branco.
+    desenho.ellipse([cx - 62, 92, cx + 62, 216], fill=branco)
+    # Olhos: dois pontos na cor do fundo.
+    desenho.ellipse([cx - 34, 140, cx - 16, 158], fill=cor_fundo)
+    desenho.ellipse([cx + 16, 140, cx + 34, 158], fill=cor_fundo)
+    # Sorriso: arco na cor do fundo.
+    desenho.arc([cx - 32, 150, cx + 32, 196], start=20, end=160, fill=cor_fundo, width=6)
+
+    # Texto "Foto teste" (fonte robusta, com fallback para a padrão do Pillow).
+    def carregar_fonte(tamanho):
+        for nome in ("arial.ttf", "DejaVuSans.ttf"):
             try:
                 return ImageFont.truetype(nome, tamanho)
             except OSError:
                 continue
         try:
-            # Fonte que acompanha o Pillow, via caminho absoluto do pacote.
             import PIL
-            caminho = os.path.join(
-                os.path.dirname(PIL.__file__), "fonts", "DejaVuSans.ttf"
+            return ImageFont.truetype(
+                os.path.join(os.path.dirname(PIL.__file__), "fonts", "DejaVuSans.ttf"),
+                tamanho,
             )
-            return ImageFont.truetype(caminho, tamanho)
         except OSError:
             return ImageFont.load_default()
 
-    fonte_grande = carregar_fonte(130, negrito=True)
-    fonte_pequena = carregar_fonte(26)
-
-    def centralizar(texto, fonte, centro_y, cor):
-        caixa = desenho.textbbox((0, 0), texto, font=fonte)
-        larg_txt = caixa[2] - caixa[0]
-        alt_txt = caixa[3] - caixa[1]
-        x = (largura - larg_txt) / 2 - caixa[0]
-        y = centro_y - alt_txt / 2 - caixa[1]
-        desenho.text((x, y), texto, fill=cor, font=fonte)
-
-    centralizar(iniciais, fonte_grande, altura * 0.42, "white")
-    centralizar("Foto teste", fonte_pequena, altura * 0.80, "white")
+    fonte = carregar_fonte(24)
+    texto = "Foto teste"
+    caixa = desenho.textbbox((0, 0), texto, font=fonte)
+    x = (largura - (caixa[2] - caixa[0])) / 2 - caixa[0]
+    desenho.text((x, altura - 30), texto, fill=branco, font=fonte)
 
     os.makedirs(os.path.dirname(caminho_absoluto), exist_ok=True)
     imagem.save(caminho_absoluto, "PNG")

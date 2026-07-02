@@ -865,11 +865,12 @@ details[open] > summary .ver-mais::after { content: " ▾"; }
 
 .av-foto-grande img,
 .av-foto-grande .foto-vazia-grande {
-    width: 84px;
-    height: 108px;
-    border-radius: 14px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--borda);
+    object-position: center 28%;
+    border: 3px solid var(--branco);
     box-shadow: var(--sombra-card);
     flex-shrink: 0;
 }

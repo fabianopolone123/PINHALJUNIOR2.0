@@ -22,6 +22,38 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Avatar fictício nas fotos de teste e moldura redonda em "Meus Dados"
+
+### Resumo
+Ajustes visuais nas fotos: o comando de teste passou a gerar um **avatar de desenho fictício**
+(silhueta com rosto sorridente + "Foto teste"), no lugar do quadrado com iniciais, e a moldura
+da foto em "Meus Dados" ficou **redonda** (foto de perfil). Nenhuma foto real de pessoa/criança
+é usada — apenas formas desenhadas com Pillow. Nenhum model alterado — sem migrations.
+
+### Contexto
+Foi solicitado usar fotos reais de crianças; isso foi **recusado** por segurança/privacidade de
+menores e pela regra do projeto (não usar fotos reais de crianças). A alternativa segura adotada
+foi desenhar um avatar fictício.
+
+### Arquivos alterados
+- `core/management/commands/criar_dados_teste.py`: `_gerar_foto_ficticia` agora desenha um avatar
+  (cabeça, ombros, olhos e sorriso) sobre fundo colorido, com "Foto teste".
+- `static/css/inicio.css`: moldura da foto do aventureiro agora circular (`border-radius: 50%`,
+  100x100, `object-position: center 28%` para enquadrar o rosto).
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Como regenerar
+```
+python manage.py criar_dados_teste
+```
+(As fotos são regeradas quando ausentes; para forçar o novo avatar em fotos antigas, apague os
+arquivos em `media/aventureiros/fotos_teste/` antes de rodar.)
+
+### Validação
+- Fotos regeradas e exibidas em cards com moldura redonda (validado por captura em Chrome headless).
+
+---
+
 ## 2026-07-02 - Correção de fotos, dados completos e fechar painéis ao clicar fora em "Meus Dados"
 
 ### Resumo
