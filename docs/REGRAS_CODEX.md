@@ -186,3 +186,21 @@ internas ou no fluxo de login, seguir estas regras:
   `templates/core/_dado.html` (rótulo + valor) para listar campos.
 - **Detalhes recolhíveis**: usar `<details>/<summary>` nativos (sem biblioteca), estilizados via CSS.
 - Preservar o layout da área interna (menu lateral fixo no desktop / gaveta no mobile) e a paleta.
+
+## Padrão de exibição e edição em "Meus Dados"
+
+- **Responsável principal**: derivado dos campos `resp_*` do aventureiro mais recente do usuário
+  (cidade/estado vêm do `AutorizacaoImagem` do mesmo aventureiro). Sem aventureiros, exibir os
+  dados básicos da conta (`request.user`).
+- **Edição do responsável** (`core:editar_responsavel`): como o responsável é gravado em cada
+  `Aventureiro`, a alteração é propagada para **todos os aventureiros do usuário logado com o mesmo
+  CPF de responsável** (base: o mais recente); se nenhum coincidir, altera só o mais recente.
+  Materializar a lista de alvos ANTES de alterar o CPF. Nunca tocar em dados de outro usuário.
+  Usar o framework de `messages` para feedback e redirecionar para `core:inicio` após salvar.
+- **Cards clicáveis**: usar `<details>` com o `<summary>` sendo o cabeçalho bonito do card
+  (foto + nome + pílulas + status); ao abrir, mostrar as seções internas (também `<details>`).
+- **Painéis/accordions aninhados**: remover o marcador nativo (`::-webkit-details-marker`) e indicar
+  aberto/fechado via `.ver-mais` / `::after`. Nada de bibliotecas.
+- **Responsividade**: em flex com texto longo (nomes, e-mails), usar `min-width: 0` +
+  `overflow-wrap: anywhere` para permitir quebra; manter `overflow-x: hidden` no `body` como guarda.
+- **Placeholders**: foto ausente → placeholder; campos vazios → "Não informado" (parcial `_dado.html`).

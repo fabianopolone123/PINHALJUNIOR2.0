@@ -108,6 +108,22 @@ class FichaMedicaForm(EstiloFormMixin, forms.ModelForm):
         self._aplicar_estilo()
 
 
+class ResponsavelLegalForm(EstiloFormMixin, forms.Form):
+    """Edição dos dados do responsável legal (compartilhados entre aventureiros)."""
+
+    resp_nome = forms.CharField(label="Nome do responsável legal", max_length=150)
+    resp_parentesco = forms.CharField(
+        label="Grau de parentesco", max_length=50, required=False
+    )
+    resp_cpf = forms.CharField(label="CPF", max_length=20)
+    resp_email = forms.EmailField(label="E-mail", required=False)
+    resp_whatsapp = forms.CharField(label="WhatsApp", max_length=20)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._aplicar_estilo()
+
+
 class AutorizacaoImagemForm(EstiloFormMixin, forms.ModelForm):
     """Termo de autorização de uso de imagem (etapa 6)."""
 

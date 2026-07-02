@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -13,6 +14,7 @@ from .forms import (
     AventureiroForm,
     ContaForm,
     FichaMedicaForm,
+    ResponsavelLegalForm,
 )
 
 # ---------------------------------------------------------------------------
@@ -151,11 +153,83 @@ def inicio_view(request):
         # Reverse OneToOne pode não existir; getattr evita exceção.
         _preparar_ficha(getattr(av, "ficha_medica", None))
 
+    # Responsável principal: dados do responsável legal do aventureiro mais recente.
+    ultimo = max(aventureiros, key=lambda a: a.criado_em) if aventureiros else None
+    responsavel = None
+    if ultimo is not None:
+        autorizacao = getattr(ultimo, "autorizacao_imagem", None)
+        responsavel = {
+            "nome": ultimo.resp_nome,
+            "parentesco": ultimo.resp_parentesco,
+            "cpf": ultimo.resp_cpf,
+            "email": ultimo.resp_email,
+            "whatsapp": ultimo.resp_whatsapp,
+            "cidade": autorizacao.resp_cidade if autorizacao else "",
+            "estado": autorizacao.resp_estado if autorizacao else "",
+        }
+
     contexto = {
         "aventureiros": aventureiros,
         "total_aventureiros": len(aventureiros),
+        "responsavel": responsavel,
     }
     return render(request, "core/inicio.html", contexto)
+
+
+@login_required
+def editar_responsavel_view(request):
+    """
+    Edita os dados do responsável legal do usuário logado.
+
+    Como o responsável é gravado em cada `Aventureiro`, a alteração é aplicada a
+    todos os aventureiros do usuário que compartilham o mesmo CPF de responsável
+    (base: o aventureiro mais recente). Se nenhum tiver o mesmo CPF, altera apenas
+    o mais recente. Nunca toca em dados de outros usuários.
+    """
+    usuario = request.user
+    base = usuario.aventureiros.order_by("-criado_em").first()
+    if base is None:
+        messages.error(
+            request, "Você ainda não tem aventureiros cadastrados para editar o responsável."
+        )
+        return redirect("core:inicio")
+
+    if request.method == "POST":
+        form = ResponsavelLegalForm(request.POST)
+        if form.is_valid():
+            dados = form.cleaned_data
+            cpf_base = (base.resp_cpf or "").strip()
+            # Materializa os alvos ANTES de alterar o CPF.
+            if cpf_base:
+                alvos = list(usuario.aventureiros.filter(resp_cpf=cpf_base))
+            else:
+                alvos = []
+            if not alvos:
+                alvos = [base]
+
+            campos = [
+                "resp_nome", "resp_parentesco", "resp_cpf", "resp_email", "resp_whatsapp",
+            ]
+            for av in alvos:
+                for campo in campos:
+                    setattr(av, campo, dados[campo])
+                av.save(update_fields=campos)
+
+            messages.success(request, "Dados do responsável atualizados com sucesso.")
+            return redirect("core:inicio")
+        messages.error(request, "Não foi possível salvar. Verifique os campos destacados.")
+    else:
+        form = ResponsavelLegalForm(
+            initial={
+                "resp_nome": base.resp_nome,
+                "resp_parentesco": base.resp_parentesco,
+                "resp_cpf": base.resp_cpf,
+                "resp_email": base.resp_email,
+                "resp_whatsapp": base.resp_whatsapp,
+            }
+        )
+
+    return render(request, "core/editar_responsavel.html", {"form": form})
 
 
 def _instanciar_forms_aventureiro(request):

@@ -25,17 +25,13 @@
             </div>
 
             <nav class="menu">
-                <!-- Primeiro item de menu. O item ativo recebe a classe "ativo". -->
                 <a href="{% url 'core:inicio' %}" class="menu-item ativo" aria-current="page">
                     <span class="menu-icone" aria-hidden="true">👤</span>
                     <span class="menu-texto">Meus Dados</span>
                 </a>
-
                 <!--
-                    FUTUROS ITENS DE MENU:
-                    Adicionar novos <a class="menu-item"> aqui.
-                    Futuramente, exibir/ocultar conforme o perfil/permissão do usuário
-                    (ex.: {% if pode_ver_algo %} ... {% endif %}).
+                    FUTUROS ITENS DE MENU: adicionar novos <a class="menu-item"> aqui,
+                    futuramente condicionados ao perfil/permissão do usuário.
                 -->
             </nav>
 
@@ -60,7 +56,6 @@
         <!-- ===================== Área principal ===================== -->
         <main class="conteudo">
 
-            <!-- Barra superior visível apenas no celular (abre o menu lateral) -->
             <header class="topo-mobile">
                 <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
                     <span class="botao-menu-barra"></span>
@@ -71,180 +66,249 @@
             </header>
 
             <div class="conteudo-interno">
-                <!-- Cabeçalho de boas-vindas -->
                 <header class="cabecalho">
                     <h1 class="cabecalho-titulo">Olá, {{ user.username }}! 👋</h1>
                     <p class="cabecalho-sub">
-                        Esta é a sua área. Aqui você acompanha os dados da sua conta e dos
-                        aventureiros cadastrados por você.
+                        Esta é a sua área. Veja os dados do responsável e dos aventureiros cadastrados.
                     </p>
                 </header>
 
-                <!-- ===================== Card: Dados da Conta ===================== -->
-                <section class="card conta-card card-destaque">
-                    <div class="card-cabecalho">
-                        <span class="card-icone" aria-hidden="true">🗂️</span>
-                        <h2 class="card-titulo">Dados da Conta</h2>
-                    </div>
-                    <div class="dados-grade">
-                        {% include "core/_dado.html" with rotulo="Usuário" valor=user.username %}
-                        {% include "core/_dado.html" with rotulo="E-mail" valor=user.email %}
-                        {% include "core/_dado.html" with rotulo="Conta criada em" valor=user.date_joined|date:"d/m/Y" %}
-                        <div class="dado">
-                            <span class="dado-rotulo">Aventureiros cadastrados</span>
-                            <span class="dado-valor"><strong>{{ total_aventureiros }}</strong></span>
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- ===================== Card: Responsável ===================== -->
+                {% if responsavel %}
+                <section class="card resp-card card-destaque">
+                    <details class="painel">
+                        <summary class="painel-summary">
+                            <div class="resp-cabecalho">
+                                <span class="resp-avatar" aria-hidden="true">🧑‍🤝‍🧑</span>
+                                <div class="resp-topo-info">
+                                    <span class="resp-rotulo">Responsável</span>
+                                    <h2 class="resp-nome">{{ responsavel.nome|default:"Não informado" }}</h2>
+                                    <div class="pills">
+                                        {% if responsavel.parentesco %}<span class="pill">{{ responsavel.parentesco }}</span>{% endif %}
+                                        <span class="pill pill-verde">{{ total_aventureiros }} aventureiro{{ total_aventureiros|pluralize }}</span>
+                                    </div>
+                                    <p class="resp-contato">
+                                        {% if responsavel.email %}<span>✉️ {{ responsavel.email }}</span>{% endif %}
+                                        {% if responsavel.whatsapp %}<span>📱 {{ responsavel.whatsapp }}</span>{% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            <span class="ver-mais">Ver dados do responsável</span>
+                        </summary>
+                        <div class="painel-corpo">
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome" valor=responsavel.nome %}
+                                {% include "core/_dado.html" with rotulo="Grau de parentesco" valor=responsavel.parentesco %}
+                                {% include "core/_dado.html" with rotulo="CPF" valor=responsavel.cpf %}
+                                {% include "core/_dado.html" with rotulo="E-mail" valor=responsavel.email %}
+                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=responsavel.whatsapp %}
+                                {% include "core/_dado.html" with rotulo="Cidade" valor=responsavel.cidade %}
+                                {% include "core/_dado.html" with rotulo="Estado" valor=responsavel.estado %}
+                            </div>
+                            <p class="conta-meta">
+                                Conta: <strong>{{ user.username }}</strong>
+                                {% if user.email %}· {{ user.email }}{% endif %}
+                                · criada em {{ user.date_joined|date:"d/m/Y" }}
+                            </p>
+                            <a href="{% url 'core:editar_responsavel' %}" class="btn-acao">
+                                <span aria-hidden="true">✏️</span> Editar
+                            </a>
+                        </div>
+                    </details>
+                </section>
+                {% else %}
+                <section class="card resp-card card-destaque">
+                    <div class="resp-cabecalho">
+                        <span class="resp-avatar" aria-hidden="true">👤</span>
+                        <div class="resp-topo-info">
+                            <span class="resp-rotulo">Responsável</span>
+                            <h2 class="resp-nome">{{ user.username }}</h2>
+                            <div class="pills"><span class="pill">0 aventureiros</span></div>
+                            <p class="resp-contato">
+                                {% if user.email %}<span>✉️ {{ user.email }}</span>{% endif %}
+                                <span>Conta criada em {{ user.date_joined|date:"d/m/Y" }}</span>
+                            </p>
                         </div>
                     </div>
-                    <a href="{% url 'core:cadastro_novo_aventureiro' %}" class="btn-acao">
+                    <p class="card-texto">
+                        Cadastre um aventureiro para completar os dados do responsável.
+                    </p>
+                </section>
+                {% endif %}
+
+                <!-- ===================== Aventureiros ===================== -->
+                <div class="secao-cabecalho">
+                    <h2 class="secao-titulo">Aventureiros cadastrados</h2>
+                    <a href="{% url 'core:cadastro_novo_aventureiro' %}" class="btn-acao btn-acao-pequeno">
                         <span aria-hidden="true">➕</span> Cadastrar outro aventureiro
                     </a>
-                </section>
+                </div>
 
                 {% if aventureiros %}
-                <!-- ===================== Lista de aventureiros ===================== -->
-                <h2 class="secao-titulo">Aventureiros</h2>
                 <section class="aventureiros-lista">
                     {% for av in aventureiros %}
-                    <article class="card aventureiro-card">
-                        <div class="aventureiro-topo">
-                            <div class="aventureiro-foto">
+                    <details class="card av-card">
+                        <summary class="av-summary">
+                            <div class="av-foto-grande">
                                 {% if av.foto %}
                                     <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome_completo }}">
                                 {% else %}
-                                    <div class="foto-vazia" aria-hidden="true">Sem foto</div>
+                                    <div class="foto-vazia-grande" aria-hidden="true">👤</div>
                                 {% endif %}
                             </div>
-                            <div class="aventureiro-resumo">
-                                <h3 class="aventureiro-nome">{{ av.nome_completo }}</h3>
+                            <div class="av-info">
+                                <h3 class="av-nome">{{ av.nome_completo }}</h3>
                                 <div class="pills">
-                                    <span class="pill">{{ av.get_sexo_display }}</span>
                                     {% if av.idade is not None %}<span class="pill">{{ av.idade }} anos</span>{% endif %}
-                                    {% if av.data_nascimento %}<span class="pill">Nasc. {{ av.data_nascimento|date:"d/m/Y" }}</span>{% endif %}
-                                    {% if av.cidade %}<span class="pill">{{ av.cidade }}{% if av.estado %}/{{ av.estado }}{% endif %}</span>{% endif %}
                                     {% if av.get_tamanho_camiseta_display %}<span class="pill">Camiseta {{ av.get_tamanho_camiseta_display }}</span>{% endif %}
+                                    {% for c in av.classes %}<span class="pill pill-verde">{{ c }}</span>{% endfor %}
                                 </div>
-                                <div class="mini-dados">
-                                    {% if av.colegio %}<p><span>Colégio:</span> {{ av.colegio }}{% if av.serie %} — {{ av.serie }}{% endif %}{% if av.ano %} ({{ av.ano }}){% endif %}</p>{% endif %}
-                                    <p><span>Bolsa Família:</span> {{ av.bolsa_familia|yesno:"Sim,Não" }}</p>
-                                    <p><span>Responsável legal:</span> {{ av.resp_nome }}</p>
-                                    <p><span>WhatsApp:</span> {{ av.resp_whatsapp }}</p>
-                                    {% if av.classes %}
-                                    <p class="mini-classes"><span>Classes:</span>
-                                        {% for c in av.classes %}<span class="pill pill-verde">{{ c }}</span>{% endfor %}
-                                    </p>
-                                    {% endif %}
+                                <div class="status-row">
+                                    <span class="status {% if av.ficha_medica %}status-ok{% endif %}">
+                                        {% if av.ficha_medica %}✓{% else %}—{% endif %} Ficha médica
+                                    </span>
+                                    <span class="status {% if av.autorizacao_imagem_aceita %}status-ok{% endif %}">
+                                        {% if av.autorizacao_imagem_aceita %}✓{% else %}—{% endif %} Autorização de imagem
+                                    </span>
                                 </div>
+                            </div>
+                            <span class="ver-mais">Ver dados</span>
+                        </summary>
+
+                        <div class="av-corpo">
+                            <details class="secao">
+                                <summary>Dados pessoais</summary>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Nome completo" valor=av.nome_completo %}
+                                    {% include "core/_dado.html" with rotulo="Sexo" valor=av.get_sexo_display %}
+                                    {% include "core/_dado.html" with rotulo="Data de nascimento" valor=av.data_nascimento|date:"d/m/Y" %}
+                                    {% include "core/_dado.html" with rotulo="Idade" valor=av.idade %}
+                                    {% include "core/_dado.html" with rotulo="Colégio" valor=av.colegio %}
+                                    {% include "core/_dado.html" with rotulo="Série" valor=av.serie %}
+                                    {% include "core/_dado.html" with rotulo="Ano" valor=av.ano %}
+                                    {% include "core/_dado.html" with rotulo="Bolsa Família" valor=av.bolsa_familia|yesno:"Sim,Não" %}
+                                    {% include "core/_dado.html" with rotulo="Classes investidas" valor=av.classes|join:", " %}
+                                    {% include "core/_dado.html" with rotulo="Certidão de nascimento" valor=av.certidao_nascimento %}
+                                    {% include "core/_dado.html" with rotulo="Religião" valor=av.religiao %}
+                                    {% include "core/_dado.html" with rotulo="RG" valor=av.rg %}
+                                    {% include "core/_dado.html" with rotulo="Órgão expedidor" valor=av.orgao_expedidor %}
+                                    {% include "core/_dado.html" with rotulo="CPF" valor=av.cpf %}
+                                    {% include "core/_dado.html" with rotulo="Tamanho da camiseta" valor=av.get_tamanho_camiseta_display %}
+                                    {% include "core/_dado.html" with rotulo="Cidade da inscrição" valor=av.cidade_inscricao %}
+                                    {% include "core/_dado.html" with rotulo="Data da inscrição" valor=av.data_inscricao|date:"d/m/Y" %}
+                                </div>
+                            </details>
+
+                            <details class="secao">
+                                <summary>Endereço</summary>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Endereço" valor=av.endereco %}
+                                    {% include "core/_dado.html" with rotulo="Bairro" valor=av.bairro %}
+                                    {% include "core/_dado.html" with rotulo="Cidade" valor=av.cidade %}
+                                    {% include "core/_dado.html" with rotulo="CEP" valor=av.cep %}
+                                    {% include "core/_dado.html" with rotulo="Estado" valor=av.estado %}
+                                </div>
+                            </details>
+
+                            <details class="secao">
+                                <summary>Pai</summary>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Nome" valor=av.pai_nome %}
+                                    {% include "core/_dado.html" with rotulo="E-mail" valor=av.pai_email %}
+                                    {% include "core/_dado.html" with rotulo="CPF" valor=av.pai_cpf %}
+                                    {% include "core/_dado.html" with rotulo="Celular" valor=av.pai_celular %}
+                                    {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.pai_whatsapp %}
+                                </div>
+                            </details>
+
+                            <details class="secao">
+                                <summary>Mãe</summary>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Nome" valor=av.mae_nome %}
+                                    {% include "core/_dado.html" with rotulo="E-mail" valor=av.mae_email %}
+                                    {% include "core/_dado.html" with rotulo="CPF" valor=av.mae_cpf %}
+                                    {% include "core/_dado.html" with rotulo="Celular" valor=av.mae_celular %}
+                                    {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.mae_whatsapp %}
+                                </div>
+                            </details>
+
+                            <details class="secao">
+                                <summary>Responsável legal</summary>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Nome" valor=av.resp_nome %}
+                                    {% include "core/_dado.html" with rotulo="Grau de parentesco" valor=av.resp_parentesco %}
+                                    {% include "core/_dado.html" with rotulo="CPF" valor=av.resp_cpf %}
+                                    {% include "core/_dado.html" with rotulo="E-mail" valor=av.resp_email %}
+                                    {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.resp_whatsapp %}
+                                </div>
+                            </details>
+
+                            {% if av.ficha_medica %}
+                            <details class="secao">
+                                <summary>Ficha médica</summary>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Possui plano de saúde" valor=av.ficha_medica.possui_plano_saude|yesno:"Sim,Não" %}
+                                    {% include "core/_dado.html" with rotulo="Nome do plano" valor=av.ficha_medica.qual_plano_saude %}
+                                    {% include "core/_dado.html" with rotulo="Número do SUS" valor=av.ficha_medica.cartao_sus %}
+                                    {% include "core/_dado.html" with rotulo="Tipo sanguíneo" valor=av.ficha_medica.get_tipo_sanguineo_display %}
+                                    {% include "core/_dado.html" with rotulo="Problemas cardíacos" valor=av.ficha_medica.cardiaco|yesno:"Sim,Não" %}
+                                    {% include "core/_dado.html" with rotulo="Diabetes" valor=av.ficha_medica.diabetico|yesno:"Sim,Não" %}
+                                    {% include "core/_dado.html" with rotulo="Problemas renais" valor=av.ficha_medica.renais|yesno:"Sim,Não" %}
+                                    {% include "core/_dado.html" with rotulo="Problemas psicológicos" valor=av.ficha_medica.psicologicos|yesno:"Sim,Não" %}
+                                </div>
+                                <div class="listas">
+                                    <p><span>Doenças:</span> {{ av.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                    <p><span>Alergias:</span> {{ av.ficha_medica.alergias_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                    <p><span>Histórico recente (problemas/medicamentos/ferimentos/cirurgia/internação):</span>
+                                        {{ av.ficha_medica.historico_lista|join:", "|default:"Nada informado" }}</p>
+                                    <p><span>Outros problemas/medicamentos:</span> {{ av.ficha_medica.outros_problemas|default:"Não informado" }}</p>
+                                </div>
+                                <p class="aceite {% if av.declaracao_medica_aceita %}aceite-ok{% endif %}">
+                                    {% if av.declaracao_medica_aceita %}✓ Declaração médica aceita{% else %}Declaração médica não aceita{% endif %}
+                                </p>
+                            </details>
+                            {% endif %}
+
+                            {% if av.autorizacao_imagem %}
+                            <details class="secao">
+                                <summary>Autorização de imagem</summary>
+                                <p class="aceite {% if av.autorizacao_imagem_aceita %}aceite-ok{% endif %}">
+                                    {% if av.autorizacao_imagem_aceita %}✓ Termo de imagem aceito{% else %}Termo de imagem não aceito{% endif %}
+                                </p>
+                                <div class="dados-grade">
+                                    {% include "core/_dado.html" with rotulo="Nome do menor" valor=av.autorizacao_imagem.nome_menor %}
+                                    {% include "core/_dado.html" with rotulo="Responsável legal" valor=av.autorizacao_imagem.resp_nome %}
+                                    {% include "core/_dado.html" with rotulo="CPF do responsável" valor=av.autorizacao_imagem.resp_cpf %}
+                                    {% include "core/_dado.html" with rotulo="RG do responsável" valor=av.autorizacao_imagem.resp_rg %}
+                                    {% include "core/_dado.html" with rotulo="Cidade" valor=av.autorizacao_imagem.resp_cidade %}
+                                    {% include "core/_dado.html" with rotulo="Estado" valor=av.autorizacao_imagem.resp_estado %}
+                                    {% include "core/_dado.html" with rotulo="Data do cadastro" valor=av.data_inscricao|date:"d/m/Y" %}
+                                </div>
+                                <p class="obs-termo">
+                                    O responsável legal autorizou o uso de imagem do menor para fins
+                                    institucionais do clube, conforme o termo aceito no cadastro.
+                                </p>
+                            </details>
+                            {% endif %}
+
+                            <div class="editar-av">
+                                <a href="#" class="btn-secundario btn-desabilitado" aria-disabled="true" tabindex="-1"
+                                   onclick="return false;">Editar dados do aventureiro</a>
+                                <p class="ajuda">Edição completa do aventureiro será implementada em uma próxima etapa.</p>
                             </div>
                         </div>
-
-                        <!-- Detalhes recolhíveis (accordion nativo) -->
-                        <details class="secao">
-                            <summary>Dados pessoais</summary>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Nome completo" valor=av.nome_completo %}
-                                {% include "core/_dado.html" with rotulo="Sexo" valor=av.get_sexo_display %}
-                                {% include "core/_dado.html" with rotulo="Data de nascimento" valor=av.data_nascimento|date:"d/m/Y" %}
-                                {% include "core/_dado.html" with rotulo="Idade" valor=av.idade %}
-                                {% include "core/_dado.html" with rotulo="Colégio" valor=av.colegio %}
-                                {% include "core/_dado.html" with rotulo="Série" valor=av.serie %}
-                                {% include "core/_dado.html" with rotulo="Ano" valor=av.ano %}
-                                {% include "core/_dado.html" with rotulo="Bolsa Família" valor=av.bolsa_familia|yesno:"Sim,Não" %}
-                                {% include "core/_dado.html" with rotulo="Classes investidas" valor=av.classes|join:", " %}
-                                {% include "core/_dado.html" with rotulo="Certidão de nascimento" valor=av.certidao_nascimento %}
-                                {% include "core/_dado.html" with rotulo="Religião" valor=av.religiao %}
-                                {% include "core/_dado.html" with rotulo="RG" valor=av.rg %}
-                                {% include "core/_dado.html" with rotulo="Órgão expedidor" valor=av.orgao_expedidor %}
-                                {% include "core/_dado.html" with rotulo="CPF" valor=av.cpf %}
-                                {% include "core/_dado.html" with rotulo="Tamanho da camiseta" valor=av.get_tamanho_camiseta_display %}
-                                {% include "core/_dado.html" with rotulo="Cidade da inscrição" valor=av.cidade_inscricao %}
-                                {% include "core/_dado.html" with rotulo="Data da inscrição" valor=av.data_inscricao|date:"d/m/Y" %}
-                            </div>
-                        </details>
-
-                        <details class="secao">
-                            <summary>Endereço</summary>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Endereço" valor=av.endereco %}
-                                {% include "core/_dado.html" with rotulo="Bairro" valor=av.bairro %}
-                                {% include "core/_dado.html" with rotulo="Cidade" valor=av.cidade %}
-                                {% include "core/_dado.html" with rotulo="CEP" valor=av.cep %}
-                                {% include "core/_dado.html" with rotulo="Estado" valor=av.estado %}
-                            </div>
-                        </details>
-
-                        <details class="secao">
-                            <summary>Responsáveis</summary>
-                            <h4 class="bloco-rotulo">Pai</h4>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Nome" valor=av.pai_nome %}
-                                {% include "core/_dado.html" with rotulo="E-mail" valor=av.pai_email %}
-                                {% include "core/_dado.html" with rotulo="CPF" valor=av.pai_cpf %}
-                                {% include "core/_dado.html" with rotulo="Celular" valor=av.pai_celular %}
-                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.pai_whatsapp %}
-                            </div>
-                            <h4 class="bloco-rotulo">Mãe</h4>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Nome" valor=av.mae_nome %}
-                                {% include "core/_dado.html" with rotulo="E-mail" valor=av.mae_email %}
-                                {% include "core/_dado.html" with rotulo="CPF" valor=av.mae_cpf %}
-                                {% include "core/_dado.html" with rotulo="Celular" valor=av.mae_celular %}
-                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.mae_whatsapp %}
-                            </div>
-                            <h4 class="bloco-rotulo">Responsável legal</h4>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Nome" valor=av.resp_nome %}
-                                {% include "core/_dado.html" with rotulo="Grau de parentesco" valor=av.resp_parentesco %}
-                                {% include "core/_dado.html" with rotulo="CPF" valor=av.resp_cpf %}
-                                {% include "core/_dado.html" with rotulo="E-mail" valor=av.resp_email %}
-                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=av.resp_whatsapp %}
-                            </div>
-                        </details>
-
-                        {% if av.ficha_medica %}
-                        <details class="secao">
-                            <summary>Ficha médica</summary>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Possui plano de saúde" valor=av.ficha_medica.possui_plano_saude|yesno:"Sim,Não" %}
-                                {% include "core/_dado.html" with rotulo="Plano de saúde" valor=av.ficha_medica.qual_plano_saude %}
-                                {% include "core/_dado.html" with rotulo="Número do SUS" valor=av.ficha_medica.cartao_sus %}
-                                {% include "core/_dado.html" with rotulo="Tipo sanguíneo" valor=av.ficha_medica.get_tipo_sanguineo_display %}
-                            </div>
-                            <div class="listas">
-                                <p><span>Doenças:</span> {{ av.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
-                                <p><span>Alergias:</span> {{ av.ficha_medica.alergias_lista|join:", "|default:"Nenhuma informada" }}</p>
-                                <p><span>Condições de saúde:</span> {{ av.ficha_medica.condicoes_lista|join:", "|default:"Nenhuma informada" }}</p>
-                                <p><span>Histórico recente:</span> {{ av.ficha_medica.historico_lista|join:", "|default:"Nada informado" }}</p>
-                                <p><span>Outros problemas/medicamentos:</span> {{ av.ficha_medica.outros_problemas|default:"—" }}</p>
-                            </div>
-                            <p class="aceite {% if av.declaracao_medica_aceita %}aceite-ok{% endif %}">
-                                {% if av.declaracao_medica_aceita %}✓ Declaração médica aceita{% else %}Declaração médica não aceita{% endif %}
-                            </p>
-                        </details>
-                        {% endif %}
-
-                        {% if av.autorizacao_imagem %}
-                        <details class="secao">
-                            <summary>Autorização de imagem</summary>
-                            <p class="aceite {% if av.autorizacao_imagem_aceita %}aceite-ok{% endif %}">
-                                {% if av.autorizacao_imagem_aceita %}✓ Termo de imagem aceito{% else %}Termo de imagem não aceito{% endif %}
-                            </p>
-                            <div class="dados-grade">
-                                {% include "core/_dado.html" with rotulo="Nome do menor" valor=av.autorizacao_imagem.nome_menor %}
-                                {% include "core/_dado.html" with rotulo="Responsável legal" valor=av.autorizacao_imagem.resp_nome %}
-                                {% include "core/_dado.html" with rotulo="CPF do responsável" valor=av.autorizacao_imagem.resp_cpf %}
-                                {% include "core/_dado.html" with rotulo="Cidade/Estado" valor=av.autorizacao_imagem.resp_cidade %}
-                            </div>
-                            <p class="obs-termo">
-                                O responsável legal autorizou o uso de imagem do menor para fins
-                                institucionais do clube, conforme o termo aceito no cadastro.
-                            </p>
-                        </details>
-                        {% endif %}
-                    </article>
+                    </details>
                     {% endfor %}
                 </section>
                 {% else %}
-                <!-- Nenhum aventureiro cadastrado -->
                 <section class="card vazio-card">
                     <span class="vazio-icone" aria-hidden="true">🧭</span>
                     <h2 class="card-titulo">Nenhum aventureiro cadastrado ainda</h2>

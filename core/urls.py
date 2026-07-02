@@ -8,6 +8,11 @@ urlpatterns = [
     path("", views.login_view, name="login"),
     path("sair/", views.sair_view, name="sair"),
     path("inicio/", views.inicio_view, name="inicio"),
+    path(
+        "meus-dados/responsavel/editar/",
+        views.editar_responsavel_view,
+        name="editar_responsavel",
+    ),
     path("cadastro/", views.cadastro_view, name="cadastro"),
     path(
         "cadastro/novo-aventureiro/",

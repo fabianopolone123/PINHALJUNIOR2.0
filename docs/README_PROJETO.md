@@ -36,7 +36,8 @@ com CSS próprio (sem frameworks externos).
 - Models de cadastro criados e migrados (`Aventureiro`, `FichaMedica`, `AutorizacaoImagem`).
 - Logo do clube exibido no login, no menu lateral e no cadastro.
 - **Autenticação real implementada** (login por username/senha, logout e `@login_required` na área interna).
-- Tela "Meus Dados" funcional: mostra os dados da conta e os aventureiros do usuário logado.
+- Tela "Meus Dados" funcional: card do **Responsável** no topo (com edição) e os aventureiros
+  do usuário logado em cards clicáveis com detalhes por seção.
 - **Sem controle de permissões / perfis** (preparado para o futuro).
 
 ## Como rodar o projeto localmente
@@ -152,6 +153,7 @@ PINHALJUNIOR2.0/
 - `/` — tela de login com autenticação real (view `core.views.login_view`, nome `core:login`).
 - `/sair/` — logout (POST); encerra a sessão e volta ao login (view `core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área logada "Meus Dados", protegida por `@login_required` (view `core.views.inicio_view`, nome `core:inicio`).
+- `/meus-dados/responsavel/editar/` — edição dos dados do responsável legal, protegida por login (view `core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
 - `/cadastro/` — cadastro inicial: cria a conta + o primeiro aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — cadastra outro aventureiro na mesma conta, sem etapa de conta (view `core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação, com opções "Cadastrar outro aventureiro" e "Ir para a tela inicial" (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

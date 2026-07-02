@@ -22,6 +22,73 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - "Meus Dados" reorganizado: responsável (com edição) + aventureiros clicáveis
+
+### Resumo
+Reorganização da tela `/inicio/` ("Meus Dados") para um fluxo mais claro: um card do
+**Responsável** no topo (expansível, com edição) e a seção **Aventureiros cadastrados**
+com cards clicáveis que abrem todos os dados do aventureiro em seções recolhíveis. Criada
+a edição dos dados do responsável, que propaga a alteração aos aventureiros do usuário que
+compartilham o mesmo responsável. Nenhum model foi alterado — sem migrations.
+
+### Como ficou a tela
+- **Card Responsável**: dados do responsável legal do aventureiro mais recente (nome, parentesco,
+  e-mail, WhatsApp, total de aventureiros). Expande mostrando também CPF e cidade/estado (do termo
+  de imagem), a meta da conta e o botão **Editar**. Sem aventureiros, mostra os dados da conta.
+- **Aventureiros cadastrados**: card por aventureiro com foto 3x4 destacada, nome, pílulas
+  (idade, camiseta, classes) e status (✓ ficha médica / ✓ autorização). Ao clicar, abre as seções:
+  Dados pessoais, Endereço, Pai, Mãe, Responsável legal, Ficha médica e Autorização de imagem.
+  Botão "Editar dados do aventureiro" desabilitado (com aviso de que a edição virá depois).
+- Botão "Cadastrar outro aventureiro" (→ `/cadastro/novo-aventureiro/`) e estado vazio amigável.
+- Mensagens de sucesso/erro via framework de `messages`.
+
+### Edição do responsável
+- Rota `/meus-dados/responsavel/editar/` (`core:editar_responsavel`), protegida por login.
+- Form `ResponsavelLegalForm` (nome, parentesco, CPF, e-mail, WhatsApp), pré-preenchido com o
+  responsável do aventureiro mais recente.
+- Ao salvar, aplica os dados a todos os aventureiros do usuário logado com o **mesmo CPF de
+  responsável** (base: o mais recente); se nenhum coincidir, altera só o mais recente. Nunca
+  altera dados de outro usuário. Redireciona a `/inicio/` com mensagem de sucesso.
+
+### Rotas criadas/alteradas
+- Criada: `/meus-dados/responsavel/editar/` (`core:editar_responsavel`).
+- `inicio_view`: passou a montar o contexto do responsável (além dos aventureiros).
+
+### Arquivos criados/alterados
+- `core/forms.py`: novo `ResponsavelLegalForm`.
+- `core/views.py`: contexto do responsável em `inicio_view`; nova `editar_responsavel_view`;
+  import de `messages`.
+- `core/urls.py`: rota de edição do responsável.
+- `templates/core/inicio.html`: reescrita (card do responsável + cards clicáveis + mensagens).
+- `templates/core/editar_responsavel.html`: novo (form de edição, reutiliza `cadastro.css` e `_campo.html`).
+- `static/css/inicio.css`: estilos de mensagens, painel do responsável, cards de aventureiro
+  (foto destacada, status, accordion), botões e responsividade; `overflow-x: hidden` de guarda.
+- `docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`,
+  `docs/REGRAS_CODEX.md`: documentação atualizada.
+
+### Decisões tomadas
+- Reaproveitar `<details>/<summary>` nativos (sem JS) para painel do responsável e cards dos
+  aventureiros; reutilizar a parcial `_dado.html` e cálculos na view (idade, listas).
+- Edição do responsável de forma segura: propaga por CPF do responsável, materializando os alvos
+  antes de alterar o CPF; sempre restrita a `request.user`.
+- Não alterar models (os dados do responsável já vivem em `Aventureiro`); sem migrations.
+- Edição completa do aventureiro deixada para depois (botão apenas visual/desabilitado), para não
+  introduzir edição incompleta que pudesse quebrar o cadastro.
+
+### Validação
+- Test client: `/inicio/` mostra card do responsável (Mariana), os 2 aventureiros com foto,
+  status e seções (Pai/Mãe separados); edição do responsável atualiza os **dois** aventureiros
+  (mesmo CPF), com mensagem de sucesso; segurança (outro usuário não vê nem edita dados alheios);
+  proteção de login na rota de edição.
+- Visual (Chrome headless): desktop colapsado e expandido e mobile — layout bonito, responsivo e
+  **sem overflow horizontal** (confirmado por diagnóstico de largura).
+
+### Pendências
+- Edição completa dos dados do aventureiro; "Esqueci minha senha"; permissões/perfis; validação
+  avançada de CPF; envio de e-mail.
+
+---
+
 ## 2026-07-02 - Fotos fictícias dos aventureiros de teste (com verificação de existência)
 
 ### Resumo

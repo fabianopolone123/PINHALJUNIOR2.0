@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 (fotos fictícias dos aventureiros de teste, com verificação de existência)
+**Última atualização:** 2026-07-02 ("Meus Dados" reorganizado: card do responsável (com edição) + aventureiros clicáveis)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -19,11 +19,20 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Logout** em `/sair/` (POST, botão "Sair" no menu lateral); volta para o login.
 - **Proteção de rota**: `/inicio/` usa `@login_required`; sem login, redireciona para `/`
   (com `?next=`). Configurados `LOGIN_URL`, `LOGIN_REDIRECT_URL` e `LOGOUT_REDIRECT_URL`.
-- Tela interna "Meus Dados" (`/inicio/`) **funcional**: cabeçalho com saudação, card "Dados da
-  Conta" (usuário, e-mail, data de criação, total de aventureiros) e um card por aventureiro
-  com foto 3x4, pílulas de resumo e seções recolhíveis (`<details>`): dados pessoais, endereço,
-  responsáveis, ficha médica e autorização de imagem. Botão "Cadastrar outro aventureiro" e
-  estado vazio amigável quando não há aventureiros.
+- Tela interna "Meus Dados" (`/inicio/`) **funcional e reorganizada**:
+  - Card do **Responsável** no topo (dados do responsável legal do aventureiro mais recente):
+    nome, parentesco, e-mail, WhatsApp e total de aventureiros; expande (`<details>`) mostrando
+    nome, parentesco, CPF, e-mail, WhatsApp, cidade/estado (do termo de imagem) e um botão **Editar**.
+    Sem aventureiros, exibe os dados básicos da conta.
+  - Seção **Aventureiros cadastrados**: um card clicável por aventureiro com foto 3x4 destacada,
+    nome, pílulas (idade, camiseta, classes) e status de ficha médica/autorização; ao abrir, mostra
+    todos os dados em seções recolhíveis: Dados pessoais, Endereço, Pai, Mãe, Responsável legal,
+    Ficha médica e Autorização de imagem. Botão "Editar dados do aventureiro" ainda desabilitado
+    (edição completa prevista para depois).
+  - Botão "Cadastrar outro aventureiro" e estado vazio amigável quando não há aventureiros.
+- Edição do responsável em `/meus-dados/responsavel/editar/` (form `ResponsavelLegalForm`): altera
+  nome, parentesco, CPF, e-mail e WhatsApp de todos os aventureiros do usuário com o mesmo CPF de
+  responsável (ou apenas o mais recente, se nenhum coincidir); volta a `/inicio/` com mensagem de sucesso.
 - Menu lateral fixo (desktop) e recolhível/gaveta (mobile), com nome do usuário e botão "Sair".
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
 - Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
@@ -64,12 +73,15 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - No celular, o menu vira gaveta recolhível: barra superior com botão hambúrguer,
   gaveta deslizante e overlay que fecha ao tocar fora.
 - Rodapé da barra com o nome do usuário logado e o botão "Sair".
-- Área principal "Meus Dados": cabeçalho com saudação, card "Dados da Conta" e um card por
-  aventureiro (foto 3x4, pílulas de resumo e seções recolhíveis com todos os detalhes).
+- Área principal "Meus Dados": card do **Responsável** no topo (expansível, com botão Editar) e
+  a seção **Aventureiros cadastrados** com cards clicáveis (foto 3x4 destacada, pílulas de resumo,
+  status de ficha/autorização e seções recolhíveis com todos os detalhes).
 - Pílulas/etiquetas para informações rápidas; cards com sombras suaves, bordas arredondadas
-  e hover leve; seções recolhíveis via `<details>/<summary>` nativos.
+  e hover leve; painéis e seções recolhíveis via `<details>/<summary>` nativos (sem JS).
+- Mensagens de feedback (sucesso/erro) via framework de messages do Django.
 - Fundo claro com detalhes decorativos radiais suaves; animação de entrada dos cards.
-- Suporte a `prefers-reduced-motion`. Layout responsivo (mobile first).
+- Suporte a `prefers-reduced-motion`. Layout responsivo (mobile first): cards empilhados no
+  celular e em grade de 2 colunas em telas largas; sem overflow horizontal (validado).
 
 ## Models existentes
 - `Aventureiro` — ficha de inscrição + dados dos responsáveis (pai, mãe, responsável legal);
@@ -95,7 +107,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 
 ## Templates existentes
 - `templates/core/login.html` (login real, com mensagem de erro)
-- `templates/core/inicio.html` (área "Meus Dados": conta + cards dos aventureiros)
+- `templates/core/inicio.html` (área "Meus Dados": card do responsável + cards clicáveis dos aventureiros)
+- `templates/core/editar_responsavel.html` (edição do responsável legal)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
 - `templates/core/_campo.html` e `templates/core/_campo_check.html` (parciais de campo reutilizáveis)
@@ -118,6 +131,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
 - `/sair/` — logout (POST) (`core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área "Meus Dados", protegida por `@login_required` (`core.views.inicio_view`, nome `core:inicio`).
+- `/meus-dados/responsavel/editar/` — edição do responsável, protegida por login (`core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

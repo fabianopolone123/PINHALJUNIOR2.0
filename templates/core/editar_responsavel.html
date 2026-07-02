@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Editar responsável - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/cadastro.css' %}">
+</head>
+<body>
+    <main class="tela-cadastro">
+        <section class="cadastro-card">
+            <header class="cadastro-topo">
+                <img src="{% static 'img/logo.png' %}" alt="Logo do clube" class="cadastro-logo">
+                <h1 class="cadastro-titulo">Editar dados do responsável</h1>
+                <p class="cadastro-sub">
+                    As alterações valem para os aventureiros que usam este mesmo responsável legal.
+                </p>
+            </header>
+
+            {% if form.non_field_errors %}
+            <div class="aviso-erro">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <form class="cadastro-form" method="post" action="" novalidate>
+                {% csrf_token %}
+                <div class="bloco">
+                    <h3 class="bloco-titulo">Responsável legal</h3>
+                    {% include "core/_campo.html" with campo=form.resp_nome %}
+                    <div class="grade-2">
+                        {% include "core/_campo.html" with campo=form.resp_parentesco %}
+                        {% include "core/_campo.html" with campo=form.resp_cpf %}
+                    </div>
+                    <div class="grade-2">
+                        {% include "core/_campo.html" with campo=form.resp_email %}
+                        {% include "core/_campo.html" with campo=form.resp_whatsapp %}
+                    </div>
+                </div>
+
+                <div class="navegacao">
+                    <a href="{% url 'core:inicio' %}" class="btn-secundario" style="text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center;">Cancelar</a>
+                    <button type="submit" class="btn-primario">Salvar alterações</button>
+                </div>
+            </form>
+        </section>
+    </main>
+</body>
+</html>
