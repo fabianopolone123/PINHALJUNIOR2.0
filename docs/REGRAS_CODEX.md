@@ -39,6 +39,57 @@ Se mudar estrutura geral, rota, app, configuração ou modo de rodar o projeto, 
 
 - docs/README_PROJETO.md
 
+## Fluxo obrigatório para toda alteração
+
+Toda alteração futura feita pelo Codex deve seguir este fluxo completo:
+
+### Antes de alterar
+- Ler `CODEX.md`.
+- Ler todos os arquivos da pasta `docs/`.
+- Entender o estado atual do projeto.
+- Preservar o padrão existente.
+
+### Durante a alteração
+- Fazer somente o que foi solicitado.
+- Não implementar funcionalidades extras sem pedido.
+- Não apagar código sem necessidade.
+- Não instalar dependências sem autorização.
+- Manter o padrão visual e técnico do projeto.
+
+### Depois de alterar
+- Atualizar `docs/ESTADO_ATUAL.md`.
+- Atualizar `docs/HISTORICO_ALTERACOES.md`.
+- Se criar regra nova, atualizar `docs/REGRAS_CODEX.md`.
+- Se mudar estrutura, rota, app, configuração ou modo de rodar, atualizar `docs/README_PROJETO.md`.
+- Rodar `git status`.
+- Rodar `git add .`.
+- Criar commit descritivo em português do Brasil.
+- Fazer push para o repositório remoto (`origin`, branch `main`).
+
+### Segurança no Git
+- Nunca fazer `force push`.
+- Nunca apagar histórico do Git.
+- Nunca sobrescrever arquivos remotos sem autorização.
+- Se o push falhar por conflito, informar o erro e analisar com segurança antes de qualquer pull/merge.
+
+## Padrão obrigatório para mensagens de commit
+
+As mensagens de commit devem:
+- Ser sempre em português do Brasil.
+- Ser curtas, claras e descritivas.
+- Explicar objetivamente o que foi alterado.
+- Usar verbo no presente, quando possível.
+
+Exemplos de mensagens:
+- `cria tela inicial de login`
+- `melhora visual da tela de login`
+- `cria documentação interna do projeto`
+- `configura versionamento inicial`
+- `cria tela inicial interna com menu lateral`
+- `ajusta responsividade da tela inicial`
+- `implementa estrutura de autenticação`
+- `corrige layout do menu lateral`
+
 ## Padrão visual a preservar (tela de login)
 
 Ao mexer na tela de login ou em novas telas, preservar o padrão visual já criado:

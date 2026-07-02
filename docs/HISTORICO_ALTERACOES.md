@@ -22,6 +22,42 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-01 - Configuração do versionamento Git e regras de commit/push
+
+### Resumo
+Configuração do versionamento do projeto no Git e no GitHub, e registro das regras
+obrigatórias de commit e push para toda alteração futura. Não houve alteração de
+funcionalidades, layout ou telas.
+
+### Git
+- Git já estava inicializado (criado na tarefa anterior); branch principal: `main`.
+- Remoto `origin` configurado para: https://github.com/fabianopolone123/PINHALJUNIOR2.0.git
+- `.gitignore` revisado (Python/Django): passou a ignorar também `.env`, `*.sqlite3`,
+  `staticfiles/` e `media/`, mantendo as entradas anteriores.
+- `README.md` criado na raiz (não existia) com descrição básica e links para a pasta `docs/`.
+- Commit criado com o estado atual e push enviado para o GitHub.
+
+### Arquivos criados/alterados
+- `.gitignore`: revisado com as entradas exigidas para Python/Django.
+- `README.md`: criado na raiz do projeto.
+- `CODEX.md`: adicionadas as seções "Fluxo obrigatório de Git" e "Padrão de mensagens de commit".
+- `docs/REGRAS_CODEX.md`: adicionadas as seções "Fluxo obrigatório para toda alteração"
+  (antes/durante/depois + segurança no Git) e "Padrão obrigatório para mensagens de commit".
+- `docs/ESTADO_ATUAL.md`: adicionada a seção "Versionamento (Git)".
+- `docs/HISTORICO_ALTERACOES.md`: esta entrada.
+
+### Decisões tomadas
+- Branch principal padronizada como `main`.
+- Não versionar arquivos sensíveis/locais (`.env`, banco SQLite, ambientes virtuais, cache).
+- Não sobrescrever conteúdo existente do `README.md` (foi criado por não existir).
+- Regra: nunca usar `force push` nem apagar histórico; em caso de conflito, analisar com segurança.
+
+### Pendências
+- Autenticação real (login/logout) ainda NÃO implementada.
+- Página real de "Meus Dados", permissões/perfis, models e migrations ainda NÃO existem.
+
+---
+
 ## 2026-07-01 - Tela inicial interna com menu lateral
 
 ### Resumo

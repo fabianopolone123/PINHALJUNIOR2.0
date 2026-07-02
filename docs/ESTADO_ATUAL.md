@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-01 (tela inicial interna com menu lateral)
+**Última atualização:** 2026-07-01 (versionamento Git e regras de commit/push)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -88,8 +88,17 @@ servindo de base para o desenvolvimento futuro.
 - `TEMPLATES DIRS` aponta para a pasta `templates/`.
 - `SECRET_KEY` é de desenvolvimento (trocar em produção).
 
+## Versionamento (Git)
+- Repositório Git inicializado; branch principal: `main`.
+- Remoto `origin`: https://github.com/fabianopolone123/PINHALJUNIOR2.0.git
+- `.gitignore` configurado para Python/Django (ignora `.env`, `*.sqlite3`, ambientes virtuais, cache, `staticfiles/`, `media/`, etc.).
+- `README.md` na raiz com descrição básica e apontando para a pasta `docs/`.
+- Regra obrigatória: após qualquer alteração, rodar `git add .`, criar commit descritivo em
+  português do Brasil e fazer `git push` (ver `CODEX.md` e `docs/REGRAS_CODEX.md`).
+
 ## Observações importantes para continuação
 - Não usar Bootstrap, Tailwind ou frameworks visuais externos (CSS é próprio).
 - Manter responsividade mobile first e o padrão visual azul/verde já criado.
 - Ao criar models, gerar as migrations correspondentes.
 - Sempre atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md` após qualquer alteração.
+- Ao final de cada alteração, versionar no Git (commit + push) conforme o fluxo obrigatório.
