@@ -178,6 +178,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Remoto `origin`: https://github.com/fabianopolone123/PINHALJUNIOR2.0.git
 - `.gitignore` configurado para Python/Django (ignora `.env`, `*.sqlite3`, ambientes virtuais, cache, `staticfiles/`, `media/`, etc.).
 - `README.md` na raiz com descrição básica e apontando para a pasta `docs/`.
+- `CLAUDE.md` na raiz: arquivo de contexto (guia rápido) que aponta para os docs oficiais.
 - Regra obrigatória: após qualquer alteração, rodar `git add .`, criar commit descritivo em
   português do Brasil e fazer `git push` (ver `CODEX.md` e `docs/REGRAS_CODEX.md`).
 

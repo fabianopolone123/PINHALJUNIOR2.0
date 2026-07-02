@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Arquivo de contexto CLAUDE.md
+
+### Resumo
+Criado `CLAUDE.md` na raiz: um guia rápido de contexto (o que é o projeto, stack, como rodar/testar,
+estrutura, rotas, models, regras inegociáveis e convenções) que aponta para os docs oficiais como
+fonte da verdade. Não altera código nem comportamento — só documentação. Sem migrations.
+
+### Arquivos criados/alterados
+- `CLAUDE.md`: novo (arquivo de contexto).
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Observação
+As imagens soltas na raiz (foto de crianças e outra) continuam **fora do versionamento**
+propositalmente (não versionar fotos reais de crianças).
+
+---
+
 ## 2026-07-02 - Tela "Usuários" com vínculos familiares e pesquisa
 
 ### Resumo
