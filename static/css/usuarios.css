@@ -1,0 +1,239 @@
+/* =========================================================
+   Tela "Usuários" — responsáveis, aventureiros e vínculos.
+   Complementa o inicio.css (layout, sidebar, .card, .pill).
+   CSS puro, mesma identidade visual do sistema.
+   ========================================================= */
+
+/* ---------- Pesquisa ---------- */
+.pesquisa-caixa {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.pesquisa-icone {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.pesquisa-input {
+    width: 100%;
+    padding: 13px 14px 13px 42px;
+    font-size: 1rem;
+    color: var(--texto);
+    background: var(--branco);
+    border: 1.5px solid var(--borda);
+    border-radius: 14px;
+    box-shadow: var(--sombra-card);
+    transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+
+.pesquisa-input:focus {
+    outline: none;
+    border-color: var(--azul-claro);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.18);
+}
+
+/* ---------- Cards de resumo (contadores) ---------- */
+.resumo-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 26px;
+}
+
+.resumo-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 16px 10px;
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra-card);
+    text-align: center;
+}
+
+.resumo-num {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--azul-escuro);
+    line-height: 1;
+}
+
+.resumo-rot {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--texto-suave);
+}
+
+/* ---------- Listas em grade ---------- */
+.lista-responsaveis,
+.lista-aventureiros {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+/* ---------- Card de responsável ---------- */
+.resp-cab {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    margin-bottom: 12px;
+}
+
+.resp-ava {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.7rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(74, 144, 217, 0.18), rgba(98, 196, 98, 0.18));
+}
+
+.resp-cab-info {
+    min-width: 0;
+}
+
+.resp-nome-item {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--azul-escuro);
+    line-height: 1.2;
+    margin-bottom: 6px;
+    overflow-wrap: anywhere;
+}
+
+/* Pílula de papel (Pai / Mãe / Responsável legal) */
+.pill.papel {
+    color: #6a3fb5;
+    background: rgba(120, 80, 200, 0.14);
+}
+
+/* ---------- Vínculos ---------- */
+.vinculos {
+    padding-top: 12px;
+    border-top: 1px dashed var(--borda);
+}
+
+.vinc-rotulo {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--texto-suave);
+    margin-bottom: 8px;
+}
+
+.vinc-lista {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vinc-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 10px 12px;
+    background: #f7fafd;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+}
+
+.vinc-nome {
+    font-weight: 700;
+    color: var(--texto);
+    overflow-wrap: anywhere;
+}
+
+.vinc-idade {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--azul-escuro);
+    background: rgba(74, 144, 217, 0.14);
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+
+.vinc-papeis {
+    font-size: 0.82rem;
+    color: #226b22;
+    background: rgba(58, 157, 58, 0.15);
+    padding: 2px 9px;
+    border-radius: 999px;
+    margin-left: auto;
+}
+
+/* ---------- Resumo por aventureiro ---------- */
+.av-resumo-cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.av-resumo-nome {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--azul-escuro);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.av-resumo-linha {
+    font-size: 0.92rem;
+    color: var(--texto);
+    line-height: 1.5;
+}
+
+.av-resumo-linha span {
+    font-weight: 700;
+    color: var(--texto-suave);
+}
+
+/* ---------- Mensagem de nenhum resultado ---------- */
+.sem-resultado {
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: rgba(74, 144, 217, 0.08);
+    border: 1px dashed var(--borda);
+    border-radius: 12px;
+    color: var(--texto-suave);
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+/* ---------- Responsividade ---------- */
+@media (min-width: 720px) {
+    .lista-responsaveis,
+    .lista-aventureiros {
+        grid-template-columns: repeat(2, 1fr);
+        align-items: start;
+    }
+}
+
+@media (min-width: 1180px) {
+    .lista-aventureiros {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

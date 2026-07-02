@@ -1,0 +1,157 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Usuários - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/usuarios.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <!-- ===================== Menu lateral fixo ===================== -->
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+
+            <nav class="menu">
+                <a href="{% url 'core:inicio' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👤</span>
+                    <span class="menu-texto">Meus Dados</span>
+                </a>
+                <a href="{% url 'core:usuarios' %}" class="menu-item ativo" aria-current="page">
+                    <span class="menu-icone" aria-hidden="true">👥</span>
+                    <span class="menu-texto">Usuários</span>
+                </a>
+            </nav>
+
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <!-- ===================== Área principal ===================== -->
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Usuários</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Usuários</h1>
+                    <p class="cabecalho-sub">
+                        Visualize responsáveis, aventureiros e seus vínculos cadastrados no sistema.
+                    </p>
+                </header>
+
+                <!-- Pesquisa -->
+                <div class="pesquisa-caixa">
+                    <span class="pesquisa-icone" aria-hidden="true">🔎</span>
+                    <input type="search" id="pesquisaUsuarios" class="pesquisa-input"
+                           placeholder="Pesquisar responsável, aventureiro ou vínculo..."
+                           autocomplete="off" aria-label="Pesquisar">
+                </div>
+
+                <!-- Contadores -->
+                <section class="resumo-cards">
+                    <div class="resumo-card">
+                        <span class="resumo-num">{{ total_responsaveis }}</span>
+                        <span class="resumo-rot">Responsáveis</span>
+                    </div>
+                    <div class="resumo-card">
+                        <span class="resumo-num">{{ total_aventureiros }}</span>
+                        <span class="resumo-rot">Aventureiros</span>
+                    </div>
+                    <div class="resumo-card">
+                        <span class="resumo-num">{{ total_vinculos }}</span>
+                        <span class="resumo-rot">Vínculos</span>
+                    </div>
+                </section>
+
+                {% if responsaveis or resumo_aventureiros %}
+                <!-- ===================== Responsáveis e vínculos ===================== -->
+                <h2 class="secao-titulo">Responsáveis e vínculos</h2>
+                <section class="lista-responsaveis" id="listaResponsaveis">
+                    {% for r in responsaveis %}
+                    <article class="card resp-item busca-item">
+                        <div class="resp-cab">
+                            <span class="resp-ava" aria-hidden="true">🧑‍🤝‍🧑</span>
+                            <div class="resp-cab-info">
+                                <h3 class="resp-nome-item">{{ r.nome }}</h3>
+                                <div class="pills">
+                                    {% for p in r.papeis %}
+                                    <span class="pill papel">{{ p }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vinculos">
+                            <span class="vinc-rotulo">Aventureiros vinculados</span>
+                            <ul class="vinc-lista">
+                                {% for v in r.vinculos %}
+                                <li class="vinc-item">
+                                    <span class="vinc-nome">{{ v.nome }}</span>
+                                    <span class="vinc-idade">{% if v.idade is not None %}{{ v.idade }} anos{% else %}Idade não informada{% endif %}</span>
+                                    <span class="vinc-papeis">{{ v.papeis|join:" / " }}</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </section>
+                <p class="sem-resultado" id="semRespResultado" hidden>Nenhum vínculo encontrado para essa pesquisa.</p>
+
+                <!-- ===================== Resumo por aventureiro ===================== -->
+                <h2 class="secao-titulo">Resumo por aventureiro</h2>
+                <section class="lista-aventureiros" id="listaAventureiros">
+                    {% for a in resumo_aventureiros %}
+                    <article class="card av-resumo busca-item">
+                        <div class="av-resumo-cab">
+                            <h3 class="av-resumo-nome">{{ a.nome }}</h3>
+                            <span class="pill">{% if a.idade is not None %}{{ a.idade }} anos{% else %}Idade não informada{% endif %}</span>
+                        </div>
+                        <p class="av-resumo-linha"><span>Pai:</span> {{ a.pai|default:"Não informado" }}</p>
+                        <p class="av-resumo-linha"><span>Mãe:</span> {{ a.mae|default:"Não informado" }}</p>
+                        <p class="av-resumo-linha"><span>Responsável legal:</span> {{ a.resp|default:"Não informado" }}</p>
+                    </article>
+                    {% endfor %}
+                </section>
+                <p class="sem-resultado" id="semAvResultado" hidden>Nenhum vínculo encontrado para essa pesquisa.</p>
+                {% else %}
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">👥</span>
+                    <h2 class="card-titulo">Nenhum usuário cadastrado ainda</h2>
+                    <p class="card-texto">Quando houver aventureiros cadastrados, os responsáveis e vínculos aparecerão aqui.</p>
+                </section>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/usuarios.js' %}"></script>
+</body>
+</html>

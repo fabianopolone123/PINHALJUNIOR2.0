@@ -22,6 +22,73 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-02 - Tela "Usuários" com vínculos familiares e pesquisa
+
+### Resumo
+Novo item de menu **Usuários** e nova tela `/usuarios/` (protegida por login) que mostra, de forma
+resumida e visual, os responsáveis (pai, mãe e responsável legal de todos os aventureiros), os
+aventureiros e o vínculo entre eles, com pesquisa inteligente em tempo real. Só dados resumidos —
+nenhum dado sensível. Nenhum model foi alterado — sem migrations.
+
+### Menu e rota
+- Item **Usuários** adicionado abaixo de **Meus Dados** no menu lateral (mesmo visual; ativo em
+  `/usuarios/`; funciona no desktop e no mobile). Adicionado nas duas telas (`inicio.html` e
+  `usuarios.html`).
+- Rota criada: `/usuarios/` (`core:usuarios`), com `@login_required`.
+
+### Como os responsáveis são agrupados
+- Para cada aventureiro consideram-se pai, mãe e responsável legal.
+- Deduplicação por chave: **CPF**; se não houver, **nome + WhatsApp**; se não houver, **nome
+  normalizado** (sem acentos/caixa). Responsáveis sem nome são ignorados.
+- A mesma pessoa que aparece em mais de um papel (ex.: mãe e responsável legal) é mostrada **uma
+  única vez**, com os papéis juntos; e lista todos os aventureiros a que está vinculada.
+
+### Vínculos e resumo
+- Card por responsável: nome, pílulas de papéis e "Aventureiros vinculados" (nome, idade e papel do
+  vínculo, ex.: "Mãe / Responsável legal").
+- Seção "Resumo por aventureiro": nome, idade e pai/mãe/responsável legal.
+- Contadores no topo: Responsáveis (pessoas únicas), Aventureiros (total) e Vínculos (relações
+  papel×aventureiro).
+
+### Pesquisa inteligente
+- `static/js/usuarios.js`: filtra os cards ao digitar (nome do responsável, papel, nome/idade do
+  aventureiro e vínculos), ignorando maiúsculas/minúsculas e acentos; exibe "Nenhum vínculo
+  encontrado para essa pesquisa." por seção quando não há resultado. Sem AJAX/bibliotecas.
+
+### Dados sensíveis ocultos
+- Não exibe CPF, RG, certidão, endereço, e-mail, telefone/WhatsApp, ficha médica, autorização de
+  imagem nem foto (validado por teste automatizado).
+
+### Arquivos criados/alterados
+- `core/views.py`: helpers `_normaliza`, `_ordena_papeis`, `_chave_responsavel` e nova
+  `usuarios_view`; import de `Aventureiro` e `unicodedata`.
+- `core/urls.py`: rota `/usuarios/`.
+- `templates/core/usuarios.html`: novo template.
+- `templates/core/inicio.html`: item "Usuários" no menu.
+- `static/css/usuarios.css`: novo (pesquisa, contadores, cards de responsável/aventureiro, vínculos).
+- `static/js/usuarios.js`: novo (pesquisa em tempo real).
+- `docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`,
+  `docs/REGRAS_CODEX.md`: documentação atualizada.
+
+### Decisões tomadas
+- Visão geral do sistema (todos os aventureiros), pois é uma consulta de vínculos; acesso liberado
+  a qualquer autenticado por ora (restrição por perfil fica para o futuro, documentado).
+- Reuso do layout/menu de `inicio.css`; estilos próprios em `usuarios.css`. Pesquisa 100% no
+  front-end (sem AJAX), conforme pedido.
+- Sem alterar models nem `Meus Dados`; sem migrations.
+
+### Validação
+- Test client: proteção de login; menu "Usuários" ativo; agrupamento (Mariana aparece 1× como
+  Mãe + Responsável legal, vinculada a Ana e Lucas; Roberto como Pai); contadores 2/2/6; resumo por
+  aventureiro; e **nenhum dado sensível** vazado (CPF, e-mail, WhatsApp, endereço, RG, plano, foto).
+- Visual (Chrome headless): desktop e mobile — layout bonito, responsivo e sem overflow.
+
+### Pendências
+- Restrição de acesso por perfil à tela "Usuários"; edição completa do aventureiro; "Esqueci minha
+  senha"; validação avançada de CPF; envio de e-mail.
+
+---
+
 ## 2026-07-02 - Avatar fictício nas fotos de teste e moldura redonda em "Meus Dados"
 
 ### Resumo

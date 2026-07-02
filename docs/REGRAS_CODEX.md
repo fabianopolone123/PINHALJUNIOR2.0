@@ -214,3 +214,22 @@ internas ou no fluxo de login, seguir estas regras:
 - **Cobertura de dados**: "Meus Dados" deve exibir TODOS os campos do cadastro, agrupados por seção
   (Dados pessoais, Documentos, Endereço, Pai, Mãe, Responsável legal, Ficha médica, Declaração
   médica e Autorização de imagem). Ao adicionar campos ao cadastro, refletir aqui também.
+
+## Padrão da tela "Usuários" (vínculos familiares)
+
+- **Rota** `core:usuarios` (`/usuarios/`), com `@login_required`. Qualquer usuário autenticado
+  acessa; FUTURO: poderá ser restrito por perfil (documentar quando implementar permissões).
+- **Agrupamento de responsáveis** (helpers em `core/views.py`): para cada aventureiro considerar
+  pai, mãe e responsável legal; a chave de deduplicação é `_chave_responsavel` — CPF, senão
+  nome+WhatsApp, senão nome normalizado (`_normaliza` remove acentos/caixa); responsáveis sem nome
+  são ignorados. A mesma pessoa em papéis diferentes aparece uma única vez, com os papéis juntos.
+- **Vínculos**: por responsável, listar os aventureiros ligados (nome, idade e papéis do vínculo).
+  Contadores: Responsáveis (pessoas únicas), Aventureiros (total), Vínculos (total de relações
+  papel×aventureiro).
+- **Somente resumo — NUNCA dados sensíveis** nesta tela: proibido CPF, RG, certidão, endereço,
+  e-mail, telefone/WhatsApp, ficha médica, autorização de imagem e foto.
+- **Pesquisa**: filtro no front-end (`static/js/usuarios.js`) sobre o texto dos cards, ignorando
+  caixa e acentos; mensagem "Nenhum vínculo encontrado para essa pesquisa." quando não houver
+  resultado. Sem AJAX nesta etapa.
+- **Reuso visual**: a tela reaproveita o layout/menu de `inicio.css`; estilos próprios em
+  `static/css/usuarios.css`. Sem bibliotecas externas.

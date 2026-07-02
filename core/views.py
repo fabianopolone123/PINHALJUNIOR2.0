@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import date
 
 from django.contrib import messages
@@ -16,6 +17,7 @@ from .forms import (
     FichaMedicaForm,
     ResponsavelLegalForm,
 )
+from .models import Aventureiro
 
 # ---------------------------------------------------------------------------
 # Identificação do usuário durante o cadastro.
@@ -405,6 +407,108 @@ def cadastro_novo_aventureiro_view(request):
         "dados_anteriores": _dados_responsaveis_anteriores(usuario),
     }
     return render(request, "core/cadastro.html", contexto)
+
+
+def _normaliza(texto):
+    """Minúsculas + sem acentos + espaços colapsados (para chaves/pesquisa)."""
+    if not texto:
+        return ""
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return " ".join(texto.lower().split())
+
+
+_ORDEM_PAPEIS = {"Pai": 0, "Mãe": 1, "Responsável legal": 2}
+
+
+def _ordena_papeis(papeis):
+    return sorted(papeis, key=lambda p: _ORDEM_PAPEIS.get(p, 99))
+
+
+def _chave_responsavel(nome, cpf, whatsapp):
+    """Chave para agrupar responsáveis: CPF > nome+WhatsApp > nome. Sem nome -> None."""
+    nome_n = _normaliza(nome)
+    if not nome_n:
+        return None
+    cpf = (cpf or "").strip()
+    if cpf:
+        return f"cpf:{cpf}"
+    whats = (whatsapp or "").strip()
+    if whats:
+        return f"nw:{nome_n}|{_normaliza(whats)}"
+    return f"n:{nome_n}"
+
+
+@login_required
+def usuarios_view(request):
+    """
+    Visão geral de responsáveis e aventureiros com o vínculo familiar.
+
+    Considera pai, mãe e responsável legal de cada aventureiro, agrupa
+    responsáveis únicos (por CPF, ou nome+WhatsApp, ou nome) e junta papéis e
+    aventureiros vinculados. Exibe apenas dados resumidos (nada sensível).
+
+    Acesso: qualquer usuário autenticado. FUTURO: poderá ser restrito por perfil.
+    """
+    aventureiros = list(Aventureiro.objects.all())
+
+    responsaveis = {}   # chave -> {nome, papeis:set, vinculos: {av_id: {...}}}
+    total_vinculos = 0
+    resumo_aventureiros = []
+
+    for av in aventureiros:
+        idade = _idade(av.data_nascimento)
+        resumo_aventureiros.append({
+            "nome": av.nome_completo,
+            "idade": idade,
+            "pai": av.pai_nome or "",
+            "mae": av.mae_nome or "",
+            "resp": av.resp_nome or "",
+        })
+
+        candidatos = [
+            ("Pai", av.pai_nome, av.pai_cpf, av.pai_whatsapp),
+            ("Mãe", av.mae_nome, av.mae_cpf, av.mae_whatsapp),
+            ("Responsável legal", av.resp_nome, av.resp_cpf, av.resp_whatsapp),
+        ]
+        for papel, nome, cpf, whats in candidatos:
+            chave = _chave_responsavel(nome, cpf, whats)
+            if chave is None:
+                continue
+            total_vinculos += 1
+            resp = responsaveis.setdefault(
+                chave, {"nome": nome.strip(), "papeis": set(), "vinculos": {}}
+            )
+            resp["papeis"].add(papel)
+            vinc = resp["vinculos"].setdefault(
+                av.id, {"nome": av.nome_completo, "idade": idade, "papeis": set()}
+            )
+            vinc["papeis"].add(papel)
+
+    lista_responsaveis = []
+    for resp in responsaveis.values():
+        vinculos = [
+            {"nome": v["nome"], "idade": v["idade"], "papeis": _ordena_papeis(v["papeis"])}
+            for v in resp["vinculos"].values()
+        ]
+        vinculos.sort(key=lambda x: _normaliza(x["nome"]))
+        lista_responsaveis.append({
+            "nome": resp["nome"],
+            "papeis": _ordena_papeis(resp["papeis"]),
+            "vinculos": vinculos,
+        })
+    lista_responsaveis.sort(key=lambda x: _normaliza(x["nome"]))
+
+    resumo_aventureiros.sort(key=lambda x: _normaliza(x["nome"]))
+
+    contexto = {
+        "responsaveis": lista_responsaveis,
+        "resumo_aventureiros": resumo_aventureiros,
+        "total_responsaveis": len(lista_responsaveis),
+        "total_aventureiros": len(aventureiros),
+        "total_vinculos": total_vinculos,
+    }
+    return render(request, "core/usuarios.html", contexto)
 
 
 def cadastro_sucesso_view(request):

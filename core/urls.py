@@ -13,6 +13,7 @@ urlpatterns = [
         views.editar_responsavel_view,
         name="editar_responsavel",
     ),
+    path("usuarios/", views.usuarios_view, name="usuarios"),
     path("cadastro/", views.cadastro_view, name="cadastro"),
     path(
         "cadastro/novo-aventureiro/",

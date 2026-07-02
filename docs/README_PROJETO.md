@@ -154,6 +154,7 @@ PINHALJUNIOR2.0/
 - `/sair/` — logout (POST); encerra a sessão e volta ao login (view `core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área logada "Meus Dados", protegida por `@login_required` (view `core.views.inicio_view`, nome `core:inicio`).
 - `/meus-dados/responsavel/editar/` — edição dos dados do responsável legal, protegida por login (view `core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
+- `/usuarios/` — visão geral de responsáveis, aventureiros e vínculos familiares (só resumo, sem dados sensíveis), com pesquisa; protegida por login (view `core.views.usuarios_view`, nome `core:usuarios`).
 - `/cadastro/` — cadastro inicial: cria a conta + o primeiro aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — cadastra outro aventureiro na mesma conta, sem etapa de conta (view `core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação, com opções "Cadastrar outro aventureiro" e "Ir para a tela inicial" (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

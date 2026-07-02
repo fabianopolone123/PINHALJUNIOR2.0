@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 (correção de fotos + dados completos + fechar painéis ao clicar fora em "Meus Dados")
+**Última atualização:** 2026-07-02 (nova tela "Usuários": responsáveis, aventureiros e vínculos com pesquisa)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -42,6 +42,15 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   nome, parentesco, CPF, e-mail e WhatsApp de todos os aventureiros do usuário com o mesmo CPF de
   responsável (ou apenas o mais recente, se nenhum coincidir); volta a `/inicio/` com mensagem de sucesso.
 - Menu lateral fixo (desktop) e recolhível/gaveta (mobile), com nome do usuário e botão "Sair".
+- Menu com dois itens: **Meus Dados** e **Usuários** (item ativo destacado conforme a tela).
+- Tela **Usuários** (`/usuarios/`, protegida por login): visão geral de responsáveis e aventureiros
+  com o vínculo familiar. Agrupa responsáveis únicos (pai, mãe e responsável legal de todos os
+  aventureiros) por CPF (ou nome+WhatsApp, ou nome), juntando papéis quando é a mesma pessoa; mostra
+  os aventureiros vinculados a cada responsável (com idade e papel do vínculo) e um resumo por
+  aventureiro (pai/mãe/responsável legal). Tem contadores (Responsáveis/Aventureiros/Vínculos) e
+  **pesquisa inteligente** em tempo real (ignora maiúsculas/acentos). Exibe só dados resumidos —
+  **nenhum dado sensível** (sem CPF, e-mail, telefone, endereço, ficha médica, autorização ou foto).
+  Acesso liberado a qualquer usuário autenticado (FUTURO: poderá ser restrito por perfil).
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
 - Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
   levado à tela de sucesso; "Ir para a tela inicial" abre `/inicio/` já logado.
@@ -117,6 +126,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/login.html` (login real, com mensagem de erro)
 - `templates/core/inicio.html` (área "Meus Dados": card do responsável + cards clicáveis dos aventureiros)
 - `templates/core/editar_responsavel.html` (edição do responsável legal)
+- `templates/core/usuarios.html` (responsáveis, aventureiros e vínculos, com pesquisa)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
 - `templates/core/_campo.html` e `templates/core/_campo_check.html` (parciais de campo reutilizáveis)
@@ -126,6 +136,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/css/login.css`
 - `static/css/inicio.css`
 - `static/css/cadastro.css`
+- `static/css/usuarios.css` (complementa `inicio.css` na tela "Usuários")
 
 ## Arquivos JavaScript existentes
 - `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
@@ -134,12 +145,15 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
 - `static/js/inicio.js` — menu recolhível no celular e o fechamento dos painéis `<details>` de
   "Meus Dados" ao clicar fora / abrir outro / `Esc` (clique dentro não fecha).
+- `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" (filtra cards por
+  nome/papel/aventureiro/idade/vínculo, ignorando maiúsculas e acentos; mensagem de "nenhum resultado").
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
 - `/sair/` — logout (POST) (`core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área "Meus Dados", protegida por `@login_required` (`core.views.inicio_view`, nome `core:inicio`).
 - `/meus-dados/responsavel/editar/` — edição do responsável, protegida por login (`core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
+- `/usuarios/` — responsáveis, aventureiros e vínculos (resumo), protegida por login (`core.views.usuarios_view`, nome `core:usuarios`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
