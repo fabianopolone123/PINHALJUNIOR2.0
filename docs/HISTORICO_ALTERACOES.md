@@ -22,6 +22,50 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Importação/migração dos cadastros do sistema antigo
+
+### Resumo
+Criado o comando de gerenciamento `importar_migracao`, que migra para o sistema novo **apenas os dados
+de cadastro** ("cadastre-se") do sistema antigo, a partir do pacote exportado (pasta com `dados_json/`
+e `arquivos/`). Importa: a conta de acesso (login com **hash de senha preservado**, então o responsável
+continua logando com a mesma senha), dados de **pai, mãe e responsável legal**, **endereço**, dados de
+cada **aventureiro**, **ficha médica**, **termo de autorização de imagem** e a **foto** de cada
+aventureiro. Primeira execução real: **35 logins + 37 aventureiros** (todos com ficha médica, termo e
+foto), com as telas "Meus Dados" e "Usuários" renderizando os dados corretamente.
+
+### Arquivos criados/alterados
+- `core/management/commands/importar_migracao.py`: novo comando (leitura dos JSON, mapeamento
+  campo a campo, cópia de fotos para `media/`, idempotente, com `--dry-run`).
+- `.gitignore`: passa a ignorar o pacote de exportação (`exportacao_migracao_*.zip`) e a pasta
+  `migracao/` (dados de migração), para não versionar dados pessoais de menores.
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Decisões tomadas
+- **Escopo**: só os cadastros com aventureiro. Dos 106 registros de responsável do sistema antigo, 71
+  não tinham nenhum aventureiro e ficaram de fora; entram apenas os 35 com aventureiro. Um registro-lixo
+  de teste (nome "teste", CPF inválido) foi pulado.
+- **Diretoria não é importada.** A única pessoa que era diretoria e também responsável de aventureiro
+  entra apenas como mãe/responsável do aventureiro; nenhum dado de diretoria é trazido.
+- **Responsáveis no plural**: pai, mãe e responsável legal de cada aventureiro são preservados; a tela
+  "Usuários" agrupa por CPF e junta os papéis (ex.: quem é pai e também responsável legal aparece uma
+  vez com os dois papéis).
+- **Modelo novo**: não existe model `Responsavel` separado — os dados de pai/mãe/responsável ficam em
+  cada `Aventureiro`, e o "responsável" do sistema é o usuário Django (login).
+- **Datas originais** de criação/inscrição preservadas (contornando `auto_now_add`).
+- **Campos inexistentes no export** (ex.: nacionalidade/estado civil/RG do responsável no termo) ficam
+  em branco; `tamanho_camiseta` (texto livre no sistema antigo) é gravado como está.
+
+### Segurança de menores
+- As **fotos** importadas são dados **reais** dos membros do clube (com termo de imagem) e ficam
+  **apenas** em `media/` (git-ignored) — **nunca** versionadas.
+- O pacote de exportação e os JSON/CSV com CPFs/nomes/dados de saúde de menores **não** vão ao Git.
+
+### Pendências
+- (Opcional) Importar também os logins de responsáveis sem aventureiro, caso desejado no futuro.
+- Fotos e assinaturas em imagem além da foto 3x4 (ex.: assinaturas do termo) não foram importadas.
+
+---
+
 ## 2026-07-02 - Arquivo de contexto CLAUDE.md
 
 ### Resumo

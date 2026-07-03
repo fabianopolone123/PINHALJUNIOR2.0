@@ -20,6 +20,10 @@ staticfiles/
 media/
 *.log
 
+# Dados de migração do sistema antigo (dados pessoais de menores — NUNCA versionar)
+exportacao_migracao_*.zip
+migracao/
+
 # Editores / SO
 .vscode/
 .idea/

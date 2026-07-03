@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-02 (nova tela "Usuários": responsáveis, aventureiros e vínculos com pesquisa)
+**Última atualização:** 2026-07-03 (importação/migração dos cadastros do sistema antigo: comando `importar_migracao`)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -72,6 +72,18 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   autorização de imagem e fotos 3x4 fictícias geradas com Pillow: `lucas_teste.png`/`ana_teste.png`).
   Idempotente (pode rodar várias vezes); as fotos só são regeradas quando estão faltando ou apontam
   para arquivo inexistente — se já estiverem corretas, são mantidas.
+- Comando de gerenciamento `importar_migracao` para **migrar os cadastros do sistema antigo** a partir
+  do pacote exportado (pasta com `dados_json/` e `arquivos/`). Traz **apenas** os dados de cadastro
+  ("cadastre-se"): a conta de acesso (login com **hash de senha preservado** → o responsável continua
+  logando com a mesma senha), os dados de **pai, mãe e responsável legal**, o **endereço**, os dados de
+  cada **aventureiro**, a **ficha médica**, o **termo de autorização de imagem** e a **foto** de cada
+  aventureiro. **Não** importa: diretoria, financeiro, eventos, loja, whatsapp, assinaturas, nem
+  responsáveis sem nenhum aventureiro vinculado; pula um registro-lixo de teste do sistema antigo.
+  Uso: `python manage.py importar_migracao --origem "<pasta>"` (com `--dry-run` para simular).
+  Idempotente (reaproveita o login pelo username; pula aventureiro já existente por usuário+nome).
+  Primeira execução (2026-07-03): **35 logins + 37 aventureiros** (com ficha médica, termo e foto).
+  As fotos importadas são dados **reais** dos membros e ficam **apenas** em `media/` (git-ignored) —
+  **nunca** versionadas. Os dados pessoais de menores (JSON/CSV/zip da exportação) **não** vão ao Git.
 
 ## Padrão visual da tela de login (atual)
 - Fundo com gradiente azul→verde animado (movimento lento) e formas circulares desfocadas flutuando.
