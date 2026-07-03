@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-03 (importação/migração dos cadastros do sistema antigo: comando `importar_migracao`)
+**Última atualização:** 2026-07-03 (perfis de acesso + usuário diretor inicial: comando `configurar_perfis`)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -84,6 +84,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   Primeira execução (2026-07-03): **35 logins + 37 aventureiros** (com ficha médica, termo e foto).
   As fotos importadas são dados **reais** dos membros e ficam **apenas** em `media/` (git-ignored) —
   **nunca** versionadas. Os dados pessoais de menores (JSON/CSV/zip da exportação) **não** vão ao Git.
+- **Perfis de acesso** (grupos nativos do Django): **Diretor, Responsável, Professor, Tesoureiro,
+  Secretário**. Conceito: "Diretoria" é o grupo de integrantes do clube (diretor, secretário,
+  tesoureiro, professor); "Responsável" é o lado dos pais. Uma pessoa pode ter os dois lados e
+  alternar o perfil ao logar (lógica de alternância a implementar). Por enquanto, só o **Diretor**
+  receberá permissões nas telas; os demais perfis existem sem permissões (definir depois).
+- Comando de gerenciamento `configurar_perfis`: cria os 5 perfis e o **usuário diretor inicial**
+  (`Fabiano` / senha `1234` — senha de desenvolvimento, trocar em produção), vinculado ao perfil
+  Diretor. Idempotente. Uso: `python manage.py configurar_perfis`.
 
 ## Padrão visual da tela de login (atual)
 - Fundo com gradiente azul→verde animado (movimento lento) e formas circulares desfocadas flutuando.

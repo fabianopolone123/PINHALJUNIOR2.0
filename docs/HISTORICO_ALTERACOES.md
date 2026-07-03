@@ -22,6 +22,39 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Perfis de acesso + usuário diretor inicial
+
+### Resumo
+Criado o comando `configurar_perfis`, que cria os 5 perfis de acesso (grupos nativos do Django) e o
+usuário diretor inicial. Primeira execução: 5 grupos criados e usuário `Fabiano` (diretor) vinculado
+ao perfil Diretor; login `Fabiano`/`1234` autentica.
+
+### Perfis de acesso
+- **Diretor, Responsável, Professor, Tesoureiro, Secretário.**
+- Conceito: "Diretoria" é o grupo de integrantes do clube (diretor, secretário, tesoureiro, professor);
+  "Responsável" é o lado dos pais. Uma pessoa pode ser das duas partes e alternar o perfil ao logar
+  (lógica de alternância ainda a implementar). Por ora, só o Diretor receberá permissões nas telas.
+
+### Arquivos criados/alterados
+- `core/management/commands/configurar_perfis.py`: novo comando (idempotente).
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Decisões tomadas
+- Usar **grupos nativos do Django** para os perfis (integram com o sistema de permissões; sem
+  migration). Um modelo próprio de perfil/alternância poderá ser criado depois, se necessário.
+- Usuário diretor inicial `Fabiano` com senha de desenvolvimento `1234` (trocar em produção),
+  seguindo o mesmo padrão do `criar_dados_teste`. `is_staff`/`is_superuser` = False (é diretor no
+  app, não admin do Django).
+
+### Pendências / próximos passos (a validar antes de implementar)
+- Cadastro de diretoria (inscrição) e a "mesclagem" diretoria + aventureiro.
+- Tela "Cadastre-se" com escolha entre 3 tipos (aventureiro / diretoria / diretoria + aventureiro).
+- Alternância de perfil (responsável ↔ diretoria) ao logar.
+- Restringir o menu/tela "Usuários" ao perfil Diretor.
+- Excluir a conta de teste `teste_responsavel` (2 aventureiros de teste).
+
+---
+
 ## 2026-07-03 - Importação/migração dos cadastros do sistema antigo
 
 ### Resumo
