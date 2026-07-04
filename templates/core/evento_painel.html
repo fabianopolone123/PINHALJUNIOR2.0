@@ -76,6 +76,9 @@
                     <button class="painel-aba" data-aba="lojinha" type="button">Lojinha</button>
                     <button class="painel-aba" data-aba="custos" type="button">Custos</button>
                     <button class="painel-aba" data-aba="financeiro" type="button">Financeiro</button>
+                    {% comment %}Abas de ação: abrem páginas próprias (balcão/operadores).{% endcomment %}
+                    <a href="{% url 'core:evento_pdv' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">🧾</span> Vender no balcão</a>
+                    <a href="{% url 'core:evento_operadores' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">👥</span> Operadores</a>
                 </nav>
 
                 <!-- ===================== Resumo (dashboard) ===================== -->
@@ -457,14 +460,6 @@
                 <section class="painel-secao" data-secao="lojinha" hidden>
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Lojinha do evento</h2>
-                        <div class="secao-acoes">
-                            <a href="{% url 'core:evento_pdv' evento.id %}" class="btn-acao btn-acao-pequeno">
-                                <span aria-hidden="true">🧾</span> PDV / Balcão
-                            </a>
-                            <a href="{% url 'core:evento_operadores' evento.id %}" class="btn-secundario btn-acao-pequeno">
-                                <span aria-hidden="true">👥</span> Operadores
-                            </a>
-                        </div>
                     </div>
 
                     <!-- Abas internas da Lojinha -->

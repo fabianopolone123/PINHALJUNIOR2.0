@@ -2,10 +2,10 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 2/4: abas internas na "Lojinha"** —
-sub-abas **Produtos** (abre primeiro, com "Novo produto") · **Pedidos** (com **busca** por comprador/
-código/produto). PDV/Operadores seguem no cabeçalho por ora (Etapa 3 move pro topo). Antes: Etapa 1 —
-abas em Inscrições)
+**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 3/4**: os botões **Vender no balcão**
+(era "PDV / Balcão") e **Operadores** saíram do cabeçalho da Lojinha e viraram **abas no topo** (ao lado
+de Financeiro), como **abas-link** (`<a class="painel-aba painel-aba-acao">`) que abrem as páginas atuais
+— sem reescrever nada. Antes: Etapa 2 — abas na Lojinha)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior

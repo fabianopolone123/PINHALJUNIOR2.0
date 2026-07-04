@@ -22,6 +22,39 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Reorganização do painel — Etapa 3/4: Balcão e Operadores no topo
+
+### Resumo
+**Etapa 3**: os botões **PDV / Balcão** e **Operadores**, que ficavam no **cabeçalho da Lojinha**,
+foram movidos para a **barra de abas do topo** (ao lado de Financeiro). Conforme combinado, **só mudou o
+lugar do botão** — as páginas de balcão/operadores **não foram reescritas**. As duas novas abas são
+**links** (`<a class="painel-aba painel-aba-acao">`) que abrem as páginas existentes; ficam em **azul**
+(cor de link) + ícone, para se distinguir das abas de seção (que trocam conteúdo no cliente). O
+**"PDV / Balcão"** foi renomeado para **"Vender no balcão"** (mais didático).
+
+### Arquivos alterados
+- `templates/core/evento_painel.html`: na `.painel-abas`, 2 abas-link novas ("🧾 Vender no balcão" →
+  `evento_pdv`; "👥 Operadores" → `evento_operadores`); removida a `.secao-acoes` do cabeçalho da Lojinha.
+- `static/js/evento_painel.js`: a troca de seção agora seleciona `.painel-aba[data-aba]` (os links
+  `.painel-aba-acao`, sem `data-aba`, **não** entram no toggle — navegam para a página).
+- `static/css/eventos.css`: `.painel-aba { text-decoration: none }` (para os `<a>`) e `.painel-aba-acao`
+  (azul + margem separando das abas de seção).
+
+### Decisões tomadas
+- **Abas-link** (não reescrever as telas de operador, que são de tela cheia): só o ponto de entrada mudou
+  de lugar. A "Nova inscrição (balcão)" segue na aba Inscrições (o usuário pediu para mover só os da
+  Lojinha).
+
+### Validação
+- `manage.py check` OK. Render (test client): 2 abas-link no topo apontando para `…/pdv/` e
+  `…/operadores/`; cabeçalho da Lojinha **sem** o "PDV / Balcão" antigo. Visual (desktop e mobile): abas
+  de ação em azul ao lado/abaixo das abas de seção (quebram bem no responsivo).
+
+### Pendências / próximo passo
+- **Etapa 4** (última da reorg): **cards clicáveis no Resumo** → cada card abre uma lista simples.
+
+---
+
 ## 2026-07-04 - Reorganização do painel — Etapa 2/4: abas internas na "Lojinha"
 
 ### Resumo

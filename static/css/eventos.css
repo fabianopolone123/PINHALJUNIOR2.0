@@ -285,6 +285,10 @@ a.tipo-card:hover {
 }
 .painel-aba:hover { color: var(--azul); background: rgba(74, 144, 217, 0.08); }
 .painel-aba.ativa { color: var(--azul-escuro); border-bottom-color: var(--verde); }
+/* Abas de ação (links p/ páginas próprias: balcão, operadores) — mesmo estilo,
+   sem sublinhado; separadas visualmente das abas de seção. */
+.painel-aba-acao { text-decoration: none; color: var(--azul); }
+.painel-aba-acao:first-of-type { margin-left: 10px; }
 
 .painel-secao[hidden] { display: none; }
 

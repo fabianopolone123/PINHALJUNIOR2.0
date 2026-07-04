@@ -7,7 +7,9 @@
 (function () {
     "use strict";
 
-    var abas = Array.prototype.slice.call(document.querySelectorAll(".painel-aba"));
+    // Só as abas com data-aba trocam de seção; as ".painel-aba-acao" são links
+    // (abrem páginas próprias, ex.: balcão/operadores) e não entram aqui.
+    var abas = Array.prototype.slice.call(document.querySelectorAll(".painel-aba[data-aba]"));
     var secoes = Array.prototype.slice.call(document.querySelectorAll(".painel-secao"));
 
     function ativar(nome) {
