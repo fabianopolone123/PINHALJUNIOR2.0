@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Planejamento do cadastro de diretoria (documentado, não implementado)
+
+### Resumo
+Gravado o planejamento do **cadastro de diretoria**, do **cadastro de diretoria + aventureiro**
+(mesclagem) e da tela "Cadastre-se" com 3 tipos, em `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md`, para
+não perder o que foi alinhado. **Nada implementado ainda** — aguarda a documentação oficial dos campos
+e os textos dos termos (compromisso de voluntariado e autorização de imagem).
+
+### Arquivos criados/alterados
+- `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md`: novo (especificação/planejamento).
+- `docs/HISTORICO_ALTERACOES.md`: atualizado.
+
+### Pendências
+- Ver a lista "Pontos em aberto" dentro do próprio arquivo de planejamento.
+
+---
+
 ## 2026-07-03 - Perfis de acesso + usuário diretor inicial
 
 ### Resumo
