@@ -22,6 +22,54 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 2.3: evento no menu de todos os perfis + página do evento
+
+### Resumo
+**Parte 2.3** da Fase 2: todo evento com inscrição **ainda não encerrado** (data futura/em andamento)
+aparece numa seção **"Eventos ativos"** no menu lateral de **todos os perfis logados** (responsável,
+diretor, tesoureiro, secretário, professor), com o **nome do evento** levando à **página do evento**.
+Eventos passados somem do menu sozinhos. Criada a **página do evento** (`/eventos/<id>/pagina/`) —
+página própria (sem a barra lateral interna) com nome, descrição, local, datas/horários, **status**
+das inscrições (aberto/encerrado + prazo), **valores** (faixas etárias + diretoria) e um **preview
+dos campos** do formulário. **Acesso**: evento **aberto ao público** → qualquer pessoa vê (sem login);
+evento **só para membros** → exige login. O **botão "Inscrever-se"** aparece desabilitado com aviso de
+que o envio virá na Fase 2.4.
+
+### Arquivos criados/alterados
+- `core/context_processors.py`: `perfis` passou a expor também `eventos_menu` (eventos com inscrição
+  não encerrados) a todos os templates; helper `_eventos_menu` (filtra por data, só autenticados).
+- `templates/core/_menu_eventos.html`: **novo** parcial com a seção "Eventos ativos" do menu.
+- `templates/core/{inicio,usuarios,eventos,evento_form,evento_complexo_form,evento_painel}.html`:
+  incluem o parcial no `<nav class="menu">` (fora do `is_diretor`, visível a todos).
+- `templates/core/evento_pagina.html`: **nova** página do evento (pública/interna).
+- `core/views.py`: nova `evento_pagina_view` (pública se `inscricao_aberta_publico`, senão login).
+- `core/urls.py`: rota `evento_pagina` (`/eventos/<id>/pagina/`).
+- `static/css/inicio.css`: estilos da seção "Eventos ativos" no menu (com truncagem do nome).
+- `static/css/eventos.css`: estilos da página do evento + `.btn-acao:disabled`.
+
+### Decisões tomadas
+- Menu de eventos via **context processor** (aparece em todas as telas sem repetir lógica); inserido
+  por **parcial** (`_menu_eventos.html`) para não reescrever a barra inteira em cada template.
+- "Eventos ativos" = complexos com `data_fim` (ou `data`) **>= hoje** — filtro no nível de data
+  (simples e suficiente); some sozinho quando o evento passa.
+- **Página própria** (sem sidebar) para o evento, funcionando logada ou anônima; acesso público só
+  quando `inscricao_aberta_publico=True` (senão, redireciona ao login com `?next=`).
+- Botão "Inscrever-se" **desabilitado** nesta fase — o envio real (respostas + participantes) é a 2.4.
+
+### Validação
+- Teste ponta a ponta (test client): menu do **responsável** (não-diretor) mostra os eventos ativos e
+  **oculta** o passado e os itens de diretor; página pública abre **sem login** (com dados, valores,
+  campos e botão); evento só-membros **sem login redireciona** e **com login abre**; evento **simples**
+  não tem página (404); **todas** as telas internas seguem renderizando com o menu. Todos passaram.
+  `python manage.py check` sem problemas.
+
+### Pendências / próximo passo
+- **Parte 2.4** — inscrição de fato: participantes por faixa/diretoria (cálculo do valor), respostas
+  do formulário personalizado, pagamento **simulado**, código, **lista de inscritos** no painel e
+  **contagem/arrecadação no dashboard**. Aí o botão "Inscrever-se" passa a funcionar.
+
+---
+
 ## 2026-07-04 - Evento complexo — Fase 2.2: formulário de inscrição personalizável
 
 ### Resumo

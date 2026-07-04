@@ -752,6 +752,29 @@ def evento_campo_mover_view(request, pk, campo_id):
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
 
+def evento_pagina_view(request, pk):
+    """
+    Página do evento com inscrição (Fase 2.3).
+
+    Aparece no menu de todos os perfis logados e serve de página do evento.
+    Acesso: se o evento é **aberto ao público**, qualquer pessoa vê (sem login);
+    se é **só para membros**, exige login. O envio da inscrição virá na Fase 2.4.
+    """
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
+        login_url = reverse("core:login")
+        return redirect(f"{login_url}?next={request.path}")
+
+    contexto = {
+        "evento": evento,
+        "faixas": list(evento.faixas_preco.all()),
+        "campos": list(evento.campos_inscricao.all()),
+        "inscricoes_abertas": evento.inscricoes_abertas(),
+        "prazo_inscricao": evento.prazo_inscricao(),
+    }
+    return render(request, "core/evento_pagina.html", contexto)
+
+
 @diretor_required
 @require_POST
 def evento_custo_novo_view(request, pk):

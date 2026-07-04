@@ -1,0 +1,102 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>{{ evento.nome }} — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            {% if user.is_authenticated %}
+            <a href="{% url 'core:inicio' %}" class="voltar-link">← Voltar</a>
+            {% endif %}
+
+            {% if messages %}
+            <div class="mensagens">
+                {% for m in messages %}
+                <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <article class="card evento-publico-card">
+                <span class="pill pill-verde">Evento com inscrição</span>
+                <h1 class="evento-publico-titulo">{{ evento.nome }}</h1>
+
+                <div class="evento-publico-meta">
+                    <span class="evento-info">📆 {{ evento.data|date:"d/m/Y" }}{% if evento.data_fim %} – {{ evento.data_fim|date:"d/m/Y" }}{% endif %}</span>
+                    {% if evento.horario_inicio %}<span class="evento-info">🕒 {{ evento.horario_inicio|time:"H:i" }}{% if evento.horario_fim %} – {{ evento.horario_fim|time:"H:i" }}{% endif %}</span>{% endif %}
+                    {% if evento.local %}<span class="evento-info">📍 {{ evento.local }}</span>{% endif %}
+                </div>
+
+                <div class="evento-publico-status {% if inscricoes_abertas %}aberto{% else %}fechado{% endif %}">
+                    {% if inscricoes_abertas %}
+                        ✅ Inscrições abertas{% if prazo_inscricao %} até {{ prazo_inscricao|date:"d/m/Y H:i" }}{% endif %}
+                    {% else %}
+                        ⛔ Inscrições encerradas
+                    {% endif %}
+                </div>
+
+                {% if evento.descricao %}
+                <p class="evento-publico-desc">{{ evento.descricao|linebreaksbr }}</p>
+                {% endif %}
+
+                {% if faixas or evento.valor_diretoria is not None %}
+                <section class="evento-publico-secao">
+                    <h2 class="evento-publico-h2">Valores</h2>
+                    <ul class="valores-lista">
+                        {% for f in faixas %}
+                        <li class="valores-item">
+                            <span>{% if f.rotulo %}{{ f.rotulo }} — {% endif %}{{ f.faixa_txt }}</span>
+                            <strong>R$ {{ f.valor|moeda }}</strong>
+                        </li>
+                        {% endfor %}
+                        {% if evento.valor_diretoria is not None %}
+                        <li class="valores-item">
+                            <span>Diretoria</span>
+                            <strong>R$ {{ evento.valor_diretoria|moeda }}</strong>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </section>
+                {% endif %}
+
+                {% if campos %}
+                <section class="evento-publico-secao">
+                    <h2 class="evento-publico-h2">O formulário de inscrição pedirá</h2>
+                    <ul class="campos-preview">
+                        {% for c in campos %}
+                        <li>{{ c.rotulo }}{% if c.obrigatorio %} <span class="obrigatorio">*</span>{% endif %} <small class="campo-tipo-txt">({{ c.get_tipo_display }})</small></li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endif %}
+
+                <div class="evento-publico-acao">
+                    {% if inscricoes_abertas %}
+                    <button type="button" class="btn-acao" disabled title="Disponível em breve">
+                        <span aria-hidden="true">🎟️</span> Inscrever-se (em breve)
+                    </button>
+                    <p class="painel-nota">O envio da inscrição será liberado na próxima etapa (Fase 2.4).</p>
+                    {% else %}
+                    <p class="painel-nota">As inscrições para este evento estão encerradas.</p>
+                    {% endif %}
+                </div>
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+</body>
+</html>

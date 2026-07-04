@@ -39,9 +39,14 @@ lojinha, custos e resultado (lucro/prejuízo).
   por evento, os campos (conjunto completo de tipos: texto curto/longo, número, escolha única/múltipla,
   sim/não, data), com opções, obrigatório e reordenação. Modelo `CampoInscricao`. Falta o
   preenchimento/envio (respostas) → Fase 2.4.
-- **PRÓXIMO PASSO = Fase 2.3 (evento no menu de todos os perfis + página do evento).** Alinhar: como
-  o botão do evento aparece no menu (todos os perfis) e o que a página do evento mostra (descrição,
-  local, prazo, faixas/valores, botão de inscrever).
+- **Fase 2.3 CONCLUÍDA** (2026-07-04): **evento no menu de todos os perfis** (seção "Eventos ativos",
+  eventos não encerrados) + **página do evento** (`/eventos/<id>/pagina/`, pública se aberto ao
+  público, senão só logado) com dados/status/valores/preview dos campos e botão "Inscrever-se"
+  **desabilitado** (envio real → 2.4).
+- **PRÓXIMO PASSO = Fase 2.4 (inscrição de fato).** Alinhar antes de codar: dados do inscrito
+  (responsável + participantes, cada um com idade → faixa/valor; diretoria → valor da diretoria),
+  respostas dos campos personalizados, pagamento **simulado**, código de inscrição, status
+  (confirmada/cancelada) e o que aparece na lista de inscritos do painel.
 
 ## Requisitos da Fase 2 (definidos com o usuário em 2026-07-04)
 > Cada evento complexo é um **mini-sistema configurável**; nada é fixo no sistema.
@@ -69,10 +74,12 @@ lojinha, custos e resultado (lucro/prejuízo).
    - **2.2 — CONCLUÍDA ✅** — **Formulário de inscrição personalizável** por evento: campos com tipos
      (texto curto/longo, número, escolha única/múltipla, sim/não, data), opções, obrigatório e
      reordenação. Modelo `CampoInscricao`. (Falta o preenchimento/respostas → 2.4.)
-   - **2.3 — PRÓXIMA ⏭️** — **Evento no menu de todos os perfis** + **página do evento**
-     (descrição/local/prazo + botão de inscrever).
-   - **2.4** — **Inscrição de fato**: participantes por faixa/diretoria, preço calculado, pagamento
-     **simulado**, código, **lista de inscritos** no painel e **contagem/arrecadação no dashboard**.
+   - **2.3 — CONCLUÍDA ✅** — **Evento no menu de todos os perfis** (seção "Eventos ativos") +
+     **página do evento** (`evento_pagina.html`, pública/só-membros) com dados/status/valores/preview
+     dos campos. Botão "Inscrever-se" desabilitado até a 2.4.
+   - **2.4 — PRÓXIMA ⏭️** — **Inscrição de fato**: participantes por faixa/diretoria, preço calculado,
+     respostas do formulário, pagamento **simulado**, código, **lista de inscritos** no painel e
+     **contagem/arrecadação no dashboard**.
 3. **Fase 3** — **Página pública** de inscrição (pagamento **simulado**).
 4. **Fase 4** — **Lojinha** (produtos/variações/estoque + pedidos, pagamento simulado).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.

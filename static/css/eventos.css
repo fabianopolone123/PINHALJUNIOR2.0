@@ -395,3 +395,78 @@ a.tipo-card:hover {
 .campo-tipo { font-size: 0.72rem; }
 .campo-opcoes { font-size: 0.85rem; color: var(--texto-suave); margin-top: 4px; overflow-wrap: anywhere; }
 
+/* ===== Página pública/interna do evento (Parte 2.3) ===== */
+.evento-publico {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--fundo-conteudo, #eef3f9);
+}
+.evento-publico-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, var(--azul-escuro) 0%, var(--azul) 100%);
+    color: #fff;
+}
+.evento-publico-logo { width: 40px; height: 40px; object-fit: contain; }
+.evento-publico-clube { font-weight: 700; font-size: 0.98rem; }
+.evento-publico-main {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 18px 16px 40px;
+    flex: 1;
+}
+.evento-publico-card { padding: 24px; margin-top: 12px; }
+.evento-publico-titulo {
+    margin: 10px 0 14px;
+    color: var(--azul-escuro);
+    font-size: 1.6rem;
+    overflow-wrap: anywhere;
+}
+.evento-publico-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--texto-suave);
+    font-size: 0.92rem;
+    margin-bottom: 14px;
+}
+.evento-publico-status {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 16px;
+}
+.evento-publico-status.aberto { color: #226b22; background: rgba(58, 157, 58, 0.14); }
+.evento-publico-status.fechado { color: #c0392b; background: rgba(192, 57, 43, 0.12); }
+.evento-publico-desc {
+    color: var(--texto);
+    line-height: 1.6;
+    margin-bottom: 18px;
+    overflow-wrap: anywhere;
+}
+.evento-publico-secao { margin-top: 20px; }
+.evento-publico-h2 { font-size: 1.05rem; color: var(--azul-escuro); margin-bottom: 10px; }
+.valores-lista { display: flex; flex-direction: column; gap: 8px; }
+.valores-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--fundo-conteudo, #eef3f9);
+    border-radius: 10px;
+}
+.valores-item strong { color: var(--azul-escuro); white-space: nowrap; }
+.campos-preview { list-style: disc; padding-left: 22px; color: var(--texto); line-height: 1.7; }
+.campo-tipo-txt { color: var(--texto-suave); }
+.evento-publico-acao { margin-top: 24px; text-align: center; }
+.evento-publico-acao .btn-acao { margin-top: 0; }
+.evento-publico-rodape { text-align: center; padding: 16px; color: var(--texto-suave); font-size: 0.8rem; }
+
+.btn-acao:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
+

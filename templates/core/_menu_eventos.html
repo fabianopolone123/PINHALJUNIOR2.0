@@ -1,0 +1,13 @@
+{# Seção "Eventos ativos" do menu — visível a TODOS os perfis logados.
+   Requer `eventos_menu` no contexto (core.context_processors.perfis). #}
+{% if eventos_menu %}
+<div class="menu-eventos">
+    <span class="menu-secao-rotulo">Eventos ativos</span>
+    {% for ev in eventos_menu %}
+    <a href="{% url 'core:evento_pagina' ev.id %}" class="menu-item menu-item-evento" title="{{ ev.nome }}">
+        <span class="menu-icone" aria-hidden="true">🎟️</span>
+        <span class="menu-texto">{{ ev.nome }}</span>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}

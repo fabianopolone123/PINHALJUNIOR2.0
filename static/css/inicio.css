@@ -160,6 +160,31 @@ body {
     line-height: 1;
 }
 
+/* Seção "Eventos ativos" no menu (visível a todos os perfis) */
+.menu-eventos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.menu-secao-rotulo {
+    padding: 0 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.6);
+}
+.menu-item-evento { min-width: 0; }
+.menu-item-evento .menu-texto {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .barra-rodape {
     margin-top: 16px;
     padding-top: 14px;
