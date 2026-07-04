@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -32,7 +33,9 @@ from .models import (
     Aventureiro,
     Evento,
     Inscricao,
+    ItemPedidoLoja,
     ParticipanteInscricao,
+    PedidoLoja,
     ProdutoEvento,
     RespostaInscricao,
     VariacaoProduto,
@@ -647,7 +650,9 @@ def evento_painel_view(request, pk):
     inscritos = sum(len(i.participantes.all()) for i in confirmadas)
     arrecadacao_inscricoes = sum((i.valor_total for i in confirmadas), Decimal("0"))
 
-    vendas_loja = Decimal("0")  # Fase 4 (lojinha).
+    pedidos = list(evento.pedidos.prefetch_related("itens").all())
+    pedidos_confirmados = [p for p in pedidos if p.status == "confirmado"]
+    vendas_loja = sum((p.valor_total for p in pedidos_confirmados), Decimal("0"))
     receitas = arrecadacao_inscricoes + vendas_loja
 
     contexto = {
@@ -658,6 +663,7 @@ def evento_painel_view(request, pk):
         "campos_inscricao": campos_inscricao,
         "produtos": produtos,
         "inscricoes": inscricoes,
+        "pedidos": pedidos,
         "config_form": EventoInscricaoConfigForm(instance=evento),
         # Prefixos evitam colisão de IDs entre os modais na mesma página.
         "faixa_form": FaixaEtariaPrecoForm(prefix="faixa"),
@@ -796,6 +802,7 @@ def evento_pagina_view(request, pk):
         "campos": list(evento.campos_inscricao.all()),
         "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
+        "tem_loja": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
     }
     return render(request, "core/evento_pagina.html", contexto)
 
@@ -1102,6 +1109,136 @@ def evento_produto_excluir_view(request, pk, produto_id):
     if produto is not None:
         produto.delete()
         messages.success(request, "Produto removido.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
+
+
+# ---------------------------------------------------------------------------
+# Lojinha — Fase 4.2: comprar na página do evento (carrinho + pedido simulado)
+# ---------------------------------------------------------------------------
+def evento_loja_view(request, pk):
+    """Loja do evento: escolher itens/quantidades e finalizar (pagamento simulado)."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
+        return redirect(f"{reverse('core:login')}?next={request.path}")
+    if evento.ja_terminou():
+        messages.error(request, "Este evento já terminou; a lojinha está fechada.")
+        return redirect("core:evento_pagina", pk=evento.pk)
+
+    produtos = list(evento.produtos.filter(ativo=True).prefetch_related("variacoes"))
+    if not produtos:
+        messages.info(request, "A lojinha deste evento ainda não tem produtos.")
+        return redirect("core:evento_pagina", pk=evento.pk)
+
+    variacoes = {v.id: v for p in produtos for v in p.variacoes.all()}
+    comprador = {"nome": "", "whatsapp": "", "email": ""}
+    quantidades = {}
+    erros = []
+
+    if request.method == "POST":
+        comprador = {
+            "nome": (request.POST.get("comprador_nome") or "").strip(),
+            "whatsapp": (request.POST.get("comprador_whatsapp") or "").strip(),
+            "email": (request.POST.get("comprador_email") or "").strip(),
+        }
+        desejados = []
+        for vid, v in variacoes.items():
+            try:
+                qtd = int(request.POST.get(f"qtd_{vid}") or 0)
+            except (TypeError, ValueError):
+                qtd = 0
+            if qtd > 0:
+                quantidades[vid] = qtd
+                desejados.append((v, qtd))
+        if not comprador["nome"]:
+            erros.append("Informe o nome do comprador.")
+        if not desejados:
+            erros.append("Escolha ao menos um item (quantidade maior que zero).")
+        for v, qtd in desejados:
+            if v.produto.controla_estoque and qtd > v.estoque:
+                erros.append(
+                    f"Estoque insuficiente para {v.produto.nome} — {v.rotulo}: "
+                    f"{v.estoque} disponível(is)."
+                )
+
+        if not erros:
+            with transaction.atomic():
+                pedido = PedidoLoja(
+                    evento=evento,
+                    usuario=request.user if request.user.is_authenticated else None,
+                    comprador_nome=comprador["nome"],
+                    comprador_whatsapp=comprador["whatsapp"],
+                    comprador_email=comprador["email"],
+                    codigo=PedidoLoja.gerar_codigo_unico(),
+                    status="confirmado",
+                )
+                total = Decimal("0")
+                itens = []
+                for v, qtd in desejados:
+                    subtotal = v.valor * qtd
+                    total += subtotal
+                    itens.append(ItemPedidoLoja(
+                        variacao=v, produto_nome=v.produto.nome, variacao_nome=v.nome,
+                        quantidade=qtd, valor_unitario=v.valor, valor_total=subtotal,
+                    ))
+                    if v.produto.controla_estoque:
+                        VariacaoProduto.objects.filter(pk=v.id).update(
+                            estoque=F("estoque") - qtd
+                        )
+                pedido.valor_total = total
+                pedido.save()
+                for item in itens:
+                    item.pedido = pedido
+                    item.save()
+            request.session["pedido_codigo"] = pedido.codigo
+            return redirect("core:evento_pedido_sucesso", pk=evento.pk)
+        messages.error(request, "Verifique os itens escolhidos e os seus dados.")
+    else:
+        if request.user.is_authenticated and request.user.email:
+            comprador["email"] = request.user.email
+
+    # Quantidades para repor no formulário.
+    for p in produtos:
+        for v in p.variacoes.all():
+            v.qtd_atual = quantidades.get(v.id, 0)
+
+    contexto = {
+        "evento": evento,
+        "produtos": produtos,
+        "comprador": comprador,
+        "erros": erros,
+    }
+    return render(request, "core/evento_loja.html", contexto)
+
+
+def evento_pedido_sucesso_view(request, pk):
+    """Confirmação do pedido da lojinha (código + total). Pagamento simulado."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    codigo = request.session.get("pedido_codigo")
+    pedido = evento.pedidos.filter(codigo=codigo).first() if codigo else None
+    if pedido is None:
+        return redirect("core:evento_pagina", pk=evento.pk)
+    return render(
+        request, "core/evento_pedido_sucesso.html",
+        {"evento": evento, "pedido": pedido},
+    )
+
+
+@diretor_required
+@require_POST
+def evento_pedido_cancelar_view(request, pk, pedido_id):
+    """Cancela um pedido da lojinha (Diretor) e devolve os itens ao estoque."""
+    evento = get_object_or_404(Evento, pk=pk)
+    pedido = evento.pedidos.filter(pk=pedido_id).first()
+    if pedido is not None and pedido.status != "cancelado":
+        with transaction.atomic():
+            for item in pedido.itens.all():
+                if item.variacao_id and item.variacao.produto.controla_estoque:
+                    VariacaoProduto.objects.filter(pk=item.variacao_id).update(
+                        estoque=F("estoque") + item.quantidade
+                    )
+            pedido.status = "cancelado"
+            pedido.save(update_fields=["status"])
+        messages.success(request, f"Pedido {pedido.codigo} cancelado (estoque devolvido).")
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
 
 

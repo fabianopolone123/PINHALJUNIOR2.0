@@ -1,0 +1,107 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Lojinha — {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <a href="{% url 'core:evento_pagina' evento.id %}" class="voltar-link">← Voltar para o evento</a>
+
+            {% if messages %}
+            <div class="mensagens">
+                {% for m in messages %}
+                <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <article class="card evento-publico-card">
+                <h1 class="evento-publico-titulo">Lojinha — {{ evento.nome }}</h1>
+
+                <form method="post" action="{% url 'core:evento_loja' evento.id %}" class="evento-form" novalidate id="lojaForm">
+                    {% csrf_token %}
+
+                    {% if erros %}
+                    <div class="erros">{% for e in erros %}<div>{{ e }}</div>{% endfor %}</div>
+                    {% endif %}
+
+                    <h2 class="evento-publico-h2">Escolha os itens</h2>
+                    <div class="loja-produtos">
+                        {% for p in produtos %}
+                        <div class="loja-produto">
+                            {% if p.foto %}
+                            <img src="{{ p.foto.url }}" alt="" class="produto-foto">
+                            {% else %}
+                            <span class="produto-foto produto-foto-vazia" aria-hidden="true">🛒</span>
+                            {% endif %}
+                            <div class="loja-produto-info">
+                                <strong class="produto-nome">{{ p.nome }}</strong>
+                                {% if p.descricao %}<p class="produto-desc">{{ p.descricao }}</p>{% endif %}
+                                <ul class="loja-variacoes">
+                                    {% for v in p.variacoes.all %}
+                                    <li class="loja-var">
+                                        <span class="loja-var-nome">{{ v.rotulo }}</span>
+                                        <span class="loja-var-preco">R$ {{ v.valor|moeda }}</span>
+                                        {% if v.esgotado %}
+                                        <span class="var-estoque esgotado">esgotado</span>
+                                        {% else %}
+                                        <input type="number" name="qtd_{{ v.id }}" class="campo-input loja-qtd"
+                                               min="0" {% if p.controla_estoque %}max="{{ v.estoque }}"{% endif %}
+                                               value="{{ v.qtd_atual }}" data-preco="{{ v.valor }}"
+                                               inputmode="numeric" aria-label="Quantidade de {{ p.nome }} {{ v.rotulo }}">
+                                        {% if p.controla_estoque %}<span class="var-estoque">{{ v.estoque }} disp.</span>{% endif %}
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <h2 class="evento-publico-h2">Dados do comprador</h2>
+                    <div class="campo">
+                        <label for="comprador_nome">Nome <span class="obrigatorio">*</span></label>
+                        <input type="text" id="comprador_nome" name="comprador_nome" class="campo-input" value="{{ comprador.nome }}">
+                    </div>
+                    <div class="form-linha">
+                        <div class="campo">
+                            <label for="comprador_whatsapp">WhatsApp</label>
+                            <input type="text" id="comprador_whatsapp" name="comprador_whatsapp" class="campo-input" value="{{ comprador.whatsapp }}">
+                        </div>
+                        <div class="campo">
+                            <label for="comprador_email">E-mail</label>
+                            <input type="email" id="comprador_email" name="comprador_email" class="campo-input" value="{{ comprador.email }}">
+                        </div>
+                    </div>
+
+                    <div class="loja-rodape">
+                        <div class="loja-total">Total: <strong id="lojaTotal">R$ 0,00</strong></div>
+                        <button type="submit" class="btn-acao">
+                            <span aria-hidden="true">🛒</span> Finalizar pedido
+                        </button>
+                    </div>
+                    <p class="painel-nota" style="text-align:center;">Pagamento simulado nesta etapa — o pedido é confirmado na hora.</p>
+                </form>
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+
+    <script src="{% static 'js/evento_loja.js' %}"></script>
+</body>
+</html>

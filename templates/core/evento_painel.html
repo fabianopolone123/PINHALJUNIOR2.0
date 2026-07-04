@@ -351,7 +351,43 @@
                     <p class="painel-nota">Nenhum produto cadastrado. Clique em “Novo produto” para montar a lojinha.</p>
                     {% endif %}
 
-                    <p class="painel-nota">A venda dos produtos (carrinho e pedidos) entra na próxima parte da Lojinha.</p>
+                    <hr class="secao-divisor">
+                    <div class="secao-cabecalho">
+                        <h3 class="secao-titulo">Pedidos ({{ pedidos|length }})</h3>
+                    </div>
+                    {% if pedidos %}
+                    <ul class="inscritos-lista">
+                        {% for pd in pedidos %}
+                        <li class="card inscrito-item{% if pd.status == 'cancelado' %} inscrito-cancelada{% endif %}">
+                            <div class="inscrito-topo">
+                                <span class="inscrito-codigo">{{ pd.codigo }}</span>
+                                <span class="pill {% if pd.status == 'confirmado' %}pill-verde{% else %}pill-cinza{% endif %}">{{ pd.get_status_display }}</span>
+                                <span class="inscrito-valor">R$ {{ pd.valor_total|moeda }}</span>
+                            </div>
+                            <strong class="inscrito-resp">{{ pd.comprador_nome }}</strong>
+                            {% if pd.comprador_whatsapp or pd.comprador_email %}
+                            <span class="inscrito-contato">{% if pd.comprador_whatsapp %}📱 {{ pd.comprador_whatsapp }}{% endif %}{% if pd.comprador_email %} ✉️ {{ pd.comprador_email }}{% endif %}</span>
+                            {% endif %}
+                            <details class="inscrito-detalhe">
+                                <summary>Ver itens</summary>
+                                <ul class="inscrito-parts">
+                                    {% for item in pd.itens.all %}
+                                    <li>{{ item.quantidade }}x {{ item.produto_nome }}{% if item.variacao_nome %} ({{ item.variacao_nome }}){% endif %} — R$ {{ item.valor_total|moeda }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                            {% if pd.status == 'confirmado' %}
+                            <form method="post" action="{% url 'core:evento_pedido_cancelar' evento.id pd.id %}" class="inscrito-cancelar-form" onsubmit="return confirm('Cancelar o pedido {{ pd.codigo }}? O estoque será devolvido.');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-secundario btn-cancelar-inscricao">Cancelar pedido</button>
+                            </form>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhum pedido ainda.</p>
+                    {% endif %}
                 </section>
 
                 <!-- ===================== Custos ===================== -->

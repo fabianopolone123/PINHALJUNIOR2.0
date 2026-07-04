@@ -9,7 +9,9 @@ from .models import (
     FaixaEtariaPreco,
     FichaMedica,
     Inscricao,
+    ItemPedidoLoja,
     ParticipanteInscricao,
+    PedidoLoja,
     ProdutoEvento,
     RespostaInscricao,
     VariacaoProduto,
@@ -92,3 +94,16 @@ class ProdutoEventoAdmin(admin.ModelAdmin):
     search_fields = ("nome", "evento__nome")
     list_filter = ("evento", "ativo")
     inlines = [VariacaoProdutoInline]
+
+
+class ItemPedidoLojaInline(admin.TabularInline):
+    model = ItemPedidoLoja
+    extra = 0
+
+
+@admin.register(PedidoLoja)
+class PedidoLojaAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "evento", "comprador_nome", "status", "valor_total", "criado_em")
+    search_fields = ("codigo", "comprador_nome", "evento__nome")
+    list_filter = ("evento", "status")
+    inlines = [ItemPedidoLojaInline]

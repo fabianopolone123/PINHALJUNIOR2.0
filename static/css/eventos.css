@@ -553,6 +553,29 @@ a.tipo-card:hover {
     .var-linha .var-linha-estoque { flex: 1 1 120px; width: auto; }
 }
 
+/* ===== Lojinha — comprar na página do evento (Parte 4.2) ===== */
+.loja-produtos { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.loja-produto {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px 14px; border: 1px solid var(--borda); border-radius: var(--raio-item);
+    background: var(--branco);
+}
+.loja-produto-info { flex: 1; min-width: 0; }
+.loja-variacoes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.loja-var { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.loja-var-nome { font-weight: 600; min-width: 60px; }
+.loja-var-preco { font-weight: 800; color: var(--azul-escuro); }
+.loja-qtd { width: 76px; flex: none; margin-left: auto; text-align: center; }
+.loja-var .var-estoque { flex: none; }
+
+.loja-rodape {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borda);
+}
+.loja-total { font-size: 1.15rem; color: var(--texto); }
+.loja-total strong { color: var(--azul-escuro); }
+.loja-rodape .btn-acao { margin-top: 0; }
+
 .valores-resumo {
     background: var(--fundo-conteudo, #eef3f9); border-radius: 10px; padding: 12px 14px;
     margin-bottom: 16px; font-size: 0.9rem;

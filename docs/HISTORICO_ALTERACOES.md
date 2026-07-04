@@ -22,6 +22,53 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Lojinha Fase 4.2: comprar na página do evento
+
+### Resumo
+**Parte 4.2**: a lojinha passou a **vender**. Na página do evento há o botão **"Comprar na lojinha"**
+(quando há produtos ativos e o evento não terminou), que abre a **loja** (`/eventos/<id>/loja/`):
+lista os produtos ativos com suas variações (preço, estoque quando controlado), um campo de
+**quantidade** por variação e o **total ao vivo** (JS). No fim, dados do comprador e **Finalizar
+pedido** → **pagamento simulado**, gera **código**, **baixa o estoque** (dos produtos que controlam) e
+mostra a tela de sucesso. Acesso igual ao evento (público sem login; só-membros com login); a loja
+fica aberta **enquanto o evento não terminou** (independe do prazo de inscrição — dá para comprar no
+dia). No **painel**, a aba "Lojinha" ganhou a **lista de pedidos** (com itens e **cancelar**, que
+devolve ao estoque) e o **Resumo** passou a contar **"Vendas (lojinha)"** de verdade (entra nas
+receitas/resultado).
+
+### Arquivos criados/alterados
+- `core/models.py`: `PedidoLoja` (evento, comprador, código, status, valor_total) e `ItemPedidoLoja`
+  (variação + snapshots + quantidade + valores); `Evento.ja_terminou()`/`loja_aberta()`; props
+  `VariacaoProduto.rotulo`/`esgotado`. Migration `0009`.
+- `core/views.py`: `evento_loja_view` (monta o pedido, valida estoque, baixa com `F()`),
+  `evento_pedido_sucesso_view`, `evento_pedido_cancelar_view` (Diretor; devolve estoque). Painel
+  calcula `vendas_loja` e passa `pedidos`; `evento_pagina_view` passa `tem_loja`.
+- `core/urls.py`: rotas `evento_loja`, `evento_pedido_sucesso`, `evento_pedido_cancelar`.
+  `core/admin.py`: `PedidoLoja` (inline de itens).
+- `templates/core/evento_loja.html` (novo, loja + carrinho) e `evento_pedido_sucesso.html`;
+  `evento_pagina.html` (botão "Comprar na lojinha"); `evento_painel.html` (lista de pedidos + cancelar).
+- `static/js/evento_loja.js` (total ao vivo). `static/css/eventos.css` (loja mobile-first).
+
+### Decisões tomadas
+- **Pedido numa página só** (quantidade por variação), sem carrinho persistente — simples e rápido no
+  celular; total ao vivo no cliente, mas o valor é **recomputado no servidor** (Decimal).
+- **Baixa/devolução de estoque** com `F()` (atômico); só afeta produtos que controlam estoque.
+- Loja independente do prazo de inscrição; fecha quando o evento termina (`fim_datetime`).
+
+### Validação
+- Teste ponta a ponta: GET público (esconde inativos); botão na página; pedido válido (2 produtos,
+  total e itens corretos, baixa de estoque); estoque insuficiente e pedido sem itens/sem nome
+  rejeitados; dashboard com "Vendas (lojinha)"; cancelar devolve estoque e zera vendas; loja fechada
+  após o evento terminar. Todos passaram. `python manage.py check` OK.
+- **Responsividade (Chrome headless ~490px)**: loja com quantidades, "esgotado" sem campo, total e
+  botão — sem overflow.
+
+### Pendências / próximo passo
+- **Lojinha 4.3** — comprar **junto da inscrição** (opcional) + **voltar e pedir mais** fácil.
+- Depois: 4.4 (PDV dos atendentes: pago/forma de pagamento).
+
+---
+
 ## 2026-07-04 - Evento complexo — Lojinha Fase 4.1: cadastro de produtos
 
 ### Resumo

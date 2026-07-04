@@ -97,6 +97,11 @@
                     {% else %}
                     <p class="painel-nota">As inscrições para este evento estão encerradas.</p>
                     {% endif %}
+                    {% if tem_loja %}
+                    <a href="{% url 'core:evento_loja' evento.id %}" class="btn-secundario">
+                        <span aria-hidden="true">🛒</span> Comprar na lojinha
+                    </a>
+                    {% endif %}
                 </div>
             </article>
         </main>

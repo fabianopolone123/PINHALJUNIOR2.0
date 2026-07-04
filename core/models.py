@@ -382,6 +382,16 @@ class Evento(models.Model):
             return True
         return timezone.now() <= prazo
 
+    def ja_terminou(self):
+        """True se o evento já acabou (passou o término)."""
+        fim = self.fim_datetime()
+        return fim is not None and timezone.now() > fim
+
+    def loja_aberta(self):
+        """A lojinha vende enquanto o evento não terminou (independe do prazo de
+        inscrição — dá para comprar no dia do evento)."""
+        return not self.ja_terminou()
+
     def preco_participante(self, idade, eh_diretoria, faixas=None):
         """(valor, faixa) de um participante: valor da diretoria (se marcado e
         configurado) ou a faixa etária que casa com a idade; senão, 0."""
@@ -672,8 +682,106 @@ class VariacaoProduto(models.Model):
         verbose_name_plural = "Variações de produto"
         ordering = ["ordem", "id"]
 
+    @property
+    def rotulo(self):
+        return self.nome or "Único"
+
+    @property
+    def esgotado(self):
+        """Sem estoque (só faz sentido quando o produto controla estoque)."""
+        return self.produto.controla_estoque and self.estoque <= 0
+
     def __str__(self):
-        return f"{self.nome or 'Único'} — {self.produto.nome}"
+        return f"{self.rotulo} — {self.produto.nome}"
+
+
+STATUS_PEDIDO_CHOICES = [
+    ("confirmado", "Confirmado"),
+    ("cancelado", "Cancelado"),
+]
+
+
+class PedidoLoja(models.Model):
+    """Pedido da lojinha de um evento (Fase 4.2). Pagamento simulado."""
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="pedidos",
+        verbose_name="Evento",
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pedidos_loja",
+        verbose_name="Usuário (se logado)",
+    )
+    comprador_nome = models.CharField("Nome do comprador", max_length=150)
+    comprador_whatsapp = models.CharField("WhatsApp", max_length=20, blank=True)
+    comprador_email = models.EmailField("E-mail", blank=True)
+    codigo = models.CharField("Código do pedido", max_length=20, unique=True)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_PEDIDO_CHOICES, default="confirmado"
+    )
+    valor_total = models.DecimalField(
+        "Valor total", max_digits=10, decimal_places=2, default=0
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Pedido da lojinha"
+        verbose_name_plural = "Pedidos da lojinha"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.codigo} — {self.comprador_nome} ({self.evento.nome})"
+
+    @staticmethod
+    def gerar_codigo_unico():
+        alfabeto = string.ascii_uppercase + string.digits
+        while True:
+            codigo = "P" + "".join(random.choices(alfabeto, k=5))
+            if not PedidoLoja.objects.filter(codigo=codigo).exists():
+                return codigo
+
+
+class ItemPedidoLoja(models.Model):
+    """Um item de um pedido da lojinha (variação + quantidade)."""
+
+    pedido = models.ForeignKey(
+        PedidoLoja,
+        on_delete=models.CASCADE,
+        related_name="itens",
+        verbose_name="Pedido",
+    )
+    variacao = models.ForeignKey(
+        VariacaoProduto,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="itens_pedido",
+        verbose_name="Variação",
+    )
+    # Snapshots (mantêm o pedido legível mesmo se o produto mudar/for apagado).
+    produto_nome = models.CharField("Produto", max_length=150)
+    variacao_nome = models.CharField("Variação", max_length=80, blank=True)
+    quantidade = models.PositiveIntegerField("Quantidade", default=1)
+    valor_unitario = models.DecimalField(
+        "Valor unitário", max_digits=10, decimal_places=2, default=0
+    )
+    valor_total = models.DecimalField(
+        "Valor total", max_digits=10, decimal_places=2, default=0
+    )
+
+    class Meta:
+        verbose_name = "Item do pedido"
+        verbose_name_plural = "Itens do pedido"
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto_nome} — {self.pedido.codigo}"
 
 
 class RespostaInscricao(models.Model):
