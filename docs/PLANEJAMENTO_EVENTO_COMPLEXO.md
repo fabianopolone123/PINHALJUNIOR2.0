@@ -31,17 +31,41 @@ lojinha, custos e resultado (lucro/prejuízo).
 
 ## ▶️ ONDE CONTINUAR (retomar aqui)
 - **Fase 1 CONCLUÍDA** (2026-07-04): evento complexo criável, painel `/eventos/<id>/` com abas
-  (Resumo + Custos funcionando; Inscrições/Lojinha/Financeiro como "em breve"), moeda em R$ 1.500,00.
-- **PRÓXIMO PASSO = Fase 2 (Inscrições).** Antes de codar, alinhar com o usuário: campos do formulário
-  customizável (ex.: responsável + CPF + crianças vinculadas) e as regras de preço (faixa etária,
-  gratuito/diferente para diretoria, valor fixo, grátis). Pagamento continua **simulado**.
+  (Resumo + Custos funcionando), moeda em R$ 1.500,00.
+- **Fase 2.1 CONCLUÍDA** (2026-07-04): fundação das inscrições na aba "Inscrições" do painel —
+  configuração (local obrigatório, aberto ao público?, prazo limite, valor da diretoria), **faixas
+  etárias com valores** por evento e **trava automática** no prazo/fim do evento.
+- **PRÓXIMO PASSO = Fase 2.2 (formulário de inscrição personalizável).** Antes de codar, alinhar os
+  tipos de campo suportados (texto, número, escolha, sim/não…) e como o Diretor monta o formulário.
+
+## Requisitos da Fase 2 (definidos com o usuário em 2026-07-04)
+> Cada evento complexo é um **mini-sistema configurável**; nada é fixo no sistema.
+- **Preço por faixa etária, variável por evento**: as faixas (ex.: 6–10) e os valores mudam a cada
+  evento. A **diretoria** paga um **valor próprio** (fixo, independe da idade). ✅ feito na 2.1.
+- **Formulário de inscrição personalizável** por evento (cada evento tem campos diferentes). → 2.2.
+- **Aberto ao público geral OU só membros** do clube (flag por evento). ✅ campo criado na 2.1.
+- **Local obrigatório** no evento com inscrição. ✅ 2.1.
+- **Prazo limite + trava automática**: passada a data/hora limite (ou o fim do evento), ninguém mais
+  se inscreve. ✅ 2.1.
+- **Evento no menu de TODOS os perfis** (responsável, diretor, tesoureiro, secretário, professor):
+  ao criar um evento complexo, aparece um **botão com o nome do evento** no menu, levando à página
+  do evento / ficha de inscrição. → 2.3.
+- **Só o Diretor cria** o evento e o libera; os demais apenas se inscrevem. Pagamento **simulado**.
+- Cada evento complexo também terá **lojinha** (Fase 4).
 
 ## Fases
 1. **Fase 1 — CONCLUÍDA ✅** — Base do evento complexo (título, descrição, datas de início/fim, local) +
    **painel/dashboard** (resumo com indicadores) + **Custos** (com comprovante). Modelos: `Evento`
    (+`data_fim`) e `CustoEvento`. Telas: `evento_complexo_form.html`, `evento_painel.html`.
-2. **Fase 2 — PRÓXIMA ⏭️** — **Inscrições**: formulário customizável + preços (faixa etária / diretoria /
-   fixo / grátis) + lista de inscritos + contagem no dashboard.
+2. **Fase 2 — Inscrições** (dividida em 4 partes):
+   - **2.1 — CONCLUÍDA ✅** — Fundação: config da inscrição (local, aberto ao público?, prazo limite,
+     valor da diretoria), **faixas etárias com valores** por evento e **trava automática** no prazo.
+     Modelo `FaixaEtariaPreco` + campos no `Evento`. Aba "Inscrições" do painel.
+   - **2.2 — PRÓXIMA ⏭️** — **Formulário de inscrição personalizável** por evento (tipos de campo).
+   - **2.3** — **Evento no menu de todos os perfis** + **página do evento** (descrição/local/prazo +
+     botão de inscrever).
+   - **2.4** — **Inscrição de fato**: participantes por faixa/diretoria, preço calculado, pagamento
+     **simulado**, código, **lista de inscritos** no painel e **contagem/arrecadação no dashboard**.
 3. **Fase 3** — **Página pública** de inscrição (pagamento **simulado**).
 4. **Fase 4** — **Lojinha** (produtos/variações/estoque + pedidos, pagamento simulado).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.

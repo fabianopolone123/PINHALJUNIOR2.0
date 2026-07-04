@@ -127,13 +127,84 @@
                     </p>
                 </section>
 
-                <!-- ===================== Inscrições (em breve) ===================== -->
+                <!-- ===================== Inscrições ===================== -->
                 <section class="painel-secao" data-secao="inscricoes" hidden>
-                    <div class="card em-breve">
-                        <span class="em-breve-icone" aria-hidden="true">🎟️</span>
-                        <h2 class="card-titulo">Inscrições — em breve</h2>
-                        <p class="card-texto">Formulário de inscrição customizável e preços (por faixa etária, diretoria, etc.) serão implementados na próxima fase.</p>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Inscrições</h2>
+                        <span class="pill {% if inscricoes_abertas %}pill-verde{% else %}pill-cinza{% endif %}">
+                            {% if inscricoes_abertas %}✅ Abertas{% else %}⛔ Encerradas{% endif %}
+                        </span>
                     </div>
+
+                    {% if prazo_inscricao %}
+                    <p class="painel-nota">
+                        {% if inscricoes_abertas %}
+                            Inscrições abertas até <strong>{{ prazo_inscricao|date:"d/m/Y H:i" }}</strong>.
+                        {% else %}
+                            O prazo de inscrição encerrou em <strong>{{ prazo_inscricao|date:"d/m/Y H:i" }}</strong>.
+                        {% endif %}
+                        {% if not evento.inscricao_limite %}<br><small>(sem prazo próprio — usando o fim do evento como limite)</small>{% endif %}
+                    </p>
+                    {% endif %}
+
+                    <!-- Configuração da inscrição -->
+                    <div class="card config-card">
+                        <h3 class="config-titulo">Configuração da inscrição</h3>
+                        <form method="post" action="{% url 'core:evento_inscricao_config' evento.id %}" class="evento-form" novalidate>
+                            {% csrf_token %}
+                            {% include "core/_campo.html" with campo=config_form.local %}
+                            <div class="campo">
+                                <div class="campo-checkbox">
+                                    {{ config_form.inscricao_aberta_publico }}
+                                    <label for="{{ config_form.inscricao_aberta_publico.id_for_label }}">{{ config_form.inscricao_aberta_publico.label }}</label>
+                                </div>
+                                {% if config_form.inscricao_aberta_publico.help_text %}<small class="ajuda">{{ config_form.inscricao_aberta_publico.help_text }}</small>{% endif %}
+                            </div>
+                            {% include "core/_campo.html" with campo=config_form.inscricao_limite %}
+                            {% include "core/_campo.html" with campo=config_form.valor_diretoria %}
+                            <div class="form-acoes">
+                                <button type="submit" class="btn-acao">
+                                    <span aria-hidden="true">💾</span> Salvar configuração
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Faixas etárias e valores -->
+                    <div class="secao-cabecalho">
+                        <h3 class="secao-titulo">Faixas etárias e valores</h3>
+                        <button type="button" class="btn-acao btn-acao-pequeno" id="btnAddFaixa">
+                            <span aria-hidden="true">➕</span> Adicionar faixa
+                        </button>
+                    </div>
+
+                    {% if evento.valor_diretoria is not None %}
+                    <p class="painel-nota">Diretoria: <strong>R$ {{ evento.valor_diretoria|moeda }}</strong> (valor fixo, independe da idade).</p>
+                    {% endif %}
+
+                    {% if faixas %}
+                    <ul class="faixas-lista">
+                        {% for f in faixas %}
+                        <li class="card faixa-item">
+                            <div class="faixa-info">
+                                <strong class="faixa-nome">{% if f.rotulo %}{{ f.rotulo }} — {% endif %}{{ f.faixa_txt }}</strong>
+                            </div>
+                            <span class="faixa-valor">R$ {{ f.valor|moeda }}</span>
+                            <form method="post" action="{% url 'core:evento_faixa_excluir' evento.id f.id %}" class="custo-excluir-form" onsubmit="return confirm('Remover esta faixa?');">
+                                {% csrf_token %}
+                                <button type="submit" class="custo-excluir" aria-label="Remover faixa">✕</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhuma faixa etária cadastrada. Adicione ao menos uma para definir os valores por idade.</p>
+                    {% endif %}
+
+                    <p class="painel-nota">
+                        O formulário de inscrição personalizável, a página do evento e a lista de inscritos
+                        entram nas próximas partes da Fase 2.
+                    </p>
                 </section>
 
                 <!-- ===================== Lojinha (em breve) ===================== -->
@@ -206,6 +277,33 @@
                             <button type="button" class="btn-secundario" id="modalCustoCancelar">Cancelar</button>
                             <button type="submit" class="btn-acao">
                                 <span aria-hidden="true">💾</span> Salvar custo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== Modal: adicionar faixa etária ===================== -->
+        <div class="modal-overlay" id="modalFaixa" hidden>
+            <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalFaixaTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalFaixaTitulo">Adicionar faixa etária</h2>
+                    <button type="button" class="modal-fechar" id="modalFaixaFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <form method="post" action="{% url 'core:evento_faixa_nova' evento.id %}" class="evento-form" novalidate>
+                        {% csrf_token %}
+                        {% include "core/_campo.html" with campo=faixa_form.rotulo %}
+                        <div class="form-linha">
+                            {% include "core/_campo.html" with campo=faixa_form.idade_min %}
+                            {% include "core/_campo.html" with campo=faixa_form.idade_max %}
+                        </div>
+                        {% include "core/_campo.html" with campo=faixa_form.valor %}
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" id="modalFaixaCancelar">Cancelar</button>
+                            <button type="submit" class="btn-acao">
+                                <span aria-hidden="true">💾</span> Salvar faixa
                             </button>
                         </div>
                     </form>

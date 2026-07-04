@@ -6,8 +6,11 @@ vários aventureiros no futuro. Cada aventureiro tem uma ficha de inscrição
 (no próprio model), uma ficha médica e uma autorização de imagem.
 """
 
+import datetime
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 # ---------- Opções (choices) reutilizáveis ----------
@@ -309,6 +312,27 @@ class Evento(models.Model):
     horario_inicio = models.TimeField("Horário de início", null=True, blank=True)
     horario_fim = models.TimeField("Horário de término", null=True, blank=True)
 
+    # --- Configuração de inscrição (só usada em eventos "com inscrição") ---
+    # Se True, qualquer pessoa pode se inscrever; se False, apenas membros do
+    # clube (usuários com aventureiros cadastrados).
+    inscricao_aberta_publico = models.BooleanField(
+        "Aberto ao público geral", default=False
+    )
+    # Prazo limite para se inscrever. Passada esta data/hora, as inscrições
+    # travam automaticamente. Se vazio, usa o fim do evento como limite.
+    inscricao_limite = models.DateTimeField(
+        "Prazo limite de inscrição", null=True, blank=True
+    )
+    # Valor único que a diretoria paga na inscrição (independe da faixa etária).
+    # Vazio = sem valor especial para a diretoria.
+    valor_diretoria = models.DecimalField(
+        "Valor para a diretoria",
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -330,6 +354,30 @@ class Evento(models.Model):
     @property
     def eh_complexo(self):
         return self.tipo == "inscricao"
+
+    def fim_datetime(self):
+        """Data/hora de término do evento (aware). Usa `data_fim` ou `data`, e
+        `horario_fim` ou o fim do dia (23:59). Retorna None se não houver data."""
+        dia = self.data_fim or self.data
+        if not dia:
+            return None
+        hora = self.horario_fim or datetime.time(23, 59, 59)
+        dt = datetime.datetime.combine(dia, hora)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        return dt
+
+    def prazo_inscricao(self):
+        """Prazo efetivo das inscrições: `inscricao_limite` se definido; senão,
+        o término do evento."""
+        return self.inscricao_limite or self.fim_datetime()
+
+    def inscricoes_abertas(self):
+        """True se ainda dá para se inscrever (prazo não passou)."""
+        prazo = self.prazo_inscricao()
+        if prazo is None:
+            return True
+        return timezone.now() <= prazo
 
 
 class CustoEvento(models.Model):
@@ -364,3 +412,41 @@ class CustoEvento(models.Model):
 
     def __str__(self):
         return f"{self.nome} — {self.evento.nome}"
+
+
+class FaixaEtariaPreco(models.Model):
+    """Faixa etária com valor de inscrição, definida por evento.
+
+    Cada evento com inscrição pode ter faixas diferentes (ex.: 6 a 10 anos =
+    R$ 30,00). O valor da diretoria fica no próprio `Evento` (`valor_diretoria`),
+    pois independe da idade.
+    """
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="faixas_preco",
+        verbose_name="Evento",
+    )
+    rotulo = models.CharField(
+        "Rótulo da faixa", max_length=60, blank=True,
+        help_text="Opcional. Ex.: \"Crianças\". Se vazio, mostra a faixa de idades.",
+    )
+    idade_min = models.PositiveIntegerField("Idade mínima", default=0)
+    idade_max = models.PositiveIntegerField("Idade máxima", default=0)
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Faixa etária (preço)"
+        verbose_name_plural = "Faixas etárias (preços)"
+        ordering = ["ordem", "idade_min", "id"]
+
+    @property
+    def faixa_txt(self):
+        """Descrição da faixa de idades (ex.: "6 a 10 anos")."""
+        return f"{self.idade_min} a {self.idade_max} anos"
+
+    def __str__(self):
+        return f"{self.rotulo or self.faixa_txt} — {self.evento.nome}"

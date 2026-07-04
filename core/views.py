@@ -19,6 +19,8 @@ from .forms import (
     CustoEventoForm,
     EventoComplexoForm,
     EventoForm,
+    EventoInscricaoConfigForm,
+    FaixaEtariaPrecoForm,
     FichaMedicaForm,
     ResponsavelLegalForm,
 )
@@ -608,10 +610,15 @@ def evento_complexo_novo_view(request):
 
 @diretor_required
 def evento_painel_view(request, pk):
-    """Painel (dashboard) de um evento complexo. Fase 1: resumo + custos."""
+    """Painel (dashboard) de um evento complexo.
+
+    Fase 1: resumo + custos. Parte 2.1: configuração de inscrição
+    (visibilidade, prazo, faixas etárias de preço e valor da diretoria).
+    """
     evento = get_object_or_404(Evento, pk=pk)
     custos = list(evento.custos.all())
     total_custos = sum((c.valor for c in custos), Decimal("0"))
+    faixas = list(evento.faixas_preco.all())
 
     # Preenchidos nas próximas fases (inscrições e lojinha).
     arrecadacao_inscricoes = Decimal("0")
@@ -622,6 +629,11 @@ def evento_painel_view(request, pk):
         "evento": evento,
         "custos": custos,
         "form_custo": CustoEventoForm(),
+        "faixas": faixas,
+        "config_form": EventoInscricaoConfigForm(instance=evento),
+        "faixa_form": FaixaEtariaPrecoForm(),
+        "inscricoes_abertas": evento.inscricoes_abertas(),
+        "prazo_inscricao": evento.prazo_inscricao(),
         "resumo": {
             "inscritos": 0,
             "arrecadacao_inscricoes": arrecadacao_inscricoes,
@@ -632,6 +644,55 @@ def evento_painel_view(request, pk):
         },
     }
     return render(request, "core/evento_painel.html", contexto)
+
+
+@diretor_required
+@require_POST
+def evento_inscricao_config_view(request, pk):
+    """Salva a configuração de inscrição do evento (Parte 2.1)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    form = EventoInscricaoConfigForm(request.POST, instance=evento)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Configuração de inscrição salva.")
+    else:
+        messages.error(
+            request, "Não foi possível salvar a configuração. Verifique os campos."
+        )
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+@diretor_required
+@require_POST
+def evento_faixa_nova_view(request, pk):
+    """Adiciona uma faixa etária de preço ao evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    form = FaixaEtariaPrecoForm(request.POST)
+    if form.is_valid():
+        faixa = form.save(commit=False)
+        faixa.evento = evento
+        # A nova faixa entra no fim da ordem atual.
+        ultima = evento.faixas_preco.order_by("-ordem").first()
+        faixa.ordem = (ultima.ordem + 1) if ultima else 0
+        faixa.save()
+        messages.success(request, "Faixa etária adicionada.")
+    else:
+        messages.error(
+            request, "Não foi possível adicionar a faixa. Verifique os campos."
+        )
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+@diretor_required
+@require_POST
+def evento_faixa_excluir_view(request, pk, faixa_id):
+    """Remove uma faixa etária de preço do evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    faixa = evento.faixas_preco.filter(pk=faixa_id).first()
+    if faixa is not None:
+        faixa.delete()
+        messages.success(request, "Faixa etária removida.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
 
 @diretor_required

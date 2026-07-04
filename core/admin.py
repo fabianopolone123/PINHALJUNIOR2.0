@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Aventureiro, AutorizacaoImagem, CustoEvento, Evento, FichaMedica
+from .models import (
+    Aventureiro,
+    AutorizacaoImagem,
+    CustoEvento,
+    Evento,
+    FaixaEtariaPreco,
+    FichaMedica,
+)
 
 
 @admin.register(Aventureiro)
@@ -33,4 +40,11 @@ class EventoAdmin(admin.ModelAdmin):
 class CustoEventoAdmin(admin.ModelAdmin):
     list_display = ("nome", "evento", "valor", "criado_por", "criado_em")
     search_fields = ("nome", "evento__nome")
+    list_filter = ("evento",)
+
+
+@admin.register(FaixaEtariaPreco)
+class FaixaEtariaPrecoAdmin(admin.ModelAdmin):
+    list_display = ("evento", "rotulo", "idade_min", "idade_max", "valor", "ordem")
+    search_fields = ("rotulo", "evento__nome")
     list_filter = ("evento",)

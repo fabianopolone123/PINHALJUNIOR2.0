@@ -29,35 +29,47 @@
         ativar(hashAba);
     }
 
-    // ---- Modal: adicionar custo ----
-    var modal = document.getElementById("modalCusto");
-    if (!modal) return;
-    var abrirBtn = document.getElementById("btnAddCusto");
-    var fechar = document.getElementById("modalCustoFechar");
-    var cancelar = document.getElementById("modalCustoCancelar");
+    // ---- Modais (adicionar custo, adicionar faixa etária) ----
+    // Cada modal fecha só quando o clique começou E terminou no fundo (não fecha
+    // ao arrastar uma seleção de texto de dentro para fora).
+    function configurarModal(cfg) {
+        var modal = document.getElementById(cfg.modal);
+        if (!modal) return;
+        var abrirBtn = document.getElementById(cfg.abrir);
+        var fechar = document.getElementById(cfg.fechar);
+        var cancelar = document.getElementById(cfg.cancelar);
 
-    function abrir() {
-        modal.hidden = false;
-        document.body.classList.add("modal-aberto");
-    }
-    function fecharModal() {
-        modal.hidden = true;
-        document.body.classList.remove("modal-aberto");
+        function abrir() {
+            modal.hidden = false;
+            document.body.classList.add("modal-aberto");
+        }
+        function fecharModal() {
+            modal.hidden = true;
+            document.body.classList.remove("modal-aberto");
+        }
+
+        if (abrirBtn) abrirBtn.addEventListener("click", abrir);
+        if (fechar) fechar.addEventListener("click", fecharModal);
+        if (cancelar) cancelar.addEventListener("click", fecharModal);
+
+        var fundoMousedown = false;
+        modal.addEventListener("mousedown", function (e) {
+            fundoMousedown = e.target === modal;
+        });
+        modal.addEventListener("click", function (e) {
+            if (e.target === modal && fundoMousedown) fecharModal();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && !modal.hidden) fecharModal();
+        });
     }
 
-    if (abrirBtn) abrirBtn.addEventListener("click", abrir);
-    if (fechar) fechar.addEventListener("click", fecharModal);
-    if (cancelar) cancelar.addEventListener("click", fecharModal);
-    // Fecha só se o clique começou E terminou no fundo (não fecha ao arrastar
-    // uma seleção de texto de dentro para fora).
-    var fundoMousedown = false;
-    modal.addEventListener("mousedown", function (e) {
-        fundoMousedown = e.target === modal;
+    configurarModal({
+        modal: "modalCusto", abrir: "btnAddCusto",
+        fechar: "modalCustoFechar", cancelar: "modalCustoCancelar",
     });
-    modal.addEventListener("click", function (e) {
-        if (e.target === modal && fundoMousedown) fecharModal();
-    });
-    document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && !modal.hidden) fecharModal();
+    configurarModal({
+        modal: "modalFaixa", abrir: "btnAddFaixa",
+        fechar: "modalFaixaFechar", cancelar: "modalFaixaCancelar",
     });
 })();

@@ -22,6 +22,60 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 2.1: fundação das inscrições (config + faixas)
+
+### Resumo
+Início da **Fase 2 (Inscrições)**, dividida em 4 partes (2.1 a 2.4). Esta é a **Parte 2.1 —
+Fundação**: cada evento com inscrição passa a ter **configuração de inscrição** no painel (aba
+"Inscrições"), com:
+1. **Local** (obrigatório no evento com inscrição), **aberto ao público geral?** (sim = qualquer
+   pessoa; não = só membros do clube) e **prazo limite de inscrição** (data/hora).
+2. **Trava automática**: passado o prazo (ou, se vazio, o fim do evento), as inscrições ficam
+   "encerradas" (badge verde "Abertas" / cinza "Encerradas" + data-limite exibida).
+3. **Faixas etárias com valores** por evento (rótulo opcional + idade mín/máx + valor), adicionadas
+   por modal e removíveis. Cada evento define as suas (variam de evento para evento).
+4. **Valor da diretoria** (valor fixo que a diretoria paga, independe da idade; vazio = sem valor
+   especial, 0 = grátis).
+O formulário de inscrição personalizável (2.2), o evento no menu de todos os perfis + página do
+evento (2.3) e a inscrição de fato com pagamento simulado + lista de inscritos (2.4) vêm nas
+próximas partes.
+
+### Arquivos criados/alterados
+- `core/models.py`: `Evento` ganhou `inscricao_aberta_publico`, `inscricao_limite`,
+  `valor_diretoria` + métodos `fim_datetime()`, `prazo_inscricao()`, `inscricoes_abertas()`.
+  Novo modelo `FaixaEtariaPreco` (evento, rótulo, idade_min, idade_max, valor, ordem).
+  Migration `0004_evento_inscricao_aberta_publico_and_more`.
+- `core/forms.py`: `EventoInscricaoConfigForm` e `FaixaEtariaPrecoForm` (com validação idade_máx ≥
+  idade_mín); `EventoComplexoForm` passou a exigir `local`.
+- `core/views.py`: `evento_painel_view` monta config/faixas/status; novas views
+  `evento_inscricao_config_view`, `evento_faixa_nova_view`, `evento_faixa_excluir_view` (POST).
+- `core/urls.py`: rotas `evento_inscricao_config`, `evento_faixa_nova`, `evento_faixa_excluir`.
+- `core/admin.py`: registra `FaixaEtariaPreco`.
+- `templates/core/evento_painel.html`: aba "Inscrições" com status, form de configuração, lista de
+  faixas e modal "Adicionar faixa".
+- `static/js/evento_painel.js`: modais generalizados (helper `configurarModal`) para custo e faixa.
+- `static/css/eventos.css`: estilos da config, faixas e `pill-cinza`.
+
+### Decisões tomadas
+- Faixas etárias como modelo próprio por evento (`FaixaEtariaPreco`); valor da diretoria no próprio
+  `Evento` (independe da idade). Nada de faixas/valores fixos no sistema — cada evento define.
+- Trava por comparação com `timezone.now()` (USE_TZ=True); prazo efetivo = `inscricao_limite` ou o
+  fim do evento (`data_fim`/`data` + `horario_fim`/23:59), sempre aware.
+- Erros dos forms de config/faixa voltam com mensagem (framework de messages), como já era nos custos.
+
+### Validação
+- Teste ponta a ponta (test client, logado como Diretor): GET do painel (200) com a config; salvar
+  config (local/público/prazo/valor diretoria, com fuso correto SP→UTC); adicionar faixa válida;
+  rejeitar faixa inválida (idade máx < mín); trava (evento passado = encerrado, futuro = aberto);
+  excluir faixa. Todos passaram. `python manage.py check` sem problemas.
+
+### Pendências / próximo passo
+- **Parte 2.2** — formulário de inscrição personalizável por evento.
+- Depois: 2.3 (evento no menu de todos os perfis + página do evento) e 2.4 (inscrição + pagamento
+  simulado + lista de inscritos + contagem no dashboard).
+
+---
+
 ## 2026-07-04 - Atualização geral da documentação (continuidade)
 
 ### Resumo

@@ -11,7 +11,14 @@ São quatro formulários combinados no mesmo envio (com prefixos diferentes):
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Aventureiro, AutorizacaoImagem, CustoEvento, Evento, FichaMedica
+from .models import (
+    Aventureiro,
+    AutorizacaoImagem,
+    CustoEvento,
+    Evento,
+    FaixaEtariaPreco,
+    FichaMedica,
+)
 
 
 class EstiloFormMixin:
@@ -184,9 +191,66 @@ class EventoComplexoForm(EstiloFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["nome"].required = True
         self.fields["data"].required = True
+        # No evento com inscrição o local é obrigatório (a pessoa precisa saber
+        # onde vai acontecer).
+        self.fields["local"].required = True
         for campo in ("horario_inicio", "horario_fim"):
             self.fields[campo].input_formats = ["%H:%M", "%H:%M:%S"]
         self._aplicar_estilo()
+
+
+class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
+    """Configuração da inscrição de um evento complexo (Parte 2.1)."""
+
+    class Meta:
+        model = Evento
+        fields = ["local", "inscricao_aberta_publico", "inscricao_limite", "valor_diretoria"]
+        widgets = {
+            "inscricao_limite": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            ),
+            "valor_diretoria": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+        help_texts = {
+            "inscricao_aberta_publico": "Se desmarcado, só membros do clube podem se inscrever.",
+            "inscricao_limite": "Depois desta data/hora as inscrições travam. Vazio = até o fim do evento.",
+            "valor_diretoria": "Valor que a diretoria paga. Vazio = sem valor especial; 0 = grátis.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["local"].required = True
+        self.fields["inscricao_limite"].input_formats = [
+            "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M",
+        ]
+        self._aplicar_estilo()
+
+
+class FaixaEtariaPrecoForm(EstiloFormMixin, forms.ModelForm):
+    """Uma faixa etária com valor, dentro de um evento com inscrição."""
+
+    class Meta:
+        model = FaixaEtariaPreco
+        fields = ["rotulo", "idade_min", "idade_max", "valor"]
+        widgets = {
+            "idade_min": forms.NumberInput(attrs={"min": "0", "max": "120"}),
+            "idade_max": forms.NumberInput(attrs={"min": "0", "max": "120"}),
+            "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._aplicar_estilo()
+
+    def clean(self):
+        cleaned = super().clean()
+        minimo = cleaned.get("idade_min")
+        maximo = cleaned.get("idade_max")
+        if minimo is not None and maximo is not None and maximo < minimo:
+            self.add_error(
+                "idade_max", "A idade máxima não pode ser menor que a mínima."
+            )
+        return cleaned
 
 
 class CustoEventoForm(EstiloFormMixin, forms.ModelForm):

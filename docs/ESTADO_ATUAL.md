@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (ajustes de Eventos: card com altura limitada, modal de visualização e moeda R$ 1.500,00)
+**Última atualização:** 2026-07-04 (Evento complexo — Fase 2.1: fundação das inscrições — configuração, faixas etárias, valor da diretoria e trava por prazo)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -72,8 +72,19 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   Inscrições, Lojinha, Custos, Financeiro): **Resumo** mostra indicadores (inscritos, arrecadação,
   vendas, receitas, custos e **resultado** — verde/vermelho); **Custos** permite adicionar custos
   (título, descrição, valor e **comprovante** anexo) e removê-los, com o total refletindo no resultado.
-  As abas Inscrições/Lojinha/Financeiro estão como "em breve" (próximas fases). O plano completo (todas
+  As abas Lojinha/Financeiro estão como "em breve" (próximas fases). O plano completo (todas
   as fases) está em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`. Pagamentos ficam simulados por ora.
+- **Evento complexo — Fase 2.1 (fundação das inscrições)**: a aba **Inscrições** do painel deixou de
+  ser "em breve" e agora tem a **configuração da inscrição** do evento: **local** (obrigatório no
+  evento com inscrição), **aberto ao público geral?** (sim = qualquer pessoa; não = só membros do
+  clube), **prazo limite de inscrição** (data/hora) e **valor da diretoria** (valor fixo que a
+  diretoria paga, independe da idade; vazio = sem valor especial, 0 = grátis). Mostra um **status**
+  ("✅ Abertas" / "⛔ Encerradas") com a data-limite: passado o prazo (ou, se vazio, o fim do evento),
+  trava automaticamente. Também gerencia **faixas etárias com valores** por evento (rótulo opcional +
+  idade mín/máx + valor), adicionadas por modal e removíveis — cada evento define as suas. Ainda
+  faltam (próximas partes da Fase 2): 2.2 formulário de inscrição personalizável; 2.3 evento no menu
+  de todos os perfis + página do evento; 2.4 inscrição de fato (pagamento simulado) + lista de
+  inscritos + contagem no dashboard.
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -152,9 +163,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `FichaMedica` — OneToOne com `Aventureiro` (plano de saúde, doenças, alergias, condições, tipo sanguíneo).
 - `AutorizacaoImagem` — OneToOne com `Aventureiro` (dados do menor e do responsável para o termo).
 - `Evento` — evento do clube (`tipo` simples/inscrição, nome, local, descrição, data, **data_fim**,
-  horário de início/término, `criado_por` FK User, `criado_em`). Migrations `0002_evento`, `0003`.
+  horário de início/término, `criado_por` FK User, `criado_em`). Campos de inscrição (evento complexo):
+  **`inscricao_aberta_publico`**, **`inscricao_limite`** (prazo) e **`valor_diretoria`**. Métodos
+  `fim_datetime()`, `prazo_inscricao()` e `inscricoes_abertas()`. Migrations `0002`, `0003`, `0004`.
 - `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
+- `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,
+  idade_min, idade_max, valor, ordem). Migration `0004`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -164,9 +179,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
+- **Evento complexo — Fase 2.2**: formulário de inscrição personalizável por evento (próximo passo).
+- **Evento complexo — Fase 2.3**: evento visível no menu de todos os perfis + página do evento.
+- **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
+  simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Implementar o fluxo de "Esqueci minha senha".
-- (A definir) Novos itens de menu e controle de permissões/perfis.
 
 ## Apps existentes
 - `config` — projeto Django (settings, urls, wsgi, asgi).
@@ -222,6 +240,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).
 - `/eventos/<id>/` — painel do evento complexo (`core.views.evento_painel_view`, nome `core:evento_painel`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
+- `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
+- `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
