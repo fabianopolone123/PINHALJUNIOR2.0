@@ -283,9 +283,10 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
   Tesoureiro/Secretário existem sem permissões) e a **alternância de perfil** (diretoria ↔ responsável).
 - **Cadastro de diretoria** e o cadastro "diretoria + aventureiro" (planejado em
   `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md`).
-- **Evento complexo — Fase 5** (próximo): Financeiro completo/gráficos, cupons de desconto,
-  presença/check-in; depois, **pagamentos reais** (gateway) e **loja oficial do clube** (uniformes,
-  separada da lojinha de evento) — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+- **Evento complexo — Fase 5** (em andamento): a parte do **Financeiro** (aba com o **extrato completo**
+  do evento — resultado, resumos e lançamentos) já está **concluída**; faltam **dashboard/gráficos** no
+  Resumo, **cupons de desconto** e **presença/check-in**. Depois, **pagamentos reais** (gateway) e **loja
+  oficial do clube** (uniformes, separada da lojinha de evento) — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
   (Fases 1, 2/Inscrições, "3"/página pública e 4/Lojinha já estão **concluídas**.)
 - Validação avançada de CPF e envio de e-mail.
 

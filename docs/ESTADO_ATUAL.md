@@ -2,11 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Diretor pode **excluir evento** pela lista de Eventos — **apenas se
-estiver vazio** (sem inscrições nem pedidos), com confirmação e toast; eventos com dados ficam
-protegidos. Antes: correções de notificação no fluxo de pagamento da loja — toast "Pagamento aprovado!"
-na própria tela de sucesso, copiar Pix usa o toast padrão, `inicio.js` centraliza o toast/`window.mostrarToast`
-e é carregado nas páginas públicas)
+**Última atualização:** 2026-07-04 (**Fase 5 — Financeiro**: aba "Financeiro" do painel deixou de ser
+"em breve" e virou o **extrato completo** do evento — resultado (Entradas − Saídas), resumos por fonte /
+forma de pagamento / canal, "vendidos por produto" (movido do Resumo) e o **extrato cronológico** de
+todos os lançamentos, com cancelados riscados. Divisão: número/tabela no **Financeiro**, gráficos no
+**Resumo/dashboard** (próximo). Antes: exclusão de evento vazio; correções de toast no pagamento)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -82,8 +82,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   Inscrições, Lojinha, Custos, Financeiro): **Resumo** mostra indicadores (inscritos, arrecadação,
   vendas, receitas, custos e **resultado** — verde/vermelho); **Custos** permite adicionar custos
   (título, descrição, valor e **comprovante** anexo) e removê-los, com o total refletindo no resultado.
-  As abas Lojinha/Financeiro estão como "em breve" (próximas fases). O plano completo (todas
-  as fases) está em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`. Pagamentos ficam simulados por ora.
+  (Lojinha e Financeiro **já implementados** — ver adiante.) O plano completo (todas as fases) está em
+  `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`. Pagamentos ficam simulados por ora.
 - **Evento complexo — Fase 2.1 (fundação das inscrições)**: a aba **Inscrições** do painel deixou de
   ser "em breve" e agora tem a **configuração da inscrição** do evento: **local** (obrigatório no
   evento com inscrição), **aberto ao público geral?** (sim = qualquer pessoa; não = só membros do
@@ -165,6 +165,18 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   acesso**, **reset** pelo Diretor). O operador acessa a landing **"Operar"** (`/eventos/<id>/operar/`)
   → PDV de venda e/ou inscrição. O **ajudante externo** vê **só o(s) evento(s) dele** no menu e cai
   direto no "Operar". Menu lateral **centralizado** em `_menu.html`; middleware força a troca de senha.
+- **Evento complexo — Fase 5 (Financeiro) — parte 1: extrato completo**: a aba **"Financeiro"** do
+  painel deixou de ser "em breve" e virou o **extrato/prestação de contas** do evento. Mostra: o
+  **Resultado** em destaque (**Entradas − Saídas = Resultado**, verde/vermelho, com selo Lucro/Prejuízo/
+  Zerado); **resumos** em cards (**por fonte** — inscrições × lojinha; **por forma de pagamento** —
+  dinheiro/Pix/cartão/cortesia/online, com quantidade; **por canal** — online × balcão; **saídas** —
+  total de custos + botão que leva à aba Custos); a tabela **"Vendidos por produto"** (movida do
+  Resumo); e o **Extrato** — lista **cronológica** de **todos** os lançamentos (cada inscrição, pedido e
+  custo), com data, tipo (badge), código, forma, canal e valor (**+ verde** para entradas, **− vermelho**
+  para saídas). **Cancelados aparecem** no extrato (riscados, com selo "cancelado") para auditoria, mas
+  **não entram nos totais** (só contam confirmados; cortesia soma R$ 0). Divisão de responsabilidades
+  definida: **número/tabela mora no Financeiro; gráfico morará no Resumo/dashboard** (próxima parte da
+  Fase 5). Custos continuam sendo **cadastrados** na aba Custos (o Financeiro só consolida).
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -280,8 +292,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 ## Próximas etapas previstas
 - **🎉 Lojinha (Fase 4) concluída** (produtos, comprar na página, junto da inscrição, PDV de vendas,
   PDV de inscrição, operadores).
-- **Fase 5 — Financeiro/gráficos** (próximo): resultado detalhado (receitas × custos), gráficos,
-  códigos de desconto, presença/check-in.
+- **Fase 5 — Financeiro**: parte 1 (**extrato completo** na aba Financeiro) **CONCLUÍDA**. Falta:
+  **dashboard/gráficos** no Resumo (CSS/SVG puro, sem libs), **códigos de desconto** e **presença/
+  check-in**.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.

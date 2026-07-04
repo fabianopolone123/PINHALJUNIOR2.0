@@ -76,8 +76,14 @@ lojinha, custos e resultado (lucro/prejuízo).
   evento dele). `OperadorEvento`/`PerfilUsuario` (mig. 0013), middleware de troca de senha, menu
   central `_menu.html`, landing "Operar", `operador_required` no PDV.
 - **🎉 LOJINHA (FASE 4) CONCLUÍDA.**
-- **PRÓXIMO PASSO = Fase 5 (Financeiro/gráficos).** Antes de codar, alinhar: o que mostrar (resultado
-  detalhado, gráficos), cupons de desconto e presença/check-in.
+- **Fase 5 — parte 1 (Financeiro: extrato completo) CONCLUÍDA** (2026-07-04): aba "Financeiro" com
+  resultado (Entradas − Saídas), resumos (por fonte / forma de pagamento / canal / saídas), "vendidos por
+  produto" (movido do Resumo) e o **extrato** cronológico de todos os lançamentos (cancelados riscados,
+  fora dos totais). Helper `_montar_financeiro`. **Divisão**: número/tabela no Financeiro; gráfico no
+  Resumo/dashboard. Custos seguem cadastrados na aba Custos (Financeiro só consolida).
+- **PRÓXIMO PASSO = Fase 5 (parte 2): dashboard/gráficos no Resumo** (CSS/SVG puro, sem libs). Depois:
+  **códigos de desconto** e **presença/check-in** (a presença também vai virar guarda de exclusão dos
+  eventos simples — ver memória do projeto).
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -145,7 +151,13 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
        relatório "Vendidos por produto".
      - **4.4c — CONCLUÍDA ✅** — **operadores** (diretoria selecionada + ajudantes externos com conta
        temporária: senha `1234`, troca obrigatória no 1º login, reset pelo Diretor; vê só o evento).
-5. **Fase 5 — PRÓXIMA ⏭️** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
+5. **Fase 5 — Financeiro + dashboard** (em partes):
+   - **5.1 — CONCLUÍDA ✅** — **Financeiro (extrato completo)**: resultado (Entradas − Saídas), resumos
+     (por fonte / forma de pagamento / canal / saídas), "vendidos por produto" e **extrato** cronológico
+     de todos os lançamentos (cancelados riscados, fora dos totais). Helper `_montar_financeiro`.
+   - **5.2 — PRÓXIMA ⏭️** — **Dashboard/gráficos** no Resumo (CSS/SVG puro, sem libs).
+   - **5.3** — **Códigos de desconto** (cupons %).
+   - **5.4** — **Presença/check-in** (também vira guarda de exclusão dos eventos simples).
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
 

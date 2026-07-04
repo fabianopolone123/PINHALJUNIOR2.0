@@ -359,6 +359,19 @@ internas ou no fluxo de login, seguir estas regras:
 - Fase 1 (feita): base + painel/resumo (indicadores) + Custos (com comprovante). Próximas: Inscrições,
   Página pública, Lojinha, Financeiro/gráficos; depois, pagamentos reais e mapa.
 
+#### Financeiro × Resumo (dashboard) — divisão de responsabilidades
+
+- **Aba Financeiro = o extrato/contabilidade** (números precisos): resultado (Entradas − Saídas),
+  resumos em cards (por fonte, por forma de pagamento, por canal, saídas), "vendidos por produto" e o
+  **extrato** cronológico de todos os lançamentos. Dados montados em `_montar_financeiro` (`views.py`).
+- **Aba Resumo = o dashboard visual**: KPIs de topo + **gráficos** (a fazer em CSS/SVG puro, sem libs).
+- **Regra anti-duplicação**: **número/tabela mora no Financeiro; gráfico mora no Resumo.** O único
+  indicador repetido de propósito é o **Resultado**. Não colocar a mesma tabela nas duas abas.
+- **Totais**: só entram lançamentos **confirmados**; **cancelados** aparecem no extrato (riscados, para
+  auditoria) mas ficam **fora** dos totais. **Cortesia** conta como transação com valor **R$ 0**.
+- **Custos** continuam sendo **cadastrados na aba Custos** (com comprovante); o Financeiro só
+  **consolida** (não duplicar o CRUD de custos).
+
 ### Pagamentos (simulados) — lojinha pública
 
 - A compra pela **página pública** da lojinha (`core:evento_loja`) tem um **passo de pagamento**

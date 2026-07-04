@@ -805,3 +805,82 @@ a.tipo-card:hover {
 .pedido-forma { font-size: 0.92rem; color: var(--texto-suave); margin: 4px 0 0; }
 .sucesso-card .pedido-lista { display: inline-block; max-width: 100%; }
 
+/* ===== Financeiro (Fase 5) ===== */
+/* Banner do resultado: Entradas − Saídas = Resultado */
+.fin-resultado {
+    display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center;
+    gap: 10px 6px; margin: 14px 0 22px; padding: 20px 16px;
+    border-radius: 16px; color: #fff; box-shadow: var(--sombra-card);
+    background: linear-gradient(135deg, #4a5568, #64748b);
+    animation: fin-sobe 0.45s ease both;
+}
+.fin-resultado.fin-pos { background: linear-gradient(135deg, #1f8a4c, #3bb26e); }
+.fin-resultado.fin-neg { background: linear-gradient(135deg, #b23b3b, #d15a5a); }
+@keyframes fin-sobe { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.fin-res-parte {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 4px 12px; min-width: 108px; text-align: center;
+}
+.fin-res-rotulo { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.9; }
+.fin-res-valor { font-size: 1.45rem; font-weight: 800; white-space: nowrap; }
+.fin-res-op { align-self: center; font-size: 1.5rem; font-weight: 800; opacity: 0.75; }
+.fin-res-total .fin-res-valor { font-size: 1.85rem; }
+.fin-res-tag {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    background: rgba(255, 255, 255, 0.22); border-radius: 999px; padding: 2px 10px;
+}
+
+/* Cards de resumo */
+.fin-cards { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 8px; }
+.fin-card {
+    background: var(--branco); border: 1px solid var(--borda); border-radius: 14px;
+    padding: 16px 18px; box-shadow: var(--sombra-card);
+}
+.fin-card-titulo { font-size: 0.95rem; color: var(--azul-escuro); margin: 0 0 10px; }
+.fin-linhas { list-style: none; margin: 0; padding: 0; }
+.fin-linhas li {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    padding: 6px 0; border-bottom: 1px dashed var(--borda); font-size: 0.92rem;
+}
+.fin-linhas li:last-child { border-bottom: none; }
+.fin-linhas strong { color: var(--texto); white-space: nowrap; }
+.fin-linha-total { font-weight: 800; }
+.fin-linha-total span, .fin-linha-total strong { color: var(--azul-escuro); }
+.fin-qtd { color: var(--texto-suave); }
+.fin-card-saida .fin-linha-total strong { color: #c0392b; }
+.fin-ir-custos { margin-top: 12px; }
+
+@media (min-width: 640px) {
+    .fin-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Extrato */
+.tabela-extrato { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.tabela-extrato th, .tabela-extrato td {
+    padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--borda); vertical-align: top;
+}
+.tabela-extrato th { color: var(--texto-suave); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.tabela-extrato .num { text-align: right; white-space: nowrap; }
+.tabela-extrato tbody tr { transition: background var(--transicao); }
+.tabela-extrato tbody tr:hover { background: var(--fundo-conteudo, #eef3f9); }
+.lanc-data { color: var(--texto-suave); white-space: nowrap; font-size: 0.85rem; }
+.lanc-tipo {
+    display: inline-block; font-size: 0.72rem; font-weight: 700; border-radius: 999px;
+    padding: 2px 9px; color: #fff; background: var(--azul);
+}
+.lanc-tipo-inscricao { background: var(--azul); }
+.lanc-tipo-lojinha { background: #6a4fb3; }
+.lanc-tipo-custo { background: #c0392b; }
+.lanc-cod { font-family: monospace; font-size: 0.8rem; color: var(--texto-suave); margin-left: 6px; }
+.lanc-desc { overflow-wrap: anywhere; }
+.lanc-canal { color: var(--texto-suave); }
+.lanc-valor { font-weight: 800; }
+.lanc-entrada { color: #1f8a4c; }
+.lanc-saida { color: #c0392b; }
+.lanc-selo {
+    display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+    background: #f0d9d6; color: #a5281b; border-radius: 999px; padding: 1px 8px; margin-left: 6px;
+}
+.lanc-cancelado { opacity: 0.55; }
+.lanc-cancelado .lanc-valor { text-decoration: line-through; }
+

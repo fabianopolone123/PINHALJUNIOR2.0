@@ -22,6 +22,59 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 5 (parte 1): Financeiro (extrato completo)
+
+### Resumo
+A aba **Financeiro** do painel do evento deixou de ser "em breve" e virou o **extrato/prestação de
+contas** do evento — a pedido do usuário, "bem completo, bonito e responsivo". Conteúdo:
+1. **Resultado** em destaque: **Entradas − Saídas = Resultado** (banner verde/vermelho, com selo
+   Lucro/Prejuízo/Zerado).
+2. **Resumos** (cards): **por fonte** (inscrições × lojinha), **por forma de pagamento** (dinheiro/Pix/
+   cartão/cortesia/online, com quantidade), **por canal** (online × balcão) e **saídas** (total de
+   custos + botão "Gerenciar custos" que troca para a aba Custos).
+3. **Vendidos por produto** (tabela **movida do Resumo** para o Financeiro).
+4. **Extrato**: lista **cronológica** de **todos** os lançamentos — cada inscrição, pedido e custo — com
+   data, tipo (badge), código, forma, canal e valor (**+** verde para entradas, **−** vermelho para
+   saídas). **Cancelados aparecem** (riscados, selo "cancelado") para auditoria, mas **não entram nos
+   totais** (só confirmados contam; cortesia soma R$ 0).
+
+**Divisão de responsabilidades** (definida com o usuário, para não duplicar): **número/tabela** mora no
+**Financeiro**; **gráfico** morará no **Resumo/dashboard** (próxima parte da Fase 5). O único indicador
+repetido de propósito é o **Resultado**. Os **custos continuam sendo cadastrados na aba Custos** — o
+Financeiro só **consolida** (não duplica o CRUD).
+
+### Arquivos criados/alterados
+- `core/views.py`: helper **`_montar_financeiro(...)`** (entradas por forma/canal, extrato de todos os
+  lançamentos com flag `cancelado`, totais) e `evento_painel_view` passa `financeiro` no contexto.
+- `templates/core/evento_painel.html`: aba **Financeiro** completa (banner de resultado, cards de
+  resumo, "vendidos por produto" e extrato); o bloco "vendidos por produto" saiu do **Resumo** (que
+  ficou com os KPIs + nota de que os gráficos vêm em breve).
+- `static/js/evento_painel.js`: botões `[data-aba-ir]` trocam de aba (ex.: "Gerenciar custos →").
+- `static/css/eventos.css`: estilos do Financeiro — `.fin-resultado` (banner), `.fin-cards`/`.fin-card`,
+  `.tabela-extrato` e `.lanc-*` (badges por tipo, +/−, cancelado riscado). Responsivo (cards empilham no
+  celular; extrato rola dentro de `.tabela-scroll`).
+
+### Decisões tomadas
+- **Financeiro = extrato/contabilidade** (números + extrato); **Resumo/dashboard = visual** (KPIs +
+  gráficos, próxima parte). Evita duplicar responsabilidades.
+- Só **confirmados** entram nos totais; **cancelados** ficam visíveis no extrato (auditoria). Cortesia
+  conta como transação com valor R$ 0.
+- **Custos** permanecem na aba Custos (com upload de comprovante); o Financeiro apenas consolida.
+
+### Validação
+- `manage.py check` OK. Render (test client + Chrome headless) com dados variados (1 inscrição online, 1
+  pedido Pix, 1 pedido cancelado, 1 pedido cortesia, 1 custo): **Entradas R$ 54 − Saídas R$ 50 =
+  Resultado R$ 4 (Lucro)**; "por forma" (Online 30 / Pix 24 / Cortesia 0), "por canal" (Online 54 /
+  Balcão 0), "vendidos por produto" (qtd 3 / R$ 24), extrato com 5 lançamentos (3 entradas + 1 saída;
+  cancelado riscado fora do total). Conferido em **mobile (~490px)** e **desktop** — sem overflow (extrato
+  rola no próprio contêiner).
+
+### Pendências / próximo passo
+- **Fase 5 — parte 2: dashboard/gráficos** no Resumo (CSS/SVG puro, sem bibliotecas). Depois: **códigos
+  de desconto** e **presença/check-in**. Pagamento real (gateway) segue para depois.
+
+---
+
 ## 2026-07-04 - Excluir evento (Diretor) — só quando o evento está vazio
 
 ### Resumo

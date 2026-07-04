@@ -665,12 +665,94 @@ def evento_complexo_novo_view(request):
     return render(request, "core/evento_complexo_form.html", {"form": form})
 
 
+def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
+                       arrecadacao_inscricoes, vendas_loja, total_custos):
+    """Monta o extrato financeiro completo do evento (Fase 5).
+
+    Consolida ENTRADAS (inscrições + lojinha confirmadas) e SAÍDAS (custos):
+    resultado, agrupamentos (por fonte, por forma de pagamento e por canal) e um
+    **extrato** cronológico com TODOS os lançamentos — inclusive os cancelados
+    (mostrados para auditoria, mas **fora** dos totais). Só entra nos totais o que
+    está confirmado. Cortesia soma R$ 0 (mas conta como transação)."""
+    receitas = arrecadacao_inscricoes + vendas_loja
+    resultado = receitas - total_custos
+    formas_labels = dict(FORMA_PAGAMENTO_CHOICES)
+
+    # --- Entradas por forma de pagamento (só confirmadas) ---
+    formas = {}
+    def _add_forma(forma, valor):
+        b = formas.setdefault(forma, {"valor": Decimal("0"), "qtd": 0})
+        b["valor"] += valor
+        b["qtd"] += 1
+    for i in confirmadas:
+        _add_forma(i.forma_pagamento, i.valor_total)
+    for p in pedidos_confirmados:
+        _add_forma(p.forma_pagamento, p.valor_total)
+    entradas_por_forma = [
+        {"forma": formas_labels.get(k, k), "valor": v["valor"], "qtd": v["qtd"]}
+        for k, v in sorted(formas.items(), key=lambda kv: kv[1]["valor"], reverse=True)
+    ]
+
+    # --- Entradas por canal (online × balcão), só confirmadas ---
+    canal_online = Decimal("0")
+    canal_pdv = Decimal("0")
+    for reg in list(confirmadas) + list(pedidos_confirmados):
+        if reg.origem == "pdv":
+            canal_pdv += reg.valor_total
+        else:
+            canal_online += reg.valor_total
+
+    # --- Extrato: todos os lançamentos (inclusive cancelados) ---
+    extrato = []
+    for i in inscricoes:
+        extrato.append({
+            "data": i.criado_em, "tipo": "Inscrição", "codigo": i.codigo,
+            "descricao": i.responsavel_nome or "—",
+            "forma": formas_labels.get(i.forma_pagamento, ""),
+            "canal": "Balcão" if i.origem == "pdv" else "Online",
+            "valor": i.valor_total, "entrada": True,
+            "cancelado": i.status == "cancelada",
+        })
+    for p in pedidos:
+        extrato.append({
+            "data": p.criado_em, "tipo": "Lojinha", "codigo": p.codigo,
+            "descricao": p.comprador_nome or "—",
+            "forma": formas_labels.get(p.forma_pagamento, ""),
+            "canal": "Balcão" if p.origem == "pdv" else "Online",
+            "valor": p.valor_total, "entrada": True,
+            "cancelado": p.status == "cancelado",
+        })
+    for c in custos:
+        extrato.append({
+            "data": c.criado_em, "tipo": "Custo", "codigo": "",
+            "descricao": c.nome, "forma": "", "canal": "",
+            "valor": c.valor, "entrada": False, "cancelado": False,
+        })
+    extrato.sort(key=lambda x: x["data"], reverse=True)
+
+    return {
+        "arrecadacao_inscricoes": arrecadacao_inscricoes,
+        "vendas_loja": vendas_loja,
+        "receitas": receitas,
+        "custos": total_custos,
+        "resultado": resultado,
+        "entradas_por_forma": entradas_por_forma,
+        "canal_online": canal_online,
+        "canal_pdv": canal_pdv,
+        "qtd_custos": len(custos),
+        "extrato": extrato,
+        "qtd_entradas": len(confirmadas) + len(pedidos_confirmados),
+        "qtd_saidas": len(custos),
+    }
+
+
 @diretor_required
 def evento_painel_view(request, pk):
     """Painel (dashboard) de um evento complexo.
 
     Fase 1: resumo + custos. Parte 2.1: configuração de inscrição
     (visibilidade, prazo, faixas etárias de preço e valor da diretoria).
+    Fase 5: aba Financeiro (extrato completo + agrupamentos).
     """
     evento = get_object_or_404(Evento, pk=pk)
     custos = list(evento.custos.all())
@@ -737,6 +819,10 @@ def evento_painel_view(request, pk):
             "custos": total_custos,
             "resultado": receitas - total_custos,
         },
+        "financeiro": _montar_financeiro(
+            inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
+            arrecadacao_inscricoes, vendas_loja, total_custos,
+        ),
     }
     return render(request, "core/evento_painel.html", contexto)
 

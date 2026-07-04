@@ -107,33 +107,11 @@
                         </div>
                     </div>
 
-                    {% if vendas_por_produto %}
-                    <div class="secao-cabecalho secao-cabecalho-espaco">
-                        <h3 class="secao-titulo">Vendidos por produto</h3>
-                    </div>
-                    <div class="tabela-scroll">
-                        <table class="tabela-relatorio">
-                            <thead>
-                                <tr><th>Produto</th><th class="num">Qtd</th><th class="num">Arrecadado</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for v in vendas_por_produto %}
-                                <tr>
-                                    <td>{{ v.produto }}{% if v.variacao %} <span class="rel-var">({{ v.variacao }})</span>{% endif %}</td>
-                                    <td class="num">{{ v.qtd }}</td>
-                                    <td class="num">R$ {{ v.total|moeda }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <p class="painel-nota">A quantidade conta tudo (inclusive cortesia); o arrecadado é só o dinheiro recebido.</p>
-                    {% else %}
                     <p class="painel-nota">
-                        Os números de inscrições e lojinha aparecem aqui conforme as vendas acontecem.
-                        Gráficos serão adicionados quando houver dados.
+                        Visão rápida do evento. O <strong>extrato completo</strong> (tudo que entra e sai,
+                        por forma de pagamento, canal e item) está na aba <strong>Financeiro</strong>.
+                        Gráficos serão adicionados aqui em breve.
                     </p>
-                    {% endif %}
                 </section>
 
                 <!-- ===================== Inscrições ===================== -->
@@ -448,13 +426,131 @@
                     {% endif %}
                 </section>
 
-                <!-- ===================== Financeiro (em breve) ===================== -->
+                <!-- ===================== Financeiro ===================== -->
                 <section class="painel-secao" data-secao="financeiro" hidden>
-                    <div class="card em-breve">
-                        <span class="em-breve-icone" aria-hidden="true">💰</span>
-                        <h2 class="card-titulo">Financeiro — em breve</h2>
-                        <p class="card-texto">O resultado detalhado (receitas × custos), com gráficos e códigos de desconto, virá numa fase futura. O resultado resumido já aparece na aba "Resumo".</p>
+                    <h2 class="secao-titulo">Financeiro do evento</h2>
+                    <p class="painel-nota">Extrato completo: tudo que entra, tudo que sai e o resultado. Os cancelados aparecem no extrato (riscados), mas não entram nos totais.</p>
+
+                    <!-- Resultado em destaque -->
+                    <div class="fin-resultado {% if financeiro.resultado < 0 %}fin-neg{% elif financeiro.resultado > 0 %}fin-pos{% endif %}">
+                        <div class="fin-res-parte">
+                            <span class="fin-res-rotulo">Entradas</span>
+                            <span class="fin-res-valor fin-entrada">R$ {{ financeiro.receitas|moeda }}</span>
+                        </div>
+                        <span class="fin-res-op" aria-hidden="true">−</span>
+                        <div class="fin-res-parte">
+                            <span class="fin-res-rotulo">Saídas</span>
+                            <span class="fin-res-valor fin-saida">R$ {{ financeiro.custos|moeda }}</span>
+                        </div>
+                        <span class="fin-res-op" aria-hidden="true">=</span>
+                        <div class="fin-res-parte fin-res-total">
+                            <span class="fin-res-rotulo">Resultado</span>
+                            <span class="fin-res-valor">R$ {{ financeiro.resultado|moeda }}</span>
+                            <span class="fin-res-tag">{% if financeiro.resultado < 0 %}Prejuízo{% elif financeiro.resultado > 0 %}Lucro{% else %}Zerado{% endif %}</span>
+                        </div>
                     </div>
+
+                    <!-- Resumos (cards) -->
+                    <div class="fin-cards">
+                        <div class="fin-card">
+                            <h3 class="fin-card-titulo">Entradas por fonte</h3>
+                            <ul class="fin-linhas">
+                                <li><span>🎟️ Inscrições</span><strong>R$ {{ financeiro.arrecadacao_inscricoes|moeda }}</strong></li>
+                                <li><span>🛒 Lojinha</span><strong>R$ {{ financeiro.vendas_loja|moeda }}</strong></li>
+                                <li class="fin-linha-total"><span>Total de entradas</span><strong>R$ {{ financeiro.receitas|moeda }}</strong></li>
+                            </ul>
+                        </div>
+
+                        <div class="fin-card">
+                            <h3 class="fin-card-titulo">Por forma de pagamento</h3>
+                            {% if financeiro.entradas_por_forma %}
+                            <ul class="fin-linhas">
+                                {% for f in financeiro.entradas_por_forma %}
+                                <li><span>{{ f.forma }} <small class="fin-qtd">×{{ f.qtd }}</small></span><strong>R$ {{ f.valor|moeda }}</strong></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="painel-nota">Sem entradas ainda.</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="fin-card">
+                            <h3 class="fin-card-titulo">Por canal</h3>
+                            <ul class="fin-linhas">
+                                <li><span>🌐 Online (site)</span><strong>R$ {{ financeiro.canal_online|moeda }}</strong></li>
+                                <li><span>🧾 Balcão (PDV)</span><strong>R$ {{ financeiro.canal_pdv|moeda }}</strong></li>
+                            </ul>
+                        </div>
+
+                        <div class="fin-card fin-card-saida">
+                            <h3 class="fin-card-titulo">Saídas (custos)</h3>
+                            <ul class="fin-linhas">
+                                <li><span>Custos lançados</span><strong>{{ financeiro.qtd_custos }}</strong></li>
+                                <li class="fin-linha-total"><span>Total de saídas</span><strong>R$ {{ financeiro.custos|moeda }}</strong></li>
+                            </ul>
+                            <button type="button" class="btn-secundario fin-ir-custos" data-aba-ir="custos">Gerenciar custos →</button>
+                        </div>
+                    </div>
+
+                    <!-- Vendidos por produto -->
+                    {% if vendas_por_produto %}
+                    <div class="secao-cabecalho secao-cabecalho-espaco">
+                        <h3 class="secao-titulo">Vendidos por produto</h3>
+                    </div>
+                    <div class="tabela-scroll">
+                        <table class="tabela-relatorio">
+                            <thead>
+                                <tr><th>Produto</th><th class="num">Qtd</th><th class="num">Arrecadado</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for v in vendas_por_produto %}
+                                <tr>
+                                    <td>{{ v.produto }}{% if v.variacao %} <span class="rel-var">({{ v.variacao }})</span>{% endif %}</td>
+                                    <td class="num">{{ v.qtd }}</td>
+                                    <td class="num">R$ {{ v.total|moeda }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="painel-nota">A quantidade conta tudo (inclusive cortesia); o arrecadado é só o dinheiro recebido.</p>
+                    {% endif %}
+
+                    <!-- Extrato -->
+                    <div class="secao-cabecalho secao-cabecalho-espaco">
+                        <h3 class="secao-titulo">Extrato</h3>
+                    </div>
+                    {% if financeiro.extrato %}
+                    <p class="painel-nota">{{ financeiro.extrato|length }} lançamento{{ financeiro.extrato|length|pluralize }} · {{ financeiro.qtd_entradas }} entrada{{ financeiro.qtd_entradas|pluralize }} · {{ financeiro.qtd_saidas }} saída{{ financeiro.qtd_saidas|pluralize }} (nos totais).</p>
+                    <div class="tabela-scroll">
+                        <table class="tabela-extrato">
+                            <thead>
+                                <tr>
+                                    <th>Data</th><th>Tipo</th><th>Descrição</th><th>Forma</th><th class="num">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for l in financeiro.extrato %}
+                                <tr class="{% if l.cancelado %}lanc-cancelado{% endif %}">
+                                    <td class="lanc-data">{{ l.data|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        <span class="lanc-tipo lanc-tipo-{{ l.tipo|slugify }}">{{ l.tipo }}</span>
+                                        {% if l.codigo %}<span class="lanc-cod">{{ l.codigo }}</span>{% endif %}
+                                        {% if l.cancelado %}<span class="lanc-selo">cancelado</span>{% endif %}
+                                    </td>
+                                    <td class="lanc-desc">{{ l.descricao }}{% if l.canal %} <small class="lanc-canal">· {{ l.canal }}</small>{% endif %}</td>
+                                    <td>{{ l.forma|default:"—" }}</td>
+                                    <td class="num lanc-valor {% if l.entrada %}lanc-entrada{% else %}lanc-saida{% endif %}">
+                                        {% if l.entrada %}+{% else %}−{% endif %} R$ {{ l.valor|moeda }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="painel-nota">Nenhum lançamento ainda. Inscrições, vendas e custos aparecem aqui automaticamente.</p>
+                    {% endif %}
                 </section>
             </div>
         </main>

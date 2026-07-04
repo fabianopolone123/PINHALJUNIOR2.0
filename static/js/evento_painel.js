@@ -29,6 +29,18 @@
         ativar(hashAba);
     }
 
+    // Botões que trocam de aba (ex.: "Gerenciar custos →" no Financeiro).
+    Array.prototype.slice.call(document.querySelectorAll("[data-aba-ir]"))
+        .forEach(function (b) {
+            b.addEventListener("click", function () {
+                var nome = b.dataset.abaIr;
+                if (abas.some(function (a) { return a.dataset.aba === nome; })) {
+                    ativar(nome);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+            });
+        });
+
     // ---- Modais (adicionar custo, adicionar faixa etária) ----
     // Cada modal fecha só quando o clique começou E terminou no fundo (não fecha
     // ao arrastar uma seleção de texto de dentro para fora).
