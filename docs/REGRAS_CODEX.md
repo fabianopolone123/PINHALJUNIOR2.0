@@ -23,6 +23,11 @@ Estas são as regras obrigatórias para toda nova alteração feita neste projet
 - Quando houver dúvida, fazer a solução mais simples e segura.
 - No final de cada tarefa, informar quais arquivos foram criados ou alterados.
 - Nenhuma tarefa deve ser considerada concluída sem atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`.
+- **VERIFICAÇÃO OBRIGATÓRIA — janelas suspensas (modais):** toda janela suspensa (modal) deve fechar
+  ao clicar no fundo **apenas quando o `mousedown` E o `click` ocorreram no próprio fundo** (rastrear um
+  flag no `mousedown`). NUNCA fechar quando o usuário começa a arrastar/selecionar texto de dentro do
+  modal e solta o mouse fora dele. Ao criar/revisar qualquer modal, testar este cenário. Detalhes na
+  seção "Componente reutilizável de modal".
 
 ## Regra obrigatória de manutenção da documentação
 

@@ -22,6 +22,22 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Atualização geral da documentação (continuidade)
+
+### Resumo
+Revisão dos documentos para garantir continuidade em uma nova sessão. `README_PROJETO.md` atualizado
+(perfis/permissões, Usuários restrita, módulo Eventos simples + complexo Fase 1, comandos
+`configurar_perfis` e `importar_migracao`, novas rotas e models). `PLANEJAMENTO_EVENTO_COMPLEXO.md`
+marca a **Fase 1 como concluída** e a **Fase 2 (Inscrições) como próximo passo** (seção "ONDE CONTINUAR").
+`REGRAS_CODEX.md` passa a ter, na lista de regras obrigatórias, a **verificação obrigatória dos modais**
+(só fechar no fundo se o mousedown E o click ocorreram no fundo — não fechar ao arrastar seleção).
+
+### Arquivos alterados
+- `docs/README_PROJETO.md`, `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`, `docs/REGRAS_CODEX.md`,
+  `docs/HISTORICO_ALTERACOES.md`.
+
+---
+
 ## 2026-07-04 - Ajustes na tela de Eventos (cards, moeda e modais)
 
 ### Resumo

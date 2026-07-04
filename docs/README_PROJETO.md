@@ -38,7 +38,19 @@ com CSS próprio (sem frameworks externos).
 - **Autenticação real implementada** (login por username/senha, logout e `@login_required` na área interna).
 - Tela "Meus Dados" funcional: card do **Responsável** no topo (com edição) e os aventureiros
   do usuário logado em cards clicáveis com detalhes por seção.
-- **Sem controle de permissões / perfis** (preparado para o futuro).
+- **Perfis de acesso** (grupos do Django): Diretor, Responsável, Professor, Tesoureiro, Secretário.
+  Por enquanto **só o Diretor** recebe permissões nas telas (ex.: "Usuários" e "Eventos" só aparecem/
+  funcionam para o Diretor). Comando `configurar_perfis` cria os perfis + o usuário diretor `Fabiano`.
+- Tela **"Usuários"** (restrita ao Diretor): responsáveis, aventureiros e vínculos; clicar num card abre
+  um modal com **todos os dados** da pessoa.
+- Módulo **"Eventos"** (restrito ao Diretor): **evento simples** (nome, local, descrição, data, horário)
+  com "Duplicar", e **evento complexo (com inscrição) — Fase 1**: painel/dashboard (`/eventos/<id>/`)
+  com abas (Resumo + Custos funcionando; Inscrições/Lojinha/Financeiro "em breve"). Plano completo em
+  `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+- **Migração** dos cadastros do sistema antigo via comando `importar_migracao` (dados reais ficam só
+  local; nada de dados de menores no Git).
+
+> **Fonte da verdade detalhada:** `docs/ESTADO_ATUAL.md` (mais completo e atualizado a cada mudança).
 
 ## Como rodar o projeto localmente
 
@@ -79,6 +91,29 @@ e fotos 3x4 fictícias (avatar de desenho, sem pessoas reais) geradas com Pillow
 (usa `get_or_create`/`update_or_create` e não apaga dados de outros usuários). As fotos só
 são regeradas quando estão faltando ou apontando para um arquivo inexistente; se já
 estiverem corretas, são mantidas (o comando informa "foto mantida" ou "foto gerada").
+
+### Perfis de acesso e usuário diretor
+
+Para criar os perfis de acesso e o usuário diretor inicial (necessário para ver "Usuários" e "Eventos"):
+
+```bash
+python manage.py configurar_perfis
+```
+
+Cria os grupos **Diretor, Responsável, Professor, Tesoureiro, Secretário** e o usuário
+**`Fabiano`** (senha `1234`, perfil Diretor — senha de desenvolvimento, trocar em produção). Idempotente.
+
+### Migração dos cadastros do sistema antigo (opcional)
+
+Para importar os cadastros (login, pai/mãe/responsável, aventureiros, ficha médica, termo e foto) a
+partir do pacote exportado do sistema antigo:
+
+```bash
+python manage.py importar_migracao --origem "<pasta descompactada>" --dry-run   # simula
+python manage.py importar_migracao --origem "<pasta descompactada>"             # executa
+```
+
+As fotos reais e os dados pessoais de menores ficam **apenas** em `media/` (git-ignored) — nunca no Git.
 
 ### Como testar o login e a tela "Meus Dados"
 
@@ -154,7 +189,11 @@ PINHALJUNIOR2.0/
 - `/sair/` — logout (POST); encerra a sessão e volta ao login (view `core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área logada "Meus Dados", protegida por `@login_required` (view `core.views.inicio_view`, nome `core:inicio`).
 - `/meus-dados/responsavel/editar/` — edição dos dados do responsável legal, protegida por login (view `core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
-- `/usuarios/` — visão geral de responsáveis, aventureiros e vínculos familiares (só resumo, sem dados sensíveis), com pesquisa; protegida por login (view `core.views.usuarios_view`, nome `core:usuarios`).
+- `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`@diretor_required`); clicar num card abre modal com todos os dados (view `core.views.usuarios_view`, nome `core:usuarios`).
+- `/eventos/` — lista de eventos, **restrita ao Diretor** (view `core.views.eventos_view`, nome `core:eventos`).
+- `/eventos/novo/` — cadastro de evento simples (nome `core:evento_novo`; aceita `?duplicar=<id>`).
+- `/eventos/complexo/novo/` — cria evento complexo (nome `core:evento_complexo_novo`).
+- `/eventos/<id>/` — painel do evento complexo (nome `core:evento_painel`); `/eventos/<id>/custos/...` adiciona/remove custos.
 - `/cadastro/` — cadastro inicial: cria a conta + o primeiro aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — cadastra outro aventureiro na mesma conta, sem etapa de conta (view `core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação, com opções "Cadastrar outro aventureiro" e "Ir para a tela inicial" (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
@@ -166,6 +205,8 @@ PINHALJUNIOR2.0/
 - **Aventureiro** — ficha de inscrição + dados dos responsáveis; FK `usuario` (um usuário pode ter vários).
 - **FichaMedica** — OneToOne com Aventureiro (dados médicos).
 - **AutorizacaoImagem** — OneToOne com Aventureiro (dados do termo de imagem).
+- **Evento** — evento do clube (`tipo` simples/inscrição; nome, local, descrição, data, `data_fim`, horários).
+- **CustoEvento** — custo/despesa de um evento (FK `evento`; nome, descrição, valor, comprovante).
 
 ## Templates existentes
 
@@ -203,7 +244,12 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 
 - Funcionalidade do link "Esqueci minha senha" (hoje aponta para `#`).
 - Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
-- Controle de permissões / perfis de usuário.
+- Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Professor/
+  Tesoureiro/Secretário existem sem permissões) e a **alternância de perfil** (diretoria ↔ responsável).
+- **Cadastro de diretoria** e o cadastro "diretoria + aventureiro" (planejado em
+  `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md`).
+- **Evento complexo — Fases 2+**: inscrições (formulário customizável + preços), página pública,
+  lojinha, financeiro/gráficos; depois, pagamentos reais e mapa (ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`).
 - Validação avançada de CPF e envio de e-mail.
 
 ## Observações importantes para futuros desenvolvimentos

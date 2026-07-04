@@ -29,11 +29,19 @@ lojinha, custos e resultado (lucro/prejuízo).
 - Evento **complexo**: ao abrir, entra num **painel dedicado** (`/eventos/<id>/`) com **abas/seções**
   (Resumo · Inscrições · Lojinha · Custos · Financeiro · Página pública). É o "sistema dentro do sistema".
 
+## ▶️ ONDE CONTINUAR (retomar aqui)
+- **Fase 1 CONCLUÍDA** (2026-07-04): evento complexo criável, painel `/eventos/<id>/` com abas
+  (Resumo + Custos funcionando; Inscrições/Lojinha/Financeiro como "em breve"), moeda em R$ 1.500,00.
+- **PRÓXIMO PASSO = Fase 2 (Inscrições).** Antes de codar, alinhar com o usuário: campos do formulário
+  customizável (ex.: responsável + CPF + crianças vinculadas) e as regras de preço (faixa etária,
+  gratuito/diferente para diretoria, valor fixo, grátis). Pagamento continua **simulado**.
+
 ## Fases
-1. **Fase 1 (EM ANDAMENTO)** — Base do evento complexo (título, descrição, datas de início/fim, local) +
-   **painel/dashboard** (esqueleto do resumo com indicadores) + **Custos** (com comprovante).
-2. **Fase 2** — **Inscrições**: formulário customizável + preços (faixa etária / diretoria / fixo / grátis)
-   + lista de inscritos + contagem no dashboard.
+1. **Fase 1 — CONCLUÍDA ✅** — Base do evento complexo (título, descrição, datas de início/fim, local) +
+   **painel/dashboard** (resumo com indicadores) + **Custos** (com comprovante). Modelos: `Evento`
+   (+`data_fim`) e `CustoEvento`. Telas: `evento_complexo_form.html`, `evento_painel.html`.
+2. **Fase 2 — PRÓXIMA ⏭️** — **Inscrições**: formulário customizável + preços (faixa etária / diretoria /
+   fixo / grátis) + lista de inscritos + contagem no dashboard.
 3. **Fase 3** — **Página pública** de inscrição (pagamento **simulado**).
 4. **Fase 4** — **Lojinha** (produtos/variações/estoque + pedidos, pagamento simulado).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
