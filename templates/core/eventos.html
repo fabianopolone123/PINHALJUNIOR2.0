@@ -89,7 +89,7 @@
                 {% if eventos %}
                 <section class="eventos-lista">
                     {% for e in eventos %}
-                    <article class="card evento-card">
+                    <article class="card evento-card evento-clicavel" data-evento="{{ e.id }}">
                         <div class="evento-topo">
                             <h3 class="evento-nome">{{ e.nome }}</h3>
                             <span class="pill {% if e.tipo == 'inscricao' %}pill-verde{% endif %}">{{ e.get_tipo_display }}</span>
@@ -150,6 +150,33 @@
                         </a>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ===== Detalhes ocultos dos eventos (fonte do modal de visualização) ===== -->
+        <div id="eventosFonte" hidden aria-hidden="true">
+            {% for e in eventos %}
+            <div id="evento-detalhe-{{ e.id }}" data-titulo="{{ e.nome }}">
+                <div class="dados-grade">
+                    <div class="dado"><span class="dado-rotulo">Tipo</span><span class="dado-valor">{{ e.get_tipo_display }}</span></div>
+                    <div class="dado"><span class="dado-rotulo">Data</span><span class="dado-valor">{{ e.data|date:"d/m/Y" }}{% if e.data_fim %} – {{ e.data_fim|date:"d/m/Y" }}{% endif %}</span></div>
+                    <div class="dado"><span class="dado-rotulo">Horário</span><span class="dado-valor">{% if e.horario_inicio %}{{ e.horario_inicio|time:"H:i" }}{% if e.horario_fim %} – {{ e.horario_fim|time:"H:i" }}{% endif %}{% else %}—{% endif %}</span></div>
+                    <div class="dado"><span class="dado-rotulo">Local</span><span class="dado-valor">{{ e.local|default:"—" }}</span></div>
+                </div>
+                <h4 class="bloco-rotulo">Descrição</h4>
+                <p class="evento-modal-desc">{{ e.descricao|default:"Sem descrição."|linebreaksbr }}</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ===================== Modal: visualizar evento ===================== -->
+        <div class="modal-overlay" id="modalEvento" hidden>
+            <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalEventoTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalEventoTitulo"></h2>
+                    <button type="button" class="modal-fechar" id="modalEventoFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo" id="modalEventoCorpo"></div>
             </div>
         </div>
     </div>

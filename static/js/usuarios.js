@@ -107,9 +107,14 @@
     });
 
     fechar.addEventListener("click", fecharModal);
-    // Clique no fundo (fora da caixa) fecha.
+    // Fecha só se o clique COMEÇOU e TERMINOU no fundo (fora da caixa). Assim,
+    // arrastar para selecionar texto de dentro para fora não fecha o modal.
+    var fundoMousedown = false;
+    modal.addEventListener("mousedown", function (e) {
+        fundoMousedown = e.target === modal;
+    });
     modal.addEventListener("click", function (e) {
-        if (e.target === modal) fecharModal();
+        if (e.target === modal && fundoMousedown) fecharModal();
     });
     // Esc fecha o modal.
     document.addEventListener("keydown", function (e) {

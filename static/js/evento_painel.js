@@ -48,8 +48,14 @@
     if (abrirBtn) abrirBtn.addEventListener("click", abrir);
     if (fechar) fechar.addEventListener("click", fecharModal);
     if (cancelar) cancelar.addEventListener("click", fecharModal);
+    // Fecha só se o clique começou E terminou no fundo (não fecha ao arrastar
+    // uma seleção de texto de dentro para fora).
+    var fundoMousedown = false;
+    modal.addEventListener("mousedown", function (e) {
+        fundoMousedown = e.target === modal;
+    });
     modal.addEventListener("click", function (e) {
-        if (e.target === modal) fecharModal();
+        if (e.target === modal && fundoMousedown) fecharModal();
     });
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && !modal.hidden) fecharModal();

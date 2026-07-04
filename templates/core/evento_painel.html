@@ -1,4 +1,4 @@
-{% load static %}
+{% load static formato %}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -102,23 +102,23 @@
                         </div>
                         <div class="kpi-card">
                             <span class="kpi-rotulo">Arrecadação (inscrições)</span>
-                            <span class="kpi-num">R$ {{ resumo.arrecadacao_inscricoes|floatformat:2 }}</span>
+                            <span class="kpi-num">R$ {{ resumo.arrecadacao_inscricoes|moeda }}</span>
                         </div>
                         <div class="kpi-card">
                             <span class="kpi-rotulo">Vendas (lojinha)</span>
-                            <span class="kpi-num">R$ {{ resumo.vendas_loja|floatformat:2 }}</span>
+                            <span class="kpi-num">R$ {{ resumo.vendas_loja|moeda }}</span>
                         </div>
                         <div class="kpi-card">
                             <span class="kpi-rotulo">Receitas</span>
-                            <span class="kpi-num">R$ {{ resumo.receitas|floatformat:2 }}</span>
+                            <span class="kpi-num">R$ {{ resumo.receitas|moeda }}</span>
                         </div>
                         <div class="kpi-card">
                             <span class="kpi-rotulo">Custos</span>
-                            <span class="kpi-num">R$ {{ resumo.custos|floatformat:2 }}</span>
+                            <span class="kpi-num">R$ {{ resumo.custos|moeda }}</span>
                         </div>
                         <div class="kpi-card kpi-destaque {% if resumo.resultado < 0 %}kpi-negativo{% elif resumo.resultado > 0 %}kpi-positivo{% endif %}">
                             <span class="kpi-rotulo">Resultado</span>
-                            <span class="kpi-num">R$ {{ resumo.resultado|floatformat:2 }}</span>
+                            <span class="kpi-num">R$ {{ resumo.resultado|moeda }}</span>
                         </div>
                     </div>
                     <p class="painel-nota">
@@ -153,7 +153,7 @@
                             <span aria-hidden="true">➕</span> Adicionar custo
                         </button>
                     </div>
-                    <p class="custos-total">Total de custos: <strong>R$ {{ resumo.custos|floatformat:2 }}</strong></p>
+                    <p class="custos-total">Total de custos: <strong>R$ {{ resumo.custos|moeda }}</strong></p>
 
                     {% if custos %}
                     <ul class="custos-lista">
@@ -164,7 +164,7 @@
                                 {% if c.descricao %}<p class="custo-desc">{{ c.descricao }}</p>{% endif %}
                                 {% if c.comprovante %}<a class="custo-comprovante" href="{{ c.comprovante.url }}" target="_blank" rel="noopener">📎 Ver comprovante</a>{% endif %}
                             </div>
-                            <span class="custo-valor">R$ {{ c.valor|floatformat:2 }}</span>
+                            <span class="custo-valor">R$ {{ c.valor|moeda }}</span>
                             <form method="post" action="{% url 'core:evento_custo_excluir' evento.id c.id %}" class="custo-excluir-form" onsubmit="return confirm('Remover este custo?');">
                                 {% csrf_token %}
                                 <button type="submit" class="custo-excluir" aria-label="Remover custo">✕</button>

@@ -283,8 +283,17 @@ internas ou no fluxo de login, seguir estas regras:
 - Estrutura HTML padrão: `<div class="modal-overlay" id="..." hidden>` › `.modal-caixa[role=dialog]`
   › `.modal-topo` (`.modal-titulo` + `.modal-fechar`) › `.modal-corpo`.
 - Comportamento (JS puro): abre exibindo (`hidden=false`) e trava o scroll (`body.modal-aberto`);
-  fecha no botão **X**, ao **clicar no fundo** (`e.target === overlay`) e com **Esc**. Colocar o modal
-  **fora** de `.conteudo-interno` para não conflitar com o accordion de `inicio.js`.
+  fecha no botão **X**, ao **clicar no fundo** e com **Esc**. Colocar o modal **fora** de
+  `.conteudo-interno` para não conflitar com o accordion de `inicio.js`.
+- **Fechar no fundo com cuidado**: só fechar quando o **mousedown E o click** ocorreram no próprio
+  overlay (rastrear um flag no `mousedown`). Sem isso, arrastar para **selecionar texto** de dentro do
+  modal e soltar o mouse fora fecha o modal indevidamente.
+
+## Formatação de valores (moeda)
+
+- Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`): `{% load formato %}` e
+  `{{ valor|moeda }}` → formato brasileiro `1.500,00` (ponto de milhar, vírgula decimal). Prefixar com
+  `R$ ` no template. Não usar `floatformat` para dinheiro (não coloca separador de milhar em pt-BR).
 
 ## Padrão da tela "Eventos"
 

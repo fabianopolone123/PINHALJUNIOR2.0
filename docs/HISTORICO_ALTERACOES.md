@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Ajustes na tela de Eventos (cards, moeda e modais)
+
+### Resumo
+Ajustes pedidos antes de seguir com o evento complexo:
+1. **Card de evento com altura limitada**: título e descrição com no máximo 2 linhas (line-clamp) e
+   cards da mesma linha com altura uniforme — não crescem mais com textos longos.
+2. **Clicar no card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento
+   (só leitura). Os botões "Abrir painel"/"Duplicar" seguem seu comportamento normal.
+3. **Moeda no padrão brasileiro** (`R$ 1.500,00`): novo filtro `moeda` usado no painel do evento.
+4. **Modais não fecham ao arrastar seleção de texto** de dentro para fora (fecha só quando o mousedown
+   e o clique ocorreram no fundo). Corrigido em todos os modais (Usuários, Eventos e Custos).
+
+### Arquivos criados/alterados
+- `core/templatetags/formato.py` (novo) + `__init__.py`: filtro `moeda`.
+- `templates/core/evento_painel.html`: usa `{{ ...|moeda }}`.
+- `templates/core/eventos.html`: card clicável, fonte oculta dos detalhes e modal de visualização.
+- `static/css/eventos.css`: line-clamp do título/descrição, altura uniforme, card clicável, modal-desc.
+- `static/js/eventos.js`: modal de visualização do evento (clona detalhe; ignora cliques em links/botões).
+- `static/js/usuarios.js`, `static/js/eventos.js`, `static/js/evento_painel.js`: fechar modal só quando
+  o mousedown começou no fundo (corrige o fechamento ao selecionar texto).
+- `docs/REGRAS_CODEX.md`: nota do comportamento do modal + seção de formatação de moeda.
+
+---
+
 ## 2026-07-04 - Evento complexo (com inscrição) — Fase 1: painel + custos
 
 ### Resumo

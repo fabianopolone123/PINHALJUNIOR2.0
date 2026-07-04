@@ -19,6 +19,16 @@
     padding: 18px 20px;
 }
 
+/* Card clicável (abre o modal de visualização). */
+.evento-clicavel {
+    cursor: pointer;
+    transition: transform var(--transicao), box-shadow var(--transicao);
+}
+.evento-clicavel:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sombra-card-hover);
+}
+
 .evento-topo {
     display: flex;
     align-items: flex-start;
@@ -32,6 +42,11 @@
     font-weight: 700;
     min-width: 0;
     overflow-wrap: anywhere;
+    /* Limita a 2 linhas para o card não crescer demais. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .evento-meta {
@@ -51,13 +66,27 @@
     color: var(--texto);
     line-height: 1.5;
     overflow-wrap: anywhere;
+    /* Limita a 2 linhas; o texto completo aparece no modal ao clicar no card. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
+/* Empurra as ações para a base, deixando os cards da mesma linha com botões alinhados. */
 .evento-acoes {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 4px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+/* Descrição completa no modal de visualização do evento. */
+.evento-modal-desc {
+    color: var(--texto);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
 }
 
 /* ---------- Escolha do tipo de evento (dentro do modal) ---------- */
@@ -180,7 +209,8 @@ a.tipo-card:hover {
 
 /* ---------- Responsividade ---------- */
 @media (min-width: 720px) {
-    .eventos-lista { grid-template-columns: repeat(2, 1fr); align-items: start; }
+    /* Sem align-items:start → cards da mesma linha ficam com a mesma altura. */
+    .eventos-lista { grid-template-columns: repeat(2, 1fr); }
     .tipo-cards { grid-template-columns: repeat(2, 1fr); }
     .form-linha { grid-template-columns: repeat(3, 1fr); }
 }

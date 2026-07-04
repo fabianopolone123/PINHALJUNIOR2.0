@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (evento complexo — Fase 1: painel/dashboard + custos)
+**Última atualização:** 2026-07-04 (ajustes de Eventos: card com altura limitada, modal de visualização e moeda R$ 1.500,00)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -74,6 +74,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (título, descrição, valor e **comprovante** anexo) e removê-los, com o total refletindo no resultado.
   As abas Inscrições/Lojinha/Financeiro estão como "em breve" (próximas fases). O plano completo (todas
   as fases) está em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`. Pagamentos ficam simulados por ora.
+- Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
+  card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
+  Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
 - Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
   levado à tela de sucesso; "Ir para a tela inicial" abre `/inicio/` já logado.
