@@ -22,6 +22,46 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Compras da lojinha por inscrição (o que cada pessoa comprou)
+
+### Resumo
+O usuário sentia falta de ver **o que cada pessoa comprou** na lojinha (casamento inscrição × pedidos).
+Agora, na aba **Inscrições** do painel, cada inscrito mostra (ao expandir "Ver participantes…") um bloco
+**"🛒 Compras na lojinha"** com os pedidos daquela pessoa e o **Total geral (inscrição + lojinha)**; o
+topo do card ganha uma **pílula 🛒** com o valor gasto na lojinha.
+
+**Como casa (do confiável ao menos):** (1) **vínculo direto** `PedidoLoja.inscricao` (comprou junto da
+inscrição ou vinculado no PDV); (2) **mesma conta logada** — `pedido.usuario == inscricao.usuario`,
+**somente** quando esse responsável tem **uma** inscrição no evento (evita atribuir a inscrição errada);
+pedidos da mesma conta ganham a etiqueta "· mesma conta". Pedidos **avulsos** (sem conta e sem vínculo —
+passante) **não** são atribuídos e seguem só na aba Lojinha. Não usa casamento por nome aqui (evita o
+falso positivo).
+
+### Arquivos alterados
+- `core/views.py`: `evento_painel_view` calcula `compras_por_insc` (FK ou mesma conta única) e anexa a
+  cada inscrição `i.compras`, `i.total_compras` e `i.total_geral`.
+- `templates/core/evento_painel.html`: bloco "Compras na lojinha" no detalhe da inscrição + pílula
+  `pill-loja` no topo + linha "Total geral".
+- `static/css/eventos.css`: `.pill-loja`, `.inscrito-compras`, `.inscrito-compras-titulo`,
+  `.inscrito-total-geral`.
+
+### Decisões tomadas
+- **Só sinais confiáveis** (FK + mesma conta logada única); nada de casar por nome para dinheiro.
+- **Avulsos ficam na aba Lojinha** (são passantes/anônimos, sem dono).
+- Divisão: **Inscrição** = o que aquela pessoa/família comprou; **Lojinha** = todos os pedidos (inclui
+  avulsos).
+
+### Validação
+- `manage.py check` OK. Teste (render, test client): pedido **vinculado (FK)** + pedido da **mesma conta**
+  aparecem no bloco (o 2º com "mesma conta"); **Total geral = R$ 94,00** (60 + 24 + 10), **excluindo** um
+  pedido **avulso** de R$ 8; visual do card (pílula 🛒 + bloco + total) conferido em headless.
+
+### Pendências / próximo passo
+- (Opcional futuro) **vínculo exato na inscrição** (selecionar o aventureiro) melhoraria também a
+  atribuição de compras de anônimos. Fase 5: **5.3 códigos de desconto**, depois **5.4 presença/check-in**.
+
+---
+
 ## 2026-07-04 - Corrige edição de produto: preço e estoque não vinham preenchidos
 
 ### Resumo

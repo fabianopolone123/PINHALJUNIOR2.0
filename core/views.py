@@ -893,6 +893,29 @@ def evento_painel_view(request, pk):
         vendas_por_produto.values(), key=lambda x: (x["produto"], x["variacao"])
     )
 
+    # Casa os pedidos da lojinha com a inscrição da pessoa: vínculo direto (FK) ou
+    # mesma conta logada (só quando o responsável tem UMA inscrição no evento — evita
+    # atribuir errado). Os demais (avulsos/passantes) ficam só na aba Lojinha.
+    insc_por_usuario = {}
+    for i in inscricoes:
+        if i.usuario_id:
+            insc_por_usuario[i.usuario_id] = insc_por_usuario.get(i.usuario_id, 0) + 1
+    compras_por_insc = {}
+    for p in pedidos:
+        alvo = None
+        if p.inscricao_id:
+            alvo = p.inscricao_id
+        elif p.usuario_id and insc_por_usuario.get(p.usuario_id) == 1:
+            alvo = next((i.id for i in inscricoes if i.usuario_id == p.usuario_id), None)
+        if alvo:
+            compras_por_insc.setdefault(alvo, []).append(p)
+    for i in inscricoes:
+        i.compras = compras_por_insc.get(i.id, [])
+        i.total_compras = sum(
+            (p.valor_total for p in i.compras if p.status == "confirmado"), Decimal("0")
+        )
+        i.total_geral = i.valor_total + i.total_compras
+
     financeiro = _montar_financeiro(
         inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
         arrecadacao_inscricoes, vendas_loja, total_custos,

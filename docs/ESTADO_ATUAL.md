@@ -2,11 +2,10 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Bug corrigido**: ao **editar produto** da lojinha, os campos de
-**preço** e **estoque** das variações não vinham preenchidos — um `Decimal`/int cru era **localizado**
-no template (ex.: "12,00") e o `<input type="number">` rejeitava; agora a view passa o valor como
-**string** com ponto. Antes: refinos do dashboard (buscas com lupa, correção da busca sem resultado,
-cobertura com casamento inteligente por nome))
+**Última atualização:** 2026-07-04 (**Compras da lojinha por inscrição**: cada inscrito no painel mostra
+agora um bloco **"Compras na lojinha"** (pedidos vinculados por FK + os da **mesma conta logada**), com
+**Total geral (inscrição + lojinha)** e pílula 🛒 no topo — assim dá pra ver o que cada pessoa comprou;
+avulsos ficam só na aba Lojinha. Antes: correção da edição de produto (preço/estoque) e refinos do dashboard)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -192,6 +191,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   responder "fulano se inscreveu?" (quando não acha, **a lista some** e aparece só "nenhuma inscrição
   encontrada"). Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
   sempre com **rótulo** (cor nunca é a única pista).
+- **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
+  mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
+  **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
+  inscricao.usuario`, só quando o responsável tem **uma** inscrição no evento, para não atribuir errado).
+  Cada pedido lista os itens e o valor; os da mesma conta ganham a etiqueta "· mesma conta". Mostra o
+  **Total geral (inscrição + lojinha)** e uma **pílula 🛒** no topo com o gasto na lojinha. Pedidos
+  **avulsos** (passante, sem conta/vínculo) não são atribuídos e continuam só na aba **Lojinha**.
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.

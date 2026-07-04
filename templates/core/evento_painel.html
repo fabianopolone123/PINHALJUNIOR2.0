@@ -279,6 +279,7 @@
                                 <span class="inscrito-codigo">{{ i.codigo }}</span>
                                 <span class="pill {% if i.status == 'confirmada' %}pill-verde{% else %}pill-cinza{% endif %}">{{ i.get_status_display }}</span>
                                 {% if i.origem == "pdv" %}<span class="pill">🎟️ Balcão · {{ i.get_forma_pagamento_display }}</span>{% endif %}
+                                {% if i.total_compras %}<span class="pill pill-loja">🛒 R$ {{ i.total_compras|moeda }}</span>{% endif %}
                                 <span class="inscrito-valor">R$ {{ i.valor_total|moeda }}</span>
                             </div>
                             <strong class="inscrito-resp">{{ i.responsavel_nome }}</strong>
@@ -303,6 +304,23 @@
                                 <dl class="inscrito-respostas">
                                     {% for r in i.respostas_gerais %}<dt>{{ r.campo_rotulo }}</dt><dd>{{ r.valor|default:"—" }}</dd>{% endfor %}
                                 </dl>
+                                {% endif %}
+                                {% if i.compras %}
+                                <div class="inscrito-compras">
+                                    <strong class="inscrito-compras-titulo">🛒 Compras na lojinha</strong>
+                                    <ul class="inscrito-parts">
+                                        {% for pc in i.compras %}
+                                        <li class="{% if pc.status == 'cancelado' %}lanc-cancelado{% endif %}">
+                                            <span class="inscrito-codigo">{{ pc.codigo }}</span>
+                                            {% for it in pc.itens.all %}{{ it.quantidade }}× {{ it.produto_nome }}{% if it.variacao_nome %} ({{ it.variacao_nome }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                            — R$ {{ pc.valor_total|moeda }}
+                                            {% if pc.inscricao_id != i.id %}<small class="lanc-canal">· mesma conta</small>{% endif %}
+                                            {% if pc.status == 'cancelado' %}<span class="lanc-selo">cancelado</span>{% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    <p class="inscrito-total-geral">Total geral (inscrição + lojinha): <strong>R$ {{ i.total_geral|moeda }}</strong></p>
+                                </div>
                                 {% endif %}
                             </details>
                             {% if i.status == 'confirmada' %}
