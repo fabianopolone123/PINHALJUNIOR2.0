@@ -470,3 +470,62 @@ a.tipo-card:hover {
 
 .btn-acao:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
 
+/* ===== Inscrição: linhas de participante (Parte 2.4) ===== */
+.part-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.part-linha .part-nome { flex: 1 1 160px; }
+.part-linha .part-idade { flex: 0 0 90px; width: 90px; }
+.part-diretoria {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.9rem; color: var(--texto-suave); white-space: nowrap;
+}
+.part-diretoria input[type="checkbox"] { width: 18px; height: 18px; }
+.part-remover {
+    flex: none; width: 34px; height: 34px; border: none; border-radius: 8px;
+    background: rgba(192, 57, 43, 0.1); color: #c0392b; font-size: 0.95rem; cursor: pointer;
+}
+.part-remover:hover { background: rgba(192, 57, 43, 0.2); }
+#addParticipante { margin: 4px 0 10px; }
+
+.valores-resumo {
+    background: var(--fundo-conteudo, #eef3f9); border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 16px; font-size: 0.9rem;
+    display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center;
+}
+.valores-tag {
+    background: var(--branco); border: 1px solid var(--borda);
+    border-radius: 999px; padding: 3px 10px; font-size: 0.82rem;
+}
+
+/* ===== Painel: lista de inscritos (Parte 2.4) ===== */
+.secao-divisor { border: none; border-top: 1px solid var(--borda); margin: 24px 0; }
+.inscritos-lista { display: flex; flex-direction: column; gap: 12px; margin-bottom: 6px; }
+.inscrito-item { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; }
+.inscrito-cancelada { opacity: 0.6; }
+.inscrito-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.inscrito-codigo { font-weight: 800; color: var(--azul-escuro); letter-spacing: 0.03em; }
+.inscrito-valor { margin-left: auto; font-weight: 800; color: var(--texto); white-space: nowrap; }
+.inscrito-resp { color: var(--texto); }
+.inscrito-contato { font-size: 0.86rem; color: var(--texto-suave); overflow-wrap: anywhere; }
+.inscrito-detalhe { margin-top: 4px; }
+.inscrito-detalhe summary { cursor: pointer; color: var(--azul); font-size: 0.88rem; font-weight: 600; }
+.inscrito-parts { list-style: none; margin: 8px 0 0; padding: 0; font-size: 0.9rem; color: var(--texto); }
+.inscrito-parts li { padding: 3px 0; }
+.inscrito-respostas { margin: 8px 0 0; font-size: 0.88rem; }
+.inscrito-respostas dt { font-weight: 700; color: var(--texto-suave); margin-top: 6px; }
+.inscrito-respostas dd { margin: 0; color: var(--texto); overflow-wrap: anywhere; }
+.inscrito-cancelar-form { margin-top: 6px; }
+.btn-cancelar-inscricao { color: #c0392b; }
+
+/* ===== Sucesso da inscrição ===== */
+.sucesso-card { text-align: center; }
+.sucesso-check { font-size: 3rem; display: block; margin-bottom: 6px; }
+.sucesso-codigo {
+    display: inline-flex; flex-direction: column; gap: 4px;
+    background: var(--fundo-conteudo, #eef3f9); border-radius: 12px; padding: 14px 26px; margin: 12px 0;
+}
+.sucesso-codigo-rotulo { font-size: 0.78rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.05em; }
+.sucesso-codigo-valor { font-size: 1.8rem; font-weight: 800; color: var(--azul-escuro); letter-spacing: 0.08em; }
+.sucesso-card .inscrito-parts { display: inline-block; text-align: left; }
+.sucesso-total { font-size: 1.1rem; margin-top: 8px; }
+.sucesso-card .evento-publico-acao a { margin: 4px; }
+

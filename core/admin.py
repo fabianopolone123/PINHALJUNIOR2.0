@@ -8,6 +8,9 @@ from .models import (
     Evento,
     FaixaEtariaPreco,
     FichaMedica,
+    Inscricao,
+    ParticipanteInscricao,
+    RespostaInscricao,
 )
 
 
@@ -56,3 +59,21 @@ class CampoInscricaoAdmin(admin.ModelAdmin):
     list_display = ("evento", "rotulo", "tipo", "obrigatorio", "ordem")
     search_fields = ("rotulo", "evento__nome")
     list_filter = ("evento", "tipo")
+
+
+class ParticipanteInscricaoInline(admin.TabularInline):
+    model = ParticipanteInscricao
+    extra = 0
+
+
+class RespostaInscricaoInline(admin.TabularInline):
+    model = RespostaInscricao
+    extra = 0
+
+
+@admin.register(Inscricao)
+class InscricaoAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "evento", "responsavel_nome", "status", "valor_total", "criado_em")
+    search_fields = ("codigo", "responsavel_nome", "evento__nome")
+    list_filter = ("evento", "status")
+    inlines = [ParticipanteInscricaoInline, RespostaInscricaoInline]

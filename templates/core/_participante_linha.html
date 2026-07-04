@@ -1,0 +1,14 @@
+{# Uma linha de participante da inscrição. `p` (opcional) repõe os valores
+   enviados quando o formulário volta com erro. `tem_diretoria` vem do contexto. #}
+<div class="part-linha">
+    <input type="text" name="part_nome" class="campo-input part-nome" placeholder="Nome do participante" value="{{ p.nome|default_if_none:'' }}">
+    <input type="number" name="part_idade" class="campo-input part-idade" min="0" max="120" placeholder="Idade" value="{{ p.idade|default_if_none:'' }}">
+    {% if tem_diretoria %}
+    <label class="part-diretoria">
+        <input type="checkbox" class="part-diretoria-check"{% if p.diretoria %} checked{% endif %}>
+        <span>diretoria</span>
+        <input type="hidden" name="part_diretoria" value="{% if p.diretoria %}1{% else %}0{% endif %}" class="part-diretoria-val">
+    </label>
+    {% endif %}
+    <button type="button" class="part-remover" aria-label="Remover participante">✕</button>
+</div>

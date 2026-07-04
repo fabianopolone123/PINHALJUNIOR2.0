@@ -22,6 +22,63 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 2.4: inscrição de fato (conclui a Fase 2)
+
+### Resumo
+**Parte 2.4** (última da Fase 2): a inscrição passa a **funcionar de verdade** (pagamento **simulado**).
+Na página do evento, "Inscrever-se" abre o **formulário de inscrição** (`/eventos/<id>/inscrever/`):
+dados do responsável + **participantes** (linhas repetíveis: nome + idade + opção "diretoria") + os
+**campos personalizados** do evento (renderizados conforme o tipo). O **preço** de cada participante é
+calculado no servidor (faixa etária pela idade, ou valor da diretoria se marcado); soma no **valor
+total**. A inscrição nasce **confirmada**, com **código único**, e leva a uma **tela de sucesso**
+(código + total). No **painel**, a aba "Inscrições" ganhou a **lista de inscritos** (código, responsável,
+contato, participantes/valores, respostas, situação) com ação **Cancelar**; o **Resumo** passou a
+contar **inscritos** (participantes confirmados) e **arrecadação** de verdade. Acesso: público sem
+login se o evento é aberto ao público, senão exige login; após o prazo, o formulário trava.
+
+### Arquivos criados/alterados
+- `core/models.py`: modelos `Inscricao` (código único, status, valor_total), `ParticipanteInscricao`
+  (nome/idade/diretoria/faixa/valor) e `RespostaInscricao` (campo + rótulo snapshot + valor); método
+  `Evento.preco_participante(idade, eh_diretoria)`. Migration `0006`.
+- `core/forms.py`: `InscricaoForm` (responsável + campos personalizados dinâmicos por tipo;
+  `campos_personalizados` e `resposta_texto`).
+- `core/views.py`: `evento_inscrever_view`, `evento_inscricao_sucesso_view`,
+  `evento_inscricao_cancelar_view` (Diretor) + helper `_parse_participantes`; painel agora carrega
+  inscrições e calcula inscritos/arrecadação no Resumo.
+- `core/urls.py`: rotas `evento_inscrever`, `evento_inscricao_sucesso`, `evento_inscricao_cancelar`.
+- `core/admin.py`: `Inscricao` (inlines de participantes e respostas).
+- `templates/core/`: `evento_inscrever.html` (form), `evento_inscricao_sucesso.html`,
+  `_participante_linha.html` (linha repetível); `evento_pagina.html` (botão → formulário);
+  `evento_painel.html` (lista de inscritos + Cancelar na aba "Inscrições").
+- `static/js/evento_inscrever.js`: adicionar/remover participante + checkbox "diretoria" → hidden.
+- `static/css/eventos.css`: linhas de participante, resumo de valores, lista de inscritos, sucesso.
+
+### Decisões tomadas
+- **Diretoria** por participante (checkbox, só aparece se o evento tem valor de diretoria) → aplica o
+  valor da diretoria no lugar da faixa. Alinhamento por índice via input hidden (checkbox desmarcado
+  não some da lista). Autodeclarado nesta etapa; o Diretor confere na lista.
+- Preço **calculado e gravado no servidor** (snapshot em cada participante); dashboard soma o
+  `valor_total` das inscrições **confirmadas**. Cancelar muda o status (sai da contagem).
+- Campos personalizados viram campos de formulário Django conforme o tipo (validação de obrigatório e
+  de opções “de graça”); respostas gravadas como texto legível, com rótulo em snapshot.
+- Pagamento **simulado**: inscrição já confirmada; sem gateway (fica para “depois”, como no plano).
+
+### Validação
+- Teste ponta a ponta (test client): precificação (faixa/diretoria/sem-faixa); GET público do form;
+  POST válido (2 participantes incl. diretoria + respostas, total e faixas corretos, sim/não = "Não",
+  código de 6 chars, tela de sucesso); POST inválido (obrigatório vazio + idade faltando) rejeitado;
+  escolha fora das opções rejeitada; painel com lista + Resumo (inscritos=2, arrecadação); cancelar
+  remove da contagem; inscrição após o prazo bloqueada; evento só-membros exige login. Todos passaram.
+  `python manage.py check` sem problemas.
+
+### Pendências / próximo passo
+- **Fase 2 concluída.** A "página pública com pagamento simulado" (antiga Fase 3) ficou coberta por
+  2.3 + 2.4. Próximos: **Lojinha** (produtos/variações/estoque + pedidos), **Financeiro/gráficos** e,
+  depois, pagamentos reais (gateway) + mapa. Possíveis refinos: gating de “diretoria” por perfil real,
+  editar inscrição, exportar lista, e-mail de confirmação.
+
+---
+
 ## 2026-07-04 - Evento complexo — Fase 2.3: evento no menu de todos os perfis + página do evento
 
 ### Resumo

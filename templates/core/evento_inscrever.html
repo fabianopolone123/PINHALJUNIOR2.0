@@ -1,0 +1,92 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Inscrição — {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <a href="{% url 'core:evento_pagina' evento.id %}" class="voltar-link">← Voltar para o evento</a>
+
+            {% if messages %}
+            <div class="mensagens">
+                {% for m in messages %}
+                <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <article class="card evento-publico-card">
+                <h1 class="evento-publico-titulo">Inscrição — {{ evento.nome }}</h1>
+
+                {% if faixas or evento.valor_diretoria is not None %}
+                <div class="valores-resumo">
+                    <strong>Valores:</strong>
+                    {% for f in faixas %}<span class="valores-tag">{% if f.rotulo %}{{ f.rotulo }} {% endif %}{{ f.faixa_txt }}: R$ {{ f.valor|moeda }}</span>{% endfor %}
+                    {% if evento.valor_diretoria is not None %}<span class="valores-tag">Diretoria: R$ {{ evento.valor_diretoria|moeda }}</span>{% endif %}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'core:evento_inscrever' evento.id %}" class="evento-form" novalidate>
+                    {% csrf_token %}
+
+                    <h2 class="evento-publico-h2">Seus dados</h2>
+                    {% include "core/_campo.html" with campo=form.responsavel_nome %}
+                    <div class="form-linha">
+                        {% include "core/_campo.html" with campo=form.responsavel_whatsapp %}
+                        {% include "core/_campo.html" with campo=form.responsavel_email %}
+                    </div>
+                    {% include "core/_campo.html" with campo=form.responsavel_cpf %}
+
+                    <h2 class="evento-publico-h2">Participantes</h2>
+                    {% if erros_part %}
+                    <div class="erros">
+                        {% for e in erros_part %}<div>{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                    <p class="ajuda">Nome e idade de cada participante.{% if tem_diretoria %} Marque “diretoria” para aplicar o valor da diretoria.{% endif %}</p>
+                    <div id="participantes">
+                        {% if participantes_enviados %}
+                            {% for p in participantes_enviados %}{% include "core/_participante_linha.html" with p=p %}{% endfor %}
+                        {% else %}
+                            {% include "core/_participante_linha.html" %}
+                        {% endif %}
+                    </div>
+                    <template id="part-modelo">{% include "core/_participante_linha.html" %}</template>
+                    <button type="button" class="btn-secundario" id="addParticipante">➕ Adicionar participante</button>
+
+                    {% if form.campos_personalizados %}
+                    <h2 class="evento-publico-h2">Informações do evento</h2>
+                    {% for bf in form.campos_personalizados %}
+                        {% include "core/_campo.html" with campo=bf %}
+                    {% endfor %}
+                    {% endif %}
+
+                    <div class="form-acoes evento-publico-acao">
+                        <button type="submit" class="btn-acao">
+                            <span aria-hidden="true">🎟️</span> Confirmar inscrição
+                        </button>
+                    </div>
+                    <p class="painel-nota" style="text-align:center;">Pagamento simulado nesta etapa — a inscrição é confirmada na hora.</p>
+                </form>
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+
+    <script src="{% static 'js/evento_inscrever.js' %}"></script>
+</body>
+</html>

@@ -41,12 +41,16 @@ lojinha, custos e resultado (lucro/prejuízo).
   preenchimento/envio (respostas) → Fase 2.4.
 - **Fase 2.3 CONCLUÍDA** (2026-07-04): **evento no menu de todos os perfis** (seção "Eventos ativos",
   eventos não encerrados) + **página do evento** (`/eventos/<id>/pagina/`, pública se aberto ao
-  público, senão só logado) com dados/status/valores/preview dos campos e botão "Inscrever-se"
-  **desabilitado** (envio real → 2.4).
-- **PRÓXIMO PASSO = Fase 2.4 (inscrição de fato).** Alinhar antes de codar: dados do inscrito
-  (responsável + participantes, cada um com idade → faixa/valor; diretoria → valor da diretoria),
-  respostas dos campos personalizados, pagamento **simulado**, código de inscrição, status
-  (confirmada/cancelada) e o que aparece na lista de inscritos do painel.
+  público, senão só logado) com dados/status/valores/preview dos campos.
+- **Fase 2.4 CONCLUÍDA** (2026-07-04): **inscrição de fato** — formulário (`/eventos/<id>/inscrever/`)
+  com responsável + participantes (nome/idade/diretoria) + campos personalizados; preço calculado no
+  servidor (faixa/diretoria), inscrição confirmada com código, tela de sucesso; **lista de inscritos**
+  no painel (com cancelar) e **Resumo** com inscritos/arrecadação reais. Pagamento **simulado**.
+  Modelos `Inscricao`, `ParticipanteInscricao`, `RespostaInscricao`.
+- **🎉 FASE 2 (INSCRIÇÕES) CONCLUÍDA.** A "página pública com pagamento simulado" (antiga Fase 3)
+  ficou coberta por 2.3 + 2.4.
+- **PRÓXIMO PASSO = Lojinha (antiga Fase 4).** Antes de codar, alinhar: produtos (com variações e
+  estoque), como o pedido se liga (ou não) a uma inscrição, e onde entra na página do evento.
 
 ## Requisitos da Fase 2 (definidos com o usuário em 2026-07-04)
 > Cada evento complexo é um **mini-sistema configurável**; nada é fixo no sistema.
@@ -77,11 +81,11 @@ lojinha, custos e resultado (lucro/prejuízo).
    - **2.3 — CONCLUÍDA ✅** — **Evento no menu de todos os perfis** (seção "Eventos ativos") +
      **página do evento** (`evento_pagina.html`, pública/só-membros) com dados/status/valores/preview
      dos campos. Botão "Inscrever-se" desabilitado até a 2.4.
-   - **2.4 — PRÓXIMA ⏭️** — **Inscrição de fato**: participantes por faixa/diretoria, preço calculado,
+   - **2.4 — CONCLUÍDA ✅** — **Inscrição de fato**: participantes por faixa/diretoria, preço calculado,
      respostas do formulário, pagamento **simulado**, código, **lista de inscritos** no painel e
-     **contagem/arrecadação no dashboard**.
-3. **Fase 3** — **Página pública** de inscrição (pagamento **simulado**).
-4. **Fase 4** — **Lojinha** (produtos/variações/estoque + pedidos, pagamento simulado).
+     **contagem/arrecadação no dashboard**. Modelos `Inscricao`/`ParticipanteInscricao`/`RespostaInscricao`.
+3. **Fase 3 — coberta ✅** — **Página pública** de inscrição com pagamento **simulado** (feita em 2.3 + 2.4).
+4. **Fase 4 — PRÓXIMA ⏭️** — **Lojinha** (produtos/variações/estoque + pedidos, pagamento simulado).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
 6. **Depois** — Pagamentos reais (gateway) + mapa (Google Maps).
 

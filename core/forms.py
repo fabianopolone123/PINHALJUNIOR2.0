@@ -292,6 +292,76 @@ class CampoInscricaoForm(EstiloFormMixin, forms.ModelForm):
         return cleaned
 
 
+class InscricaoForm(EstiloFormMixin, forms.Form):
+    """Formulário de inscrição de um evento: dados do responsável + os campos
+    personalizados do evento (adicionados dinamicamente conforme `CampoInscricao`).
+
+    Os participantes (nome/idade/diretoria) são tratados fora deste form, na view
+    (linhas repetíveis), pois a quantidade é dinâmica.
+    """
+
+    responsavel_nome = forms.CharField(label="Seu nome", max_length=150)
+    responsavel_whatsapp = forms.CharField(label="WhatsApp", max_length=20, required=False)
+    responsavel_email = forms.EmailField(label="E-mail", required=False)
+    responsavel_cpf = forms.CharField(label="CPF", max_length=20, required=False)
+
+    def __init__(self, *args, evento=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.evento = evento
+        self.campos_extra = []  # lista de (campo, nome_do_field)
+        if evento is not None:
+            for campo in evento.campos_inscricao.all():
+                nome = f"campo_{campo.id}"
+                self.fields[nome] = self._construir_campo(campo)
+                self.campos_extra.append((campo, nome))
+        self._aplicar_estilo()
+
+    def _construir_campo(self, campo):
+        obrig = campo.obrigatorio
+        rotulo = campo.rotulo
+        if campo.tipo == "texto_longo":
+            return forms.CharField(
+                label=rotulo, required=obrig, widget=forms.Textarea(attrs={"rows": 3})
+            )
+        if campo.tipo == "numero":
+            return forms.DecimalField(label=rotulo, required=obrig)
+        if campo.tipo == "escolha_unica":
+            escolhas = [(o, o) for o in campo.opcoes_lista]
+            return forms.ChoiceField(label=rotulo, required=obrig, choices=escolhas)
+        if campo.tipo == "escolha_multipla":
+            escolhas = [(o, o) for o in campo.opcoes_lista]
+            return forms.MultipleChoiceField(
+                label=rotulo, required=obrig, choices=escolhas,
+                widget=forms.CheckboxSelectMultiple,
+            )
+        if campo.tipo == "sim_nao":
+            # 'Não' (desmarcado) é uma resposta válida → nunca obrigar a marcar.
+            return forms.BooleanField(label=rotulo, required=False)
+        if campo.tipo == "data":
+            return forms.DateField(
+                label=rotulo, required=obrig,
+                widget=forms.DateInput(attrs={"type": "date"}),
+            )
+        # texto (padrão)
+        return forms.CharField(label=rotulo, required=obrig, max_length=255)
+
+    @property
+    def campos_personalizados(self):
+        """BoundFields dos campos personalizados, para renderizar no template."""
+        return [self[nome] for _campo, nome in self.campos_extra]
+
+    def resposta_texto(self, campo, nome):
+        """Texto legível da resposta de um campo, para gravar em RespostaInscricao."""
+        valor = self.cleaned_data.get(nome)
+        if campo.tipo == "sim_nao":
+            return "Sim" if valor else "Não"
+        if campo.tipo == "escolha_multipla":
+            return ", ".join(valor) if valor else ""
+        if campo.tipo == "data":
+            return valor.strftime("%d/%m/%Y") if valor else ""
+        return "" if valor is None else str(valor)
+
+
 class CustoEventoForm(EstiloFormMixin, forms.ModelForm):
     """Custo/despesa de um evento (com anexo de comprovante)."""
 

@@ -148,6 +148,53 @@
                     </p>
                     {% endif %}
 
+                    <!-- Lista de inscrições -->
+                    <div class="secao-cabecalho">
+                        <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
+                    </div>
+                    {% if inscricoes %}
+                    <ul class="inscritos-lista">
+                        {% for i in inscricoes %}
+                        <li class="card inscrito-item{% if i.status == 'cancelada' %} inscrito-cancelada{% endif %}">
+                            <div class="inscrito-topo">
+                                <span class="inscrito-codigo">{{ i.codigo }}</span>
+                                <span class="pill {% if i.status == 'confirmada' %}pill-verde{% else %}pill-cinza{% endif %}">{{ i.get_status_display }}</span>
+                                <span class="inscrito-valor">R$ {{ i.valor_total|moeda }}</span>
+                            </div>
+                            <strong class="inscrito-resp">{{ i.responsavel_nome }}</strong>
+                            {% if i.responsavel_whatsapp or i.responsavel_email %}
+                            <span class="inscrito-contato">{% if i.responsavel_whatsapp %}📱 {{ i.responsavel_whatsapp }}{% endif %}{% if i.responsavel_email %} ✉️ {{ i.responsavel_email }}{% endif %}</span>
+                            {% endif %}
+                            <details class="inscrito-detalhe">
+                                <summary>Ver participantes{% if i.respostas.all %} e respostas{% endif %}</summary>
+                                <ul class="inscrito-parts">
+                                    {% for p in i.participantes.all %}
+                                    <li>{{ p.nome }}{% if p.idade is not None %} ({{ p.idade }} anos){% endif %}{% if p.eh_diretoria %} · diretoria{% endif %} — R$ {{ p.valor|moeda }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% if i.respostas.all %}
+                                <dl class="inscrito-respostas">
+                                    {% for r in i.respostas.all %}
+                                    <dt>{{ r.campo_rotulo }}</dt><dd>{{ r.valor|default:"—" }}</dd>
+                                    {% endfor %}
+                                </dl>
+                                {% endif %}
+                            </details>
+                            {% if i.status == 'confirmada' %}
+                            <form method="post" action="{% url 'core:evento_inscricao_cancelar' evento.id i.id %}" class="inscrito-cancelar-form" onsubmit="return confirm('Cancelar a inscrição {{ i.codigo }}?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-secundario btn-cancelar-inscricao">Cancelar inscrição</button>
+                            </form>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhuma inscrição ainda.</p>
+                    {% endif %}
+
+                    <hr class="secao-divisor">
+
                     <!-- Configuração da inscrição -->
                     <div class="card config-card">
                         <h3 class="config-titulo">Configuração da inscrição</h3>

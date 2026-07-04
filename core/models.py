@@ -7,6 +7,9 @@ vários aventureiros no futuro. Cada aventureiro tem uma ficha de inscrição
 """
 
 import datetime
+import random
+import string
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -379,6 +382,19 @@ class Evento(models.Model):
             return True
         return timezone.now() <= prazo
 
+    def preco_participante(self, idade, eh_diretoria, faixas=None):
+        """(valor, faixa) de um participante: valor da diretoria (se marcado e
+        configurado) ou a faixa etária que casa com a idade; senão, 0."""
+        if eh_diretoria and self.valor_diretoria is not None:
+            return self.valor_diretoria, None
+        if faixas is None:
+            faixas = self.faixas_preco.all()
+        if idade is not None:
+            for faixa in faixas:
+                if faixa.idade_min <= idade <= faixa.idade_max:
+                    return faixa.valor, faixa
+        return Decimal("0"), None
+
 
 class CustoEvento(models.Model):
     """Custo/despesa de um evento (entra no resultado financeiro do evento)."""
@@ -511,3 +527,124 @@ class CampoInscricao(models.Model):
 
     def __str__(self):
         return f"{self.rotulo} ({self.get_tipo_display()}) — {self.evento.nome}"
+
+
+STATUS_INSCRICAO_CHOICES = [
+    ("confirmada", "Confirmada"),
+    ("cancelada", "Cancelada"),
+]
+
+
+class Inscricao(models.Model):
+    """Inscrição de um responsável em um evento com inscrição (Fase 2.4).
+
+    Uma inscrição tem um ou mais participantes (cada um com um valor por faixa
+    etária ou pelo valor da diretoria) e as respostas dos campos personalizados.
+    O pagamento é **simulado** por ora (a inscrição já nasce confirmada).
+    """
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="inscricoes",
+        verbose_name="Evento",
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inscricoes",
+        verbose_name="Usuário (se logado)",
+    )
+    responsavel_nome = models.CharField("Nome do responsável", max_length=150)
+    responsavel_whatsapp = models.CharField("WhatsApp", max_length=20, blank=True)
+    responsavel_email = models.EmailField("E-mail", blank=True)
+    responsavel_cpf = models.CharField("CPF", max_length=20, blank=True)
+    codigo = models.CharField("Código da inscrição", max_length=20, unique=True)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_INSCRICAO_CHOICES, default="confirmada"
+    )
+    valor_total = models.DecimalField(
+        "Valor total", max_digits=10, decimal_places=2, default=0
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Inscrição"
+        verbose_name_plural = "Inscrições"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.codigo} — {self.responsavel_nome} ({self.evento.nome})"
+
+    @staticmethod
+    def gerar_codigo_unico():
+        """Código curto e único (ex.: 'A3K9Q2')."""
+        alfabeto = string.ascii_uppercase + string.digits
+        while True:
+            codigo = "".join(random.choices(alfabeto, k=6))
+            if not Inscricao.objects.filter(codigo=codigo).exists():
+                return codigo
+
+
+class ParticipanteInscricao(models.Model):
+    """Cada participante (pessoa) de uma inscrição, com o valor aplicado."""
+
+    inscricao = models.ForeignKey(
+        Inscricao,
+        on_delete=models.CASCADE,
+        related_name="participantes",
+        verbose_name="Inscrição",
+    )
+    nome = models.CharField("Nome do participante", max_length=150)
+    idade = models.PositiveIntegerField("Idade", null=True, blank=True)
+    eh_diretoria = models.BooleanField("É da diretoria", default=False)
+    # Faixa aplicada (nulo se pagou como diretoria ou se nenhuma faixa casou).
+    faixa = models.ForeignKey(
+        FaixaEtariaPreco,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="participantes",
+        verbose_name="Faixa aplicada",
+    )
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "Participante da inscrição"
+        verbose_name_plural = "Participantes da inscrição"
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.nome} — {self.inscricao.codigo}"
+
+
+class RespostaInscricao(models.Model):
+    """Resposta de um campo personalizado do formulário, numa inscrição."""
+
+    inscricao = models.ForeignKey(
+        Inscricao,
+        on_delete=models.CASCADE,
+        related_name="respostas",
+        verbose_name="Inscrição",
+    )
+    campo = models.ForeignKey(
+        CampoInscricao,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="respostas",
+        verbose_name="Campo",
+    )
+    # Snapshot do rótulo (mantém a resposta legível mesmo se o campo for apagado).
+    campo_rotulo = models.CharField("Pergunta", max_length=150, blank=True)
+    valor = models.TextField("Resposta", blank=True)
+
+    class Meta:
+        verbose_name = "Resposta da inscrição"
+        verbose_name_plural = "Respostas da inscrição"
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.campo_rotulo}: {self.valor}"

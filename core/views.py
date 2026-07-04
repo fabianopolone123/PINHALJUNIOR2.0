@@ -23,9 +23,16 @@ from .forms import (
     EventoInscricaoConfigForm,
     FaixaEtariaPrecoForm,
     FichaMedicaForm,
+    InscricaoForm,
     ResponsavelLegalForm,
 )
-from .models import Aventureiro, Evento
+from .models import (
+    Aventureiro,
+    Evento,
+    Inscricao,
+    ParticipanteInscricao,
+    RespostaInscricao,
+)
 from .permissoes import diretor_required
 
 # ---------------------------------------------------------------------------
@@ -622,9 +629,15 @@ def evento_painel_view(request, pk):
     faixas = list(evento.faixas_preco.all())
     campos_inscricao = list(evento.campos_inscricao.all())
 
-    # Preenchidos nas próximas fases (inscrições e lojinha).
-    arrecadacao_inscricoes = Decimal("0")
-    vendas_loja = Decimal("0")
+    inscricoes = list(
+        evento.inscricoes.prefetch_related("participantes", "respostas").all()
+    )
+    confirmadas = [i for i in inscricoes if i.status == "confirmada"]
+    # "Inscritos" = pessoas (participantes) das inscrições confirmadas.
+    inscritos = sum(len(i.participantes.all()) for i in confirmadas)
+    arrecadacao_inscricoes = sum((i.valor_total for i in confirmadas), Decimal("0"))
+
+    vendas_loja = Decimal("0")  # Fase 4 (lojinha).
     receitas = arrecadacao_inscricoes + vendas_loja
 
     contexto = {
@@ -633,6 +646,7 @@ def evento_painel_view(request, pk):
         "form_custo": CustoEventoForm(),
         "faixas": faixas,
         "campos_inscricao": campos_inscricao,
+        "inscricoes": inscricoes,
         "config_form": EventoInscricaoConfigForm(instance=evento),
         # Prefixos evitam colisão de IDs entre os modais na mesma página.
         "faixa_form": FaixaEtariaPrecoForm(prefix="faixa"),
@@ -640,7 +654,7 @@ def evento_painel_view(request, pk):
         "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
         "resumo": {
-            "inscritos": 0,
+            "inscritos": inscritos,
             "arrecadacao_inscricoes": arrecadacao_inscricoes,
             "vendas_loja": vendas_loja,
             "receitas": receitas,
@@ -773,6 +787,131 @@ def evento_pagina_view(request, pk):
         "prazo_inscricao": evento.prazo_inscricao(),
     }
     return render(request, "core/evento_pagina.html", contexto)
+
+
+def _parse_participantes(nomes, idades, diretorias, tem_diretoria):
+    """Lê as linhas de participantes do POST (listas alinhadas por índice)."""
+    participantes = []
+    erros = []
+    for i, nome in enumerate(nomes):
+        nome = (nome or "").strip()
+        if not nome:
+            continue  # ignora linhas em branco
+        idade_raw = idades[i] if i < len(idades) else ""
+        try:
+            idade = int(idade_raw)
+        except (TypeError, ValueError):
+            idade = None
+        eh_dir = bool(tem_diretoria) and i < len(diretorias) and diretorias[i] == "1"
+        if idade is None and not eh_dir:
+            erros.append(f"Informe a idade de “{nome}”.")
+        participantes.append({"nome": nome, "idade": idade, "diretoria": eh_dir})
+    if not participantes:
+        erros.append("Adicione ao menos um participante.")
+    return participantes, erros
+
+
+def evento_inscrever_view(request, pk):
+    """Formulário de inscrição num evento (Fase 2.4). Pagamento simulado."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
+        return redirect(f"{reverse('core:login')}?next={request.path}")
+    if not evento.inscricoes_abertas():
+        messages.error(request, "As inscrições para este evento estão encerradas.")
+        return redirect("core:evento_pagina", pk=evento.pk)
+
+    faixas = list(evento.faixas_preco.all())
+    tem_diretoria = evento.valor_diretoria is not None
+    participantes = []
+    erros_part = []
+
+    if request.method == "POST":
+        form = InscricaoForm(request.POST, evento=evento)
+        participantes, erros_part = _parse_participantes(
+            request.POST.getlist("part_nome"),
+            request.POST.getlist("part_idade"),
+            request.POST.getlist("part_diretoria"),
+            tem_diretoria,
+        )
+        if form.is_valid() and not erros_part:
+            with transaction.atomic():
+                inscricao = Inscricao(
+                    evento=evento,
+                    usuario=request.user if request.user.is_authenticated else None,
+                    responsavel_nome=form.cleaned_data["responsavel_nome"],
+                    responsavel_whatsapp=form.cleaned_data["responsavel_whatsapp"],
+                    responsavel_email=form.cleaned_data["responsavel_email"],
+                    responsavel_cpf=form.cleaned_data["responsavel_cpf"],
+                    codigo=Inscricao.gerar_codigo_unico(),
+                    status="confirmada",
+                )
+                total = Decimal("0")
+                objetos = []
+                for p in participantes:
+                    valor, faixa = evento.preco_participante(
+                        p["idade"], p["diretoria"], faixas
+                    )
+                    total += valor
+                    objetos.append(
+                        ParticipanteInscricao(
+                            nome=p["nome"], idade=p["idade"],
+                            eh_diretoria=p["diretoria"], faixa=faixa, valor=valor,
+                        )
+                    )
+                inscricao.valor_total = total
+                inscricao.save()
+                for obj in objetos:
+                    obj.inscricao = inscricao
+                    obj.save()
+                for campo, nome in form.campos_extra:
+                    RespostaInscricao.objects.create(
+                        inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
+                        valor=form.resposta_texto(campo, nome),
+                    )
+            request.session["inscricao_codigo"] = inscricao.codigo
+            return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
+        messages.error(request, "Verifique os campos destacados e os participantes.")
+    else:
+        inicial = {}
+        if request.user.is_authenticated and request.user.email:
+            inicial["responsavel_email"] = request.user.email
+        form = InscricaoForm(evento=evento, initial=inicial)
+
+    contexto = {
+        "evento": evento,
+        "form": form,
+        "faixas": faixas,
+        "tem_diretoria": tem_diretoria,
+        "participantes_enviados": participantes,
+        "erros_part": erros_part,
+    }
+    return render(request, "core/evento_inscrever.html", contexto)
+
+
+def evento_inscricao_sucesso_view(request, pk):
+    """Confirmação da inscrição (código + valor total). Pagamento simulado."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    codigo = request.session.get("inscricao_codigo")
+    inscricao = evento.inscricoes.filter(codigo=codigo).first() if codigo else None
+    if inscricao is None:
+        return redirect("core:evento_pagina", pk=evento.pk)
+    return render(
+        request, "core/evento_inscricao_sucesso.html",
+        {"evento": evento, "inscricao": inscricao},
+    )
+
+
+@diretor_required
+@require_POST
+def evento_inscricao_cancelar_view(request, pk, inscricao_id):
+    """Cancela uma inscrição (Diretor). Sai da contagem/arrecadação do resumo."""
+    evento = get_object_or_404(Evento, pk=pk)
+    inscricao = evento.inscricoes.filter(pk=inscricao_id).first()
+    if inscricao is not None and inscricao.status != "cancelada":
+        inscricao.status = "cancelada"
+        inscricao.save(update_fields=["status"])
+        messages.success(request, f"Inscrição {inscricao.codigo} cancelada.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
 
 @diretor_required

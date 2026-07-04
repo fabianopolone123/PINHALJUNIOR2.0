@@ -19,6 +19,17 @@ urlpatterns = [
     path("eventos/complexo/novo/", views.evento_complexo_novo_view, name="evento_complexo_novo"),
     path("eventos/<int:pk>/", views.evento_painel_view, name="evento_painel"),
     path("eventos/<int:pk>/pagina/", views.evento_pagina_view, name="evento_pagina"),
+    path("eventos/<int:pk>/inscrever/", views.evento_inscrever_view, name="evento_inscrever"),
+    path(
+        "eventos/<int:pk>/inscrever/sucesso/",
+        views.evento_inscricao_sucesso_view,
+        name="evento_inscricao_sucesso",
+    ),
+    path(
+        "eventos/<int:pk>/inscricoes/<int:inscricao_id>/cancelar/",
+        views.evento_inscricao_cancelar_view,
+        name="evento_inscricao_cancelar",
+    ),
     path("eventos/<int:pk>/custos/novo/", views.evento_custo_novo_view, name="evento_custo_novo"),
     path(
         "eventos/<int:pk>/custos/<int:custo_id>/excluir/",

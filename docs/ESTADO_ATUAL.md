@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Evento complexo — Fase 2.3: evento no menu de todos os perfis + página do evento, pública ou só-membros)
+**Última atualização:** 2026-07-04 (Evento complexo — Fase 2.4: inscrição de fato com participantes/valores, respostas, pagamento simulado, lista de inscritos e dashboard — **Fase 2 concluída**)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -96,9 +96,16 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   sozinhos. A página do evento é uma **página própria** (sem a barra lateral) com nome, descrição,
   local, datas/horários, **status** das inscrições (aberto/encerrado + prazo), **valores** (faixas +
   diretoria) e **preview dos campos** do formulário. **Acesso**: evento **aberto ao público** → sem
-  login; **só membros** → exige login. O botão **"Inscrever-se"** aparece **desabilitado** (o envio
-  real vem na Fase 2.4). Falta a Fase 2.4: inscrição de fato (pagamento simulado) + lista de inscritos
-  + contagem no dashboard.
+  login; **só membros** → exige login.
+- **Evento complexo — Fase 2.4 (inscrição de fato — Fase 2 CONCLUÍDA)**: na página do evento,
+  "Inscrever-se" abre o **formulário de inscrição** (`/eventos/<id>/inscrever/`) com dados do
+  responsável + **participantes** (linhas repetíveis: nome + idade + opção "diretoria") + os **campos
+  personalizados** do evento. O **preço** de cada participante é calculado no servidor (faixa pela
+  idade ou valor da diretoria) e somado no **valor total**. A inscrição nasce **confirmada**, com
+  **código único**, e mostra uma **tela de sucesso** (pagamento **simulado**). No painel, a aba
+  "Inscrições" tem a **lista de inscritos** (com participantes/valores, respostas e ação **Cancelar**)
+  e o **Resumo** conta **inscritos** (participantes confirmados) e **arrecadação** de verdade. Acesso:
+  público sem login se aberto ao público, senão exige login; após o prazo, o formulário trava.
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -186,6 +193,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   idade_min, idade_max, valor, ordem). Migration `0004`.
 - `CampoInscricao` — campo personalizado do formulário de inscrição, por evento (FK `evento`, rótulo,
   tipo, opções, obrigatório, ordem). Migration `0005`.
+- `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
+  único, status confirmada/cancelada, valor_total). `ParticipanteInscricao` (nome, idade, eh_diretoria,
+  faixa, valor) e `RespostaInscricao` (campo + rótulo snapshot + valor). Migration `0006`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -195,9 +205,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria com cálculo do
-  valor, respostas do formulário, pagamento simulado, código), lista de inscritos no painel e
-  contagem/arrecadação no dashboard (próximo passo; aí o botão "Inscrever-se" passa a funcionar).
+- **Fase 2 (Inscrições) concluída.** A "página pública com pagamento simulado" (antiga Fase 3) ficou
+  coberta por 2.3 + 2.4.
+- **Evento complexo — Lojinha** (produtos com variações/estoque + pedidos, pagamento simulado).
+- **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
+- **Depois**: pagamentos reais (gateway) e mapa (Google Maps).
+- Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
+  lista de inscritos, e-mail de confirmação.
 - **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
   simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
@@ -217,7 +231,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_complexo_form.html` (criação do evento complexo)
 - `templates/core/evento_painel.html` (painel/dashboard do evento complexo)
 - `templates/core/evento_pagina.html` (página do evento — pública/interna, com botão de inscrever)
+- `templates/core/evento_inscrever.html` (formulário de inscrição) e `evento_inscricao_sucesso.html`
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
+- `templates/core/_participante_linha.html` (parcial: uma linha de participante da inscrição)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
@@ -246,7 +262,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
-- `static/js/evento_painel.js` — abas do painel do evento complexo + modal de "Adicionar custo".
+- `static/js/evento_painel.js` — abas do painel do evento complexo + modais (custo, faixa, campo).
+- `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + toggle "diretoria".
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -259,6 +276,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).
 - `/eventos/<id>/` — painel do evento complexo (`core.views.evento_painel_view`, nome `core:evento_painel`).
 - `/eventos/<id>/pagina/` — página do evento (pública se aberto ao público, senão exige login) (`core.views.evento_pagina_view`, nome `core:evento_pagina`).
+- `/eventos/<id>/inscrever/` — formulário de inscrição (`core.views.evento_inscrever_view`, nome `core:evento_inscrever`).
+- `/eventos/<id>/inscrever/sucesso/` — confirmação da inscrição (`core:evento_inscricao_sucesso`).
+- `/eventos/<id>/inscricoes/<id>/cancelar/` — cancela inscrição (POST, Diretor) (`core:evento_inscricao_cancelar`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).

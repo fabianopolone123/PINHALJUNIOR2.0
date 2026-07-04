@@ -85,10 +85,9 @@
 
                 <div class="evento-publico-acao">
                     {% if inscricoes_abertas %}
-                    <button type="button" class="btn-acao" disabled title="Disponível em breve">
-                        <span aria-hidden="true">🎟️</span> Inscrever-se (em breve)
-                    </button>
-                    <p class="painel-nota">O envio da inscrição será liberado na próxima etapa (Fase 2.4).</p>
+                    <a href="{% url 'core:evento_inscrever' evento.id %}" class="btn-acao">
+                        <span aria-hidden="true">🎟️</span> Inscrever-se
+                    </a>
                     {% else %}
                     <p class="painel-nota">As inscrições para este evento estão encerradas.</p>
                     {% endif %}
