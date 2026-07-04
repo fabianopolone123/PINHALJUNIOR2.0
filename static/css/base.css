@@ -1,0 +1,33 @@
+/*
+ * base.css — regras globais de comportamento da interface.
+ *
+ * REGRA (evitar o "cursor de texto piscando" em locais que não são campos):
+ * texto de INTERFACE (títulos, rótulos, botões, ícones, menus, pílulas, etc.)
+ * NÃO é selecionável e não mostra cursor de texto (caret/I-beam), pois não são
+ * campos digitáveis. Só campos de formulário e VALORES DE DADOS (para poder
+ * copiar CPF, telefone, e-mail, etc.) permitem seleção.
+ *
+ * Como aplicar em telas novas: sempre linkar este arquivo ANTES do CSS da página.
+ * Para permitir seleção/cópia de um texto de dado, use a classe .selecionavel
+ * (ou a classe .dado-valor do parcial _dado.html, já liberada abaixo).
+ */
+
+/* Padrão: interface não-selecionável (sem caret nem cursor de texto). */
+body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+/* Exceções: campos realmente digitáveis e conteúdo marcado como selecionável. */
+input,
+textarea,
+select,
+[contenteditable="true"],
+.dado-valor,
+.selecionavel {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+    cursor: auto;
+}

@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-03 (perfis de acesso + usuário diretor inicial: comando `configurar_perfis`)
+**Última atualização:** 2026-07-03 (CSS global `base.css`: interface sem cursor de texto fora de campos)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -155,6 +155,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/_dado.html` (parcial rótulo+valor usada em "Meus Dados")
 
 ## Arquivos CSS existentes
+- `static/css/base.css` — regras globais de interface (linkado em todas as telas, **antes** do CSS
+  da página). Torna o texto de interface **não selecionável** (sem cursor de texto/caret fora de
+  campos digitáveis); mantém selecionáveis os campos de formulário e os valores de dados
+  (`.dado-valor` / `.selecionavel`).
 - `static/css/login.css`
 - `static/css/inicio.css`
 - `static/css/cadastro.css`

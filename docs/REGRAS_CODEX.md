@@ -117,6 +117,24 @@ Para as telas internas (após o login), preservar o padrão criado em
   (ex.: envolver o item em `{% if ... %}`), quando a autenticação for implementada.
 - Ícones podem ser emoji, caractere ou SVG inline — nunca biblioteca externa.
 
+## Padrão global de interface (`static/css/base.css`)
+
+Regras de comportamento da interface válidas para **todas** as telas:
+
+- **Sem "cursor de texto piscando" (caret) fora de campos digitáveis**: texto de interface
+  (títulos, rótulos, botões, ícones, pílulas, menus, textos de estado vazio, etc.) **não** é
+  selecionável e **não** deve exibir cursor de texto — não são campos editáveis. Isso é garantido
+  por `body { user-select: none; }` em `static/css/base.css`.
+- **O que continua selecionável/copiável**: apenas campos de formulário (`input`, `textarea`,
+  `select`, `[contenteditable="true"]`) e **valores de dados** — a classe `.dado-valor` (parcial
+  `_dado.html`) e a utilitária `.selecionavel`. Assim o usuário ainda copia CPF, telefone, e-mail, etc.
+- **Toda tela nova deve linkar o `base.css` ANTES do CSS específico da página**, no `<head>`:
+  `<link rel="stylesheet" href="{% static 'css/base.css' %}">`.
+- Para permitir seleção de algum texto de dado que não use `_dado.html`, aplicar a classe
+  `.selecionavel` a esse elemento. Não reintroduzir seleção/caret em elementos de interface.
+- Nunca usar `contenteditable`, `tabindex` ou campos ocultos em elementos que não são campos de
+  fato — isso reintroduz o caret indevido.
+
 ## Padrão de models, formulários e cadastro (wizard)
 
 Ao criar novos cadastros/formulários, seguir o padrão de `/cadastro/`:

@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - CSS global: interface sem cursor de texto fora de campos
+
+### Resumo
+Corrigido o "cursor de texto piscando" (caret) que aparecia ao clicar em textos que não são campos
+digitáveis (títulos, rótulos, ícones, estado vazio, etc.). Criado `static/css/base.css` com
+`user-select: none` no corpo e reativação da seleção apenas em campos de formulário e valores de
+dados (`.dado-valor` / `.selecionavel`), para ainda permitir copiar CPF/telefone/e-mail. O `base.css`
+passa a ser linkado em todas as telas, antes do CSS específico de cada página.
+
+### Arquivos criados/alterados
+- `static/css/base.css`: novo (regras globais de interface).
+- `templates/core/{login,inicio,cadastro,cadastro_sucesso,editar_responsavel,usuarios}.html`:
+  passam a linkar o `base.css` antes do CSS da página.
+- `docs/REGRAS_CODEX.md`: nova seção "Padrão global de interface (base.css)".
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Decisões tomadas
+- Comportamento de app: texto de interface não é selecionável (some o caret e o cursor I-beam);
+  apenas campos e valores de dados permanecem selecionáveis/copiáveis.
+- Regra documentada para valer em telas futuras (sempre linkar `base.css`; nunca usar
+  `contenteditable`/`tabindex` em elementos que não são campos).
+
+### Observação
+- Se o caret ainda aparecer em qualquer texto mesmo com isso, pode ser o modo "navegação por cursor"
+  (caret browsing) do navegador — geralmente ligado/desligado com a tecla F7.
+
+---
+
 ## 2026-07-03 - Login sem diferenciar maiúsculas/minúsculas no usuário
 
 ### Resumo
