@@ -43,7 +43,17 @@ def login_view(request):
     if request.method == "POST":
         usuario_digitado = request.POST.get("usuario", "").strip()
         senha = request.POST.get("senha", "")
-        usuario = authenticate(request, username=usuario_digitado, password=senha)
+        # Login sem diferenciar maiúsculas/minúsculas no usuário (consistente com
+        # o cadastro, que já impede usernames duplicados por `iexact`). Resolve o
+        # username real antes de autenticar.
+        username_real = (
+            User.objects.filter(username__iexact=usuario_digitado)
+            .values_list("username", flat=True)
+            .first()
+        )
+        usuario = authenticate(
+            request, username=username_real or usuario_digitado, password=senha
+        )
         if usuario is not None:
             login(request, usuario)
             destino = request.POST.get("next") or request.GET.get("next")

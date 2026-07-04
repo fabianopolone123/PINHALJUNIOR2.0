@@ -15,7 +15,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Estrutura inicial do Django funcionando.
 - Tela de login responsiva (mobile first) na rota `/`, com visual moderno.
 - **Autenticação real**: login por username/senha (`authenticate` + `login`), com mensagem
-  "Usuário ou senha inválidos." em caso de erro; após logar, vai para `/inicio/`.
+  "Usuário ou senha inválidos." em caso de erro; após logar, vai para `/inicio/`. O usuário é
+  resolvido **sem diferenciar maiúsculas/minúsculas** (ex.: `fabiano` = `Fabiano`), consistente
+  com o cadastro (que impede usernames duplicados por `iexact`).
 - **Logout** em `/sair/` (POST, botão "Sair" no menu lateral); volta para o login.
 - **Proteção de rota**: `/inicio/` usa `@login_required`; sem login, redireciona para `/`
   (com `?next=`). Configurados `LOGIN_URL`, `LOGIN_REDIRECT_URL` e `LOGOUT_REDIRECT_URL`.

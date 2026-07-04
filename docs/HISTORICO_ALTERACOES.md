@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Login sem diferenciar maiúsculas/minúsculas no usuário
+
+### Resumo
+Corrigido o login: o usuário agora é resolvido de forma case-insensitive (ex.: `fabiano`, `Fabiano`
+e `FABIANO` autenticam o mesmo usuário). Antes, o Django exigia o username exato (`Fabiano`), o que
+impedia o login de quem digitava em minúsculas. A senha continua sendo validada normalmente.
+
+### Arquivos criados/alterados
+- `core/views.py` (`login_view`): resolve o username real por `iexact` antes de `authenticate`.
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`: atualizados.
+
+### Decisões tomadas
+- Consistente com o cadastro (`ContaForm.clean_username`), que já impede usernames duplicados por
+  `iexact`. Verificado que não há usernames que colidam só por caixa (seguro).
+
+---
+
 ## 2026-07-03 - Planejamento do cadastro de diretoria (documentado, não implementado)
 
 ### Resumo
