@@ -14,10 +14,11 @@ from .forms import (
     AutorizacaoImagemForm,
     AventureiroForm,
     ContaForm,
+    EventoForm,
     FichaMedicaForm,
     ResponsavelLegalForm,
 )
-from .models import Aventureiro
+from .models import Aventureiro, Evento
 from .permissoes import diretor_required
 
 # ---------------------------------------------------------------------------
@@ -532,6 +533,53 @@ def usuarios_view(request):
         "total_vinculos": total_vinculos,
     }
     return render(request, "core/usuarios.html", contexto)
+
+
+@diretor_required
+def eventos_view(request):
+    """Lista os eventos do clube. Restrito ao perfil Diretor."""
+    eventos = list(Evento.objects.all())
+    return render(request, "core/eventos.html", {"eventos": eventos})
+
+
+@diretor_required
+def evento_novo_view(request):
+    """
+    Cadastra um evento simples (restrito ao Diretor).
+
+    Suporta `?duplicar=<id>`: pré-preenche o formulário com os dados de um evento
+    existente (para recadastrar algo recorrente mudando só a data/horário).
+    """
+    if request.method == "POST":
+        form = EventoForm(request.POST)
+        if form.is_valid():
+            evento = form.save(commit=False)
+            evento.tipo = "simples"
+            evento.criado_por = request.user
+            evento.save()
+            messages.success(request, "Evento cadastrado com sucesso.")
+            return redirect("core:eventos")
+        messages.error(request, "Não foi possível salvar. Verifique os campos destacados.")
+    else:
+        initial = {}
+        duplicar_id = request.GET.get("duplicar")
+        if duplicar_id:
+            base = Evento.objects.filter(pk=duplicar_id).first()
+            if base is not None:
+                initial = {
+                    "nome": base.nome,
+                    "local": base.local,
+                    "descricao": base.descricao,
+                    "data": base.data,
+                    "horario_inicio": base.horario_inicio,
+                    "horario_fim": base.horario_fim,
+                }
+        form = EventoForm(initial=initial)
+
+    duplicando = bool(request.GET.get("duplicar"))
+    return render(
+        request, "core/evento_form.html", {"form": form, "duplicando": duplicando}
+    )
 
 
 def cadastro_sucesso_view(request):

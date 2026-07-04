@@ -11,7 +11,7 @@ São quatro formulários combinados no mesmo envio (com prefixos diferentes):
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Aventureiro, AutorizacaoImagem, FichaMedica
+from .models import Aventureiro, AutorizacaoImagem, Evento, FichaMedica
 
 
 class EstiloFormMixin:
@@ -133,4 +133,28 @@ class AutorizacaoImagemForm(EstiloFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._aplicar_estilo()
+
+
+class EventoForm(EstiloFormMixin, forms.ModelForm):
+    """Cadastro de um evento simples do clube."""
+
+    class Meta:
+        model = Evento
+        fields = ["nome", "local", "descricao", "data", "horario_inicio", "horario_fim"]
+        widgets = {
+            "data": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "horario_inicio": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "horario_fim": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "descricao": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Campos obrigatórios do evento simples.
+        self.fields["nome"].required = True
+        self.fields["data"].required = True
+        # Garante que os widgets de hora aceitem o valor já formatado (HH:MM).
+        for campo in ("horario_inicio", "horario_fim"):
+            self.fields[campo].input_formats = ["%H:%M", "%H:%M:%S"]
         self._aplicar_estilo()

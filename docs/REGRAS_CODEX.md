@@ -274,3 +274,30 @@ internas ou no fluxo de login, seguir estas regras:
   quando não houver resultado. Sem AJAX. O `#detalhesFonte` não é `.busca-item` (não entra na busca).
 - **Reuso visual**: a tela reaproveita o layout/menu de `inicio.css`; estilos próprios em
   `static/css/usuarios.css`. Sem bibliotecas externas.
+
+## Componente reutilizável de modal (janela suspensa)
+
+- Os estilos genéricos do modal (`.modal-overlay`, `.modal-caixa`, `.modal-topo`, `.modal-titulo`,
+  `.modal-fechar`, `.modal-corpo`, `body.modal-aberto`, animação e tela cheia no celular) ficam em
+  `static/css/base.css` (compartilhados). O CSS da página só acrescenta o conteúdo específico.
+- Estrutura HTML padrão: `<div class="modal-overlay" id="..." hidden>` › `.modal-caixa[role=dialog]`
+  › `.modal-topo` (`.modal-titulo` + `.modal-fechar`) › `.modal-corpo`.
+- Comportamento (JS puro): abre exibindo (`hidden=false`) e trava o scroll (`body.modal-aberto`);
+  fecha no botão **X**, ao **clicar no fundo** (`e.target === overlay`) e com **Esc**. Colocar o modal
+  **fora** de `.conteudo-interno` para não conflitar com o accordion de `inicio.js`.
+
+## Padrão da tela "Eventos"
+
+- **Rotas** `core:eventos` (`/eventos/`) e `core:evento_novo` (`/eventos/novo/`), ambas
+  `@diretor_required`. Item de menu "Eventos" só para o diretor (`{% if is_diretor %}`).
+- **Criar evento**: um único botão "Criar evento" abre o **modal** de escolha de tipo com dois cards —
+  "Evento simples" (link para `core:evento_novo`) e "Evento com inscrição" (desabilitado, "Em breve").
+- **Tipos**: `Evento.tipo` = `simples` | `inscricao`. Só o `simples` é cadastrável hoje; o `inscricao`
+  (inscrição pública, pagamento, custos, presença, descontos) virá depois.
+- **Recadastro rápido**: cada evento tem **Duplicar** (`?duplicar=<id>`), que pré-preenche o formulário
+  com os dados daquele evento (a view monta o `initial`); o usuário ajusta a data/horário e salva.
+- **Formulário**: `EventoForm` (ModelForm) reaproveita o parcial `_campo.html`; os campos são
+  estilizados em `eventos.css` escopados por `.evento-form` (sem carregar `cadastro.css`, que tem
+  `body {}` global e conflitaria com o layout interno). `tipo` e `criado_por` são definidos no servidor.
+- **Reuso visual**: telas de evento usam o layout/menu de `inicio.css`, o modal de `base.css` e estilos
+  próprios em `static/css/eventos.css`. Sem bibliotecas externas.

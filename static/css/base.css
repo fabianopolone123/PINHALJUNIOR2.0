@@ -31,3 +31,91 @@ select,
     user-select: text;
     cursor: auto;
 }
+
+/* =========================================================
+   Componente reutilizável: MODAL (janela suspensa)
+   Usado em várias telas (ex.: Usuários, Eventos). Estilos
+   específicos de cada conteúdo ficam no CSS da página.
+   Requer as variáveis de cor do :root (definidas em inicio.css),
+   presentes nas telas internas que usam modal.
+   ========================================================= */
+body.modal-aberto { overflow: hidden; }
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 76, 129, 0.45);
+    backdrop-filter: blur(2px);
+    animation: modal-fade 0.25s ease;
+}
+.modal-overlay[hidden] { display: none; }
+
+@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-caixa {
+    background: var(--branco, #fff);
+    border-radius: var(--raio, 18px);
+    box-shadow: var(--sombra-card-hover, 0 18px 40px rgba(15, 76, 129, 0.18));
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--borda, #e2e9f1);
+    background: linear-gradient(90deg, var(--azul-escuro, #0f4c81), var(--azul, #1769aa));
+}
+.modal-titulo {
+    flex: 1;
+    min-width: 0;
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.modal-fechar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.25s ease;
+}
+.modal-fechar:hover { background: rgba(255, 255, 255, 0.32); }
+
+.modal-corpo {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Modal em tela cheia no celular */
+@media (max-width: 640px) {
+    .modal-overlay { padding: 0; }
+    .modal-caixa {
+        max-width: 100%;
+        max-height: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-overlay,
+    .modal-fechar { transition: none; animation: none; }
+}

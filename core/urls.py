@@ -14,6 +14,8 @@ urlpatterns = [
         name="editar_responsavel",
     ),
     path("usuarios/", views.usuarios_view, name="usuarios"),
+    path("eventos/", views.eventos_view, name="eventos"),
+    path("eventos/novo/", views.evento_novo_view, name="evento_novo"),
     path("cadastro/", views.cadastro_view, name="cadastro"),
     path(
         "cadastro/novo-aventureiro/",

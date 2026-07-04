@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Novo módulo "Eventos" (cadastro de evento simples)
+
+### Resumo
+Criado o módulo **Eventos** (restrito ao Diretor): tela `/eventos/` que lista os eventos do clube e
+permite **criar evento**. O botão "Criar evento" abre um **modal** com a escolha do tipo — **Evento
+simples** (implementado) e **Evento com inscrição** ("Em breve"). O cadastro simples (`/eventos/novo/`)
+tem nome, local, descrição, data, horário de início e término. Cada evento tem **Duplicar**
+(`?duplicar=<id>`), que abre o formulário pré-preenchido para recadastrar algo recorrente mudando só a
+data. O componente de modal foi movido para `base.css` (reutilizável por Usuários e Eventos).
+
+### Arquivos criados/alterados
+- `core/models.py`: modelo `Evento` (+ migration `0002_evento`).
+- `core/forms.py`: `EventoForm`. `core/views.py`: `eventos_view` e `evento_novo_view` (`@diretor_required`).
+- `core/urls.py`: rotas `core:eventos` e `core:evento_novo`. `core/admin.py`: registra `Evento`.
+- `templates/core/eventos.html` e `evento_form.html`: novas telas; item de menu "Eventos" (só diretor)
+  adicionado também em `inicio.html` e `usuarios.html`.
+- `static/css/eventos.css` e `static/js/eventos.js`: novos.
+- `static/css/base.css`: passa a hospedar o **componente de modal** reutilizável.
+- `static/css/usuarios.css`: removidos os estilos genéricos de modal (agora em `base.css`); mantidos os
+  específicos (`.modal-pessoa*`, `.clicavel`).
+- Documentação atualizada (`ESTADO_ATUAL`, `HISTORICO`, `REGRAS_CODEX`).
+
+### Decisões tomadas
+- Escolha do tipo via **um botão → modal com 2 cards** (a pedido do usuário). Pré-preenchimento apenas
+  via **Duplicar** (sem auto-preencher do último). Evento "com inscrição" fica para depois.
+- Modal como componente compartilhado em `base.css` (evita duplicação entre telas).
+
+---
+
 ## 2026-07-03 - Tela "Usuários" restrita ao Diretor + modal com todos os dados
 
 ### Resumo

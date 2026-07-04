@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Eventos - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <!-- ===================== Menu lateral fixo ===================== -->
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+
+            <nav class="menu">
+                <a href="{% url 'core:inicio' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👤</span>
+                    <span class="menu-texto">Meus Dados</span>
+                </a>
+                {% if is_diretor %}
+                <a href="{% url 'core:usuarios' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👥</span>
+                    <span class="menu-texto">Usuários</span>
+                </a>
+                <a href="{% url 'core:eventos' %}" class="menu-item ativo" aria-current="page">
+                    <span class="menu-icone" aria-hidden="true">📅</span>
+                    <span class="menu-texto">Eventos</span>
+                </a>
+                {% endif %}
+            </nav>
+
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <!-- ===================== Área principal ===================== -->
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Eventos</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Eventos 📅</h1>
+                    <p class="cabecalho-sub">Cadastre e acompanhe os eventos do clube.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="secao-cabecalho">
+                    <h2 class="secao-titulo">Eventos cadastrados</h2>
+                    <button type="button" class="btn-acao" id="btnCriarEvento">
+                        <span aria-hidden="true">➕</span> Criar evento
+                    </button>
+                </div>
+
+                {% if eventos %}
+                <section class="eventos-lista">
+                    {% for e in eventos %}
+                    <article class="card evento-card">
+                        <div class="evento-topo">
+                            <h3 class="evento-nome">{{ e.nome }}</h3>
+                            <span class="pill {% if e.tipo == 'inscricao' %}pill-verde{% endif %}">{{ e.get_tipo_display }}</span>
+                        </div>
+                        <div class="evento-meta">
+                            <span class="evento-info">📆 {{ e.data|date:"d/m/Y" }}</span>
+                            {% if e.horario_inicio %}
+                            <span class="evento-info">🕒 {{ e.horario_inicio|time:"H:i" }}{% if e.horario_fim %} – {{ e.horario_fim|time:"H:i" }}{% endif %}</span>
+                            {% endif %}
+                            {% if e.local %}<span class="evento-info">📍 {{ e.local }}</span>{% endif %}
+                        </div>
+                        {% if e.descricao %}<p class="evento-desc">{{ e.descricao }}</p>{% endif %}
+                        <div class="evento-acoes">
+                            <a href="{% url 'core:evento_novo' %}?duplicar={{ e.id }}" class="btn-secundario">
+                                <span aria-hidden="true">📋</span> Duplicar
+                            </a>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </section>
+                {% else %}
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">📅</span>
+                    <h2 class="card-titulo">Nenhum evento cadastrado ainda</h2>
+                    <p class="card-texto">Que tal criar o primeiro evento do clube?</p>
+                    <button type="button" class="btn-acao" id="btnCriarEventoVazio">
+                        <span aria-hidden="true">➕</span> Criar evento
+                    </button>
+                </section>
+                {% endif %}
+            </div>
+        </main>
+
+        <!-- ===================== Modal: escolher tipo de evento ===================== -->
+        <div class="modal-overlay" id="modalTipoEvento" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalTipoTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalTipoTitulo">Qual tipo de evento?</h2>
+                    <button type="button" class="modal-fechar" id="modalTipoFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <div class="tipo-cards">
+                        <a href="{% url 'core:evento_novo' %}" class="tipo-card">
+                            <span class="tipo-icone" aria-hidden="true">🗓️</span>
+                            <span class="tipo-nome">Evento simples</span>
+                            <span class="tipo-desc">Reunião, acampamento, festa, venda de alimentos… Nome, local, descrição, data e horário.</span>
+                        </a>
+                        <span class="tipo-card tipo-card-desabilitado" aria-disabled="true">
+                            <span class="tipo-badge">Em breve</span>
+                            <span class="tipo-icone" aria-hidden="true">🎟️</span>
+                            <span class="tipo-nome">Evento com inscrição</span>
+                            <span class="tipo-desc">Com inscrição pública, pagamento, custos, presença e descontos. Será implementado em breve.</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/eventos.js' %}"></script>
+</body>
+</html>

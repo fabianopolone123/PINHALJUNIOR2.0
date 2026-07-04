@@ -1,0 +1,191 @@
+/* =========================================================
+   Tela "Eventos" — lista, formulário e escolha de tipo.
+   Complementa o inicio.css (layout, sidebar, .card, .pill,
+   .btn-acao, .btn-secundario) e o base.css (componente modal).
+   CSS puro, mesma identidade visual do sistema.
+   ========================================================= */
+
+/* ---------- Lista de eventos ---------- */
+.eventos-lista {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.evento-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px 20px;
+}
+
+.evento-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.evento-nome {
+    font-size: 1.1rem;
+    color: var(--azul-escuro);
+    font-weight: 700;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.evento-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
+
+.evento-info {
+    font-size: 0.9rem;
+    color: var(--texto-suave);
+    font-weight: 600;
+}
+
+.evento-desc {
+    font-size: 0.95rem;
+    color: var(--texto);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.evento-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+/* ---------- Escolha do tipo de evento (dentro do modal) ---------- */
+.tipo-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.tipo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+    border: 2px solid var(--borda);
+    border-radius: var(--raio-item);
+    text-decoration: none;
+    color: var(--texto);
+    background: var(--branco);
+    transition: transform var(--transicao), box-shadow var(--transicao), border-color var(--transicao);
+    position: relative;
+}
+a.tipo-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--azul-claro);
+    box-shadow: var(--sombra-card);
+}
+.tipo-icone { font-size: 2rem; }
+.tipo-nome {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--azul-escuro);
+}
+.tipo-desc {
+    font-size: 0.9rem;
+    color: var(--texto-suave);
+    line-height: 1.45;
+}
+
+.tipo-card-desabilitado {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--fundo-conteudo);
+}
+.tipo-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--branco);
+    background: var(--verde);
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+/* ---------- Formulário do evento ---------- */
+.evento-form-card { padding: 22px; }
+
+.evento-form .campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.evento-form .campo label {
+    font-weight: 700;
+    color: var(--texto);
+    font-size: 0.95rem;
+}
+.evento-form .obrigatorio { color: var(--verde); }
+
+.evento-form .campo-input,
+.evento-form .campo-select,
+.evento-form .campo-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-item);
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--texto);
+    background: var(--branco);
+    transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+.evento-form .campo-textarea { resize: vertical; min-height: 84px; }
+
+.evento-form .campo-input:focus,
+.evento-form .campo-select:focus,
+.evento-form .campo-textarea:focus {
+    outline: none;
+    border-color: var(--azul-claro);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.15);
+}
+
+.evento-form .ajuda { font-size: 0.82rem; color: var(--texto-suave); }
+.evento-form .erros,
+.evento-form .erros ul {
+    color: #c0392b;
+    font-size: 0.85rem;
+    list-style: none;
+}
+
+/* Linha com data + horários lado a lado */
+.form-linha {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0 16px;
+}
+
+.form-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+/* ---------- Responsividade ---------- */
+@media (min-width: 720px) {
+    .eventos-lista { grid-template-columns: repeat(2, 1fr); align-items: start; }
+    .tipo-cards { grid-template-columns: repeat(2, 1fr); }
+    .form-linha { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1180px) {
+    .eventos-lista { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tipo-card { transition: none; }
+}

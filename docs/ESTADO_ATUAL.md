@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-03 (tela "Usuários" restrita ao Diretor + modal com todos os dados ao clicar)
+**Última atualização:** 2026-07-03 (novo módulo "Eventos" — cadastro de evento simples, restrito ao Diretor)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -59,6 +59,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   para o diretor.
 - **Perfis/permissões**: `core/permissoes.py` (`eh_diretor` + decorator `diretor_required`) e o context
   processor `core/context_processors.py` (`is_diretor` em todos os templates, para `{% if is_diretor %}`).
+- Módulo **Eventos** (`/eventos/`, **restrito ao Diretor**): lista os eventos do clube em cards
+  (nome, tipo, data, horário, local, descrição) e permite **criar evento**. O botão "Criar evento"
+  abre um **modal** para escolher o tipo: **Evento simples** (implementado) ou **Evento com inscrição**
+  (marcado como "Em breve"). O cadastro de evento simples (`/eventos/novo/`) tem nome, local, descrição,
+  data, horário de início e término. Cada evento na lista tem um botão **Duplicar** que abre o
+  formulário já preenchido com aquele evento (`?duplicar=<id>`), para recadastrar algo recorrente
+  mudando só a data/horário. Menu "Eventos" aparece só para o diretor.
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
 - Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
   levado à tela de sucesso; "Ir para a tela inicial" abre `/inicio/` já logado.
@@ -133,6 +140,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   FK `usuario` (um usuário pode ter vários aventureiros); `data_inscricao` e `criado_em` automáticos.
 - `FichaMedica` — OneToOne com `Aventureiro` (plano de saúde, doenças, alergias, condições, tipo sanguíneo).
 - `AutorizacaoImagem` — OneToOne com `Aventureiro` (dados do menor e do responsável para o termo).
+- `Evento` — evento do clube (`tipo` simples/inscrição, nome, local, descrição, data, horário de
+  início/término, `criado_por` FK User, `criado_em`). Migration `0002_evento`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -154,7 +163,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/login.html` (login real, com mensagem de erro)
 - `templates/core/inicio.html` (área "Meus Dados": card do responsável + cards clicáveis dos aventureiros)
 - `templates/core/editar_responsavel.html` (edição do responsável legal)
-- `templates/core/usuarios.html` (responsáveis, aventureiros e vínculos, com pesquisa)
+- `templates/core/usuarios.html` (responsáveis, aventureiros e vínculos, com pesquisa e modal de detalhes)
+- `templates/core/eventos.html` (lista de eventos + modal de escolha de tipo)
+- `templates/core/evento_form.html` (formulário do evento simples)
+- `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
 - `templates/core/_campo.html` e `templates/core/_campo_check.html` (parciais de campo reutilizáveis)
@@ -164,7 +176,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/css/base.css` — regras globais de interface (linkado em todas as telas, **antes** do CSS
   da página). Torna o texto de interface **não selecionável** (sem cursor de texto/caret fora de
   campos digitáveis); mantém selecionáveis os campos de formulário e os valores de dados
-  (`.dado-valor` / `.selecionavel`).
+  (`.dado-valor` / `.selecionavel`). Também hospeda o **componente reutilizável de modal** (janela
+  suspensa) usado por várias telas.
+- `static/css/eventos.css` — tela de Eventos (lista, cards, formulário e cards de escolha de tipo).
 - `static/css/login.css`
 - `static/css/inicio.css`
 - `static/css/cadastro.css`
@@ -177,15 +191,18 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
 - `static/js/inicio.js` — menu recolhível no celular e o fechamento dos painéis `<details>` de
   "Meus Dados" ao clicar fora / abrir outro / `Esc` (clique dentro não fecha).
-- `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" (filtra cards por
-  nome/papel/aventureiro/idade/vínculo, ignorando maiúsculas e acentos; mensagem de "nenhum resultado").
+- `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
+  completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
+- `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
 - `/sair/` — logout (POST) (`core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área "Meus Dados", protegida por `@login_required` (`core.views.inicio_view`, nome `core:inicio`).
 - `/meus-dados/responsavel/editar/` — edição do responsável, protegida por login (`core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
-- `/usuarios/` — responsáveis, aventureiros e vínculos (resumo), protegida por login (`core.views.usuarios_view`, nome `core:usuarios`).
+- `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`core.views.usuarios_view`, nome `core:usuarios`).
+- `/eventos/` — lista de eventos, **restrita ao Diretor** (`core.views.eventos_view`, nome `core:eventos`).
+- `/eventos/novo/` — cadastro de evento simples, **restrita ao Diretor** (`core.views.evento_novo_view`, nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

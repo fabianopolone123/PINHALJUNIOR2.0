@@ -281,3 +281,45 @@ class AutorizacaoImagem(models.Model):
 
     def __str__(self):
         return f"Autorização de imagem de {self.aventureiro.nome_completo}"
+
+
+TIPO_EVENTO_CHOICES = [
+    ("simples", "Evento simples"),
+    ("inscricao", "Evento com inscrição"),
+]
+
+
+class Evento(models.Model):
+    """Evento do clube (reunião, acampamento, festa, venda de alimentos, etc.).
+
+    Por enquanto só o tipo "simples" é cadastrável pela interface; o tipo
+    "com inscrição" (com pagamento, custos, presença, etc.) virá depois.
+    """
+
+    tipo = models.CharField(
+        "Tipo do evento", max_length=20, choices=TIPO_EVENTO_CHOICES, default="simples"
+    )
+    nome = models.CharField("Nome do evento", max_length=150)
+    local = models.CharField("Local do evento", max_length=200, blank=True)
+    descricao = models.TextField("Descrição do evento", blank=True)
+    data = models.DateField("Data do evento")
+    horario_inicio = models.TimeField("Horário de início", null=True, blank=True)
+    horario_fim = models.TimeField("Horário de término", null=True, blank=True)
+
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_criados",
+        verbose_name="Criado por",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Evento"
+        verbose_name_plural = "Eventos"
+        ordering = ["-data", "-horario_inicio"]
+
+    def __str__(self):
+        return self.nome
