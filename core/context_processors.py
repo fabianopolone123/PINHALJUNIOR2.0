@@ -3,7 +3,7 @@
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Evento
+from .models import Evento, OperadorEvento
 from .permissoes import eh_diretor
 
 
@@ -22,8 +22,21 @@ def _eventos_menu(user):
 
 
 def perfis(request):
-    """Adiciona `is_diretor` e `eventos_menu` ao contexto de todos os templates."""
-    return {
-        "is_diretor": eh_diretor(request.user),
-        "eventos_menu": _eventos_menu(request.user),
+    """Adiciona ao contexto de todos os templates: `is_diretor`, `eventos_menu`,
+    e as informações de operador (`operador_eventos`, `eh_operador_externo`)."""
+    user = request.user
+    contexto = {
+        "is_diretor": eh_diretor(user),
+        "eventos_menu": _eventos_menu(user),
+        "operador_eventos": [],
+        "eh_operador_externo": False,
     }
+    if getattr(user, "is_authenticated", False):
+        contexto["operador_eventos"] = list(
+            Evento.objects.filter(operadores__usuario=user).distinct().order_by("data")
+        )
+        if not contexto["is_diretor"]:
+            contexto["eh_operador_externo"] = OperadorEvento.objects.filter(
+                usuario=user, externo=True
+            ).exists()
+    return contexto

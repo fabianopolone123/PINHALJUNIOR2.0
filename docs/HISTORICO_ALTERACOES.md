@@ -22,6 +22,56 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Lojinha Fase 4.4c: operadores do evento (conclui a Lojinha)
+
+### Resumo
+**Parte 4.4c** (última do PDV/Lojinha): o **Diretor** define, por evento, **quem pode operar o PDV**:
+- **Diretoria selecionada**: habilita membros da diretoria (Diretor/Tesoureiro/Secretário/Professor).
+- **Ajudantes externos**: cria uma **conta temporária** (usuário + senha inicial **`1234`**) só para o
+  evento; no 1º acesso a pessoa é **obrigada a trocar a senha** (2×); o Diretor pode **resetar** para
+  `1234`; ao logar, o ajudante vê **só o(s) evento(s) dele** no menu e cai direto na tela **"Operar"**.
+Operadores acessam o **PDV** (venda + inscrição) via a landing **"Operar"** (`/eventos/<id>/operar/`).
+Gerência em **"Operadores"** na aba Lojinha do painel (habilitar/criar/resetar/remover). O menu lateral
+foi **centralizado** num único parcial (`_menu.html`) para tratar os três casos (diretor/membro,
+operador, ajudante externo) de forma consistente.
+
+### Arquivos criados/alterados
+- `core/models.py`: `PerfilUsuario` (OneToOne User, `precisa_trocar_senha`) e `OperadorEvento`
+  (evento, usuario, `externo`). Migration `0013`.
+- `core/permissoes.py`: `pode_operar_evento` + decorator `operador_required` (Diretor ou operador).
+- `core/middleware.py` (novo) + `config/settings.py`: `TrocaSenhaObrigatoriaMiddleware` (enquanto
+  `precisa_trocar_senha`, redireciona tudo para a troca de senha).
+- `core/context_processors.py`: expõe `operador_eventos` e `eh_operador_externo`.
+- `core/views.py`: `evento_operar_view` (landing), `evento_operadores_view` + add diretoria/externo,
+  reset e remover; `trocar_senha_view`; PDV agora com `@operador_required`; login redireciona o
+  ajudante externo para o evento dele.
+- `core/urls.py`: rotas de operador + `trocar-senha/`. `core/admin.py`: `OperadorEvento`, `PerfilUsuario`.
+- `templates/core/_menu.html` (novo, menu central) — substituiu o `<nav class="menu">` inline em **todos**
+  os 9 templates internos. `evento_operar.html`, `evento_operadores.html`, `trocar_senha.html` (novos);
+  `evento_painel.html` (botão "Operadores").
+- `static/css/eventos.css`: cards de "Operar" e lista de operadores.
+
+### Decisões tomadas
+- Operadores por evento (`OperadorEvento`); `externo=True` = conta temporária de ajudante.
+- Troca de senha obrigatória via **middleware** (cobre qualquer rota). Reset volta para `1234`.
+- Menu do ajudante externo restrito a seus eventos (via `_menu.html` + `eh_operador_externo`); login
+  o leva direto ao "Operar". Remover um ajudante externo sem outros eventos **apaga a conta**.
+- Menu lateral **centralizado** em `_menu.html` (fim da duplicação; editar o menu num lugar só).
+
+### Validação
+- Teste ponta a ponta: gerência (habilitar diretoria; criar ajudante com senha 1234 + troca
+  obrigatória); operador da diretoria acessa PDV/operar e **estranho é bloqueado**; login do ajudante
+  externo → **troca de senha obrigatória** → "Operar" com **menu restrito** (só o evento; sem "Meus
+  Dados"); ajudante vende no PDV; **reset** de senha; **remover** apaga a conta externa; menu do
+  diretor intacto. Todos passaram. `manage.py check` OK. **Responsividade** (~490px) das telas novas +
+  menu no desktop conferidos.
+
+### Pendências / próximo passo
+- **🎉 Lojinha (Fase 4) concluída.** Próximo: **Fase 5 — Financeiro/gráficos** (resultado detalhado,
+  cupons de desconto, presença/check-in). Depois: pagamentos reais (gateway); loja oficial do clube.
+
+---
+
 ## 2026-07-04 - Evento complexo — Lojinha Fase 4.4b: PDV inscrição + relatório de vendas por produto
 
 ### Resumo

@@ -906,3 +906,51 @@ class RespostaInscricao(models.Model):
 
     def __str__(self):
         return f"{self.campo_rotulo}: {self.valor}"
+
+
+class PerfilUsuario(models.Model):
+    """Dados extras do usuário (Fase 4.4c). Por ora, só a flag de troca de senha
+    obrigatória (usada pelas contas temporárias de ajudantes)."""
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="perfil",
+        verbose_name="Usuário",
+    )
+    precisa_trocar_senha = models.BooleanField(
+        "Precisa trocar a senha no próximo login", default=False
+    )
+
+    def __str__(self):
+        return f"Perfil de {self.usuario.username}"
+
+
+class OperadorEvento(models.Model):
+    """Quem pode operar o PDV de um evento (Fase 4.4c): membros da diretoria
+    selecionados ou ajudantes externos (conta temporária criada pelo Diretor)."""
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="operadores",
+        verbose_name="Evento",
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="eventos_operados",
+        verbose_name="Operador",
+    )
+    # True = conta temporária de ajudante de fora (criada só para este evento).
+    externo = models.BooleanField("Ajudante externo", default=False)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Operador do evento"
+        verbose_name_plural = "Operadores do evento"
+        unique_together = [("evento", "usuario")]
+        ordering = ["evento", "usuario__username"]
+
+    def __str__(self):
+        return f"{self.usuario.username} @ {self.evento.nome}"

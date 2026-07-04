@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Lojinha Fase 4.4b: PDV de inscrição presencial com pagamento combinado (inscrição + lojinha) + relatório "Vendidos por produto" no Resumo)
+**Última atualização:** 2026-07-04 (Lojinha Fase 4.4c: operadores do evento — diretoria selecionada + ajudantes externos com conta temporária/senha 1234/troca obrigatória; menu centralizado — CONCLUI a Lojinha)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -135,8 +135,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **adiciona itens da lojinha**, tudo num **pagamento só** (forma + **troco** sobre o total combinado;
   **total ao vivo**). Cria a inscrição + pedido de lojinha vinculado; cortesia deixa grátis (baixa
   estoque). No **Resumo**, tabela **"Vendidos por produto"** (Qtd conta tudo, inclusive cortesia;
-  Arrecadado só o dinheiro). Restrito ao Diretor por ora. Falta **4.4c** (operadores: diretoria
-  selecionada + contas temporárias de ajudantes externos).
+  Arrecadado só o dinheiro). Restrito ao Diretor por ora.
+- **Evento complexo — Lojinha Fase 4.4c (operadores do evento) — CONCLUI a Lojinha**: o Diretor define,
+  por evento (botão **"Operadores"** na aba Lojinha), quem opera o PDV: **diretoria selecionada** e/ou
+  **ajudantes externos** (conta temporária com senha inicial **`1234`**, **troca obrigatória no 1º
+  acesso**, **reset** pelo Diretor). O operador acessa a landing **"Operar"** (`/eventos/<id>/operar/`)
+  → PDV de venda e/ou inscrição. O **ajudante externo** vê **só o(s) evento(s) dele** no menu e cai
+  direto no "Operar". Menu lateral **centralizado** em `_menu.html`; middleware força a troca de senha.
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -224,6 +229,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   idade_min, idade_max, valor, ordem). Migration `0004`.
 - `CampoInscricao` — campo personalizado do formulário de inscrição, por evento (FK `evento`, rótulo,
   tipo, opções, obrigatório, **por_participante**, ordem). Migrations `0005`, `0007`.
+- `PerfilUsuario` — OneToOne com User (`precisa_trocar_senha`, usado pelas contas temporárias). E
+  `OperadorEvento` — quem opera o PDV de um evento (FK `evento`, FK `usuario`, `externo`). Migration `0013`.
 - `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
   único, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**, **registrado_por**,
   valor_total; props `total_com_loja`/`troco`). Migration `0012`. `ParticipanteInscricao` (nome, idade, eh_diretoria,
@@ -246,9 +253,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- **Lojinha 4.4c** (próximo passo): operadores do evento (diretoria selecionada + contas temporárias
-  de ajudantes externos com senha `1234`/troca obrigatória no 1º login/reset pelo Diretor; ajudante vê
-  só o evento dele). Abre o PDV para os atendentes.
+- **🎉 Lojinha (Fase 4) concluída** (produtos, comprar na página, junto da inscrição, PDV de vendas,
+  PDV de inscrição, operadores).
+- **Fase 5 — Financeiro/gráficos** (próximo): resultado detalhado (receitas × custos), gráficos,
+  códigos de desconto, presença/check-in.
+- **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
@@ -277,6 +286,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_loja.html` (loja/carrinho do evento) e `evento_pedido_sucesso.html`
 - `templates/core/evento_pdv.html` (PDV / balcão de vendas) e `evento_pdv_inscricao.html` (PDV inscrição)
 - `templates/core/_loja_itens.html` (parcial: itens da lojinha para escolher — loja, inscrição e PDV)
+- `templates/core/_menu.html` (parcial: menu lateral central, usado por todas as telas internas)
+- `templates/core/evento_operar.html` (landing do operador), `evento_operadores.html` (gerência) e `trocar_senha.html`
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -332,6 +343,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/loja/` — loja do evento (comprar), `.../loja/sucesso/` (confirmação) e `.../pedidos/<id>/cancelar/` (POST, Diretor).
 - `/eventos/<id>/pdv/` — PDV / balcão de vendas da lojinha (Diretor por ora) (`core:evento_pdv`).
 - `/eventos/<id>/pdv/inscricao/` — PDV: inscrição presencial + lojinha, pagamento combinado (`core:evento_pdv_inscricao`).
+- `/eventos/<id>/operar/` — landing do operador (vender/inscrever) (`core:evento_operar`, operador ou Diretor).
+- `/eventos/<id>/operadores/` — gerência de operadores (Diretor); rotas POST de add diretoria/externo, reset e remover.
+- `/trocar-senha/` — troca de senha (obrigatória no 1º acesso das contas temporárias) (`core:trocar_senha`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).
@@ -353,6 +367,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Autenticação: `LOGIN_URL = "core:login"`, `LOGIN_REDIRECT_URL = "core:inicio"`,
   `LOGOUT_REDIRECT_URL = "core:login"`.
 - `SECRET_KEY` é de desenvolvimento (trocar em produção).
+- Middleware próprio `core.middleware.TrocaSenhaObrigatoriaMiddleware` (após o de autenticação):
+  força a troca de senha das contas temporárias de ajudantes.
 - Requer `Pillow` (já instalado) para o `ImageField` da foto.
 
 ## Versionamento (Git)

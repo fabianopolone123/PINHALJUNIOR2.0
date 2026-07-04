@@ -64,7 +64,13 @@ lojinha, custos e resultado (lucro/prejuízo).
   inscrição presencial + lojinha num **pagamento só** (total combinado, troco, cortesia). `Inscricao`
   ganhou origem/forma_pagamento/valor_recebido/registrado_por + `troco` (mig. 0012). **Relatório
   "Vendidos por produto"** no Resumo (qtd inclui cortesia; arrecadado só o dinheiro).
-- **PRÓXIMO PASSO = Lojinha 4.4c (operadores do evento).**
+- **Lojinha 4.4c CONCLUÍDA** (2026-07-04): **operadores do evento** — diretoria selecionada + ajudantes
+  externos (conta temporária, senha `1234`, troca obrigatória no 1º acesso, reset pelo Diretor; vê só o
+  evento dele). `OperadorEvento`/`PerfilUsuario` (mig. 0013), middleware de troca de senha, menu
+  central `_menu.html`, landing "Operar", `operador_required` no PDV.
+- **🎉 LOJINHA (FASE 4) CONCLUÍDA.**
+- **PRÓXIMO PASSO = Fase 5 (Financeiro/gráficos).** Antes de codar, alinhar: o que mostrar (resultado
+  detalhado, gráficos), cupons de desconto e presença/check-in.
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -130,9 +136,9 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
        vínculo opcional a inscrição). Restrito ao Diretor por ora.
      - **4.4b — CONCLUÍDA ✅** — **inscrição** pelo PDV (presencial + lojinha, pagamento combinado) +
        relatório "Vendidos por produto".
-     - **4.4c — PRÓXIMA ⏭️** — **operadores** (diretoria selecionada + ajudantes externos com conta
+     - **4.4c — CONCLUÍDA ✅** — **operadores** (diretoria selecionada + ajudantes externos com conta
        temporária: senha `1234`, troca obrigatória no 1º login, reset pelo Diretor; vê só o evento).
-5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
+5. **Fase 5 — PRÓXIMA ⏭️** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
 

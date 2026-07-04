@@ -115,11 +115,13 @@ Para as telas internas (após o login), preservar o padrão criado em
 
 - Menu lateral fixo à esquerda no desktop (gradiente azul) com logo, nome do sistema e itens.
 - No celular, o menu vira gaveta recolhível (botão hambúrguer + overlay). Nada pode ficar cortado.
-- Item de menu ativo recebe a classe `ativo` (destaque em verde).
+- Item de menu ativo recebe a classe `ativo` (destaque em verde), calculado pela URL atual.
 - Cada tela interna deve ter seu próprio CSS (não misturar com `login.css`), reaproveitando a paleta.
-- Novos itens de menu devem ser adicionados no `<nav class="menu">`, no ponto marcado por comentário.
-- O menu foi preparado para permissões futuras: exibir/ocultar itens conforme o perfil do usuário
-  (ex.: envolver o item em `{% if ... %}`), quando a autenticação for implementada.
+- **O menu lateral é CENTRALIZADO** no parcial `templates/core/_menu.html` (usado por todas as telas
+  internas via `{% include "core/_menu.html" %}`). Para mudar itens do menu, editar **só** esse parcial —
+  nunca voltar a colocar `<nav class="menu">` inline nos templates. Ele já trata os perfis: diretor/
+  membro (menu normal), operador (seção "Operar") e ajudante externo (vê só os eventos dele).
+- Itens restritos usam `{% if is_diretor %}`; a seção "Eventos ativos" usa o parcial `_menu_eventos.html`.
 - Ícones podem ser emoji, caractere ou SVG inline — nunca biblioteca externa.
 
 ## Padrão global de interface (`static/css/base.css`)

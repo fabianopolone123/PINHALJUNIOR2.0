@@ -1,0 +1,45 @@
+{% comment %}
+Menu lateral central (Fase 4.4c). Trata três casos, via context processor `perfis`:
+- Ajudante externo (`eh_operador_externo`): vê SÓ os eventos que opera.
+- Diretor / membro: menu normal (Meus Dados + itens do diretor + "Eventos ativos").
+- Operador não-externo: menu normal + seção "Operar (PDV)" com seus eventos.
+Estado "ativo" pelo nome da URL atual.
+{% endcomment %}
+{% with un=request.resolver_match.url_name %}
+<nav class="menu">
+    {% if eh_operador_externo %}
+        <span class="menu-secao-rotulo">Meus eventos</span>
+        {% for ev in operador_eventos %}
+        <a href="{% url 'core:evento_operar' ev.id %}" class="menu-item menu-item-evento{% if un == 'evento_operar' and request.resolver_match.kwargs.pk == ev.id %} ativo{% endif %}" title="{{ ev.nome }}">
+            <span class="menu-icone" aria-hidden="true">🧾</span>
+            <span class="menu-texto">{{ ev.nome }}</span>
+        </a>
+        {% endfor %}
+    {% else %}
+        <a href="{% url 'core:inicio' %}" class="menu-item{% if un == 'inicio' or un == 'editar_responsavel' %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">👤</span>
+            <span class="menu-texto">Meus Dados</span>
+        </a>
+        {% if is_diretor %}
+        <a href="{% url 'core:usuarios' %}" class="menu-item{% if un == 'usuarios' %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">👥</span>
+            <span class="menu-texto">Usuários</span>
+        </a>
+        <a href="{% url 'core:eventos' %}" class="menu-item{% if un == 'eventos' or un == 'evento_novo' or un == 'evento_complexo_novo' or un == 'evento_painel' or un == 'evento_produto_novo' or un == 'evento_produto_editar' or un == 'evento_pdv' or un == 'evento_pdv_inscricao' or un == 'evento_operadores' %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">📅</span>
+            <span class="menu-texto">Eventos</span>
+        </a>
+        {% endif %}
+        {% include "core/_menu_eventos.html" %}
+        {% if operador_eventos and not is_diretor %}
+        <span class="menu-secao-rotulo">Operar (PDV)</span>
+        {% for ev in operador_eventos %}
+        <a href="{% url 'core:evento_operar' ev.id %}" class="menu-item menu-item-evento" title="{{ ev.nome }}">
+            <span class="menu-icone" aria-hidden="true">🧾</span>
+            <span class="menu-texto">{{ ev.nome }}</span>
+        </a>
+        {% endfor %}
+        {% endif %}
+    {% endif %}
+</nav>
+{% endwith %}

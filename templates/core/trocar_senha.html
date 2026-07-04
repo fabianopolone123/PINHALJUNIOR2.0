@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Trocar senha — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+        <main class="evento-publico-main">
+            <article class="card evento-publico-card">
+                <h1 class="evento-publico-titulo">Crie sua senha</h1>
+                <p class="evento-publico-desc">Para continuar, defina uma nova senha (digite duas vezes).</p>
+
+                {% if erro %}<div class="erros"><div>{{ erro }}</div></div>{% endif %}
+
+                <form method="post" action="{% url 'core:trocar_senha' %}" class="evento-form" novalidate>
+                    {% csrf_token %}
+                    <div class="campo">
+                        <label for="senha">Nova senha</label>
+                        <input type="password" name="senha" id="senha" class="campo-input" autocomplete="new-password">
+                    </div>
+                    <div class="campo">
+                        <label for="confirmar">Confirmar senha</label>
+                        <input type="password" name="confirmar" id="confirmar" class="campo-input" autocomplete="new-password">
+                    </div>
+                    <div class="form-acoes evento-publico-acao">
+                        <button type="submit" class="btn-acao"><span aria-hidden="true">🔒</span> Salvar senha</button>
+                    </div>
+                </form>
+            </article>
+        </main>
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+</body>
+</html>

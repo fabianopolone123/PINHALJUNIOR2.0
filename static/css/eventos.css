@@ -591,6 +591,30 @@ a.tipo-card:hover {
 .pdv-troco strong { color: var(--verde); }
 .pdv-troco strong.troco-falta { color: #c0392b; }
 
+/* ===== Operadores / landing do operador (Parte 4.4c) ===== */
+.operar-opcoes { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 6px; }
+.operar-card {
+    display: flex; flex-direction: column; gap: 6px; padding: 22px;
+    background: var(--branco); border: 1px solid var(--borda); border-radius: var(--raio-item);
+    box-shadow: var(--sombra-card); text-decoration: none; transition: box-shadow var(--transicao), transform var(--transicao);
+}
+.operar-card:hover { box-shadow: var(--sombra-card-hover); transform: translateY(-2px); }
+.operar-icone { font-size: 2rem; }
+.operar-titulo { font-size: 1.15rem; color: var(--azul-escuro); }
+.operar-texto { font-size: 0.9rem; color: var(--texto-suave); }
+
+.operadores-lista { display: flex; flex-direction: column; gap: 10px; }
+.operador-item {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 12px 14px; border: 1px solid var(--borda); border-radius: var(--raio-item);
+}
+.operador-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.operador-acoes { display: flex; align-items: center; gap: 8px; }
+
+@media (min-width: 720px) {
+    .operar-opcoes { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* Relatório "Vendidos por produto" */
 .tabela-scroll { overflow-x: auto; }
 .tabela-relatorio { width: 100%; border-collapse: collapse; font-size: 0.9rem; }

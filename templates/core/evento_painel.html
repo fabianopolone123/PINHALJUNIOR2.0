@@ -20,23 +20,7 @@
                 </div>
                 <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
             </div>
-            <nav class="menu">
-                <a href="{% url 'core:inicio' %}" class="menu-item">
-                    <span class="menu-icone" aria-hidden="true">👤</span>
-                    <span class="menu-texto">Meus Dados</span>
-                </a>
-                {% if is_diretor %}
-                <a href="{% url 'core:usuarios' %}" class="menu-item">
-                    <span class="menu-icone" aria-hidden="true">👥</span>
-                    <span class="menu-texto">Usuários</span>
-                </a>
-                <a href="{% url 'core:eventos' %}" class="menu-item ativo" aria-current="page">
-                    <span class="menu-icone" aria-hidden="true">📅</span>
-                    <span class="menu-texto">Eventos</span>
-                </a>
-                {% endif %}
-                {% include "core/_menu_eventos.html" %}
-            </nav>
+            {% include "core/_menu.html" %}
             <div class="barra-rodape">
                 <div class="barra-usuario">
                     <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
@@ -344,6 +328,9 @@
                             </a>
                             <a href="{% url 'core:evento_produto_novo' evento.id %}" class="btn-secundario btn-acao-pequeno">
                                 <span aria-hidden="true">➕</span> Novo produto
+                            </a>
+                            <a href="{% url 'core:evento_operadores' evento.id %}" class="btn-secundario btn-acao-pequeno">
+                                <span aria-hidden="true">👥</span> Operadores
                             </a>
                         </div>
                     </div>

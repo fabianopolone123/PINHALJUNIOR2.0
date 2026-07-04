@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -35,13 +35,15 @@ from .models import (
     Evento,
     Inscricao,
     ItemPedidoLoja,
+    OperadorEvento,
     ParticipanteInscricao,
     PedidoLoja,
+    PerfilUsuario,
     ProdutoEvento,
     RespostaInscricao,
     VariacaoProduto,
 )
-from .permissoes import diretor_required
+from .permissoes import diretor_required, operador_required, pode_operar_evento
 
 # ---------------------------------------------------------------------------
 # Identificação do usuário durante o cadastro.
@@ -80,6 +82,10 @@ def login_view(request):
         )
         if usuario is not None:
             login(request, usuario)
+            # Ajudante externo (conta temporária) vai direto para o evento dele.
+            op = OperadorEvento.objects.filter(usuario=usuario, externo=True).first()
+            if op is not None:
+                return redirect("core:evento_operar", pk=op.evento_id)
             destino = request.POST.get("next") or request.GET.get("next")
             if destino and url_has_allowed_host_and_scheme(
                 destino, allowed_hosts={request.get_host()}
@@ -1316,7 +1322,7 @@ def evento_pedido_cancelar_view(request, pk, pedido_id):
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
 
 
-@diretor_required
+@operador_required
 def evento_pdv_view(request, pk):
     """PDV / balcão do evento (Fase 4.4a): vende itens da lojinha com forma de
     pagamento (troco no dinheiro) e vínculo opcional a uma inscrição.
@@ -1402,7 +1408,7 @@ def evento_pdv_view(request, pk):
     return render(request, "core/evento_pdv.html", contexto)
 
 
-@diretor_required
+@operador_required
 def evento_pdv_inscricao_view(request, pk):
     """PDV: inscrição presencial (Fase 4.4b) — o atendente faz a inscrição e,
     opcionalmente, já adiciona itens da lojinha; tudo num pagamento só (com troco
@@ -1552,6 +1558,150 @@ def evento_pdv_inscricao_view(request, pk):
         ),
     }
     return render(request, "core/evento_pdv_inscricao.html", contexto)
+
+
+# ---------------------------------------------------------------------------
+# Lojinha — Fase 4.4c: operadores do evento (diretoria selecionada + ajudantes
+# externos com conta temporária) e a troca de senha obrigatória.
+# ---------------------------------------------------------------------------
+GRUPOS_DIRETORIA = ["Diretor", "Tesoureiro", "Secretário", "Professor"]
+
+
+@operador_required
+def evento_operar_view(request, pk):
+    """Landing do operador do evento: vender na lojinha ou fazer inscrição."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    return render(request, "core/evento_operar.html", {
+        "evento": evento,
+        "tem_produtos": evento.produtos.filter(ativo=True).exists(),
+        "loja_aberta": evento.loja_aberta(),
+    })
+
+
+@diretor_required
+def evento_operadores_view(request, pk):
+    """Gerência dos operadores do evento (Diretor)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    operadores = list(evento.operadores.select_related("usuario").all())
+    ids = {o.usuario_id for o in operadores}
+    trocar = set(
+        PerfilUsuario.objects
+        .filter(usuario__in=[o.usuario_id for o in operadores], precisa_trocar_senha=True)
+        .values_list("usuario_id", flat=True)
+    )
+    for o in operadores:
+        o.precisa_trocar = o.usuario_id in trocar
+    diretoria = (
+        User.objects.filter(groups__name__in=GRUPOS_DIRETORIA)
+        .distinct().exclude(id__in=ids).order_by("username")
+    )
+    return render(request, "core/evento_operadores.html", {
+        "evento": evento,
+        "operadores": operadores,
+        "diretoria_disponivel": diretoria,
+    })
+
+
+@diretor_required
+@require_POST
+def evento_operador_add_diretoria_view(request, pk):
+    """Habilita um membro da diretoria como operador do evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    uid = request.POST.get("usuario") or ""
+    usuario = User.objects.filter(pk=uid).first() if uid.isdigit() else None
+    if usuario is not None:
+        OperadorEvento.objects.get_or_create(
+            evento=evento, usuario=usuario, defaults={"externo": False}
+        )
+        messages.success(request, f"{usuario.username} agora pode operar este evento.")
+    else:
+        messages.error(request, "Selecione um membro da diretoria.")
+    return redirect("core:evento_operadores", pk=evento.pk)
+
+
+@diretor_required
+@require_POST
+def evento_operador_add_externo_view(request, pk):
+    """Cria uma conta temporária de ajudante externo (senha inicial 1234)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    username = (request.POST.get("username") or "").strip()
+    if not username:
+        messages.error(request, "Informe um nome de usuário para o ajudante.")
+    elif User.objects.filter(username__iexact=username).exists():
+        messages.error(request, "Esse nome de usuário já existe. Escolha outro.")
+    else:
+        usuario = User.objects.create_user(username=username, password="1234")
+        PerfilUsuario.objects.update_or_create(
+            usuario=usuario, defaults={"precisa_trocar_senha": True}
+        )
+        OperadorEvento.objects.create(evento=evento, usuario=usuario, externo=True)
+        messages.success(
+            request,
+            f"Ajudante “{username}” criado. Senha inicial: 1234 "
+            "(ele troca no primeiro acesso).",
+        )
+    return redirect("core:evento_operadores", pk=evento.pk)
+
+
+@diretor_required
+@require_POST
+def evento_operador_reset_view(request, pk, operador_id):
+    """Redefine a senha de um ajudante externo para 1234 (troca obrigatória)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    op = evento.operadores.filter(pk=operador_id, externo=True).first()
+    if op is not None:
+        op.usuario.set_password("1234")
+        op.usuario.save()
+        PerfilUsuario.objects.update_or_create(
+            usuario=op.usuario, defaults={"precisa_trocar_senha": True}
+        )
+        messages.success(
+            request, f"Senha de {op.usuario.username} redefinida para 1234."
+        )
+    return redirect("core:evento_operadores", pk=evento.pk)
+
+
+@diretor_required
+@require_POST
+def evento_operador_remover_view(request, pk, operador_id):
+    """Remove um operador; se for ajudante externo sem outros eventos, apaga a conta."""
+    evento = get_object_or_404(Evento, pk=pk)
+    op = evento.operadores.filter(pk=operador_id).first()
+    if op is not None:
+        usuario, externo = op.usuario, op.externo
+        op.delete()
+        if externo and not usuario.eventos_operados.exists():
+            usuario.delete()
+        messages.success(request, "Operador removido.")
+    return redirect("core:evento_operadores", pk=evento.pk)
+
+
+@login_required
+def trocar_senha_view(request):
+    """Troca de senha (obrigatória no 1º acesso das contas temporárias)."""
+    erro = None
+    if request.method == "POST":
+        senha = request.POST.get("senha") or ""
+        confirmar = request.POST.get("confirmar") or ""
+        if len(senha) < 4:
+            erro = "A senha precisa ter ao menos 4 caracteres."
+        elif senha != confirmar:
+            erro = "As senhas não conferem."
+        else:
+            request.user.set_password(senha)
+            request.user.save()
+            PerfilUsuario.objects.update_or_create(
+                usuario=request.user, defaults={"precisa_trocar_senha": False}
+            )
+            update_session_auth_hash(request, request.user)  # mantém logado
+            messages.success(request, "Senha alterada com sucesso.")
+            op = OperadorEvento.objects.filter(
+                usuario=request.user, externo=True
+            ).first()
+            if op is not None:
+                return redirect("core:evento_operar", pk=op.evento_id)
+            return redirect("core:inicio")
+    return render(request, "core/trocar_senha.html", {"erro": erro})
 
 
 @diretor_required

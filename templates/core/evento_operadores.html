@@ -1,0 +1,135 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Operadores — {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Operadores</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="voltar-link">← Voltar para o painel</a>
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Operadores do evento 👥</h1>
+                    <p class="cabecalho-sub">{{ evento.nome }} — quem pode operar o PDV (vender e inscrever no dia).</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <section class="card config-card">
+                    <h3 class="config-titulo">Operadores habilitados</h3>
+                    {% if operadores %}
+                    <ul class="operadores-lista">
+                        {% for o in operadores %}
+                        <li class="operador-item">
+                            <div class="operador-info">
+                                <strong>{{ o.usuario.username }}</strong>
+                                {% if o.externo %}<span class="pill">Ajudante externo</span>{% else %}<span class="pill pill-verde">Diretoria</span>{% endif %}
+                                {% if o.precisa_trocar %}<span class="pill pill-cinza">senha 1234 (troca no 1º acesso)</span>{% endif %}
+                            </div>
+                            <div class="operador-acoes">
+                                {% if o.externo %}
+                                <form method="post" action="{% url 'core:evento_operador_reset' evento.id o.id %}" onsubmit="return confirm('Redefinir a senha de {{ o.usuario.username }} para 1234?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-secundario btn-acao-pequeno">Resetar senha</button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{% url 'core:evento_operador_remover' evento.id o.id %}" onsubmit="return confirm('Remover {{ o.usuario.username }} dos operadores?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="custo-excluir" aria-label="Remover operador">✕</button>
+                                </form>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhum operador ainda. Adicione abaixo.</p>
+                    {% endif %}
+                </section>
+
+                <section class="card config-card">
+                    <h3 class="config-titulo">Adicionar da diretoria</h3>
+                    {% if diretoria_disponivel %}
+                    <form method="post" action="{% url 'core:evento_operador_add_diretoria' evento.id %}" class="evento-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="usuario">Membro da diretoria</label>
+                            <select name="usuario" id="usuario" class="campo-select">
+                                {% for u in diretoria_disponivel %}
+                                <option value="{{ u.id }}">{{ u.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">➕</span> Habilitar</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p class="painel-nota">Toda a diretoria disponível já está habilitada (ou não há outros membros).</p>
+                    {% endif %}
+                </section>
+
+                <section class="card config-card">
+                    <h3 class="config-titulo">Criar ajudante externo</h3>
+                    <p class="ajuda">Para quem não é do clube e vai ajudar só neste evento. Cria um login com senha inicial <strong>1234</strong>; a pessoa troca no primeiro acesso e vê só este evento.</p>
+                    <form method="post" action="{% url 'core:evento_operador_add_externo' evento.id %}" class="evento-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="username">Nome de usuário do ajudante</label>
+                            <input type="text" name="username" id="username" class="campo-input" placeholder="ex.: joao.cantina">
+                        </div>
+                        <div class="form-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">➕</span> Criar ajudante</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+</body>
+</html>

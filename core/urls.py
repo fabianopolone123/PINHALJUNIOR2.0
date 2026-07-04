@@ -48,6 +48,12 @@ urlpatterns = [
     path("eventos/<int:pk>/loja/", views.evento_loja_view, name="evento_loja"),
     path("eventos/<int:pk>/pdv/", views.evento_pdv_view, name="evento_pdv"),
     path("eventos/<int:pk>/pdv/inscricao/", views.evento_pdv_inscricao_view, name="evento_pdv_inscricao"),
+    path("eventos/<int:pk>/operar/", views.evento_operar_view, name="evento_operar"),
+    path("eventos/<int:pk>/operadores/", views.evento_operadores_view, name="evento_operadores"),
+    path("eventos/<int:pk>/operadores/diretoria/", views.evento_operador_add_diretoria_view, name="evento_operador_add_diretoria"),
+    path("eventos/<int:pk>/operadores/externo/", views.evento_operador_add_externo_view, name="evento_operador_add_externo"),
+    path("eventos/<int:pk>/operadores/<int:operador_id>/reset/", views.evento_operador_reset_view, name="evento_operador_reset"),
+    path("eventos/<int:pk>/operadores/<int:operador_id>/remover/", views.evento_operador_remover_view, name="evento_operador_remover"),
     path(
         "eventos/<int:pk>/loja/sucesso/",
         views.evento_pedido_sucesso_view,
@@ -101,4 +107,5 @@ urlpatterns = [
         name="cadastro_novo_aventureiro",
     ),
     path("cadastro/sucesso/", views.cadastro_sucesso_view, name="cadastro_sucesso"),
+    path("trocar-senha/", views.trocar_senha_view, name="trocar_senha"),
 ]
