@@ -811,6 +811,7 @@ def evento_campo_mover_view(request, pk, campo_id):
                 if campo.ordem != i:
                     campo.ordem = i
                     campo.save(update_fields=["ordem"])
+            messages.success(request, "Ordem dos campos atualizada.")
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
 

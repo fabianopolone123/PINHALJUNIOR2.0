@@ -73,3 +73,28 @@
         }
     });
 })();
+
+/* =========================================================
+   Notificações (toasts): fecham ao clicar e somem sozinhas
+   depois de alguns segundos.
+   ========================================================= */
+(function () {
+    "use strict";
+    var toasts = Array.prototype.slice.call(
+        document.querySelectorAll(".mensagens .mensagem")
+    );
+    if (!toasts.length) return;
+
+    function fechar(t) {
+        if (t.classList.contains("saindo")) return;
+        t.classList.add("saindo");
+        setTimeout(function () {
+            if (t.parentNode) t.parentNode.removeChild(t);
+        }, 400);
+    }
+
+    toasts.forEach(function (t, i) {
+        t.addEventListener("click", function () { fechar(t); });
+        setTimeout(function () { fechar(t); }, 4500 + i * 400);
+    });
+})();

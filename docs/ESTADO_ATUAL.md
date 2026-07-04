@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Ajustes da lojinha: botões +/- de quantidade, WhatsApp/e-mail/CPF obrigatórios na inscrição e navegação do ajudante externo corrigida)
+**Última atualização:** 2026-07-04 (Página do evento com botões claros (inscrição × loja, sem preview de campos) + notificações viram toasts flutuantes que somem sozinhos em todo o módulo de eventos)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -209,7 +209,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   status de ficha/autorização e seções recolhíveis com todos os detalhes).
 - Pílulas/etiquetas para informações rápidas; cards com sombras suaves, bordas arredondadas
   e hover leve; painéis e seções recolhíveis via `<details>/<summary>` nativos (sem JS).
-- Mensagens de feedback (sucesso/erro) via framework de messages do Django.
+- Mensagens de feedback via framework de messages do Django, exibidas como **toasts flutuantes**
+  (canto superior direito / topo no celular) que somem sozinhos ou ao clicar. Toda ação relevante do
+  módulo de eventos gera uma notificação (sucesso/erro/info).
 - Fundo claro com detalhes decorativos radiais suaves; animação de entrada dos cards.
 - Suporte a `prefers-reduced-motion`. Layout responsivo (mobile first): cards empilhados no
   celular e em grade de 2 colunas em telas largas; sem overflow horizontal (validado).
@@ -313,7 +315,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   tanto ao cadastro de 7 etapas quanto ao de 6 etapas), barra de progresso, campos condicionais,
   preview da foto, atalhos (copiar pai/mãe para responsável legal), reaproveitamento dos dados dos
   responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
-- `static/js/inicio.js` — menu recolhível no celular e o fechamento dos painéis `<details>` de
+- `static/js/inicio.js` — menu recolhível no celular, fechamento dos toasts (auto-dismiss) e os painéis `<details>` de
   "Meus Dados" ao clicar fora / abrir outro / `Esc` (clique dentro não fecha).
 - `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).

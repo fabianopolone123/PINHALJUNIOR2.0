@@ -124,6 +124,16 @@ Para as telas internas (após o login), preservar o padrão criado em
 - Itens restritos usam `{% if is_diretor %}`; a seção "Eventos ativos" usa o parcial `_menu_eventos.html`.
 - Ícones podem ser emoji, caractere ou SVG inline — nunca biblioteca externa.
 
+## Notificações (toasts) — obrigatório dar feedback
+- **Toda ação relevante do usuário** (criar/editar/remover/registrar/cancelar/salvar, etc.) deve
+  gerar uma notificação de **sucesso** ou **erro** com `django.contrib.messages`
+  (`messages.success/error/info`). Nunca deixar o usuário sem saber se a ação funcionou.
+- As mensagens são exibidas como **toasts flutuantes** (bloco `.mensagens` fixo + `.mensagem` com a
+  classe `mensagem-{{ tags }}`), estilizados em `inicio.css` e com auto-fechamento em `inicio.js`.
+  Não criar outro mecanismo de aviso — usar sempre o framework de `messages`.
+- Ao criar novas views que alteram dados, **sempre** incluir a `messages.*` correspondente e
+  redirecionar (padrão POST-redirect-GET) para uma página que renderize o bloco `{% if messages %}`.
+
 ## Padrão global de interface (`static/css/base.css`)
 
 Regras de comportamento da interface válidas para **todas** as telas:

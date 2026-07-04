@@ -22,6 +22,42 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Página do evento (botões claros) + notificações (toasts) no módulo de eventos
+
+### Resumo
+1. **Página do evento** (`evento_pagina.html`): removida a seção "O formulário de inscrição pedirá…"
+   (preview dos campos) — a pessoa vê os campos ao clicar em inscrever. Os dois botões ficaram
+   **claros**: **"🎟️ Inscrever-se no evento"** (com dica "Para fazer a inscrição dos participantes.")
+   e **"🛒 Comprar na loja"** (com dica "Só para comprar produtos/itens — não faz inscrição."), para
+   o visitante não confundir inscrição com compra.
+2. **Notificações (toasts)**: as mensagens de feedback viraram **toasts flutuantes** (canto superior
+   direito no desktop, topo no celular), com cor por tipo (sucesso/erro/info/aviso), animação de
+   entrada e **auto-fecham** em alguns segundos (ou ao clicar). Assim toda ação no módulo de eventos
+   (criar/editar/remover produto, evento, faixa, campo, custo; registrar venda/inscrição no PDV;
+   operadores; etc.) mostra visualmente que **deu certo** (ou o erro). Faltava aviso ao **reordenar
+   campo** — adicionado ("Ordem dos campos atualizada.").
+
+### Arquivos alterados
+- `templates/core/evento_pagina.html`: sem preview de campos; botões com rótulo + dica claros.
+- `static/css/eventos.css`: `.evento-acoes`/`.evento-acao-item`/`.evento-acao-dica`.
+- `static/css/inicio.css`: `.mensagens` viram **toasts fixos** + `.mensagem`/variantes (success/error/
+  info/warning) + animações `toast-entra`/`toast-sai`.
+- `static/js/inicio.js`: toasts fecham ao clicar e somem sozinhos (auto-dismiss escalonado).
+- `core/views.py`: `evento_campo_mover_view` passou a notificar.
+
+### Decisões tomadas
+- Toasts são as **mensagens do Django** (`messages`) estilizadas — mantém 1 só mecanismo. Auto-dismiss
+  no `inicio.js` (carregado nas telas internas/PDV, onde estão as ações). Em páginas públicas de
+  compra os erros continuam visíveis (não somem sozinhos), o que é desejável.
+- **Regra**: toda ação relevante do usuário deve gerar uma notificação (sucesso/erro) — ver REGRAS.
+
+### Validação
+- Teste ponta a ponta: página do evento sem o preview e com os dois botões claros (incl. a dica "não
+  faz inscrição"); CSS/JS de toast presentes; reordenar campo notifica; ação (salvar config) mostra o
+  toast de sucesso. Todos passaram. `manage.py check` OK. Toast e página conferidos visualmente.
+
+---
+
 ## 2026-07-04 - Ajustes da lojinha/PDV (feedback da validação)
 
 ### Resumo

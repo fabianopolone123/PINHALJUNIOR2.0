@@ -78,29 +78,24 @@
                 </section>
                 {% endif %}
 
-                {% if campos %}
-                <section class="evento-publico-secao">
-                    <h2 class="evento-publico-h2">O formulário de inscrição pedirá</h2>
-                    <ul class="campos-preview">
-                        {% for c in campos %}
-                        <li>{{ c.rotulo }}{% if c.obrigatorio %} <span class="obrigatorio">*</span>{% endif %} <small class="campo-tipo-txt">({{ c.get_tipo_display }})</small></li>
-                        {% endfor %}
-                    </ul>
-                </section>
-                {% endif %}
-
-                <div class="evento-publico-acao">
+                <div class="evento-acoes">
                     {% if inscricoes_abertas %}
-                    <a href="{% url 'core:evento_inscrever' evento.id %}" class="btn-acao">
-                        <span aria-hidden="true">🎟️</span> Inscrever-se
-                    </a>
+                    <div class="evento-acao-item">
+                        <a href="{% url 'core:evento_inscrever' evento.id %}" class="btn-acao">
+                            <span aria-hidden="true">🎟️</span> Inscrever-se no evento
+                        </a>
+                        <span class="evento-acao-dica">Para fazer a inscrição dos participantes.</span>
+                    </div>
                     {% else %}
                     <p class="painel-nota">As inscrições para este evento estão encerradas.</p>
                     {% endif %}
                     {% if tem_loja %}
-                    <a href="{% url 'core:evento_loja' evento.id %}" class="btn-secundario">
-                        <span aria-hidden="true">🛒</span> Comprar na lojinha
-                    </a>
+                    <div class="evento-acao-item">
+                        <a href="{% url 'core:evento_loja' evento.id %}" class="btn-secundario">
+                            <span aria-hidden="true">🛒</span> Comprar na loja
+                        </a>
+                        <span class="evento-acao-dica">Só para comprar produtos/itens — não faz inscrição.</span>
+                    </div>
                     {% endif %}
                 </div>
             </article>

@@ -750,32 +750,46 @@ body {
     margin-bottom: 8px;
 }
 
-/* ===================== Mensagens de feedback ===================== */
+/* ===================== Notificações (toasts flutuantes) ===================== */
 .mensagens {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    left: auto;
+    z-index: 1200;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-bottom: 18px;
+    width: min(360px, calc(100vw - 28px));
+    margin: 0;
+    pointer-events: none;
 }
 
 .mensagem {
-    padding: 12px 14px;
+    pointer-events: auto;
+    cursor: pointer;
+    padding: 13px 16px;
     border-radius: 12px;
     font-size: 0.92rem;
     font-weight: 600;
-    animation: entrar 0.35s ease both;
+    color: var(--texto);
+    background: var(--branco);
+    border-left: 5px solid var(--azul);
+    box-shadow: 0 12px 30px rgba(15, 76, 129, 0.20);
+    animation: toast-entra 0.3s ease both;
 }
+.mensagem.saindo { animation: toast-sai 0.35s ease forwards; }
 
-.mensagem-success {
-    color: #226b22;
-    background: rgba(58, 157, 58, 0.14);
-    border: 1px solid rgba(58, 157, 58, 0.40);
-}
+.mensagem-success { border-left-color: var(--verde); color: #1f6b1f; }
+.mensagem-error { border-left-color: #c0392b; color: #a5281b; }
+.mensagem-info { border-left-color: var(--azul-claro); color: var(--azul-escuro); }
+.mensagem-warning { border-left-color: #e0a800; color: #8a6d00; }
 
-.mensagem-error {
-    color: #a5281b;
-    background: rgba(192, 57, 43, 0.10);
-    border: 1px solid rgba(192, 57, 43, 0.35);
+@keyframes toast-entra { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes toast-sai { to { opacity: 0; transform: translateX(26px); } }
+
+@media (max-width: 560px) {
+    .mensagens { top: 10px; right: 10px; left: 10px; width: auto; }
 }
 
 /* ===================== Painéis recolhíveis (responsável / aventureiro) ===================== */
