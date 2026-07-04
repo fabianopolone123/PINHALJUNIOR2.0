@@ -718,6 +718,15 @@ class PedidoLoja(models.Model):
         related_name="pedidos_loja",
         verbose_name="Usuário (se logado)",
     )
+    # Preenchido quando o pedido foi feito junto de uma inscrição (Fase 4.3).
+    inscricao = models.ForeignKey(
+        Inscricao,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pedidos",
+        verbose_name="Inscrição vinculada",
+    )
     comprador_nome = models.CharField("Nome do comprador", max_length=150)
     comprador_whatsapp = models.CharField("WhatsApp", max_length=20, blank=True)
     comprador_email = models.EmailField("E-mail", blank=True)

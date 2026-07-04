@@ -1,14 +1,15 @@
 /* =========================================================
-   Loja do evento: total ao vivo conforme as quantidades.
+   Lojinha: total ao vivo conforme as quantidades.
+   Funciona na página da loja e na seção de lojinha da inscrição
+   (basta ter campos .loja-qtd e um #lojaTotal na página).
    JS puro, sem bibliotecas.
    ========================================================= */
 (function () {
     "use strict";
 
-    var form = document.getElementById("lojaForm");
-    if (!form) return;
+    var inputs = Array.prototype.slice.call(document.querySelectorAll(".loja-qtd"));
     var totalEl = document.getElementById("lojaTotal");
-    var inputs = Array.prototype.slice.call(form.querySelectorAll(".loja-qtd"));
+    if (!inputs.length || !totalEl) return;
 
     function moeda(v) {
         return "R$ " + v.toLocaleString("pt-BR", {
@@ -23,7 +24,7 @@
             var p = parseFloat(inp.dataset.preco);
             if (!isNaN(q) && q > 0 && !isNaN(p)) total += q * p;
         });
-        if (totalEl) totalEl.textContent = moeda(total);
+        totalEl.textContent = moeda(total);
     }
 
     inputs.forEach(function (inp) {

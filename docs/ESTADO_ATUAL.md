@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Lojinha Fase 4.2: comprar na página do evento — loja com carrinho, pagamento simulado, baixa de estoque, pedidos no painel e "Vendas (lojinha)" no Resumo)
+**Última atualização:** 2026-07-04 (Lojinha Fase 4.3: comprar junto da inscrição — seção opcional no form + pedido vinculado; telas de sucesso oferecem "comprar (mais) na lojinha")
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -118,8 +118,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **código**, **baixa o estoque** dos produtos que controlam e mostra tela de sucesso. Acesso igual ao
   evento (público sem login; só-membros com login); a loja fica aberta **enquanto o evento não
   terminou**. No painel, a aba "Lojinha" lista os **pedidos** (com itens e **cancelar** — devolve ao
-  estoque) e o **Resumo** conta **"Vendas (lojinha)"** (entra em receitas/resultado). Faltam: 4.3
-  (comprar junto da inscrição + pedir mais) e 4.4 (PDV dos atendentes).
+  estoque) e o **Resumo** conta **"Vendas (lojinha)"** (entra em receitas/resultado).
+- **Evento complexo — Lojinha Fase 4.3 (comprar junto da inscrição + pedir mais)**: no fim do
+  formulário de inscrição há uma seção **opcional** "Quer levar algo da lojinha?" (quantidade por
+  variação + subtotal ao vivo); ao confirmar, cria a inscrição **e** um **pedido vinculado** (mesma
+  transação, baixa de estoque; se faltar estoque, nada é criado). As telas de sucesso (inscrição e
+  pedido) trazem botão **"Comprar (mais) na lojinha"** para pedir mais facilmente. O pedido vinculado
+  (`PedidoLoja.inscricao`) aparece na lista de pedidos e conta em "Vendas (lojinha)". Falta 4.4 (PDV
+  dos atendentes).
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -215,9 +221,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `ProdutoEvento` — produto da lojinha do evento (FK `evento`, nome, descrição, foto, controla_estoque,
   ativo, ordem) e `VariacaoProduto` (FK `produto`, nome, valor, estoque, ordem). Migration `0008`.
   O preço fica em cada variação; estoque só conta quando `controla_estoque` está ligado.
-- `PedidoLoja` — pedido da lojinha (FK `evento`, FK `usuario` opcional, dados do comprador, código,
-  status confirmado/cancelado, valor_total) e `ItemPedidoLoja` (FK `pedido`, FK `variacao` opcional +
-  snapshots de nome, quantidade e valores). Migration `0009`.
+- `PedidoLoja` — pedido da lojinha (FK `evento`, FK `usuario` opcional, **FK `inscricao` opcional** —
+  quando comprado junto da inscrição, dados do comprador, código, status, valor_total) e
+  `ItemPedidoLoja` (FK `pedido`, FK `variacao` opcional + snapshots de nome, quantidade e valores).
+  Migrations `0009`, `0010`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -227,8 +234,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- **Lojinha 4.3** (próximo passo): comprar junto da inscrição (opcional) + voltar e pedir mais depois.
-- **Lojinha 4.4**: PDV dos atendentes (vendem/inscrevem no dia, marcam pago/forma de pagamento).
+- **Lojinha 4.4** (próximo passo): PDV dos atendentes (vendem/inscrevem no dia, marcam pago/forma de pagamento).
 - **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
@@ -255,6 +261,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_inscrever.html` (formulário de inscrição) e `evento_inscricao_sucesso.html`
 - `templates/core/evento_produto_form.html` (cadastro/edição de produto da lojinha)
 - `templates/core/evento_loja.html` (loja/carrinho do evento) e `evento_pedido_sucesso.html`
+- `templates/core/_loja_itens.html` (parcial: itens da lojinha para escolher — loja e inscrição)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)

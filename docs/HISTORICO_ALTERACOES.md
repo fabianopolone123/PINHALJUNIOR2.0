@@ -22,6 +22,46 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Lojinha Fase 4.3: comprar junto da inscrição + pedir mais
+
+### Resumo
+**Parte 4.3**: no fim do **formulário de inscrição** aparece uma seção **opcional** "Quer levar algo da
+lojinha?" com os produtos (quantidade por variação + **subtotal ao vivo**). Ao confirmar, num envio
+só, cria-se a **inscrição** e — se houver itens — um **pedido da lojinha vinculado** a ela (pagamento
+simulado, baixa de estoque). Se qualquer item exceder o estoque, **nada** é criado (nem a inscrição).
+Para **pedir mais**, as telas de sucesso (inscrição e pedido) trazem botão **"Comprar (mais) na
+lojinha"**, e o evento continua no menu (logado) para voltar quando quiser. O pedido vinculado aparece
+na lista de pedidos do painel e conta em "Vendas (lojinha)".
+
+### Arquivos criados/alterados
+- `core/models.py`: `PedidoLoja.inscricao` (FK opcional → `Inscricao`). Migration `0010`.
+- `core/views.py`: helpers `_coletar_itens_loja`, `_marcar_quantidades`, `_criar_pedido` (extraídos e
+  reaproveitados); `evento_loja_view` refatorada; `evento_inscrever_view` passou a ler os itens da
+  lojinha e criar o pedido vinculado (comprador = responsável) na mesma transação;
+  `evento_inscricao_sucesso_view` mostra o pedido vinculado + oferece a lojinha.
+- `templates/core/_loja_itens.html` (novo parcial, usado na loja e na inscrição);
+  `evento_loja.html` e `evento_inscrever.html` usam o parcial; `evento_inscrever.html` ganhou a seção
+  opcional + subtotal ao vivo; `evento_inscricao_sucesso.html` mostra o pedido + botão "Comprar mais".
+- `static/js/evento_loja.js`: agora funciona por documento (loja e inscrição), atualizando `#lojaTotal`.
+- `static/css/eventos.css`: `.loja-total-inline`, `.sucesso-pedido`.
+
+### Decisões tomadas
+- Um envio → **duas entidades** (Inscricao + PedidoLoja vinculado); financeiro separado (arrecadação de
+  inscrições × vendas da lojinha), mas ambos no evento. Validação **tudo-ou-nada** (estoque).
+- Reaproveitamento por helpers/parcial para loja e inscrição ficarem consistentes.
+
+### Validação
+- Teste ponta a ponta: seção da lojinha no form; inscrição + pedido vinculado (herda comprador, baixa
+  estoque, sucesso mostra os dois + "Comprar mais"); inscrição sem itens não cria pedido (mas oferece a
+  lojinha); estoque insuficiente bloqueia inscrição+pedido; dashboard com ambos. Todos passaram.
+  `python manage.py check` OK. **Responsividade** (Chrome headless ~490px) do form com lojinha conferida.
+
+### Pendências / próximo passo
+- **Lojinha 4.4** — PDV dos atendentes autorizados (vendem/inscrevem no dia, marcam pago/forma de
+  pagamento).
+
+---
+
 ## 2026-07-04 - Evento complexo — Lojinha Fase 4.2: comprar na página do evento
 
 ### Resumo

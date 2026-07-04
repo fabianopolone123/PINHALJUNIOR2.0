@@ -66,6 +66,13 @@
                     <template id="part-modelo">{% include "core/_participante_linha.html" with linha=linha_modelo tem_diretoria=tem_diretoria %}</template>
                     <button type="button" class="btn-secundario" id="addParticipante">➕ Adicionar participante</button>
 
+                    {% if produtos_loja %}
+                    <h2 class="evento-publico-h2">Quer levar algo da lojinha? <small class="ajuda">(opcional)</small></h2>
+                    {% if erros_loja %}<div class="erros">{% for e in erros_loja %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+                    {% include "core/_loja_itens.html" %}
+                    <p class="loja-total loja-total-inline">Lojinha: <strong id="lojaTotal">R$ 0,00</strong></p>
+                    {% endif %}
+
                     <div class="form-acoes evento-publico-acao">
                         <button type="submit" class="btn-acao">
                             <span aria-hidden="true">🎟️</span> Confirmar inscrição
@@ -80,5 +87,6 @@
     </div>
 
     <script src="{% static 'js/evento_inscrever.js' %}"></script>
+    <script src="{% static 'js/evento_loja.js' %}"></script>
 </body>
 </html>

@@ -51,13 +51,15 @@ lojinha, custos e resultado (lucro/prejuízo).
   ficou coberta por 2.3 + 2.4.
 - **Lojinha 4.1 CONCLUÍDA** (2026-07-04): cadastro de produtos com variações (preço por variação) e
   controle de estoque **opcional** por produto. Modelos `ProdutoEvento` e `VariacaoProduto`.
-- **Lojinha 4.2 CONCLUÍDA** (2026-07-04): **comprar na página do evento** — botão "Comprar na lojinha"
-  → loja (`/eventos/<id>/loja/`) com quantidade por variação + total ao vivo; finaliza com pagamento
-  **simulado**, gera código, **baixa estoque**; pedidos no painel (com cancelar/devolve estoque) e
-  "Vendas (lojinha)" no Resumo. Modelos `PedidoLoja` e `ItemPedidoLoja`.
-- **PRÓXIMO PASSO = Lojinha 4.3 (comprar junto da inscrição + pedir mais depois).** Antes de codar,
-  alinhar: como oferecer a lojinha ao final da inscrição (opcional) e como o inscrito volta e pede
-  mais de forma fácil.
+- **Lojinha 4.2 CONCLUÍDA** (2026-07-04): **comprar na página do evento** — loja com quantidade por
+  variação + total ao vivo; pagamento **simulado**, baixa estoque; pedidos no painel e "Vendas
+  (lojinha)" no Resumo. Modelos `PedidoLoja` e `ItemPedidoLoja`.
+- **Lojinha 4.3 CONCLUÍDA** (2026-07-04): **comprar junto da inscrição** (seção opcional no fim do
+  form → pedido vinculado, mesma transação) + **pedir mais** (telas de sucesso com botão "Comprar
+  (mais) na lojinha"). `PedidoLoja.inscricao` (FK).
+- **PRÓXIMO PASSO = Lojinha 4.4 (PDV dos atendentes).** Antes de codar, alinhar: quem são os
+  atendentes (perfil/permissão), o que fazem (novo pedido/inscrição no dia), e o registro de **pago /
+  forma de pagamento**.
 
 ### Lojinha — contexto (definido com o usuário em 2026-07-04)
 Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
@@ -108,8 +110,9 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
      Modelos `ProdutoEvento` e `VariacaoProduto`.
    - **4.2 — CONCLUÍDA ✅** — Comprar **avulso** na página do evento: carrinho + finalizar (pagamento
      simulado), baixa de estoque, "Vendas (lojinha)" no Resumo. Modelos `PedidoLoja`/`ItemPedidoLoja`.
-   - **4.3 — PRÓXIMA ⏭️** — Comprar **junto da inscrição** (opcional) + **voltar e pedir mais** depois.
-   - **4.4** — **PDV dos atendentes** (vendem/inscrevem no dia, marcam pago/forma de pagamento).
+   - **4.3 — CONCLUÍDA ✅** — Comprar **junto da inscrição** (seção opcional → pedido vinculado) +
+     **pedir mais** (telas de sucesso oferecem a lojinha). `PedidoLoja.inscricao`.
+   - **4.4 — PRÓXIMA ⏭️** — **PDV dos atendentes** (vendem/inscrevem no dia, marcam pago/forma de pagamento).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.

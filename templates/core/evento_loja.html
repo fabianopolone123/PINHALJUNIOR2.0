@@ -39,38 +39,7 @@
                     {% endif %}
 
                     <h2 class="evento-publico-h2">Escolha os itens</h2>
-                    <div class="loja-produtos">
-                        {% for p in produtos %}
-                        <div class="loja-produto">
-                            {% if p.foto %}
-                            <img src="{{ p.foto.url }}" alt="" class="produto-foto">
-                            {% else %}
-                            <span class="produto-foto produto-foto-vazia" aria-hidden="true">🛒</span>
-                            {% endif %}
-                            <div class="loja-produto-info">
-                                <strong class="produto-nome">{{ p.nome }}</strong>
-                                {% if p.descricao %}<p class="produto-desc">{{ p.descricao }}</p>{% endif %}
-                                <ul class="loja-variacoes">
-                                    {% for v in p.variacoes.all %}
-                                    <li class="loja-var">
-                                        <span class="loja-var-nome">{{ v.rotulo }}</span>
-                                        <span class="loja-var-preco">R$ {{ v.valor|moeda }}</span>
-                                        {% if v.esgotado %}
-                                        <span class="var-estoque esgotado">esgotado</span>
-                                        {% else %}
-                                        <input type="number" name="qtd_{{ v.id }}" class="campo-input loja-qtd"
-                                               min="0" {% if p.controla_estoque %}max="{{ v.estoque }}"{% endif %}
-                                               value="{{ v.qtd_atual }}" data-preco="{{ v.valor }}"
-                                               inputmode="numeric" aria-label="Quantidade de {{ p.nome }} {{ v.rotulo }}">
-                                        {% if p.controla_estoque %}<span class="var-estoque">{{ v.estoque }} disp.</span>{% endif %}
-                                        {% endif %}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
+                    {% include "core/_loja_itens.html" %}
 
                     <h2 class="evento-publico-h2">Dados do comprador</h2>
                     <div class="campo">

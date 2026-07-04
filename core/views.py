@@ -882,11 +882,19 @@ def evento_inscrever_view(request, pk):
     faixas = list(evento.faixas_preco.all())
     tem_diretoria = evento.valor_diretoria is not None
     campos_part = list(evento.campos_inscricao.filter(por_participante=True))
+    produtos_loja = (
+        list(evento.produtos.filter(ativo=True).prefetch_related("variacoes"))
+        if evento.loja_aberta() else []
+    )
     linhas = []
     erros_part = []
+    desejados_loja = []
+    erros_loja = []
 
     if request.method == "POST":
         form = InscricaoForm(request.POST, evento=evento)
+        if produtos_loja:
+            desejados_loja, erros_loja = _coletar_itens_loja(request, produtos_loja)
         for idx in request.POST.getlist("part_idx"):
             linha = _linha_participante(request, idx, campos_part, tem_diretoria)
             if not linha["nome"]:
@@ -900,7 +908,7 @@ def evento_inscrever_view(request, pk):
         if not linhas:
             erros_part.append("Adicione ao menos um participante.")
 
-        if form.is_valid() and not erros_part:
+        if form.is_valid() and not erros_part and not erros_loja:
             with transaction.atomic():
                 inscricao = Inscricao(
                     evento=evento,
@@ -939,6 +947,17 @@ def evento_inscrever_view(request, pk):
                         inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
                         valor=form.resposta_texto(campo, nome),
                     )
+                # Itens da lojinha escolhidos junto da inscrição (opcional).
+                _criar_pedido(
+                    evento, desejados_loja,
+                    {
+                        "nome": inscricao.responsavel_nome,
+                        "whatsapp": inscricao.responsavel_whatsapp,
+                        "email": inscricao.responsavel_email,
+                    },
+                    usuario=request.user if request.user.is_authenticated else None,
+                    inscricao=inscricao,
+                )
             request.session["inscricao_codigo"] = inscricao.codigo
             return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
         messages.error(request, "Verifique os campos destacados e os participantes.")
@@ -948,6 +967,7 @@ def evento_inscrever_view(request, pk):
             inicial["responsavel_email"] = request.user.email
         form = InscricaoForm(evento=evento, initial=inicial)
 
+    _marcar_quantidades(produtos_loja, desejados_loja)
     contexto = {
         "evento": evento,
         "form": form,
@@ -957,6 +977,8 @@ def evento_inscrever_view(request, pk):
         "linhas": linhas or [_linha_vazia(0, campos_part)],
         "linha_modelo": _linha_vazia("__IDX__", campos_part),
         "erros_part": erros_part,
+        "produtos_loja": produtos_loja,
+        "erros_loja": erros_loja,
     }
     return render(request, "core/evento_inscrever.html", contexto)
 
@@ -968,10 +990,13 @@ def evento_inscricao_sucesso_view(request, pk):
     inscricao = evento.inscricoes.filter(codigo=codigo).first() if codigo else None
     if inscricao is None:
         return redirect("core:evento_pagina", pk=evento.pk)
-    return render(
-        request, "core/evento_inscricao_sucesso.html",
-        {"evento": evento, "inscricao": inscricao},
-    )
+    contexto = {
+        "evento": evento,
+        "inscricao": inscricao,
+        "pedido": inscricao.pedidos.first(),
+        "tem_loja": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
+    }
+    return render(request, "core/evento_inscricao_sucesso.html", contexto)
 
 
 @diretor_required
@@ -1113,8 +1138,70 @@ def evento_produto_excluir_view(request, pk, produto_id):
 
 
 # ---------------------------------------------------------------------------
-# Lojinha — Fase 4.2: comprar na página do evento (carrinho + pedido simulado)
+# Lojinha — Fase 4.2/4.3: comprar (carrinho + pedido simulado)
 # ---------------------------------------------------------------------------
+def _coletar_itens_loja(request, produtos):
+    """Lê qtd_<vid> do POST → (desejados [(variacao, qtd)], erros de estoque)."""
+    variacoes = {v.id: v for p in produtos for v in p.variacoes.all()}
+    desejados = []
+    erros = []
+    for vid, v in variacoes.items():
+        try:
+            qtd = int(request.POST.get(f"qtd_{vid}") or 0)
+        except (TypeError, ValueError):
+            qtd = 0
+        if qtd > 0:
+            desejados.append((v, qtd))
+    for v, qtd in desejados:
+        if v.produto.controla_estoque and qtd > v.estoque:
+            erros.append(
+                f"Estoque insuficiente para {v.produto.nome} — {v.rotulo}: "
+                f"{v.estoque} disponível(is)."
+            )
+    return desejados, erros
+
+
+def _marcar_quantidades(produtos, desejados):
+    """Anexa `qtd_atual` a cada variação (repõe o que foi digitado no formulário)."""
+    escolhidas = {v.id: qtd for v, qtd in desejados}
+    for p in produtos:
+        for v in p.variacoes.all():
+            v.qtd_atual = escolhidas.get(v.id, 0)
+
+
+def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None):
+    """Cria o PedidoLoja + itens e baixa o estoque. Retorna o pedido (ou None se vazio)."""
+    if not desejados:
+        return None
+    pedido = PedidoLoja(
+        evento=evento,
+        usuario=usuario,
+        inscricao=inscricao,
+        comprador_nome=comprador.get("nome", ""),
+        comprador_whatsapp=comprador.get("whatsapp", ""),
+        comprador_email=comprador.get("email", ""),
+        codigo=PedidoLoja.gerar_codigo_unico(),
+        status="confirmado",
+    )
+    total = Decimal("0")
+    itens = []
+    for v, qtd in desejados:
+        subtotal = v.valor * qtd
+        total += subtotal
+        itens.append(ItemPedidoLoja(
+            variacao=v, produto_nome=v.produto.nome, variacao_nome=v.nome,
+            quantidade=qtd, valor_unitario=v.valor, valor_total=subtotal,
+        ))
+        if v.produto.controla_estoque:
+            VariacaoProduto.objects.filter(pk=v.id).update(estoque=F("estoque") - qtd)
+    pedido.valor_total = total
+    pedido.save()
+    for item in itens:
+        item.pedido = pedido
+        item.save()
+    return pedido
+
+
 def evento_loja_view(request, pk):
     """Loja do evento: escolher itens/quantidades e finalizar (pagamento simulado)."""
     evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
@@ -1129,9 +1216,8 @@ def evento_loja_view(request, pk):
         messages.info(request, "A lojinha deste evento ainda não tem produtos.")
         return redirect("core:evento_pagina", pk=evento.pk)
 
-    variacoes = {v.id: v for p in produtos for v in p.variacoes.all()}
     comprador = {"nome": "", "whatsapp": "", "email": ""}
-    quantidades = {}
+    desejados = []
     erros = []
 
     if request.method == "POST":
@@ -1140,55 +1226,18 @@ def evento_loja_view(request, pk):
             "whatsapp": (request.POST.get("comprador_whatsapp") or "").strip(),
             "email": (request.POST.get("comprador_email") or "").strip(),
         }
-        desejados = []
-        for vid, v in variacoes.items():
-            try:
-                qtd = int(request.POST.get(f"qtd_{vid}") or 0)
-            except (TypeError, ValueError):
-                qtd = 0
-            if qtd > 0:
-                quantidades[vid] = qtd
-                desejados.append((v, qtd))
+        desejados, erros = _coletar_itens_loja(request, produtos)
         if not comprador["nome"]:
             erros.append("Informe o nome do comprador.")
         if not desejados:
             erros.append("Escolha ao menos um item (quantidade maior que zero).")
-        for v, qtd in desejados:
-            if v.produto.controla_estoque and qtd > v.estoque:
-                erros.append(
-                    f"Estoque insuficiente para {v.produto.nome} — {v.rotulo}: "
-                    f"{v.estoque} disponível(is)."
-                )
 
         if not erros:
             with transaction.atomic():
-                pedido = PedidoLoja(
-                    evento=evento,
+                pedido = _criar_pedido(
+                    evento, desejados, comprador,
                     usuario=request.user if request.user.is_authenticated else None,
-                    comprador_nome=comprador["nome"],
-                    comprador_whatsapp=comprador["whatsapp"],
-                    comprador_email=comprador["email"],
-                    codigo=PedidoLoja.gerar_codigo_unico(),
-                    status="confirmado",
                 )
-                total = Decimal("0")
-                itens = []
-                for v, qtd in desejados:
-                    subtotal = v.valor * qtd
-                    total += subtotal
-                    itens.append(ItemPedidoLoja(
-                        variacao=v, produto_nome=v.produto.nome, variacao_nome=v.nome,
-                        quantidade=qtd, valor_unitario=v.valor, valor_total=subtotal,
-                    ))
-                    if v.produto.controla_estoque:
-                        VariacaoProduto.objects.filter(pk=v.id).update(
-                            estoque=F("estoque") - qtd
-                        )
-                pedido.valor_total = total
-                pedido.save()
-                for item in itens:
-                    item.pedido = pedido
-                    item.save()
             request.session["pedido_codigo"] = pedido.codigo
             return redirect("core:evento_pedido_sucesso", pk=evento.pk)
         messages.error(request, "Verifique os itens escolhidos e os seus dados.")
@@ -1196,14 +1245,10 @@ def evento_loja_view(request, pk):
         if request.user.is_authenticated and request.user.email:
             comprador["email"] = request.user.email
 
-    # Quantidades para repor no formulário.
-    for p in produtos:
-        for v in p.variacoes.all():
-            v.qtd_atual = quantidades.get(v.id, 0)
-
+    _marcar_quantidades(produtos, desejados)
     contexto = {
         "evento": evento,
-        "produtos": produtos,
+        "produtos_loja": produtos,
         "comprador": comprador,
         "erros": erros,
     }

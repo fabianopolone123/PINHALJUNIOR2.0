@@ -575,6 +575,8 @@ a.tipo-card:hover {
 .loja-total { font-size: 1.15rem; color: var(--texto); }
 .loja-total strong { color: var(--azul-escuro); }
 .loja-rodape .btn-acao { margin-top: 0; }
+.loja-total-inline { text-align: right; margin-top: 10px; }
+.sucesso-pedido { margin-top: 8px; }
 
 .valores-resumo {
     background: var(--fundo-conteudo, #eef3f9); border-radius: 10px; padding: 12px 14px;
