@@ -22,6 +22,54 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Correções de notificação (toast) no fluxo de pagamento da loja
+
+### Resumo
+Ajustes pedidos após validar o fluxo de pagamento da lojinha pública:
+1. **Toast "Pagamento aprovado!" na hora**: ao "Simular pagamento aprovado", a notificação aparecia só
+   **na página seguinte** (ao clicar em "Fazer outro pedido"/"Voltar para o evento"). **Causa**: a tela
+   de sucesso (`evento_pedido_sucesso.html`) **não renderizava** o bloco `{% if messages %}`, então a
+   mensagem ficava pendente e só era exibida na próxima página que renderizava o bloco. **Correção**: a
+   tela de sucesso passou a renderizar o bloco de mensagens → o toast aparece **na própria tela de
+   sucesso**.
+2. **Balão não sumia** nas páginas públicas: o toast ficava na tela mesmo depois da barrinha de
+   progresso. **Causa**: as páginas públicas do evento (loja, página do evento, inscrição, e as novas de
+   pagamento/sucesso) **não carregavam** o `inicio.js` (que faz mover para o `<body>` + auto-fechar).
+   **Correção**: `inicio.js` passou a ser carregado nessas páginas (é seguro — cada bloco tem guarda de
+   elemento).
+3. **Copiar o Pix usa a notificação padrão**: o botão "Copiar" do código Pix mostrava um aviso próprio;
+   agora dispara o **toast clássico** do sistema ("Código Pix copiado!").
+
+Para isso, o **toast foi centralizado** no `inicio.js` (padrão único do sistema) e ganhou uma API
+`window.mostrarToast(texto, tipo)` para criar toast pelo JS, reaproveitada pela cópia do Pix — sem
+duplicar a lógica de toast em outro arquivo.
+
+### Arquivos alterados
+- `static/js/inicio.js`: bloco de toast reestruturado (helpers `garantirContainer`/`fechar`/`agendar`)
+  + **`window.mostrarToast(texto, tipo)`** (cria o contêiner se faltar; mesmo visual/tempo — 4,5s).
+- `templates/core/evento_pedido_sucesso.html`: renderiza o bloco `{% if messages %}` (toast na hora) e
+  carrega `inicio.js`.
+- `templates/core/evento_loja.html`, `evento_pagina.html`, `evento_inscrever.html`,
+  `evento_pagamento.html`: passam a carregar `inicio.js` (no pagamento, **antes** do
+  `evento_pagamento.js`, para `window.mostrarToast` já existir).
+- `static/js/evento_pagamento.js`: o feedback de "copiado" usa `window.mostrarToast(...)` (com fallback
+  no texto do botão). `evento_pagamento.html`: removido o aviso próprio `#pixCopiado`.
+- `static/css/eventos.css`: removida a regra órfã `.pix-aviso`.
+
+### Decisões tomadas
+- **Um único módulo de toast** (`inicio.js`), carregado onde houver notificação (inclusive páginas
+  públicas). Nada de segundo mecanismo — mantém o "padrão único" documentado nas REGRAS.
+- Toast criado por JS usa o **mesmo** visual/tempo dos toasts do servidor (classe `.mensagem`/CSS).
+
+### Validação
+- Teste ponta a ponta (test client): fluxo Pix continua OK (POST sem WhatsApp/sem forma rejeitados;
+  válido → pagamento sem criar pedido; aprovar cria confirmado, baixa estoque, limpa sessão; sucesso com
+  código/"Pago com"; cartão com aviso Mercado Pago). A tela de sucesso agora **contém** o toast
+  (`mensagem-success` "Pagamento aprovado! Pedido confirmado.") e carrega `inicio.js`. `manage.py check`
+  OK. **Visual (Chrome headless ~490px)**: toast aparece no topo da tela de sucesso (auto-some em ~4,5s).
+
+---
+
 ## 2026-07-04 - Lojinha pública: fluxo de pagamento (simulado) Pix/Cartão
 
 ### Resumo

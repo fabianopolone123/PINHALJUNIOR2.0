@@ -2,7 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Lojinha pública: fluxo de pagamento **simulado** — WhatsApp obrigatório, autopreenchimento do comprador, escolha de forma de pagamento (Pix/Cartão), tela de pagamento clássica (QR Pix simulado + copia e cola / aviso de redirecionamento ao Mercado Pago no cartão), aprovação simulada e tela de sucesso melhorada; o pedido só é criado após a aprovação)
+**Última atualização:** 2026-07-04 (Correções de notificação no fluxo de pagamento da loja: toast
+"Pagamento aprovado!" aparece **na própria tela de sucesso** (não vaza para a próxima página); copiar o
+código Pix mostra o **toast padrão** do sistema; o `inicio.js` centraliza o toast e expõe
+`window.mostrarToast`, agora carregado também nas páginas públicas do evento — o balão volta a
+**auto-fechar** ali)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -330,8 +334,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   tanto ao cadastro de 7 etapas quanto ao de 6 etapas), barra de progresso, campos condicionais,
   preview da foto, atalhos (copiar pai/mãe para responsável legal), reaproveitamento dos dados dos
   responsáveis no cadastro de novo aventureiro, revisão e validação dos aceites.
-- `static/js/inicio.js` — menu recolhível no celular, fechamento dos toasts (auto-dismiss) e os painéis `<details>` de
-  "Meus Dados" ao clicar fora / abrir outro / `Esc` (clique dentro não fecha).
+- `static/js/inicio.js` — menu recolhível no celular; painéis `<details>` de "Meus Dados" (fechar ao
+  clicar fora / abrir outro / `Esc`); e o **módulo único de toasts** do sistema: move `.mensagens` para
+  o `<body>`, auto-fecha (~4,5s, igual à barra de progresso), fecha ao clicar e expõe
+  **`window.mostrarToast(texto, tipo)`** para criar toast pelo JS (ex.: "copiado!"). É seguro em
+  qualquer página (cada bloco tem guarda de elemento), por isso é carregado também nas páginas públicas
+  do evento (loja, pagamento, sucesso, página do evento, inscrição).
 - `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
@@ -342,7 +350,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_loja.js` — total ao vivo da loja/inscrição conforme as quantidades.
 - `static/js/loja_comprador.js` — lembra os dados do comprador (nome/WhatsApp/e-mail) no localStorage
   e autopreenche na loja pública (celular e PC).
-- `static/js/evento_pagamento.js` — botão "Copiar" do código Pix na tela de pagamento (com fallback).
+- `static/js/evento_pagamento.js` — botão "Copiar" do código Pix na tela de pagamento (com fallback);
+  o feedback usa o toast padrão via `window.mostrarToast`.
 - `static/js/evento_pdv.js` — PDV vendas: total, forma de pagamento e troco.
 - `static/js/evento_pdv_inscricao.js` — PDV inscrição: total combinado (faixa/diretoria + lojinha) + troco.
 

@@ -75,22 +75,29 @@
 })();
 
 /* =========================================================
-   Notificações (toasts): fecham ao clicar e somem sozinhas
-   depois de alguns segundos.
+   Notificações (toasts): padrão ÚNICO do sistema. Fecham ao clicar e
+   somem sozinhas depois de ~4,5s (mesmo tempo da barrinha de progresso).
+   Expõe window.mostrarToast(texto, tipo) para criar toast pelo JS
+   (ex.: "copiado!"). Seguro em qualquer página (cria o contêiner se faltar).
    ========================================================= */
 (function () {
     "use strict";
-    var container = document.querySelector(".mensagens");
-    if (!container) return;
-    // Move o balão para o <body> para ele aparecer no canto da TELA — fora de
-    // qualquer ancestral com transform/animação (ex.: .conteudo-interno), que
-    // quebraria o position: fixed e prenderia o toast dentro da região.
-    if (container.parentNode !== document.body) {
-        document.body.appendChild(container);
-    }
 
-    var toasts = Array.prototype.slice.call(container.querySelectorAll(".mensagem"));
-    if (!toasts.length) return;
+    var DURACAO = 4500;  // casa com a animação `toast-barra` (4.5s) em inicio.css
+
+    // Garante o contêiner .mensagens no <body> — fora de qualquer ancestral com
+    // transform/animação (ex.: .conteudo-interno), que quebraria o position: fixed.
+    function garantirContainer() {
+        var c = document.querySelector(".mensagens");
+        if (!c) {
+            c = document.createElement("div");
+            c.className = "mensagens";
+            document.body.appendChild(c);
+        } else if (c.parentNode !== document.body) {
+            document.body.appendChild(c);
+        }
+        return c;
+    }
 
     function fechar(t) {
         if (t.classList.contains("saindo")) return;
@@ -100,8 +107,30 @@
         }, 400);
     }
 
-    toasts.forEach(function (t, i) {
+    function agendar(t, atraso) {
         t.addEventListener("click", function () { fechar(t); });
-        setTimeout(function () { fechar(t); }, 4500 + i * 400);
-    });
+        setTimeout(function () { fechar(t); }, atraso);
+    }
+
+    // Toasts vindos do servidor (framework de messages do Django).
+    var container = document.querySelector(".mensagens");
+    if (container) {
+        if (container.parentNode !== document.body) {
+            document.body.appendChild(container);
+        }
+        Array.prototype.slice.call(container.querySelectorAll(".mensagem"))
+            .forEach(function (t, i) { agendar(t, DURACAO + i * 400); });
+    }
+
+    // Cria um toast pelo JS (mesmo visual/tempo dos toasts do servidor).
+    window.mostrarToast = function (texto, tipo) {
+        var c = garantirContainer();
+        var t = document.createElement("div");
+        t.className = "mensagem mensagem-" + (tipo || "info");
+        t.setAttribute("role", "status");
+        t.textContent = texto;
+        c.appendChild(t);
+        agendar(t, DURACAO);
+        return t;
+    };
 })();

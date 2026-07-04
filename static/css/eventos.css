@@ -748,7 +748,6 @@ a.tipo-card:hover {
     color: var(--texto); font-family: monospace;
 }
 .pix-copia .btn-secundario { flex: 0 0 auto; margin-top: 0; white-space: nowrap; }
-.pix-aviso { color: var(--verde); font-weight: 600; margin: 8px 0 0; }
 
 .cartao-mock {
     position: relative; height: 130px; border-radius: 14px; margin: 6px 0 14px;

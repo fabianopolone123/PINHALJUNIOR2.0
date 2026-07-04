@@ -47,7 +47,6 @@
                         <input type="text" id="pixCodigo" class="pix-copia-input selecionavel" value="{{ pix_codigo }}" readonly>
                         <button type="button" class="btn-secundario" id="btnCopiarPix" data-target="pixCodigo">Copiar</button>
                     </div>
-                    <p class="pix-aviso" id="pixCopiado" hidden>Código copiado! ✅</p>
                 </section>
                 {% else %}
                 <section class="pagamento-cartao">
@@ -75,6 +74,7 @@
         <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
     </div>
 
+    <script src="{% static 'js/inicio.js' %}"></script>
     <script src="{% static 'js/evento_pagamento.js' %}"></script>
 </body>
 </html>

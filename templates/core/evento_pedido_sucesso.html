@@ -18,6 +18,14 @@
         </header>
 
         <main class="evento-publico-main">
+            {% if messages %}
+            <div class="mensagens">
+                {% for m in messages %}
+                <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <article class="card evento-publico-card sucesso-card">
                 <span class="sucesso-check" aria-hidden="true">✅</span>
                 <h1 class="evento-publico-titulo">Pedido confirmado!</h1>
@@ -53,5 +61,7 @@
 
         <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
     </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
 </body>
 </html>

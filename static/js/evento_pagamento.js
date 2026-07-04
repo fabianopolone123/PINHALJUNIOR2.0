@@ -8,13 +8,13 @@
     var btn = document.getElementById("btnCopiarPix");
     if (!btn) return;
     var input = document.getElementById(btn.dataset.target);
-    var aviso = document.getElementById("pixCopiado");
     if (!input) return;
 
     function feedback() {
-        if (aviso) {
-            aviso.hidden = false;
-            setTimeout(function () { aviso.hidden = true; }, 2500);
+        // Notificação padrão do sistema (toast). Cai no texto do botão se, por
+        // algum motivo, o módulo de toast não estiver carregado.
+        if (typeof window.mostrarToast === "function") {
+            window.mostrarToast("Código Pix copiado!", "success");
         }
         var txt = btn.textContent;
         btn.textContent = "Copiado!";

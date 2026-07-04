@@ -131,11 +131,18 @@ Para as telas internas (após o login), preservar o padrão criado em
 - As mensagens são exibidas como **toasts flutuantes** — **padrão ÚNICO de notificação do sistema
   inteiro** (eventos, inscrições, cadastros, tudo). Bloco `.mensagens` + `.mensagem` com a classe
   `mensagem-{{ tags }}` (success/error/info/warning, cada um com ícone), estilizados em `inicio.css`.
-  O `inicio.js` **move o `.mensagens` para o `<body>`** (para aparecer no canto da tela, fora de
-  ancestrais com `transform`), auto-fecha e permite fechar no clique. Não criar outro mecanismo de
-  aviso — usar sempre o framework de `messages`. Notificar só em ações relevantes (não poluir a tela).
+  O `inicio.js` é o **módulo único de toast**: **move o `.mensagens` para o `<body>`** (para aparecer
+  no canto da tela, fora de ancestrais com `transform`), **auto-fecha** (~4,5s, igual à barra de
+  progresso) e permite fechar no clique. Não criar outro mecanismo/arquivo de aviso.
+- **`inicio.js` deve ser carregado em TODA página que exibe toast** — inclusive as **páginas públicas**
+  do evento (loja, pagamento, sucesso, página do evento, inscrição). Sem ele, o balão não se auto-fecha
+  e não vai para o canto da tela. É seguro em qualquer página (cada bloco tem guarda de elemento).
+- Para criar um toast **pelo JS** (ex.: "copiado!"), usar **`window.mostrarToast(texto, tipo)`**
+  (exposto pelo `inicio.js`) — mesmo visual/tempo dos toasts do servidor. Carregar o `inicio.js`
+  **antes** do script que chama `mostrarToast`. Não reimplementar toast em outro lugar.
 - Ao criar novas views que alteram dados, **sempre** incluir a `messages.*` correspondente e
-  redirecionar (padrão POST-redirect-GET) para uma página que renderize o bloco `{% if messages %}`.
+  redirecionar (padrão POST-redirect-GET) para uma página que **renderize o bloco `{% if messages %}`
+  E carregue o `inicio.js`** — senão a mensagem "vaza" e só aparece na página seguinte.
 
 ## Padrão global de interface (`static/css/base.css`)
 
