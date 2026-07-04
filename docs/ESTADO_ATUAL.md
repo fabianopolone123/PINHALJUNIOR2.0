@@ -2,11 +2,10 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 1/4: abas internas em "Inscrições"**
-— a aba Inscrições agora tem **sub-abas** (**Lista de inscrições** abre primeiro · Configuração · Faixas
-de preço · Formulário), então as configurações ficam **minimizadas** e a lista (que cresce) aparece de
-cara, sem rolar. Sub-abas genéricas (`.sub-abas`/`.sub-aba`/`.sub-secao`) reutilizáveis. Plano completo
-da reorg (etapas 2–4) no HISTÓRICO. Antes: "nome completo" na inscrição + botão "Ver detalhes")
+**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 2/4: abas internas na "Lojinha"** —
+sub-abas **Produtos** (abre primeiro, com "Novo produto") · **Pedidos** (com **busca** por comprador/
+código/produto). PDV/Operadores seguem no cabeçalho por ora (Etapa 3 move pro topo). Antes: Etapa 1 —
+abas em Inscrições)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior

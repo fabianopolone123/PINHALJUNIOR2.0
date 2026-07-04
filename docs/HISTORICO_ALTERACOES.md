@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Reorganização do painel — Etapa 2/4: abas internas na "Lojinha"
+
+### Resumo
+**Etapa 2** da reorganização: a aba **Lojinha** ganhou **sub-abas** (mesmo padrão da Etapa 1):
+- **Produtos** (abre primeiro) — a lista de produtos + botão **"Novo produto"** (que saiu do cabeçalho).
+- **Pedidos** — a lista de pedidos com uma **busca** (por comprador, código ou produto), igual à das
+  inscrições; some quem não bate e mostra "Nenhum pedido encontrado".
+
+Os botões **PDV / Balcão** e **Operadores** continuam **no cabeçalho da Lojinha por enquanto** — a
+**Etapa 3** os move para a barra do topo (só troca de lugar, sem reescrever as páginas).
+
+### Arquivos alterados
+- `templates/core/evento_painel.html`: seção Lojinha em `.sub-abas` (Produtos/Pedidos) + 2 `.sub-secao`;
+  "Novo produto" movido para a aba Produtos; busca (`#buscaPedidos`) + `.pedido-busca` nos itens +
+  mensagem "pedidosVazio".
+- `static/js/evento_painel.js`: `ligarBusca("buscaPedidos", ".pedido-busca", "pedidosVazio")` (reusa o
+  helper de busca e o de sub-abas — ambos genéricos).
+
+### Validação
+- `manage.py check` OK. Render (test client): 2 sub-abas; Produtos visível, Pedidos `hidden`; busca de
+  pedidos presente (2 itens `.pedido-busca`); "Novo produto" só na aba Produtos; `<div>` equilibrados.
+  Visual (Chrome headless, desktop): Lojinha com sub-abas Produtos/Pedidos, "Novo produto" na aba.
+
+### Pendências / próximo passo
+- **Etapa 3**: mover **Balcão** e **Operadores** para a barra do topo (abas-link) + renomear "PDV /
+  Balcão". Depois **Etapa 4** (cards clicáveis no Resumo).
+
+---
+
 ## 2026-07-04 - Reorganização do painel — Etapa 1/4: abas internas em "Inscrições"
 
 ### Resumo

@@ -461,13 +461,25 @@
                             <a href="{% url 'core:evento_pdv' evento.id %}" class="btn-acao btn-acao-pequeno">
                                 <span aria-hidden="true">🧾</span> PDV / Balcão
                             </a>
-                            <a href="{% url 'core:evento_produto_novo' evento.id %}" class="btn-secundario btn-acao-pequeno">
-                                <span aria-hidden="true">➕</span> Novo produto
-                            </a>
                             <a href="{% url 'core:evento_operadores' evento.id %}" class="btn-secundario btn-acao-pequeno">
                                 <span aria-hidden="true">👥</span> Operadores
                             </a>
                         </div>
+                    </div>
+
+                    <!-- Abas internas da Lojinha -->
+                    <div class="sub-abas" role="tablist">
+                        <button type="button" class="sub-aba ativa" data-sub="produtos" role="tab">Produtos</button>
+                        <button type="button" class="sub-aba" data-sub="pedidos" role="tab">Pedidos ({{ pedidos|length }})</button>
+                    </div>
+
+                    <!-- Sub-aba: Produtos -->
+                    <div class="sub-secao" data-subsecao="produtos">
+                    <div class="secao-cabecalho">
+                        <h3 class="secao-titulo">Produtos ({{ produtos|length }})</h3>
+                        <a href="{% url 'core:evento_produto_novo' evento.id %}" class="btn-acao btn-acao-pequeno">
+                            <span aria-hidden="true">➕</span> Novo produto
+                        </a>
                     </div>
 
                     {% if produtos %}
@@ -509,15 +521,21 @@
                     {% else %}
                     <p class="painel-nota">Nenhum produto cadastrado. Clique em “Novo produto” para montar a lojinha.</p>
                     {% endif %}
+                    </div><!-- /sub-aba produtos -->
 
-                    <hr class="secao-divisor">
+                    <!-- Sub-aba: Pedidos -->
+                    <div class="sub-secao" data-subsecao="pedidos" hidden>
                     <div class="secao-cabecalho">
                         <h3 class="secao-titulo">Pedidos ({{ pedidos|length }})</h3>
                     </div>
                     {% if pedidos %}
+                    <div class="busca-box">
+                        <svg class="busca-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        <input type="search" id="buscaPedidos" class="busca-input" placeholder="Buscar por comprador, código ou produto…" autocomplete="off">
+                    </div>
                     <ul class="inscritos-lista">
                         {% for pd in pedidos %}
-                        <li class="card inscrito-item{% if pd.status == 'cancelado' %} inscrito-cancelada{% endif %}">
+                        <li class="card inscrito-item pedido-busca{% if pd.status == 'cancelado' %} inscrito-cancelada{% endif %}">
                             <div class="inscrito-topo">
                                 <span class="inscrito-codigo">{{ pd.codigo }}</span>
                                 <span class="pill {% if pd.status == 'confirmado' %}pill-verde{% else %}pill-cinza{% endif %}">{{ pd.get_status_display }}</span>
@@ -546,9 +564,11 @@
                         </li>
                         {% endfor %}
                     </ul>
+                    <p class="painel-nota" id="pedidosVazio" hidden>Nenhum pedido encontrado com essa busca.</p>
                     {% else %}
                     <p class="painel-nota">Nenhum pedido ainda.</p>
                     {% endif %}
+                    </div><!-- /sub-aba pedidos -->
                 </section>
 
                 <!-- ===================== Custos ===================== -->

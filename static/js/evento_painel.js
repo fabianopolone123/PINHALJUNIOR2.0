@@ -147,4 +147,5 @@
     }
     ligarBusca("buscaCobertura", ".cob-item", "cobVazio");
     ligarBusca("buscaInscricoes", ".inscricao-busca", "inscricoesVazio");
+    ligarBusca("buscaPedidos", ".pedido-busca", "pedidosVazio");
 })();
