@@ -565,8 +565,29 @@ a.tipo-card:hover {
 .loja-var { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .loja-var-nome { font-weight: 600; min-width: 60px; }
 .loja-var-preco { font-weight: 800; color: var(--azul-escuro); }
-.loja-qtd { width: 76px; flex: none; margin-left: auto; text-align: center; }
+.loja-var .qtd-stepper { margin-left: auto; flex: none; }
 .loja-var .var-estoque { flex: none; }
+
+/* Stepper de quantidade (+/-) */
+.qtd-stepper {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--borda); border-radius: 999px;
+    overflow: hidden; background: var(--branco);
+}
+.qtd-btn {
+    width: 40px; height: 40px; border: none; cursor: pointer;
+    background: var(--fundo-conteudo, #eef3f9); color: var(--azul-escuro);
+    font-size: 1.3rem; font-weight: 700; line-height: 1;
+    transition: background var(--transicao), transform var(--transicao);
+}
+.qtd-btn:hover { background: rgba(74, 144, 217, 0.18); }
+.qtd-btn:active { transform: scale(0.88); }
+.qtd-stepper .loja-qtd {
+    width: 48px; border: none; background: transparent; text-align: center;
+    font-size: 1rem; font-weight: 800; color: var(--texto); -moz-appearance: textfield;
+}
+.qtd-stepper .loja-qtd::-webkit-outer-spin-button,
+.qtd-stepper .loja-qtd::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 .loja-rodape {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;

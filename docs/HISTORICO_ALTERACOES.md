@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Ajustes da lojinha/PDV (feedback da validação)
+
+### Resumo
+Ajustes pedidos após validar a Lojinha:
+1. **Botões +/- de quantidade**: nas telas de compra (loja, inscrição, PDV de venda e de inscrição),
+   cada variação agora tem um **stepper** `[− n +]` (arredondado, com hover/efeito) em vez de digitar
+   a quantidade — mais rápido no balcão. O total ao vivo recalcula ao clicar.
+2. **"Nome do cliente" (PDV venda)**: texto de ajuda explicado — se preencher, é esse nome que fica no
+   pedido; se vazio, usa o nome da inscrição vinculada (se houver) ou "Cliente (balcão)".
+3. **WhatsApp, e-mail e CPF do responsável** viraram **obrigatórios** no formulário de inscrição
+   (com o asterisco), junto do nome.
+4. **Ajudante externo — navegação corrigida**: o botão "Voltar" das telas de PDV agora leva à landing
+   **"Operar"** (não ao painel do Diretor, que dava "acesso restrito"); a landing "Operar" só mostra
+   "Voltar para o painel" para o Diretor; e o ajudante externo, ao cair em "/inicio/", é **redirecionado
+   para o evento dele** (não vê mais "Meus Dados"/"cadastrar aventureiro").
+
+### Arquivos alterados
+- `templates/core/_loja_itens.html`: variação com stepper `.qtd-stepper` (botões `.qtd-btn`).
+- `static/js/qtd_stepper.js` (novo): +/- ajusta o input e dispara `input` (recalcula o total).
+  Incluído em `evento_loja.html`, `evento_inscrever.html`, `evento_pdv.html`, `evento_pdv_inscricao.html`.
+- `static/css/eventos.css`: estilo do stepper.
+- `core/forms.py`: `InscricaoForm` — `responsavel_whatsapp/email/cpf` obrigatórios.
+- `templates/core/evento_pdv.html`: ajuda do "Nome do cliente"; "Voltar" condicional (diretor→painel /
+  operador→operar). `evento_pdv_inscricao.html`: "Voltar" condicional. `evento_operar.html`: "Voltar
+  para o painel" só para diretor.
+- `core/views.py`: `inicio_view` redireciona ajudante externo para o "Operar" do evento dele.
+
+### Validação
+- Teste ponta a ponta: stepper presente; whatsapp/email/cpf obrigatórios (bloqueia sem eles, cria com
+  todos); ajudante externo (inicio→operar, PDV "Voltar"→operar, sem link para o painel); diretor
+  "Voltar"→painel. Todos passaram. `manage.py check` OK. Stepper conferido visualmente (~490px).
+
+---
+
 ## 2026-07-04 - Evento complexo — Lojinha Fase 4.4c: operadores do evento (conclui a Lojinha)
 
 ### Resumo

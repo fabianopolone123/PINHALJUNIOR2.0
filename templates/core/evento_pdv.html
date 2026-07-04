@@ -47,7 +47,11 @@
             </header>
 
             <div class="conteudo-interno">
+                {% if is_diretor %}
                 <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="voltar-link">← Voltar para o painel</a>
+                {% else %}
+                <a href="{% url 'core:evento_operar' evento.id %}" class="voltar-link">← Voltar</a>
+                {% endif %}
 
                 <header class="cabecalho">
                     <h1 class="cabecalho-titulo">PDV / Balcão 🧾</h1>
@@ -83,7 +87,8 @@
                         </div>
                         <div class="campo">
                             <label for="comprador_nome">Nome do cliente <small class="ajuda">(opcional)</small></label>
-                            <input type="text" id="comprador_nome" name="comprador_nome" class="campo-input" value="{{ comprador.nome }}" placeholder="Se vazio: usa a inscrição ou “Cliente (balcão)”">
+                            <input type="text" id="comprador_nome" name="comprador_nome" class="campo-input" value="{{ comprador.nome }}" placeholder="Nome de quem está comprando">
+                            <small class="ajuda">Se preencher, é esse nome que fica no pedido. Se vazio: usa o nome da inscrição vinculada (se houver) ou “Cliente (balcão)”.</small>
                         </div>
 
                         <h3 class="bloco-rotulo">Pagamento</h3>
@@ -111,6 +116,7 @@
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/qtd_stepper.js' %}"></script>
     <script src="{% static 'js/evento_pdv.js' %}"></script>
 </body>
 </html>

@@ -46,6 +46,9 @@
             </header>
 
             <div class="conteudo-interno">
+                {% if is_diretor %}
+                <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="voltar-link">← Voltar para o painel</a>
+                {% endif %}
                 <header class="cabecalho">
                     <h1 class="cabecalho-titulo">{{ evento.nome }}</h1>
                     <p class="cabecalho-sub">Balcão do evento — escolha o que fazer.</p>

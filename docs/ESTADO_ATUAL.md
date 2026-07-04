@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Lojinha Fase 4.4c: operadores do evento — diretoria selecionada + ajudantes externos com conta temporária/senha 1234/troca obrigatória; menu centralizado — CONCLUI a Lojinha)
+**Última atualização:** 2026-07-04 (Ajustes da lojinha: botões +/- de quantidade, WhatsApp/e-mail/CPF obrigatórios na inscrição e navegação do ajudante externo corrigida)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -321,6 +321,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_painel.js` — abas do painel do evento complexo + modais (custo, faixa, campo).
 - `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + campos por participante.
 - `static/js/evento_produto.js` — linhas de variação (adicionar/remover) + mostrar/ocultar estoque.
+- `static/js/qtd_stepper.js` — botões +/- de quantidade nas telas de compra (dispara o recálculo).
 - `static/js/evento_loja.js` — total ao vivo da loja/inscrição conforme as quantidades.
 - `static/js/evento_pdv.js` — PDV vendas: total, forma de pagamento e troco.
 - `static/js/evento_pdv_inscricao.js` — PDV inscrição: total combinado (faixa/diretoria + lojinha) + troco.

@@ -46,7 +46,11 @@
             </header>
 
             <div class="conteudo-interno">
+                {% if is_diretor %}
                 <a href="{% url 'core:evento_painel' evento.id %}#inscricoes" class="voltar-link">← Voltar para o painel</a>
+                {% else %}
+                <a href="{% url 'core:evento_operar' evento.id %}" class="voltar-link">← Voltar</a>
+                {% endif %}
                 <header class="cabecalho">
                     <h1 class="cabecalho-titulo">PDV — Nova inscrição 🎟️</h1>
                     <p class="cabecalho-sub">{{ evento.nome }} — inscrição presencial com pagamento</p>
@@ -120,6 +124,7 @@
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/qtd_stepper.js' %}"></script>
     <script src="{% static 'js/evento_inscrever.js' %}"></script>
     <script src="{% static 'js/evento_pdv_inscricao.js' %}"></script>
 </body>

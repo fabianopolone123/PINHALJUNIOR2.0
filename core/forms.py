@@ -305,9 +305,9 @@ class InscricaoForm(EstiloFormMixin, forms.Form):
     """
 
     responsavel_nome = forms.CharField(label="Nome do responsável", max_length=150)
-    responsavel_whatsapp = forms.CharField(label="WhatsApp", max_length=20, required=False)
-    responsavel_email = forms.EmailField(label="E-mail", required=False)
-    responsavel_cpf = forms.CharField(label="CPF", max_length=20, required=False)
+    responsavel_whatsapp = forms.CharField(label="WhatsApp", max_length=20)
+    responsavel_email = forms.EmailField(label="E-mail")
+    responsavel_cpf = forms.CharField(label="CPF", max_length=20)
 
     def __init__(self, *args, evento=None, **kwargs):
         super().__init__(*args, **kwargs)

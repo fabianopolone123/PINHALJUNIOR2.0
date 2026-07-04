@@ -213,6 +213,13 @@ def _preparar_ficha(fm):
 @login_required
 def inicio_view(request):
     """Área interna "Meus Dados": dados da conta + aventureiros do usuário."""
+    # Ajudante externo não tem "Meus Dados": vai direto para o evento dele.
+    op_externo = OperadorEvento.objects.filter(
+        usuario=request.user, externo=True
+    ).first()
+    if op_externo is not None:
+        return redirect("core:evento_operar", pk=op_externo.evento_id)
+
     usuario = request.user
     aventureiros = list(
         usuario.aventureiros

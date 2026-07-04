@@ -19,10 +19,14 @@
                     {% if v.esgotado %}
                     <span class="var-estoque esgotado">esgotado</span>
                     {% else %}
-                    <input type="number" name="qtd_{{ v.id }}" class="campo-input loja-qtd"
-                           min="0" {% if p.controla_estoque %}max="{{ v.estoque }}"{% endif %}
-                           value="{{ v.qtd_atual }}" data-preco="{{ v.valor }}"
-                           inputmode="numeric" aria-label="Quantidade de {{ p.nome }} {{ v.rotulo }}">
+                    <div class="qtd-stepper">
+                        <button type="button" class="qtd-btn qtd-menos" aria-label="Diminuir">−</button>
+                        <input type="number" name="qtd_{{ v.id }}" class="loja-qtd"
+                               min="0" {% if p.controla_estoque %}max="{{ v.estoque }}"{% endif %}
+                               value="{{ v.qtd_atual }}" data-preco="{{ v.valor }}"
+                               inputmode="numeric" aria-label="Quantidade de {{ p.nome }} {{ v.rotulo }}">
+                        <button type="button" class="qtd-btn qtd-mais" aria-label="Aumentar">+</button>
+                    </div>
                     {% if p.controla_estoque %}<span class="var-estoque">{{ v.estoque }} disp.</span>{% endif %}
                     {% endif %}
                 </li>
