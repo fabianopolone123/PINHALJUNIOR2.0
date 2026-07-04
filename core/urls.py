@@ -30,6 +30,21 @@ urlpatterns = [
         views.evento_inscricao_cancelar_view,
         name="evento_inscricao_cancelar",
     ),
+    path(
+        "eventos/<int:pk>/produtos/novo/",
+        views.evento_produto_novo_view,
+        name="evento_produto_novo",
+    ),
+    path(
+        "eventos/<int:pk>/produtos/<int:produto_id>/editar/",
+        views.evento_produto_editar_view,
+        name="evento_produto_editar",
+    ),
+    path(
+        "eventos/<int:pk>/produtos/<int:produto_id>/excluir/",
+        views.evento_produto_excluir_view,
+        name="evento_produto_excluir",
+    ),
     path("eventos/<int:pk>/custos/novo/", views.evento_custo_novo_view, name="evento_custo_novo"),
     path(
         "eventos/<int:pk>/custos/<int:custo_id>/excluir/",

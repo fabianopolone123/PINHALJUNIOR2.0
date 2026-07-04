@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Ajustes das inscrições: correção de comentário vazando, botão "Ver no mapa", campos "por participante" × "uma vez" e textos revistos)
+**Última atualização:** 2026-07-04 (Lojinha Fase 4.1: cadastro de produtos com variações, preço por variação e controle de estoque opcional — na aba "Lojinha" do painel)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -107,6 +107,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   "Inscrições" tem a **lista de inscritos** (com participantes/valores, respostas e ação **Cancelar**)
   e o **Resumo** conta **inscritos** (participantes confirmados) e **arrecadação** de verdade. Acesso:
   público sem login se aberto ao público, senão exige login; após o prazo, o formulário trava.
+- **Evento complexo — Lojinha Fase 4.1 (cadastro de produtos)**: a aba **"Lojinha"** do painel permite
+  cadastrar **produtos** com **variações** (cada uma com seu **preço**) e **controle de estoque
+  opcional** por produto (quando ligado, cada variação tem quantidade). Produto tem nome, descrição,
+  **foto** opcional e "à venda" (liga/desliga). Cadastro em página dedicada com linhas de variação
+  repetíveis; a coluna "Estoque" aparece só se "Controlar estoque" estiver marcado. A **venda**
+  (carrinho/pedidos) e a integração com inscrição/PDV vêm nas próximas partes da Lojinha.
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -199,6 +205,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   faixa, valor) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
   snapshot + valor). Migrations `0006`, `0007`. Respostas de campos "por participante" têm
   `participante` preenchido; as de campos "uma vez" ficam com `participante` nulo.
+- `ProdutoEvento` — produto da lojinha do evento (FK `evento`, nome, descrição, foto, controla_estoque,
+  ativo, ordem) e `VariacaoProduto` (FK `produto`, nome, valor, estoque, ordem). Migration `0008`.
+  O preço fica em cada variação; estoque só conta quando `controla_estoque` está ligado.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -208,11 +217,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- **Fase 2 (Inscrições) concluída.** A "página pública com pagamento simulado" (antiga Fase 3) ficou
-  coberta por 2.3 + 2.4.
-- **Evento complexo — Lojinha** (produtos com variações/estoque + pedidos, pagamento simulado).
+- **Lojinha 4.2** (próximo passo): comprar na página do evento — carrinho + finalizar (pagamento
+  simulado), baixa de estoque, entra em "Vendas (lojinha)" no Resumo.
+- **Lojinha 4.3**: comprar junto da inscrição (opcional) + voltar e pedir mais depois.
+- **Lojinha 4.4**: PDV dos atendentes (vendem/inscrevem no dia, marcam pago/forma de pagamento).
 - **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
-- **Depois**: pagamentos reais (gateway) e mapa (Google Maps).
+- **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
   lista de inscritos, e-mail de confirmação.
 - **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
@@ -235,8 +245,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_painel.html` (painel/dashboard do evento complexo)
 - `templates/core/evento_pagina.html` (página do evento — pública/interna, com botão de inscrever)
 - `templates/core/evento_inscrever.html` (formulário de inscrição) e `evento_inscricao_sucesso.html`
+- `templates/core/evento_produto_form.html` (cadastro/edição de produto da lojinha)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
-- `templates/core/_participante_linha.html` (parcial: uma linha de participante da inscrição)
+- `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
@@ -266,7 +277,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
 - `static/js/evento_painel.js` — abas do painel do evento complexo + modais (custo, faixa, campo).
-- `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + toggle "diretoria".
+- `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + campos por participante.
+- `static/js/evento_produto.js` — linhas de variação (adicionar/remover) + mostrar/ocultar estoque.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -282,6 +294,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/inscrever/` — formulário de inscrição (`core.views.evento_inscrever_view`, nome `core:evento_inscrever`).
 - `/eventos/<id>/inscrever/sucesso/` — confirmação da inscrição (`core:evento_inscricao_sucesso`).
 - `/eventos/<id>/inscricoes/<id>/cancelar/` — cancela inscrição (POST, Diretor) (`core:evento_inscricao_cancelar`).
+- `/eventos/<id>/produtos/novo/`, `.../produtos/<id>/editar/` e `.../produtos/<id>/excluir/` — lojinha: cadastro/edição/remoção de produto (Diretor).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).

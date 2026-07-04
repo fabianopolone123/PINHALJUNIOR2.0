@@ -1,0 +1,138 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>{% if produto %}Editar produto{% else %}Novo produto{% endif %} - {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            <nav class="menu">
+                <a href="{% url 'core:inicio' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👤</span>
+                    <span class="menu-texto">Meus Dados</span>
+                </a>
+                {% if is_diretor %}
+                <a href="{% url 'core:usuarios' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👥</span>
+                    <span class="menu-texto">Usuários</span>
+                </a>
+                <a href="{% url 'core:eventos' %}" class="menu-item ativo" aria-current="page">
+                    <span class="menu-icone" aria-hidden="true">📅</span>
+                    <span class="menu-texto">Eventos</span>
+                </a>
+                {% endif %}
+                {% include "core/_menu_eventos.html" %}
+            </nav>
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">{% if produto %}Editar produto{% else %}Novo produto{% endif %}</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="voltar-link">← Voltar para o painel</a>
+
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">{% if produto %}Editar produto 🛒{% else %}Novo produto 🛒{% endif %}</h1>
+                    <p class="cabecalho-sub">{{ evento.nome }}</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <section class="card evento-form-card">
+                    <form method="post" enctype="multipart/form-data" class="evento-form" novalidate id="produtoForm">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}<div class="erros">{{ form.non_field_errors }}</div>{% endif %}
+
+                        {% include "core/_campo.html" with campo=form.nome %}
+                        {% include "core/_campo.html" with campo=form.descricao %}
+                        {% include "core/_campo.html" with campo=form.foto %}
+
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ form.controla_estoque }}
+                                <label for="{{ form.controla_estoque.id_for_label }}">{{ form.controla_estoque.label }}</label>
+                            </div>
+                            <small class="ajuda">Marque se este produto tem quantidade limitada.</small>
+                        </div>
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ form.ativo }}
+                                <label for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                            </div>
+                            <small class="ajuda">Desmarque para esconder o produto da lojinha sem apagá-lo.</small>
+                        </div>
+
+                        <h3 class="bloco-rotulo">Variações</h3>
+                        <p class="ajuda">Cada variação tem seu preço{% if form.controla_estoque %} e estoque{% endif %}. Ex.: camiseta P, M, G. Se o produto é único, deixe uma variação só.</p>
+                        {% if erros_var %}
+                        <div class="erros">{% for e in erros_var %}<div>{{ e }}</div>{% endfor %}</div>
+                        {% endif %}
+
+                        <div class="var-cabecalho">
+                            <span class="var-col-nome">Nome</span>
+                            <span class="var-col-valor">Preço</span>
+                            <span class="var-col-estoque var-estoque-campo">Estoque</span>
+                            <span class="var-col-acao"></span>
+                        </div>
+                        <div id="variacoes">
+                            {% for ln in linhas %}{% include "core/_variacao_linha.html" with ln=ln %}{% endfor %}
+                        </div>
+                        <template id="var-modelo">{% include "core/_variacao_linha.html" with ln=linha_modelo %}</template>
+                        <button type="button" class="btn-secundario" id="addVariacao">➕ Adicionar variação</button>
+
+                        <div class="form-acoes">
+                            <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="btn-secundario">Cancelar</a>
+                            <button type="submit" class="btn-acao">
+                                <span aria-hidden="true">💾</span> Salvar produto
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/evento_produto.js' %}"></script>
+</body>
+</html>

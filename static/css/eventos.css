@@ -506,6 +506,53 @@ a.tipo-card:hover {
 }
 .btn-mapa:hover { background: rgba(74, 144, 217, 0.12); }
 
+/* ===== Lojinha — lista de produtos (Parte 4.1) ===== */
+.produtos-lista { display: flex; flex-direction: column; gap: 12px; margin-bottom: 6px; }
+.produto-item { display: flex; gap: 14px; padding: 14px 16px; align-items: flex-start; }
+.produto-inativo { opacity: 0.65; }
+.produto-foto {
+    flex: none; width: 64px; height: 64px; border-radius: 12px;
+    object-fit: cover; background: var(--fundo-conteudo, #eef3f9);
+    display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+}
+.produto-foto-vazia { border: 1px dashed var(--borda); color: var(--texto-suave); }
+.produto-info { flex: 1; min-width: 0; }
+.produto-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.produto-nome { color: var(--azul-escuro); overflow-wrap: anywhere; }
+.produto-desc { font-size: 0.9rem; color: var(--texto-suave); margin-top: 4px; overflow-wrap: anywhere; }
+.produto-variacoes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.produto-variacoes li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; font-size: 0.9rem; }
+.var-nome { font-weight: 600; color: var(--texto); }
+.var-valor { font-weight: 800; color: var(--azul-escuro); }
+.var-estoque { font-size: 0.8rem; color: var(--texto-suave); }
+.var-estoque.esgotado { color: #c0392b; font-weight: 700; }
+.produto-acoes { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+/* ===== Lojinha — linhas de variação no cadastro ===== */
+.var-cabecalho {
+    display: flex; gap: 8px; padding: 0 2px; margin-bottom: 4px;
+    font-size: 0.78rem; font-weight: 700; color: var(--texto-suave);
+}
+.var-cabecalho .var-col-nome { flex: 1 1 auto; }
+.var-cabecalho .var-col-valor { flex: 0 0 110px; }
+.var-cabecalho .var-col-estoque { flex: 0 0 110px; }
+.var-cabecalho .var-col-acao { flex: 0 0 34px; }
+#variacoes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.var-linha { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.var-linha .var-linha-nome { flex: 1 1 140px; }
+.var-linha .var-linha-valor { flex: 0 0 110px; width: 110px; }
+.var-linha .var-linha-estoque { flex: 0 0 110px; width: 110px; }
+.var-remover { flex: none; }
+#addVariacao { margin: 2px 0 8px; }
+/* Oculta a coluna de estoque quando o produto não controla estoque. */
+.oculta-estoque .var-estoque-campo { display: none !important; }
+
+@media (max-width: 560px) {
+    .var-cabecalho { display: none; }
+    .var-linha .var-linha-valor,
+    .var-linha .var-linha-estoque { flex: 1 1 120px; width: auto; }
+}
+
 .valores-resumo {
     background: var(--fundo-conteudo, #eef3f9); border-radius: 10px; padding: 12px 14px;
     margin-bottom: 16px; font-size: 0.9rem;

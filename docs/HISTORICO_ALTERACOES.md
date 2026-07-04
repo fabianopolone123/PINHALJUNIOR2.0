@@ -22,6 +22,53 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Lojinha Fase 4.1: cadastro de produtos
+
+### Resumo
+Início da **Lojinha** (mini-sistema de vendas por evento). **Parte 4.1**: a aba "Lojinha" do painel
+deixou de ser "em breve" e agora permite **cadastrar produtos** com **variações** (cada uma com seu
+**preço**) e **controle de estoque opcional por produto** (alguns vendem à vontade; outros têm
+quantidade por variação). Produto tem nome, descrição, **foto** opcional e liga/desliga ("à venda").
+Cadastro em página dedicada, com **linhas de variação** repetíveis (adicionar/remover) e a coluna
+"Estoque" aparecendo só quando "Controlar estoque" está marcado. A **venda** (carrinho/pedidos) vem
+nas próximas partes.
+
+### Contexto (alinhado com o usuário)
+A lojinha do evento será usada de vários jeitos, em fases: comprar **junto da inscrição** (opcional),
+**voltar e pedir mais** depois (ex.: mais lanche no dia do evento) e, no futuro, um **PDV para
+atendentes** autorizados (caixa/cantina) que vendem/inscrevem no dia e marcam pago/forma de pagamento.
+Tudo dentro da página do evento (para o financeiro do evento fechar). A loja **oficial do clube**
+(uniformes etc.) é outra coisa, separada, para bem depois.
+
+### Arquivos criados/alterados
+- `core/models.py`: `ProdutoEvento` (evento, nome, descrição, foto, controla_estoque, ativo, ordem) e
+  `VariacaoProduto` (produto, nome, valor, estoque, ordem). Migration `0008`.
+- `core/forms.py`: `ProdutoEventoForm` (dados do produto; variações tratadas na view).
+- `core/views.py`: `evento_produto_novo_view`, `evento_produto_editar_view`,
+  `evento_produto_excluir_view` + helpers `_parse_variacoes`/`_salvar_variacoes` (linhas indexadas,
+  sincroniza criar/editar/remover). Painel carrega `produtos`.
+- `core/urls.py`: rotas `evento_produto_novo`/`_editar`/`_excluir`. `core/admin.py`: `ProdutoEvento`
+  (inline de variações) e `VariacaoProduto`.
+- `templates/core/evento_produto_form.html` (novo, com layout interno + variações) e
+  `_variacao_linha.html` (linha repetível). `evento_painel.html`: aba "Lojinha" lista os produtos.
+- `static/js/evento_produto.js`: adicionar/remover variação + mostrar/ocultar estoque.
+- `static/css/eventos.css`: lista de produtos e linhas de variação (mobile-first).
+
+### Validação
+- Teste ponta a ponta: cadastro com estoque + 3 variações; produto sem estoque (estoque zerado);
+  edição (mudar preço, remover e adicionar variação — sincroniza); preço inválido e produto sem
+  variação rejeitados; painel lista os produtos; excluir; **responsável (não-diretor) bloqueado**.
+  `python manage.py check` sem problemas.
+- **Responsividade (Chrome headless ~484px)**: página de cadastro de produto, aba "Lojinha" do painel
+  e formulário de inscrição conferidos — sem overflow horizontal; variações e cartões quebram bem.
+
+### Pendências / próximo passo
+- **Lojinha 4.2** — comprar na página do evento (carrinho + finalizar, pagamento simulado, baixa de
+  estoque, entra em "Vendas (lojinha)" no Resumo).
+- Depois: 4.3 (comprar junto da inscrição + voltar e pedir mais) e 4.4 (PDV dos atendentes).
+
+---
+
 ## 2026-07-04 - Ajustes de validação das inscrições (feedback do usuário)
 
 ### Resumo

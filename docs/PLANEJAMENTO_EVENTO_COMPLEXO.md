@@ -49,8 +49,22 @@ lojinha, custos e resultado (lucro/prejuízo).
   Modelos `Inscricao`, `ParticipanteInscricao`, `RespostaInscricao`.
 - **🎉 FASE 2 (INSCRIÇÕES) CONCLUÍDA.** A "página pública com pagamento simulado" (antiga Fase 3)
   ficou coberta por 2.3 + 2.4.
-- **PRÓXIMO PASSO = Lojinha (antiga Fase 4).** Antes de codar, alinhar: produtos (com variações e
-  estoque), como o pedido se liga (ou não) a uma inscrição, e onde entra na página do evento.
+- **Lojinha 4.1 CONCLUÍDA** (2026-07-04): cadastro de produtos com variações (preço por variação) e
+  controle de estoque **opcional** por produto, na aba "Lojinha" do painel. Modelos `ProdutoEvento` e
+  `VariacaoProduto`.
+- **PRÓXIMO PASSO = Lojinha 4.2 (comprar na página do evento).** Antes de codar, alinhar: carrinho +
+  finalização (pagamento simulado), baixa de estoque, e como o pedido aparece no painel/Resumo.
+
+### Lojinha — contexto (definido com o usuário em 2026-07-04)
+Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
+- Comprar **junto da inscrição** (opcional) → 4.3.
+- **Voltar e pedir mais** depois de forma fácil (ex.: mais lanche no dia) → 4.3.
+- Comprar **avulso** pela seção da lojinha na página do evento → 4.2.
+- Futuro **PDV para atendentes** autorizados (caixa/cantina): vendem/inscrevem no dia, marcam
+  **pago / forma de pagamento** → 4.4.
+- Produtos com **variações** (preço por variação) e **estoque opcional** por produto (✅ 4.1).
+- A **loja oficial do clube** (uniformes etc.) é OUTRA coisa, separada, para bem depois (não é a
+  lojinha de evento).
 
 ## Requisitos da Fase 2 (definidos com o usuário em 2026-07-04)
 > Cada evento complexo é um **mini-sistema configurável**; nada é fixo no sistema.
@@ -85,9 +99,16 @@ lojinha, custos e resultado (lucro/prejuízo).
      respostas do formulário, pagamento **simulado**, código, **lista de inscritos** no painel e
      **contagem/arrecadação no dashboard**. Modelos `Inscricao`/`ParticipanteInscricao`/`RespostaInscricao`.
 3. **Fase 3 — coberta ✅** — **Página pública** de inscrição com pagamento **simulado** (feita em 2.3 + 2.4).
-4. **Fase 4 — PRÓXIMA ⏭️** — **Lojinha** (produtos/variações/estoque + pedidos, pagamento simulado).
+4. **Fase 4 — Lojinha** (em partes):
+   - **4.1 — CONCLUÍDA ✅** — Cadastro de produtos: variações (preço por variação) + estoque opcional.
+     Modelos `ProdutoEvento` e `VariacaoProduto`.
+   - **4.2 — PRÓXIMA ⏭️** — Comprar **avulso** na página do evento: carrinho + finalizar (pagamento
+     simulado), baixa de estoque, entra em "Vendas (lojinha)" no Resumo.
+   - **4.3** — Comprar **junto da inscrição** (opcional) + **voltar e pedir mais** depois.
+   - **4.4** — **PDV dos atendentes** (vendem/inscrevem no dia, marcam pago/forma de pagamento).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
-6. **Depois** — Pagamentos reais (gateway) + mapa (Google Maps).
+6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
+   **loja oficial do clube** (uniformes) — separada da lojinha de evento.
 
 ## Decisões
 - Reaproveitar o modelo **`Evento`** (tipo `inscricao`) como base do evento complexo + modelos

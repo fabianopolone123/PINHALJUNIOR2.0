@@ -625,6 +625,57 @@ class ParticipanteInscricao(models.Model):
         return f"{self.nome} — {self.inscricao.codigo}"
 
 
+class ProdutoEvento(models.Model):
+    """Produto da lojinha de um evento (Fase 4.1). O preço fica nas variações."""
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="produtos",
+        verbose_name="Evento",
+    )
+    nome = models.CharField("Nome do produto", max_length=150)
+    descricao = models.TextField("Descrição", blank=True)
+    foto = models.ImageField(
+        "Foto", upload_to="eventos/produtos/", blank=True, null=True
+    )
+    controla_estoque = models.BooleanField("Controlar estoque", default=False)
+    ativo = models.BooleanField("À venda", default=True)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Produto da lojinha"
+        verbose_name_plural = "Produtos da lojinha"
+        ordering = ["ordem", "id"]
+
+    def __str__(self):
+        return f"{self.nome} — {self.evento.nome}"
+
+
+class VariacaoProduto(models.Model):
+    """Uma variação de um produto (ex.: tamanho/sabor), com preço e estoque."""
+
+    produto = models.ForeignKey(
+        ProdutoEvento,
+        on_delete=models.CASCADE,
+        related_name="variacoes",
+        verbose_name="Produto",
+    )
+    nome = models.CharField("Nome da variação", max_length=80, blank=True)
+    valor = models.DecimalField("Preço", max_digits=10, decimal_places=2, default=0)
+    estoque = models.PositiveIntegerField("Estoque", default=0)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+
+    class Meta:
+        verbose_name = "Variação de produto"
+        verbose_name_plural = "Variações de produto"
+        ordering = ["ordem", "id"]
+
+    def __str__(self):
+        return f"{self.nome or 'Único'} — {self.produto.nome}"
+
+
 class RespostaInscricao(models.Model):
     """Resposta de um campo personalizado do formulário, numa inscrição."""
 

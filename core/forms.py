@@ -19,6 +19,7 @@ from .models import (
     Evento,
     FaixaEtariaPreco,
     FichaMedica,
+    ProdutoEvento,
 )
 
 
@@ -365,6 +366,24 @@ class InscricaoForm(EstiloFormMixin, forms.Form):
         if campo.tipo == "data":
             return valor.strftime("%d/%m/%Y") if valor else ""
         return "" if valor is None else str(valor)
+
+
+class ProdutoEventoForm(EstiloFormMixin, forms.ModelForm):
+    """Dados básicos de um produto da lojinha (Fase 4.1). As variações são
+    tratadas na view (linhas repetíveis)."""
+
+    class Meta:
+        model = ProdutoEvento
+        fields = ["nome", "descricao", "foto", "controla_estoque", "ativo"]
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 2}),
+            "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nome"].required = True
+        self._aplicar_estilo()
 
 
 class CustoEventoForm(EstiloFormMixin, forms.ModelForm):

@@ -10,7 +10,9 @@ from .models import (
     FichaMedica,
     Inscricao,
     ParticipanteInscricao,
+    ProdutoEvento,
     RespostaInscricao,
+    VariacaoProduto,
 )
 
 
@@ -77,3 +79,16 @@ class InscricaoAdmin(admin.ModelAdmin):
     search_fields = ("codigo", "responsavel_nome", "evento__nome")
     list_filter = ("evento", "status")
     inlines = [ParticipanteInscricaoInline, RespostaInscricaoInline]
+
+
+class VariacaoProdutoInline(admin.TabularInline):
+    model = VariacaoProduto
+    extra = 1
+
+
+@admin.register(ProdutoEvento)
+class ProdutoEventoAdmin(admin.ModelAdmin):
+    list_display = ("nome", "evento", "controla_estoque", "ativo", "ordem")
+    search_fields = ("nome", "evento__nome")
+    list_filter = ("evento", "ativo")
+    inlines = [VariacaoProdutoInline]

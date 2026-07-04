@@ -1,0 +1,12 @@
+{% comment %}
+Uma linha de variação de produto. Recebe `ln` (idx, id, nome, valor_raw, estoque_raw).
+O campo de estoque é ocultado por CSS quando o produto não controla estoque.
+{% endcomment %}
+<div class="var-linha">
+    <input type="hidden" name="var_idx" value="{{ ln.idx }}">
+    <input type="hidden" name="var_id_{{ ln.idx }}" value="{{ ln.id }}">
+    <input type="text" name="var_nome_{{ ln.idx }}" class="campo-input var-linha-nome" placeholder="Variação (ex.: P, M, G)" value="{{ ln.nome }}">
+    <input type="number" step="0.01" min="0" name="var_valor_{{ ln.idx }}" class="campo-input var-linha-valor" placeholder="Preço" value="{{ ln.valor_raw }}">
+    <input type="number" min="0" name="var_estoque_{{ ln.idx }}" class="campo-input var-linha-estoque var-estoque-campo" placeholder="Estoque" value="{{ ln.estoque_raw }}">
+    <button type="button" class="part-remover var-remover" aria-label="Remover variação">✕</button>
+</div>

@@ -304,11 +304,54 @@
 
                 <!-- ===================== Lojinha (em breve) ===================== -->
                 <section class="painel-secao" data-secao="lojinha" hidden>
-                    <div class="card em-breve">
-                        <span class="em-breve-icone" aria-hidden="true">🛒</span>
-                        <h2 class="card-titulo">Lojinha do evento — em breve</h2>
-                        <p class="card-texto">Cadastro de produtos com variações, valor e estoque, e os pedidos, virão em uma fase seguinte.</p>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Lojinha do evento</h2>
+                        <a href="{% url 'core:evento_produto_novo' evento.id %}" class="btn-acao btn-acao-pequeno">
+                            <span aria-hidden="true">➕</span> Novo produto
+                        </a>
                     </div>
+
+                    {% if produtos %}
+                    <ul class="produtos-lista">
+                        {% for p in produtos %}
+                        <li class="card produto-item{% if not p.ativo %} produto-inativo{% endif %}">
+                            {% if p.foto %}
+                            <img src="{{ p.foto.url }}" alt="" class="produto-foto">
+                            {% else %}
+                            <span class="produto-foto produto-foto-vazia" aria-hidden="true">🛒</span>
+                            {% endif %}
+                            <div class="produto-info">
+                                <div class="produto-topo">
+                                    <strong class="produto-nome">{{ p.nome }}</strong>
+                                    {% if not p.ativo %}<span class="pill pill-cinza">Inativo</span>{% endif %}
+                                    {% if p.controla_estoque %}<span class="pill">Controla estoque</span>{% endif %}
+                                </div>
+                                {% if p.descricao %}<p class="produto-desc">{{ p.descricao }}</p>{% endif %}
+                                <ul class="produto-variacoes">
+                                    {% for v in p.variacoes.all %}
+                                    <li>
+                                        <span class="var-nome">{{ v.nome|default:"Único" }}</span>
+                                        <span class="var-valor">R$ {{ v.valor|moeda }}</span>
+                                        {% if p.controla_estoque %}<span class="var-estoque{% if v.estoque == 0 %} esgotado{% endif %}">{% if v.estoque == 0 %}esgotado{% else %}{{ v.estoque }} em estoque{% endif %}</span>{% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="produto-acoes">
+                                <a href="{% url 'core:evento_produto_editar' evento.id p.id %}" class="btn-secundario btn-acao-pequeno">Editar</a>
+                                <form method="post" action="{% url 'core:evento_produto_excluir' evento.id p.id %}" onsubmit="return confirm('Remover “{{ p.nome }}”?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="custo-excluir" aria-label="Remover produto">✕</button>
+                                </form>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhum produto cadastrado. Clique em “Novo produto” para montar a lojinha.</p>
+                    {% endif %}
+
+                    <p class="painel-nota">A venda dos produtos (carrinho e pedidos) entra na próxima parte da Lojinha.</p>
                 </section>
 
                 <!-- ===================== Custos ===================== -->

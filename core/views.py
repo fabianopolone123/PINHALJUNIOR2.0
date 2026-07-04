@@ -1,7 +1,7 @@
 import datetime
 import unicodedata
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -25,6 +25,7 @@ from .forms import (
     FaixaEtariaPrecoForm,
     FichaMedicaForm,
     InscricaoForm,
+    ProdutoEventoForm,
     ResponsavelLegalForm,
 )
 from .models import (
@@ -32,7 +33,9 @@ from .models import (
     Evento,
     Inscricao,
     ParticipanteInscricao,
+    ProdutoEvento,
     RespostaInscricao,
+    VariacaoProduto,
 )
 from .permissoes import diretor_required
 
@@ -629,6 +632,7 @@ def evento_painel_view(request, pk):
     total_custos = sum((c.valor for c in custos), Decimal("0"))
     faixas = list(evento.faixas_preco.all())
     campos_inscricao = list(evento.campos_inscricao.all())
+    produtos = list(evento.produtos.prefetch_related("variacoes").all())
 
     inscricoes = list(
         evento.inscricoes.prefetch_related(
@@ -652,6 +656,7 @@ def evento_painel_view(request, pk):
         "form_custo": CustoEventoForm(),
         "faixas": faixas,
         "campos_inscricao": campos_inscricao,
+        "produtos": produtos,
         "inscricoes": inscricoes,
         "config_form": EventoInscricaoConfigForm(instance=evento),
         # Prefixos evitam colisão de IDs entre os modais na mesma página.
@@ -973,6 +978,131 @@ def evento_inscricao_cancelar_view(request, pk, inscricao_id):
         inscricao.save(update_fields=["status"])
         messages.success(request, f"Inscrição {inscricao.codigo} cancelada.")
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+# ---------------------------------------------------------------------------
+# Lojinha — Fase 4.1: cadastro de produtos (com variações e estoque opcional)
+# ---------------------------------------------------------------------------
+def _variacao_vazia(idx):
+    return {"idx": str(idx), "id": "", "nome": "", "valor_raw": "", "estoque_raw": ""}
+
+
+def _parse_variacoes(request, controla):
+    """Lê as linhas de variação do POST (indexadas) → (linhas, erros). Não salva."""
+    linhas = []
+    erros = []
+    for idx in request.POST.getlist("var_idx"):
+        nome = (request.POST.get(f"var_nome_{idx}") or "").strip()
+        valor_raw = (request.POST.get(f"var_valor_{idx}") or "").strip()
+        estoque_raw = (request.POST.get(f"var_estoque_{idx}") or "").strip()
+        if not nome and not valor_raw:
+            continue  # linha em branco
+        valor = None
+        try:
+            valor = Decimal(valor_raw.replace(",", "."))
+            if valor < 0:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            erros.append(f"Preço inválido na variação “{nome or 'sem nome'}”.")
+        try:
+            estoque = int(estoque_raw) if (controla and estoque_raw) else 0
+            estoque = max(estoque, 0)
+        except ValueError:
+            estoque = 0
+        linhas.append({
+            "idx": str(idx), "id": request.POST.get(f"var_id_{idx}") or "",
+            "nome": nome, "valor": valor, "valor_raw": valor_raw,
+            "estoque": estoque, "estoque_raw": estoque_raw,
+        })
+    if not linhas:
+        erros.append("Adicione ao menos uma variação (com preço).")
+    return linhas, erros
+
+
+def _salvar_variacoes(produto, linhas):
+    """Cria/atualiza as variações e remove as que não vieram."""
+    vistos = []
+    for i, ln in enumerate(linhas):
+        var = None
+        if ln["id"]:
+            var = produto.variacoes.filter(pk=ln["id"]).first()
+        if var is None:
+            var = VariacaoProduto(produto=produto)
+        var.nome = ln["nome"]
+        var.valor = ln["valor"] or Decimal("0")
+        var.estoque = ln["estoque"]
+        var.ordem = i
+        var.save()
+        vistos.append(var.id)
+    produto.variacoes.exclude(id__in=vistos).delete()
+
+
+def _produto_form(request, evento, produto):
+    """Cria ou edita um produto da lojinha (com variações)."""
+    if request.method == "POST":
+        form = ProdutoEventoForm(request.POST, request.FILES, instance=produto)
+        controla = bool(request.POST.get("controla_estoque"))
+        linhas, erros_var = _parse_variacoes(request, controla)
+        if form.is_valid() and not erros_var:
+            with transaction.atomic():
+                prod = form.save(commit=False)
+                prod.evento = evento
+                if produto is None:
+                    ultimo = evento.produtos.order_by("-ordem").first()
+                    prod.ordem = (ultimo.ordem + 1) if ultimo else 0
+                prod.save()
+                _salvar_variacoes(prod, linhas)
+            messages.success(request, "Produto salvo.")
+            return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
+        messages.error(request, "Verifique os dados do produto e as variações.")
+    else:
+        form = ProdutoEventoForm(instance=produto)
+        if produto is not None:
+            linhas = [
+                {"idx": str(i), "id": v.id, "nome": v.nome,
+                 "valor_raw": v.valor, "estoque_raw": v.estoque}
+                for i, v in enumerate(produto.variacoes.all())
+            ] or [_variacao_vazia(0)]
+        else:
+            linhas = [_variacao_vazia(0)]
+        erros_var = []
+
+    contexto = {
+        "evento": evento,
+        "form": form,
+        "produto": produto,
+        "linhas": linhas,
+        "linha_modelo": _variacao_vazia("__IDX__"),
+        "erros_var": erros_var,
+    }
+    return render(request, "core/evento_produto_form.html", contexto)
+
+
+@diretor_required
+def evento_produto_novo_view(request, pk):
+    """Cadastra um novo produto na lojinha do evento."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    return _produto_form(request, evento, None)
+
+
+@diretor_required
+def evento_produto_editar_view(request, pk, produto_id):
+    """Edita um produto da lojinha (dados + variações)."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    produto = get_object_or_404(ProdutoEvento, pk=produto_id, evento=evento)
+    return _produto_form(request, evento, produto)
+
+
+@diretor_required
+@require_POST
+def evento_produto_excluir_view(request, pk, produto_id):
+    """Remove um produto da lojinha."""
+    evento = get_object_or_404(Evento, pk=pk)
+    produto = evento.produtos.filter(pk=produto_id).first()
+    if produto is not None:
+        produto.delete()
+        messages.success(request, "Produto removido.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
 
 
 @diretor_required
