@@ -1,0 +1,220 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>{{ evento.nome }} - Painel do evento</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            <nav class="menu">
+                <a href="{% url 'core:inicio' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👤</span>
+                    <span class="menu-texto">Meus Dados</span>
+                </a>
+                {% if is_diretor %}
+                <a href="{% url 'core:usuarios' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👥</span>
+                    <span class="menu-texto">Usuários</span>
+                </a>
+                <a href="{% url 'core:eventos' %}" class="menu-item ativo" aria-current="page">
+                    <span class="menu-icone" aria-hidden="true">📅</span>
+                    <span class="menu-texto">Eventos</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Painel do evento</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:eventos' %}" class="voltar-link">← Voltar para Eventos</a>
+
+                <header class="cabecalho painel-cabecalho">
+                    <div>
+                        <h1 class="cabecalho-titulo">{{ evento.nome }}</h1>
+                        <div class="painel-meta">
+                            <span class="pill pill-verde">Evento com inscrição</span>
+                            <span class="evento-info">📆 {{ evento.data|date:"d/m/Y" }}{% if evento.data_fim %} – {{ evento.data_fim|date:"d/m/Y" }}{% endif %}</span>
+                            {% if evento.horario_inicio %}<span class="evento-info">🕒 {{ evento.horario_inicio|time:"H:i" }}{% if evento.horario_fim %} – {{ evento.horario_fim|time:"H:i" }}{% endif %}</span>{% endif %}
+                            {% if evento.local %}<span class="evento-info">📍 {{ evento.local }}</span>{% endif %}
+                        </div>
+                    </div>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Abas do painel -->
+                <nav class="painel-abas" role="tablist">
+                    <button class="painel-aba ativa" data-aba="resumo" type="button">Resumo</button>
+                    <button class="painel-aba" data-aba="inscricoes" type="button">Inscrições</button>
+                    <button class="painel-aba" data-aba="lojinha" type="button">Lojinha</button>
+                    <button class="painel-aba" data-aba="custos" type="button">Custos</button>
+                    <button class="painel-aba" data-aba="financeiro" type="button">Financeiro</button>
+                </nav>
+
+                <!-- ===================== Resumo ===================== -->
+                <section class="painel-secao ativa" data-secao="resumo">
+                    <div class="kpi-grade">
+                        <div class="kpi-card">
+                            <span class="kpi-rotulo">Inscritos</span>
+                            <span class="kpi-num">{{ resumo.inscritos }}</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-rotulo">Arrecadação (inscrições)</span>
+                            <span class="kpi-num">R$ {{ resumo.arrecadacao_inscricoes|floatformat:2 }}</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-rotulo">Vendas (lojinha)</span>
+                            <span class="kpi-num">R$ {{ resumo.vendas_loja|floatformat:2 }}</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-rotulo">Receitas</span>
+                            <span class="kpi-num">R$ {{ resumo.receitas|floatformat:2 }}</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-rotulo">Custos</span>
+                            <span class="kpi-num">R$ {{ resumo.custos|floatformat:2 }}</span>
+                        </div>
+                        <div class="kpi-card kpi-destaque {% if resumo.resultado < 0 %}kpi-negativo{% elif resumo.resultado > 0 %}kpi-positivo{% endif %}">
+                            <span class="kpi-rotulo">Resultado</span>
+                            <span class="kpi-num">R$ {{ resumo.resultado|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    <p class="painel-nota">
+                        Os números de inscrições e lojinha aparecerão aqui conforme esses módulos forem ativados.
+                        Gráficos serão adicionados quando houver dados.
+                    </p>
+                </section>
+
+                <!-- ===================== Inscrições (em breve) ===================== -->
+                <section class="painel-secao" data-secao="inscricoes" hidden>
+                    <div class="card em-breve">
+                        <span class="em-breve-icone" aria-hidden="true">🎟️</span>
+                        <h2 class="card-titulo">Inscrições — em breve</h2>
+                        <p class="card-texto">Formulário de inscrição customizável e preços (por faixa etária, diretoria, etc.) serão implementados na próxima fase.</p>
+                    </div>
+                </section>
+
+                <!-- ===================== Lojinha (em breve) ===================== -->
+                <section class="painel-secao" data-secao="lojinha" hidden>
+                    <div class="card em-breve">
+                        <span class="em-breve-icone" aria-hidden="true">🛒</span>
+                        <h2 class="card-titulo">Lojinha do evento — em breve</h2>
+                        <p class="card-texto">Cadastro de produtos com variações, valor e estoque, e os pedidos, virão em uma fase seguinte.</p>
+                    </div>
+                </section>
+
+                <!-- ===================== Custos ===================== -->
+                <section class="painel-secao" data-secao="custos" hidden>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Custos do evento</h2>
+                        <button type="button" class="btn-acao btn-acao-pequeno" id="btnAddCusto">
+                            <span aria-hidden="true">➕</span> Adicionar custo
+                        </button>
+                    </div>
+                    <p class="custos-total">Total de custos: <strong>R$ {{ resumo.custos|floatformat:2 }}</strong></p>
+
+                    {% if custos %}
+                    <ul class="custos-lista">
+                        {% for c in custos %}
+                        <li class="card custo-item">
+                            <div class="custo-info">
+                                <strong class="custo-nome">{{ c.nome }}</strong>
+                                {% if c.descricao %}<p class="custo-desc">{{ c.descricao }}</p>{% endif %}
+                                {% if c.comprovante %}<a class="custo-comprovante" href="{{ c.comprovante.url }}" target="_blank" rel="noopener">📎 Ver comprovante</a>{% endif %}
+                            </div>
+                            <span class="custo-valor">R$ {{ c.valor|floatformat:2 }}</span>
+                            <form method="post" action="{% url 'core:evento_custo_excluir' evento.id c.id %}" class="custo-excluir-form" onsubmit="return confirm('Remover este custo?');">
+                                {% csrf_token %}
+                                <button type="submit" class="custo-excluir" aria-label="Remover custo">✕</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhum custo cadastrado ainda.</p>
+                    {% endif %}
+                </section>
+
+                <!-- ===================== Financeiro (em breve) ===================== -->
+                <section class="painel-secao" data-secao="financeiro" hidden>
+                    <div class="card em-breve">
+                        <span class="em-breve-icone" aria-hidden="true">💰</span>
+                        <h2 class="card-titulo">Financeiro — em breve</h2>
+                        <p class="card-texto">O resultado detalhado (receitas × custos), com gráficos e códigos de desconto, virá numa fase futura. O resultado resumido já aparece na aba "Resumo".</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- ===================== Modal: adicionar custo ===================== -->
+        <div class="modal-overlay" id="modalCusto" hidden>
+            <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalCustoTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalCustoTitulo">Adicionar custo</h2>
+                    <button type="button" class="modal-fechar" id="modalCustoFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <form method="post" action="{% url 'core:evento_custo_novo' evento.id %}" enctype="multipart/form-data" class="evento-form" novalidate>
+                        {% csrf_token %}
+                        {% include "core/_campo.html" with campo=form_custo.nome %}
+                        {% include "core/_campo.html" with campo=form_custo.descricao %}
+                        {% include "core/_campo.html" with campo=form_custo.valor %}
+                        {% include "core/_campo.html" with campo=form_custo.comprovante %}
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" id="modalCustoCancelar">Cancelar</button>
+                            <button type="submit" class="btn-acao">
+                                <span aria-hidden="true">💾</span> Salvar custo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/evento_painel.js' %}"></script>
+</body>
+</html>

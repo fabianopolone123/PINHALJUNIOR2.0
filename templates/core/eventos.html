@@ -95,7 +95,7 @@
                             <span class="pill {% if e.tipo == 'inscricao' %}pill-verde{% endif %}">{{ e.get_tipo_display }}</span>
                         </div>
                         <div class="evento-meta">
-                            <span class="evento-info">📆 {{ e.data|date:"d/m/Y" }}</span>
+                            <span class="evento-info">📆 {{ e.data|date:"d/m/Y" }}{% if e.data_fim %} – {{ e.data_fim|date:"d/m/Y" }}{% endif %}</span>
                             {% if e.horario_inicio %}
                             <span class="evento-info">🕒 {{ e.horario_inicio|time:"H:i" }}{% if e.horario_fim %} – {{ e.horario_fim|time:"H:i" }}{% endif %}</span>
                             {% endif %}
@@ -103,9 +103,15 @@
                         </div>
                         {% if e.descricao %}<p class="evento-desc">{{ e.descricao }}</p>{% endif %}
                         <div class="evento-acoes">
+                            {% if e.eh_complexo %}
+                            <a href="{% url 'core:evento_painel' e.id %}" class="btn-acao btn-acao-pequeno">
+                                <span aria-hidden="true">📂</span> Abrir painel
+                            </a>
+                            {% else %}
                             <a href="{% url 'core:evento_novo' %}?duplicar={{ e.id }}" class="btn-secundario">
                                 <span aria-hidden="true">📋</span> Duplicar
                             </a>
+                            {% endif %}
                         </div>
                     </article>
                     {% endfor %}
@@ -137,12 +143,11 @@
                             <span class="tipo-nome">Evento simples</span>
                             <span class="tipo-desc">Reunião, acampamento, festa, venda de alimentos… Nome, local, descrição, data e horário.</span>
                         </a>
-                        <span class="tipo-card tipo-card-desabilitado" aria-disabled="true">
-                            <span class="tipo-badge">Em breve</span>
+                        <a href="{% url 'core:evento_complexo_novo' %}" class="tipo-card">
                             <span class="tipo-icone" aria-hidden="true">🎟️</span>
                             <span class="tipo-nome">Evento com inscrição</span>
-                            <span class="tipo-desc">Com inscrição pública, pagamento, custos, presença e descontos. Será implementado em breve.</span>
-                        </span>
+                            <span class="tipo-desc">Com inscrição, lojinha, custos e financeiro próprios — um painel completo para o evento.</span>
+                        </a>
                     </div>
                 </div>
             </div>

@@ -303,6 +303,9 @@ class Evento(models.Model):
     local = models.CharField("Local do evento", max_length=200, blank=True)
     descricao = models.TextField("Descrição do evento", blank=True)
     data = models.DateField("Data do evento")
+    # Data de término (eventos de vários dias, ex.: acampamento). No evento
+    # simples fica vazia (evento de um dia só).
+    data_fim = models.DateField("Data de término", null=True, blank=True)
     horario_inicio = models.TimeField("Horário de início", null=True, blank=True)
     horario_fim = models.TimeField("Horário de término", null=True, blank=True)
 
@@ -323,3 +326,41 @@ class Evento(models.Model):
 
     def __str__(self):
         return self.nome
+
+    @property
+    def eh_complexo(self):
+        return self.tipo == "inscricao"
+
+
+class CustoEvento(models.Model):
+    """Custo/despesa de um evento (entra no resultado financeiro do evento)."""
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="custos",
+        verbose_name="Evento",
+    )
+    nome = models.CharField("Título do custo", max_length=150)
+    descricao = models.TextField("Descrição", blank=True)
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    comprovante = models.FileField(
+        "Comprovante", upload_to="eventos/custos/", blank=True, null=True
+    )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="custos_evento_criados",
+        verbose_name="Criado por",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Custo do evento"
+        verbose_name_plural = "Custos do evento"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.nome} — {self.evento.nome}"

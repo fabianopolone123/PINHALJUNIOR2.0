@@ -301,3 +301,18 @@ internas ou no fluxo de login, seguir estas regras:
   `body {}` global e conflitaria com o layout interno). `tipo` e `criado_por` são definidos no servidor.
 - **Reuso visual**: telas de evento usam o layout/menu de `inicio.css`, o modal de `base.css` e estilos
   próprios em `static/css/eventos.css`. Sem bibliotecas externas.
+
+### Evento complexo (com inscrição) — em fases
+
+- É um **mini-sistema por evento**, construído em fases. O plano completo (todas as fases, módulos e a
+  referência do sistema antigo) está em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` — **consultar antes de
+  evoluir** e manter atualizado a cada fase concluída.
+- Reaproveita o modelo `Evento` (`tipo=inscricao`) como base; módulos entram como modelos relacionados
+  por FK ao `Evento` (ex.: `CustoEvento`). O evento complexo tem `data_fim` (eventos de vários dias).
+- Abre num **painel dedicado** (`core:evento_painel`, `/eventos/<id>/`) com **abas** (Resumo,
+  Inscrições, Lojinha, Custos, Financeiro) trocadas no cliente (`static/js/evento_painel.js`); abas de
+  fases futuras ficam como "em breve". Ações que gravam (ex.: custos) são POST e redirecionam para o
+  painel com a hash da aba (ex.: `#custos`).
+- **Pagamentos ficam simulados** até a fase específica; nunca integrar gateway sem autorização.
+- Fase 1 (feita): base + painel/resumo (indicadores) + Custos (com comprovante). Próximas: Inscrições,
+  Página pública, Lojinha, Financeiro/gráficos; depois, pagamentos reais e mapa.

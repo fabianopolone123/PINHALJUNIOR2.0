@@ -11,7 +11,7 @@ São quatro formulários combinados no mesmo envio (com prefixos diferentes):
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Aventureiro, AutorizacaoImagem, Evento, FichaMedica
+from .models import Aventureiro, AutorizacaoImagem, CustoEvento, Evento, FichaMedica
 
 
 class EstiloFormMixin:
@@ -157,4 +157,53 @@ class EventoForm(EstiloFormMixin, forms.ModelForm):
         # Garante que os widgets de hora aceitem o valor já formatado (HH:MM).
         for campo in ("horario_inicio", "horario_fim"):
             self.fields[campo].input_formats = ["%H:%M", "%H:%M:%S"]
+        self._aplicar_estilo()
+
+
+class EventoComplexoForm(EstiloFormMixin, forms.ModelForm):
+    """Dados básicos de um evento complexo (com inscrição). Fase 1."""
+
+    class Meta:
+        model = Evento
+        fields = ["nome", "local", "descricao", "data", "horario_inicio", "data_fim", "horario_fim"]
+        widgets = {
+            "data": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "data_fim": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "horario_inicio": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "horario_fim": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "descricao": forms.Textarea(attrs={"rows": 3}),
+        }
+        labels = {
+            "data": "Data de início",
+            "horario_inicio": "Horário de início",
+            "data_fim": "Data de término",
+            "horario_fim": "Horário de término",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nome"].required = True
+        self.fields["data"].required = True
+        for campo in ("horario_inicio", "horario_fim"):
+            self.fields[campo].input_formats = ["%H:%M", "%H:%M:%S"]
+        self._aplicar_estilo()
+
+
+class CustoEventoForm(EstiloFormMixin, forms.ModelForm):
+    """Custo/despesa de um evento (com anexo de comprovante)."""
+
+    class Meta:
+        model = CustoEvento
+        fields = ["nome", "descricao", "valor", "comprovante"]
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 2}),
+            "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "comprovante": forms.ClearableFileInput(
+                attrs={"accept": "image/*,application/pdf"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nome"].required = True
         self._aplicar_estilo()

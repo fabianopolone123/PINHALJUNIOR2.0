@@ -192,3 +192,123 @@ a.tipo-card:hover {
 @media (prefers-reduced-motion: reduce) {
     .tipo-card { transition: none; }
 }
+
+/* ===================== Painel do evento complexo ===================== */
+.voltar-link {
+    display: inline-block;
+    margin-bottom: 12px;
+    color: var(--azul);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+.voltar-link:hover { text-decoration: underline; }
+
+.painel-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: 8px;
+}
+
+/* Abas */
+.painel-abas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 2px solid var(--borda);
+    margin: 18px 0 20px;
+}
+.painel-aba {
+    border: none;
+    background: transparent;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--texto-suave);
+    cursor: pointer;
+    border-radius: 10px 10px 0 0;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color var(--transicao), border-color var(--transicao), background var(--transicao);
+}
+.painel-aba:hover { color: var(--azul); background: rgba(74, 144, 217, 0.08); }
+.painel-aba.ativa { color: var(--azul-escuro); border-bottom-color: var(--verde); }
+
+.painel-secao[hidden] { display: none; }
+
+/* Cards de indicadores (KPIs) */
+.kpi-grade {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+.kpi-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 18px;
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-item);
+    box-shadow: var(--sombra-card);
+}
+.kpi-rotulo { font-size: 0.82rem; color: var(--texto-suave); font-weight: 600; }
+.kpi-num { font-size: 1.5rem; font-weight: 800; color: var(--azul-escuro); }
+.kpi-destaque { border-width: 2px; border-color: var(--azul-claro); }
+.kpi-positivo { border-color: var(--verde); }
+.kpi-positivo .kpi-num { color: var(--verde); }
+.kpi-negativo { border-color: #c0392b; }
+.kpi-negativo .kpi-num { color: #c0392b; }
+
+.painel-nota {
+    margin-top: 14px;
+    font-size: 0.88rem;
+    color: var(--texto-suave);
+}
+
+/* Seções "em breve" */
+.em-breve { text-align: center; padding: 34px 20px; }
+.em-breve-icone { font-size: 2.4rem; display: block; margin-bottom: 8px; }
+
+/* Custos */
+.custos-total { margin-bottom: 14px; color: var(--texto); }
+.custos-lista { display: flex; flex-direction: column; gap: 12px; }
+.custo-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+}
+.custo-info { flex: 1; min-width: 0; }
+.custo-nome { color: var(--azul-escuro); overflow-wrap: anywhere; }
+.custo-desc { font-size: 0.9rem; color: var(--texto-suave); margin-top: 2px; }
+.custo-comprovante {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--azul);
+    text-decoration: none;
+    font-weight: 600;
+}
+.custo-comprovante:hover { text-decoration: underline; }
+.custo-valor { font-weight: 800; color: var(--texto); white-space: nowrap; }
+.custo-excluir-form { flex: none; }
+.custo-excluir {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(192, 57, 43, 0.1);
+    color: #c0392b;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background var(--transicao);
+}
+.custo-excluir:hover { background: rgba(192, 57, 43, 0.2); }
+
+@media (min-width: 720px) {
+    .kpi-grade { grid-template-columns: repeat(3, 1fr); }
+}
+

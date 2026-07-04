@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo (com inscrição) — Fase 1: painel + custos
+
+### Resumo
+Início do "evento complexo" (mini-sistema por evento). **Fase 1**: criar o evento complexo
+(`tipo=inscricao`, com data/hora de início e término) e seu **painel/dashboard** (`/eventos/<id>/`)
+com abas (Resumo, Inscrições, Lojinha, Custos, Financeiro). Nesta fase funcionam **Resumo**
+(indicadores: inscritos, arrecadação, vendas, receitas, custos e **resultado**) e **Custos**
+(adicionar/remover custo com comprovante anexo; total reflete no resultado). Inscrições/Lojinha/
+Financeiro ficam como "em breve". Pagamentos serão simulados nas próximas fases. Plano completo em
+`docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+
+### Arquivos criados/alterados
+- `core/models.py`: campo `Evento.data_fim` + modelo `CustoEvento` (migration `0003`).
+- `core/forms.py`: `EventoComplexoForm` e `CustoEventoForm`.
+- `core/views.py`: `evento_complexo_novo_view`, `evento_painel_view`, `evento_custo_novo_view`,
+  `evento_custo_excluir_view`. `core/urls.py`: rotas correspondentes. `core/admin.py`: `CustoEvento`.
+- `templates/core/evento_complexo_form.html` e `evento_painel.html`; `eventos.html` (habilita o card
+  "Evento com inscrição" e mostra "Abrir painel" nos eventos complexos).
+- `static/css/eventos.css` (painel: abas, KPIs, custos) e `static/js/evento_painel.js` (abas + modal).
+- `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` (novo) e demais docs atualizados.
+
+### Decisões tomadas
+- Reaproveita o modelo `Evento` (tipo `inscricao`) como base; `CustoEvento` relacionado por FK.
+- Painel em página dedicada com abas (JS); demais módulos entram nas próximas fases.
+- Resumo com indicadores (números); gráficos entram quando houver dados.
+
+---
+
 ## 2026-07-03 - Corrige estilo do botão secundário nas telas internas
 
 ### Resumo

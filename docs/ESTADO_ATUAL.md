@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-03 (novo módulo "Eventos" — cadastro de evento simples, restrito ao Diretor)
+**Última atualização:** 2026-07-04 (evento complexo — Fase 1: painel/dashboard + custos)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -66,6 +66,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   data, horário de início e término. Cada evento na lista tem um botão **Duplicar** que abre o
   formulário já preenchido com aquele evento (`?duplicar=<id>`), para recadastrar algo recorrente
   mudando só a data/horário. Menu "Eventos" aparece só para o diretor.
+- **Evento complexo (com inscrição) — Fase 1**: no modal de "Criar evento", a opção **"Evento com
+  inscrição"** cria um evento `tipo=inscricao` (com data/hora de início **e término**, para eventos de
+  vários dias) e leva ao **painel do evento** (`/eventos/<id>/`). O painel tem **abas** (Resumo,
+  Inscrições, Lojinha, Custos, Financeiro): **Resumo** mostra indicadores (inscritos, arrecadação,
+  vendas, receitas, custos e **resultado** — verde/vermelho); **Custos** permite adicionar custos
+  (título, descrição, valor e **comprovante** anexo) e removê-los, com o total refletindo no resultado.
+  As abas Inscrições/Lojinha/Financeiro estão como "em breve" (próximas fases). O plano completo (todas
+  as fases) está em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`. Pagamentos ficam simulados por ora.
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
 - Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
   levado à tela de sucesso; "Ir para a tela inicial" abre `/inicio/` já logado.
@@ -140,8 +148,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   FK `usuario` (um usuário pode ter vários aventureiros); `data_inscricao` e `criado_em` automáticos.
 - `FichaMedica` — OneToOne com `Aventureiro` (plano de saúde, doenças, alergias, condições, tipo sanguíneo).
 - `AutorizacaoImagem` — OneToOne com `Aventureiro` (dados do menor e do responsável para o termo).
-- `Evento` — evento do clube (`tipo` simples/inscrição, nome, local, descrição, data, horário de
-  início/término, `criado_por` FK User, `criado_em`). Migration `0002_evento`.
+- `Evento` — evento do clube (`tipo` simples/inscrição, nome, local, descrição, data, **data_fim**,
+  horário de início/término, `criado_por` FK User, `criado_em`). Migrations `0002_evento`, `0003`.
+- `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
+  `criado_por`). Migration `0003_evento_data_fim_custoevento`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -166,6 +176,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/usuarios.html` (responsáveis, aventureiros e vínculos, com pesquisa e modal de detalhes)
 - `templates/core/eventos.html` (lista de eventos + modal de escolha de tipo)
 - `templates/core/evento_form.html` (formulário do evento simples)
+- `templates/core/evento_complexo_form.html` (criação do evento complexo)
+- `templates/core/evento_painel.html` (painel/dashboard do evento complexo)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
 - `templates/core/cadastro.html` (wizard de cadastro)
 - `templates/core/cadastro_sucesso.html`
@@ -194,6 +206,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
+- `static/js/evento_painel.js` — abas do painel do evento complexo + modal de "Adicionar custo".
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -203,6 +216,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`core.views.usuarios_view`, nome `core:usuarios`).
 - `/eventos/` — lista de eventos, **restrita ao Diretor** (`core.views.eventos_view`, nome `core:eventos`).
 - `/eventos/novo/` — cadastro de evento simples, **restrita ao Diretor** (`core.views.evento_novo_view`, nome `core:evento_novo`; aceita `?duplicar=<id>`).
+- `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).
+- `/eventos/<id>/` — painel do evento complexo (`core.views.evento_painel_view`, nome `core:evento_painel`).
+- `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

@@ -1,12 +1,14 @@
 import unicodedata
 from datetime import date
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -14,6 +16,8 @@ from .forms import (
     AutorizacaoImagemForm,
     AventureiroForm,
     ContaForm,
+    CustoEventoForm,
+    EventoComplexoForm,
     EventoForm,
     FichaMedicaForm,
     ResponsavelLegalForm,
@@ -580,6 +584,83 @@ def evento_novo_view(request):
     return render(
         request, "core/evento_form.html", {"form": form, "duplicando": duplicando}
     )
+
+
+@diretor_required
+def evento_complexo_novo_view(request):
+    """Cria um evento complexo (com inscrição). Fase 1: dados básicos + painel."""
+    if request.method == "POST":
+        form = EventoComplexoForm(request.POST)
+        if form.is_valid():
+            evento = form.save(commit=False)
+            evento.tipo = "inscricao"
+            evento.criado_por = request.user
+            evento.save()
+            messages.success(
+                request, "Evento criado! Configure os detalhes no painel do evento."
+            )
+            return redirect("core:evento_painel", pk=evento.pk)
+        messages.error(request, "Não foi possível salvar. Verifique os campos destacados.")
+    else:
+        form = EventoComplexoForm()
+    return render(request, "core/evento_complexo_form.html", {"form": form})
+
+
+@diretor_required
+def evento_painel_view(request, pk):
+    """Painel (dashboard) de um evento complexo. Fase 1: resumo + custos."""
+    evento = get_object_or_404(Evento, pk=pk)
+    custos = list(evento.custos.all())
+    total_custos = sum((c.valor for c in custos), Decimal("0"))
+
+    # Preenchidos nas próximas fases (inscrições e lojinha).
+    arrecadacao_inscricoes = Decimal("0")
+    vendas_loja = Decimal("0")
+    receitas = arrecadacao_inscricoes + vendas_loja
+
+    contexto = {
+        "evento": evento,
+        "custos": custos,
+        "form_custo": CustoEventoForm(),
+        "resumo": {
+            "inscritos": 0,
+            "arrecadacao_inscricoes": arrecadacao_inscricoes,
+            "vendas_loja": vendas_loja,
+            "receitas": receitas,
+            "custos": total_custos,
+            "resultado": receitas - total_custos,
+        },
+    }
+    return render(request, "core/evento_painel.html", contexto)
+
+
+@diretor_required
+@require_POST
+def evento_custo_novo_view(request, pk):
+    """Adiciona um custo ao evento (com comprovante opcional)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    form = CustoEventoForm(request.POST, request.FILES)
+    if form.is_valid():
+        custo = form.save(commit=False)
+        custo.evento = evento
+        custo.criado_por = request.user
+        custo.save()
+        messages.success(request, "Custo adicionado com sucesso.")
+    else:
+        messages.error(request, "Não foi possível adicionar o custo. Verifique os campos.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#custos")
+
+
+@diretor_required
+@require_POST
+def evento_custo_excluir_view(request, pk, custo_id):
+    """Remove um custo do evento."""
+    evento = get_object_or_404(Evento, pk=pk)
+    custo = evento.custos.filter(pk=custo_id).first()
+    if custo is not None:
+        custo.delete()
+        messages.success(request, "Custo removido.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#custos")
 
 
 def cadastro_sucesso_view(request):

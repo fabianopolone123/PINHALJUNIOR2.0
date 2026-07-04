@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Aventureiro, AutorizacaoImagem, Evento, FichaMedica
+from .models import Aventureiro, AutorizacaoImagem, CustoEvento, Evento, FichaMedica
 
 
 @admin.register(Aventureiro)
@@ -27,3 +27,10 @@ class EventoAdmin(admin.ModelAdmin):
     list_display = ("nome", "tipo", "data", "horario_inicio", "local", "criado_por")
     search_fields = ("nome", "local")
     list_filter = ("tipo", "data")
+
+
+@admin.register(CustoEvento)
+class CustoEventoAdmin(admin.ModelAdmin):
+    list_display = ("nome", "evento", "valor", "criado_por", "criado_em")
+    search_fields = ("nome", "evento__nome")
+    list_filter = ("evento",)
