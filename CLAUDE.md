@@ -7,7 +7,10 @@ Guia rápido para o assistente (e para devs). Leia também, obrigatoriamente, an
 ## O que é
 Sistema web do **Clube de Aventureiros Pinhal Júnior** (Django). Já possui autenticação real,
 cadastro de conta e de aventureiros (com ficha médica e autorização de imagem), área interna
-"Meus Dados" e a tela "Usuários" (vínculos familiares).
+"Meus Dados", a tela "Usuários" (vínculos familiares) e um **módulo de Eventos** completo: evento
+simples e **evento complexo** com inscrições (Fase 2), lojinha e **PDV/balcão** com operadores
+(Fase 4). **Próximo passo: Fase 5 (Financeiro/gráficos)** — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`
+e `docs/ESTADO_ATUAL.md`.
 
 ## Stack
 - Django 5.2 / Python 3.10+ · SQLite · Pillow (foto 3x4)
@@ -29,14 +32,19 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - Templates em `templates/core/`, estáticos em `static/{css,js,img}`, uploads em `media/` (git-ignored).
 
 ## Rotas (todas as internas exigem `@login_required`)
-- `/` login (auth real) · `/sair/` logout (POST) · `/inicio/` "Meus Dados"
+- `/` login (auth real) · `/sair/` logout (POST) · `/inicio/` "Meus Dados" · `/trocar-senha/`
 - `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos
 - `/cadastro/` conta+1º aventureiro · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
+- **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
+  `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - `/admin/`
 
 ## Models (`core/models.py`)
 - `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal). Um usuário → vários.
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne).
+- **Eventos/Lojinha**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
+  `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
+  `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario` (migrations até `0013`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

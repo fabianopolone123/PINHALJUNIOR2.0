@@ -11,6 +11,10 @@ autenticação real (login/logout), cadastro de conta e de aventureiros (com fic
 médica e autorização de imagem) e uma área interna "Meus Dados" que exibe os dados
 da conta e dos aventureiros do usuário logado.
 
+Além do cadastro, o sistema tem um **módulo de Eventos** completo (evento simples e evento
+complexo com inscrições, lojinha e PDV/balcão) — ver a seção "Estado atual" e
+`docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+
 O foco continua sendo uma interface bonita, moderna e **responsiva (mobile first)**,
 com CSS próprio (sem frameworks externos).
 
@@ -44,9 +48,20 @@ com CSS próprio (sem frameworks externos).
 - Tela **"Usuários"** (restrita ao Diretor): responsáveis, aventureiros e vínculos; clicar num card abre
   um modal com **todos os dados** da pessoa.
 - Módulo **"Eventos"** (restrito ao Diretor): **evento simples** (nome, local, descrição, data, horário)
-  com "Duplicar", e **evento complexo (com inscrição) — Fase 1**: painel/dashboard (`/eventos/<id>/`)
-  com abas (Resumo + Custos funcionando; Inscrições/Lojinha/Financeiro "em breve"). Plano completo em
-  `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+  com "Duplicar", e **evento complexo (com inscrição)** com painel/dashboard (`/eventos/<id>/`) em abas
+  (Resumo, Inscrições, Lojinha, Custos, Financeiro). Já concluídos:
+  - **Fase 1**: base do evento complexo + painel (Resumo + Custos).
+  - **Fase 2 (Inscrições)**: configuração (local, aberto ao público?, prazo/trava, faixas etárias de
+    preço, valor da diretoria), **formulário personalizável** por evento (campos "uma vez" ou "por
+    participante"), **página do evento** (pública/só-membros) que aparece no **menu de todos os
+    perfis**, e a **inscrição de fato** (participantes por faixa/diretoria, código, pagamento
+    **simulado**, lista de inscritos + arrecadação no dashboard).
+  - **Fase 4 (Lojinha)**: produtos com variações/estoque; **comprar** na página do evento, junto da
+    inscrição, e no **PDV/balcão** (venda + inscrição presencial, formas de pagamento com troco,
+    cortesia, vínculo opcional a inscrição); **operadores** por evento (diretoria selecionada +
+    ajudantes externos com conta temporária/senha `1234`/troca obrigatória).
+  - **Notificações**: toasts flutuantes no canto da tela (padrão único do sistema).
+  - **Próximo**: **Fase 5 (Financeiro/gráficos)**. Plano completo em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
 - **Migração** dos cadastros do sistema antigo via comando `importar_migracao` (dados reais ficam só
   local; nada de dados de menores no Git).
 
@@ -127,6 +142,10 @@ As fotos reais e os dados pessoais de menores ficam **apenas** em `media/` (git-
 
 ## Estrutura geral de pastas
 
+> A árvore abaixo é **ilustrativa** (do início do projeto). O app cresceu bastante (vários models,
+> views, templates e estáticos do módulo de Eventos/Lojinha). A relação **completa e atualizada** de
+> rotas, models, templates e estáticos está em `docs/ESTADO_ATUAL.md`.
+
 ```
 PINHALJUNIOR2.0/
 ├── CODEX.md                  # Guia rápido para o Codex
@@ -185,6 +204,9 @@ PINHALJUNIOR2.0/
 
 ## Rotas existentes
 
+> Lista **parcial** (principais). O módulo de Eventos/Lojinha tem muitas outras rotas
+> (`/eventos/<id>/...`, `/pdv/`, `/operadores/`, `/loja/`, etc.) — ver `docs/ESTADO_ATUAL.md`.
+
 - `/` — tela de login com autenticação real (view `core.views.login_view`, nome `core:login`).
 - `/sair/` — logout (POST); encerra a sessão e volta ao login (view `core.views.sair_view`, nome `core:sair`).
 - `/inicio/` — área logada "Meus Dados", protegida por `@login_required` (view `core.views.inicio_view`, nome `core:inicio`).
@@ -205,10 +227,21 @@ PINHALJUNIOR2.0/
 - **Aventureiro** — ficha de inscrição + dados dos responsáveis; FK `usuario` (um usuário pode ter vários).
 - **FichaMedica** — OneToOne com Aventureiro (dados médicos).
 - **AutorizacaoImagem** — OneToOne com Aventureiro (dados do termo de imagem).
-- **Evento** — evento do clube (`tipo` simples/inscrição; nome, local, descrição, data, `data_fim`, horários).
-- **CustoEvento** — custo/despesa de um evento (FK `evento`; nome, descrição, valor, comprovante).
+- **Evento** — evento do clube (`tipo` simples/inscrição; datas/horários; config de inscrição:
+  aberto ao público, prazo, valor da diretoria).
+- **CustoEvento** — custo/despesa de um evento.
+- **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
+- **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem).
+- **ProdutoEvento**, **VariacaoProduto**, **PedidoLoja**, **ItemPedidoLoja** — lojinha e pedidos.
+- **OperadorEvento** e **PerfilUsuario** — operadores do PDV e a flag de troca de senha.
+
+> A lista **completa e atualizada** de models, rotas, templates e estáticos está em `docs/ESTADO_ATUAL.md`.
 
 ## Templates existentes
+
+> Lista **parcial** (base do projeto). Há muitos templates do módulo de Eventos/Lojinha
+> (painel, página do evento, inscrição, loja, PDV, operadores, parciais `_menu.html`,
+> `_loja_itens.html`, etc.) — a relação completa está em `docs/ESTADO_ATUAL.md`.
 
 - `templates/core/login.html` — tela de login (com link "Cadastre-se").
 - `templates/core/inicio.html` — tela inicial interna.
@@ -229,9 +262,8 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 
 ## Funcionalidades existentes
 
-- Tela de login visual e responsiva na rota `/`, com link "Cadastre-se".
+- Tela de login visual e responsiva na rota `/`, com **autenticação real** (login/logout) e link "Cadastre-se".
 - Tela inicial interna em `/inicio/` com menu lateral (desktop) / gaveta (mobile) e cards.
-- Navegação de teste: o botão "Entrar" leva para `/inicio/` (sem autenticação real).
 - Cadastro de aventureiro em `/cadastro/` (wizard de 7 etapas): conta de acesso, ficha de inscrição,
   responsáveis, ficha médica, declaração médica, autorização de imagem e revisão. Ao finalizar, cria
   o `User` e salva Aventureiro + FichaMedica + AutorizacaoImagem; confirma em `/cadastro/sucesso/`.
@@ -248,8 +280,10 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
   Tesoureiro/Secretário existem sem permissões) e a **alternância de perfil** (diretoria ↔ responsável).
 - **Cadastro de diretoria** e o cadastro "diretoria + aventureiro" (planejado em
   `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md`).
-- **Evento complexo — Fases 2+**: inscrições (formulário customizável + preços), página pública,
-  lojinha, financeiro/gráficos; depois, pagamentos reais e mapa (ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`).
+- **Evento complexo — Fase 5** (próximo): Financeiro completo/gráficos, cupons de desconto,
+  presença/check-in; depois, **pagamentos reais** (gateway) e **loja oficial do clube** (uniformes,
+  separada da lojinha de evento) — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+  (Fases 1, 2/Inscrições, "3"/página pública e 4/Lojinha já estão **concluídas**.)
 - Validação avançada de CPF e envio de e-mail.
 
 ## Observações importantes para futuros desenvolvimentos
