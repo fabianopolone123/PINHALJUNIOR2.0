@@ -122,19 +122,50 @@
                             <span class="kpi-num">R$ {{ resumo.resultado|moeda }}</span>
                         </div>
                     </div>
+
+                    {% if vendas_por_produto %}
+                    <div class="secao-cabecalho secao-cabecalho-espaco">
+                        <h3 class="secao-titulo">Vendidos por produto</h3>
+                    </div>
+                    <div class="tabela-scroll">
+                        <table class="tabela-relatorio">
+                            <thead>
+                                <tr><th>Produto</th><th class="num">Qtd</th><th class="num">Arrecadado</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for v in vendas_por_produto %}
+                                <tr>
+                                    <td>{{ v.produto }}{% if v.variacao %} <span class="rel-var">({{ v.variacao }})</span>{% endif %}</td>
+                                    <td class="num">{{ v.qtd }}</td>
+                                    <td class="num">R$ {{ v.total|moeda }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="painel-nota">A quantidade conta tudo (inclusive cortesia); o arrecadado é só o dinheiro recebido.</p>
+                    {% else %}
                     <p class="painel-nota">
-                        Os números de inscrições e lojinha aparecerão aqui conforme esses módulos forem ativados.
+                        Os números de inscrições e lojinha aparecem aqui conforme as vendas acontecem.
                         Gráficos serão adicionados quando houver dados.
                     </p>
+                    {% endif %}
                 </section>
 
                 <!-- ===================== Inscrições ===================== -->
                 <section class="painel-secao" data-secao="inscricoes" hidden>
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Inscrições</h2>
-                        <span class="pill {% if inscricoes_abertas %}pill-verde{% else %}pill-cinza{% endif %}">
-                            {% if inscricoes_abertas %}✅ Abertas{% else %}⛔ Encerradas{% endif %}
-                        </span>
+                        <div class="secao-acoes">
+                            <span class="pill {% if inscricoes_abertas %}pill-verde{% else %}pill-cinza{% endif %}">
+                                {% if inscricoes_abertas %}✅ Abertas{% else %}⛔ Encerradas{% endif %}
+                            </span>
+                            {% if not evento.ja_terminou %}
+                            <a href="{% url 'core:evento_pdv_inscricao' evento.id %}" class="btn-acao btn-acao-pequeno">
+                                <span aria-hidden="true">🎟️</span> Nova inscrição (balcão)
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
 
                     {% if prazo_inscricao %}
@@ -159,6 +190,7 @@
                             <div class="inscrito-topo">
                                 <span class="inscrito-codigo">{{ i.codigo }}</span>
                                 <span class="pill {% if i.status == 'confirmada' %}pill-verde{% else %}pill-cinza{% endif %}">{{ i.get_status_display }}</span>
+                                {% if i.origem == "pdv" %}<span class="pill">🎟️ Balcão · {{ i.get_forma_pagamento_display }}</span>{% endif %}
                                 <span class="inscrito-valor">R$ {{ i.valor_total|moeda }}</span>
                             </div>
                             <strong class="inscrito-resp">{{ i.responsavel_nome }}</strong>

@@ -656,6 +656,22 @@ def evento_painel_view(request, pk):
     vendas_loja = sum((p.valor_total for p in pedidos_confirmados), Decimal("0"))
     receitas = arrecadacao_inscricoes + vendas_loja
 
+    # Relatório "Vendidos por produto": Qtd conta tudo (inclusive cortesia),
+    # Arrecadado é só o dinheiro (cortesia entra com valor 0).
+    vendas_por_produto = {}
+    for p in pedidos_confirmados:
+        for item in p.itens.all():
+            chave = (item.produto_nome, item.variacao_nome)
+            linha = vendas_por_produto.setdefault(chave, {
+                "produto": item.produto_nome, "variacao": item.variacao_nome,
+                "qtd": 0, "total": Decimal("0"),
+            })
+            linha["qtd"] += item.quantidade
+            linha["total"] += item.valor_total
+    vendas_por_produto = sorted(
+        vendas_por_produto.values(), key=lambda x: (x["produto"], x["variacao"])
+    )
+
     contexto = {
         "evento": evento,
         "custos": custos,
@@ -665,6 +681,7 @@ def evento_painel_view(request, pk):
         "produtos": produtos,
         "inscricoes": inscricoes,
         "pedidos": pedidos,
+        "vendas_por_produto": vendas_por_produto,
         "config_form": EventoInscricaoConfigForm(instance=evento),
         # Prefixos evitam colisão de IDs entre os modais na mesma página.
         "faixa_form": FaixaEtariaPrecoForm(prefix="faixa"),
@@ -1383,6 +1400,158 @@ def evento_pdv_view(request, pk):
         "erros": erros,
     }
     return render(request, "core/evento_pdv.html", contexto)
+
+
+@diretor_required
+def evento_pdv_inscricao_view(request, pk):
+    """PDV: inscrição presencial (Fase 4.4b) — o atendente faz a inscrição e,
+    opcionalmente, já adiciona itens da lojinha; tudo num pagamento só (com troco
+    no dinheiro). Cria a inscrição + um pedido de lojinha vinculado."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    if evento.ja_terminou():
+        messages.error(request, "Este evento já terminou.")
+        return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+    faixas = list(evento.faixas_preco.all())
+    tem_diretoria = evento.valor_diretoria is not None
+    campos_part = list(evento.campos_inscricao.filter(por_participante=True))
+    produtos_loja = (
+        list(evento.produtos.filter(ativo=True).prefetch_related("variacoes"))
+        if evento.loja_aberta() else []
+    )
+    formas = [f for f in FORMA_PAGAMENTO_CHOICES if f[0] != "online"]
+    linhas = []
+    erros_part = []
+    desejados_loja = []
+    erros_loja = []
+    forma = "dinheiro"
+    valor_recebido_raw = ""
+
+    if request.method == "POST":
+        form = InscricaoForm(request.POST, evento=evento)
+        forma = request.POST.get("forma_pagamento") or ""
+        valor_recebido_raw = (request.POST.get("valor_recebido") or "").strip()
+        cortesia = forma == "cortesia"
+        if produtos_loja:
+            desejados_loja, erros_loja = _coletar_itens_loja(request, produtos_loja)
+        for idx in request.POST.getlist("part_idx"):
+            linha = _linha_participante(request, idx, campos_part, tem_diretoria)
+            if not linha["nome"]:
+                continue
+            if linha["idade"] is None and not linha["diretoria"]:
+                erros_part.append(f"Informe a idade de “{linha['nome']}”.")
+            for c in linha["campos"]:
+                if c["erro"]:
+                    erros_part.append(f"“{linha['nome']}”: {c['campo'].rotulo} — {c['erro']}.")
+            linhas.append(linha)
+        if not linhas:
+            erros_part.append("Adicione ao menos um participante.")
+        if forma not in {f[0] for f in formas}:
+            erros_part.append("Escolha a forma de pagamento.")
+
+        # Preços (cortesia zera tudo) e total combinado (inscrição + lojinha).
+        precos = []
+        insc_total = Decimal("0")
+        for linha in linhas:
+            valor, faixa = evento.preco_participante(
+                linha["idade"], linha["diretoria"], faixas
+            )
+            if cortesia:
+                valor = Decimal("0")
+            precos.append((linha, valor, faixa))
+            insc_total += valor
+        loja_total = Decimal("0") if cortesia else sum(
+            (v.valor * q for v, q in desejados_loja), Decimal("0")
+        )
+        combinado = insc_total + loja_total
+
+        valor_recebido = None
+        if forma == "dinheiro":
+            try:
+                valor_recebido = Decimal(valor_recebido_raw.replace(",", "."))
+            except (InvalidOperation, ValueError):
+                valor_recebido = None
+            if valor_recebido is None:
+                erros_part.append("Informe o valor recebido em dinheiro.")
+            elif valor_recebido < combinado:
+                erros_part.append("Valor recebido é menor que o total.")
+
+        if form.is_valid() and not erros_part and not erros_loja:
+            with transaction.atomic():
+                inscricao = Inscricao(
+                    evento=evento,
+                    responsavel_nome=form.cleaned_data["responsavel_nome"],
+                    responsavel_whatsapp=form.cleaned_data["responsavel_whatsapp"],
+                    responsavel_email=form.cleaned_data["responsavel_email"],
+                    responsavel_cpf=form.cleaned_data["responsavel_cpf"],
+                    codigo=Inscricao.gerar_codigo_unico(), status="confirmada",
+                    origem="pdv", forma_pagamento=forma,
+                    valor_recebido=valor_recebido if forma == "dinheiro" else None,
+                    registrado_por=request.user,
+                )
+                inscricao.valor_total = insc_total
+                inscricao.save()
+                for linha, valor, faixa in precos:
+                    p = ParticipanteInscricao(
+                        inscricao=inscricao, nome=linha["nome"], idade=linha["idade"],
+                        eh_diretoria=linha["diretoria"], faixa=faixa, valor=valor,
+                    )
+                    p.save()
+                    for c in linha["campos"]:
+                        RespostaInscricao.objects.create(
+                            inscricao=inscricao, participante=p, campo=c["campo"],
+                            campo_rotulo=c["campo"].rotulo, valor=c["texto"],
+                        )
+                for campo, nome in form.campos_extra:
+                    RespostaInscricao.objects.create(
+                        inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
+                        valor=form.resposta_texto(campo, nome),
+                    )
+                # Pedido da lojinha vinculado (o pagamento já foi contabilizado na
+                # inscrição; aqui só registramos os itens/forma).
+                _criar_pedido(
+                    evento, desejados_loja,
+                    {
+                        "nome": inscricao.responsavel_nome,
+                        "whatsapp": inscricao.responsavel_whatsapp,
+                        "email": inscricao.responsavel_email,
+                    },
+                    inscricao=inscricao, forma_pagamento=forma,
+                    valor_recebido=None, origem="pdv", registrado_por=request.user,
+                )
+            msg = f"Inscrição {inscricao.codigo} registrada."
+            if forma == "dinheiro" and inscricao.troco is not None:
+                msg += " Troco: R$ " + f"{inscricao.troco:.2f}".replace(".", ",")
+            messages.success(request, msg)
+            return redirect("core:evento_pdv_inscricao", pk=evento.pk)
+        messages.error(request, "Verifique os dados, os participantes e o pagamento.")
+    else:
+        form = InscricaoForm(evento=evento)
+
+    _marcar_quantidades(produtos_loja, desejados_loja)
+    contexto = {
+        "evento": evento,
+        "form": form,
+        "faixas": faixas,
+        "tem_diretoria": tem_diretoria,
+        "campos_participante": campos_part,
+        "linhas": linhas or [_linha_vazia(0, campos_part)],
+        "linha_modelo": _linha_vazia("__IDX__", campos_part),
+        "erros_part": erros_part,
+        "produtos_loja": produtos_loja,
+        "erros_loja": erros_loja,
+        "formas": formas,
+        "forma": forma,
+        "valor_recebido_raw": valor_recebido_raw,
+        "faixas_json": [
+            {"min": f.idade_min, "max": f.idade_max, "valor": str(f.valor)}
+            for f in faixas
+        ],
+        "diretoria_json": (
+            str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
+        ),
+    }
+    return render(request, "core/evento_pdv_inscricao.html", contexto)
 
 
 @diretor_required

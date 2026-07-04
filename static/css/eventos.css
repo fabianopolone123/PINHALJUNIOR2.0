@@ -591,6 +591,14 @@ a.tipo-card:hover {
 .pdv-troco strong { color: var(--verde); }
 .pdv-troco strong.troco-falta { color: #c0392b; }
 
+/* Relatório "Vendidos por produto" */
+.tabela-scroll { overflow-x: auto; }
+.tabela-relatorio { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.tabela-relatorio th, .tabela-relatorio td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--borda); }
+.tabela-relatorio th { color: var(--texto-suave); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.tabela-relatorio .num { text-align: right; white-space: nowrap; }
+.tabela-relatorio .rel-var { color: var(--texto-suave); font-weight: 400; }
+
 .valores-resumo {
     background: var(--fundo-conteudo, #eef3f9); border-radius: 10px; padding: 12px 14px;
     margin-bottom: 16px; font-size: 0.9rem;

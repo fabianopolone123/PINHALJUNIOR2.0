@@ -77,9 +77,9 @@ class RespostaInscricaoInline(admin.TabularInline):
 
 @admin.register(Inscricao)
 class InscricaoAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "evento", "responsavel_nome", "status", "valor_total", "criado_em")
+    list_display = ("codigo", "evento", "responsavel_nome", "origem", "forma_pagamento", "status", "valor_total", "criado_em")
     search_fields = ("codigo", "responsavel_nome", "evento__nome")
-    list_filter = ("evento", "status")
+    list_filter = ("evento", "status", "origem")
     inlines = [ParticipanteInscricaoInline, RespostaInscricaoInline]
 
 

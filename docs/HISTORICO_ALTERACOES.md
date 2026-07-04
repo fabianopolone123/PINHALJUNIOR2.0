@@ -22,6 +22,49 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Lojinha Fase 4.4b: PDV inscrição + relatório de vendas por produto
+
+### Resumo
+Dois ajustes/entregas a partir da validação:
+1. **Relatório "Vendidos por produto"** no **Resumo** (dashboard): tabela Produto | **Qtd** | **Arrecadado**.
+   A **quantidade conta tudo, inclusive cortesia** (controle de quantos saíram); o **arrecadado é só o
+   dinheiro** (cortesia entra com 0). Decisão: cortesia continua com **valor zerado** no financeiro.
+2. **PDV — Nova inscrição (4.4b)**: o atendente faz uma **inscrição presencial** e, no mesmo balcão,
+   pode **adicionar itens da lojinha**; tudo num **pagamento só** (forma de pagamento; **troco** no
+   dinheiro sobre o **total combinado** = inscrição + itens; **total ao vivo**). Cria a inscrição +
+   um **pedido de lojinha vinculado**; **cortesia** deixa o conjunto grátis (baixa estoque). Botão
+   **"Nova inscrição (balcão)"** na aba Inscrições. A venda **só lojinha** continua na 4.4a. Restrito
+   ao Diretor por ora (operadores → 4.4c).
+
+### Arquivos criados/alterados
+- `core/models.py`: `Inscricao` ganhou `origem`, `forma_pagamento`, `valor_recebido`, `registrado_por`
+  + props `total_com_loja` e `troco`. Choices de pagamento movidas para antes de `Inscricao`.
+  Migration `0012`.
+- `core/views.py`: `evento_painel_view` calcula `vendas_por_produto`; nova `evento_pdv_inscricao_view`
+  (inscrição + lojinha + pagamento combinado; cortesia zera; troco).
+- `core/urls.py`: rota `evento_pdv_inscricao`. `core/admin.py`: inscrição mostra origem/forma.
+- `templates/core/evento_pdv_inscricao.html` (novo). `evento_painel.html`: tabela "Vendidos por
+  produto" no Resumo + botão "Nova inscrição (balcão)" + selo origem/forma nas inscrições.
+- `static/js/evento_pdv_inscricao.js` (total combinado ao vivo por faixa/diretoria + lojinha + troco).
+- `static/css/eventos.css`: tabela do relatório.
+
+### Decisões (validadas com o usuário)
+- **Cortesia**: valor 0 no financeiro; controle de quantidade fica no **relatório** (dashboard).
+- **PDV inscrição + lojinha = um pagamento só** (uma transação, um troco); gera inscrição + pedido
+  vinculado por baixo. Mantida a venda **só lojinha** (4.4a) para quem não vai se inscrever.
+
+### Validação
+- Teste ponta a ponta: PDV inscrição + lojinha com pagamento combinado (troco 6 sobre 54); inscrição
+  sem lojinha (cartão); **cortesia** (inscrição+item grátis, baixa estoque); dinheiro insuficiente
+  sobre o combinado rejeitado; relatório "Vendidos por produto" (qtd inclui cortesia); arrecadação (60)
+  × vendas (24) separadas. Todos passaram. `manage.py check` OK. **Responsividade** (~490px) conferida.
+
+### Pendências / próximo passo
+- **Lojinha 4.4c** — **operadores do evento**: diretoria selecionada + contas temporárias de ajudantes
+  externos (senha `1234`, troca obrigatória no 1º login, reset pelo Diretor; ajudante vê só o evento).
+
+---
+
 ## 2026-07-04 - Evento complexo — Lojinha Fase 4.4a: PDV / balcão de vendas
 
 ### Resumo

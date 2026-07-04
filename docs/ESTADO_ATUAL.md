@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Lojinha Fase 4.4a: PDV / balcão de vendas — formas de pagamento, troco no dinheiro, cortesia e vínculo opcional a inscrição; restrito ao Diretor por ora)
+**Última atualização:** 2026-07-04 (Lojinha Fase 4.4b: PDV de inscrição presencial com pagamento combinado (inscrição + lojinha) + relatório "Vendidos por produto" no Resumo)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -129,8 +129,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   botão na aba Lojinha) para registrar vendas no dia: monta o pedido, escolhe **forma de pagamento**
   (**Dinheiro** com **valor recebido → troco automático**, Pix, Cartão, **Cortesia**), **vínculo
   opcional** a uma inscrição (rastreabilidade) e registra (baixa estoque; cortesia não soma em vendas).
-  **Restrito ao Diretor** por ora. Faltam: 4.4b (fazer inscrição pelo PDV) e 4.4c (operadores:
-  diretoria selecionada + contas temporárias de ajudantes externos).
+  **Restrito ao Diretor** por ora.
+- **Evento complexo — Lojinha Fase 4.4b (PDV inscrição + relatório)**: botão **"Nova inscrição
+  (balcão)"** na aba Inscrições → tela onde o atendente faz a **inscrição presencial** e, opcional,
+  **adiciona itens da lojinha**, tudo num **pagamento só** (forma + **troco** sobre o total combinado;
+  **total ao vivo**). Cria a inscrição + pedido de lojinha vinculado; cortesia deixa grátis (baixa
+  estoque). No **Resumo**, tabela **"Vendidos por produto"** (Qtd conta tudo, inclusive cortesia;
+  Arrecadado só o dinheiro). Restrito ao Diretor por ora. Falta **4.4c** (operadores: diretoria
+  selecionada + contas temporárias de ajudantes externos).
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -219,7 +225,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `CampoInscricao` — campo personalizado do formulário de inscrição, por evento (FK `evento`, rótulo,
   tipo, opções, obrigatório, **por_participante**, ordem). Migrations `0005`, `0007`.
 - `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
-  único, status confirmada/cancelada, valor_total). `ParticipanteInscricao` (nome, idade, eh_diretoria,
+  único, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**, **registrado_por**,
+  valor_total; props `total_com_loja`/`troco`). Migration `0012`. `ParticipanteInscricao` (nome, idade, eh_diretoria,
   faixa, valor) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
   snapshot + valor). Migrations `0006`, `0007`. Respostas de campos "por participante" têm
   `participante` preenchido; as de campos "uma vez" ficam com `participante` nulo.
@@ -239,9 +246,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- **Lojinha 4.4b** (próximo passo): fazer inscrição pelo PDV (presencial, com pagamento).
-- **Lojinha 4.4c**: operadores do evento (diretoria selecionada + contas temporárias de ajudantes
-  externos com senha `1234`/troca obrigatória/reset; ajudante vê só o evento dele).
+- **Lojinha 4.4c** (próximo passo): operadores do evento (diretoria selecionada + contas temporárias
+  de ajudantes externos com senha `1234`/troca obrigatória no 1º login/reset pelo Diretor; ajudante vê
+  só o evento dele). Abre o PDV para os atendentes.
 - **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
@@ -268,7 +275,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_inscrever.html` (formulário de inscrição) e `evento_inscricao_sucesso.html`
 - `templates/core/evento_produto_form.html` (cadastro/edição de produto da lojinha)
 - `templates/core/evento_loja.html` (loja/carrinho do evento) e `evento_pedido_sucesso.html`
-- `templates/core/evento_pdv.html` (PDV / balcão de vendas)
+- `templates/core/evento_pdv.html` (PDV / balcão de vendas) e `evento_pdv_inscricao.html` (PDV inscrição)
 - `templates/core/_loja_itens.html` (parcial: itens da lojinha para escolher — loja, inscrição e PDV)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
@@ -304,7 +311,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + campos por participante.
 - `static/js/evento_produto.js` — linhas de variação (adicionar/remover) + mostrar/ocultar estoque.
 - `static/js/evento_loja.js` — total ao vivo da loja/inscrição conforme as quantidades.
-- `static/js/evento_pdv.js` — PDV: total, alternância da forma de pagamento e cálculo do troco.
+- `static/js/evento_pdv.js` — PDV vendas: total, forma de pagamento e troco.
+- `static/js/evento_pdv_inscricao.js` — PDV inscrição: total combinado (faixa/diretoria + lojinha) + troco.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -323,6 +331,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/produtos/novo/`, `.../produtos/<id>/editar/` e `.../produtos/<id>/excluir/` — lojinha: cadastro/edição/remoção de produto (Diretor).
 - `/eventos/<id>/loja/` — loja do evento (comprar), `.../loja/sucesso/` (confirmação) e `.../pedidos/<id>/cancelar/` (POST, Diretor).
 - `/eventos/<id>/pdv/` — PDV / balcão de vendas da lojinha (Diretor por ora) (`core:evento_pdv`).
+- `/eventos/<id>/pdv/inscricao/` — PDV: inscrição presencial + lojinha, pagamento combinado (`core:evento_pdv_inscricao`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).

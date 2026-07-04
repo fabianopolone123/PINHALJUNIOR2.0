@@ -549,6 +549,19 @@ STATUS_INSCRICAO_CHOICES = [
     ("cancelada", "Cancelada"),
 ]
 
+FORMA_PAGAMENTO_CHOICES = [
+    ("online", "Online (site)"),
+    ("dinheiro", "Dinheiro"),
+    ("pix", "Pix"),
+    ("cartao", "Cartão"),
+    ("cortesia", "Cortesia"),
+]
+
+ORIGEM_PEDIDO_CHOICES = [
+    ("online", "Online"),
+    ("pdv", "PDV (balcão)"),
+]
+
 
 class Inscricao(models.Model):
     """Inscrição de um responsável em um evento com inscrição (Fase 2.4).
@@ -580,6 +593,25 @@ class Inscricao(models.Model):
     status = models.CharField(
         "Situação", max_length=12, choices=STATUS_INSCRICAO_CHOICES, default="confirmada"
     )
+    origem = models.CharField(
+        "Origem", max_length=10, choices=ORIGEM_PEDIDO_CHOICES, default="online"
+    )
+    forma_pagamento = models.CharField(
+        "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES,
+        default="online",
+    )
+    # Valor recebido na transação do balcão (inscrição + itens da lojinha juntos).
+    valor_recebido = models.DecimalField(
+        "Valor recebido", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inscricoes_registradas",
+        verbose_name="Registrado por",
+    )
     valor_total = models.DecimalField(
         "Valor total", max_digits=10, decimal_places=2, default=0
     )
@@ -592,6 +624,22 @@ class Inscricao(models.Model):
 
     def __str__(self):
         return f"{self.codigo} — {self.responsavel_nome} ({self.evento.nome})"
+
+    @property
+    def total_com_loja(self):
+        """Total da inscrição + pedidos da lojinha confirmados vinculados a ela."""
+        loja = sum(
+            (p.valor_total for p in self.pedidos.all() if p.status == "confirmado"),
+            Decimal("0"),
+        )
+        return self.valor_total + loja
+
+    @property
+    def troco(self):
+        """Troco da transação do balcão (só no pagamento em dinheiro)."""
+        if self.valor_recebido is None:
+            return None
+        return self.valor_recebido - self.total_com_loja
 
     @staticmethod
     def gerar_codigo_unico():
@@ -698,19 +746,6 @@ class VariacaoProduto(models.Model):
 STATUS_PEDIDO_CHOICES = [
     ("confirmado", "Confirmado"),
     ("cancelado", "Cancelado"),
-]
-
-FORMA_PAGAMENTO_CHOICES = [
-    ("online", "Online (site)"),
-    ("dinheiro", "Dinheiro"),
-    ("pix", "Pix"),
-    ("cartao", "Cartão"),
-    ("cortesia", "Cortesia"),
-]
-
-ORIGEM_PEDIDO_CHOICES = [
-    ("online", "Online"),
-    ("pdv", "PDV (balcão)"),
 ]
 
 

@@ -60,7 +60,11 @@ lojinha, custos e resultado (lucro/prejuízo).
 - **Lojinha 4.4a CONCLUÍDA** (2026-07-04): **PDV / balcão de vendas** (`/eventos/<id>/pdv/`, Diretor):
   forma de pagamento (dinheiro c/ troco, pix, cartão, cortesia), vínculo **opcional** a inscrição,
   baixa de estoque. `PedidoLoja` ganhou origem/forma_pagamento/valor_recebido/registrado_por (mig. 0011).
-- **PRÓXIMO PASSO = Lojinha 4.4b (fazer inscrição pelo PDV, com pagamento).** Depois 4.4c (operadores).
+- **Lojinha 4.4b CONCLUÍDA** (2026-07-04): **PDV de inscrição** (`/eventos/<id>/pdv/inscricao/`):
+  inscrição presencial + lojinha num **pagamento só** (total combinado, troco, cortesia). `Inscricao`
+  ganhou origem/forma_pagamento/valor_recebido/registrado_por + `troco` (mig. 0012). **Relatório
+  "Vendidos por produto"** no Resumo (qtd inclui cortesia; arrecadado só o dinheiro).
+- **PRÓXIMO PASSO = Lojinha 4.4c (operadores do evento).**
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -124,8 +128,10 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
    - **4.4 — PDV dos atendentes** (em partes):
      - **4.4a — CONCLUÍDA ✅** — PDV de **vendas** da lojinha (forma de pagamento, troco, cortesia,
        vínculo opcional a inscrição). Restrito ao Diretor por ora.
-     - **4.4b — PRÓXIMA ⏭️** — fazer **inscrição** pelo PDV (com pagamento).
-     - **4.4c** — **operadores** (diretoria selecionada + ajudantes externos com conta temporária).
+     - **4.4b — CONCLUÍDA ✅** — **inscrição** pelo PDV (presencial + lojinha, pagamento combinado) +
+       relatório "Vendidos por produto".
+     - **4.4c — PRÓXIMA ⏭️** — **operadores** (diretoria selecionada + ajudantes externos com conta
+       temporária: senha `1234`, troca obrigatória no 1º login, reset pelo Diretor; vê só o evento).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
