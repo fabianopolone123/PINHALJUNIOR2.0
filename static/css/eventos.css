@@ -363,3 +363,35 @@ a.tipo-card:hover {
 .faixa-nome { color: var(--azul-escuro); overflow-wrap: anywhere; }
 .faixa-valor { font-weight: 800; color: var(--texto); white-space: nowrap; }
 
+.secao-cabecalho-espaco { margin-top: 26px; }
+.obrigatorio { color: #c0392b; }
+
+/* Formulário de inscrição — campos personalizados (Parte 2.2) */
+.campos-lista { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.campo-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+}
+.campo-ordem { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.campo-ordem form { margin: 0; line-height: 0; }
+.ordem-btn {
+    width: 28px;
+    height: 22px;
+    border: 1px solid var(--borda);
+    background: var(--branco);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: var(--texto-suave);
+    line-height: 1;
+    transition: background var(--transicao), color var(--transicao);
+}
+.ordem-btn:hover:not(:disabled) { background: rgba(74, 144, 217, 0.1); color: var(--azul); }
+.ordem-btn:disabled { opacity: 0.35; cursor: default; }
+.campo-info { flex: 1; min-width: 0; }
+.campo-nome { color: var(--azul-escuro); font-weight: 700; overflow-wrap: anywhere; margin-right: 8px; }
+.campo-tipo { font-size: 0.72rem; }
+.campo-opcoes { font-size: 0.85rem; color: var(--texto-suave); margin-top: 4px; overflow-wrap: anywhere; }
+

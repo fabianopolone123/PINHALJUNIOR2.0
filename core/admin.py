@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Aventureiro,
     AutorizacaoImagem,
+    CampoInscricao,
     CustoEvento,
     Evento,
     FaixaEtariaPreco,
@@ -48,3 +49,10 @@ class FaixaEtariaPrecoAdmin(admin.ModelAdmin):
     list_display = ("evento", "rotulo", "idade_min", "idade_max", "valor", "ordem")
     search_fields = ("rotulo", "evento__nome")
     list_filter = ("evento",)
+
+
+@admin.register(CampoInscricao)
+class CampoInscricaoAdmin(admin.ModelAdmin):
+    list_display = ("evento", "rotulo", "tipo", "obrigatorio", "ordem")
+    search_fields = ("rotulo", "evento__nome")
+    list_filter = ("evento", "tipo")

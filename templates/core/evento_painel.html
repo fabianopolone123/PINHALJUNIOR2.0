@@ -201,9 +201,50 @@
                     <p class="painel-nota">Nenhuma faixa etária cadastrada. Adicione ao menos uma para definir os valores por idade.</p>
                     {% endif %}
 
+                    <!-- Formulário de inscrição (campos personalizados) -->
+                    <div class="secao-cabecalho secao-cabecalho-espaco">
+                        <h3 class="secao-titulo">Formulário de inscrição</h3>
+                        <button type="button" class="btn-acao btn-acao-pequeno" id="btnAddCampo">
+                            <span aria-hidden="true">➕</span> Adicionar campo
+                        </button>
+                    </div>
+                    <p class="painel-nota">Perguntas extras que aparecerão no formulário de inscrição deste evento.</p>
+
+                    {% if campos_inscricao %}
+                    <ul class="campos-lista">
+                        {% for campo in campos_inscricao %}
+                        <li class="card campo-item">
+                            <div class="campo-ordem">
+                                <form method="post" action="{% url 'core:evento_campo_mover' evento.id campo.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="direcao" value="cima">
+                                    <button type="submit" class="ordem-btn" aria-label="Mover para cima"{% if forloop.first %} disabled{% endif %}>▲</button>
+                                </form>
+                                <form method="post" action="{% url 'core:evento_campo_mover' evento.id campo.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="direcao" value="baixo">
+                                    <button type="submit" class="ordem-btn" aria-label="Mover para baixo"{% if forloop.last %} disabled{% endif %}>▼</button>
+                                </form>
+                            </div>
+                            <div class="campo-info">
+                                <span class="campo-nome">{{ campo.rotulo }}{% if campo.obrigatorio %} <span class="obrigatorio">*</span>{% endif %}</span>
+                                <span class="pill campo-tipo">{{ campo.get_tipo_display }}</span>
+                                {% if campo.usa_opcoes %}<p class="campo-opcoes">Opções: {{ campo.opcoes_lista|join:", " }}</p>{% endif %}
+                            </div>
+                            <form method="post" action="{% url 'core:evento_campo_excluir' evento.id campo.id %}" class="custo-excluir-form" onsubmit="return confirm('Remover este campo?');">
+                                {% csrf_token %}
+                                <button type="submit" class="custo-excluir" aria-label="Remover campo">✕</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="painel-nota">Nenhum campo personalizado ainda. Os dados básicos (responsável e participantes) virão na Fase 2.4; aqui você adiciona as perguntas específicas deste evento.</p>
+                    {% endif %}
+
                     <p class="painel-nota">
-                        O formulário de inscrição personalizável, a página do evento e a lista de inscritos
-                        entram nas próximas partes da Fase 2.
+                        A página do evento (no menu de todos os perfis) e a inscrição de fato
+                        (com lista de inscritos) entram nas próximas partes da Fase 2.
                     </p>
                 </section>
 
@@ -304,6 +345,38 @@
                             <button type="button" class="btn-secundario" id="modalFaixaCancelar">Cancelar</button>
                             <button type="submit" class="btn-acao">
                                 <span aria-hidden="true">💾</span> Salvar faixa
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== Modal: adicionar campo do formulário ===================== -->
+        <div class="modal-overlay" id="modalCampo" hidden>
+            <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalCampoTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalCampoTitulo">Adicionar campo</h2>
+                    <button type="button" class="modal-fechar" id="modalCampoFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <form method="post" action="{% url 'core:evento_campo_novo' evento.id %}" class="evento-form" novalidate>
+                        {% csrf_token %}
+                        {% include "core/_campo.html" with campo=campo_form.rotulo %}
+                        {% include "core/_campo.html" with campo=campo_form.tipo %}
+                        <div id="campoOpcoesWrap">
+                            {% include "core/_campo.html" with campo=campo_form.opcoes %}
+                        </div>
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ campo_form.obrigatorio }}
+                                <label for="{{ campo_form.obrigatorio.id_for_label }}">{{ campo_form.obrigatorio.label }}</label>
+                            </div>
+                        </div>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" id="modalCampoCancelar">Cancelar</button>
+                            <button type="submit" class="btn-acao">
+                                <span aria-hidden="true">💾</span> Salvar campo
                             </button>
                         </div>
                     </form>

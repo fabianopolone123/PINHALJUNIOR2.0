@@ -450,3 +450,64 @@ class FaixaEtariaPreco(models.Model):
 
     def __str__(self):
         return f"{self.rotulo or self.faixa_txt} — {self.evento.nome}"
+
+
+TIPO_CAMPO_INSCRICAO_CHOICES = [
+    ("texto", "Texto curto"),
+    ("texto_longo", "Texto longo"),
+    ("numero", "Número"),
+    ("escolha_unica", "Escolha única"),
+    ("escolha_multipla", "Escolha múltipla"),
+    ("sim_nao", "Sim/Não"),
+    ("data", "Data"),
+]
+
+
+class CampoInscricao(models.Model):
+    """Campo personalizado do formulário de inscrição de um evento (Fase 2.2).
+
+    O Diretor monta, por evento, os campos extras que quer perguntar na
+    inscrição. O preenchimento/envio (respostas) virá na Fase 2.4.
+    """
+
+    # Tipos que exigem uma lista de opções.
+    TIPOS_COM_OPCOES = ("escolha_unica", "escolha_multipla")
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="campos_inscricao",
+        verbose_name="Evento",
+    )
+    rotulo = models.CharField("Pergunta / rótulo", max_length=150)
+    tipo = models.CharField(
+        "Tipo do campo",
+        max_length=20,
+        choices=TIPO_CAMPO_INSCRICAO_CHOICES,
+        default="texto",
+    )
+    opcoes = models.TextField(
+        "Opções",
+        blank=True,
+        help_text="Uma opção por linha (só para escolha única/múltipla).",
+    )
+    obrigatorio = models.BooleanField("Obrigatório", default=False)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Campo de inscrição"
+        verbose_name_plural = "Campos de inscrição"
+        ordering = ["ordem", "id"]
+
+    @property
+    def usa_opcoes(self):
+        return self.tipo in self.TIPOS_COM_OPCOES
+
+    @property
+    def opcoes_lista(self):
+        """Opções como lista (ignora linhas vazias)."""
+        return [ln.strip() for ln in (self.opcoes or "").splitlines() if ln.strip()]
+
+    def __str__(self):
+        return f"{self.rotulo} ({self.get_tipo_display()}) — {self.evento.nome}"

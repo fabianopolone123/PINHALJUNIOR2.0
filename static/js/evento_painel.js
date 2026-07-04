@@ -72,4 +72,21 @@
         modal: "modalFaixa", abrir: "btnAddFaixa",
         fechar: "modalFaixaFechar", cancelar: "modalFaixaCancelar",
     });
+    configurarModal({
+        modal: "modalCampo", abrir: "btnAddCampo",
+        fechar: "modalCampoFechar", cancelar: "modalCampoCancelar",
+    });
+
+    // ---- Campo do formulário: "Opções" só aparece p/ escolha única/múltipla ----
+    var tipoSel = document.getElementById("id_campo-tipo");
+    var opcoesWrap = document.getElementById("campoOpcoesWrap");
+    function alternarOpcoes() {
+        if (!tipoSel || !opcoesWrap) return;
+        var v = tipoSel.value;
+        opcoesWrap.hidden = !(v === "escolha_unica" || v === "escolha_multipla");
+    }
+    if (tipoSel) {
+        tipoSel.addEventListener("change", alternarOpcoes);
+        alternarOpcoes();
+    }
 })();

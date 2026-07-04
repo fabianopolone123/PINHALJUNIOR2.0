@@ -35,8 +35,13 @@ lojinha, custos e resultado (lucro/prejuízo).
 - **Fase 2.1 CONCLUÍDA** (2026-07-04): fundação das inscrições na aba "Inscrições" do painel —
   configuração (local obrigatório, aberto ao público?, prazo limite, valor da diretoria), **faixas
   etárias com valores** por evento e **trava automática** no prazo/fim do evento.
-- **PRÓXIMO PASSO = Fase 2.2 (formulário de inscrição personalizável).** Antes de codar, alinhar os
-  tipos de campo suportados (texto, número, escolha, sim/não…) e como o Diretor monta o formulário.
+- **Fase 2.2 CONCLUÍDA** (2026-07-04): **formulário de inscrição personalizável** — o Diretor monta,
+  por evento, os campos (conjunto completo de tipos: texto curto/longo, número, escolha única/múltipla,
+  sim/não, data), com opções, obrigatório e reordenação. Modelo `CampoInscricao`. Falta o
+  preenchimento/envio (respostas) → Fase 2.4.
+- **PRÓXIMO PASSO = Fase 2.3 (evento no menu de todos os perfis + página do evento).** Alinhar: como
+  o botão do evento aparece no menu (todos os perfis) e o que a página do evento mostra (descrição,
+  local, prazo, faixas/valores, botão de inscrever).
 
 ## Requisitos da Fase 2 (definidos com o usuário em 2026-07-04)
 > Cada evento complexo é um **mini-sistema configurável**; nada é fixo no sistema.
@@ -61,9 +66,11 @@ lojinha, custos e resultado (lucro/prejuízo).
    - **2.1 — CONCLUÍDA ✅** — Fundação: config da inscrição (local, aberto ao público?, prazo limite,
      valor da diretoria), **faixas etárias com valores** por evento e **trava automática** no prazo.
      Modelo `FaixaEtariaPreco` + campos no `Evento`. Aba "Inscrições" do painel.
-   - **2.2 — PRÓXIMA ⏭️** — **Formulário de inscrição personalizável** por evento (tipos de campo).
-   - **2.3** — **Evento no menu de todos os perfis** + **página do evento** (descrição/local/prazo +
-     botão de inscrever).
+   - **2.2 — CONCLUÍDA ✅** — **Formulário de inscrição personalizável** por evento: campos com tipos
+     (texto curto/longo, número, escolha única/múltipla, sim/não, data), opções, obrigatório e
+     reordenação. Modelo `CampoInscricao`. (Falta o preenchimento/respostas → 2.4.)
+   - **2.3 — PRÓXIMA ⏭️** — **Evento no menu de todos os perfis** + **página do evento**
+     (descrição/local/prazo + botão de inscrever).
    - **2.4** — **Inscrição de fato**: participantes por faixa/diretoria, preço calculado, pagamento
      **simulado**, código, **lista de inscritos** no painel e **contagem/arrecadação no dashboard**.
 3. **Fase 3** — **Página pública** de inscrição (pagamento **simulado**).

@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 from .forms import (
     AutorizacaoImagemForm,
     AventureiroForm,
+    CampoInscricaoForm,
     ContaForm,
     CustoEventoForm,
     EventoComplexoForm,
@@ -619,6 +620,7 @@ def evento_painel_view(request, pk):
     custos = list(evento.custos.all())
     total_custos = sum((c.valor for c in custos), Decimal("0"))
     faixas = list(evento.faixas_preco.all())
+    campos_inscricao = list(evento.campos_inscricao.all())
 
     # Preenchidos nas próximas fases (inscrições e lojinha).
     arrecadacao_inscricoes = Decimal("0")
@@ -630,8 +632,11 @@ def evento_painel_view(request, pk):
         "custos": custos,
         "form_custo": CustoEventoForm(),
         "faixas": faixas,
+        "campos_inscricao": campos_inscricao,
         "config_form": EventoInscricaoConfigForm(instance=evento),
-        "faixa_form": FaixaEtariaPrecoForm(),
+        # Prefixos evitam colisão de IDs entre os modais na mesma página.
+        "faixa_form": FaixaEtariaPrecoForm(prefix="faixa"),
+        "campo_form": CampoInscricaoForm(prefix="campo"),
         "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
         "resumo": {
@@ -667,7 +672,7 @@ def evento_inscricao_config_view(request, pk):
 def evento_faixa_nova_view(request, pk):
     """Adiciona uma faixa etária de preço ao evento."""
     evento = get_object_or_404(Evento, pk=pk)
-    form = FaixaEtariaPrecoForm(request.POST)
+    form = FaixaEtariaPrecoForm(request.POST, prefix="faixa")
     if form.is_valid():
         faixa = form.save(commit=False)
         faixa.evento = evento
@@ -692,6 +697,58 @@ def evento_faixa_excluir_view(request, pk, faixa_id):
     if faixa is not None:
         faixa.delete()
         messages.success(request, "Faixa etária removida.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+@diretor_required
+@require_POST
+def evento_campo_novo_view(request, pk):
+    """Adiciona um campo personalizado ao formulário de inscrição (Fase 2.2)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    form = CampoInscricaoForm(request.POST, prefix="campo")
+    if form.is_valid():
+        campo = form.save(commit=False)
+        campo.evento = evento
+        ultimo = evento.campos_inscricao.order_by("-ordem").first()
+        campo.ordem = (ultimo.ordem + 1) if ultimo else 0
+        campo.save()
+        messages.success(request, "Campo adicionado ao formulário.")
+    else:
+        messages.error(
+            request, "Não foi possível adicionar o campo. Verifique os dados."
+        )
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+@diretor_required
+@require_POST
+def evento_campo_excluir_view(request, pk, campo_id):
+    """Remove um campo do formulário de inscrição."""
+    evento = get_object_or_404(Evento, pk=pk)
+    campo = evento.campos_inscricao.filter(pk=campo_id).first()
+    if campo is not None:
+        campo.delete()
+        messages.success(request, "Campo removido do formulário.")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+@diretor_required
+@require_POST
+def evento_campo_mover_view(request, pk, campo_id):
+    """Reordena um campo do formulário (mover para cima/baixo)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    direcao = request.POST.get("direcao")
+    campos = list(evento.campos_inscricao.all())
+    idx = next((i for i, c in enumerate(campos) if c.id == campo_id), None)
+    if idx is not None:
+        alvo = idx - 1 if direcao == "cima" else idx + 1
+        if 0 <= alvo < len(campos):
+            campos[idx], campos[alvo] = campos[alvo], campos[idx]
+            # Renumera a ordem sequencialmente (robusto a valores repetidos).
+            for i, campo in enumerate(campos):
+                if campo.ordem != i:
+                    campo.ordem = i
+                    campo.save(update_fields=["ordem"])
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
 

@@ -39,6 +39,21 @@ urlpatterns = [
         views.evento_faixa_excluir_view,
         name="evento_faixa_excluir",
     ),
+    path(
+        "eventos/<int:pk>/inscricoes/campo/novo/",
+        views.evento_campo_novo_view,
+        name="evento_campo_novo",
+    ),
+    path(
+        "eventos/<int:pk>/inscricoes/campo/<int:campo_id>/excluir/",
+        views.evento_campo_excluir_view,
+        name="evento_campo_excluir",
+    ),
+    path(
+        "eventos/<int:pk>/inscricoes/campo/<int:campo_id>/mover/",
+        views.evento_campo_mover_view,
+        name="evento_campo_mover",
+    ),
     path("cadastro/", views.cadastro_view, name="cadastro"),
     path(
         "cadastro/novo-aventureiro/",

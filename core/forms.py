@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from .models import (
     Aventureiro,
     AutorizacaoImagem,
+    CampoInscricao,
     CustoEvento,
     Evento,
     FaixaEtariaPreco,
@@ -250,6 +251,44 @@ class FaixaEtariaPrecoForm(EstiloFormMixin, forms.ModelForm):
             self.add_error(
                 "idade_max", "A idade máxima não pode ser menor que a mínima."
             )
+        return cleaned
+
+
+class CampoInscricaoForm(EstiloFormMixin, forms.ModelForm):
+    """Um campo personalizável do formulário de inscrição de um evento (Fase 2.2)."""
+
+    class Meta:
+        model = CampoInscricao
+        fields = ["rotulo", "tipo", "opcoes", "obrigatorio"]
+        widgets = {
+            "opcoes": forms.Textarea(attrs={
+                "rows": 3,
+                "placeholder": "Uma opção por linha (só p/ escolha única ou múltipla)",
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["rotulo"].required = True
+        self._aplicar_estilo()
+
+    def clean(self):
+        cleaned = super().clean()
+        tipo = cleaned.get("tipo")
+        linhas = [
+            ln.strip() for ln in (cleaned.get("opcoes") or "").splitlines() if ln.strip()
+        ]
+        if tipo in CampoInscricao.TIPOS_COM_OPCOES:
+            if len(linhas) < 2:
+                self.add_error(
+                    "opcoes",
+                    "Informe pelo menos duas opções (uma por linha) para campos de escolha.",
+                )
+            else:
+                cleaned["opcoes"] = "\n".join(linhas)
+        else:
+            # Tipos sem opções não guardam nada em 'opcoes'.
+            cleaned["opcoes"] = ""
         return cleaned
 
 

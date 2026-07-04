@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Evento complexo — Fase 2.1: fundação das inscrições — configuração, faixas etárias, valor da diretoria e trava por prazo)
+**Última atualização:** 2026-07-04 (Evento complexo — Fase 2.2: formulário de inscrição personalizável — campos por evento com tipos, opções, obrigatório e reordenação)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -81,10 +81,15 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   diretoria paga, independe da idade; vazio = sem valor especial, 0 = grátis). Mostra um **status**
   ("✅ Abertas" / "⛔ Encerradas") com a data-limite: passado o prazo (ou, se vazio, o fim do evento),
   trava automaticamente. Também gerencia **faixas etárias com valores** por evento (rótulo opcional +
-  idade mín/máx + valor), adicionadas por modal e removíveis — cada evento define as suas. Ainda
-  faltam (próximas partes da Fase 2): 2.2 formulário de inscrição personalizável; 2.3 evento no menu
-  de todos os perfis + página do evento; 2.4 inscrição de fato (pagamento simulado) + lista de
-  inscritos + contagem no dashboard.
+  idade mín/máx + valor), adicionadas por modal e removíveis — cada evento define as suas.
+- **Evento complexo — Fase 2.2 (formulário de inscrição personalizável)**: na mesma aba "Inscrições",
+  subseção **"Formulário de inscrição"**, o Diretor monta os **campos personalizados** do evento:
+  pergunta/rótulo, **tipo** (texto curto, texto longo, número, escolha única, escolha múltipla,
+  sim/não, data), **opções** (só para escolha única/múltipla) e **obrigatório?**. Os campos são
+  adicionados por modal, **reordenáveis** (▲▼) e removíveis. O **preenchimento/envio** desse
+  formulário (respostas dos inscritos) virá na Fase 2.4. Ainda faltam (próximas partes da Fase 2):
+  2.3 evento no menu de todos os perfis + página do evento; 2.4 inscrição de fato (pagamento
+  simulado) + lista de inscritos + contagem no dashboard.
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -170,6 +175,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
 - `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,
   idade_min, idade_max, valor, ordem). Migration `0004`.
+- `CampoInscricao` — campo personalizado do formulário de inscrição, por evento (FK `evento`, rótulo,
+  tipo, opções, obrigatório, ordem). Migration `0005`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -179,8 +186,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Envio de e-mail — NÃO implementado.
 
 ## Próximas etapas previstas
-- **Evento complexo — Fase 2.2**: formulário de inscrição personalizável por evento (próximo passo).
-- **Evento complexo — Fase 2.3**: evento visível no menu de todos os perfis + página do evento.
+- **Evento complexo — Fase 2.3**: evento visível no menu de todos os perfis + página do evento (próximo passo).
 - **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
   simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
@@ -242,6 +248,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).
+- `/eventos/<id>/inscricoes/campo/novo/`, `.../campo/<id>/excluir/` e `.../campo/<id>/mover/` — adicionar/remover/reordenar campo do formulário (POST).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

@@ -22,6 +22,50 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 2.2: formulário de inscrição personalizável
+
+### Resumo
+**Parte 2.2** da Fase 2: o Diretor monta, por evento, os **campos personalizados** do formulário de
+inscrição, na aba "Inscrições" do painel (subseção "Formulário de inscrição"). Cada campo tem
+**pergunta/rótulo**, **tipo** (conjunto completo: texto curto, texto longo, número, escolha única,
+escolha múltipla, sim/não, data), **opções** (só para escolha única/múltipla) e **obrigatório?**.
+Os campos são adicionados por **modal**, podem ser **reordenados** (▲▼) e **removidos**. O
+preenchimento/envio desse formulário (respostas) virá na Fase 2.4.
+
+### Arquivos criados/alterados
+- `core/models.py`: modelo `CampoInscricao` (evento, rótulo, tipo, opções, obrigatório, ordem) +
+  `TIPO_CAMPO_INSCRICAO_CHOICES`; props `usa_opcoes` e `opcoes_lista`. Migration `0005_campoinscricao`.
+- `core/forms.py`: `CampoInscricaoForm` (valida ≥2 opções para escolha; limpa `opcoes` nos demais tipos).
+- `core/views.py`: painel passa `campos_inscricao` e `campo_form`; novas views `evento_campo_novo_view`,
+  `evento_campo_excluir_view`, `evento_campo_mover_view` (reordenação robusta por renumeração).
+  **Prefixos de formulário** (`faixa` e `campo`) para evitar colisão de IDs entre os modais.
+- `core/urls.py`: rotas `evento_campo_novo`, `evento_campo_excluir`, `evento_campo_mover`.
+- `core/admin.py`: registra `CampoInscricao`.
+- `templates/core/evento_painel.html`: subseção "Formulário de inscrição" (lista com ▲▼ e remover) +
+  modal "Adicionar campo".
+- `static/js/evento_painel.js`: modal do campo + mostrar/ocultar "Opções" conforme o tipo escolhido.
+- `static/css/eventos.css`: estilos da lista de campos, botões de ordenar e `.obrigatorio`.
+
+### Decisões tomadas
+- Um modelo por campo (`CampoInscricao`), opções como texto (uma por linha) → `opcoes_lista`.
+- Formulários dos modais agora usam **prefixo** (`faixa-…`, `campo-…`) porque `faixa` e `campo`
+  compartilham o nome de campo `rotulo` (evita `id` duplicado na mesma página).
+- Reordenar por renumeração sequencial da `ordem` (robusto a valores repetidos).
+- Erros do form voltam com mensagem (padrão dos demais modais do painel).
+
+### Validação
+- Teste ponta a ponta (test client, Diretor): painel renderiza a subseção e **não há colisão de IDs**
+  (`id_faixa-rotulo` e `id_campo-rotulo` presentes, `id_rotulo` ausente); regressão da faixa com o novo
+  prefixo; campo de texto; escolha única com 1 opção é rejeitada; escolha única válida normaliza as
+  opções (`["P","M","G"]`); reordenar; excluir. Todos passaram. `python manage.py check` sem problemas.
+
+### Pendências / próximo passo
+- **Parte 2.3** — evento no menu de todos os perfis + página do evento (descrição/local/prazo).
+- Depois: 2.4 (inscrição de fato: participantes por faixa/diretoria, pagamento simulado, respostas
+  do formulário, lista de inscritos + contagem/arrecadação no dashboard).
+
+---
+
 ## 2026-07-04 - Evento complexo — Fase 2.1: fundação das inscrições (config + faixas)
 
 ### Resumo
