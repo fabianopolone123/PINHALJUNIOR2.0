@@ -56,10 +56,13 @@ com CSS próprio (sem frameworks externos).
     participante"), **página do evento** (pública/só-membros) que aparece no **menu de todos os
     perfis**, e a **inscrição de fato** (participantes por faixa/diretoria, código, pagamento
     **simulado**, lista de inscritos + arrecadação no dashboard).
-  - **Fase 4 (Lojinha)**: produtos com variações/estoque; **comprar** na página do evento, junto da
-    inscrição, e no **PDV/balcão** (venda + inscrição presencial, formas de pagamento com troco,
-    cortesia, vínculo opcional a inscrição); **operadores** por evento (diretoria selecionada +
-    ajudantes externos com conta temporária/senha `1234`/troca obrigatória).
+  - **Fase 4 (Lojinha)**: produtos com variações/estoque; **comprar** na página do evento (com
+    **passo de pagamento simulado**: WhatsApp obrigatório, autopreenchimento do comprador, escolha
+    Pix/Cartão, tela de pagamento com QR Pix simulado/copia e cola ou aviso de redirecionamento ao
+    Mercado Pago, aprovação simulada), junto da inscrição, e no **PDV/balcão** (venda + inscrição
+    presencial, formas de pagamento com troco, cortesia, vínculo opcional a inscrição); **operadores**
+    por evento (diretoria selecionada + ajudantes externos com conta temporária/senha `1234`/troca
+    obrigatória).
   - **Notificações**: toasts flutuantes no canto da tela (padrão único do sistema).
   - **Próximo**: **Fase 5 (Financeiro/gráficos)**. Plano completo em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
 - **Migração** dos cadastros do sistema antigo via comando `importar_migracao` (dados reais ficam só

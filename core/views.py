@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -12,6 +13,7 @@ from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
 from .forms import (
@@ -1245,8 +1247,100 @@ def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None,
     return pedido
 
 
+def _erros_estoque(desejados):
+    """Revalida o estoque de uma lista [(variacao, qtd)]. Retorna lista de erros."""
+    erros = []
+    for v, qtd in desejados:
+        if v.produto.controla_estoque and qtd > v.estoque:
+            erros.append(
+                f"Estoque insuficiente para {v.produto.nome} — {v.rotulo}: "
+                f"{v.estoque} disponível(is)."
+            )
+    return erros
+
+
+def _pseudo_qr(texto, n=25):
+    """Matriz booleana n×n que *parece* um QR Code (decorativa/SIMULADA — não é
+    escaneável nem pagável). Determinística a partir do `texto`; desenha os três
+    marcadores de canto (finder patterns) para dar a aparência clássica. O QR real
+    virá com a integração de pagamento (Mercado Pago) — ver docs."""
+    bits = []
+    semente = hashlib.sha256(texto.encode("utf-8")).digest()
+    while len(bits) < n * n:
+        semente = hashlib.sha256(semente).digest()
+        for b in semente:
+            for i in range(8):
+                bits.append((b >> i) & 1)
+    matriz = [[bool(bits[r * n + c]) for c in range(n)] for r in range(n)]
+
+    def marcador(r0, c0):
+        for r in range(-1, 8):  # separador branco ao redor
+            for c in range(-1, 8):
+                rr, cc = r0 + r, c0 + c
+                if 0 <= rr < n and 0 <= cc < n:
+                    matriz[rr][cc] = False
+        for r in range(7):
+            for c in range(7):
+                borda = r in (0, 6) or c in (0, 6)
+                miolo = 2 <= r <= 4 and 2 <= c <= 4
+                matriz[r0 + r][c0 + c] = borda or miolo
+
+    marcador(0, 0)
+    marcador(0, n - 7)
+    marcador(n - 7, 0)
+    return matriz
+
+
+def _qr_svg(texto, modulo=9):
+    """SVG (string segura) de um QR Code SIMULADO a partir do texto."""
+    matriz = _pseudo_qr(texto)
+    n = len(matriz)
+    tam = n * modulo
+    partes = [
+        f'<svg viewBox="0 0 {tam} {tam}" width="{tam}" height="{tam}" '
+        f'role="img" aria-label="QR Code Pix (simulado)" '
+        f'xmlns="http://www.w3.org/2000/svg">',
+        f'<rect width="{tam}" height="{tam}" fill="#ffffff"/>',
+    ]
+    for r, linha in enumerate(matriz):
+        for c, ligado in enumerate(linha):
+            if ligado:
+                partes.append(
+                    f'<rect x="{c * modulo}" y="{r * modulo}" '
+                    f'width="{modulo}" height="{modulo}" fill="#0f2a43"/>'
+                )
+    partes.append("</svg>")
+    return mark_safe("".join(partes))
+
+
+def _pix_copia_cola(total, codigo):
+    """Código Pix "copia e cola" SIMULADO (não é um BR Code real / não é pagável).
+    Só ilustra a tela clássica de pagamento. O payload real virá com o gateway."""
+    valor = f"{total:.2f}"
+    nome = "CLUBE AVENTUREIROS PINHAL JR"
+    return (
+        "00020126360014BR.GOV.BCB.PIX0114" + codigo.ljust(14, "0")
+        + "520400005303986540" + f"{len(valor)}" + valor
+        + "5802BR5925" + nome.ljust(25)[:25]
+        + "6009SAO PAULO62070503" + codigo[:3] + "6304SIMU"
+    )
+
+
+# Formas de pagamento do cliente final na loja online (só as que a pessoa
+# consegue fazer sozinha pelo site). Dinheiro/cortesia ficam no PDV/balcão.
+FORMAS_PAGAMENTO_ONLINE = [
+    ("pix", "Pix"),
+    ("cartao", "Cartão de crédito"),
+]
+
+
 def evento_loja_view(request, pk):
-    """Loja do evento: escolher itens/quantidades e finalizar (pagamento simulado)."""
+    """Loja do evento: escolher itens/quantidades e a forma de pagamento.
+
+    Ao finalizar, os dados vão para a **tela de pagamento** (`evento_pagamento`):
+    o pedido só é criado no banco após a aprovação (simulada) do pagamento — assim
+    não fica pedido "pendente" nem estoque reservado por quem abandona o carrinho.
+    """
     evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
     if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
         return redirect(f"{reverse('core:login')}?next={request.path}")
@@ -1262,6 +1356,7 @@ def evento_loja_view(request, pk):
     comprador = {"nome": "", "whatsapp": "", "email": ""}
     desejados = []
     erros = []
+    forma = ""
 
     if request.method == "POST":
         comprador = {
@@ -1269,20 +1364,25 @@ def evento_loja_view(request, pk):
             "whatsapp": (request.POST.get("comprador_whatsapp") or "").strip(),
             "email": (request.POST.get("comprador_email") or "").strip(),
         }
+        forma = request.POST.get("forma_pagamento") or ""
         desejados, erros = _coletar_itens_loja(request, produtos)
         if not comprador["nome"]:
             erros.append("Informe o nome do comprador.")
+        if not comprador["whatsapp"]:
+            erros.append("Informe o WhatsApp para contato.")
         if not desejados:
             erros.append("Escolha ao menos um item (quantidade maior que zero).")
+        if forma not in dict(FORMAS_PAGAMENTO_ONLINE):
+            erros.append("Escolha a forma de pagamento (Pix ou cartão de crédito).")
 
         if not erros:
-            with transaction.atomic():
-                pedido = _criar_pedido(
-                    evento, desejados, comprador,
-                    usuario=request.user if request.user.is_authenticated else None,
-                )
-            request.session["pedido_codigo"] = pedido.codigo
-            return redirect("core:evento_pedido_sucesso", pk=evento.pk)
+            # Guarda o pedido na sessão e leva para o pagamento (simulado).
+            request.session["loja_checkout"] = {
+                "itens": [[v.id, qtd] for v, qtd in desejados],
+                "comprador": comprador,
+                "forma": forma,
+            }
+            return redirect("core:evento_pagamento", pk=evento.pk)
         messages.error(request, "Verifique os itens escolhidos e os seus dados.")
     else:
         if request.user.is_authenticated and request.user.email:
@@ -1294,8 +1394,81 @@ def evento_loja_view(request, pk):
         "produtos_loja": produtos,
         "comprador": comprador,
         "erros": erros,
+        "formas_pagamento": FORMAS_PAGAMENTO_ONLINE,
+        "forma_sel": forma,
     }
     return render(request, "core/evento_loja.html", contexto)
+
+
+def evento_pagamento_view(request, pk):
+    """Tela de pagamento (SIMULADA) do pedido da lojinha online.
+
+    GET: mostra a tela clássica — Pix (QR + código "copia e cola") ou cartão
+    (aviso de redirecionamento ao Mercado Pago, ainda a implementar). O pedido
+    ainda NÃO existe no banco (os dados ficam na sessão em `loja_checkout`).
+    POST: simula a aprovação do pagamento, cria o pedido (confirmado) e leva à
+    tela de sucesso. Baixa o estoque só aqui (revalidando antes).
+    """
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    dados = request.session.get("loja_checkout")
+    if not dados or not dados.get("itens"):
+        return redirect("core:evento_loja", pk=evento.pk)
+
+    produtos = list(evento.produtos.filter(ativo=True).prefetch_related("variacoes"))
+    variacoes = {v.id: v for p in produtos for v in p.variacoes.all()}
+    desejados = []
+    itens_resumo = []
+    total = Decimal("0")
+    for vid, qtd in dados["itens"]:
+        v = variacoes.get(vid)
+        if v and qtd > 0:
+            desejados.append((v, qtd))
+            subtotal = v.valor * qtd
+            total += subtotal
+            itens_resumo.append({
+                "produto": v.produto.nome, "variacao": v.nome,
+                "quantidade": qtd, "valor_unitario": v.valor, "subtotal": subtotal,
+            })
+
+    if not desejados:
+        request.session.pop("loja_checkout", None)
+        return redirect("core:evento_loja", pk=evento.pk)
+
+    comprador = dados["comprador"]
+    forma = dados["forma"]
+
+    if request.method == "POST":
+        erros = _erros_estoque(desejados)
+        if erros:
+            request.session.pop("loja_checkout", None)
+            for e in erros:
+                messages.error(request, e)
+            messages.error(request, "Refaça o pedido, por favor.")
+            return redirect("core:evento_loja", pk=evento.pk)
+        with transaction.atomic():
+            pedido = _criar_pedido(
+                evento, desejados, comprador,
+                usuario=request.user if request.user.is_authenticated else None,
+                forma_pagamento=forma, origem="online",
+            )
+        request.session.pop("loja_checkout", None)
+        request.session["pedido_codigo"] = pedido.codigo
+        messages.success(request, "Pagamento aprovado! Pedido confirmado.")
+        return redirect("core:evento_pedido_sucesso", pk=evento.pk)
+
+    forma_nome = dict(FORMAS_PAGAMENTO_ONLINE).get(forma, forma)
+    contexto = {
+        "evento": evento,
+        "comprador": comprador,
+        "forma": forma,
+        "forma_nome": forma_nome,
+        "itens_resumo": itens_resumo,
+        "total": total,
+    }
+    if forma == "pix":
+        contexto["qr_svg"] = _qr_svg(f"PIX-{evento.id}-{total}")
+        contexto["pix_codigo"] = _pix_copia_cola(total, f"L{evento.id:04d}")
+    return render(request, "core/evento_pagamento.html", contexto)
 
 
 def evento_pedido_sucesso_view(request, pk):

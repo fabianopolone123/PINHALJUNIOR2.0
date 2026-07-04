@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Toasts de notificação melhorados: sempre no canto da tela — movidos para o `<body>` —, maiores, com ícone e barra de progresso; padrão único do sistema)
+**Última atualização:** 2026-07-04 (Lojinha pública: fluxo de pagamento **simulado** — WhatsApp obrigatório, autopreenchimento do comprador, escolha de forma de pagamento (Pix/Cartão), tela de pagamento clássica (QR Pix simulado + copia e cola / aviso de redirecionamento ao Mercado Pago no cartão), aprovação simulada e tela de sucesso melhorada; o pedido só é criado após a aprovação)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -119,6 +119,20 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   evento (público sem login; só-membros com login); a loja fica aberta **enquanto o evento não
   terminou**. No painel, a aba "Lojinha" lista os **pedidos** (com itens e **cancelar** — devolve ao
   estoque) e o **Resumo** conta **"Vendas (lojinha)"** (entra em receitas/resultado).
+- **Evento complexo — Lojinha: fluxo de pagamento online (simulado)**: a compra pela **página pública**
+  do evento (cliente final, para chegar já pago e **evitar fila** na retirada) ganhou um passo de
+  pagamento. Na loja, o **WhatsApp é obrigatório** (e-mail opcional) e os **dados do comprador são
+  lembrados** no próprio aparelho (localStorage — celular e PC) para não redigitar em pedidos
+  seguintes; a pessoa escolhe a **forma de pagamento** (**Pix** ou **Cartão de crédito**). Ao
+  "Ir para o pagamento", abre a **tela de pagamento** (`/eventos/<id>/loja/pagamento/`): no **Pix**,
+  a tela clássica com **QR Code (simulado/decorativo)** e **código "copia e cola"** com botão
+  **Copiar**; no **cartão**, um aviso de que **em produção** haverá **redirecionamento ao Mercado
+  Pago** (integração futura). O botão **"Simular pagamento aprovado"** confirma o pedido. O
+  **`PedidoLoja` só é criado no banco após a aprovação** (enquanto pendente fica na **sessão** —
+  sem pedido "pendente" nem estoque reservado por carrinho abandonado); só então baixa o estoque
+  (revalidado) e mostra a **tela de sucesso melhorada** (lista dos itens, total e "Pago com Pix/
+  Cartão"). O QR e o "copia e cola" são **simulados** (sem biblioteca externa); o pagamento real
+  virá com o gateway. Escopo: **só a loja pública** (o PDV/balcão e a inscrição seguem como estavam).
 - **Evento complexo — Lojinha Fase 4.3 (comprar junto da inscrição + pedir mais)**: no fim do
   formulário de inscrição há uma seção **opcional** "Quer levar algo da lojinha?" (quantidade por
   variação + subtotal ao vivo); ao confirmar, cria a inscrição **e** um **pedido vinculado** (mesma
@@ -285,7 +299,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_pagina.html` (página do evento — pública/interna, com botão de inscrever)
 - `templates/core/evento_inscrever.html` (formulário de inscrição) e `evento_inscricao_sucesso.html`
 - `templates/core/evento_produto_form.html` (cadastro/edição de produto da lojinha)
-- `templates/core/evento_loja.html` (loja/carrinho do evento) e `evento_pedido_sucesso.html`
+- `templates/core/evento_loja.html` (loja/carrinho do evento), `evento_pagamento.html` (tela de
+  pagamento simulada: Pix com QR/copia-cola ou cartão) e `evento_pedido_sucesso.html`
 - `templates/core/evento_pdv.html` (PDV / balcão de vendas) e `evento_pdv_inscricao.html` (PDV inscrição)
 - `templates/core/_loja_itens.html` (parcial: itens da lojinha para escolher — loja, inscrição e PDV)
 - `templates/core/_menu.html` (parcial: menu lateral central, usado por todas as telas internas)
@@ -325,6 +340,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_produto.js` — linhas de variação (adicionar/remover) + mostrar/ocultar estoque.
 - `static/js/qtd_stepper.js` — botões +/- de quantidade nas telas de compra (dispara o recálculo).
 - `static/js/evento_loja.js` — total ao vivo da loja/inscrição conforme as quantidades.
+- `static/js/loja_comprador.js` — lembra os dados do comprador (nome/WhatsApp/e-mail) no localStorage
+  e autopreenche na loja pública (celular e PC).
+- `static/js/evento_pagamento.js` — botão "Copiar" do código Pix na tela de pagamento (com fallback).
 - `static/js/evento_pdv.js` — PDV vendas: total, forma de pagamento e troco.
 - `static/js/evento_pdv_inscricao.js` — PDV inscrição: total combinado (faixa/diretoria + lojinha) + troco.
 
@@ -343,7 +361,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/inscrever/sucesso/` — confirmação da inscrição (`core:evento_inscricao_sucesso`).
 - `/eventos/<id>/inscricoes/<id>/cancelar/` — cancela inscrição (POST, Diretor) (`core:evento_inscricao_cancelar`).
 - `/eventos/<id>/produtos/novo/`, `.../produtos/<id>/editar/` e `.../produtos/<id>/excluir/` — lojinha: cadastro/edição/remoção de produto (Diretor).
-- `/eventos/<id>/loja/` — loja do evento (comprar), `.../loja/sucesso/` (confirmação) e `.../pedidos/<id>/cancelar/` (POST, Diretor).
+- `/eventos/<id>/loja/` — loja do evento (comprar), `.../loja/pagamento/` (tela de pagamento simulada:
+  GET mostra Pix/cartão; POST simula a aprovação e cria o pedido), `.../loja/sucesso/` (confirmação) e
+  `.../pedidos/<id>/cancelar/` (POST, Diretor).
 - `/eventos/<id>/pdv/` — PDV / balcão de vendas da lojinha (Diretor por ora) (`core:evento_pdv`).
 - `/eventos/<id>/pdv/inscricao/` — PDV: inscrição presencial + lojinha, pagamento combinado (`core:evento_pdv_inscricao`).
 - `/eventos/<id>/operar/` — landing do operador (vender/inscrever) (`core:evento_operar`, operador ou Diretor).

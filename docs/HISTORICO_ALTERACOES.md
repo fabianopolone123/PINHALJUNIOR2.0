@@ -22,6 +22,71 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Lojinha pública: fluxo de pagamento (simulado) Pix/Cartão
+
+### Resumo
+Melhoria do fluxo de **compra na lojinha pela página pública** do evento (o cliente final — sem ser
+atendente/diretoria — que compra para chegar já pago e **evitar fila** na retirada). Antes, ao
+"Finalizar", o pedido era confirmado na hora, sem escolher forma de pagamento. Agora:
+1. **WhatsApp obrigatório** (e-mail opcional) nos dados do comprador.
+2. **Autopreenchimento**: os dados do comprador (nome/WhatsApp/e-mail) são lembrados no **localStorage**
+   do próprio aparelho (celular e PC) e preenchem sozinhos em pedidos seguintes.
+3. **Forma de pagamento** na loja: **Pix** ou **Cartão de crédito** (cards selecionáveis).
+4. **Tela de pagamento** (`/eventos/<id>/loja/pagamento/`): no **Pix**, a tela clássica com **QR Code
+   (simulado)** e **código "copia e cola"** com botão **Copiar**; no **cartão**, aviso de que **em
+   produção** haverá **redirecionamento ao Mercado Pago** (integração futura). Botão **"Simular
+   pagamento aprovado"**.
+5. **Sucesso melhorado**: lista dos itens em linhas (qtd × produto/variação → subtotal), total e
+   "**Pago com Pix/Cartão**".
+
+O **pagamento é simulado** (só ilustra o processo). O **`PedidoLoja` só é criado no banco após a
+aprovação**: enquanto pendente, o pedido fica na **sessão** (`loja_checkout`) — evita pedido "pendente"
+e estoque reservado por carrinho abandonado; a baixa de estoque (revalidada) acontece só na aprovação.
+Escopo: **apenas a loja pública** — o PDV/balcão e o fluxo de inscrição continuam como estavam.
+
+### Arquivos criados/alterados
+- `core/views.py`: `evento_loja_view` (WhatsApp obrigatório + forma de pagamento → guarda `loja_checkout`
+  na sessão e redireciona para o pagamento, **sem** criar pedido); nova `evento_pagamento_view` (GET
+  mostra Pix/cartão; POST simula a aprovação, revalida estoque, cria o pedido confirmado e vai ao
+  sucesso). Helpers novos: `_erros_estoque`, `_pseudo_qr`, `_qr_svg` (SVG de QR **simulado**),
+  `_pix_copia_cola` (payload Pix **simulado**). Constante `FORMAS_PAGAMENTO_ONLINE` (pix/cartão).
+- `core/urls.py`: rota `evento_pagamento` (`/eventos/<id>/loja/pagamento/`).
+- `templates/core/evento_loja.html`: WhatsApp `*`, e-mail "(opcional)", seção "Forma de pagamento",
+  botão "Ir para o pagamento"; inclui `loja_comprador.js`.
+- `templates/core/evento_pagamento.html` (novo): tela de pagamento (Pix: QR + copia e cola; cartão:
+  aviso Mercado Pago) + botão "Simular pagamento aprovado".
+- `templates/core/evento_pedido_sucesso.html`: lista de itens em linhas + forma de pagamento.
+- `static/js/loja_comprador.js` (novo): autopreenchimento via localStorage. `static/js/evento_pagamento.js`
+  (novo): botão "Copiar" do código Pix (com fallback `execCommand`).
+- `static/css/eventos.css`: cards de forma de pagamento (`.pagamento-metodo`), tela de pagamento
+  (`.pagamento-resumo`, `.pix-qr`, `.pix-copia`, `.cartao-mock`, `.pagamento-simulado`) e lista de
+  sucesso (`.pedido-lista`).
+
+### Decisões tomadas
+- **Pedido só após a aprovação** (dados na sessão enquanto pendente): "só aparece pedido confirmado",
+  sem lixo de pedidos abandonados nem estoque preso. Reaproveita `_criar_pedido` com
+  `forma_pagamento` pix/cartão e `origem="online"`.
+- **QR e "copia e cola" simulados**, gerados sem biblioteca externa (regra do projeto) — o QR é
+  decorativo/determinístico (não escaneável) e o payload Pix é fictício. O QR/pagamento reais virão
+  com a integração do gateway (**Mercado Pago**), a conversar depois.
+- **Formas online = Pix e Cartão** apenas (dinheiro/cortesia continuam no PDV/balcão).
+
+### Validação
+- Teste ponta a ponta (test client): GET loja; POST **sem WhatsApp** e **sem forma** rejeitados (0
+  pedidos); POST válido → redireciona ao pagamento **sem criar pedido** (dados na sessão); GET pagamento
+  Pix (QR/`<svg>` + código Pix + botão simular); **POST aprovar** cria o pedido **confirmado**
+  (forma=pix, origem=online, total correto), **baixa o estoque** (5→3) e **limpa a sessão**; GET sucesso
+  com código e "Pago com"; GET pagamento **cartão** com aviso do Mercado Pago (sem QR). Todos passaram.
+  `manage.py check` OK. **Visual (Chrome headless ~490px)**: loja (WhatsApp*/forma), pagamento Pix
+  (QR + copia e cola), pagamento cartão (mock + aviso) e sucesso (lista + total) — sem overflow.
+
+### Pendências / próximo passo
+- **Pagamento real (gateway)**: Pix real (QR/BR Code) e **redirecionamento ao Mercado Pago** no cartão
+  — a alinhar em conversa futura. Depois, avaliar aplicar o mesmo passo de pagamento à **inscrição** online.
+- **Fase 5 — Financeiro/gráficos** segue como o próximo grande passo do evento complexo.
+
+---
+
 ## 2026-07-04 - Toasts melhorados (canto da tela + visual) — padrão único do sistema
 
 ### Resumo

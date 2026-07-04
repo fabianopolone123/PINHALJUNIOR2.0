@@ -345,3 +345,24 @@ internas ou no fluxo de login, seguir estas regras:
 - **Pagamentos ficam simulados** até a fase específica; nunca integrar gateway sem autorização.
 - Fase 1 (feita): base + painel/resumo (indicadores) + Custos (com comprovante). Próximas: Inscrições,
   Página pública, Lojinha, Financeiro/gráficos; depois, pagamentos reais e mapa.
+
+### Pagamentos (simulados) — lojinha pública
+
+- A compra pela **página pública** da lojinha (`core:evento_loja`) tem um **passo de pagamento**
+  (`core:evento_pagamento`, `/eventos/<id>/loja/pagamento/`) antes de confirmar. Formas **online**:
+  **Pix** e **Cartão de crédito** (constante `FORMAS_PAGAMENTO_ONLINE` em `views.py`); dinheiro e
+  cortesia continuam só no **PDV/balcão**.
+- **O pedido só é criado no banco APÓS a aprovação** do pagamento. Enquanto pendente, os dados ficam
+  na **sessão** (`request.session["loja_checkout"]` = itens + comprador + forma). Assim não há pedido
+  "pendente" no banco nem estoque reservado por carrinho abandonado. A **baixa de estoque** (revalidada
+  com `_erros_estoque`) e a criação do `PedidoLoja` (via `_criar_pedido`, `origem="online"`) acontecem
+  só na aprovação. Após aprovar, limpar `loja_checkout` da sessão.
+- **Pagamento é SIMULADO** por ora: a tela mostra o processo (Pix com **QR Code decorativo** — helpers
+  `_pseudo_qr`/`_qr_svg` — e **código "copia e cola" fictício** — `_pix_copia_cola`; cartão com aviso de
+  **redirecionamento ao Mercado Pago**) e um botão **"Simular pagamento aprovado"**. O QR e o payload
+  Pix **não são reais/escaneáveis** e são gerados **sem biblioteca externa** (regra do projeto). O
+  pagamento real (Pix/BR Code real e API do Mercado Pago) fica para a integração do gateway — **nunca
+  integrar gateway sem autorização**.
+- **WhatsApp obrigatório** (e-mail opcional) nos dados do comprador da loja pública. Os dados do
+  comprador são lembrados no **localStorage** do aparelho (`static/js/loja_comprador.js`) e
+  autopreenchidos em pedidos seguintes — sem back-end, funciona logado ou anônimo.

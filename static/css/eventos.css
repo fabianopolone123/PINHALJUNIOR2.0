@@ -693,3 +693,96 @@ a.tipo-card:hover {
 .sucesso-total { font-size: 1.1rem; margin-top: 8px; }
 .sucesso-card .evento-publico-acao a { margin: 4px; }
 
+/* ===== Loja: forma de pagamento (cliente final) ===== */
+.pagamento-metodos { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 6px; }
+.pagamento-metodo {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    border: 1.5px solid var(--borda); border-radius: var(--raio-item);
+    cursor: pointer; transition: border-color var(--transicao), box-shadow var(--transicao), background var(--transicao);
+}
+.pagamento-metodo:hover { border-color: var(--azul); }
+.pagamento-metodo input { width: 20px; height: 20px; accent-color: var(--azul); flex: 0 0 auto; }
+.pagamento-metodo-icone { font-size: 1.4rem; }
+.pagamento-metodo-nome { font-weight: 600; color: var(--texto); }
+.pagamento-metodo:has(input:checked) {
+    border-color: var(--azul); background: var(--fundo-conteudo, #eef3f9);
+    box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
+}
+@media (min-width: 520px) {
+    .pagamento-metodos { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ===== Tela de pagamento (simulada) ===== */
+.pagamento-resumo {
+    background: var(--fundo-conteudo, #eef3f9); border-radius: 12px;
+    padding: 14px 16px; margin: 8px 0 18px;
+}
+.pagamento-itens { list-style: none; margin: 0; padding: 0; }
+.pagamento-itens li {
+    display: flex; align-items: baseline; gap: 8px; padding: 5px 0;
+    border-bottom: 1px solid var(--borda); font-size: 0.92rem;
+}
+.pagamento-itens li:last-child { border-bottom: none; }
+.pag-item-qtd { font-weight: 800; color: var(--azul-escuro); flex: 0 0 auto; }
+.pag-item-nome { flex: 1 1 auto; overflow-wrap: anywhere; }
+.pag-item-nome small { color: var(--texto-suave); }
+.pag-item-valor { flex: 0 0 auto; font-weight: 700; white-space: nowrap; }
+.pagamento-total { margin: 12px 0 0; text-align: right; font-size: 1.15rem; color: var(--texto); }
+.pagamento-total strong { color: var(--azul-escuro); }
+
+.pagamento-instrucao { font-size: 0.92rem; color: var(--texto-suave); margin: 4px 0 14px; }
+
+.pix-qr {
+    display: flex; justify-content: center; margin: 6px 0 16px;
+}
+.pix-qr svg {
+    width: 220px; height: auto; max-width: 100%;
+    background: #fff; padding: 10px; border-radius: 12px;
+    border: 1px solid var(--borda); box-shadow: var(--sombra-card);
+}
+.pix-copia-rotulo { display: block; font-size: 0.78rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.pix-copia { display: flex; gap: 8px; align-items: stretch; }
+.pix-copia-input {
+    flex: 1 1 auto; min-width: 0; padding: 10px 12px; font-size: 0.85rem;
+    border: 1px solid var(--borda); border-radius: 10px; background: var(--branco);
+    color: var(--texto); font-family: monospace;
+}
+.pix-copia .btn-secundario { flex: 0 0 auto; margin-top: 0; white-space: nowrap; }
+.pix-aviso { color: var(--verde); font-weight: 600; margin: 8px 0 0; }
+
+.cartao-mock {
+    position: relative; height: 130px; border-radius: 14px; margin: 6px 0 14px;
+    background: linear-gradient(135deg, var(--azul-escuro), var(--azul));
+    box-shadow: var(--sombra-card); color: #fff; overflow: hidden;
+}
+.cartao-chip {
+    position: absolute; top: 26px; left: 22px; width: 42px; height: 32px;
+    border-radius: 6px; background: linear-gradient(135deg, #f4d47c, #d9a441);
+}
+.cartao-numero {
+    position: absolute; bottom: 40px; left: 22px; right: 22px;
+    font-size: 1.15rem; letter-spacing: 0.12em; font-family: monospace;
+}
+.cartao-bandeira { position: absolute; bottom: 14px; right: 20px; font-size: 1.6rem; }
+
+.pagamento-simulado {
+    background: #fff8e6; border: 1px solid #f0dca0; border-radius: 10px;
+    padding: 10px 12px; color: #7a5b00; text-align: center;
+}
+.pagamento-form { margin-top: 16px; }
+.pagamento-confirmar { width: 100%; }
+
+/* ===== Sucesso do pedido: lista de itens ===== */
+.pedido-lista { list-style: none; margin: 14px 0 0; padding: 0; text-align: left; }
+.pedido-item {
+    display: flex; align-items: baseline; gap: 8px; padding: 8px 0;
+    border-bottom: 1px solid var(--borda); font-size: 0.95rem;
+}
+.pedido-item:last-child { border-bottom: none; }
+.pedido-item-qtd { font-weight: 800; color: var(--azul-escuro); flex: 0 0 auto; }
+.pedido-item-nome { flex: 1 1 auto; overflow-wrap: anywhere; }
+.pedido-item-nome small { color: var(--texto-suave); }
+.pedido-item-valor { flex: 0 0 auto; font-weight: 700; white-space: nowrap; }
+.pedido-forma { font-size: 0.92rem; color: var(--texto-suave); margin: 4px 0 0; }
+.sucesso-card .pedido-lista { display: inline-block; max-width: 100%; }
+

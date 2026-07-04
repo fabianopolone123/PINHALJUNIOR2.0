@@ -54,6 +54,13 @@ lojinha, custos e resultado (lucro/prejuízo).
 - **Lojinha 4.2 CONCLUÍDA** (2026-07-04): **comprar na página do evento** — loja com quantidade por
   variação + total ao vivo; pagamento **simulado**, baixa estoque; pedidos no painel e "Vendas
   (lojinha)" no Resumo. Modelos `PedidoLoja` e `ItemPedidoLoja`.
+- **Lojinha 4.2 — passo de pagamento (simulado) — CONCLUÍDO** (2026-07-04): a compra pública ganhou um
+  **passo de pagamento** antes de confirmar. WhatsApp obrigatório + autopreenchimento do comprador
+  (localStorage); escolha **Pix/Cartão**; **tela de pagamento** (`/eventos/<id>/loja/pagamento/`) com
+  **QR Pix simulado + copia e cola** (Pix) ou aviso de **redirecionamento ao Mercado Pago** (cartão);
+  botão "Simular pagamento aprovado". O **pedido só é criado após a aprovação** (fica na sessão
+  enquanto pendente). QR/payload **sem biblioteca externa**. **Pagamento real (gateway) fica para
+  depois** — Pix real e API do Mercado Pago a alinhar em conversa futura.
 - **Lojinha 4.3 CONCLUÍDA** (2026-07-04): **comprar junto da inscrição** (seção opcional no fim do
   form → pedido vinculado, mesma transação) + **pedir mais** (telas de sucesso com botão "Comprar
   (mais) na lojinha"). `PedidoLoja.inscricao` (FK).

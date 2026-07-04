@@ -21,20 +21,27 @@
             <article class="card evento-publico-card sucesso-card">
                 <span class="sucesso-check" aria-hidden="true">✅</span>
                 <h1 class="evento-publico-titulo">Pedido confirmado!</h1>
-                <p class="evento-publico-desc">Seu pedido na lojinha de <strong>{{ evento.nome }}</strong> foi registrado.</p>
+                <p class="evento-publico-desc">Seu pedido na lojinha de <strong>{{ evento.nome }}</strong> foi registrado. É só apresentar o código na retirada.</p>
 
                 <div class="sucesso-codigo">
                     <span class="sucesso-codigo-rotulo">Código do pedido</span>
                     <span class="sucesso-codigo-valor selecionavel">{{ pedido.codigo }}</span>
                 </div>
 
-                <ul class="inscrito-parts">
+                <ul class="pedido-lista">
                     {% for item in pedido.itens.all %}
-                    <li>{{ item.quantidade }}x {{ item.produto_nome }}{% if item.variacao_nome %} ({{ item.variacao_nome }}){% endif %} — R$ {{ item.valor_total|moeda }}</li>
+                    <li class="pedido-item">
+                        <span class="pedido-item-qtd">{{ item.quantidade }}×</span>
+                        <span class="pedido-item-nome">{{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}</span>
+                        <span class="pedido-item-valor">R$ {{ item.valor_total|moeda }}</span>
+                    </li>
                     {% endfor %}
                 </ul>
 
                 <p class="sucesso-total">Total: <strong>R$ {{ pedido.valor_total|moeda }}</strong></p>
+                {% if pedido.forma_pagamento == "pix" or pedido.forma_pagamento == "cartao" %}
+                <p class="pedido-forma">Pago com <strong>{{ pedido.get_forma_pagamento_display }}</strong></p>
+                {% endif %}
                 <p class="painel-nota">Pagamento simulado — o pedido já consta como confirmado.</p>
 
                 <div class="evento-publico-acao">

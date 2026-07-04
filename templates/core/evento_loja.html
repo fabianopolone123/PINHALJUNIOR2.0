@@ -48,22 +48,33 @@
                     </div>
                     <div class="form-linha">
                         <div class="campo">
-                            <label for="comprador_whatsapp">WhatsApp</label>
-                            <input type="text" id="comprador_whatsapp" name="comprador_whatsapp" class="campo-input" value="{{ comprador.whatsapp }}">
+                            <label for="comprador_whatsapp">WhatsApp <span class="obrigatorio">*</span></label>
+                            <input type="text" id="comprador_whatsapp" name="comprador_whatsapp" class="campo-input" value="{{ comprador.whatsapp }}" inputmode="tel" placeholder="(00) 90000-0000">
                         </div>
                         <div class="campo">
-                            <label for="comprador_email">E-mail</label>
+                            <label for="comprador_email">E-mail <small class="ajuda">(opcional)</small></label>
                             <input type="email" id="comprador_email" name="comprador_email" class="campo-input" value="{{ comprador.email }}">
                         </div>
+                    </div>
+
+                    <h2 class="evento-publico-h2">Forma de pagamento</h2>
+                    <div class="pagamento-metodos">
+                        {% for f in formas_pagamento %}
+                        <label class="pagamento-metodo">
+                            <input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forma_sel == f.0 %} checked{% endif %}>
+                            <span class="pagamento-metodo-icone" aria-hidden="true">{% if f.0 == 'pix' %}⚡{% else %}💳{% endif %}</span>
+                            <span class="pagamento-metodo-nome">{{ f.1 }}</span>
+                        </label>
+                        {% endfor %}
                     </div>
 
                     <div class="loja-rodape">
                         <div class="loja-total">Total: <strong id="lojaTotal">R$ 0,00</strong></div>
                         <button type="submit" class="btn-acao">
-                            <span aria-hidden="true">🛒</span> Finalizar pedido
+                            Ir para o pagamento <span aria-hidden="true">→</span>
                         </button>
                     </div>
-                    <p class="painel-nota" style="text-align:center;">Pagamento simulado nesta etapa — o pedido é confirmado na hora.</p>
+                    <p class="painel-nota" style="text-align:center;">Você escolhe pagar por Pix ou cartão na próxima etapa. Assim já chega pago e evita fila na retirada.</p>
                 </form>
             </article>
         </main>
@@ -73,5 +84,6 @@
 
     <script src="{% static 'js/qtd_stepper.js' %}"></script>
     <script src="{% static 'js/evento_loja.js' %}"></script>
+    <script src="{% static 'js/loja_comprador.js' %}"></script>
 </body>
 </html>

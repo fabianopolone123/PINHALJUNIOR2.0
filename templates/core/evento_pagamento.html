@@ -1,0 +1,80 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Pagamento — {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <a href="{% url 'core:evento_loja' evento.id %}" class="voltar-link">← Voltar e ajustar o pedido</a>
+
+            <article class="card evento-publico-card">
+                <h1 class="evento-publico-titulo">Pagamento</h1>
+                <p class="evento-publico-desc">Lojinha de <strong>{{ evento.nome }}</strong></p>
+
+                <div class="pagamento-resumo">
+                    <ul class="pagamento-itens">
+                        {% for item in itens_resumo %}
+                        <li>
+                            <span class="pag-item-qtd">{{ item.quantidade }}×</span>
+                            <span class="pag-item-nome">{{ item.produto }}{% if item.variacao %} <small>({{ item.variacao }})</small>{% endif %}</span>
+                            <span class="pag-item-valor">R$ {{ item.subtotal|moeda }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="pagamento-total">Total a pagar: <strong>R$ {{ total|moeda }}</strong></p>
+                </div>
+
+                {% if forma == "pix" %}
+                <section class="pagamento-pix">
+                    <h2 class="evento-publico-h2">Pague com Pix</h2>
+                    <p class="pagamento-instrucao">Abra o app do seu banco, escolha <strong>Pix &gt; Ler QR Code</strong> e aponte a câmera. Ou use o código <em>copia e cola</em>.</p>
+                    <div class="pix-qr">{{ qr_svg }}</div>
+                    <label class="pix-copia-rotulo" for="pixCodigo">Pix copia e cola</label>
+                    <div class="pix-copia">
+                        <input type="text" id="pixCodigo" class="pix-copia-input selecionavel" value="{{ pix_codigo }}" readonly>
+                        <button type="button" class="btn-secundario" id="btnCopiarPix" data-target="pixCodigo">Copiar</button>
+                    </div>
+                    <p class="pix-aviso" id="pixCopiado" hidden>Código copiado! ✅</p>
+                </section>
+                {% else %}
+                <section class="pagamento-cartao">
+                    <h2 class="evento-publico-h2">Pague com cartão de crédito</h2>
+                    <div class="cartao-mock" aria-hidden="true">
+                        <span class="cartao-chip"></span>
+                        <span class="cartao-numero">•••• •••• •••• ••••</span>
+                        <span class="cartao-bandeira">💳</span>
+                    </div>
+                    <p class="pagamento-instrucao">Em produção, você será redirecionado com segurança ao <strong>Mercado Pago</strong> para concluir o pagamento com cartão. (Integração a implementar.)</p>
+                </section>
+                {% endif %}
+
+                <p class="painel-nota pagamento-simulado">🔒 Ambiente de demonstração: o pagamento é <strong>simulado</strong>. Clique abaixo para simular a aprovação.</p>
+
+                <form method="post" action="{% url 'core:evento_pagamento' evento.id %}" class="pagamento-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-acao pagamento-confirmar">
+                        <span aria-hidden="true">✅</span> Simular pagamento aprovado
+                    </button>
+                </form>
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+
+    <script src="{% static 'js/evento_pagamento.js' %}"></script>
+</body>
+</html>
