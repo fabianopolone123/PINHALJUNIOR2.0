@@ -1,0 +1,132 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>PDV / Balcão - {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            <nav class="menu">
+                <a href="{% url 'core:inicio' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👤</span>
+                    <span class="menu-texto">Meus Dados</span>
+                </a>
+                {% if is_diretor %}
+                <a href="{% url 'core:usuarios' %}" class="menu-item">
+                    <span class="menu-icone" aria-hidden="true">👥</span>
+                    <span class="menu-texto">Usuários</span>
+                </a>
+                <a href="{% url 'core:eventos' %}" class="menu-item ativo" aria-current="page">
+                    <span class="menu-icone" aria-hidden="true">📅</span>
+                    <span class="menu-texto">Eventos</span>
+                </a>
+                {% endif %}
+                {% include "core/_menu_eventos.html" %}
+            </nav>
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">PDV / Balcão</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="voltar-link">← Voltar para o painel</a>
+
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">PDV / Balcão 🧾</h1>
+                    <p class="cabecalho-sub">{{ evento.nome }} — registre uma venda da lojinha</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <section class="card evento-form-card">
+                    <form method="post" action="{% url 'core:evento_pdv' evento.id %}" class="evento-form" novalidate id="pdvForm">
+                        {% csrf_token %}
+                        {% if erros %}
+                        <div class="erros">{% for e in erros %}<div>{{ e }}</div>{% endfor %}</div>
+                        {% endif %}
+
+                        <h3 class="bloco-rotulo">Itens</h3>
+                        {% include "core/_loja_itens.html" %}
+
+                        <div class="campo">
+                            <label for="inscricao">Vincular a uma inscrição <small class="ajuda">(opcional)</small></label>
+                            <select name="inscricao" id="inscricao" class="campo-select">
+                                <option value="">Avulso (sem vincular)</option>
+                                {% for i in inscricoes %}
+                                <option value="{{ i.id }}"{% if inscricao_sel == i.id|stringformat:"s" %} selected{% endif %}>{{ i.codigo }} — {{ i.responsavel_nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="campo">
+                            <label for="comprador_nome">Nome do cliente <small class="ajuda">(opcional)</small></label>
+                            <input type="text" id="comprador_nome" name="comprador_nome" class="campo-input" value="{{ comprador.nome }}" placeholder="Se vazio: usa a inscrição ou “Cliente (balcão)”">
+                        </div>
+
+                        <h3 class="bloco-rotulo">Pagamento</h3>
+                        <div class="pdv-formas">
+                            {% for f in formas %}
+                            <label class="pdv-forma"><input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forma == f.0 %} checked{% endif %}> {{ f.1 }}</label>
+                            {% endfor %}
+                        </div>
+                        <div class="campo" id="pdvDinheiro">
+                            <label for="valor_recebido">Valor recebido (dinheiro)</label>
+                            <input type="number" step="0.01" min="0" id="valor_recebido" name="valor_recebido" class="campo-input" value="{{ valor_recebido_raw }}" inputmode="decimal">
+                            <p class="pdv-troco">Troco: <strong id="pdvTroco">R$ 0,00</strong></p>
+                        </div>
+
+                        <div class="loja-rodape">
+                            <div class="loja-total">Total: <strong id="lojaTotal">R$ 0,00</strong></div>
+                            <button type="submit" class="btn-acao">
+                                <span aria-hidden="true">💾</span> Registrar venda
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/evento_pdv.js' %}"></script>
+</body>
+</html>

@@ -30,6 +30,7 @@ from .forms import (
     ResponsavelLegalForm,
 )
 from .models import (
+    FORMA_PAGAMENTO_CHOICES,
     Aventureiro,
     Evento,
     Inscricao,
@@ -1169,10 +1170,17 @@ def _marcar_quantidades(produtos, desejados):
             v.qtd_atual = escolhidas.get(v.id, 0)
 
 
-def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None):
-    """Cria o PedidoLoja + itens e baixa o estoque. Retorna o pedido (ou None se vazio)."""
+def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None,
+                  forma_pagamento="online", valor_recebido=None, origem="online",
+                  registrado_por=None):
+    """Cria o PedidoLoja + itens e baixa o estoque. Retorna o pedido (ou None se vazio).
+
+    Se `forma_pagamento` == "cortesia", os itens são registrados como grátis
+    (valor 0), mas o estoque é baixado normalmente.
+    """
     if not desejados:
         return None
+    cortesia = forma_pagamento == "cortesia"
     pedido = PedidoLoja(
         evento=evento,
         usuario=usuario,
@@ -1182,11 +1190,15 @@ def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None):
         comprador_email=comprador.get("email", ""),
         codigo=PedidoLoja.gerar_codigo_unico(),
         status="confirmado",
+        origem=origem,
+        forma_pagamento=forma_pagamento,
+        valor_recebido=valor_recebido if forma_pagamento == "dinheiro" else None,
+        registrado_por=registrado_por,
     )
     total = Decimal("0")
     itens = []
     for v, qtd in desejados:
-        subtotal = v.valor * qtd
+        subtotal = Decimal("0") if cortesia else v.valor * qtd
         total += subtotal
         itens.append(ItemPedidoLoja(
             variacao=v, produto_nome=v.produto.nome, variacao_nome=v.nome,
@@ -1285,6 +1297,92 @@ def evento_pedido_cancelar_view(request, pk, pedido_id):
             pedido.save(update_fields=["status"])
         messages.success(request, f"Pedido {pedido.codigo} cancelado (estoque devolvido).")
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
+
+
+@diretor_required
+def evento_pdv_view(request, pk):
+    """PDV / balcão do evento (Fase 4.4a): vende itens da lojinha com forma de
+    pagamento (troco no dinheiro) e vínculo opcional a uma inscrição.
+
+    Por ora restrito ao Diretor; operadores (diretoria selecionada + ajudantes
+    externos) virão na 4.4c.
+    """
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    if evento.ja_terminou():
+        messages.error(request, "Este evento já terminou; o PDV está fechado.")
+        return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
+
+    produtos = list(evento.produtos.filter(ativo=True).prefetch_related("variacoes"))
+    if not produtos:
+        messages.info(request, "Cadastre produtos na lojinha antes de usar o PDV.")
+        return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#lojinha")
+
+    formas = [f for f in FORMA_PAGAMENTO_CHOICES if f[0] != "online"]
+    comprador = {"nome": ""}
+    desejados = []
+    erros = []
+    forma = "dinheiro"
+    valor_recebido_raw = ""
+    inscricao_sel = ""
+
+    if request.method == "POST":
+        comprador = {"nome": (request.POST.get("comprador_nome") or "").strip()}
+        forma = request.POST.get("forma_pagamento") or ""
+        valor_recebido_raw = (request.POST.get("valor_recebido") or "").strip()
+        inscricao_sel = request.POST.get("inscricao") or ""
+        desejados, erros = _coletar_itens_loja(request, produtos)
+        if not desejados:
+            erros.append("Escolha ao menos um item.")
+        if forma not in {f[0] for f in formas}:
+            erros.append("Escolha a forma de pagamento.")
+
+        total = sum((v.valor * qtd for v, qtd in desejados), Decimal("0"))
+        valor_recebido = None
+        if forma == "dinheiro":
+            try:
+                valor_recebido = Decimal(valor_recebido_raw.replace(",", "."))
+            except (InvalidOperation, ValueError):
+                valor_recebido = None
+            if valor_recebido is None:
+                erros.append("Informe o valor recebido em dinheiro.")
+            elif valor_recebido < total:
+                erros.append("Valor recebido é menor que o total.")
+
+        inscricao_obj = None
+        if inscricao_sel.isdigit():
+            inscricao_obj = evento.inscricoes.filter(pk=int(inscricao_sel)).first()
+
+        if not erros:
+            nome = comprador["nome"]
+            if not nome:
+                nome = inscricao_obj.responsavel_nome if inscricao_obj else "Cliente (balcão)"
+            with transaction.atomic():
+                pedido = _criar_pedido(
+                    evento, desejados, {"nome": nome},
+                    inscricao=inscricao_obj, forma_pagamento=forma,
+                    valor_recebido=valor_recebido, origem="pdv",
+                    registrado_por=request.user,
+                )
+            msg = f"Venda {pedido.codigo} registrada."
+            if forma == "dinheiro" and pedido.troco is not None:
+                msg += " Troco: R$ " + f"{pedido.troco:.2f}".replace(".", ",")
+            messages.success(request, msg)
+            return redirect("core:evento_pdv", pk=evento.pk)
+        messages.error(request, "Verifique os itens e o pagamento.")
+
+    _marcar_quantidades(produtos, desejados)
+    contexto = {
+        "evento": evento,
+        "produtos_loja": produtos,
+        "inscricoes": list(evento.inscricoes.filter(status="confirmada")),
+        "comprador": comprador,
+        "formas": formas,
+        "forma": forma,
+        "valor_recebido_raw": valor_recebido_raw,
+        "inscricao_sel": inscricao_sel,
+        "erros": erros,
+    }
+    return render(request, "core/evento_pdv.html", contexto)
 
 
 @diretor_required

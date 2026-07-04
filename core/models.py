@@ -700,6 +700,19 @@ STATUS_PEDIDO_CHOICES = [
     ("cancelado", "Cancelado"),
 ]
 
+FORMA_PAGAMENTO_CHOICES = [
+    ("online", "Online (site)"),
+    ("dinheiro", "Dinheiro"),
+    ("pix", "Pix"),
+    ("cartao", "Cartão"),
+    ("cortesia", "Cortesia"),
+]
+
+ORIGEM_PEDIDO_CHOICES = [
+    ("online", "Online"),
+    ("pdv", "PDV (balcão)"),
+]
+
 
 class PedidoLoja(models.Model):
     """Pedido da lojinha de um evento (Fase 4.2). Pagamento simulado."""
@@ -734,10 +747,37 @@ class PedidoLoja(models.Model):
     status = models.CharField(
         "Situação", max_length=12, choices=STATUS_PEDIDO_CHOICES, default="confirmado"
     )
+    origem = models.CharField(
+        "Origem", max_length=10, choices=ORIGEM_PEDIDO_CHOICES, default="online"
+    )
+    forma_pagamento = models.CharField(
+        "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES,
+        default="online",
+    )
+    # Só para pagamento em dinheiro (para calcular/registrar o troco).
+    valor_recebido = models.DecimalField(
+        "Valor recebido", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    # Atendente que registrou a venda no balcão (PDV).
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pedidos_registrados",
+        verbose_name="Registrado por",
+    )
     valor_total = models.DecimalField(
         "Valor total", max_digits=10, decimal_places=2, default=0
     )
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    @property
+    def troco(self):
+        """Troco (só faz sentido no pagamento em dinheiro)."""
+        if self.valor_recebido is None:
+            return None
+        return self.valor_recebido - self.valor_total
 
     class Meta:
         verbose_name = "Pedido da lojinha"

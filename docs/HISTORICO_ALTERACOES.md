@@ -22,6 +22,49 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Lojinha Fase 4.4a: PDV / balcão de vendas
+
+### Resumo
+**Parte 4.4a** (primeira do PDV): tela de **balcão** (`/eventos/<id>/pdv/`) para registrar vendas da
+lojinha no dia do evento. O operador monta o pedido (quantidade por variação, **total ao vivo**),
+escolhe a **forma de pagamento** (**Dinheiro** com **campo de valor recebido → troco automático**,
+Pix, Cartão, **Cortesia**) e registra; pode **vincular a venda a uma inscrição** (opcional — para
+rastrear o que foi comprado por pessoa) ou deixar **avulsa**. Baixa estoque e entra em "Vendas
+(lojinha)" (cortesia não soma). Por ora **restrito ao Diretor**; os **operadores** (diretoria
+selecionada + ajudantes externos) virão na 4.4c; a inscrição pelo PDV vem na 4.4b. Acesso pela aba
+"Lojinha" do painel (botão **"PDV / Balcão"**).
+
+### Arquivos criados/alterados
+- `core/models.py`: `PedidoLoja` ganhou `origem` (online/pdv), `forma_pagamento`
+  (online/dinheiro/pix/cartão/cortesia), `valor_recebido`, `registrado_por` + property `troco`.
+  Choices `FORMA_PAGAMENTO_CHOICES`/`ORIGEM_PEDIDO_CHOICES`. Migration `0011`.
+- `core/views.py`: `evento_pdv_view` (Diretor); `_criar_pedido` passou a aceitar
+  forma/valor_recebido/origem/registrado_por e trata **cortesia** (itens grátis, estoque baixa).
+- `core/urls.py`: rota `evento_pdv`. `core/admin.py`: pedido mostra origem/forma.
+- `templates/core/evento_pdv.html` (novo, layout interno). `evento_painel.html`: botão "PDV / Balcão"
+  na aba Lojinha + badges de origem/forma nos pedidos.
+- `static/js/evento_pdv.js`: total ao vivo + alternância da forma + troco (e cortesia = total 0).
+- `static/css/eventos.css`: formas de pagamento, troco, `.secao-acoes`.
+
+### Decisões tomadas
+- Vínculo venda×inscrição **opcional** (rastreia quando quiser; permite venda a passante). Reaproveita
+  `PedidoLoja.inscricao`.
+- **Cortesia** registra o item (baixa estoque) com valor 0 (não entra em vendas).
+- PDV volta pra si mesmo após registrar (com mensagem de código + troco) para vendas rápidas em série.
+
+### Validação
+- Teste ponta a ponta (Diretor): GET; venda em dinheiro avulsa (troco 18, baixa estoque); venda
+  vinculada a inscrição (herda o nome do responsável); cortesia (total 0, baixa estoque); dinheiro
+  insuficiente e sem itens rejeitados; Resumo com vendas do PDV (cortesia não soma); **não-diretor
+  bloqueado**. Todos passaram. `python manage.py check` OK. **Responsividade** (~490px) do PDV conferida.
+
+### Pendências / próximo passo
+- **Lojinha 4.4b** — fazer **inscrição** pelo PDV (presencial, com pagamento).
+- **Lojinha 4.4c** — **operadores do evento**: diretoria selecionada + contas temporárias de ajudantes
+  externos (senha `1234`, troca obrigatória no 1º login, reset pelo Diretor; ajudante vê só o evento).
+
+---
+
 ## 2026-07-04 - Evento complexo — Lojinha Fase 4.3: comprar junto da inscrição + pedir mais
 
 ### Resumo

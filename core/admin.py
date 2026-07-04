@@ -103,7 +103,7 @@ class ItemPedidoLojaInline(admin.TabularInline):
 
 @admin.register(PedidoLoja)
 class PedidoLojaAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "evento", "comprador_nome", "status", "valor_total", "criado_em")
+    list_display = ("codigo", "evento", "comprador_nome", "origem", "forma_pagamento", "status", "valor_total", "criado_em")
     search_fields = ("codigo", "comprador_nome", "evento__nome")
-    list_filter = ("evento", "status")
+    list_filter = ("evento", "status", "origem", "forma_pagamento")
     inlines = [ItemPedidoLojaInline]

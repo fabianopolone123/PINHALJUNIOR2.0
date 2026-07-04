@@ -306,9 +306,14 @@
                 <section class="painel-secao" data-secao="lojinha" hidden>
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Lojinha do evento</h2>
-                        <a href="{% url 'core:evento_produto_novo' evento.id %}" class="btn-acao btn-acao-pequeno">
-                            <span aria-hidden="true">➕</span> Novo produto
-                        </a>
+                        <div class="secao-acoes">
+                            <a href="{% url 'core:evento_pdv' evento.id %}" class="btn-acao btn-acao-pequeno">
+                                <span aria-hidden="true">🧾</span> PDV / Balcão
+                            </a>
+                            <a href="{% url 'core:evento_produto_novo' evento.id %}" class="btn-secundario btn-acao-pequeno">
+                                <span aria-hidden="true">➕</span> Novo produto
+                            </a>
+                        </div>
                     </div>
 
                     {% if produtos %}
@@ -362,6 +367,8 @@
                             <div class="inscrito-topo">
                                 <span class="inscrito-codigo">{{ pd.codigo }}</span>
                                 <span class="pill {% if pd.status == 'confirmado' %}pill-verde{% else %}pill-cinza{% endif %}">{{ pd.get_status_display }}</span>
+                                {% if pd.origem == "pdv" %}<span class="pill">🧾 Balcão</span>{% endif %}
+                                <span class="pill">{{ pd.get_forma_pagamento_display }}</span>
                                 <span class="inscrito-valor">R$ {{ pd.valor_total|moeda }}</span>
                             </div>
                             <strong class="inscrito-resp">{{ pd.comprador_nome }}</strong>

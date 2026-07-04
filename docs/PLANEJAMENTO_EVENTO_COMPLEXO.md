@@ -57,9 +57,18 @@ lojinha, custos e resultado (lucro/prejuízo).
 - **Lojinha 4.3 CONCLUÍDA** (2026-07-04): **comprar junto da inscrição** (seção opcional no fim do
   form → pedido vinculado, mesma transação) + **pedir mais** (telas de sucesso com botão "Comprar
   (mais) na lojinha"). `PedidoLoja.inscricao` (FK).
-- **PRÓXIMO PASSO = Lojinha 4.4 (PDV dos atendentes).** Antes de codar, alinhar: quem são os
-  atendentes (perfil/permissão), o que fazem (novo pedido/inscrição no dia), e o registro de **pago /
-  forma de pagamento**.
+- **Lojinha 4.4a CONCLUÍDA** (2026-07-04): **PDV / balcão de vendas** (`/eventos/<id>/pdv/`, Diretor):
+  forma de pagamento (dinheiro c/ troco, pix, cartão, cortesia), vínculo **opcional** a inscrição,
+  baixa de estoque. `PedidoLoja` ganhou origem/forma_pagamento/valor_recebido/registrado_por (mig. 0011).
+- **PRÓXIMO PASSO = Lojinha 4.4b (fazer inscrição pelo PDV, com pagamento).** Depois 4.4c (operadores).
+
+#### PDV — decisões (definidas com o usuário em 2026-07-04)
+- **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
+  externos** (conta temporária: usuário + senha `1234`; **troca obrigatória no 1º login** — 2×;
+  **reset** pelo Diretor volta pra `1234`). Ajudante externo vê **só o botão do evento** dele.
+- **O que o PDV faz**: vender lojinha (4.4a ✅) e fazer inscrição (4.4b) — em etapas.
+- **Vínculo venda×inscrição**: **opcional** (rastrear por inscrição quando quiser; passante → avulso).
+- **Formas de pagamento**: Dinheiro (com **troco**), Pix, Cartão, Cortesia.
 
 ### Lojinha — contexto (definido com o usuário em 2026-07-04)
 Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
@@ -112,7 +121,11 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
      simulado), baixa de estoque, "Vendas (lojinha)" no Resumo. Modelos `PedidoLoja`/`ItemPedidoLoja`.
    - **4.3 — CONCLUÍDA ✅** — Comprar **junto da inscrição** (seção opcional → pedido vinculado) +
      **pedir mais** (telas de sucesso oferecem a lojinha). `PedidoLoja.inscricao`.
-   - **4.4 — PRÓXIMA ⏭️** — **PDV dos atendentes** (vendem/inscrevem no dia, marcam pago/forma de pagamento).
+   - **4.4 — PDV dos atendentes** (em partes):
+     - **4.4a — CONCLUÍDA ✅** — PDV de **vendas** da lojinha (forma de pagamento, troco, cortesia,
+       vínculo opcional a inscrição). Restrito ao Diretor por ora.
+     - **4.4b — PRÓXIMA ⏭️** — fazer **inscrição** pelo PDV (com pagamento).
+     - **4.4c** — **operadores** (diretoria selecionada + ajudantes externos com conta temporária).
 5. **Fase 5** — **Financeiro completo** + gráficos + códigos de desconto + presença/check-in.
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
