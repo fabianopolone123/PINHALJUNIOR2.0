@@ -80,9 +80,16 @@
    ========================================================= */
 (function () {
     "use strict";
-    var toasts = Array.prototype.slice.call(
-        document.querySelectorAll(".mensagens .mensagem")
-    );
+    var container = document.querySelector(".mensagens");
+    if (!container) return;
+    // Move o balão para o <body> para ele aparecer no canto da TELA — fora de
+    // qualquer ancestral com transform/animação (ex.: .conteudo-interno), que
+    // quebraria o position: fixed e prenderia o toast dentro da região.
+    if (container.parentNode !== document.body) {
+        document.body.appendChild(container);
+    }
+
+    var toasts = Array.prototype.slice.call(container.querySelectorAll(".mensagem"));
     if (!toasts.length) return;
 
     function fechar(t) {

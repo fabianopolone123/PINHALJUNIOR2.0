@@ -750,43 +750,77 @@ body {
     margin-bottom: 8px;
 }
 
-/* ===================== Notificações (toasts flutuantes) ===================== */
+/* ===================== Notificações (toasts flutuantes) =====================
+   Balões que aparecem SEMPRE no canto superior direito da TELA (o JS move o
+   contêiner para o <body>). Um único padrão de notificação para o sistema todo. */
 .mensagens {
     position: fixed;
-    top: 14px;
-    right: 14px;
+    top: 18px;
+    right: 18px;
     left: auto;
-    z-index: 1200;
+    z-index: 1300;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    width: min(360px, calc(100vw - 28px));
+    gap: 12px;
+    width: min(400px, calc(100vw - 36px));
     margin: 0;
     pointer-events: none;
 }
 
 .mensagem {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     pointer-events: auto;
     cursor: pointer;
-    padding: 13px 16px;
-    border-radius: 12px;
-    font-size: 0.92rem;
+    padding: 16px 18px;
+    border-radius: 14px;
+    font-size: 0.98rem;
     font-weight: 600;
+    line-height: 1.35;
     color: var(--texto);
     background: var(--branco);
-    border-left: 5px solid var(--azul);
-    box-shadow: 0 12px 30px rgba(15, 76, 129, 0.20);
-    animation: toast-entra 0.3s ease both;
+    border-left: 6px solid var(--azul);
+    box-shadow: 0 16px 40px rgba(15, 76, 129, 0.28);
+    animation: toast-entra 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.mensagem::before { font-size: 1.25rem; line-height: 1.15; }
+.mensagem::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 4px;
+    width: 100%;
+    background: currentColor;
+    opacity: 0.35;
+    transform-origin: left;
+    animation: toast-barra 4.5s linear forwards;
 }
 .mensagem.saindo { animation: toast-sai 0.35s ease forwards; }
 
 .mensagem-success { border-left-color: var(--verde); color: #1f6b1f; }
+.mensagem-success::before { content: "✅"; }
 .mensagem-error { border-left-color: #c0392b; color: #a5281b; }
+.mensagem-error::before { content: "⛔"; }
 .mensagem-info { border-left-color: var(--azul-claro); color: var(--azul-escuro); }
+.mensagem-info::before { content: "ℹ️"; }
 .mensagem-warning { border-left-color: #e0a800; color: #8a6d00; }
+.mensagem-warning::before { content: "⚠️"; }
 
-@keyframes toast-entra { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
-@keyframes toast-sai { to { opacity: 0; transform: translateX(26px); } }
+@keyframes toast-entra {
+    from { opacity: 0; transform: translateX(40px) scale(0.96); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes toast-sai {
+    to { opacity: 0; transform: translateX(40px) scale(0.96); }
+}
+@keyframes toast-barra {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
 
 @media (max-width: 560px) {
     .mensagens { top: 10px; right: 10px; left: 10px; width: auto; }

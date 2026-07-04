@@ -128,9 +128,12 @@ Para as telas internas (após o login), preservar o padrão criado em
 - **Toda ação relevante do usuário** (criar/editar/remover/registrar/cancelar/salvar, etc.) deve
   gerar uma notificação de **sucesso** ou **erro** com `django.contrib.messages`
   (`messages.success/error/info`). Nunca deixar o usuário sem saber se a ação funcionou.
-- As mensagens são exibidas como **toasts flutuantes** (bloco `.mensagens` fixo + `.mensagem` com a
-  classe `mensagem-{{ tags }}`), estilizados em `inicio.css` e com auto-fechamento em `inicio.js`.
-  Não criar outro mecanismo de aviso — usar sempre o framework de `messages`.
+- As mensagens são exibidas como **toasts flutuantes** — **padrão ÚNICO de notificação do sistema
+  inteiro** (eventos, inscrições, cadastros, tudo). Bloco `.mensagens` + `.mensagem` com a classe
+  `mensagem-{{ tags }}` (success/error/info/warning, cada um com ícone), estilizados em `inicio.css`.
+  O `inicio.js` **move o `.mensagens` para o `<body>`** (para aparecer no canto da tela, fora de
+  ancestrais com `transform`), auto-fecha e permite fechar no clique. Não criar outro mecanismo de
+  aviso — usar sempre o framework de `messages`. Notificar só em ações relevantes (não poluir a tela).
 - Ao criar novas views que alteram dados, **sempre** incluir a `messages.*` correspondente e
   redirecionar (padrão POST-redirect-GET) para uma página que renderize o bloco `{% if messages %}`.
 

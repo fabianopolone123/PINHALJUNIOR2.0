@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Toasts melhorados (canto da tela + visual) — padrão único do sistema
+
+### Resumo
+Refinamento das notificações (pedido do usuário):
+- **Posição**: o balão agora aparece **sempre no canto superior direito da TELA** (topo no celular),
+  não mais "grudado" na região do conteúdo. **Causa do bug**: `.conteudo-interno` tem
+  `animation: entrar` (com `transform`), e um ancestral com `transform` quebra o `position: fixed`
+  (vira o bloco de contenção). **Correção**: o `inicio.js` move o contêiner `.mensagens` para o
+  `<body>`, fora de qualquer ancestral transformado.
+- **Visual**: toast **maior**, com **ícone por tipo** (✅ sucesso, ⛔ erro, ℹ️ info, ⚠️ aviso),
+  sombra mais forte, entrada com leve escala e uma **barra de progresso** (mostra o tempo até fechar).
+- **Padrão único**: documentado que **todo o sistema** (inscrições, cadastros, e o que vier) deve usar
+  esse mesmo tipo de notificação, só nos pontos que realmente exigem aviso (sem poluir a tela).
+- A venda/inscrição **cancelada** continua exibida (mais apagada + selo "Cancelado") de propósito,
+  para **auditoria** — confirmado com o usuário.
+
+### Arquivos alterados
+- `static/js/inicio.js`: move `.mensagens` para o `<body>` antes de exibir/auto-fechar os toasts.
+- `static/css/inicio.css`: toast maior, ícone (`::before`), barra de progresso (`::after`), sombra e
+  animações de entrada/saída aprimoradas.
+- `docs/REGRAS_CODEX.md`: reforça que os toasts são o padrão único de notificação do sistema.
+
+### Validação
+- Toast conferido no desktop: aparece no **canto superior direito da tela**, maior, com ícone ✅,
+  sombra e barra de progresso. `manage.py check` OK.
+
+---
+
 ## 2026-07-04 - Página do evento (botões claros) + notificações (toasts) no módulo de eventos
 
 ### Resumo

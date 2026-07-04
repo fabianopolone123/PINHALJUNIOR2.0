@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Página do evento com botões claros (inscrição × loja, sem preview de campos) + notificações viram toasts flutuantes que somem sozinhos em todo o módulo de eventos)
+**Última atualização:** 2026-07-04 (Toasts de notificação melhorados: sempre no canto da tela — movidos para o `<body>` —, maiores, com ícone e barra de progresso; padrão único do sistema)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
