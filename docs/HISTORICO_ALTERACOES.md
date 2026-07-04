@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Inscrição: "nome completo" + botão "Ver detalhes"
+
+### Resumo
+Dois ajustes:
+1. **Nome completo**: o formulário de inscrição passou a pedir **"Nome completo do responsável"**
+   (placeholder "Nome e sobrenome" + dica "evite só o primeiro nome") e **"Nome completo do
+   participante"** (placeholder). Assim a pessoa não põe só o primeiro nome e o **casamento** com o
+   cadastro do clube (cobertura) funciona melhor. Vale para a inscrição online e a do PDV (mesmo form).
+2. **Botão de expandir**: na lista de inscrições do painel, o `<summary>` mudou de "Ver participantes e
+   respostas" para **"Ver detalhes"** — que agora cobre participantes, respostas **e** as compras na
+   lojinha.
+
+### Arquivos alterados
+- `core/forms.py`: `InscricaoForm.responsavel_nome` → label "Nome completo do responsável" + placeholder
+  + `help_text`.
+- `templates/core/_participante_linha.html`: placeholder "Nome completo do participante".
+- `templates/core/evento_painel.html`: `<summary>Ver detalhes</summary>`.
+
+### Validação
+- `manage.py check` OK. Render: o form de inscrição mostra "Nome completo do responsável" + placeholder +
+  dica + "Nome completo do participante"; o painel (com inscrição) mostra "Ver detalhes" (antigo texto
+  ausente).
+
+---
+
 ## 2026-07-04 - Compras da lojinha por inscrição (o que cada pessoa comprou)
 
 ### Resumo

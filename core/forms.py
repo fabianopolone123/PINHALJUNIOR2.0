@@ -304,7 +304,11 @@ class InscricaoForm(EstiloFormMixin, forms.Form):
     (linhas repetíveis), pois a quantidade é dinâmica.
     """
 
-    responsavel_nome = forms.CharField(label="Nome do responsável", max_length=150)
+    responsavel_nome = forms.CharField(
+        label="Nome completo do responsável", max_length=150,
+        widget=forms.TextInput(attrs={"placeholder": "Nome e sobrenome"}),
+        help_text="Nome e sobrenome (evite só o primeiro nome).",
+    )
     responsavel_whatsapp = forms.CharField(label="WhatsApp", max_length=20)
     responsavel_email = forms.EmailField(label="E-mail")
     responsavel_cpf = forms.CharField(label="CPF", max_length=20)

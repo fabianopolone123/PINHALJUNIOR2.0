@@ -5,7 +5,7 @@ Recebe `linha` (idx, nome, idade, diretoria, campos) e `tem_diretoria`.
 {% endcomment %}
 <div class="part-linha card">
     <div class="part-linha-base">
-        <input type="text" name="part_nome_{{ linha.idx }}" class="campo-input part-nome" placeholder="Nome do participante" value="{{ linha.nome }}">
+        <input type="text" name="part_nome_{{ linha.idx }}" class="campo-input part-nome" placeholder="Nome completo do participante" value="{{ linha.nome }}">
         <input type="number" name="part_idade_{{ linha.idx }}" class="campo-input part-idade" min="0" max="120" placeholder="Idade" value="{{ linha.idade|default_if_none:'' }}">
         {% if tem_diretoria %}
         <label class="part-diretoria">

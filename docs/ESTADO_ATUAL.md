@@ -2,10 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Compras da lojinha por inscrição**: cada inscrito no painel mostra
-agora um bloco **"Compras na lojinha"** (pedidos vinculados por FK + os da **mesma conta logada**), com
-**Total geral (inscrição + lojinha)** e pílula 🛒 no topo — assim dá pra ver o que cada pessoa comprou;
-avulsos ficam só na aba Lojinha. Antes: correção da edição de produto (preço/estoque) e refinos do dashboard)
+**Última atualização:** 2026-07-04 (Ajustes na inscrição: o formulário agora pede **"Nome completo do
+responsável"** (placeholder "Nome e sobrenome" + dica "evite só o primeiro nome") e **"Nome completo do
+participante"** — para o casamento com o cadastro do clube funcionar melhor; e o botão que expande a
+inscrição no painel passou de "Ver participantes e respostas" para **"Ver detalhes"** (agora também traz
+as compras). Antes: compras da lojinha por inscrição; correção da edição de produto)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
