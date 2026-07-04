@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Corrige estilo do botão secundário nas telas internas
+
+### Resumo
+O botão "Cancelar" (e o "Duplicar") aparecia sem estilo porque `.btn-secundario` só existia em
+`cadastro.css`, que não é carregado nas telas internas. Movido/adicionado o `.btn-secundario` para
+`inicio.css` (carregado por todas as telas internas) e alinhados os botões do formulário de evento.
+
+### Arquivos alterados
+- `static/css/inicio.css`: adiciona o estilo do `.btn-secundario` (botão secundário das telas internas).
+- `static/css/eventos.css`: alinha os botões do `.form-acoes` (zera o `margin-top` do `.btn-acao`).
+- `docs/HISTORICO_ALTERACOES.md`: atualizado.
+
+### Observação
+- Isso também corrige o botão "Editar dados do aventureiro" em "Meus Dados", que usava a mesma classe.
+
+---
+
 ## 2026-07-03 - Novo módulo "Eventos" (cadastro de evento simples)
 
 ### Resumo

@@ -170,10 +170,13 @@ a.tipo-card:hover {
 
 .form-acoes {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 12px;
     margin-top: 8px;
 }
+/* Neutraliza o margin-top do .btn-acao para alinhar com o "Cancelar". */
+.form-acoes .btn-acao { margin-top: 0; }
 
 /* ---------- Responsividade ---------- */
 @media (min-width: 720px) {

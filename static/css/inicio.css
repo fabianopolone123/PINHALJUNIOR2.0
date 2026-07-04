@@ -457,6 +457,28 @@ body {
     filter: brightness(1.06);
 }
 
+/* Botão secundário (ex.: Cancelar, Duplicar) — telas internas. */
+.btn-secundario {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: var(--azul-escuro);
+    text-decoration: none;
+    background: #e8eef5;
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-item);
+    cursor: pointer;
+    transition: background var(--transicao), transform var(--transicao);
+}
+
+.btn-secundario:hover {
+    background: #dbe4ee;
+    transform: translateY(-2px);
+}
+
 /* ===================== Card: Dados da Conta ===================== */
 .conta-card {
     margin-bottom: 26px;
