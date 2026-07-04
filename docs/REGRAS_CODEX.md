@@ -233,21 +233,44 @@ internas ou no fluxo de login, seguir estas regras:
   (Dados pessoais, Documentos, Endereço, Pai, Mãe, Responsável legal, Ficha médica, Declaração
   médica e Autorização de imagem). Ao adicionar campos ao cadastro, refletir aqui também.
 
+## Padrão de perfis e permissões
+
+- **Perfis** são grupos nativos do Django (Diretor, Responsável, Professor, Tesoureiro, Secretário),
+  criados pelo comando `configurar_perfis`. "Diretoria" é o grupo de integrantes do clube
+  (diretor/secretário/tesoureiro/professor); "Responsável" é o lado dos pais.
+- **Helpers** em `core/permissoes.py`: `eh_diretor(user)` e o decorator `diretor_required` (sem login
+  → login; logado sem perfil Diretor → volta a `core:inicio` com mensagem). Usar `@diretor_required`
+  em views restritas ao diretor.
+- **Nos templates**: o context processor `core.context_processors.perfis` injeta `is_diretor` em todas
+  as páginas. Envolver itens de menu/telas restritas em `{% if is_diretor %}`. Por enquanto, só o
+  Diretor recebe permissões; os demais perfis existem sem permissões (liberar no futuro).
+- **Atenção**: NUNCA escrever tags de template (`{% ... %}`) dentro de comentários HTML `<!-- -->` nem
+  usar `{# ... #}` de múltiplas linhas (o `{# #}` é de uma linha só; para várias, usar
+  `{% comment %}...{% endcomment %}`). Ambos os casos quebram o parser (tag "solta"/recursão).
+
 ## Padrão da tela "Usuários" (vínculos familiares)
 
-- **Rota** `core:usuarios` (`/usuarios/`), com `@login_required`. Qualquer usuário autenticado
-  acessa; FUTURO: poderá ser restrito por perfil (documentar quando implementar permissões).
+- **Rota** `core:usuarios` (`/usuarios/`), com `@diretor_required` — **restrita ao perfil Diretor**
+  (pois exibe dados completos/sensíveis). O item de menu "Usuários" aparece só para o diretor
+  (`{% if is_diretor %}`).
 - **Agrupamento de responsáveis** (helpers em `core/views.py`): para cada aventureiro considerar
   pai, mãe e responsável legal; a chave de deduplicação é `_chave_responsavel` — CPF, senão
   nome+WhatsApp, senão nome normalizado (`_normaliza` remove acentos/caixa); responsáveis sem nome
   são ignorados. A mesma pessoa em papéis diferentes aparece uma única vez, com os papéis juntos.
+  Guardar também o contato (CPF, e-mail, celular, WhatsApp) para exibir no modal.
 - **Vínculos**: por responsável, listar os aventureiros ligados (nome, idade e papéis do vínculo).
   Contadores: Responsáveis (pessoas únicas), Aventureiros (total), Vínculos (total de relações
   papel×aventureiro).
-- **Somente resumo — NUNCA dados sensíveis** nesta tela: proibido CPF, RG, certidão, endereço,
-  e-mail, telefone/WhatsApp, ficha médica, autorização de imagem e foto.
-- **Pesquisa**: filtro no front-end (`static/js/usuarios.js`) sobre o texto dos cards, ignorando
-  caixa e acentos; mensagem "Nenhum vínculo encontrado para essa pesquisa." quando não houver
-  resultado. Sem AJAX nesta etapa.
+- **Cards clicáveis → modal com TODOS os dados**: cada card (responsável ou aventureiro) tem
+  `class="clicavel" data-modal="<id>"`. O detalhe completo é renderizado no servidor dentro de
+  `#detalhesFonte` (que fica **fora** de `.conteudo-interno`, para não entrar na pesquisa nem no
+  accordion de `inicio.js`), num `<div id="detalhe-<id>" data-titulo="...">`. O `static/js/usuarios.js`
+  clona esse conteúdo para o `#modalCorpo`, expande as seções e abre o modal (fecha no X, ao clicar
+  fora e com Esc). Como a tela é restrita ao Diretor, aqui **é permitido exibir dados sensíveis**
+  (CPF, contato, ficha médica, foto) — o detalhe do aventureiro reaproveita o parcial
+  `core/_aventureiro_detalhe.html` (o mesmo de "Meus Dados").
+- **Pesquisa**: filtro no front-end (`static/js/usuarios.js`) sobre o texto dos cards visíveis
+  (`.busca-item`), ignorando caixa e acentos; mensagem "Nenhum vínculo encontrado para essa pesquisa."
+  quando não houver resultado. Sem AJAX. O `#detalhesFonte` não é `.busca-item` (não entra na busca).
 - **Reuso visual**: a tela reaproveita o layout/menu de `inicio.css`; estilos próprios em
   `static/css/usuarios.css`. Sem bibliotecas externas.

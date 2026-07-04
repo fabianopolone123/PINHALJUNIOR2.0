@@ -18,6 +18,7 @@ from .forms import (
     ResponsavelLegalForm,
 )
 from .models import Aventureiro
+from .permissoes import diretor_required
 
 # ---------------------------------------------------------------------------
 # Identificação do usuário durante o cadastro.
@@ -449,49 +450,57 @@ def _chave_responsavel(nome, cpf, whatsapp):
     return f"n:{nome_n}"
 
 
-@login_required
+@diretor_required
 def usuarios_view(request):
     """
     Visão geral de responsáveis e aventureiros com o vínculo familiar.
 
-    Considera pai, mãe e responsável legal de cada aventureiro, agrupa
-    responsáveis únicos (por CPF, ou nome+WhatsApp, ou nome) e junta papéis e
-    aventureiros vinculados. Exibe apenas dados resumidos (nada sensível).
-
-    Acesso: qualquer usuário autenticado. FUTURO: poderá ser restrito por perfil.
+    Restrito ao perfil **Diretor** (exibe dados completos ao clicar em um card,
+    num modal). Considera pai, mãe e responsável legal de cada aventureiro,
+    agrupa responsáveis únicos (por CPF, ou nome+WhatsApp, ou nome) e junta
+    papéis, dados de contato e aventureiros vinculados.
     """
-    aventureiros = list(Aventureiro.objects.all())
+    aventureiros = list(
+        Aventureiro.objects
+        .select_related("ficha_medica", "autorizacao_imagem")
+        .all()
+    )
 
-    responsaveis = {}   # chave -> {nome, papeis:set, vinculos: {av_id: {...}}}
+    responsaveis = {}   # chave -> {nome, papeis, contato..., vinculos: {av_id: {...}}}
     total_vinculos = 0
-    resumo_aventureiros = []
 
     for av in aventureiros:
-        idade = _idade(av.data_nascimento)
-        resumo_aventureiros.append({
-            "nome": av.nome_completo,
-            "idade": idade,
-            "pai": av.pai_nome or "",
-            "mae": av.mae_nome or "",
-            "resp": av.resp_nome or "",
-        })
+        # Dados de exibição do aventureiro (usados no modal detalhado).
+        av.idade = _idade(av.data_nascimento)
+        av.classes = _classes_investidas(av)
+        av.foto_ok = _foto_valida(av)
+        av.iniciais = _iniciais(av.nome_completo)
+        _preparar_ficha(getattr(av, "ficha_medica", None))
 
         candidatos = [
-            ("Pai", av.pai_nome, av.pai_cpf, av.pai_whatsapp),
-            ("Mãe", av.mae_nome, av.mae_cpf, av.mae_whatsapp),
-            ("Responsável legal", av.resp_nome, av.resp_cpf, av.resp_whatsapp),
+            ("Pai", av.pai_nome, av.pai_cpf, av.pai_email, av.pai_celular, av.pai_whatsapp),
+            ("Mãe", av.mae_nome, av.mae_cpf, av.mae_email, av.mae_celular, av.mae_whatsapp),
+            ("Responsável legal", av.resp_nome, av.resp_cpf, av.resp_email, "", av.resp_whatsapp),
         ]
-        for papel, nome, cpf, whats in candidatos:
+        for papel, nome, cpf, email, celular, whats in candidatos:
             chave = _chave_responsavel(nome, cpf, whats)
             if chave is None:
                 continue
             total_vinculos += 1
-            resp = responsaveis.setdefault(
-                chave, {"nome": nome.strip(), "papeis": set(), "vinculos": {}}
-            )
+            resp = responsaveis.setdefault(chave, {
+                "nome": nome.strip(), "papeis": set(),
+                "cpf": "", "email": "", "celular": "", "whatsapp": "",
+                "vinculos": {},
+            })
             resp["papeis"].add(papel)
+            # Guarda o primeiro contato não-vazio encontrado para a pessoa.
+            for campo, valor in (
+                ("cpf", cpf), ("email", email), ("celular", celular), ("whatsapp", whats),
+            ):
+                if not resp[campo] and (valor or "").strip():
+                    resp[campo] = valor.strip()
             vinc = resp["vinculos"].setdefault(
-                av.id, {"nome": av.nome_completo, "idade": idade, "papeis": set()}
+                av.id, {"nome": av.nome_completo, "idade": av.idade, "papeis": set()}
             )
             vinc["papeis"].add(papel)
 
@@ -505,15 +514,19 @@ def usuarios_view(request):
         lista_responsaveis.append({
             "nome": resp["nome"],
             "papeis": _ordena_papeis(resp["papeis"]),
+            "cpf": resp["cpf"], "email": resp["email"],
+            "celular": resp["celular"], "whatsapp": resp["whatsapp"],
             "vinculos": vinculos,
         })
     lista_responsaveis.sort(key=lambda x: _normaliza(x["nome"]))
+    for i, resp in enumerate(lista_responsaveis):
+        resp["id"] = f"resp-{i}"
 
-    resumo_aventureiros.sort(key=lambda x: _normaliza(x["nome"]))
+    aventureiros.sort(key=lambda a: _normaliza(a.nome_completo))
 
     contexto = {
         "responsaveis": lista_responsaveis,
-        "resumo_aventureiros": resumo_aventureiros,
+        "aventureiros": aventureiros,
         "total_responsaveis": len(lista_responsaveis),
         "total_aventureiros": len(aventureiros),
         "total_vinculos": total_vinculos,

@@ -58,3 +58,61 @@
         }
     });
 })();
+
+/* =========================================================
+   Modal de dados completos: ao clicar num card (.clicavel),
+   abre uma janela suspensa com TODOS os dados da pessoa.
+   O conteúdo vem do #detalhesFonte (renderizado no servidor);
+   fecha no X, ao clicar fora e com Esc. JS puro.
+   ========================================================= */
+(function () {
+    "use strict";
+
+    var modal = document.getElementById("modalDados");
+    var corpo = document.getElementById("modalCorpo");
+    var titulo = document.getElementById("modalTitulo");
+    var fechar = document.getElementById("modalFechar");
+    var fonte = document.getElementById("detalhesFonte");
+    if (!modal || !corpo || !titulo || !fechar || !fonte) return;
+
+    function abrir(id) {
+        var origem = document.getElementById("detalhe-" + id);
+        if (!origem) return;
+        corpo.innerHTML = origem.innerHTML;
+        titulo.textContent = origem.getAttribute("data-titulo") || "Dados";
+        // No modal, todas as seções aparecem já expandidas.
+        Array.prototype.forEach.call(
+            corpo.querySelectorAll("details"),
+            function (d) { d.open = true; }
+        );
+        corpo.scrollTop = 0;
+        modal.hidden = false;
+        document.body.classList.add("modal-aberto");
+        fechar.focus();
+    }
+
+    function fecharModal() {
+        modal.hidden = true;
+        corpo.innerHTML = "";
+        document.body.classList.remove("modal-aberto");
+    }
+
+    // Abre ao clicar num card marcado como clicável.
+    document.addEventListener("click", function (e) {
+        var alvo = e.target;
+        var card = alvo && alvo.closest ? alvo.closest(".clicavel[data-modal]") : null;
+        if (card) {
+            abrir(card.getAttribute("data-modal"));
+        }
+    });
+
+    fechar.addEventListener("click", fecharModal);
+    // Clique no fundo (fora da caixa) fecha.
+    modal.addEventListener("click", function (e) {
+        if (e.target === modal) fecharModal();
+    });
+    // Esc fecha o modal.
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !modal.hidden) fecharModal();
+    });
+})();

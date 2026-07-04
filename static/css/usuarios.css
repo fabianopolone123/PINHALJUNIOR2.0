@@ -237,3 +237,130 @@
         grid-template-columns: repeat(3, 1fr);
     }
 }
+
+/* ===================== Cards clicáveis + dica ===================== */
+.clicavel {
+    cursor: pointer;
+    transition: transform var(--transicao), box-shadow var(--transicao);
+}
+.clicavel:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sombra-card-hover);
+}
+.clique-dica {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.82rem;
+    color: var(--azul);
+    font-weight: 600;
+}
+.clique-dica::before { content: "👁️ "; }
+
+/* ===================== Modal de dados completos ===================== */
+body.modal-aberto { overflow: hidden; }
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 76, 129, 0.45);
+    backdrop-filter: blur(2px);
+    animation: modal-fade var(--transicao);
+}
+.modal-overlay[hidden] { display: none; }
+
+@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-caixa {
+    background: var(--branco);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra-card-hover);
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--borda);
+    background: linear-gradient(90deg, var(--azul-escuro), var(--azul));
+}
+.modal-titulo {
+    flex: 1;
+    min-width: 0;
+    color: var(--branco);
+    font-size: 1.05rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.modal-fechar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    color: var(--branco);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background var(--transicao);
+}
+.modal-fechar:hover { background: rgba(255, 255, 255, 0.32); }
+
+.modal-corpo {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Cabeçalho da pessoa dentro do modal */
+.modal-pessoa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+.modal-pessoa-info { min-width: 0; }
+.modal-pessoa-nome {
+    font-size: 1.15rem;
+    color: var(--azul-escuro);
+    margin-bottom: 6px;
+    overflow-wrap: anywhere;
+}
+.modal-ava {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    background: var(--fundo-conteudo);
+    border-radius: 50%;
+}
+
+/* Modal em tela cheia no celular */
+@media (max-width: 640px) {
+    .modal-overlay { padding: 0; }
+    .modal-caixa {
+        max-width: 100%;
+        max-height: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .clicavel,
+    .modal-overlay,
+    .modal-fechar { transition: none; animation: none; }
+}

@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-03 (CSS global `base.css`: interface sem cursor de texto fora de campos)
+**Última atualização:** 2026-07-03 (tela "Usuários" restrita ao Diretor + modal com todos os dados ao clicar)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -45,14 +45,20 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   responsável (ou apenas o mais recente, se nenhum coincidir); volta a `/inicio/` com mensagem de sucesso.
 - Menu lateral fixo (desktop) e recolhível/gaveta (mobile), com nome do usuário e botão "Sair".
 - Menu com dois itens: **Meus Dados** e **Usuários** (item ativo destacado conforme a tela).
-- Tela **Usuários** (`/usuarios/`, protegida por login): visão geral de responsáveis e aventureiros
-  com o vínculo familiar. Agrupa responsáveis únicos (pai, mãe e responsável legal de todos os
-  aventureiros) por CPF (ou nome+WhatsApp, ou nome), juntando papéis quando é a mesma pessoa; mostra
-  os aventureiros vinculados a cada responsável (com idade e papel do vínculo) e um resumo por
-  aventureiro (pai/mãe/responsável legal). Tem contadores (Responsáveis/Aventureiros/Vínculos) e
-  **pesquisa inteligente** em tempo real (ignora maiúsculas/acentos). Exibe só dados resumidos —
-  **nenhum dado sensível** (sem CPF, e-mail, telefone, endereço, ficha médica, autorização ou foto).
-  Acesso liberado a qualquer usuário autenticado (FUTURO: poderá ser restrito por perfil).
+- Tela **Usuários** (`/usuarios/`, **restrita ao perfil Diretor** via `@diretor_required`): visão
+  geral de responsáveis e aventureiros com o vínculo familiar. Agrupa responsáveis únicos (pai, mãe e
+  responsável legal de todos os aventureiros) por CPF (ou nome+WhatsApp, ou nome), juntando papéis
+  quando é a mesma pessoa; mostra os aventureiros vinculados a cada responsável (com idade e papel do
+  vínculo) e um resumo por aventureiro. Tem contadores (Responsáveis/Aventureiros/Vínculos) e
+  **pesquisa inteligente** em tempo real (ignora maiúsculas/acentos). **Ao clicar em qualquer card**
+  (responsável ou aventureiro), abre um **modal responsivo** (tela cheia no celular) com **todos os
+  dados** daquela pessoa — no responsável: CPF, e-mail, celular/WhatsApp, papéis e aventureiros
+  vinculados; no aventureiro: dados pessoais, documentos, endereço, pai/mãe/responsável, ficha médica,
+  termo de imagem e foto (reaproveita o parcial `_aventureiro_detalhe.html` de "Meus Dados"). Como é
+  restrita ao Diretor, aqui é permitido exibir dados sensíveis. O item de menu "Usuários" aparece só
+  para o diretor.
+- **Perfis/permissões**: `core/permissoes.py` (`eh_diretor` + decorator `diretor_required`) e o context
+  processor `core/context_processors.py` (`is_diretor` em todos os templates, para `{% if is_diretor %}`).
 - Logo do clube exibido no topo da tela de login (com fallback "CA" caso não carregue).
 - Ao finalizar o cadastro inicial, o usuário é **autenticado automaticamente** (login real) e
   levado à tela de sucesso; "Ir para a tela inicial" abre `/inicio/` já logado.

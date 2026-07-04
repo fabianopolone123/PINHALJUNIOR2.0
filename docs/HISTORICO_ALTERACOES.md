@@ -22,6 +22,41 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-03 - Tela "Usuários" restrita ao Diretor + modal com todos os dados
+
+### Resumo
+A tela "Usuários" passou a ser **restrita ao perfil Diretor** e, ao **clicar em qualquer card**
+(responsável ou aventureiro), abre um **modal responsivo** (tela cheia no celular) com **todos os
+dados** daquela pessoa. Isso inverte a regra anterior (que proibia dados sensíveis nessa tela): como
+agora é restrita ao Diretor, exibir dados completos é permitido.
+
+### Arquivos criados/alterados
+- `core/permissoes.py`: novo (`eh_diretor` + decorator `diretor_required`).
+- `core/context_processors.py`: novo (`is_diretor` em todos os templates).
+- `config/settings.py`: registra o context processor `core.context_processors.perfis`.
+- `core/views.py`: `usuarios_view` agora usa `@diretor_required`, guarda o contato dos responsáveis
+  e passa os aventureiros completos (com idade/classes/foto/ficha preparadas).
+- `templates/core/_aventureiro_detalhe.html`: novo parcial com o detalhe do aventureiro, reaproveitado
+  em "Meus Dados" e no modal.
+- `templates/core/inicio.html`: usa o parcial; item de menu "Usuários" só para o diretor (`is_diretor`).
+- `templates/core/usuarios.html`: cards clicáveis, `#detalhesFonte` (fonte do modal) e o modal.
+- `static/css/usuarios.css`: estilos do modal e dos cards clicáveis (responsivo, tela cheia no celular).
+- `static/js/usuarios.js`: abre/fecha o modal (clona o detalhe, expande seções; fecha no X/fora/Esc).
+- `docs/REGRAS_CODEX.md`: nova seção "Padrão de perfis e permissões" e atualização do "Padrão da tela
+  Usuários"; `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md` atualizados.
+
+### Decisões tomadas
+- Perfis como grupos nativos do Django; gating por `@diretor_required` + `is_diretor` nos templates.
+- Detalhes do modal renderizados no servidor (sem AJAX) num container fora de `.conteudo-interno`,
+  para não afetar a pesquisa nem o accordion de `inicio.js`; o JS clona para o modal e expande as seções.
+
+### Lições/armadilhas (documentadas em REGRAS_CODEX)
+- `{# ... #}` é comentário de **uma linha**; para várias, usar `{% comment %}...{% endcomment %}`
+  (um `{# #}` multi-linha fez o `{% include %}` de exemplo virar include real → recursão).
+- Não escrever tags `{% ... %}` dentro de comentários HTML `<!-- -->` (o Django processa mesmo assim).
+
+---
+
 ## 2026-07-03 - CSS global: interface sem cursor de texto fora de campos
 
 ### Resumo

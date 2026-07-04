@@ -27,10 +27,12 @@
                     <span class="menu-icone" aria-hidden="true">👤</span>
                     <span class="menu-texto">Meus Dados</span>
                 </a>
+                {% if is_diretor %}
                 <a href="{% url 'core:usuarios' %}" class="menu-item ativo" aria-current="page">
                     <span class="menu-icone" aria-hidden="true">👥</span>
                     <span class="menu-texto">Usuários</span>
                 </a>
+                {% endif %}
             </nav>
 
             <div class="barra-rodape">
@@ -96,7 +98,7 @@
                 <h2 class="secao-titulo">Responsáveis e vínculos</h2>
                 <section class="lista-responsaveis" id="listaResponsaveis">
                     {% for r in responsaveis %}
-                    <article class="card resp-item busca-item">
+                    <article class="card resp-item busca-item clicavel" data-modal="{{ r.id }}">
                         <div class="resp-cab">
                             <span class="resp-ava" aria-hidden="true">🧑‍🤝‍🧑</span>
                             <div class="resp-cab-info">
@@ -120,6 +122,7 @@
                                 {% endfor %}
                             </ul>
                         </div>
+                        <span class="clique-dica">Clique para ver todos os dados</span>
                     </article>
                     {% endfor %}
                 </section>
@@ -128,15 +131,16 @@
                 <!-- ===================== Resumo por aventureiro ===================== -->
                 <h2 class="secao-titulo">Resumo por aventureiro</h2>
                 <section class="lista-aventureiros" id="listaAventureiros">
-                    {% for a in resumo_aventureiros %}
-                    <article class="card av-resumo busca-item">
+                    {% for av in aventureiros %}
+                    <article class="card av-resumo busca-item clicavel" data-modal="av-{{ av.id }}">
                         <div class="av-resumo-cab">
-                            <h3 class="av-resumo-nome">{{ a.nome }}</h3>
-                            <span class="pill">{% if a.idade is not None %}{{ a.idade }} anos{% else %}Idade não informada{% endif %}</span>
+                            <h3 class="av-resumo-nome">{{ av.nome_completo }}</h3>
+                            <span class="pill">{% if av.idade is not None %}{{ av.idade }} anos{% else %}Idade não informada{% endif %}</span>
                         </div>
-                        <p class="av-resumo-linha"><span>Pai:</span> {{ a.pai|default:"Não informado" }}</p>
-                        <p class="av-resumo-linha"><span>Mãe:</span> {{ a.mae|default:"Não informado" }}</p>
-                        <p class="av-resumo-linha"><span>Responsável legal:</span> {{ a.resp|default:"Não informado" }}</p>
+                        <p class="av-resumo-linha"><span>Pai:</span> {{ av.pai_nome|default:"Não informado" }}</p>
+                        <p class="av-resumo-linha"><span>Mãe:</span> {{ av.mae_nome|default:"Não informado" }}</p>
+                        <p class="av-resumo-linha"><span>Responsável legal:</span> {{ av.resp_nome|default:"Não informado" }}</p>
+                        <span class="clique-dica">Clique para ver todos os dados</span>
                     </article>
                     {% endfor %}
                 </section>
@@ -150,6 +154,78 @@
                 {% endif %}
             </div>
         </main>
+
+        <!-- ===================== Detalhes ocultos (fonte do modal) =====================
+             Ficam fora de .conteudo-interno para não serem afetados pela pesquisa nem
+             pelo accordion de inicio.js. O JS clona o conteúdo para dentro do modal. -->
+        <div id="detalhesFonte" hidden aria-hidden="true">
+            {% for r in responsaveis %}
+            <div id="detalhe-{{ r.id }}" data-titulo="Responsável — {{ r.nome }}">
+                <div class="modal-pessoa">
+                    <span class="modal-ava" aria-hidden="true">🧑‍🤝‍🧑</span>
+                    <div class="modal-pessoa-info">
+                        <h3 class="modal-pessoa-nome">{{ r.nome }}</h3>
+                        <div class="pills">
+                            {% for p in r.papeis %}<span class="pill papel">{{ p }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="dados-grade">
+                    {% include "core/_dado.html" with rotulo="Nome" valor=r.nome %}
+                    {% include "core/_dado.html" with rotulo="Papéis" valor=r.papeis|join:", " %}
+                    {% include "core/_dado.html" with rotulo="CPF" valor=r.cpf %}
+                    {% include "core/_dado.html" with rotulo="E-mail" valor=r.email %}
+                    {% include "core/_dado.html" with rotulo="Celular" valor=r.celular %}
+                    {% include "core/_dado.html" with rotulo="WhatsApp" valor=r.whatsapp %}
+                </div>
+                <h4 class="bloco-rotulo">Aventureiros vinculados</h4>
+                <ul class="vinc-lista">
+                    {% for v in r.vinculos %}
+                    <li class="vinc-item">
+                        <span class="vinc-nome">{{ v.nome }}</span>
+                        <span class="vinc-idade">{% if v.idade is not None %}{{ v.idade }} anos{% else %}Idade não informada{% endif %}</span>
+                        <span class="vinc-papeis">{{ v.papeis|join:" / " }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+
+            {% for av in aventureiros %}
+            <div id="detalhe-av-{{ av.id }}" data-titulo="Aventureiro — {{ av.nome_completo }}">
+                <div class="modal-pessoa">
+                    <div class="av-foto-grande">
+                        {% if av.foto_ok %}
+                            <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome_completo }}"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                            <div class="foto-vazia-grande" style="display:none">{{ av.iniciais }}</div>
+                        {% else %}
+                            <div class="foto-vazia-grande" title="Sem foto">{{ av.iniciais }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-pessoa-info">
+                        <h3 class="modal-pessoa-nome">{{ av.nome_completo }}</h3>
+                        <div class="pills">
+                            {% if av.idade is not None %}<span class="pill">{{ av.idade }} anos</span>{% endif %}
+                            {% for c in av.classes %}<span class="pill pill-verde">{{ c }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% include "core/_aventureiro_detalhe.html" with av=av %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ===================== Modal de dados completos ===================== -->
+        <div class="modal-overlay" id="modalDados" hidden>
+            <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalTitulo"></h2>
+                    <button type="button" class="modal-fechar" id="modalFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo" id="modalCorpo"></div>
+            </div>
+        </div>
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
