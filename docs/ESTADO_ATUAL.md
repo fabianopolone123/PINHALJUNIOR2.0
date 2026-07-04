@@ -2,11 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Fase 5 — Financeiro**: aba "Financeiro" do painel deixou de ser
-"em breve" e virou o **extrato completo** do evento — resultado (Entradas − Saídas), resumos por fonte /
-forma de pagamento / canal, "vendidos por produto" (movido do Resumo) e o **extrato cronológico** de
-todos os lançamentos, com cancelados riscados. Divisão: número/tabela no **Financeiro**, gráficos no
-**Resumo/dashboard** (próximo). Antes: exclusão de evento vazio; correções de toast no pagamento)
+**Última atualização:** 2026-07-04 (Painel de um evento **inexistente/excluído** agora **redireciona**
+para a lista de Eventos com um toast — em vez do 404 cru (link antigo de evento apagado). Antes: **Fase 5
+— Financeiro** (aba "Financeiro" = extrato completo: resultado Entradas − Saídas, resumos por fonte /
+forma de pagamento / canal, "vendidos por produto" e o extrato cronológico com cancelados riscados;
+gráficos ficam no Resumo/dashboard — próximo))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -384,6 +384,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).
 - `/eventos/<id>/excluir/` — exclui um evento (POST, Diretor), **só se vazio** (sem inscrições/pedidos) (`core.views.evento_excluir_view`, nome `core:evento_excluir`).
 - `/eventos/<id>/` — painel do evento complexo (`core.views.evento_painel_view`, nome `core:evento_painel`).
+  Se o evento não existir (ex.: link antigo de um evento excluído), **redireciona** para `/eventos/` com
+  um toast informativo (em vez de 404).
 - `/eventos/<id>/pagina/` — página do evento (pública se aberto ao público, senão exige login) (`core.views.evento_pagina_view`, nome `core:evento_pagina`).
 - `/eventos/<id>/inscrever/` — formulário de inscrição (`core.views.evento_inscrever_view`, nome `core:evento_inscrever`).
 - `/eventos/<id>/inscrever/sucesso/` — confirmação da inscrição (`core:evento_inscricao_sucesso`).

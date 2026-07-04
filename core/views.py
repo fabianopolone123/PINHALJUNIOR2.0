@@ -754,7 +754,11 @@ def evento_painel_view(request, pk):
     (visibilidade, prazo, faixas etárias de preço e valor da diretoria).
     Fase 5: aba Financeiro (extrato completo + agrupamentos).
     """
-    evento = get_object_or_404(Evento, pk=pk)
+    evento = Evento.objects.filter(pk=pk).first()
+    if evento is None:
+        # Link antigo de um evento já excluído: em vez de 404 cru, volta à lista.
+        messages.info(request, "Esse evento não existe mais (pode ter sido excluído).")
+        return redirect("core:eventos")
     custos = list(evento.custos.all())
     total_custos = sum((c.valor for c in custos), Decimal("0"))
     faixas = list(evento.faixas_preco.all())

@@ -22,6 +22,28 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Painel de evento inexistente redireciona (em vez de 404 cru)
+
+### Resumo
+Depois de excluir um evento, um **link/aba antigo** para o painel dele (`/eventos/<id>/`) mostrava um
+**404 cru do Django**. Agora, se o evento não existe (ex.: foi excluído), o painel **redireciona** para a
+lista de Eventos com um **toast**: "Esse evento não existe mais (pode ter sido excluído)." — UX
+consistente com o resto do sistema (o 404 do evento 33/`_TESTE_PGTO`, já removido, foi o gatilho).
+
+### Arquivos alterados
+- `core/views.py`: `evento_painel_view` troca `get_object_or_404` por busca + redirect com `messages.info`
+  para `core:eventos` quando o evento não existe.
+
+### Validação
+- `manage.py check` OK. Teste (Diretor): `GET /eventos/999999/` → **302** para `/eventos/`; seguindo o
+  redirect, a página traz o **toast** "não existe mais".
+
+### Observação
+- As demais rotas de evento (loja/página/PDV/etc.) seguem com `get_object_or_404`; dá para estender o
+  mesmo tratamento se algum link antigo delas incomodar.
+
+---
+
 ## 2026-07-04 - Evento complexo — Fase 5 (parte 1): Financeiro (extrato completo)
 
 ### Resumo
