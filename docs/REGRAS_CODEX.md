@@ -359,6 +359,10 @@ internas ou no fluxo de login, seguir estas regras:
   Inscrições, Lojinha, Custos, Financeiro) trocadas no cliente (`static/js/evento_painel.js`); abas de
   fases futuras ficam como "em breve". Ações que gravam (ex.: custos) são POST e redirecionam para o
   painel com a hash da aba (ex.: `#custos`).
+- **Sub-abas** (abas DENTRO de uma seção; ex.: Inscrições → Lista/Configuração/Faixas/Formulário): usar
+  o padrão `.sub-abas` > `.sub-aba[data-sub]` + `.sub-secao[data-subsecao]` (a inicial visível, as demais
+  com `hidden`). O JS em `evento_painel.js` é **genérico e escopado** à `.painel-secao` pai (cada barra
+  só mexe nas próprias sub-seções) — reutilizar para novas seções (ex.: Lojinha → Produtos/Pedidos).
 - **Pagamentos ficam simulados** até a fase específica; nunca integrar gateway sem autorização.
 - Fase 1 (feita): base + painel/resumo (indicadores) + Custos (com comprovante). Próximas: Inscrições,
   Página pública, Lojinha, Financeiro/gráficos; depois, pagamentos reais e mapa.

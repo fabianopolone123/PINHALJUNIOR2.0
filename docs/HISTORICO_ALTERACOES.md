@@ -22,6 +22,44 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Reorganização do painel — Etapa 1/4: abas internas em "Inscrições"
+
+### Resumo
+Início de uma **reorganização do painel do evento** (alinhada com o usuário) para dar responsabilidade
+clara a cada aba e evitar rolagem. **Etapa 1 (esta)**: a aba **Inscrições** ganhou **sub-abas**:
+**Lista de inscrições** (abre primeiro) · **Configuração** · **Faixas de preço** · **Formulário**. Assim
+a lista (que cresce com o tempo) aparece de cara e as configurações ficam **minimizadas**, a um clique —
+sem precisar rolar até o fim. O botão "Nova inscrição (balcão)" e o status/prazo ficam no topo da aba
+(comuns). Removida uma nota desatualizada ("...entram nas próximas partes da Fase 2").
+
+### Plano completo da reorganização (etapas)
+1. **Etapa 1 — CONCLUÍDA ✅**: abas internas em Inscrições.
+2. **Etapa 2**: abas internas em **Lojinha** (Produtos · Pedidos) + **busca** na lista de pedidos.
+3. **Etapa 3**: mover os **botões** de **Balcão** (vender) e **Operadores** de dentro da Lojinha para a
+   **barra do topo** (ao lado de Custos/Financeiro), como abas-link para as páginas atuais (**sem
+   reescrever** as páginas — só muda o local do botão de entrada); renomear "PDV / Balcão" para algo
+   didático (ex.: "Vender no balcão").
+4. **Etapa 4**: no **Resumo**, tornar os **cards de KPI clicáveis** → cada um abre uma **lista simples**
+   (Inscritos → responsável+participantes; Arrecadação → quem pagou+quanto; Vendas → 1/linha; Receitas →
+   1/linha; Custos → 1/linha).
+
+### Arquivos alterados
+- `templates/core/evento_painel.html`: seção Inscrições envolvida em `.sub-abas` + 4 `.sub-secao`
+  (`data-subsecao=lista|config|faixas|formulario`); "lista" visível, demais `hidden`.
+- `static/js/evento_painel.js`: handler genérico de **sub-abas** (por `.sub-abas`, escopado à
+  `.painel-secao` pai) — reutilizável na Etapa 2 (Lojinha).
+- `static/css/eventos.css`: `.sub-abas`/`.sub-aba`/`.sub-aba.ativa` (pílulas) e `.sub-secao[hidden]`.
+
+### Validação
+- `manage.py check` OK. Render (test client): 4 sub-abas; "lista" sem `hidden`, Config/Faixas/Formulário
+  `hidden`; `<div>` abrem == fecham (estrutura equilibrada). Visual (Chrome headless) em **desktop e
+  mobile (~470px)**: sub-abas em pílula, "Lista de inscrições" ativa, configs escondidas.
+
+### Pendências / próximo passo
+- **Etapa 2**: abas na Lojinha + busca nos pedidos.
+
+---
+
 ## 2026-07-04 - Inscrição: "nome completo" + botão "Ver detalhes"
 
 ### Resumo

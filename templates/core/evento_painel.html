@@ -263,7 +263,16 @@
                     </p>
                     {% endif %}
 
-                    <!-- Lista de inscrições -->
+                    <!-- Abas internas de Inscrições -->
+                    <div class="sub-abas" role="tablist">
+                        <button type="button" class="sub-aba ativa" data-sub="lista" role="tab">Lista de inscrições</button>
+                        <button type="button" class="sub-aba" data-sub="config" role="tab">Configuração</button>
+                        <button type="button" class="sub-aba" data-sub="faixas" role="tab">Faixas de preço</button>
+                        <button type="button" class="sub-aba" data-sub="formulario" role="tab">Formulário</button>
+                    </div>
+
+                    <!-- Sub-aba: Lista de inscrições -->
+                    <div class="sub-secao" data-subsecao="lista">
                     <div class="secao-cabecalho">
                         <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
                     </div>
@@ -336,9 +345,10 @@
                     {% else %}
                     <p class="painel-nota">Nenhuma inscrição ainda.</p>
                     {% endif %}
+                    </div><!-- /sub-aba lista -->
 
-                    <hr class="secao-divisor">
-
+                    <!-- Sub-aba: Configuração -->
+                    <div class="sub-secao" data-subsecao="config" hidden>
                     <!-- Configuração da inscrição -->
                     <div class="card config-card">
                         <h3 class="config-titulo">Configuração da inscrição</h3>
@@ -361,7 +371,10 @@
                             </div>
                         </form>
                     </div>
+                    </div><!-- /sub-aba config -->
 
+                    <!-- Sub-aba: Faixas de preço -->
+                    <div class="sub-secao" data-subsecao="faixas" hidden>
                     <!-- Faixas etárias e valores -->
                     <div class="secao-cabecalho">
                         <h3 class="secao-titulo">Faixas etárias e valores</h3>
@@ -392,7 +405,10 @@
                     {% else %}
                     <p class="painel-nota">Nenhuma faixa etária cadastrada. Adicione ao menos uma para definir os valores por idade.</p>
                     {% endif %}
+                    </div><!-- /sub-aba faixas -->
 
+                    <!-- Sub-aba: Formulário -->
+                    <div class="sub-secao" data-subsecao="formulario" hidden>
                     <!-- Formulário de inscrição (campos personalizados) -->
                     <div class="secao-cabecalho secao-cabecalho-espaco">
                         <h3 class="secao-titulo">Formulário de inscrição</h3>
@@ -434,11 +450,7 @@
                     {% else %}
                     <p class="painel-nota">Nenhum campo personalizado ainda. Além dos dados do responsável e dos participantes (que já são pedidos), aqui você adiciona campos específicos deste evento.</p>
                     {% endif %}
-
-                    <p class="painel-nota">
-                        A página do evento (no menu de todos os perfis) e a inscrição de fato
-                        (com lista de inscritos) entram nas próximas partes da Fase 2.
-                    </p>
+                    </div><!-- /sub-aba formulario -->
                 </section>
 
                 <!-- ===================== Lojinha (em breve) ===================== -->

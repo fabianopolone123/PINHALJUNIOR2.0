@@ -2,11 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Ajustes na inscrição: o formulário agora pede **"Nome completo do
-responsável"** (placeholder "Nome e sobrenome" + dica "evite só o primeiro nome") e **"Nome completo do
-participante"** — para o casamento com o cadastro do clube funcionar melhor; e o botão que expande a
-inscrição no painel passou de "Ver participantes e respostas" para **"Ver detalhes"** (agora também traz
-as compras). Antes: compras da lojinha por inscrição; correção da edição de produto)
+**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 1/4: abas internas em "Inscrições"**
+— a aba Inscrições agora tem **sub-abas** (**Lista de inscrições** abre primeiro · Configuração · Faixas
+de preço · Formulário), então as configurações ficam **minimizadas** e a lista (que cresce) aparece de
+cara, sem rolar. Sub-abas genéricas (`.sub-abas`/`.sub-aba`/`.sub-secao`) reutilizáveis. Plano completo
+da reorg (etapas 2–4) no HISTÓRICO. Antes: "nome completo" na inscrição + botão "Ver detalhes")
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior

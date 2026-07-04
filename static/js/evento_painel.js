@@ -29,6 +29,21 @@
         ativar(hashAba);
     }
 
+    // Sub-abas (abas DENTRO de uma seção; ex.: Inscrições → Lista/Config/Faixas/Formulário).
+    // Cada barra é independente e só mexe nas sub-seções da sua própria .painel-secao.
+    Array.prototype.slice.call(document.querySelectorAll(".sub-abas")).forEach(function (barra) {
+        var escopo = barra.closest(".painel-secao") || document;
+        var subAbas = Array.prototype.slice.call(barra.querySelectorAll(".sub-aba"));
+        var subSecoes = Array.prototype.slice.call(escopo.querySelectorAll(".sub-secao"));
+        barra.addEventListener("click", function (e) {
+            var btn = e.target.closest(".sub-aba");
+            if (!btn) return;
+            var nome = btn.dataset.sub;
+            subAbas.forEach(function (a) { a.classList.toggle("ativa", a === btn); });
+            subSecoes.forEach(function (s) { s.hidden = s.dataset.subsecao !== nome; });
+        });
+    });
+
     // Botões que trocam de aba (ex.: "Gerenciar custos →" no Financeiro).
     Array.prototype.slice.call(document.querySelectorAll("[data-aba-ir]"))
         .forEach(function (b) {

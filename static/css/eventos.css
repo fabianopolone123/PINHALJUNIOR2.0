@@ -288,6 +288,18 @@ a.tipo-card:hover {
 
 .painel-secao[hidden] { display: none; }
 
+/* Sub-abas (abas dentro de uma seção do painel) — estilo mais leve (pílulas). */
+.sub-abas { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+.sub-aba {
+    border: 1px solid var(--borda); background: var(--branco);
+    padding: 8px 14px; font-size: 0.9rem; font-weight: 700; color: var(--texto-suave);
+    cursor: pointer; border-radius: 999px;
+    transition: color var(--transicao), background var(--transicao), border-color var(--transicao);
+}
+.sub-aba:hover { color: var(--azul); border-color: var(--azul); }
+.sub-aba.ativa { color: #fff; background: var(--azul); border-color: var(--azul); }
+.sub-secao[hidden] { display: none; }
+
 /* Cards de indicadores (KPIs) */
 .kpi-grade {
     display: grid;
