@@ -2,11 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Correções de notificação no fluxo de pagamento da loja: toast
-"Pagamento aprovado!" aparece **na própria tela de sucesso** (não vaza para a próxima página); copiar o
-código Pix mostra o **toast padrão** do sistema; o `inicio.js` centraliza o toast e expõe
-`window.mostrarToast`, agora carregado também nas páginas públicas do evento — o balão volta a
-**auto-fechar** ali)
+**Última atualização:** 2026-07-04 (Diretor pode **excluir evento** pela lista de Eventos — **apenas se
+estiver vazio** (sem inscrições nem pedidos), com confirmação e toast; eventos com dados ficam
+protegidos. Antes: correções de notificação no fluxo de pagamento da loja — toast "Pagamento aprovado!"
+na própria tela de sucesso, copiar Pix usa o toast padrão, `inicio.js` centraliza o toast/`window.mostrarToast`
+e é carregado nas páginas públicas)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -70,7 +70,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (marcado como "Em breve"). O cadastro de evento simples (`/eventos/novo/`) tem nome, local, descrição,
   data, horário de início e término. Cada evento na lista tem um botão **Duplicar** que abre o
   formulário já preenchido com aquele evento (`?duplicar=<id>`), para recadastrar algo recorrente
-  mudando só a data/horário. Menu "Eventos" aparece só para o diretor.
+  mudando só a data/horário. Menu "Eventos" aparece só para o diretor. Cada evento tem também um botão
+  **Excluir** (🗑️) que aparece **apenas quando o evento está "vazio"** (sem nenhuma inscrição e sem
+  nenhum pedido); a exclusão pede **confirmação** e mostra **toast**. Eventos com inscrições/pedidos
+  **não** têm o botão (são preservados). A view (`evento_excluir_view`, POST) revalida a regra no
+  servidor e a exclusão remove em cascata a configuração do evento (custos, produtos, faixas, campos,
+  operadores).
 - **Evento complexo (com inscrição) — Fase 1**: no modal de "Criar evento", a opção **"Evento com
   inscrição"** cria um evento `tipo=inscricao` (com data/hora de início **e término**, para eventos de
   vários dias) e leva ao **painel do evento** (`/eventos/<id>/`). O painel tem **abas** (Resumo,
@@ -364,6 +369,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/` — lista de eventos, **restrita ao Diretor** (`core.views.eventos_view`, nome `core:eventos`).
 - `/eventos/novo/` — cadastro de evento simples, **restrita ao Diretor** (`core.views.evento_novo_view`, nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).
+- `/eventos/<id>/excluir/` — exclui um evento (POST, Diretor), **só se vazio** (sem inscrições/pedidos) (`core.views.evento_excluir_view`, nome `core:evento_excluir`).
 - `/eventos/<id>/` — painel do evento complexo (`core.views.evento_painel_view`, nome `core:evento_painel`).
 - `/eventos/<id>/pagina/` — página do evento (pública se aberto ao público, senão exige login) (`core.views.evento_pagina_view`, nome `core:evento_pagina`).
 - `/eventos/<id>/inscrever/` — formulário de inscrição (`core.views.evento_inscrever_view`, nome `core:evento_inscrever`).

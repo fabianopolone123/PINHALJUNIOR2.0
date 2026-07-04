@@ -332,6 +332,12 @@ internas ou no fluxo de login, seguir estas regras:
   (inscrição pública, pagamento, custos, presença, descontos) virá depois.
 - **Recadastro rápido**: cada evento tem **Duplicar** (`?duplicar=<id>`), que pré-preenche o formulário
   com os dados daquele evento (a view monta o `initial`); o usuário ajusta a data/horário e salva.
+- **Excluir evento** (`core:evento_excluir`, POST, `@diretor_required` + `@require_POST`): só é permitido
+  quando o evento está **vazio** — **sem nenhuma inscrição e sem nenhum pedido**. Isso protege dados de
+  pessoas/vendas (nunca apagar por data: um evento futuro pode já ter inscritos/pedidos). O botão
+  **Excluir** só aparece nos eventos vazios (`e.pode_excluir`, calculado na view), e a **view revalida a
+  regra** no servidor. Ações destrutivas pedem confirmação via `<form data-confirmar="...">` (guarda em
+  `static/js/eventos.js` que chama `confirm()` no submit) — reutilizar esse padrão para novas exclusões.
 - **Formulário**: `EventoForm` (ModelForm) reaproveita o parcial `_campo.html`; os campos são
   estilizados em `eventos.css` escopados por `.evento-form` (sem carregar `cadastro.css`, que tem
   `body {}` global e conflitaria com o layout interno). `tipo` e `criado_por` são definidos no servidor.

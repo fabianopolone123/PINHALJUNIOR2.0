@@ -97,6 +97,15 @@
                                 <span aria-hidden="true">📋</span> Duplicar
                             </a>
                             {% endif %}
+                            {% if e.pode_excluir %}
+                            <form method="post" action="{% url 'core:evento_excluir' e.id %}" class="form-excluir-evento"
+                                  data-confirmar="Excluir o evento “{{ e.nome }}”? Esta ação não pode ser desfeita.">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-excluir-evento">
+                                    <span aria-hidden="true">🗑️</span> Excluir
+                                </button>
+                            </form>
+                            {% endif %}
                         </div>
                     </article>
                     {% endfor %}

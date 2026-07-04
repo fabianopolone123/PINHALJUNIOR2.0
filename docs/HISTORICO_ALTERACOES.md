@@ -22,6 +22,50 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Excluir evento (Diretor) — só quando o evento está vazio
+
+### Resumo
+O Diretor agora pode **excluir um evento** pela lista de Eventos. Para proteger dados de pessoas e de
+vendas, a exclusão é permitida **apenas quando o evento está "vazio"** — sem nenhuma **inscrição** e sem
+nenhum **pedido** da lojinha. Assim dá para apagar eventos de **teste/erro** sem risco; eventos que já
+têm gente inscrita ou vendas são **preservados** (independentemente da data). Decisão alinhada com o
+usuário (a alternativa "só por data" foi descartada por permitir apagar um evento futuro que já tem
+inscrições/pedidos). Também foi **removido** um evento de teste que sobrou de uma execução anterior
+(`_TESTE_PGTO`, id 33 — vazio).
+
+### Comportamento
+- Na lista, cada evento **vazio** ganha um botão **🗑️ Excluir** (discreto/destrutivo). Eventos com
+  inscrições/pedidos **não** exibem o botão. Ao excluir, pede **confirmação** e mostra **toast** de
+  sucesso; a exclusão remove em cascata a configuração do evento (custos, produtos, faixas, campos,
+  operadores). A regra é **revalidada no servidor** (não confia só na ausência do botão).
+
+### Arquivos criados/alterados
+- `core/views.py`: `eventos_view` anota `e.pode_excluir` (sem inscrições nem pedidos); nova
+  `evento_excluir_view` (`@diretor_required` + `@require_POST`) — bloqueia com mensagem se houver
+  inscrições/pedidos, senão apaga e redireciona para a lista com toast.
+- `core/urls.py`: rota `evento_excluir` (`/eventos/<id>/excluir/`).
+- `templates/core/eventos.html`: botão **Excluir** (form POST com `data-confirmar`) só quando
+  `e.pode_excluir`.
+- `static/js/eventos.js`: guarda genérica — `<form data-confirmar="...">` pede `confirm()` antes de
+  enviar (reutilizável para ações destrutivas).
+- `static/css/eventos.css`: estilo do `.btn-excluir-evento` (ghost destrutivo) + `align-items` no
+  `.evento-acoes`.
+
+### Decisões tomadas
+- **Guardar por conteúdo, não por data**: só exclui evento sem inscrições e sem pedidos. É o que
+  cobre com segurança o caso de "apagar evento de teste/erro" sem destruir dados reais.
+- Confirmação via `data-confirmar` (JS puro em `eventos.js`), reaproveitável em outras exclusões.
+
+### Validação
+- Teste (test client, logado como Diretor): GET lista 200; **excluir evento vazio** → some (302);
+  **excluir evento com pedido** → bloqueado (302, evento e pedido **preservados**); **GET** em
+  `/excluir/` → **405** (`require_POST`); **não-diretor** → redirecionado, evento preservado; o **botão
+  Excluir não aparece** no evento com dados. Todos passaram. `manage.py check` OK. **Visual (Chrome
+  headless)**: na lista, o botão 🗑️ Excluir aparece só nos eventos vazios (Reunião e o de teste), e
+  **não** no "ACAMPAMENTO…" (que tem pedidos).
+
+---
+
 ## 2026-07-04 - Correções de notificação (toast) no fluxo de pagamento da loja
 
 ### Resumo

@@ -77,10 +77,30 @@
 .evento-acoes {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 10px;
     margin-top: auto;
     padding-top: 4px;
 }
+
+/* Botão "Excluir" (só em eventos vazios): discreto e destrutivo. */
+.form-excluir-evento { display: contents; }
+.btn-excluir-evento {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #c0392b;
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background var(--transicao), border-color var(--transicao);
+}
+.btn-excluir-evento:hover { background: #fdecea; border-color: #f0b7b0; }
 
 /* Descrição completa no modal de visualização do evento. */
 .evento-modal-desc {

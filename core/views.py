@@ -576,7 +576,33 @@ def usuarios_view(request):
 def eventos_view(request):
     """Lista os eventos do clube. Restrito ao perfil Diretor."""
     eventos = list(Evento.objects.all())
+    # Um evento só pode ser excluído se estiver "vazio" (sem inscrições nem
+    # pedidos) — protege dados de pessoas/vendas. Ver `evento_excluir_view`.
+    for e in eventos:
+        e.pode_excluir = not (e.inscricoes.exists() or e.pedidos.exists())
     return render(request, "core/eventos.html", {"eventos": eventos})
+
+
+@diretor_required
+@require_POST
+def evento_excluir_view(request, pk):
+    """Exclui um evento (Diretor), **apenas se estiver vazio** — sem nenhuma
+    inscrição e sem nenhum pedido da lojinha. Assim é possível apagar eventos de
+    teste/erro sem risco de destruir dados de pessoas ou de vendas. A exclusão
+    remove em cascata os dados de configuração do evento (custos, produtos,
+    faixas, campos e operadores)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    if evento.inscricoes.exists() or evento.pedidos.exists():
+        messages.error(
+            request,
+            "Não é possível excluir: este evento já tem inscrições ou pedidos. "
+            "Ele é mantido para preservar esses dados.",
+        )
+        return redirect("core:eventos")
+    nome = evento.nome
+    evento.delete()
+    messages.success(request, f"Evento “{nome}” excluído.")
+    return redirect("core:eventos")
 
 
 @diretor_required

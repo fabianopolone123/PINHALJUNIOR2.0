@@ -45,6 +45,20 @@
 })();
 
 /* =========================================================
+   Confirmação de ações destrutivas: qualquer <form data-confirmar="...">
+   pede confirmação antes de enviar (ex.: excluir evento).
+   ========================================================= */
+(function () {
+    "use strict";
+    document.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (form && form.dataset && form.dataset.confirmar) {
+            if (!window.confirm(form.dataset.confirmar)) e.preventDefault();
+        }
+    });
+})();
+
+/* =========================================================
    Modal de visualização do evento: ao clicar no CARD (não nos
    botões), abre uma janela suspensa com todos os dados do evento.
    ========================================================= */
