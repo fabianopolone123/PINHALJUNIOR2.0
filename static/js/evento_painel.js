@@ -118,7 +118,9 @@
             var visiveis = 0;
             itens.forEach(function (el) {
                 var ok = !termo || el.dataset.busca.indexOf(termo) !== -1;
-                el.hidden = !ok;
+                // Classe (não o atributo hidden): itens com display:flex ignorariam
+                // o [hidden], então a lista não sumia. .busca-oculto usa !important.
+                el.classList.toggle("busca-oculto", !ok);
                 if (ok) visiveis++;
             });
             if (vazio) vazio.hidden = visiveis !== 0;

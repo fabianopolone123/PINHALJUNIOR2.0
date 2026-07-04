@@ -193,11 +193,17 @@
                                 <p class="cobertura-frase"><strong>{{ dashboard.cobertura.inscritos_count }}</strong> de <strong>{{ dashboard.cobertura.total_clube }}</strong> aventureiros do clube já estão neste evento.</p>
                                 <p class="cobertura-tag cob-verde">✅ Inscritos: <strong>{{ dashboard.cobertura.inscritos_count }}</strong></p>
                                 <p class="cobertura-tag cob-cinza">⬜ Ainda não: <strong>{{ dashboard.cobertura.fora_count }}</strong></p>
+                                {% if dashboard.cobertura.ambiguos %}
+                                <p class="cobertura-tag cob-aviso">⚠️ {{ dashboard.cobertura.ambiguos }} a conferir <small>(nome bate com mais de um aventureiro)</small></p>
+                                {% endif %}
                                 <p class="painel-nota">Comparação por <strong>nome</strong> (o cadastro não fica “amarrado” à inscrição), então serve como referência.</p>
                             </div>
                         </div>
 
-                        <input type="search" id="buscaCobertura" class="campo-input busca-input" placeholder="🔎 Buscar aventureiro pelo nome…" autocomplete="off">
+                        <div class="busca-box">
+                            <svg class="busca-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <input type="search" id="buscaCobertura" class="busca-input" placeholder="Buscar aventureiro pelo nome…" autocomplete="off">
+                        </div>
 
                         <div class="cobertura-listas">
                             <div class="cobertura-grupo">
@@ -262,7 +268,10 @@
                         <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
                     </div>
                     {% if inscricoes %}
-                    <input type="search" id="buscaInscricoes" class="campo-input busca-input" placeholder="🔎 Buscar por nome do responsável ou participante…" autocomplete="off">
+                    <div class="busca-box">
+                        <svg class="busca-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        <input type="search" id="buscaInscricoes" class="busca-input" placeholder="Buscar por nome do responsável ou participante…" autocomplete="off">
+                    </div>
                     <ul class="inscritos-lista">
                         {% for i in inscricoes %}
                         <li class="card inscrito-item inscricao-busca{% if i.status == 'cancelada' %} inscrito-cancelada{% endif %}">

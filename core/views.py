@@ -467,6 +467,15 @@ def _normaliza(texto):
     return " ".join(texto.lower().split())
 
 
+# Conectores de nome (não ajudam a identificar a pessoa e atrapalham o casamento).
+_CONECTORES_NOME = {"de", "da", "do", "das", "dos", "e"}
+
+
+def _tokens_nome(nome):
+    """Conjunto de nomes significativos (sem acento/caixa e sem conectores)."""
+    return {t for t in _normaliza(nome).split() if t not in _CONECTORES_NOME}
+
+
 _ORDEM_PAPEIS = {"Pai": 0, "Mãe": 1, "Responsável legal": 2}
 
 
@@ -749,23 +758,34 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
 def _montar_dashboard(confirmadas, faixas, receitas, total_custos, entradas_por_forma):
     """Dados visuais do Resumo (Fase 5.2): cobertura do clube + séries dos gráficos.
 
-    **Cobertura**: casa o nome do participante (normalizado) com o do aventureiro
-    do clube — é **melhor esforço**, pois a inscrição guarda o nome como texto
-    livre (não há vínculo rígido com o cadastro). Percentuais das barras já vêm
-    prontos (o template só aplica a largura)."""
+    **Cobertura**: tenta identificar quais aventureiros do clube estão inscritos
+    comparando **conjuntos de nomes** (tokens, sem acento/caixa/conectores). Um
+    participante casa com um aventureiro quando **todos os nomes digitados estão
+    contidos** no nome cadastrado E isso aponta para **um único** aventureiro
+    (senão fica "ambíguo" e não casa ninguém — evita falso positivo). Continua
+    sendo **melhor esforço** (a inscrição guarda nome livre, sem vínculo rígido).
+    Percentuais das barras já vêm prontos (o template só aplica a largura)."""
     # --- Cobertura: quais aventureiros do clube estão neste evento ---
-    nomes_participantes = set()
+    aventureiros = list(Aventureiro.objects.all().order_by("nome_completo"))
+    av_tokens = [(av, _tokens_nome(av.nome_completo)) for av in aventureiros]
+    # Para cada participante, quais aventureiros seus nomes poderiam ser (subconjunto).
+    inscritos_ids = set()
+    ambiguos = 0
     for i in confirmadas:
         for p in i.participantes.all():
-            nomes_participantes.add(_normaliza(p.nome))
+            pt = _tokens_nome(p.nome)
+            if not pt:
+                continue
+            candidatos = [av for av, at in av_tokens if pt <= at]
+            if len(candidatos) == 1:
+                inscritos_ids.add(candidatos[0].id)
+            elif len(candidatos) > 1:
+                ambiguos += 1  # nome serve para mais de um -> não casa (a conferir)
     inscritos_clube = []
     fora_clube = []
-    for av in Aventureiro.objects.all().order_by("nome_completo"):
+    for av in aventureiros:
         item = {"nome": av.nome_completo, "idade": _idade(av.data_nascimento)}
-        if _normaliza(av.nome_completo) in nomes_participantes:
-            inscritos_clube.append(item)
-        else:
-            fora_clube.append(item)
+        (inscritos_clube if av.id in inscritos_ids else fora_clube).append(item)
     total_clube = len(inscritos_clube) + len(fora_clube)
     pct_cobertura = round(len(inscritos_clube) * 100 / total_clube) if total_clube else 0
 
@@ -811,6 +831,7 @@ def _montar_dashboard(confirmadas, faixas, receitas, total_custos, entradas_por_
             "pct": pct_cobertura,
             "inscritos": inscritos_clube,
             "fora": fora_clube,
+            "ambiguos": ambiguos,
         },
         "formas": formas_chart,
         "faixas": faixas_chart,

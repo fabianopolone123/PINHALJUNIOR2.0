@@ -22,6 +22,55 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Refinos do dashboard: busca (visual + bug) e cobertura inteligente
+
+### Resumo
+Ajustes pedidos após validar o dashboard:
+1. **Caixas de busca repaginadas**: viraram um campo "pill" com **ícone de lupa** (SVG inline), foco
+   azul e largura total (antes era um input cru com emoji no placeholder).
+2. **Bug da busca corrigido**: ao pesquisar algo inexistente, a **lista continuava aparecendo** e a
+   mensagem "nada encontrado" surgia embaixo. **Causa**: os itens têm `display:flex`, que **vence** o
+   atributo `[hidden]` (do UA stylesheet). **Correção**: o JS passou a alternar a classe
+   **`.busca-oculto { display:none !important }`** — agora a lista **some** e sobra só a mensagem; ao
+   limpar a busca, tudo volta.
+3. **Cobertura do clube — casamento inteligente**: antes exigia **nome exato**. Agora compara por
+   **conjunto de nomes** (tokens sem acento/caixa e **sem conectores** de/da/do): o participante casa
+   com um aventureiro quando **todos os nomes digitados estão contidos** no nome cadastrado **e** isso
+   aponta para **um único** aventureiro. Se servir para mais de um → **"a conferir"** (não casa errado),
+   com aviso "⚠️ N a conferir". Ex.: "Beatriz Gonçalves" casa com "Beatriz Gonçalves Steinmeyer"; "Beatriz"
+   sozinho (duas Beatriz) fica a conferir.
+
+### Arquivos alterados
+- `core/views.py`: helpers `_tokens_nome`/`_CONECTORES_NOME`; `_montar_dashboard` refez a cobertura
+  (subconjunto de tokens + unicidade + contagem de `ambiguos`).
+- `static/js/evento_painel.js`: `ligarBusca` usa `classList.toggle("busca-oculto", …)` (não mais o
+  atributo `hidden`).
+- `templates/core/evento_painel.html`: buscas (Inscrições e cobertura) em `.busca-box` com lupa SVG;
+  aviso "a conferir" na cobertura.
+- `static/css/eventos.css`: `.busca-box`/`.busca-icone`/`.busca-input` (pill + foco), `.busca-oculto`
+  (`display:none !important`) e `.cob-aviso`.
+
+### Decisões / proposta
+- **Casamento por tokens + unicidade** é conservador (prefere não casar a casar errado — como o usuário
+  pediu no caso "Beatriz"). Continua sendo **melhor esforço**.
+- **Proposta para o vínculo EXATO** (a combinar): no formulário de inscrição, quando o **responsável
+  está logado**, oferecer para **escolher o participante entre os aventureiros DELE** (lista curta e
+  privada — não expõe o clube todo). Cria `ParticipanteInscricao.aventureiro` (FK opcional) → cobertura
+  100% exata. Para inscrição pública/sem login, mantém texto livre + o casamento por nome. Requer
+  migration + mexer no form público — **não implementado ainda** (aguarda o "ok").
+
+### Validação
+- `manage.py check` OK. Teste do casamento (nomes fictícios p/ não colidir com dados reais): "Xbeatriz
+  Xgoncalves" → casa com "...Xstein"; "Xbeatriz Xsilva" → casa com "...Xsilva"; "Xjoao Xalves" → casa;
+  "Xbeatriz" sozinho → **ambíguo** (não casa; conta em "a conferir"). Visual (Chrome headless, dados
+  fictícios): caixa de busca com lupa + aviso "a conferir" conferidos.
+
+### Pendências / próximo passo
+- Decidir o **vínculo exato na inscrição** (proposta acima). Fase 5: **5.3 códigos de desconto**, depois
+  **5.4 presença/check-in**.
+
+---
+
 ## 2026-07-04 - Evento complexo — Fase 5 (parte 2): Resumo vira dashboard
 
 ### Resumo

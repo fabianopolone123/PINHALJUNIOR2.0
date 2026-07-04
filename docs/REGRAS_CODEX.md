@@ -382,11 +382,16 @@ internas ou no fluxo de login, seguir estas regras:
   nunca é a única pista** — todo valor tem rótulo em texto (ex.: barras verde/vermelho de receitas×custos
   vêm rotuladas). Não criar paleta categórica de muitas cores.
 - **Cobertura do clube por nome (melhor esforço)**: como a inscrição guarda o nome do participante como
-  **texto livre** (sem vínculo com `Aventureiro`), a cobertura casa por **nome normalizado**
-  (`_normaliza`). É referência, não verdade absoluta — deixar isso claro na tela.
+  **texto livre** (sem vínculo com `Aventureiro`), a cobertura casa por **conjunto de nomes** — tokens
+  sem acento/caixa e **sem conectores** (`_tokens_nome`): o participante casa quando **todos os nomes
+  digitados ⊆ nome cadastrado** **e** o resultado é **único** (senão vira "a conferir", nunca casa
+  errado). É referência, não verdade absoluta — deixar claro na tela. O **vínculo exato** (selecionar o
+  aventureiro na inscrição, dentre os do próprio responsável logado) é o caminho definitivo (a fazer).
 - **Busca em tempo real** reaproveita o padrão do `usuarios.js` (helper `ligarBusca` em
-  `evento_painel.js`): normaliza (sem acento/caixa), filtra itens por `data-busca` e mostra "nada
-  encontrado" quando zera. Sem AJAX.
+  `evento_painel.js`): normaliza (sem acento/caixa) e filtra por `data-busca`. **Esconder itens com a
+  classe `.busca-oculto` (`display:none !important`), NUNCA com o atributo `hidden`** — itens com
+  `display:flex`/`grid` ignoram o `[hidden]` do UA stylesheet e não somem. Mostra "nada encontrado"
+  quando zera. Sem AJAX.
 
 ### Pagamentos (simulados) — lojinha pública
 

@@ -2,11 +2,12 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Fase 5.2 — Resumo/dashboard**: KPIs repaginados (ícones, receitas
-verde / custos vermelho / resultado em destaque) + **gráficos em CSS/SVG puro** (Receitas × Custos,
-entradas por forma de pagamento, inscritos por faixa etária) + **cobertura do clube** (donut "X de Y
-aventureiros inscritos" + listas Inscritos/Ainda não, casadas por nome) com **busca**; e **busca na aba
-Inscrições** ("fulano se inscreveu?"). Antes: painel de evento inexistente redireciona; Fase 5.1 Financeiro)
+**Última atualização:** 2026-07-04 (Refinos do dashboard: **caixas de busca** repaginadas (lupa, pill,
+foco); **bug corrigido** — busca sem resultado agora **esconde a lista** e mostra só "nada encontrado"
+(itens `display:flex` ignoravam `[hidden]` → passou a usar a classe `.busca-oculto`); e a **cobertura do
+clube** ganhou **casamento inteligente por conjunto de nomes** (tokens sem conectores + unicidade;
+"Beatriz Gonçalves" casa com "Beatriz Gonçalves Steinmeyer"; nome que serve a mais de um vira **"a
+conferir"**, sem casar errado). Antes: Fase 5.2 dashboard/KPIs/gráficos)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -183,10 +184,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **Receitas × Custos** (barras verde/vermelho + resultado), **Entradas por forma de pagamento** e
   **Inscritos por faixa etária** (barras azul, com valor rotulado); e um painel **"Aventureiros do clube
   neste evento"** com um **donut** ("X de Y inscritos", %) e duas listas — **Inscritos** e **Ainda não
-  inscritos** — dos aventureiros cadastrados no clube, **casadas por nome** (melhor esforço, pois a
-  inscrição guarda nome livre, sem vínculo rígido com o cadastro), com **busca em tempo real**. A aba
-  **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para responder "fulano
-  se inscreveu?". Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
+  inscritos** — dos aventureiros cadastrados no clube, com **busca em tempo real**. O casamento é por
+  **conjunto de nomes** (tokens sem acento/caixa/conectores): o participante casa com o aventureiro
+  quando **todos os nomes digitados estão contidos** no nome cadastrado **e** isso aponta para **um
+  único** aventureiro; se servir para mais de um, vira **"a conferir"** (não casa errado). Ainda é
+  **melhor esforço** (inscrição guarda nome livre) — o vínculo exato virá na inscrição (ver Próximas
+  etapas). A aba **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para
+  responder "fulano se inscreveu?" (quando não acha, **a lista some** e aparece só "nenhuma inscrição
+  encontrada"). Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
   sempre com **rótulo** (cor nunca é a única pista).
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
