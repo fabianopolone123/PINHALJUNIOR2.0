@@ -259,12 +259,15 @@ class CampoInscricaoForm(EstiloFormMixin, forms.ModelForm):
 
     class Meta:
         model = CampoInscricao
-        fields = ["rotulo", "tipo", "opcoes", "obrigatorio"]
+        fields = ["rotulo", "tipo", "opcoes", "obrigatorio", "por_participante"]
         widgets = {
             "opcoes": forms.Textarea(attrs={
                 "rows": 3,
                 "placeholder": "Uma opção por linha (só p/ escolha única ou múltipla)",
             }),
+        }
+        help_texts = {
+            "por_participante": "Marque para perguntar em cada participante; senão, é preenchido uma vez.",
         }
 
     def __init__(self, *args, **kwargs):
@@ -300,7 +303,7 @@ class InscricaoForm(EstiloFormMixin, forms.Form):
     (linhas repetíveis), pois a quantidade é dinâmica.
     """
 
-    responsavel_nome = forms.CharField(label="Seu nome", max_length=150)
+    responsavel_nome = forms.CharField(label="Nome do responsável", max_length=150)
     responsavel_whatsapp = forms.CharField(label="WhatsApp", max_length=20, required=False)
     responsavel_email = forms.EmailField(label="E-mail", required=False)
     responsavel_cpf = forms.CharField(label="CPF", max_length=20, required=False)
@@ -308,9 +311,11 @@ class InscricaoForm(EstiloFormMixin, forms.Form):
     def __init__(self, *args, evento=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.evento = evento
-        self.campos_extra = []  # lista de (campo, nome_do_field)
+        self.campos_extra = []  # lista de (campo, nome_do_field) — só de inscrição única
         if evento is not None:
-            for campo in evento.campos_inscricao.all():
+            # Só os campos "uma vez" viram campos deste form. Os "por participante"
+            # são tratados na view (linhas repetíveis).
+            for campo in evento.campos_inscricao.filter(por_participante=False):
                 nome = f"campo_{campo.id}"
                 self.fields[nome] = self._construir_campo(campo)
                 self.campos_extra.append((campo, nome))

@@ -1,14 +1,52 @@
-{# Uma linha de participante da inscrição. `p` (opcional) repõe os valores
-   enviados quando o formulário volta com erro. `tem_diretoria` vem do contexto. #}
-<div class="part-linha">
-    <input type="text" name="part_nome" class="campo-input part-nome" placeholder="Nome do participante" value="{{ p.nome|default_if_none:'' }}">
-    <input type="number" name="part_idade" class="campo-input part-idade" min="0" max="120" placeholder="Idade" value="{{ p.idade|default_if_none:'' }}">
-    {% if tem_diretoria %}
-    <label class="part-diretoria">
-        <input type="checkbox" class="part-diretoria-check"{% if p.diretoria %} checked{% endif %}>
-        <span>diretoria</span>
-        <input type="hidden" name="part_diretoria" value="{% if p.diretoria %}1{% else %}0{% endif %}" class="part-diretoria-val">
-    </label>
+{% comment %}
+Uma linha de participante da inscrição.
+Recebe `linha` (idx, nome, idade, diretoria, campos) e `tem_diretoria`.
+`campos` é a lista de campos "por participante" com valor/valores repostos.
+{% endcomment %}
+<div class="part-linha card">
+    <div class="part-linha-base">
+        <input type="text" name="part_nome_{{ linha.idx }}" class="campo-input part-nome" placeholder="Nome do participante" value="{{ linha.nome }}">
+        <input type="number" name="part_idade_{{ linha.idx }}" class="campo-input part-idade" min="0" max="120" placeholder="Idade" value="{{ linha.idade|default_if_none:'' }}">
+        {% if tem_diretoria %}
+        <label class="part-diretoria">
+            <input type="checkbox" name="part_diretoria_{{ linha.idx }}" value="1"{% if linha.diretoria %} checked{% endif %}>
+            <span>diretoria</span>
+        </label>
+        {% endif %}
+        <button type="button" class="part-remover" aria-label="Remover participante">✕</button>
+    </div>
+
+    {% if linha.campos %}
+    <div class="part-campos">
+        {% for c in linha.campos %}
+        <div class="campo">
+            <label>{{ c.campo.rotulo }}{% if c.campo.obrigatorio %} <span class="obrigatorio">*</span>{% endif %}</label>
+            {% if c.campo.tipo == "texto_longo" %}
+                <textarea name="part_campo{{ c.campo.id }}_{{ linha.idx }}" class="campo-input campo-textarea" rows="2">{{ c.valor }}</textarea>
+            {% elif c.campo.tipo == "numero" %}
+                <input type="number" step="any" name="part_campo{{ c.campo.id }}_{{ linha.idx }}" class="campo-input" value="{{ c.valor }}">
+            {% elif c.campo.tipo == "data" %}
+                <input type="date" name="part_campo{{ c.campo.id }}_{{ linha.idx }}" class="campo-input" value="{{ c.valor }}">
+            {% elif c.campo.tipo == "escolha_unica" %}
+                <select name="part_campo{{ c.campo.id }}_{{ linha.idx }}" class="campo-select">
+                    <option value="">—</option>
+                    {% for o in c.campo.opcoes_lista %}<option value="{{ o }}"{% if o == c.valor %} selected{% endif %}>{{ o }}</option>{% endfor %}
+                </select>
+            {% elif c.campo.tipo == "escolha_multipla" %}
+                <div class="check-grupo">
+                    {% for o in c.campo.opcoes_lista %}
+                    <label class="check-opcao"><input type="checkbox" name="part_campo{{ c.campo.id }}_{{ linha.idx }}" value="{{ o }}"{% if o in c.valores %} checked{% endif %}> {{ o }}</label>
+                    {% endfor %}
+                </div>
+            {% elif c.campo.tipo == "sim_nao" %}
+                <label class="check-opcao"><input type="checkbox" name="part_campo{{ c.campo.id }}_{{ linha.idx }}" value="1"{% if c.valor %} checked{% endif %}> Sim</label>
+            {% else %}
+                <input type="text" name="part_campo{{ c.campo.id }}_{{ linha.idx }}" class="campo-input" value="{{ c.valor }}">
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
-    <button type="button" class="part-remover" aria-label="Remover participante">✕</button>
+
+    <input type="hidden" name="part_idx" value="{{ linha.idx }}">
 </div>

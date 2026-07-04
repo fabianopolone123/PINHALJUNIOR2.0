@@ -1,3 +1,4 @@
+import datetime
 import unicodedata
 from datetime import date
 from decimal import Decimal
@@ -630,8 +631,13 @@ def evento_painel_view(request, pk):
     campos_inscricao = list(evento.campos_inscricao.all())
 
     inscricoes = list(
-        evento.inscricoes.prefetch_related("participantes", "respostas").all()
+        evento.inscricoes.prefetch_related(
+            "participantes", "participantes__respostas", "respostas"
+        ).all()
     )
+    # Respostas da inscrição (não ligadas a um participante) vs. por participante.
+    for i in inscricoes:
+        i.respostas_gerais = [r for r in i.respostas.all() if r.participante_id is None]
     confirmadas = [i for i in inscricoes if i.status == "confirmada"]
     # "Inscritos" = pessoas (participantes) das inscrições confirmadas.
     inscritos = sum(len(i.participantes.all()) for i in confirmadas)
@@ -789,26 +795,67 @@ def evento_pagina_view(request, pk):
     return render(request, "core/evento_pagina.html", contexto)
 
 
-def _parse_participantes(nomes, idades, diretorias, tem_diretoria):
-    """Lê as linhas de participantes do POST (listas alinhadas por índice)."""
-    participantes = []
-    erros = []
-    for i, nome in enumerate(nomes):
-        nome = (nome or "").strip()
-        if not nome:
-            continue  # ignora linhas em branco
-        idade_raw = idades[i] if i < len(idades) else ""
-        try:
-            idade = int(idade_raw)
-        except (TypeError, ValueError):
-            idade = None
-        eh_dir = bool(tem_diretoria) and i < len(diretorias) and diretorias[i] == "1"
-        if idade is None and not eh_dir:
-            erros.append(f"Informe a idade de “{nome}”.")
-        participantes.append({"nome": nome, "idade": idade, "diretoria": eh_dir})
-    if not participantes:
-        erros.append("Adicione ao menos um participante.")
-    return participantes, erros
+def _ler_resposta_participante(request, campo, field_name):
+    """(texto_legível, erro) de um campo 'por participante' lido do POST."""
+    if campo.tipo == "escolha_multipla":
+        escolhidos = [v for v in request.POST.getlist(field_name) if v in campo.opcoes_lista]
+        if campo.obrigatorio and not escolhidos:
+            return "", "obrigatório"
+        return ", ".join(escolhidos), None
+    valor = (request.POST.get(field_name) or "").strip()
+    if campo.tipo == "sim_nao":
+        return ("Sim" if valor else "Não"), None
+    if campo.obrigatorio and not valor:
+        return "", "obrigatório"
+    if valor:
+        if campo.tipo == "escolha_unica" and valor not in campo.opcoes_lista:
+            return "", "opção inválida"
+        if campo.tipo == "numero":
+            try:
+                float(valor.replace(",", "."))
+            except ValueError:
+                return "", "número inválido"
+        if campo.tipo == "data":
+            try:
+                valor = datetime.datetime.strptime(
+                    valor, "%Y-%m-%d"
+                ).date().strftime("%d/%m/%Y")
+            except ValueError:
+                return "", "data inválida"
+    return valor, None
+
+
+def _linha_participante(request, idx, campos_part, tem_diretoria):
+    """Monta o dict de uma linha de participante a partir do POST (com respostas)."""
+    nome = (request.POST.get(f"part_nome_{idx}") or "").strip()
+    try:
+        idade = int(request.POST.get(f"part_idade_{idx}") or "")
+    except (TypeError, ValueError):
+        idade = None
+    eh_dir = bool(tem_diretoria) and request.POST.get(f"part_diretoria_{idx}") == "1"
+    campos = []
+    for campo in campos_part:
+        fname = f"part_campo{campo.id}_{idx}"
+        texto, erro = _ler_resposta_participante(request, campo, fname)
+        campos.append({
+            "campo": campo,
+            "valor": request.POST.get(fname, ""),
+            "valores": request.POST.getlist(fname),
+            "texto": texto,
+            "erro": erro,
+        })
+    return {"idx": str(idx), "nome": nome, "idade": idade, "diretoria": eh_dir, "campos": campos}
+
+
+def _linha_vazia(idx, campos_part):
+    """Linha de participante em branco (para GET e para o modelo do JS)."""
+    return {
+        "idx": str(idx), "nome": "", "idade": None, "diretoria": False,
+        "campos": [
+            {"campo": c, "valor": "", "valores": [], "texto": "", "erro": None}
+            for c in campos_part
+        ],
+    }
 
 
 def evento_inscrever_view(request, pk):
@@ -822,17 +869,25 @@ def evento_inscrever_view(request, pk):
 
     faixas = list(evento.faixas_preco.all())
     tem_diretoria = evento.valor_diretoria is not None
-    participantes = []
+    campos_part = list(evento.campos_inscricao.filter(por_participante=True))
+    linhas = []
     erros_part = []
 
     if request.method == "POST":
         form = InscricaoForm(request.POST, evento=evento)
-        participantes, erros_part = _parse_participantes(
-            request.POST.getlist("part_nome"),
-            request.POST.getlist("part_idade"),
-            request.POST.getlist("part_diretoria"),
-            tem_diretoria,
-        )
+        for idx in request.POST.getlist("part_idx"):
+            linha = _linha_participante(request, idx, campos_part, tem_diretoria)
+            if not linha["nome"]:
+                continue  # ignora linha em branco
+            if linha["idade"] is None and not linha["diretoria"]:
+                erros_part.append(f"Informe a idade de “{linha['nome']}”.")
+            for c in linha["campos"]:
+                if c["erro"]:
+                    erros_part.append(f"“{linha['nome']}”: {c['campo'].rotulo} — {c['erro']}.")
+            linhas.append(linha)
+        if not linhas:
+            erros_part.append("Adicione ao menos um participante.")
+
         if form.is_valid() and not erros_part:
             with transaction.atomic():
                 inscricao = Inscricao(
@@ -846,23 +901,27 @@ def evento_inscrever_view(request, pk):
                     status="confirmada",
                 )
                 total = Decimal("0")
-                objetos = []
-                for p in participantes:
+                dados = []
+                for linha in linhas:
                     valor, faixa = evento.preco_participante(
-                        p["idade"], p["diretoria"], faixas
+                        linha["idade"], linha["diretoria"], faixas
                     )
                     total += valor
-                    objetos.append(
-                        ParticipanteInscricao(
-                            nome=p["nome"], idade=p["idade"],
-                            eh_diretoria=p["diretoria"], faixa=faixa, valor=valor,
-                        )
+                    p = ParticipanteInscricao(
+                        nome=linha["nome"], idade=linha["idade"],
+                        eh_diretoria=linha["diretoria"], faixa=faixa, valor=valor,
                     )
+                    dados.append((p, linha["campos"]))
                 inscricao.valor_total = total
                 inscricao.save()
-                for obj in objetos:
-                    obj.inscricao = inscricao
-                    obj.save()
+                for p, campos in dados:
+                    p.inscricao = inscricao
+                    p.save()
+                    for c in campos:
+                        RespostaInscricao.objects.create(
+                            inscricao=inscricao, participante=p, campo=c["campo"],
+                            campo_rotulo=c["campo"].rotulo, valor=c["texto"],
+                        )
                 for campo, nome in form.campos_extra:
                     RespostaInscricao.objects.create(
                         inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
@@ -882,7 +941,9 @@ def evento_inscrever_view(request, pk):
         "form": form,
         "faixas": faixas,
         "tem_diretoria": tem_diretoria,
-        "participantes_enviados": participantes,
+        "campos_participante": campos_part,
+        "linhas": linhas or [_linha_vazia(0, campos_part)],
+        "linha_modelo": _linha_vazia("__IDX__", campos_part),
         "erros_part": erros_part,
     }
     return render(request, "core/evento_inscrever.html", contexto)

@@ -1,5 +1,7 @@
-{# Seção "Eventos ativos" do menu — visível a TODOS os perfis logados.
-   Requer `eventos_menu` no contexto (core.context_processors.perfis). #}
+{% comment %}
+Seção "Eventos ativos" do menu — visível a TODOS os perfis logados.
+Requer `eventos_menu` no contexto (core.context_processors.perfis).
+{% endcomment %}
 {% if eventos_menu %}
 <div class="menu-eventos">
     <span class="menu-secao-rotulo">Eventos ativos</span>

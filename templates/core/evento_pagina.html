@@ -40,6 +40,12 @@
                     {% if evento.local %}<span class="evento-info">📍 {{ evento.local }}</span>{% endif %}
                 </div>
 
+                {% if evento.local %}
+                <a class="btn-mapa" href="https://www.google.com/maps/search/?api=1&query={{ evento.local|urlencode }}" target="_blank" rel="noopener">
+                    <span aria-hidden="true">🗺️</span> Ver no mapa
+                </a>
+                {% endif %}
+
                 <div class="evento-publico-status {% if inscricoes_abertas %}aberto{% else %}fechado{% endif %}">
                     {% if inscricoes_abertas %}
                         ✅ Inscrições abertas{% if prazo_inscricao %} até {{ prazo_inscricao|date:"d/m/Y H:i" }}{% endif %}

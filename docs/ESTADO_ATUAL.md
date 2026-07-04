@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Evento complexo — Fase 2.4: inscrição de fato com participantes/valores, respostas, pagamento simulado, lista de inscritos e dashboard — **Fase 2 concluída**)
+**Última atualização:** 2026-07-04 (Ajustes das inscrições: correção de comentário vazando, botão "Ver no mapa", campos "por participante" × "uma vez" e textos revistos)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -86,21 +86,22 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Evento complexo — Fase 2.2 (formulário de inscrição personalizável)**: na mesma aba "Inscrições",
   subseção **"Formulário de inscrição"**, o Diretor monta os **campos personalizados** do evento:
   pergunta/rótulo, **tipo** (texto curto, texto longo, número, escolha única, escolha múltipla,
-  sim/não, data), **opções** (só para escolha única/múltipla) e **obrigatório?**. Os campos são
-  adicionados por modal, **reordenáveis** (▲▼) e removíveis. O **preenchimento/envio** desse
-  formulário (respostas dos inscritos) virá na Fase 2.4.
+  sim/não, data), **opções** (só para escolha única/múltipla), **obrigatório?** e **por participante?**
+  (se marcado, o campo é perguntado em cada participante; senão, uma vez, junto do responsável). Os
+  campos são adicionados por modal, **reordenáveis** (▲▼) e removíveis.
 - **Evento complexo — Fase 2.3 (evento no menu de todos os perfis + página do evento)**: todo evento
   com inscrição **ainda não encerrado** aparece numa seção **"Eventos ativos"** no menu lateral de
   **todos os perfis logados** (responsável, diretor, tesoureiro, secretário, professor), com o nome do
   evento levando à **página do evento** (`/eventos/<id>/pagina/`). Eventos passados somem do menu
   sozinhos. A página do evento é uma **página própria** (sem a barra lateral) com nome, descrição,
-  local, datas/horários, **status** das inscrições (aberto/encerrado + prazo), **valores** (faixas +
-  diretoria) e **preview dos campos** do formulário. **Acesso**: evento **aberto ao público** → sem
-  login; **só membros** → exige login.
+  local (com botão **"Ver no mapa"** que abre o Google Maps no endereço), datas/horários, **status**
+  das inscrições (aberto/encerrado + prazo), **valores** (faixas + diretoria) e **preview dos campos**
+  do formulário. **Acesso**: evento **aberto ao público** → sem login; **só membros** → exige login.
 - **Evento complexo — Fase 2.4 (inscrição de fato — Fase 2 CONCLUÍDA)**: na página do evento,
   "Inscrever-se" abre o **formulário de inscrição** (`/eventos/<id>/inscrever/`) com dados do
   responsável + **participantes** (linhas repetíveis: nome + idade + opção "diretoria") + os **campos
-  personalizados** do evento. O **preço** de cada participante é calculado no servidor (faixa pela
+  personalizados** (os "uma vez" junto do responsável; os "por participante" dentro de cada
+  participante). O **preço** de cada participante é calculado no servidor (faixa pela
   idade ou valor da diretoria) e somado no **valor total**. A inscrição nasce **confirmada**, com
   **código único**, e mostra uma **tela de sucesso** (pagamento **simulado**). No painel, a aba
   "Inscrições" tem a **lista de inscritos** (com participantes/valores, respostas e ação **Cancelar**)
@@ -192,10 +193,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,
   idade_min, idade_max, valor, ordem). Migration `0004`.
 - `CampoInscricao` — campo personalizado do formulário de inscrição, por evento (FK `evento`, rótulo,
-  tipo, opções, obrigatório, ordem). Migration `0005`.
+  tipo, opções, obrigatório, **por_participante**, ordem). Migrations `0005`, `0007`.
 - `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
   único, status confirmada/cancelada, valor_total). `ParticipanteInscricao` (nome, idade, eh_diretoria,
-  faixa, valor) e `RespostaInscricao` (campo + rótulo snapshot + valor). Migration `0006`.
+  faixa, valor) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
+  snapshot + valor). Migrations `0006`, `0007`. Respostas de campos "por participante" têm
+  `participante` preenchido; as de campos "uma vez" ficam com `participante` nulo.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).

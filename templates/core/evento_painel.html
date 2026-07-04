@@ -166,17 +166,22 @@
                             <span class="inscrito-contato">{% if i.responsavel_whatsapp %}📱 {{ i.responsavel_whatsapp }}{% endif %}{% if i.responsavel_email %} ✉️ {{ i.responsavel_email }}{% endif %}</span>
                             {% endif %}
                             <details class="inscrito-detalhe">
-                                <summary>Ver participantes{% if i.respostas.all %} e respostas{% endif %}</summary>
+                                <summary>Ver participantes e respostas</summary>
                                 <ul class="inscrito-parts">
                                     {% for p in i.participantes.all %}
-                                    <li>{{ p.nome }}{% if p.idade is not None %} ({{ p.idade }} anos){% endif %}{% if p.eh_diretoria %} · diretoria{% endif %} — R$ {{ p.valor|moeda }}</li>
+                                    <li>
+                                        {{ p.nome }}{% if p.idade is not None %} ({{ p.idade }} anos){% endif %}{% if p.eh_diretoria %} · diretoria{% endif %} — R$ {{ p.valor|moeda }}
+                                        {% if p.respostas.all %}
+                                        <dl class="inscrito-respostas">
+                                            {% for r in p.respostas.all %}<dt>{{ r.campo_rotulo }}</dt><dd>{{ r.valor|default:"—" }}</dd>{% endfor %}
+                                        </dl>
+                                        {% endif %}
+                                    </li>
                                     {% endfor %}
                                 </ul>
-                                {% if i.respostas.all %}
+                                {% if i.respostas_gerais %}
                                 <dl class="inscrito-respostas">
-                                    {% for r in i.respostas.all %}
-                                    <dt>{{ r.campo_rotulo }}</dt><dd>{{ r.valor|default:"—" }}</dd>
-                                    {% endfor %}
+                                    {% for r in i.respostas_gerais %}<dt>{{ r.campo_rotulo }}</dt><dd>{{ r.valor|default:"—" }}</dd>{% endfor %}
                                 </dl>
                                 {% endif %}
                             </details>
@@ -256,7 +261,7 @@
                             <span aria-hidden="true">➕</span> Adicionar campo
                         </button>
                     </div>
-                    <p class="painel-nota">Perguntas extras que aparecerão no formulário de inscrição deste evento.</p>
+                    <p class="painel-nota">Campos do formulário de inscrição deste evento (além dos dados do responsável e dos participantes). Marque “por participante” para perguntar em cada participante.</p>
 
                     {% if campos_inscricao %}
                     <ul class="campos-lista">
@@ -277,6 +282,7 @@
                             <div class="campo-info">
                                 <span class="campo-nome">{{ campo.rotulo }}{% if campo.obrigatorio %} <span class="obrigatorio">*</span>{% endif %}</span>
                                 <span class="pill campo-tipo">{{ campo.get_tipo_display }}</span>
+                                <span class="pill campo-escopo">{% if campo.por_participante %}por participante{% else %}uma vez{% endif %}</span>
                                 {% if campo.usa_opcoes %}<p class="campo-opcoes">Opções: {{ campo.opcoes_lista|join:", " }}</p>{% endif %}
                             </div>
                             <form method="post" action="{% url 'core:evento_campo_excluir' evento.id campo.id %}" class="custo-excluir-form" onsubmit="return confirm('Remover este campo?');">
@@ -287,7 +293,7 @@
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <p class="painel-nota">Nenhum campo personalizado ainda. Os dados básicos (responsável e participantes) virão na Fase 2.4; aqui você adiciona as perguntas específicas deste evento.</p>
+                    <p class="painel-nota">Nenhum campo personalizado ainda. Além dos dados do responsável e dos participantes (que já são pedidos), aqui você adiciona campos específicos deste evento.</p>
                     {% endif %}
 
                     <p class="painel-nota">
@@ -420,6 +426,13 @@
                                 {{ campo_form.obrigatorio }}
                                 <label for="{{ campo_form.obrigatorio.id_for_label }}">{{ campo_form.obrigatorio.label }}</label>
                             </div>
+                        </div>
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ campo_form.por_participante }}
+                                <label for="{{ campo_form.por_participante.id_for_label }}">{{ campo_form.por_participante.label }}</label>
+                            </div>
+                            {% if campo_form.por_participante.help_text %}<small class="ajuda">{{ campo_form.por_participante.help_text }}</small>{% endif %}
                         </div>
                         <div class="form-acoes">
                             <button type="button" class="btn-secundario" id="modalCampoCancelar">Cancelar</button>

@@ -22,6 +22,49 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Ajustes de validação das inscrições (feedback do usuário)
+
+### Resumo
+Após validar a Fase 2 na tela, o usuário apontou ajustes; feitos todos:
+1. **Bug — comentário vazando na tela**: `_menu_eventos.html` e `_participante_linha.html` usavam
+   comentário `{# … #}` de **duas linhas** (que no Django só vale numa linha), então o texto do
+   comentário aparecia no menu e na página de inscrição. Trocado por `{% comment %}…{% endcomment %}`.
+2. **Botão "Ver no mapa"** na página do evento: link que abre o **Google Maps** no endereço do evento
+   (sem API/biblioteca externa — respeita a regra do projeto). Aparece abaixo do local.
+3. **Campos do formulário — por participante ou uma vez**: ao cadastrar um campo, o Diretor agora
+   escolhe **"Perguntar para cada participante"**. Se marcado, o campo aparece **dentro de cada
+   participante** (além de nome/idade); senão, é preenchido **uma vez**, junto dos dados do
+   responsável. A seção genérica "Informações do evento" saiu.
+4. **Textos**: "Perguntas extras" → "Campos do formulário de inscrição"; "Seus dados/Seu nome" →
+   "Dados do responsável/Nome do responsável".
+
+### Arquivos alterados
+- `core/models.py`: `CampoInscricao.por_participante` (bool) e `RespostaInscricao.participante` (FK
+  opcional). Migration `0007`.
+- `core/forms.py`: `CampoInscricaoForm` inclui `por_participante`; `InscricaoForm` monta como campos
+  do form **só** os de inscrição única (`por_participante=False`).
+- `core/views.py`: `evento_inscrever_view` reescrita — participantes com **índice por linha**
+  (`part_*_<idx>`), leitura/validação dos campos por participante (`_ler_resposta_participante`,
+  `_linha_participante`, `_linha_vazia`); grava `RespostaInscricao` ligada ao participante. Painel
+  separa respostas gerais (`respostas_gerais`) das por participante.
+- `templates/core/_menu_eventos.html`, `_participante_linha.html`: comentário corrigido; a linha de
+  participante agora renderiza os campos "por participante" (com nomes indexados e repopulação).
+- `templates/core/evento_inscrever.html`: campos únicos sob "Dados do responsável"; sem "Informações
+  do evento". `evento_pagina.html`: botão "Ver no mapa". `evento_painel.html`: etiqueta de escopo
+  ("por participante"/"uma vez") e respostas por participante na lista de inscritos; textos revistos.
+- `static/js/evento_inscrever.js`: clonagem de linha por **índice** (substitui `__IDX__`), sem o
+  antigo hidden de diretoria. `static/css/eventos.css`: linha vira cartão com campos, grupos de
+  checkbox, etiqueta de escopo e botão do mapa.
+
+### Validação
+- Teste ponta a ponta: comentários não vazam mais (menu e inscrição); botão "Ver no mapa" com link do
+  Google Maps; form com rótulos certos e sem "Informações do evento"; POST com **2 participantes com
+  tamanhos diferentes** grava a resposta certa por participante e a resposta geral separada; campo
+  obrigatório por participante faltando é rejeitado; painel mostra as respostas e as etiquetas de
+  escopo. Todos passaram. `python manage.py check` sem problemas.
+
+---
+
 ## 2026-07-04 - Evento complexo — Fase 2.4: inscrição de fato (conclui a Fase 2)
 
 ### Resumo

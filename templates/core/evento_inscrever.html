@@ -42,13 +42,16 @@
                 <form method="post" action="{% url 'core:evento_inscrever' evento.id %}" class="evento-form" novalidate>
                     {% csrf_token %}
 
-                    <h2 class="evento-publico-h2">Seus dados</h2>
+                    <h2 class="evento-publico-h2">Dados do responsável</h2>
                     {% include "core/_campo.html" with campo=form.responsavel_nome %}
                     <div class="form-linha">
                         {% include "core/_campo.html" with campo=form.responsavel_whatsapp %}
                         {% include "core/_campo.html" with campo=form.responsavel_email %}
                     </div>
                     {% include "core/_campo.html" with campo=form.responsavel_cpf %}
+                    {% for bf in form.campos_personalizados %}
+                        {% include "core/_campo.html" with campo=bf %}
+                    {% endfor %}
 
                     <h2 class="evento-publico-h2">Participantes</h2>
                     {% if erros_part %}
@@ -58,21 +61,10 @@
                     {% endif %}
                     <p class="ajuda">Nome e idade de cada participante.{% if tem_diretoria %} Marque “diretoria” para aplicar o valor da diretoria.{% endif %}</p>
                     <div id="participantes">
-                        {% if participantes_enviados %}
-                            {% for p in participantes_enviados %}{% include "core/_participante_linha.html" with p=p %}{% endfor %}
-                        {% else %}
-                            {% include "core/_participante_linha.html" %}
-                        {% endif %}
+                        {% for linha in linhas %}{% include "core/_participante_linha.html" with linha=linha tem_diretoria=tem_diretoria %}{% endfor %}
                     </div>
-                    <template id="part-modelo">{% include "core/_participante_linha.html" %}</template>
+                    <template id="part-modelo">{% include "core/_participante_linha.html" with linha=linha_modelo tem_diretoria=tem_diretoria %}</template>
                     <button type="button" class="btn-secundario" id="addParticipante">➕ Adicionar participante</button>
-
-                    {% if form.campos_personalizados %}
-                    <h2 class="evento-publico-h2">Informações do evento</h2>
-                    {% for bf in form.campos_personalizados %}
-                        {% include "core/_campo.html" with campo=bf %}
-                    {% endfor %}
-                    {% endif %}
 
                     <div class="form-acoes evento-publico-acao">
                         <button type="submit" class="btn-acao">

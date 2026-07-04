@@ -471,9 +471,10 @@ a.tipo-card:hover {
 .btn-acao:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
 
 /* ===== Inscrição: linhas de participante (Parte 2.4) ===== */
-.part-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
-.part-linha .part-nome { flex: 1 1 160px; }
-.part-linha .part-idade { flex: 0 0 90px; width: 90px; }
+.part-linha { padding: 12px 14px; margin-bottom: 10px; }
+.part-linha-base { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.part-linha-base .part-nome { flex: 1 1 160px; }
+.part-linha-base .part-idade { flex: 0 0 90px; width: 90px; }
 .part-diretoria {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 0.9rem; color: var(--texto-suave); white-space: nowrap;
@@ -482,9 +483,28 @@ a.tipo-card:hover {
 .part-remover {
     flex: none; width: 34px; height: 34px; border: none; border-radius: 8px;
     background: rgba(192, 57, 43, 0.1); color: #c0392b; font-size: 0.95rem; cursor: pointer;
+    margin-left: auto;
 }
 .part-remover:hover { background: rgba(192, 57, 43, 0.2); }
-#addParticipante { margin: 4px 0 10px; }
+.part-campos {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--borda);
+    display: flex; flex-direction: column; gap: 8px;
+}
+.part-campos .campo label { font-size: 0.85rem; }
+.check-grupo { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.check-opcao { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+#addParticipante { margin: 4px 0 12px; }
+
+.campo-escopo { font-size: 0.72rem; }
+
+.btn-mapa {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-bottom: 16px; padding: 8px 14px;
+    background: var(--fundo-conteudo, #eef3f9); color: var(--azul);
+    border: 1px solid var(--borda); border-radius: 10px;
+    font-weight: 600; font-size: 0.9rem; text-decoration: none;
+}
+.btn-mapa:hover { background: rgba(74, 144, 217, 0.12); }
 
 .valores-resumo {
     background: var(--fundo-conteudo, #eef3f9); border-radius: 10px; padding: 12px 14px;

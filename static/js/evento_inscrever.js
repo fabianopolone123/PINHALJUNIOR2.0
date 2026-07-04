@@ -1,8 +1,8 @@
 /* =========================================================
    Página de inscrição do evento:
-   - adicionar/remover linhas de participante;
-   - checkbox "diretoria" reflete num input hidden (para o valor
-     ir alinhado por índice mesmo quando desmarcado).
+   - adicionar/remover linhas de participante (cada linha tem um índice
+     único usado nos names dos campos, inclusive os "por participante");
+   - a última linha não é removida, apenas limpa.
    JS puro, sem bibliotecas.
    ========================================================= */
 (function () {
@@ -13,6 +13,19 @@
     var modelo = document.getElementById("part-modelo");
     if (!lista) return;
 
+    // Próximo índice = maior part_idx atual + 1 (evita colisão após reenvio).
+    function proximoIndice() {
+        var max = -1;
+        Array.prototype.forEach.call(
+            lista.querySelectorAll('input[name="part_idx"]'),
+            function (inp) {
+                var n = parseInt(inp.value, 10);
+                if (!isNaN(n) && n > max) max = n;
+            }
+        );
+        return max + 1;
+    }
+
     function conectarRemover(linha) {
         var rem = linha.querySelector(".part-remover");
         if (!rem) return;
@@ -20,30 +33,25 @@
             if (lista.querySelectorAll(".part-linha").length > 1) {
                 linha.remove();
             } else {
-                // Última linha: apenas limpa os campos.
-                linha.querySelectorAll("input").forEach(function (inp) {
-                    if (inp.type === "checkbox") inp.checked = false;
-                    else if (inp.classList.contains("part-diretoria-val")) inp.value = "0";
-                    else inp.value = "";
+                // Última linha: apenas limpa os campos (mantém o índice).
+                linha.querySelectorAll("input, textarea, select").forEach(function (campo) {
+                    if (campo.type === "checkbox") campo.checked = false;
+                    else if (campo.name !== "part_idx") campo.value = "";
                 });
             }
         });
     }
 
-    // Checkbox "diretoria" → atualiza o hidden alinhado (delegação de evento).
-    lista.addEventListener("change", function (e) {
-        if (e.target.classList.contains("part-diretoria-check")) {
-            var linha = e.target.closest(".part-linha");
-            var hid = linha ? linha.querySelector(".part-diretoria-val") : null;
-            if (hid) hid.value = e.target.checked ? "1" : "0";
-        }
-    });
-
     if (addBtn && modelo) {
         addBtn.addEventListener("click", function () {
-            var frag = modelo.content.cloneNode(true);
-            lista.appendChild(frag);
-            conectarRemover(lista.lastElementChild);
+            var idx = proximoIndice();
+            var html = modelo.innerHTML.replace(/__IDX__/g, idx).trim();
+            var temp = document.createElement("div");
+            temp.innerHTML = html;
+            var nova = temp.firstElementChild;
+            if (!nova) return;
+            lista.appendChild(nova);
+            conectarRemover(nova);
         });
     }
 

@@ -508,6 +508,11 @@ class CampoInscricao(models.Model):
         help_text="Uma opção por linha (só para escolha única/múltipla).",
     )
     obrigatorio = models.BooleanField("Obrigatório", default=False)
+    # Se True, o campo é perguntado para CADA participante; se False, uma única
+    # vez na inscrição (junto dos dados do responsável).
+    por_participante = models.BooleanField(
+        "Perguntar para cada participante", default=False
+    )
     ordem = models.PositiveIntegerField("Ordem", default=0)
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
@@ -628,6 +633,16 @@ class RespostaInscricao(models.Model):
         on_delete=models.CASCADE,
         related_name="respostas",
         verbose_name="Inscrição",
+    )
+    # Preenchido quando a resposta é de um campo "por participante"; nulo quando
+    # é um campo respondido uma vez na inscrição.
+    participante = models.ForeignKey(
+        ParticipanteInscricao,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="respostas",
+        verbose_name="Participante",
     )
     campo = models.ForeignKey(
         CampoInscricao,
