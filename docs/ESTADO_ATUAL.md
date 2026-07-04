@@ -2,11 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Painel de um evento **inexistente/excluído** agora **redireciona**
-para a lista de Eventos com um toast — em vez do 404 cru (link antigo de evento apagado). Antes: **Fase 5
-— Financeiro** (aba "Financeiro" = extrato completo: resultado Entradas − Saídas, resumos por fonte /
-forma de pagamento / canal, "vendidos por produto" e o extrato cronológico com cancelados riscados;
-gráficos ficam no Resumo/dashboard — próximo))
+**Última atualização:** 2026-07-04 (**Fase 5.2 — Resumo/dashboard**: KPIs repaginados (ícones, receitas
+verde / custos vermelho / resultado em destaque) + **gráficos em CSS/SVG puro** (Receitas × Custos,
+entradas por forma de pagamento, inscritos por faixa etária) + **cobertura do clube** (donut "X de Y
+aventureiros inscritos" + listas Inscritos/Ainda não, casadas por nome) com **busca**; e **busca na aba
+Inscrições** ("fulano se inscreveu?"). Antes: painel de evento inexistente redireciona; Fase 5.1 Financeiro)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -175,8 +175,19 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   custo), com data, tipo (badge), código, forma, canal e valor (**+ verde** para entradas, **− vermelho**
   para saídas). **Cancelados aparecem** no extrato (riscados, com selo "cancelado") para auditoria, mas
   **não entram nos totais** (só contam confirmados; cortesia soma R$ 0). Divisão de responsabilidades
-  definida: **número/tabela mora no Financeiro; gráfico morará no Resumo/dashboard** (próxima parte da
-  Fase 5). Custos continuam sendo **cadastrados** na aba Custos (o Financeiro só consolida).
+  definida: **número/tabela mora no Financeiro; gráfico mora no Resumo/dashboard**. Custos continuam
+  sendo **cadastrados** na aba Custos (o Financeiro só consolida).
+- **Evento complexo — Fase 5 (Financeiro) — parte 2: Resumo/dashboard**: a aba **"Resumo"** virou um
+  **dashboard** visual e didático. Tem: **KPIs repaginados** (ícones; Receitas em verde, Custos em
+  vermelho, Resultado em destaque verde/vermelho); **gráficos em CSS/SVG puro, sem bibliotecas** —
+  **Receitas × Custos** (barras verde/vermelho + resultado), **Entradas por forma de pagamento** e
+  **Inscritos por faixa etária** (barras azul, com valor rotulado); e um painel **"Aventureiros do clube
+  neste evento"** com um **donut** ("X de Y inscritos", %) e duas listas — **Inscritos** e **Ainda não
+  inscritos** — dos aventureiros cadastrados no clube, **casadas por nome** (melhor esforço, pois a
+  inscrição guarda nome livre, sem vínculo rígido com o cadastro), com **busca em tempo real**. A aba
+  **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para responder "fulano
+  se inscreveu?". Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
+  sempre com **rótulo** (cor nunca é a única pista).
 - Na lista de Eventos, os cards têm **altura limitada** (título/descrição em até 2 linhas) e **clicar no
   card** (fora dos botões) abre um **modal de visualização** com todos os dados do evento (só leitura).
   Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`) → `R$ 1.500,00`.
@@ -292,9 +303,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 ## Próximas etapas previstas
 - **🎉 Lojinha (Fase 4) concluída** (produtos, comprar na página, junto da inscrição, PDV de vendas,
   PDV de inscrição, operadores).
-- **Fase 5 — Financeiro**: parte 1 (**extrato completo** na aba Financeiro) **CONCLUÍDA**. Falta:
-  **dashboard/gráficos** no Resumo (CSS/SVG puro, sem libs), **códigos de desconto** e **presença/
-  check-in**.
+- **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro) e parte 2 (**Resumo/dashboard**:
+  KPIs, gráficos CSS/SVG, cobertura do clube + buscas) **CONCLUÍDAS**. Falta: **códigos de desconto** e
+  **presença/check-in**.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
@@ -361,7 +372,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
-- `static/js/evento_painel.js` — abas do painel do evento complexo + modais (custo, faixa, campo).
+- `static/js/evento_painel.js` — abas do painel do evento complexo + modais (custo, faixa, campo);
+  botões `[data-aba-ir]` (trocar de aba); e a **busca em tempo real** da cobertura do clube e da lista de
+  inscrições (helper `ligarBusca`, padrão do `usuarios.js`).
 - `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + campos por participante.
 - `static/js/evento_produto.js` — linhas de variação (adicionar/remover) + mostrar/ocultar estoque.
 - `static/js/qtd_stepper.js` — botões +/- de quantidade nas telas de compra (dispara o recálculo).

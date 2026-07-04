@@ -746,13 +746,86 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
     }
 
 
+def _montar_dashboard(confirmadas, faixas, receitas, total_custos, entradas_por_forma):
+    """Dados visuais do Resumo (Fase 5.2): cobertura do clube + séries dos gráficos.
+
+    **Cobertura**: casa o nome do participante (normalizado) com o do aventureiro
+    do clube — é **melhor esforço**, pois a inscrição guarda o nome como texto
+    livre (não há vínculo rígido com o cadastro). Percentuais das barras já vêm
+    prontos (o template só aplica a largura)."""
+    # --- Cobertura: quais aventureiros do clube estão neste evento ---
+    nomes_participantes = set()
+    for i in confirmadas:
+        for p in i.participantes.all():
+            nomes_participantes.add(_normaliza(p.nome))
+    inscritos_clube = []
+    fora_clube = []
+    for av in Aventureiro.objects.all().order_by("nome_completo"):
+        item = {"nome": av.nome_completo, "idade": _idade(av.data_nascimento)}
+        if _normaliza(av.nome_completo) in nomes_participantes:
+            inscritos_clube.append(item)
+        else:
+            fora_clube.append(item)
+    total_clube = len(inscritos_clube) + len(fora_clube)
+    pct_cobertura = round(len(inscritos_clube) * 100 / total_clube) if total_clube else 0
+
+    # --- Entradas por forma de pagamento (barras) ---
+    max_forma = max((f["valor"] for f in entradas_por_forma), default=Decimal("0"))
+    formas_chart = [
+        dict(f, pct=(float(f["valor"] / max_forma * 100) if max_forma else 0))
+        for f in entradas_por_forma
+    ]
+
+    # --- Inscritos por faixa etária (barras) ---
+    faixa_por_id = {f.id: f for f in faixas}
+    dist = {}
+    for i in confirmadas:
+        for p in i.participantes.all():
+            if p.eh_diretoria:
+                rot = "Diretoria"
+            elif p.faixa_id and p.faixa_id in faixa_por_id:
+                f = faixa_por_id[p.faixa_id]
+                rot = f.rotulo or f"{f.idade_min}–{f.idade_max} anos"
+            else:
+                rot = "Sem faixa"
+            dist[rot] = dist.get(rot, 0) + 1
+    max_faixa = max(dist.values(), default=0)
+    faixas_chart = [
+        {"rotulo": k, "qtd": v, "pct": (v * 100 / max_faixa if max_faixa else 0)}
+        for k, v in sorted(dist.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+    # --- Receitas × Custos (barras) ---
+    max_rc = max(receitas, total_custos, Decimal("1"))
+    rc = {
+        "receitas": receitas, "custos": total_custos,
+        "receitas_pct": float(receitas / max_rc * 100),
+        "custos_pct": float(total_custos / max_rc * 100),
+    }
+
+    return {
+        "cobertura": {
+            "total_clube": total_clube,
+            "inscritos_count": len(inscritos_clube),
+            "fora_count": len(fora_clube),
+            "pct": pct_cobertura,
+            "inscritos": inscritos_clube,
+            "fora": fora_clube,
+        },
+        "formas": formas_chart,
+        "faixas": faixas_chart,
+        "rc": rc,
+        "tem_dados": bool(confirmadas) or total_custos > 0,
+    }
+
+
 @diretor_required
 def evento_painel_view(request, pk):
     """Painel (dashboard) de um evento complexo.
 
     Fase 1: resumo + custos. Parte 2.1: configuração de inscrição
     (visibilidade, prazo, faixas etárias de preço e valor da diretoria).
-    Fase 5: aba Financeiro (extrato completo + agrupamentos).
+    Fase 5: aba Financeiro (extrato) + Resumo/dashboard (KPIs, gráficos, cobertura).
     """
     evento = Evento.objects.filter(pk=pk).first()
     if evento is None:
@@ -799,6 +872,14 @@ def evento_painel_view(request, pk):
         vendas_por_produto.values(), key=lambda x: (x["produto"], x["variacao"])
     )
 
+    financeiro = _montar_financeiro(
+        inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
+        arrecadacao_inscricoes, vendas_loja, total_custos,
+    )
+    dashboard = _montar_dashboard(
+        confirmadas, faixas, receitas, total_custos, financeiro["entradas_por_forma"],
+    )
+
     contexto = {
         "evento": evento,
         "custos": custos,
@@ -823,10 +904,8 @@ def evento_painel_view(request, pk):
             "custos": total_custos,
             "resultado": receitas - total_custos,
         },
-        "financeiro": _montar_financeiro(
-            inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
-            arrecadacao_inscricoes, vendas_loja, total_custos,
-        ),
+        "financeiro": financeiro,
+        "dashboard": dashboard,
     }
     return render(request, "core/evento_painel.html", contexto)
 

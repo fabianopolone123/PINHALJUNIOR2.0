@@ -81,9 +81,11 @@ lojinha, custos e resultado (lucro/prejuízo).
   produto" (movido do Resumo) e o **extrato** cronológico de todos os lançamentos (cancelados riscados,
   fora dos totais). Helper `_montar_financeiro`. **Divisão**: número/tabela no Financeiro; gráfico no
   Resumo/dashboard. Custos seguem cadastrados na aba Custos (Financeiro só consolida).
-- **PRÓXIMO PASSO = Fase 5 (parte 2): dashboard/gráficos no Resumo** (CSS/SVG puro, sem libs). Depois:
-  **códigos de desconto** e **presença/check-in** (a presença também vai virar guarda de exclusão dos
-  eventos simples — ver memória do projeto).
+- **Fase 5 — parte 2 (Resumo/dashboard) CONCLUÍDA** (2026-07-04): KPIs repaginados + gráficos CSS/SVG
+  (receitas×custos, formas de pagamento, faixa etária) + **cobertura do clube** (donut + listas
+  inscritos/não, por nome) com busca; e **busca na aba Inscrições**. Helper `_montar_dashboard`.
+- **PRÓXIMO PASSO = Fase 5 (parte 3): códigos de desconto** (cupons %). Depois: **presença/check-in**
+  (a presença também vira guarda de exclusão dos eventos simples — ver memória do projeto).
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -155,8 +157,10 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
    - **5.1 — CONCLUÍDA ✅** — **Financeiro (extrato completo)**: resultado (Entradas − Saídas), resumos
      (por fonte / forma de pagamento / canal / saídas), "vendidos por produto" e **extrato** cronológico
      de todos os lançamentos (cancelados riscados, fora dos totais). Helper `_montar_financeiro`.
-   - **5.2 — PRÓXIMA ⏭️** — **Dashboard/gráficos** no Resumo (CSS/SVG puro, sem libs).
-   - **5.3** — **Códigos de desconto** (cupons %).
+   - **5.2 — CONCLUÍDA ✅** — **Dashboard/gráficos** no Resumo (CSS/SVG puro, sem libs): KPIs, barras
+     (receitas×custos, formas de pagamento, faixa etária), **cobertura do clube** (donut + listas por
+     nome) e busca na aba Inscrições. Helper `_montar_dashboard`.
+   - **5.3 — PRÓXIMA ⏭️** — **Códigos de desconto** (cupons %).
    - **5.4** — **Presença/check-in** (também vira guarda de exclusão dos eventos simples).
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.

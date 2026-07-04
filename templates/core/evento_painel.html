@@ -78,40 +78,156 @@
                     <button class="painel-aba" data-aba="financeiro" type="button">Financeiro</button>
                 </nav>
 
-                <!-- ===================== Resumo ===================== -->
+                <!-- ===================== Resumo (dashboard) ===================== -->
                 <section class="painel-secao ativa" data-secao="resumo">
+                    <!-- KPIs -->
                     <div class="kpi-grade">
                         <div class="kpi-card">
+                            <span class="kpi-icone" aria-hidden="true">👥</span>
                             <span class="kpi-rotulo">Inscritos</span>
                             <span class="kpi-num">{{ resumo.inscritos }}</span>
                         </div>
                         <div class="kpi-card">
+                            <span class="kpi-icone" aria-hidden="true">🎟️</span>
                             <span class="kpi-rotulo">Arrecadação (inscrições)</span>
                             <span class="kpi-num">R$ {{ resumo.arrecadacao_inscricoes|moeda }}</span>
                         </div>
                         <div class="kpi-card">
+                            <span class="kpi-icone" aria-hidden="true">🛒</span>
                             <span class="kpi-rotulo">Vendas (lojinha)</span>
                             <span class="kpi-num">R$ {{ resumo.vendas_loja|moeda }}</span>
                         </div>
-                        <div class="kpi-card">
+                        <div class="kpi-card kpi-receitas">
+                            <span class="kpi-icone" aria-hidden="true">💰</span>
                             <span class="kpi-rotulo">Receitas</span>
                             <span class="kpi-num">R$ {{ resumo.receitas|moeda }}</span>
                         </div>
-                        <div class="kpi-card">
+                        <div class="kpi-card kpi-custos">
+                            <span class="kpi-icone" aria-hidden="true">🧾</span>
                             <span class="kpi-rotulo">Custos</span>
                             <span class="kpi-num">R$ {{ resumo.custos|moeda }}</span>
                         </div>
                         <div class="kpi-card kpi-destaque {% if resumo.resultado < 0 %}kpi-negativo{% elif resumo.resultado > 0 %}kpi-positivo{% endif %}">
+                            <span class="kpi-icone" aria-hidden="true">📊</span>
                             <span class="kpi-rotulo">Resultado</span>
                             <span class="kpi-num">R$ {{ resumo.resultado|moeda }}</span>
                         </div>
                     </div>
 
-                    <p class="painel-nota">
-                        Visão rápida do evento. O <strong>extrato completo</strong> (tudo que entra e sai,
-                        por forma de pagamento, canal e item) está na aba <strong>Financeiro</strong>.
-                        Gráficos serão adicionados aqui em breve.
-                    </p>
+                    {% if dashboard.tem_dados %}
+                    <!-- Gráficos -->
+                    <div class="dash-graficos">
+                        <div class="dash-card">
+                            <h3 class="dash-titulo">Receitas × Custos</h3>
+                            <div class="barras">
+                                <div class="barra-linha">
+                                    <span class="barra-rot">Receitas</span>
+                                    <div class="barra-trilho"><div class="barra-fill barra-verde" style="width: {{ dashboard.rc.receitas_pct|floatformat:0 }}%"></div></div>
+                                    <span class="barra-val">R$ {{ dashboard.rc.receitas|moeda }}</span>
+                                </div>
+                                <div class="barra-linha">
+                                    <span class="barra-rot">Custos</span>
+                                    <div class="barra-trilho"><div class="barra-fill barra-vermelho" style="width: {{ dashboard.rc.custos_pct|floatformat:0 }}%"></div></div>
+                                    <span class="barra-val">R$ {{ dashboard.rc.custos|moeda }}</span>
+                                </div>
+                            </div>
+                            <p class="dash-resultado {% if resumo.resultado < 0 %}neg{% elif resumo.resultado > 0 %}pos{% endif %}">
+                                Resultado: <strong>R$ {{ resumo.resultado|moeda }}</strong>
+                            </p>
+                        </div>
+
+                        <div class="dash-card">
+                            <h3 class="dash-titulo">Entradas por forma de pagamento</h3>
+                            {% if dashboard.formas %}
+                            <div class="barras">
+                                {% for f in dashboard.formas %}
+                                <div class="barra-linha">
+                                    <span class="barra-rot">{{ f.forma }} <small class="barra-qtd">×{{ f.qtd }}</small></span>
+                                    <div class="barra-trilho"><div class="barra-fill barra-azul" style="width: {{ f.pct|floatformat:0 }}%"></div></div>
+                                    <span class="barra-val">R$ {{ f.valor|moeda }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="painel-nota">Sem entradas ainda.</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="dash-card">
+                            <h3 class="dash-titulo">Inscritos por faixa etária</h3>
+                            {% if dashboard.faixas %}
+                            <div class="barras">
+                                {% for fx in dashboard.faixas %}
+                                <div class="barra-linha">
+                                    <span class="barra-rot">{{ fx.rotulo }}</span>
+                                    <div class="barra-trilho"><div class="barra-fill barra-azul" style="width: {{ fx.pct|floatformat:0 }}%"></div></div>
+                                    <span class="barra-val">{{ fx.qtd }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="painel-nota">Nenhum participante confirmado ainda.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="painel-nota">Os gráficos aparecem aqui assim que houver inscrições, vendas ou custos no evento.</p>
+                    {% endif %}
+
+                    <!-- Cobertura do clube -->
+                    {% if dashboard.cobertura.total_clube %}
+                    <div class="dash-card cobertura-card">
+                        <div class="secao-cabecalho">
+                            <h3 class="dash-titulo">Aventureiros do clube neste evento</h3>
+                        </div>
+                        <div class="cobertura-topo">
+                            <div class="donut-wrap" role="img" aria-label="{{ dashboard.cobertura.inscritos_count }} de {{ dashboard.cobertura.total_clube }} aventureiros inscritos">
+                                <svg class="donut" viewBox="0 0 42 42">
+                                    <circle class="donut-bg" cx="21" cy="21" r="16" fill="none" stroke-width="5" pathLength="100"></circle>
+                                    <circle class="donut-val" cx="21" cy="21" r="16" fill="none" stroke-width="5" pathLength="100"
+                                            stroke-dasharray="{{ dashboard.cobertura.pct }} 100" transform="rotate(-90 21 21)"></circle>
+                                </svg>
+                                <span class="donut-centro">{{ dashboard.cobertura.pct }}%</span>
+                            </div>
+                            <div class="cobertura-legenda">
+                                <p class="cobertura-frase"><strong>{{ dashboard.cobertura.inscritos_count }}</strong> de <strong>{{ dashboard.cobertura.total_clube }}</strong> aventureiros do clube já estão neste evento.</p>
+                                <p class="cobertura-tag cob-verde">✅ Inscritos: <strong>{{ dashboard.cobertura.inscritos_count }}</strong></p>
+                                <p class="cobertura-tag cob-cinza">⬜ Ainda não: <strong>{{ dashboard.cobertura.fora_count }}</strong></p>
+                                <p class="painel-nota">Comparação por <strong>nome</strong> (o cadastro não fica “amarrado” à inscrição), então serve como referência.</p>
+                            </div>
+                        </div>
+
+                        <input type="search" id="buscaCobertura" class="campo-input busca-input" placeholder="🔎 Buscar aventureiro pelo nome…" autocomplete="off">
+
+                        <div class="cobertura-listas">
+                            <div class="cobertura-grupo">
+                                <h4 class="cobertura-grupo-titulo">✅ Inscritos ({{ dashboard.cobertura.inscritos_count }})</h4>
+                                {% if dashboard.cobertura.inscritos %}
+                                <ul class="cobertura-lista">
+                                    {% for a in dashboard.cobertura.inscritos %}
+                                    <li class="cob-item cob-inscrito">{{ a.nome }}{% if a.idade is not None %} <small>· {{ a.idade }} anos</small>{% endif %}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <p class="painel-nota">Nenhum aventureiro do clube inscrito ainda.</p>
+                                {% endif %}
+                            </div>
+                            <div class="cobertura-grupo">
+                                <h4 class="cobertura-grupo-titulo">⬜ Ainda não inscritos ({{ dashboard.cobertura.fora_count }})</h4>
+                                {% if dashboard.cobertura.fora %}
+                                <ul class="cobertura-lista">
+                                    {% for a in dashboard.cobertura.fora %}
+                                    <li class="cob-item cob-fora">{{ a.nome }}{% if a.idade is not None %} <small>· {{ a.idade }} anos</small>{% endif %}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <p class="painel-nota">Todos os aventureiros do clube estão inscritos! 🎉</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <p class="cobertura-vazio painel-nota" id="cobVazio" hidden>Nenhum aventureiro encontrado com esse nome.</p>
+                    </div>
+                    {% endif %}
                 </section>
 
                 <!-- ===================== Inscrições ===================== -->
@@ -146,9 +262,10 @@
                         <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
                     </div>
                     {% if inscricoes %}
+                    <input type="search" id="buscaInscricoes" class="campo-input busca-input" placeholder="🔎 Buscar por nome do responsável ou participante…" autocomplete="off">
                     <ul class="inscritos-lista">
                         {% for i in inscricoes %}
-                        <li class="card inscrito-item{% if i.status == 'cancelada' %} inscrito-cancelada{% endif %}">
+                        <li class="card inscrito-item inscricao-busca{% if i.status == 'cancelada' %} inscrito-cancelada{% endif %}">
                             <div class="inscrito-topo">
                                 <span class="inscrito-codigo">{{ i.codigo }}</span>
                                 <span class="pill {% if i.status == 'confirmada' %}pill-verde{% else %}pill-cinza{% endif %}">{{ i.get_status_display }}</span>
@@ -188,6 +305,7 @@
                         </li>
                         {% endfor %}
                     </ul>
+                    <p class="painel-nota" id="inscricoesVazio" hidden>Nenhuma inscrição encontrada com esse nome — essa pessoa não se inscreveu.</p>
                     {% else %}
                     <p class="painel-nota">Nenhuma inscrição ainda.</p>
                     {% endif %}

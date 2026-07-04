@@ -101,4 +101,33 @@
         tipoSel.addEventListener("change", alternarOpcoes);
         alternarOpcoes();
     }
+
+    // ---- Busca em tempo real (cobertura do clube e lista de inscrições) ----
+    function normalizar(t) {
+        return (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+            .toLowerCase().replace(/\s+/g, " ").trim();
+    }
+    function ligarBusca(inputId, itemSelector, vazioId) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+        var itens = Array.prototype.slice.call(document.querySelectorAll(itemSelector));
+        itens.forEach(function (el) { el.dataset.busca = normalizar(el.textContent); });
+        var vazio = vazioId ? document.getElementById(vazioId) : null;
+        function aplicar() {
+            var termo = normalizar(input.value);
+            var visiveis = 0;
+            itens.forEach(function (el) {
+                var ok = !termo || el.dataset.busca.indexOf(termo) !== -1;
+                el.hidden = !ok;
+                if (ok) visiveis++;
+            });
+            if (vazio) vazio.hidden = visiveis !== 0;
+        }
+        input.addEventListener("input", aplicar);
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") { input.value = ""; aplicar(); }
+        });
+    }
+    ligarBusca("buscaCobertura", ".cob-item", "cobVazio");
+    ligarBusca("buscaInscricoes", ".inscricao-busca", "inscricoesVazio");
 })();

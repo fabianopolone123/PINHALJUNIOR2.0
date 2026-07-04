@@ -22,6 +22,60 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 5 (parte 2): Resumo vira dashboard
+
+### Resumo
+A aba **Resumo** do painel virou um **dashboard** visual e didático (pedido do usuário: "bem bonito,
+fácil de entender"). Conteúdo:
+1. **KPIs repaginados**: ícones por card; **Receitas em verde**, **Custos em vermelho**, **Resultado**
+   em destaque (verde/vermelho); hover.
+2. **Gráficos em CSS/SVG puro** (sem bibliotecas — regra do projeto): **Receitas × Custos** (barras
+   verde/vermelho + resultado), **Entradas por forma de pagamento** e **Inscritos por faixa etária**
+   (barras azul, com valor rotulado). Cor segue a boa prática: magnitude num **tom só** (azul), status
+   (verde/vermelho) **sempre com rótulo** — a cor nunca é a única pista.
+3. **Cobertura do clube** ("Aventureiros do clube neste evento"): **donut** ("X de Y inscritos", %) +
+   duas listas — **Inscritos** e **Ainda não inscritos** — dos aventureiros cadastrados, **casadas por
+   nome** (melhor esforço — a inscrição guarda nome livre, sem vínculo rígido com o cadastro), com
+   **busca em tempo real**.
+4. **Busca na aba Inscrições**: filtra a lista por responsável/participante ("fulano se inscreveu?" —
+   se não aparece, não se inscreveu).
+
+Divisão de responsabilidades (para não duplicar com o Financeiro): **gráfico/visual mora no Resumo;
+número/tabela/extrato mora no Financeiro**.
+
+### Arquivos criados/alterados
+- `core/views.py`: helper **`_montar_dashboard`** (cobertura por nome via `_normaliza`/`Aventureiro`;
+  séries dos gráficos: formas, faixas, receitas×custos com percentuais prontos); `evento_painel_view`
+  passa `dashboard` no contexto (e `financeiro` como variável).
+- `templates/core/evento_painel.html`: aba **Resumo** reconstruída (KPIs com ícone, gráficos de barra,
+  donut e cobertura com busca); aba **Inscrições** ganhou a caixa de busca + `.inscricao-busca` nos itens
+  e a mensagem "nenhuma inscrição encontrada".
+- `static/js/evento_painel.js`: helper **`ligarBusca`** (normaliza + filtra, padrão do `usuarios.js`)
+  ligado à cobertura (`#buscaCobertura`) e às inscrições (`#buscaInscricoes`).
+- `static/css/eventos.css`: KPIs (ícone/cores), `.dash-graficos`/`.dash-card`, barras
+  (`.barra-*`, verde/vermelho/azul), **donut** (`.donut*`, via `pathLength="100"` + `stroke-dasharray`),
+  cobertura (`.cobertura-*`, `.cob-item`) e `.busca-input` (largura total). Responsivo.
+
+### Decisões tomadas
+- **Cobertura por nome (melhor esforço)**: não há vínculo rígido entre `ParticipanteInscricao` (nome
+  livre) e `Aventureiro`; casa por nome normalizado (ignora caixa/acentos). Serve como referência; um dia
+  pode virar vínculo real.
+- **Charts sem lib** (CSS/SVG). Paleta: magnitude em tom único (azul); status verde/vermelho com rótulo.
+- **Duas buscas**: cobertura (membros do clube, inscrito/não) e Inscrições (todos, inclusive público).
+
+### Validação
+- `manage.py check` OK. Teste do helper `_montar_dashboard` com dados fictícios: cobertura casa por nome
+  **mesmo em minúsculo** (1 inscrito), não-membro fica **fora** da cobertura, faixas/formas/receitas×custos
+  com contagens e percentuais corretos. **Visual (Chrome headless, dados fictícios — sem expor nomes
+  reais de menores)**: KPIs, 3 gráficos de barra, donut de cobertura e listas com busca — conferidos em
+  **desktop e mobile (~470px)**, sem overflow.
+
+### Pendências / próximo passo
+- **Fase 5 — parte 3: códigos de desconto** (cupons %). Depois: **presença/check-in**. Pagamento real
+  (gateway) segue para depois.
+
+---
+
 ## 2026-07-04 - Painel de evento inexistente redireciona (em vez de 404 cru)
 
 ### Resumo

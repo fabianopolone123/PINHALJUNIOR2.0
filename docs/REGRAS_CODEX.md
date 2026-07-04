@@ -372,6 +372,22 @@ internas ou no fluxo de login, seguir estas regras:
 - **Custos** continuam sendo **cadastrados na aba Custos** (com comprovante); o Financeiro só
   **consolida** (não duplicar o CRUD de custos).
 
+##### Gráficos e dashboard (Resumo) — regras
+
+- **Sem biblioteca de gráficos** (nada de Chart.js/D3/etc.): tudo em **CSS/SVG puro**. Barras =
+  `div` com `width: %` (percentual calculado **na view**); donut = `<svg>` com `pathLength="100"` +
+  `stroke-dasharray="<pct> 100"` (o `pct` já vem pronto do backend).
+- **Cor pela função, com rótulo sempre**: magnitude (mesma medida entre categorias) usa **um tom só**
+  (azul); status usa **verde** (positivo/receita/presente) e **vermelho** (negativo/custo). **A cor
+  nunca é a única pista** — todo valor tem rótulo em texto (ex.: barras verde/vermelho de receitas×custos
+  vêm rotuladas). Não criar paleta categórica de muitas cores.
+- **Cobertura do clube por nome (melhor esforço)**: como a inscrição guarda o nome do participante como
+  **texto livre** (sem vínculo com `Aventureiro`), a cobertura casa por **nome normalizado**
+  (`_normaliza`). É referência, não verdade absoluta — deixar isso claro na tela.
+- **Busca em tempo real** reaproveita o padrão do `usuarios.js` (helper `ligarBusca` em
+  `evento_painel.js`): normaliza (sem acento/caixa), filtra itens por `data-busca` e mostra "nada
+  encontrado" quando zera. Sem AJAX.
+
 ### Pagamentos (simulados) — lojinha pública
 
 - A compra pela **página pública** da lojinha (`core:evento_loja`) tem um **passo de pagamento**
