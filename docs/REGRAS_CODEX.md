@@ -321,6 +321,10 @@ internas ou no fluxo de login, seguir estas regras:
 - Valores monetários usam o filtro `moeda` (`core/templatetags/formato.py`): `{% load formato %}` e
   `{{ valor|moeda }}` → formato brasileiro `1.500,00` (ponto de milhar, vírgula decimal). Prefixar com
   `R$ ` no template. Não usar `floatformat` para dinheiro (não coloca separador de milhar em pt-BR).
+- **Reexibir número em `<input type="number">` cru**: passar **string com ponto** (ex.: `str(v.valor)`)
+  ou usar `unlocalize`. Um `Decimal`/`float`/`int` grande é **localizado** no template em pt-BR (vírgula
+  decimal / ponto de milhar) e o `type="number"` **rejeita** esse formato, deixando o campo **vazio**.
+  Já mordeu na edição de produto da lojinha (preço/estoque não vinham).
 
 ## Padrão da tela "Eventos"
 

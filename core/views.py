@@ -1340,9 +1340,12 @@ def _produto_form(request, evento, produto):
     else:
         form = ProdutoEventoForm(instance=produto)
         if produto is not None:
+            # `str()` (ponto decimal) — um Decimal/int cru seria localizado no
+            # template (ex.: "12,00") e o <input type="number"> rejeitaria o valor,
+            # deixando o campo vazio. Assim o preço/estoque atuais são reexibidos.
             linhas = [
                 {"idx": str(i), "id": v.id, "nome": v.nome,
-                 "valor_raw": v.valor, "estoque_raw": v.estoque}
+                 "valor_raw": str(v.valor), "estoque_raw": str(v.estoque)}
                 for i, v in enumerate(produto.variacoes.all())
             ] or [_variacao_vazia(0)]
         else:

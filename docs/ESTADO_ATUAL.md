@@ -2,12 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (Refinos do dashboard: **caixas de busca** repaginadas (lupa, pill,
-foco); **bug corrigido** — busca sem resultado agora **esconde a lista** e mostra só "nada encontrado"
-(itens `display:flex` ignoravam `[hidden]` → passou a usar a classe `.busca-oculto`); e a **cobertura do
-clube** ganhou **casamento inteligente por conjunto de nomes** (tokens sem conectores + unicidade;
-"Beatriz Gonçalves" casa com "Beatriz Gonçalves Steinmeyer"; nome que serve a mais de um vira **"a
-conferir"**, sem casar errado). Antes: Fase 5.2 dashboard/KPIs/gráficos)
+**Última atualização:** 2026-07-04 (**Bug corrigido**: ao **editar produto** da lojinha, os campos de
+**preço** e **estoque** das variações não vinham preenchidos — um `Decimal`/int cru era **localizado**
+no template (ex.: "12,00") e o `<input type="number">` rejeitava; agora a view passa o valor como
+**string** com ponto. Antes: refinos do dashboard (buscas com lupa, correção da busca sem resultado,
+cobertura com casamento inteligente por nome))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior

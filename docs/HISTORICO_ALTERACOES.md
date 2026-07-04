@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Corrige edição de produto: preço e estoque não vinham preenchidos
+
+### Resumo
+Ao **editar** um produto da lojinha, as variações mostravam o **nome**, mas os campos de **preço** e
+**estoque** vinham **vazios** (não reexibiam os últimos valores). **Causa**: a view passava o valor como
+`Decimal`/`int` cru e o template, em **pt-BR**, **localizava** o número (ex.: `12,00` com vírgula); um
+`<input type="number">` **não aceita vírgula** e descarta o valor → campo vazio. **Correção**: a view
+passa `valor_raw`/`estoque_raw` como **string com ponto** (`str(v.valor)` / `str(v.estoque)`), que o
+template não localiza.
+
+### Arquivos alterados
+- `core/views.py`: `_produto_form` (GET de edição) usa `str(v.valor)` e `str(v.estoque)` ao montar as
+  linhas de variação.
+
+### Validação
+- `manage.py check` OK. Render da edição (test client): os inputs vêm com `value="12.00"` / `value="18.50"`
+  (preço, com ponto) e `value="20"` / `value="15"` (estoque); sem vírgula; nomes preservados.
+
+### Nota técnica
+- **Ao reexibir número em `<input type="number">` cru**, passar **string com ponto** (ou `unlocalize`) —
+  um `Decimal`/`float` é localizado no template (vírgula em pt-BR) e o input rejeita. Ver REGRAS.
+
+---
+
 ## 2026-07-04 - Refinos do dashboard: busca (visual + bug) e cobertura inteligente
 
 ### Resumo
