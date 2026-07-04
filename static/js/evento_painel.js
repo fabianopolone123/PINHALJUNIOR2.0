@@ -150,4 +150,33 @@
     ligarBusca("buscaCobertura", ".cob-item", "cobVazio");
     ligarBusca("buscaInscricoes", ".inscricao-busca", "inscricoesVazio");
     ligarBusca("buscaPedidos", ".pedido-busca", "pedidosVazio");
+
+    // Cards de KPI clicáveis (Resumo): abrem uma lista simples abaixo (uma por vez).
+    var kpiCards = Array.prototype.slice.call(document.querySelectorAll(".kpi-clicavel"));
+    var kpiPainel = document.getElementById("kpiListas");
+    if (kpiCards.length && kpiPainel) {
+        var kpiListas = Array.prototype.slice.call(kpiPainel.querySelectorAll(".kpi-lista"));
+        function abrirKpi(card) {
+            var jaAtivo = card.classList.contains("ativo");
+            kpiCards.forEach(function (c) {
+                c.classList.remove("ativo");
+                c.setAttribute("aria-expanded", "false");
+            });
+            kpiListas.forEach(function (l) { l.hidden = true; });
+            if (!jaAtivo) {
+                card.classList.add("ativo");
+                card.setAttribute("aria-expanded", "true");
+                var el = kpiPainel.querySelector(
+                    '.kpi-lista[data-lista-alvo="' + card.dataset.lista + '"]'
+                );
+                if (el) el.hidden = false;
+            }
+        }
+        kpiCards.forEach(function (card) {
+            card.addEventListener("click", function () { abrirKpi(card); });
+            card.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirKpi(card); }
+            });
+        });
+    }
 })();

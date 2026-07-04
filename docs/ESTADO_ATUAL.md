@@ -2,10 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 3/4**: os botões **Vender no balcão**
-(era "PDV / Balcão") e **Operadores** saíram do cabeçalho da Lojinha e viraram **abas no topo** (ao lado
-de Financeiro), como **abas-link** (`<a class="painel-aba painel-aba-acao">`) que abrem as páginas atuais
-— sem reescrever nada. Antes: Etapa 2 — abas na Lojinha)
+**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 4/4 (CONCLUI a reorg)**: no
+**Resumo**, os cards de KPI viraram **clicáveis** (caret ▾) — clicar abre, abaixo, uma **lista simples**
+(uma por vez, accordion): Inscritos → responsável+participantes; Arrecadação → quem pagou e quanto;
+Vendas/Receitas/Custos → um por linha. Resultado não é clicável. **Reorganização do painel completa
+(abas em Inscrições/Lojinha, Balcão/Operadores no topo, cards clicáveis no Resumo).**)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior

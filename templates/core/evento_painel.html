@@ -83,37 +83,96 @@
 
                 <!-- ===================== Resumo (dashboard) ===================== -->
                 <section class="painel-secao ativa" data-secao="resumo">
-                    <!-- KPIs -->
+                    <!-- KPIs (clicáveis: abrem uma lista simples abaixo) -->
                     <div class="kpi-grade">
-                        <div class="kpi-card">
+                        <div class="kpi-card kpi-clicavel" data-lista="inscritos" role="button" tabindex="0" aria-expanded="false">
                             <span class="kpi-icone" aria-hidden="true">👥</span>
                             <span class="kpi-rotulo">Inscritos</span>
                             <span class="kpi-num">{{ resumo.inscritos }}</span>
+                            <span class="kpi-caret" aria-hidden="true">▾</span>
                         </div>
-                        <div class="kpi-card">
+                        <div class="kpi-card kpi-clicavel" data-lista="arrecadacao" role="button" tabindex="0" aria-expanded="false">
                             <span class="kpi-icone" aria-hidden="true">🎟️</span>
                             <span class="kpi-rotulo">Arrecadação (inscrições)</span>
                             <span class="kpi-num">R$ {{ resumo.arrecadacao_inscricoes|moeda }}</span>
+                            <span class="kpi-caret" aria-hidden="true">▾</span>
                         </div>
-                        <div class="kpi-card">
+                        <div class="kpi-card kpi-clicavel" data-lista="vendas" role="button" tabindex="0" aria-expanded="false">
                             <span class="kpi-icone" aria-hidden="true">🛒</span>
                             <span class="kpi-rotulo">Vendas (lojinha)</span>
                             <span class="kpi-num">R$ {{ resumo.vendas_loja|moeda }}</span>
+                            <span class="kpi-caret" aria-hidden="true">▾</span>
                         </div>
-                        <div class="kpi-card kpi-receitas">
+                        <div class="kpi-card kpi-receitas kpi-clicavel" data-lista="receitas" role="button" tabindex="0" aria-expanded="false">
                             <span class="kpi-icone" aria-hidden="true">💰</span>
                             <span class="kpi-rotulo">Receitas</span>
                             <span class="kpi-num">R$ {{ resumo.receitas|moeda }}</span>
+                            <span class="kpi-caret" aria-hidden="true">▾</span>
                         </div>
-                        <div class="kpi-card kpi-custos">
+                        <div class="kpi-card kpi-custos kpi-clicavel" data-lista="custos" role="button" tabindex="0" aria-expanded="false">
                             <span class="kpi-icone" aria-hidden="true">🧾</span>
                             <span class="kpi-rotulo">Custos</span>
                             <span class="kpi-num">R$ {{ resumo.custos|moeda }}</span>
+                            <span class="kpi-caret" aria-hidden="true">▾</span>
                         </div>
                         <div class="kpi-card kpi-destaque {% if resumo.resultado < 0 %}kpi-negativo{% elif resumo.resultado > 0 %}kpi-positivo{% endif %}">
                             <span class="kpi-icone" aria-hidden="true">📊</span>
                             <span class="kpi-rotulo">Resultado</span>
                             <span class="kpi-num">R$ {{ resumo.resultado|moeda }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Listas abertas ao clicar num card (uma por vez) -->
+                    <div id="kpiListas">
+                        <div class="kpi-lista card" data-lista-alvo="inscritos" hidden>
+                            <h3 class="kpi-lista-titulo">👥 Inscritos ({{ resumo.inscritos }})</h3>
+                            {% if dashboard.listas.inscritos %}
+                            <ul class="lista-simples">
+                                {% for it in dashboard.listas.inscritos %}
+                                <li><strong>{{ it.resp }}</strong>{% if it.parts %} <span class="ls-sec">— {{ it.parts|join:", " }}</span>{% endif %}</li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}<p class="painel-nota">Nenhuma inscrição confirmada ainda.</p>{% endif %}
+                        </div>
+                        <div class="kpi-lista card" data-lista-alvo="arrecadacao" hidden>
+                            <h3 class="kpi-lista-titulo">🎟️ Arrecadação — quem pagou e quanto</h3>
+                            {% if dashboard.listas.arrecadacao %}
+                            <ul class="lista-simples">
+                                {% for it in dashboard.listas.arrecadacao %}
+                                <li><span class="ls-nome">{{ it.nome }}</span><span class="ls-valor">R$ {{ it.valor|moeda }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}<p class="painel-nota">Sem arrecadação ainda.</p>{% endif %}
+                        </div>
+                        <div class="kpi-lista card" data-lista-alvo="vendas" hidden>
+                            <h3 class="kpi-lista-titulo">🛒 Vendas da lojinha</h3>
+                            {% if dashboard.listas.vendas %}
+                            <ul class="lista-simples">
+                                {% for it in dashboard.listas.vendas %}
+                                <li><span class="ls-nome">{{ it.nome }}</span><span class="ls-valor">R$ {{ it.valor|moeda }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}<p class="painel-nota">Nenhuma venda ainda.</p>{% endif %}
+                        </div>
+                        <div class="kpi-lista card" data-lista-alvo="receitas" hidden>
+                            <h3 class="kpi-lista-titulo">💰 Receitas (uma por linha)</h3>
+                            {% if dashboard.listas.receitas %}
+                            <ul class="lista-simples">
+                                {% for it in dashboard.listas.receitas %}
+                                <li><span class="ls-tag">{{ it.tipo }}</span><span class="ls-nome">{{ it.nome }}</span><span class="ls-valor">R$ {{ it.valor|moeda }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}<p class="painel-nota">Nenhuma receita ainda.</p>{% endif %}
+                        </div>
+                        <div class="kpi-lista card" data-lista-alvo="custos" hidden>
+                            <h3 class="kpi-lista-titulo">🧾 Custos (uma por linha)</h3>
+                            {% if dashboard.listas.custos %}
+                            <ul class="lista-simples">
+                                {% for it in dashboard.listas.custos %}
+                                <li><span class="ls-nome">{{ it.nome }}</span><span class="ls-valor">R$ {{ it.valor|moeda }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}<p class="painel-nota">Nenhum custo lançado.</p>{% endif %}
                         </div>
                     </div>
 

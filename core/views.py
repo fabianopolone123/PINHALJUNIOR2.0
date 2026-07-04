@@ -755,7 +755,8 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
     }
 
 
-def _montar_dashboard(confirmadas, faixas, receitas, total_custos, entradas_por_forma):
+def _montar_dashboard(confirmadas, pedidos_confirmados, custos, faixas, receitas,
+                      total_custos, entradas_por_forma):
     """Dados visuais do Resumo (Fase 5.2): cobertura do clube + séries dos gráficos.
 
     **Cobertura**: tenta identificar quais aventureiros do clube estão inscritos
@@ -837,6 +838,28 @@ def _montar_dashboard(confirmadas, faixas, receitas, total_custos, entradas_por_
         "faixas": faixas_chart,
         "rc": rc,
         "tem_dados": bool(confirmadas) or total_custos > 0,
+        # Listas simples exibidas ao clicar num card de KPI no Resumo (Etapa 4).
+        "listas": {
+            "inscritos": [
+                {"resp": i.responsavel_nome,
+                 "parts": [p.nome for p in i.participantes.all()]}
+                for i in confirmadas
+            ],
+            "arrecadacao": [
+                {"nome": i.responsavel_nome, "valor": i.valor_total} for i in confirmadas
+            ],
+            "vendas": [
+                {"nome": p.comprador_nome, "valor": p.valor_total}
+                for p in pedidos_confirmados
+            ],
+            "receitas": (
+                [{"tipo": "Inscrição", "nome": i.responsavel_nome, "valor": i.valor_total}
+                 for i in confirmadas]
+                + [{"tipo": "Lojinha", "nome": p.comprador_nome, "valor": p.valor_total}
+                   for p in pedidos_confirmados]
+            ),
+            "custos": [{"nome": c.nome, "valor": c.valor} for c in custos],
+        },
     }
 
 
@@ -921,7 +944,8 @@ def evento_painel_view(request, pk):
         arrecadacao_inscricoes, vendas_loja, total_custos,
     )
     dashboard = _montar_dashboard(
-        confirmadas, faixas, receitas, total_custos, financeiro["entradas_por_forma"],
+        confirmadas, pedidos_confirmados, custos, faixas, receitas, total_custos,
+        financeiro["entradas_por_forma"],
     )
 
     contexto = {

@@ -22,6 +22,44 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Reorganização do painel — Etapa 4/4: cards clicáveis no Resumo (conclui a reorg)
+
+### Resumo
+**Etapa 4 (última)**: no **Resumo**, os cards de KPI (Inscritos, Arrecadação, Vendas, Receitas, Custos)
+ficaram **clicáveis** — com um caret ▾. Ao clicar, abre **abaixo do grid** uma **lista simples** daquele
+indicador (accordion: uma por vez; clicar de novo fecha):
+- **Inscritos** → responsável + participantes (um por linha).
+- **Arrecadação** → quem pagou e quanto.
+- **Vendas (lojinha)** → uma linha por venda (comprador + valor).
+- **Receitas** → uma linha por entrada (com etiqueta Inscrição/Lojinha).
+- **Custos** → uma linha por custo.
+O card **Resultado** não é clicável (é o número final). Os gráficos e a cobertura seguem abaixo.
+
+**Com isso a reorganização do painel está completa** (Etapas 1–4): abas internas em Inscrições e Lojinha,
+Balcão/Operadores no topo, e cards clicáveis no Resumo.
+
+### Arquivos alterados
+- `core/views.py`: `_montar_dashboard` agora recebe `pedidos_confirmados`/`custos` e monta
+  `dashboard["listas"]` (inscritos, arrecadacao, vendas, receitas, custos) prontas para o template.
+- `templates/core/evento_painel.html`: cards de KPI com `.kpi-clicavel` + `data-lista` + `role/tabindex`
+  + caret; `#kpiListas` com 5 painéis `.kpi-lista` (hidden) renderizando cada lista.
+- `static/js/evento_painel.js`: accordion dos cards (`.kpi-clicavel` → mostra o `.kpi-lista` do
+  `data-lista`; teclado Enter/Espaço; fecha os outros).
+- `static/css/eventos.css`: `.kpi-clicavel`/`.kpi-caret`/`.kpi-clicavel.ativo`, `#kpiListas`,
+  `.kpi-lista`, `.lista-simples` e `.ls-*` (nome/valor/tag/sec).
+
+### Validação
+- `manage.py check` OK. Render (test client): 5 cards `.kpi-clicavel`; 5 painéis `hidden` por padrão;
+  listas com os dados certos (arrecadação: quem pagou+quanto; inscritos: responsável+participantes;
+  receitas com etiquetas Inscrição/Lojinha; custos). Visual (Chrome headless): ao abrir "Arrecadação", o
+  card destaca e a lista aparece abaixo (Carlos R$ 30 / Maria R$ 60), um por linha.
+
+### Pendências / próximo passo
+- Reorganização concluída. Próximo da Fase 5: **5.3 códigos de desconto (cupons %)**; depois **5.4
+  presença/check-in**.
+
+---
+
 ## 2026-07-04 - Reorganização do painel — Etapa 3/4: Balcão e Operadores no topo
 
 ### Resumo

@@ -983,3 +983,31 @@ a.tipo-card:hover {
 .cob-inscrito { background: rgba(31, 138, 76, 0.09); }
 .cob-fora { background: var(--fundo-conteudo, #f1f4f8); }
 
+/* KPIs clicáveis → lista simples (Etapa 4) */
+.kpi-clicavel { cursor: pointer; }
+.kpi-caret {
+    position: absolute; top: 12px; right: 14px;
+    color: var(--texto-suave); font-size: 0.75rem; transition: transform var(--transicao);
+}
+.kpi-clicavel.ativo { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.14); }
+.kpi-clicavel.ativo .kpi-caret { transform: rotate(180deg); color: var(--azul); }
+.kpi-clicavel:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+
+#kpiListas { margin-top: 4px; }
+.kpi-lista { padding: 14px 16px; margin-bottom: 12px; animation: fin-sobe 0.3s ease both; }
+.kpi-lista-titulo { font-size: 0.98rem; color: var(--azul-escuro); margin: 0 0 10px; }
+.lista-simples { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; }
+.lista-simples li {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 7px 2px; border-bottom: 1px dashed var(--borda); font-size: 0.92rem;
+}
+.lista-simples li:last-child { border-bottom: none; }
+.ls-nome { flex: 1 1 auto; overflow-wrap: anywhere; }
+.ls-sec { flex: 1 1 auto; color: var(--texto-suave); overflow-wrap: anywhere; }
+.ls-valor { flex: 0 0 auto; font-weight: 700; white-space: nowrap; color: var(--azul-escuro); }
+.ls-tag {
+    flex: 0 0 auto; font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+    background: var(--fundo-conteudo, #eef3f9); color: var(--texto-suave);
+    border-radius: 999px; padding: 1px 8px;
+}
+
