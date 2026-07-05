@@ -1,15 +1,17 @@
 /* =========================================================
-   Recuperação de senha: envia os formulários por AJAX para que os
-   erros apareçam como toast (padrão do sistema) SEM recarregar a
-   página. Clicar de novo apenas repete a notificação.
-   Resposta do servidor: {"redirect": url} → navega; ou
-   {"msg": "...", "tipo": "error|info|success"} → só mostra o toast.
+   Envio de formulário por AJAX com toast (padrão do sistema).
+   Usado no login e nas telas de recuperação de senha: o erro aparece
+   como toast SEM recarregar a página (clicar de novo só repete a
+   notificação). Aplica-se a todo <form data-ajax-toast>.
+   Resposta do servidor (quando X-Requested-With: XMLHttpRequest):
+     {"redirect": url}           → navega para url
+     {"msg": "...", "tipo": ...} → só mostra o toast (sem recarregar)
    Sem JS, os formulários continuam funcionando com POST normal.
    ========================================================= */
 (function () {
     "use strict";
 
-    var forms = document.querySelectorAll("form[data-ajax-recup]");
+    var forms = document.querySelectorAll("form[data-ajax-toast]");
     Array.prototype.forEach.call(forms, function (form) {
         form.addEventListener("submit", function (e) {
             e.preventDefault();

@@ -34,7 +34,7 @@
             </div>
             {% endif %}
 
-            <form class="form-login" method="post" action="{% url 'core:login' %}" novalidate>
+            <form class="form-login" method="post" action="{% url 'core:login' %}" data-ajax-toast novalidate>
                 {% csrf_token %}
                 {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
@@ -77,5 +77,6 @@
         </footer>
     </main>
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/ajax_form.js' %}"></script>
 </body>
 </html>

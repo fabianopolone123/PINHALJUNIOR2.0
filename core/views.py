@@ -98,13 +98,20 @@ def login_view(request):
             # Ajudante externo (conta temporária) vai direto para o evento dele.
             op = OperadorEvento.objects.filter(usuario=usuario, externo=True).first()
             if op is not None:
-                return redirect("core:evento_operar", pk=op.evento_id)
-            destino = request.POST.get("next") or request.GET.get("next")
-            if destino and url_has_allowed_host_and_scheme(
-                destino, allowed_hosts={request.get_host()}
-            ):
-                return redirect(destino)
-            return redirect("core:inicio")
+                url = reverse("core:evento_operar", args=[op.evento_id])
+            else:
+                destino = request.POST.get("next") or request.GET.get("next")
+                if destino and url_has_allowed_host_and_scheme(
+                    destino, allowed_hosts={request.get_host()}
+                ):
+                    url = destino
+                else:
+                    url = reverse("core:inicio")
+            if _eh_ajax(request):
+                return _ajax_redirect(url)
+            return redirect(url)
+        if _eh_ajax(request):
+            return _ajax_toast("Usuário ou senha inválidos.")
         messages.error(request, "Usuário ou senha inválidos.")
 
     contexto = {
@@ -2986,12 +2993,12 @@ def _eh_ajax(request):
     return request.headers.get("x-requested-with") == "XMLHttpRequest"
 
 
-def _recup_ir(url):
+def _ajax_redirect(url):
     """Resposta AJAX que manda o JS navegar (mensagens já enfileiradas aparecem lá)."""
     return JsonResponse({"redirect": url})
 
 
-def _recup_msg(msg, tipo="error"):
+def _ajax_toast(msg, tipo="error"):
     """Resposta AJAX que só mostra um toast, sem recarregar a página."""
     return JsonResponse({"msg": msg, "tipo": tipo})
 
@@ -3026,10 +3033,10 @@ def recuperar_senha_view(request):
                             f"Código enviado para o WhatsApp {_mascara_telefone(destino)}.",
                         )
                         if ajax:
-                            return _recup_ir(reverse("core:recuperar_senha_codigo"))
+                            return _ajax_redirect(reverse("core:recuperar_senha_codigo"))
                         return redirect("core:recuperar_senha_codigo")
         if ajax:
-            return _recup_msg(erro)
+            return _ajax_toast(erro)
         messages.error(request, erro)
     return render(request, "core/recuperar_cpf.html", {"cpf_digitado": cpf_digitado})
 
@@ -3055,7 +3062,7 @@ def recuperar_senha_codigo_view(request):
             request.session["recup"] = sessao
             request.session.modified = True
             if ajax:
-                return _recup_ir(reverse("core:recuperar_senha_nova"))
+                return _ajax_redirect(reverse("core:recuperar_senha_nova"))
             return redirect("core:recuperar_senha_nova")
         sessao["tentativas"] = int(sessao.get("tentativas", 0)) + 1
         request.session["recup"] = sessao
@@ -3064,12 +3071,12 @@ def recuperar_senha_codigo_view(request):
             request.session.pop("recup", None)
             messages.error(request, "Muitas tentativas. Peça um novo código.")
             if ajax:
-                return _recup_ir(reverse("core:recuperar_senha"))
+                return _ajax_redirect(reverse("core:recuperar_senha"))
             return redirect("core:recuperar_senha")
         restantes = RECUP_MAX_TENTATIVAS - sessao["tentativas"]
         erro = f"Código incorreto. Você ainda tem {restantes} tentativa{'s' if restantes != 1 else ''}."
         if ajax:
-            return _recup_msg(erro)
+            return _ajax_toast(erro)
         messages.error(request, erro)
 
     contexto = {"mascara": _mascara_telefone(sessao.get("telefone", ""))}
@@ -3082,7 +3089,7 @@ def recuperar_senha_reenviar_view(request):
     ajax = _eh_ajax(request)
     sessao = request.session.get("recup")
     if not sessao or not sessao.get("user_id"):
-        return _recup_ir(reverse("core:recuperar_senha")) if ajax else redirect("core:recuperar_senha")
+        return _ajax_redirect(reverse("core:recuperar_senha")) if ajax else redirect("core:recuperar_senha")
     try:
         ultimo = datetime.datetime.fromisoformat(sessao.get("reenviado_em"))
         espera = (timezone.now() - ultimo).total_seconds()
@@ -3091,23 +3098,23 @@ def recuperar_senha_reenviar_view(request):
     if espera < RECUP_REENVIO_ESPERA:
         msg = f"Aguarde {int(RECUP_REENVIO_ESPERA - espera)}s para reenviar."
         if ajax:
-            return _recup_msg(msg, "info")
+            return _ajax_toast(msg, "info")
         messages.info(request, msg)
         return redirect("core:recuperar_senha_codigo")
     usuario = User.objects.filter(pk=sessao["user_id"]).first()
     if usuario is None:
         request.session.pop("recup", None)
-        return _recup_ir(reverse("core:recuperar_senha")) if ajax else redirect("core:recuperar_senha")
+        return _ajax_redirect(reverse("core:recuperar_senha")) if ajax else redirect("core:recuperar_senha")
     ok, resultado = _recup_gerar_e_enviar(usuario, sessao["telefone"])
     if not ok:
         if ajax:
-            return _recup_msg(resultado)
+            return _ajax_toast(resultado)
         messages.error(request, resultado)
         return redirect("core:recuperar_senha_codigo")
     request.session["recup"] = resultado
     msg = f"Novo código enviado para o WhatsApp {_mascara_telefone(sessao['telefone'])}."
     if ajax:
-        return _recup_msg(msg, "success")
+        return _ajax_toast(msg, "success")
     messages.success(request, msg)
     return redirect("core:recuperar_senha_codigo")
 
@@ -3140,7 +3147,7 @@ def recuperar_senha_nova_view(request):
                 request.session.pop("recup", None)
                 messages.error(request, "Conta não encontrada. Recomece a recuperação.")
                 if ajax:
-                    return _recup_ir(reverse("core:recuperar_senha"))
+                    return _ajax_redirect(reverse("core:recuperar_senha"))
                 return redirect("core:recuperar_senha")
             usuario.set_password(s1)
             usuario.save(update_fields=["password"])
@@ -3152,10 +3159,10 @@ def recuperar_senha_nova_view(request):
             request.session.pop("recup", None)
             messages.success(request, "Senha redefinida! Faça login com a nova senha.")
             if ajax:
-                return _recup_ir(reverse("core:login"))
+                return _ajax_redirect(reverse("core:login"))
             return redirect("core:login")
         if ajax:
-            return _recup_msg(erro)
+            return _ajax_toast(erro)
         messages.error(request, erro)
 
     return render(request, "core/recuperar_nova_senha.html", {})

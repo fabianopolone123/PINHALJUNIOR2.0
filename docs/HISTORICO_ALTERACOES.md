@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Login por AJAX (senha errada só repete o toast) + componente genérico ajax_form.js
+
+### Resumo
+A pedido do usuário, o **login** passou a enviar por **AJAX** igual às telas de recuperação: com **senha
+errada**, a notificação (toast) **repete a cada clique sem recarregar** a página; com senha certa, o JS
+navega para o destino. O helper de AJAX virou um **componente genérico**: `recuperar.js` foi renomeado
+para **`ajax_form.js`** e o atributo `data-ajax-recup` para **`data-ajax-toast`** (usado por login e
+recuperação). Sem JS, tudo continua funcionando com POST normal.
+
+### Arquivos criados/alterados
+- `static/js/recuperar.js` → **renomeado** para `static/js/ajax_form.js` (agora genérico:
+  `form[data-ajax-toast]`).
+- `core/views.py`: `login_view` responde JSON quando AJAX (`{"redirect":url}` no sucesso, `{"msg","tipo"}`
+  no erro). Helpers `_recup_ir`/`_recup_msg` renomeados para **`_ajax_redirect`/`_ajax_toast`**.
+- `templates/core/login.html`: form com `data-ajax-toast` + carrega `ajax_form.js`.
+- `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html`: atributo
+  `data-ajax-toast` + `ajax_form.js`.
+
+### Decisões tomadas
+- O envio-por-AJAX-com-toast é um **componente reutilizável** (`ajax_form.js` + `data-ajax-toast`), não
+  específico da recuperação — por isso o nome genérico.
+
+### Pendências
+- Sem novas.
+
 ## 2026-07-05 - Recuperação/Login: envio por AJAX (toast sem recarregar) + fim do vazamento de mensagem
 
 ### Resumo

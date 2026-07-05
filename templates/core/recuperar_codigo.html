@@ -37,7 +37,7 @@
             </div>
             {% endif %}
 
-            <form class="form-login" method="post" action="{% url 'core:recuperar_senha_codigo' %}" data-ajax-recup novalidate>
+            <form class="form-login" method="post" action="{% url 'core:recuperar_senha_codigo' %}" data-ajax-toast novalidate>
                 {% csrf_token %}
                 <div class="campo">
                     <label for="codigo">Código de 4 dígitos</label>
@@ -49,7 +49,7 @@
                 <button type="submit" class="botao-entrar">Confirmar código</button>
             </form>
 
-            <form method="post" action="{% url 'core:recuperar_senha_reenviar' %}" class="recup-reenviar-form" data-ajax-recup>
+            <form method="post" action="{% url 'core:recuperar_senha_reenviar' %}" class="recup-reenviar-form" data-ajax-toast>
                 {% csrf_token %}
                 <button type="submit" class="recup-reenviar">Não recebi — reenviar código</button>
             </form>
@@ -58,6 +58,6 @@
         <footer class="rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
     </main>
     <script src="{% static 'js/inicio.js' %}"></script>
-    <script src="{% static 'js/recuperar.js' %}"></script>
+    <script src="{% static 'js/ajax_form.js' %}"></script>
 </body>
 </html>
