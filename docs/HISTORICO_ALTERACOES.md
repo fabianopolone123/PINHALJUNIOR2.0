@@ -22,6 +22,16 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Recuperação de senha: espaçamento do indicador de etapas
+
+### Resumo
+No indicador de etapas (CPF → Código → Nova senha), o número/✓ (círculo de 26px) estava encostando/
+sobrepondo o texto abaixo. Aumentei o `padding-top` do `.recup-passos li` de 22px para **36px**
+(26px do círculo + folga). Só CSS.
+
+### Arquivos criados/alterados
+- `static/css/recuperar.css`: `.recup-passos li { padding-top: 36px; }`.
+
 ## 2026-07-05 - Recuperação de senha: usar o toast padrão (não mais avisos inline)
 
 ### Resumo

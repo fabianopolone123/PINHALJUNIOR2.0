@@ -18,7 +18,8 @@
     font-size: 0.72rem;
     font-weight: 600;
     color: #9aa8b6;
-    padding-top: 22px;
+    /* Espaço para o círculo (26px) + folga, para o número/✓ não encostar no texto. */
+    padding-top: 36px;
     position: relative;
 }
 
