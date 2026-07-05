@@ -19,6 +19,11 @@ urlpatterns = [
         views.aventureiro_toggle_ativo_view,
         name="aventureiro_toggle_ativo",
     ),
+    path(
+        "usuarios/conta/<int:conta_id>/principal/",
+        views.usuario_principal_view,
+        name="usuario_principal",
+    ),
     path("eventos/", views.eventos_view, name="eventos"),
     path("eventos/novo/", views.evento_novo_view, name="evento_novo"),
     path("eventos/complexo/novo/", views.evento_complexo_novo_view, name="evento_complexo_novo"),
@@ -135,4 +140,20 @@ urlpatterns = [
     ),
     path("cadastro/sucesso/", views.cadastro_sucesso_view, name="cadastro_sucesso"),
     path("trocar-senha/", views.trocar_senha_view, name="trocar_senha"),
+    path("recuperar-senha/", views.recuperar_senha_view, name="recuperar_senha"),
+    path(
+        "recuperar-senha/codigo/",
+        views.recuperar_senha_codigo_view,
+        name="recuperar_senha_codigo",
+    ),
+    path(
+        "recuperar-senha/reenviar/",
+        views.recuperar_senha_reenviar_view,
+        name="recuperar_senha_reenviar",
+    ),
+    path(
+        "recuperar-senha/nova-senha/",
+        views.recuperar_senha_nova_view,
+        name="recuperar_senha_nova",
+    ),
 ]

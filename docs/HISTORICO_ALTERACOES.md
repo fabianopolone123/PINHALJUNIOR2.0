@@ -22,6 +22,57 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Recuperação de senha pelo WhatsApp (código de 4 dígitos)
+
+### Resumo
+O link **"Esqueci minha senha"** (login) passou a funcionar. Fluxo público em **3 etapas**
+(guardadas na sessão):
+1. **CPF** do responsável legal → identifica a conta (`Aventureiro.resp_cpf`) e envia um **código de
+   4 dígitos** para o **WhatsApp principal** da conta (via módulo WhatsApp/W-API).
+2. **Código** → validado com **limite de 5 tentativas** e **expiração de 10 min**; botão **reenviar**
+   (espera mínima de 60 s).
+3. **Nova senha** (2×) → grava e limpa a sessão; volta ao login.
+O código é guardado **com hash** na sessão (nunca em texto puro). O número de destino aparece sempre
+**mascarado** (`•••••-1234`).
+
+Em **Usuários** (Diretor), no detalhe de cada responsável ligado a uma conta, há o controle
+**"WhatsApp principal"**: escolher entre **pai / mãe / responsável legal** para onde o código será
+enviado. Sem escolha, o padrão é o **WhatsApp do responsável legal**. (Mais pra frente o próprio
+responsável logado poderá alterar.)
+
+### Arquivos criados/alterados
+- `core/models.py`: `PerfilUsuario.whatsapp_principal_origem` (choices pai/mae/resp, blank).
+- `core/migrations/0020_perfilusuario_whatsapp_principal_origem.py`.
+- `core/views.py`: helpers `_so_digitos`, `_mascara_telefone`, `_numeros_conta`, `_whatsapp_principal`,
+  `_conta_por_cpf_resp`, `_recup_gerar_e_enviar`, `_recup_expirado`; views `recuperar_senha_view`,
+  `recuperar_senha_codigo_view`, `recuperar_senha_reenviar_view`, `recuperar_senha_nova_view`,
+  `usuario_principal_view`; `usuarios_view` passou a anexar `conta_id`/`numeros_principal`/
+  `principal_origem` a cada responsável (por CPF, só quando há **uma** conta). Constantes
+  `RECUP_TTL_MIN=10`, `RECUP_MAX_TENTATIVAS=5`, `RECUP_REENVIO_ESPERA=60`.
+- `core/urls.py`: `/recuperar-senha/`, `.../codigo/`, `.../reenviar/`, `.../nova-senha/` e
+  `/usuarios/conta/<id>/principal/`.
+- `templates/core/login.html`: link "Esqueci minha senha" aponta para o fluxo.
+- `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html` e o parcial
+  `_recup_avisos.html` (mensagens inline nas telas públicas).
+- `templates/core/usuarios.html`: bloco **WhatsApp principal** no detalhe do responsável **+ bloco de
+  `messages`** (que faltava — agora o toast do toggle ativo/inativo e do principal aparece).
+- `static/css/recuperar.css` (indicador de etapas, campo do código, aviso verde, reenviar) e trecho novo
+  em `static/css/usuarios.css` (bloco do principal).
+
+### Decisões tomadas
+- **Destino do código = WhatsApp principal** definido pelo Diretor (fallback: responsável legal).
+  **Opções do principal**: pai, mãe ou responsável legal. **CPF aceito**: só o do responsável legal.
+  (Confirmado com o usuário.)
+- **Sem novas dependências**: reaproveita `normalizar_telefone` e `_enviar_whatsapp` do módulo WhatsApp
+  (urllib). Código gerado com `secrets.randbelow`.
+- **Estado na sessão** (não em modelo): simples e sem necessidade de limpeza; código sempre hasheado.
+- **Anti-abuso**: expiração, limite de tentativas e espera entre reenvios.
+
+### Pendências
+- Permitir que o **responsável logado** altere o próprio WhatsApp principal (hoje só o Diretor).
+- Se a conta tiver o mesmo CPF de responsável legal em mais de uma conta, o controle de principal em
+  Usuários não aparece (fica a cargo do admin) — caso raro.
+
 ## 2026-07-05 - Módulo WhatsApp (W-API): configuração da instância + envio de mensagem
 
 ### Resumo

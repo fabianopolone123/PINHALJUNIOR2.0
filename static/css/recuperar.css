@@ -1,0 +1,108 @@
+/* =========================================================
+   Recuperação de senha (telas públicas). Complementa login.css.
+   ========================================================= */
+
+/* Aviso de sucesso/info (o vermelho .aviso-login continua para erros). */
+.aviso-ok {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: var(--raio-campo, 12px);
+    background: rgba(58, 157, 58, 0.12);
+    border: 1px solid rgba(58, 157, 58, 0.35);
+    color: #1f6b1f;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    animation: surgir-aviso 0.3s ease;
+}
+
+/* Indicador de etapas (CPF → Código → Nova senha). */
+.recup-passos {
+    display: flex;
+    gap: 6px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px;
+    counter-reset: passo;
+}
+
+.recup-passos li {
+    flex: 1;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #9aa8b6;
+    padding-top: 22px;
+    position: relative;
+}
+
+.recup-passos li::before {
+    counter-increment: passo;
+    content: counter(passo);
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    border-radius: 50%;
+    background: #e6edf5;
+    color: #9aa8b6;
+    font-size: 0.82rem;
+}
+
+.recup-passos li.atual {
+    color: var(--azul-escuro, #0f4c81);
+}
+
+.recup-passos li.atual::before {
+    background: linear-gradient(135deg, var(--azul, #1769aa), var(--verde, #3a9d3a));
+    color: #fff;
+}
+
+.recup-passos li.feito {
+    color: var(--verde, #3a9d3a);
+}
+
+.recup-passos li.feito::before {
+    content: "✓";
+    background: var(--verde, #3a9d3a);
+    color: #fff;
+}
+
+.recup-ajuda {
+    font-size: 0.78rem;
+    color: #6a7886;
+    line-height: 1.4;
+}
+
+/* Campo do código: grande e centralizado. */
+.campo-codigo {
+    text-align: center;
+    font-size: 1.8rem !important;
+    letter-spacing: 0.5em;
+    font-weight: 700;
+    padding-left: 0.5em !important;   /* compensa o letter-spacing no fim */
+}
+
+/* Reenviar código: link discreto (form sem cara de botão). */
+.recup-reenviar-form {
+    text-align: center;
+    margin-top: 14px;
+}
+
+.recup-reenviar {
+    background: none;
+    border: none;
+    color: var(--azul, #1769aa);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px;
+    text-decoration: underline;
+}
+
+.recup-reenviar:hover {
+    color: var(--azul-escuro, #0f4c81);
+}

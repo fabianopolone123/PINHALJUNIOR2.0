@@ -1,0 +1,7 @@
+{% comment %}Mensagens do Django exibidas inline nas telas de recuperação
+(páginas públicas sem o JS de toasts). Erro em vermelho; demais em verde.{% endcomment %}
+{% if messages %}
+{% for m in messages %}
+<div class="{% if m.tags == 'error' %}aviso-login{% else %}aviso-ok{% endif %}" role="status">{{ m }}</div>
+{% endfor %}
+{% endif %}

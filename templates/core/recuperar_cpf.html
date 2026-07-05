@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Recuperar senha - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <link rel="stylesheet" href="{% static 'css/recuperar.css' %}">
+</head>
+<body>
+    <main class="tela-login">
+        <section class="card-login" aria-label="Recuperar senha">
+            <div class="card-topo">
+                <div class="logo-caixa">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="logo"
+                         onerror="this.style.display='none'; this.parentNode.classList.add('sem-logo');">
+                    <span class="logo-placeholder" aria-hidden="true">CA</span>
+                </div>
+                <h1 class="titulo">Recuperar senha</h1>
+                <p class="subtitulo">Vamos enviar um código para o seu WhatsApp</p>
+            </div>
+
+            <ol class="recup-passos" aria-label="Etapas">
+                <li class="atual">CPF</li>
+                <li>Código</li>
+                <li>Nova senha</li>
+            </ol>
+
+            {% include "core/_recup_avisos.html" %}
+            {% if erro %}<div class="aviso-login" role="alert">{{ erro }}</div>{% endif %}
+
+            <form class="form-login" method="post" action="{% url 'core:recuperar_senha' %}" novalidate>
+                {% csrf_token %}
+                <div class="campo">
+                    <label for="cpf">CPF do responsável legal</label>
+                    <input type="text" id="cpf" name="cpf" inputmode="numeric" autocomplete="off"
+                           placeholder="000.000.000-00" value="{{ cpf_digitado }}" required>
+                    <small class="recup-ajuda">Digite o CPF do responsável legal cadastrado. Enviaremos um código de 4 dígitos para o WhatsApp principal da conta.</small>
+                </div>
+                <button type="submit" class="botao-entrar">Enviar código</button>
+                <a href="{% url 'core:login' %}" class="link-esqueci">Voltar para o login</a>
+            </form>
+        </section>
+        <footer class="rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </main>
+</body>
+</html>

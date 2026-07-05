@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Módulo WhatsApp (W-API)**: novo item **"WhatsApp"** (💬) no menu
+**Última atualização:** 2026-07-05 (**Recuperação de senha pelo WhatsApp**: o link **"Esqueci minha
+senha"** funciona. Fluxo público em 3 etapas (sessão): **CPF** do responsável legal → envia **código de
+4 dígitos** para o **WhatsApp principal** da conta → digita o código (5 tentativas, expira em 10 min,
+reenvio com espera de 60 s) → **nova senha** (2×). Código guardado **com hash** na sessão; destino sempre
+**mascarado**. Em **Usuários** (Diretor) há o controle **"WhatsApp principal"** (pai/mãe/resp legal;
+padrão = responsável legal) por conta — campo `PerfilUsuario.whatsapp_principal_origem` (mig. **0020**).
+Rotas `/recuperar-senha/…` e `/usuarios/conta/<id>/principal/`. Antes: Módulo WhatsApp (W-API))
+
+**Anterior:** (**Módulo WhatsApp (W-API)**: novo item **"WhatsApp"** (💬) no menu
 (**só Diretor**). Tela `/whatsapp/` com duas seções: **Configuração da instância** (ID da instância,
 **token** exibido só com os **últimos 4 dígitos** e só substituído se digitar um novo, e **URL base**
 opcional com padrão `https://api.w-api.app/v1`) e **Enviar mensagem** (número + texto). O número é
@@ -397,8 +405,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   idade_min, idade_max, valor, ordem). Migration `0004`.
 - `CampoInscricao` — campo personalizado do formulário de inscrição, por evento (FK `evento`, rótulo,
   tipo, opções, obrigatório, **por_participante**, ordem). Migrations `0005`, `0007`.
-- `PerfilUsuario` — OneToOne com User (`precisa_trocar_senha`, usado pelas contas temporárias). E
-  `OperadorEvento` — quem opera o PDV de um evento (FK `evento`, FK `usuario`, `externo`). Migration `0013`.
+- `PerfilUsuario` — OneToOne com User (`precisa_trocar_senha`, usado pelas contas temporárias;
+  **`whatsapp_principal_origem`** = pai/mãe/resp legal, para onde vai o código de recuperação, mig.
+  **0020**). E `OperadorEvento` — quem opera o PDV de um evento (FK `evento`, FK `usuario`, `externo`). Migration `0013`.
 - `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
   único, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**, **registrado_por**,
   valor_total; props `total_com_loja`/`troco`). Migration `0012`. `ParticipanteInscricao` (nome, idade, eh_diretoria,
@@ -432,7 +441,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (só os últimos 4 dígitos). Usado pelo módulo **WhatsApp**. Migration **0019**.
 
 ## Funcionalidades incompletas / não implementadas
-- Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
+- Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos).
+  Falta permitir que o **responsável logado** altere o próprio WhatsApp principal (hoje só o Diretor).
 - Edição dos dados do aventureiro pela área logada — hoje "Meus Dados" é somente visualização.
 - Permissões / perfis de usuário — NÃO implementados.
 - Validação avançada de CPF — NÃO implementada (deixada para o futuro).
@@ -455,7 +465,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
   simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
-- (A definir) Implementar o fluxo de "Esqueci minha senha".
+- (A definir) Permitir ao responsável logado escolher o próprio WhatsApp principal (recuperação).
 
 ## Apps existentes
 - `config` — projeto Django (settings, urls, wsgi, asgi).
@@ -484,6 +494,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/presenca_selecionar.html` (escolher evento) e `presenca_evento.html` (folha de presença:
   lista de aventureiros com foto + marcar + modal da foto ampliada)
 - `templates/core/whatsapp.html` (módulo WhatsApp: configurar instância W-API + enviar mensagem de teste)
+- `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html` (recuperação
+  de senha em 3 etapas) e o parcial `_recup_avisos.html` (mensagens inline nas telas públicas)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -507,6 +519,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   foto ampliada no modal)
 - `static/css/whatsapp.css` — módulo WhatsApp (cards de configuração e de envio; inputs próprios;
   paleta azul/verde; mobile-first)
+- `static/css/recuperar.css` — recuperação de senha (indicador de etapas, campo do código grande,
+  aviso verde de sucesso, link de reenvio); complementa `login.css`
 
 ## Arquivos JavaScript existentes
 - `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
@@ -554,6 +568,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/meus-dados/responsavel/editar/` — edição do responsável, protegida por login (`core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
 - `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`core.views.usuarios_view`, nome `core:usuarios`).
 - `/usuarios/aventureiro/<id>/ativo/` — marca inativo/reativa um aventureiro (POST, Diretor; cascata na conta) (`core:aventureiro_toggle_ativo`).
+- `/usuarios/conta/<id>/principal/` — define o **WhatsApp principal** da conta (pai/mãe/resp legal) p/ recuperação (POST, Diretor) (`core:usuario_principal`).
 - `/eventos/` — lista de eventos, **restrita ao Diretor** (`core.views.eventos_view`, nome `core:eventos`).
 - `/eventos/novo/` — cadastro de evento simples, **restrita ao Diretor** (`core.views.evento_novo_view`, nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).
@@ -592,6 +607,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
+- `/recuperar-senha/` — recuperação de senha, etapa 1: CPF do responsável legal (`core:recuperar_senha`).
+- `/recuperar-senha/codigo/` — etapa 2: digitar o código de 4 dígitos (`core:recuperar_senha_codigo`).
+- `/recuperar-senha/reenviar/` — reenvia o código (POST, espera de 60 s) (`core:recuperar_senha_reenviar`).
+- `/recuperar-senha/nova-senha/` — etapa 3: definir a nova senha 2× (`core:recuperar_senha_nova`).
 - `/admin/` — Django admin (models de cadastro registrados).
 - Em DEBUG, o Django serve os arquivos de mídia em `/media/`.
 

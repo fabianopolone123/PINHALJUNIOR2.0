@@ -58,6 +58,14 @@
                     </p>
                 </header>
 
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
                 <!-- Pesquisa -->
                 <div class="pesquisa-caixa">
                     <span class="pesquisa-icone" aria-hidden="true">🔎</span>
@@ -173,6 +181,27 @@
                     {% include "core/_dado.html" with rotulo="Celular" valor=r.celular %}
                     {% include "core/_dado.html" with rotulo="WhatsApp" valor=r.whatsapp %}
                 </div>
+
+                {% if r.conta_id and r.numeros_principal %}
+                <div class="principal-bloco">
+                    <h4 class="bloco-rotulo">📱 WhatsApp principal</h4>
+                    <p class="principal-ajuda">Número para onde vai o <strong>código de recuperação de senha</strong> desta conta.</p>
+                    <form method="post" action="{% url 'core:usuario_principal' r.conta_id %}" class="principal-form">
+                        {% csrf_token %}
+                        {% for n in r.numeros_principal %}
+                        <label class="principal-opcao">
+                            <input type="radio" name="origem" value="{{ n.origem }}" {% if n.origem == r.principal_origem %}checked{% endif %}>
+                            <span class="principal-opcao-txt"><strong>{{ n.rotulo }}</strong> — {{ n.numero }}</span>
+                        </label>
+                        {% endfor %}
+                        {% if not r.principal_origem %}
+                        <p class="principal-nota">Nenhum escolhido — o padrão é o do <strong>responsável legal</strong>.</p>
+                        {% endif %}
+                        <button type="submit" class="btn-secundario btn-acao-pequeno">Salvar principal</button>
+                    </form>
+                </div>
+                {% endif %}
+
                 <h4 class="bloco-rotulo">Aventureiros vinculados</h4>
                 <ul class="vinc-lista">
                     {% for v in r.vinculos %}

@@ -314,3 +314,25 @@
 
 .vinc-inativo .vinc-nome { color: var(--texto-suave); }
 .av-inativo .resp-nome-item { text-decoration: line-through; text-decoration-color: rgba(178,58,46,.5); }
+
+/* ---------- WhatsApp principal (recuperação de senha) ---------- */
+.principal-bloco {
+    margin: 18px 0;
+    padding: 14px;
+    border: 1px solid var(--borda, #dbe4ee);
+    border-radius: 12px;
+    background: rgba(74, 144, 217, 0.06);
+}
+.principal-ajuda { font-size: 0.85rem; color: var(--texto-suave, #667); margin: 0 0 12px; }
+.principal-form { display: flex; flex-direction: column; gap: 8px; }
+.principal-opcao {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1.5px solid var(--borda, #dbe4ee);
+    border-radius: 10px; background: #fff; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.principal-opcao:hover { border-color: var(--azul-claro, #4a90d9); }
+.principal-opcao input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--azul, #1769aa); }
+.principal-opcao-txt { font-size: 0.92rem; color: var(--texto, #223); }
+.principal-nota { font-size: 0.82rem; color: var(--texto-suave, #667); margin: 2px 0 0; }
+.principal-form .btn-secundario { align-self: flex-start; margin-top: 6px; }

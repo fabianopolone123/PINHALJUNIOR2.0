@@ -437,3 +437,21 @@ internas ou no fluxo de login, seguir estas regras:
   **prévia ao vivo**; a validação real é no back-end. Envio é **AJAX** e usa o **toast padrão**
   (`window.mostrarToast`).
 - **Não enviar mensagens reais em testes automatizados** nem versionar tokens/IDs reais.
+
+## Recuperação de senha pelo WhatsApp
+
+- Fluxo **público** em 3 etapas (`/recuperar-senha/`, `.../codigo/`, `.../nova-senha/`), estado na
+  **sessão** (`request.session["recup"]`). Etapas com guarda: código exige sessão; nova senha exige
+  `validado=True`. Já logado → redireciona para `/inicio/`.
+- **Identificação por CPF do responsável legal** (`Aventureiro.resp_cpf`), comparando **só dígitos**
+  (`_so_digitos`). Prefere conta **ativa**. **Destino** do código = **WhatsApp principal** da conta
+  (`PerfilUsuario.whatsapp_principal_origem`, definido pelo Diretor em Usuários), com **fallback** para o
+  WhatsApp do **responsável legal** (`_whatsapp_principal`).
+- **Código de 4 dígitos** gerado com `secrets.randbelow`, guardado **com hash** na sessão (`make_password`
+  /`check_password`) — **nunca** em texto puro. Constantes: `RECUP_TTL_MIN=10`, `RECUP_MAX_TENTATIVAS=5`,
+  `RECUP_REENVIO_ESPERA=60`. Número exibido sempre **mascarado** (`_mascara_telefone`).
+- Reaproveita `normalizar_telefone` + `_enviar_whatsapp` do módulo WhatsApp (sem novas dependências).
+- **WhatsApp principal**: só o Diretor define hoje (`/usuarios/conta/<id>/principal/`), no detalhe do
+  responsável em Usuários; guarda a **origem** (pai/mãe/resp) e o número é resolvido ao vivo. O bloco só
+  aparece quando o CPF do responsável liga a **exatamente uma** conta.
+- Telas públicas usam **mensagens inline** (`_recup_avisos.html`), não o toast (não têm o JS de toasts).

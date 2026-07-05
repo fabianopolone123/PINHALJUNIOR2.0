@@ -36,6 +36,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/` login (auth real) · `/sair/` logout (POST) · `/inicio/` "Meus Dados" · `/trocar-senha/`
 - `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos
 - `/cadastro/` conta+1º aventureiro · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
+- **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
 - **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** (Diretor): `/presenca/`, `/presenca/<id>/`, `/presenca/<id>/marcar/`

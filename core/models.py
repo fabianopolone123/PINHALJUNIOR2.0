@@ -971,6 +971,16 @@ class PerfilUsuario(models.Model):
     precisa_trocar_senha = models.BooleanField(
         "Precisa trocar a senha no próximo login", default=False
     )
+    # WhatsApp principal da conta: para onde vão as mensagens do sistema (hoje, o
+    # código de recuperação de senha). Guarda a ORIGEM (pai/mãe/resp legal) e o
+    # número é resolvido ao vivo dos aventureiros da conta. Vazio = usa o do
+    # responsável legal como padrão. Definido pelo Diretor na tela "Usuários".
+    whatsapp_principal_origem = models.CharField(
+        "WhatsApp principal (origem)",
+        max_length=4,
+        choices=[("pai", "Pai"), ("mae", "Mãe"), ("resp", "Responsável legal")],
+        blank=True,
+    )
 
     def __str__(self):
         return f"Perfil de {self.usuario.username}"

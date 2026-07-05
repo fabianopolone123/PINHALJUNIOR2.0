@@ -1,0 +1,53 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Nova senha - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <link rel="stylesheet" href="{% static 'css/recuperar.css' %}">
+</head>
+<body>
+    <main class="tela-login">
+        <section class="card-login" aria-label="Definir nova senha">
+            <div class="card-topo">
+                <div class="logo-caixa">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="logo"
+                         onerror="this.style.display='none'; this.parentNode.classList.add('sem-logo');">
+                    <span class="logo-placeholder" aria-hidden="true">CA</span>
+                </div>
+                <h1 class="titulo">Nova senha</h1>
+                <p class="subtitulo">Defina a sua nova senha de acesso</p>
+            </div>
+
+            <ol class="recup-passos" aria-label="Etapas">
+                <li class="feito">CPF</li>
+                <li class="feito">Código</li>
+                <li class="atual">Nova senha</li>
+            </ol>
+
+            {% include "core/_recup_avisos.html" %}
+            {% if erro %}<div class="aviso-login" role="alert">{{ erro }}</div>{% endif %}
+
+            <form class="form-login" method="post" action="{% url 'core:recuperar_senha_nova' %}" novalidate>
+                {% csrf_token %}
+                <div class="campo">
+                    <label for="senha1">Nova senha</label>
+                    <input type="password" id="senha1" name="senha1" autocomplete="new-password"
+                           placeholder="Pelo menos 6 caracteres" minlength="6" required autofocus>
+                </div>
+                <div class="campo">
+                    <label for="senha2">Repita a nova senha</label>
+                    <input type="password" id="senha2" name="senha2" autocomplete="new-password"
+                           placeholder="Digite a senha novamente" minlength="6" required>
+                </div>
+                <button type="submit" class="botao-entrar">Salvar nova senha</button>
+            </form>
+        </section>
+        <footer class="rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </main>
+</body>
+</html>

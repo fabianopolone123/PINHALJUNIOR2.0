@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import json
 import re
+import secrets
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -12,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
@@ -608,8 +610,32 @@ def usuarios_view(request):
             "ativo": resp_ativo,
         })
     lista_responsaveis.sort(key=lambda x: _normaliza(x["nome"]))
+
+    # Vincula cada responsável (por CPF) à conta em que ele é o responsável legal,
+    # para o Diretor poder escolher o WhatsApp principal (recuperação de senha).
+    # Só quando há exatamente uma conta para aquele CPF.
+    cpf_para_contas = {}
+    for av in aventureiros:
+        if av.usuario_id:
+            k = _so_digitos(av.resp_cpf)
+            if k:
+                cpf_para_contas.setdefault(k, set()).add(av.usuario_id)
+
     for i, resp in enumerate(lista_responsaveis):
         resp["id"] = f"resp-{i}"
+        resp["conta_id"] = None
+        resp["numeros_principal"] = []
+        resp["principal_origem"] = ""
+        k = _so_digitos(resp["cpf"])
+        contas = cpf_para_contas.get(k) if k else None
+        if contas and len(contas) == 1:
+            uid = next(iter(contas))
+            usuario = next((a.usuario for a in aventureiros if a.usuario_id == uid), None)
+            if usuario is not None:
+                resp["conta_id"] = uid
+                resp["numeros_principal"] = _numeros_conta(usuario)
+                perfil = getattr(usuario, "perfil", None)
+                resp["principal_origem"] = perfil.whatsapp_principal_origem if perfil else ""
 
     aventureiros.sort(key=lambda a: _normaliza(a.nome_completo))
 
@@ -2836,4 +2862,276 @@ def whatsapp_enviar_view(request):
     if ok:
         return JsonResponse({"ok": True, "telefone": telefone, "message_id": detalhe})
     return JsonResponse({"ok": False, "erro": detalhe, "telefone": telefone}, status=502)
+
+
+# ---------------------------------------------------------------------------
+# Recuperação de senha pelo WhatsApp (público, sem login)
+#
+# Fluxo em 3 etapas guardadas na sessão (`request.session["recup"]`):
+#   1) CPF do responsável legal → identifica a conta e envia um código de 4
+#      dígitos para o WhatsApp principal (definido pelo Diretor em Usuários;
+#      padrão = WhatsApp do responsável legal).
+#   2) Código → valida (com limite de tentativas e expiração).
+#   3) Nova senha (2x) → grava e limpa a sessão.
+# O código é guardado **com hash** na sessão (server-side); nunca em texto puro.
+# ---------------------------------------------------------------------------
+RECUP_TTL_MIN = 10          # validade do código, em minutos
+RECUP_MAX_TENTATIVAS = 5    # tentativas erradas antes de invalidar
+RECUP_REENVIO_ESPERA = 60   # segundos mínimos entre reenvios
+
+
+def _so_digitos(valor):
+    """Só os dígitos de um texto (para comparar CPF/telefone sem pontuação)."""
+    return re.sub(r"\D", "", valor or "")
+
+
+def _mascara_telefone(numero):
+    """Mostra o telefone só com os últimos 4 dígitos: (••) •••••-1234."""
+    d = _so_digitos(numero)
+    if len(d) < 4:
+        return "número cadastrado"
+    return "•••••-" + d[-4:]
+
+
+def _numeros_conta(usuario):
+    """Números de WhatsApp disponíveis na conta (pai/mãe/resp legal), pegando o
+    primeiro não-vazio entre os aventureiros. Lista de dicts {origem, rotulo, numero}."""
+    avs = list(Aventureiro.objects.filter(usuario=usuario))
+
+    def primeiro(attr):
+        for a in avs:
+            v = (getattr(a, attr) or "").strip()
+            if v:
+                return v
+        return ""
+
+    out = []
+    for origem, rotulo, attr in (
+        ("pai", "Pai", "pai_whatsapp"),
+        ("mae", "Mãe", "mae_whatsapp"),
+        ("resp", "Responsável legal", "resp_whatsapp"),
+    ):
+        num = primeiro(attr)
+        if num:
+            out.append({"origem": origem, "rotulo": rotulo, "numero": num})
+    return out
+
+
+def _whatsapp_principal(usuario):
+    """Número de WhatsApp para onde enviar o código: o principal escolhido pelo
+    Diretor (PerfilUsuario.whatsapp_principal_origem) ou, como padrão, o do
+    responsável legal. Devolve o número **normalizado** (ou "")."""
+    numeros = {n["origem"]: n["numero"] for n in _numeros_conta(usuario)}
+    origem = ""
+    perfil = getattr(usuario, "perfil", None)
+    if perfil is not None:
+        origem = perfil.whatsapp_principal_origem or ""
+    bruto = numeros.get(origem) or numeros.get("resp") or ""
+    return normalizar_telefone(bruto)
+
+
+def _conta_por_cpf_resp(cpf):
+    """Acha a conta (User) cujo **responsável legal** tem esse CPF. Prefere conta
+    ativa. Devolve o User ou None."""
+    alvo = _so_digitos(cpf)
+    if len(alvo) != 11:
+        return None
+    achados = []
+    for av in Aventureiro.objects.filter(usuario__isnull=False).select_related("usuario"):
+        if _so_digitos(av.resp_cpf) == alvo:
+            achados.append(av.usuario)
+    if not achados:
+        return None
+    for u in achados:
+        if u.is_active:
+            return u
+    return achados[0]
+
+
+def _recup_gerar_e_enviar(usuario, destino):
+    """Gera um código de 4 dígitos, envia pelo WhatsApp e devolve (ok, sessao|erro).
+    `sessao` é o dict a guardar em request.session["recup"]."""
+    config = WhatsappConfig.get_solo()
+    if not config.configurado:
+        return False, "O envio por WhatsApp não está configurado. Procure a diretoria."
+    codigo = f"{secrets.randbelow(10000):04d}"
+    mensagem = (
+        "Clube de Aventureiros Pinhal Júnior\n"
+        f"Seu código para redefinir a senha é: {codigo}\n"
+        f"Ele vale por {RECUP_TTL_MIN} minutos. Se não foi você, ignore esta mensagem."
+    )
+    ok, detalhe = _enviar_whatsapp(config, destino, mensagem)
+    if not ok:
+        return False, "Não foi possível enviar o código agora. Tente novamente em instantes."
+    agora = timezone.now()
+    sessao = {
+        "user_id": usuario.id,
+        "codigo_hash": make_password(codigo),
+        "telefone": destino,
+        "expira": (agora + datetime.timedelta(minutes=RECUP_TTL_MIN)).isoformat(),
+        "tentativas": 0,
+        "validado": False,
+        "reenviado_em": agora.isoformat(),
+    }
+    return True, sessao
+
+
+def _recup_expirado(sessao):
+    try:
+        return timezone.now() >= datetime.datetime.fromisoformat(sessao["expira"])
+    except (KeyError, ValueError, TypeError):
+        return True
+
+
+def recuperar_senha_view(request):
+    """Etapa 1: digitar o CPF do responsável legal para receber o código."""
+    if request.user.is_authenticated:
+        return redirect("core:inicio")
+    cpf_digitado = ""
+    erro = None
+    if request.method == "POST":
+        cpf_digitado = (request.POST.get("cpf") or "").strip()
+        if len(_so_digitos(cpf_digitado)) != 11:
+            erro = "Digite um CPF válido (11 dígitos)."
+        else:
+            usuario = _conta_por_cpf_resp(cpf_digitado)
+            if usuario is None:
+                erro = "Não encontramos uma conta com esse CPF de responsável legal."
+            else:
+                destino = _whatsapp_principal(usuario)
+                if not destino:
+                    erro = "Não há WhatsApp cadastrado para enviar o código. Procure a diretoria."
+                else:
+                    ok, resultado = _recup_gerar_e_enviar(usuario, destino)
+                    if not ok:
+                        erro = resultado
+                    else:
+                        request.session["recup"] = resultado
+                        messages.success(
+                            request,
+                            f"Código enviado para o WhatsApp {_mascara_telefone(destino)}.",
+                        )
+                        return redirect("core:recuperar_senha_codigo")
+    return render(request, "core/recuperar_cpf.html", {"cpf_digitado": cpf_digitado, "erro": erro})
+
+
+def recuperar_senha_codigo_view(request):
+    """Etapa 2: digitar o código de 4 dígitos recebido no WhatsApp."""
+    if request.user.is_authenticated:
+        return redirect("core:inicio")
+    sessao = request.session.get("recup")
+    if not sessao or not sessao.get("user_id"):
+        messages.info(request, "Comece informando o seu CPF.")
+        return redirect("core:recuperar_senha")
+    if _recup_expirado(sessao):
+        request.session.pop("recup", None)
+        messages.error(request, "O código expirou. Peça um novo.")
+        return redirect("core:recuperar_senha")
+
+    erro = None
+    if request.method == "POST":
+        codigo = _so_digitos(request.POST.get("codigo"))
+        if check_password(codigo, sessao["codigo_hash"]):
+            sessao["validado"] = True
+            request.session["recup"] = sessao
+            request.session.modified = True
+            return redirect("core:recuperar_senha_nova")
+        sessao["tentativas"] = int(sessao.get("tentativas", 0)) + 1
+        request.session["recup"] = sessao
+        request.session.modified = True
+        if sessao["tentativas"] >= RECUP_MAX_TENTATIVAS:
+            request.session.pop("recup", None)
+            messages.error(request, "Muitas tentativas. Peça um novo código.")
+            return redirect("core:recuperar_senha")
+        restantes = RECUP_MAX_TENTATIVAS - sessao["tentativas"]
+        erro = f"Código incorreto. Você ainda tem {restantes} tentativa{'s' if restantes != 1 else ''}."
+
+    contexto = {"erro": erro, "mascara": _mascara_telefone(sessao.get("telefone", ""))}
+    return render(request, "core/recuperar_codigo.html", contexto)
+
+
+@require_POST
+def recuperar_senha_reenviar_view(request):
+    """Reenvia o código (respeitando a espera mínima entre reenvios)."""
+    sessao = request.session.get("recup")
+    if not sessao or not sessao.get("user_id"):
+        return redirect("core:recuperar_senha")
+    try:
+        ultimo = datetime.datetime.fromisoformat(sessao.get("reenviado_em"))
+        espera = (timezone.now() - ultimo).total_seconds()
+    except (ValueError, TypeError):
+        espera = RECUP_REENVIO_ESPERA
+    if espera < RECUP_REENVIO_ESPERA:
+        messages.info(request, f"Aguarde {int(RECUP_REENVIO_ESPERA - espera)}s para reenviar.")
+        return redirect("core:recuperar_senha_codigo")
+    usuario = User.objects.filter(pk=sessao["user_id"]).first()
+    if usuario is None:
+        request.session.pop("recup", None)
+        return redirect("core:recuperar_senha")
+    ok, resultado = _recup_gerar_e_enviar(usuario, sessao["telefone"])
+    if not ok:
+        messages.error(request, resultado)
+        return redirect("core:recuperar_senha_codigo")
+    request.session["recup"] = resultado
+    messages.success(request, f"Novo código enviado para o WhatsApp {_mascara_telefone(sessao['telefone'])}.")
+    return redirect("core:recuperar_senha_codigo")
+
+
+def recuperar_senha_nova_view(request):
+    """Etapa 3: definir a nova senha (2x). Só após validar o código."""
+    if request.user.is_authenticated:
+        return redirect("core:inicio")
+    sessao = request.session.get("recup")
+    if not sessao or not sessao.get("validado"):
+        messages.info(request, "Valide o código antes de definir a nova senha.")
+        return redirect("core:recuperar_senha")
+    if _recup_expirado(sessao):
+        request.session.pop("recup", None)
+        messages.error(request, "A sessão expirou. Recomece a recuperação.")
+        return redirect("core:recuperar_senha")
+
+    erro = None
+    if request.method == "POST":
+        s1 = request.POST.get("senha1") or ""
+        s2 = request.POST.get("senha2") or ""
+        if len(s1) < 6:
+            erro = "A senha deve ter pelo menos 6 caracteres."
+        elif s1 != s2:
+            erro = "As duas senhas não coincidem."
+        else:
+            usuario = User.objects.filter(pk=sessao["user_id"]).first()
+            if usuario is None:
+                request.session.pop("recup", None)
+                messages.error(request, "Conta não encontrada. Recomece a recuperação.")
+                return redirect("core:recuperar_senha")
+            usuario.set_password(s1)
+            usuario.save(update_fields=["password"])
+            # Se a conta exigia troca obrigatória (ajudante), já foi resolvida.
+            perfil = getattr(usuario, "perfil", None)
+            if perfil is not None and perfil.precisa_trocar_senha:
+                perfil.precisa_trocar_senha = False
+                perfil.save(update_fields=["precisa_trocar_senha"])
+            request.session.pop("recup", None)
+            messages.success(request, "Senha redefinida! Faça login com a nova senha.")
+            return redirect("core:login")
+
+    return render(request, "core/recuperar_nova_senha.html", {"erro": erro})
+
+
+@diretor_required
+@require_POST
+def usuario_principal_view(request, conta_id):
+    """Define qual WhatsApp (pai/mãe/resp legal) é o principal da conta — para onde
+    o código de recuperação será enviado. Acionado pelo Diretor na tela Usuários."""
+    usuario = get_object_or_404(User, pk=conta_id)
+    origem = (request.POST.get("origem") or "").strip()
+    validas = {"pai", "mae", "resp", ""}
+    if origem not in validas:
+        messages.error(request, "Opção de WhatsApp inválida.")
+        return redirect("core:usuarios")
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=usuario)
+    perfil.whatsapp_principal_origem = origem
+    perfil.save(update_fields=["whatsapp_principal_origem"])
+    messages.success(request, "WhatsApp principal atualizado.")
+    return redirect("core:usuarios")
 

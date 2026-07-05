@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Digite o código - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <link rel="stylesheet" href="{% static 'css/recuperar.css' %}">
+</head>
+<body>
+    <main class="tela-login">
+        <section class="card-login" aria-label="Digite o código">
+            <div class="card-topo">
+                <div class="logo-caixa">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="logo"
+                         onerror="this.style.display='none'; this.parentNode.classList.add('sem-logo');">
+                    <span class="logo-placeholder" aria-hidden="true">CA</span>
+                </div>
+                <h1 class="titulo">Digite o código</h1>
+                <p class="subtitulo">Enviamos um código para o WhatsApp {{ mascara }}</p>
+            </div>
+
+            <ol class="recup-passos" aria-label="Etapas">
+                <li class="feito">CPF</li>
+                <li class="atual">Código</li>
+                <li>Nova senha</li>
+            </ol>
+
+            {% include "core/_recup_avisos.html" %}
+            {% if erro %}<div class="aviso-login" role="alert">{{ erro }}</div>{% endif %}
+
+            <form class="form-login" method="post" action="{% url 'core:recuperar_senha_codigo' %}" novalidate>
+                {% csrf_token %}
+                <div class="campo">
+                    <label for="codigo">Código de 4 dígitos</label>
+                    <input type="text" id="codigo" name="codigo" class="campo-codigo" inputmode="numeric"
+                           autocomplete="one-time-code" maxlength="4" pattern="[0-9]*"
+                           placeholder="0000" required autofocus>
+                    <small class="recup-ajuda">Confira a mensagem no seu WhatsApp. O código vale por 10 minutos.</small>
+                </div>
+                <button type="submit" class="botao-entrar">Confirmar código</button>
+            </form>
+
+            <form method="post" action="{% url 'core:recuperar_senha_reenviar' %}" class="recup-reenviar-form">
+                {% csrf_token %}
+                <button type="submit" class="recup-reenviar">Não recebi — reenviar código</button>
+            </form>
+            <a href="{% url 'core:recuperar_senha' %}" class="link-esqueci">Usar outro CPF</a>
+        </section>
+        <footer class="rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </main>
+</body>
+</html>
