@@ -302,9 +302,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (parser do extrato + matcher + Artifact de revisão), sem comando versionado (conciliação é manual). Os
   **extratos bancários** (`EXTRATOS/`) são dados financeiros e **não** vão ao Git (`.gitignore`). Também
   migrados os **9 custos** do evento (R$ 4.723,50) com nome/valor/data — **Resultado do acampamento =
-  −R$ 126,09**. Os **arquivos dos comprovantes não vieram no export** (só as assinaturas); cada custo
-  guarda na descrição o nome do comprovante original, para anexar quando os arquivos forem obtidos (estão
-  no servidor do sistema antigo). Próximo: anexar comprovantes + migrar os demais eventos, um a um.
+  −R$ 126,09** — e os **9 comprovantes anexados** (contrato da chácara, invoices, fotos das compras),
+  trazidos do export atualizado ("com_arquivos") e copiados para `media/eventos/custos/` (git-ignored).
+  Próximo: migrar os demais eventos, um a um.
 - **Perfis de acesso** (grupos nativos do Django): **Diretor, Responsável, Professor, Tesoureiro,
   Secretário**. Conceito: "Diretoria" é o grupo de integrantes do clube (diretor, secretário,
   tesoureiro, professor); "Responsável" é o lado dos pais. Uma pessoa pode ter os dois lados e

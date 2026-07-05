@@ -52,12 +52,13 @@ casos de pagamento parcial confirmados com o usuário antes da importação.
 - Migrados os **9 custos** do evento 7 (nome, valor, data): Aluguel chácara R$ 2.000, comidas, lonas,
   pó de festa, pão, produtos vegetarianos, etc. — **total R$ 4.723,50**. Com isso o **Resultado do
   acampamento = R$ 4.597,41 − R$ 4.723,50 = −R$ 126,09**.
-- **Comprovantes**: os arquivos **não vieram no export** (só as assinaturas médicas foram incluídas em
-  `arquivos/`). Cada custo guarda na descrição o nome do arquivo original ("...a anexar: <arquivo>") para
-  anexar quando os arquivos forem obtidos do servidor do sistema antigo.
+- **Comprovantes**: no primeiro export **não vieram** (só as assinaturas). O usuário **reexportou com
+  arquivos** (`exportacao_migracao_..._com_arquivos.zip`, com `arquivos/media/eventos/custos/evento_7/`) e
+  os **9 comprovantes foram anexados** (casados por nome+valor), copiados para `media/eventos/custos/`
+  (git-ignored). O custo "Mini Lanterninhas" tinha 2 arquivos (screenshot + invoice); o principal
+  (screenshot) ficou no campo comprovante e o invoice também foi copiado para `media/`.
 
 ### Pendências / próximo passo
-- **Anexar os comprovantes** dos custos (quando os arquivos forem trazidos do servidor antigo).
 - Migrar os **demais eventos** do sistema antigo (mesmo processo, um a um). Vínculo
   `Inscricao.usuario`→conta migrada não foi feito (histórico); dá para casar por nome/CPF se necessário.
 
