@@ -276,18 +276,18 @@ a.tipo-card:hover {
     padding: 10px 16px;
     font-size: 0.95rem;
     font-weight: 700;
-    color: var(--texto-suave);
+    color: var(--azul);
     cursor: pointer;
     border-radius: 10px 10px 0 0;
     border-bottom: 3px solid transparent;
     margin-bottom: -2px;
     transition: color var(--transicao), border-color var(--transicao), background var(--transicao);
 }
-.painel-aba:hover { color: var(--azul); background: rgba(74, 144, 217, 0.08); }
-.painel-aba.ativa { color: var(--azul-escuro); border-bottom-color: var(--verde); }
-/* Abas de ação (links p/ páginas próprias: balcão, operadores) — mesmo estilo,
-   sem sublinhado; separadas visualmente das abas de seção. */
-.painel-aba-acao { text-decoration: none; color: var(--azul); }
+.painel-aba:hover { color: var(--azul-escuro); background: rgba(74, 144, 217, 0.08); }
+.painel-aba.ativa { color: var(--azul-escuro); border-bottom-color: var(--verde); background: rgba(74, 144, 217, 0.07); }
+/* Abas de ação (links p/ páginas próprias: balcão, operadores) — mesmo estilo das
+   demais (ícone + cor); sem sublinhado; separadas por uma margem. */
+.painel-aba-acao { text-decoration: none; }
 .painel-aba-acao:first-of-type { margin-left: 10px; }
 
 .painel-secao[hidden] { display: none; }

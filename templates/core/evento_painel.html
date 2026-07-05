@@ -71,11 +71,11 @@
 
                 <!-- Abas do painel -->
                 <nav class="painel-abas" role="tablist">
-                    <button class="painel-aba ativa" data-aba="resumo" type="button">Resumo</button>
-                    <button class="painel-aba" data-aba="inscricoes" type="button">Inscrições</button>
-                    <button class="painel-aba" data-aba="lojinha" type="button">Lojinha</button>
-                    <button class="painel-aba" data-aba="custos" type="button">Custos</button>
-                    <button class="painel-aba" data-aba="financeiro" type="button">Financeiro</button>
+                    <button class="painel-aba ativa" data-aba="resumo" type="button"><span aria-hidden="true">📊</span> Resumo</button>
+                    <button class="painel-aba" data-aba="inscricoes" type="button"><span aria-hidden="true">🎟️</span> Inscrições</button>
+                    <button class="painel-aba" data-aba="lojinha" type="button"><span aria-hidden="true">🛒</span> Lojinha</button>
+                    <button class="painel-aba" data-aba="custos" type="button"><span aria-hidden="true">💸</span> Custos</button>
+                    <button class="painel-aba" data-aba="financeiro" type="button"><span aria-hidden="true">📈</span> Financeiro</button>
                     {% comment %}Abas de ação: abrem páginas próprias (balcão/operadores).{% endcomment %}
                     <a href="{% url 'core:evento_pdv' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">🧾</span> Vender no balcão</a>
                     <a href="{% url 'core:evento_operadores' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">👥</span> Operadores</a>

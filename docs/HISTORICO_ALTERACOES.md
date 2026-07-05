@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Barra de abas do painel unificada (ícones + mesmo estilo)
+
+### Resumo
+Ajuste visual: as abas de ação ("Vender no balcão", "Operadores") destoavam das abas de seção (tinham
+ícone e cor diferente). A pedido do usuário, **todas as abas ficaram no mesmo estilo, com ícone**:
+Resumo 📊 · Inscrições 🎟️ · Lojinha 🛒 · Custos 💸 · Financeiro 📈 · Vender no balcão 🧾 · Operadores 👥.
+Cor base **azul** para todas; a **aba de seção ativa** ganha **sublinhado verde + fundo suave** (as de
+ação, que navegam, não têm estado ativo).
+
+### Arquivos alterados
+- `templates/core/evento_painel.html`: ícone (`<span aria-hidden>`) nas 5 abas de seção.
+- `static/css/eventos.css`: `.painel-aba` cor base → `--azul`; `.ativa` com fundo suave; `.painel-aba-acao`
+  perdeu a cor especial (herda a base) — só mantém `text-decoration:none` + a margem separadora.
+
+### Validação
+- `manage.py check` OK. Visual (Chrome headless, desktop e mobile): as 7 abas com ícone, mesmo estilo; a
+  ativa destacada (sublinhado verde). No mobile quebram em linhas mantendo a consistência.
+
+---
+
 ## 2026-07-04 - Reorganização do painel — Etapa 4/4: cards clicáveis no Resumo (conclui a reorg)
 
 ### Resumo

@@ -2,11 +2,10 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Reorganização do painel — Etapa 4/4 (CONCLUI a reorg)**: no
-**Resumo**, os cards de KPI viraram **clicáveis** (caret ▾) — clicar abre, abaixo, uma **lista simples**
-(uma por vez, accordion): Inscritos → responsável+participantes; Arrecadação → quem pagou e quanto;
-Vendas/Receitas/Custos → um por linha. Resultado não é clicável. **Reorganização do painel completa
-(abas em Inscrições/Lojinha, Balcão/Operadores no topo, cards clicáveis no Resumo).**)
+**Última atualização:** 2026-07-04 (**Barra de abas do painel unificada**: todas as abas (Resumo,
+Inscrições, Lojinha, Custos, Financeiro + Vender no balcão, Operadores) agora têm **ícone** e o **mesmo
+estilo** (azul, ativa com sublinhado verde + fundo suave) — antes as de ação destoavam. Antes: reorg
+completa (etapas 1–4): abas em Inscrições/Lojinha, Balcão/Operadores no topo, cards clicáveis no Resumo)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
