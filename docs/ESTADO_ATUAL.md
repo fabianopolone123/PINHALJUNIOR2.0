@@ -2,13 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Recuperação de senha pelo WhatsApp**: o link **"Esqueci minha
-senha"** funciona. Fluxo público em 3 etapas (sessão): **CPF** do responsável legal → envia **código de
-4 dígitos** para o **WhatsApp principal** da conta → digita o código (5 tentativas, expira em 10 min,
-reenvio com espera de 60 s) → **nova senha** (2×). Código guardado **com hash** na sessão; destino sempre
-**mascarado**. Em **Usuários** (Diretor) há o controle **"WhatsApp principal"** (pai/mãe/resp legal;
-padrão = responsável legal) por conta — campo `PerfilUsuario.whatsapp_principal_origem` (mig. **0020**).
-Rotas `/recuperar-senha/…` e `/usuarios/conta/<id>/principal/`. Antes: Módulo WhatsApp (W-API))
+**Última atualização:** 2026-07-05 (**Recuperação de senha pelo WhatsApp** + notificações/AJAX): o link
+**"Esqueci minha senha"** funciona. Fluxo público em 3 etapas (sessão): **CPF** do responsável legal →
+envia **código de 4 dígitos** para o **WhatsApp principal** da conta → digita o código (5 tentativas,
+expira em 10 min, reenvio com espera de 60 s) → **nova senha** (2×). Código guardado **com hash** na
+sessão; destino sempre **mascarado**. Em **Usuários** (Diretor) há o controle **"WhatsApp principal"**
+(pai/mãe/resp legal; padrão = responsável legal) por conta — campo `PerfilUsuario.whatsapp_principal_origem`
+(mig. **0020**). Rotas `/recuperar-senha/…` e `/usuarios/conta/<id>/principal/`.
+**Refinamentos (mesmo dia):** todas as notificações usam o **toast padrão** (o CSS do toast foi para o
+`base.css`; o **login** também virou toast); os formulários de **login e recuperação** enviam por **AJAX**
+(`static/js/ajax_form.js` + `form[data-ajax-toast]`), então **erro repete o toast sem recarregar** a
+página (contrato JSON `{"redirect":url}` ou `{"msg","tipo"}`; helpers `_eh_ajax`/`_ajax_redirect`/
+`_ajax_toast`); corrigido um **vazamento de `messages`** (login passou a renderizar `messages`). Antes:
+Módulo WhatsApp (W-API))
 
 **Anterior:** (**Módulo WhatsApp (W-API)**: novo item **"WhatsApp"** (💬) no menu
 (**só Diretor**). Tela `/whatsapp/` com duas seções: **Configuração da instância** (ID da instância,
