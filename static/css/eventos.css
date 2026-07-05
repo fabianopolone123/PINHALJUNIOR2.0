@@ -284,33 +284,48 @@ a.tipo-card:hover {
     margin-top: 8px;
 }
 
-/* Abas */
+/* Abas — agrupadas num card (toolbar) para deixar claro que são os botões do
+   painel. A aba de seção ativa fica preenchida; as abas de ação (links para
+   páginas próprias) ficam separadas por um divisor. */
 .painel-abas {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    border-bottom: 2px solid var(--borda);
-    margin: 18px 0 20px;
+    align-items: center;
+    gap: 4px;
+    margin: 18px 0 22px;
+    padding: 6px;
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(15, 76, 129, 0.06);
 }
 .painel-aba {
     border: none;
     background: transparent;
-    padding: 10px 16px;
-    font-size: 0.95rem;
+    padding: 9px 14px;
+    font-size: 0.92rem;
     font-weight: 700;
     color: var(--azul);
     cursor: pointer;
-    border-radius: 10px 10px 0 0;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -2px;
-    transition: color var(--transicao), border-color var(--transicao), background var(--transicao);
+    border-radius: 9px;
+    transition: color var(--transicao), background var(--transicao);
 }
-.painel-aba:hover { color: var(--azul-escuro); background: rgba(74, 144, 217, 0.08); }
-.painel-aba.ativa { color: var(--azul-escuro); border-bottom-color: var(--verde); background: rgba(74, 144, 217, 0.07); }
-/* Abas de ação (links p/ páginas próprias: balcão, operadores) — mesmo estilo das
-   demais (ícone + cor); sem sublinhado; separadas por uma margem. */
-.painel-aba-acao { text-decoration: none; }
+.painel-aba:hover { color: var(--azul-escuro); background: rgba(74, 144, 217, 0.10); }
+.painel-aba.ativa { color: #fff; background: var(--azul); }
+/* Abas de ação (links p/ páginas próprias: dia do evento, balcão, operadores) —
+   mesmo estilo, sem sublinhado; um divisor as separa das abas de seção. */
+.painel-aba-acao { text-decoration: none; position: relative; }
 .painel-aba-acao:first-of-type { margin-left: 10px; }
+.painel-aba-acao:first-of-type::before {
+    content: "";
+    position: absolute;
+    left: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 60%;
+    background: var(--borda);
+}
 
 .painel-secao[hidden] { display: none; }
 
@@ -1141,6 +1156,9 @@ a.tipo-card:hover {
 .sucesso-cupom { color: #8a6d00; margin: 6px 0 0; font-weight: 600; }
 
 /* ===================== Console "Dia do evento" (Fase 5.4) ===================== */
+.dia-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 18px; }
+.dia-acoes .btn-acao, .dia-acoes .btn-secundario { margin-top: 0; }
+
 .dia-resumo {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

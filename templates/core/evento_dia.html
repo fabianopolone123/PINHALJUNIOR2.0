@@ -69,6 +69,18 @@
                      data-entrega-url="{% url 'core:evento_entrega' evento.id %}"
                      data-csrf="{{ csrf_token }}" hidden></div>
 
+                {% if pode_inscrever or pode_vender %}
+                <!-- Atalhos de balcão: vender/inscrever sem sair da tela do dia -->
+                <div class="dia-acoes">
+                    {% if pode_inscrever %}
+                    <a href="{% url 'core:evento_pdv_inscricao' evento.id %}" class="btn-acao"><span aria-hidden="true">🎟️</span> Nova inscrição (balcão)</a>
+                    {% endif %}
+                    {% if pode_vender %}
+                    <a href="{% url 'core:evento_pdv' evento.id %}" class="btn-secundario"><span aria-hidden="true">🧾</span> Vender na lojinha</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
                 <!-- Resumo do dia -->
                 <div class="dia-resumo">
                     <div class="dia-kpi">

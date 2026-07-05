@@ -2,13 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Fase 5.4d — contadores do dia no painel (encerra a Fase 5.4)**: a
-aba **Resumo** do painel ganhou um painel **"📋 Dia do evento"** com os contadores de **check-in**
-(presentes X/Y) e **retiradas** (itens entregues X/Y) + botão **"Abrir console"** (só aparece quando há
-participantes/itens). Sobre a **guarda de exclusão**: o evento **complexo** já é protegido (não exclui se
-tiver inscrições/pedidos, o que cobre qualquer presença/entrega); o evento **simples** não tem módulo de
-presença (é do complexo), então a guarda por presença em evento simples segue como item **futuro**. Antes:
-Fase 5.4c ("vai levar agora?" no balcão))
+**Última atualização:** 2026-07-05 (**Refinos de UX dos eventos**: (1) a **barra de abas do painel** virou
+um **card/toolbar** (fundo, borda, cantos arredondados), com a aba de seção ativa **preenchida** em azul e
+um **divisor** antes das abas de ação (Dia do evento / Vender no balcão / Operadores) — fica claro que são
+os botões do painel; (2) o console **"Dia do evento"** ganhou **atalhos de balcão** no topo (**Nova
+inscrição (balcão)** e **Vender na lojinha**), para o atendente vender/inscrever sem sair da tela. Também
+**confirmado** que a lojinha (botão "Comprar na loja" e seção "Quer levar algo da lojinha?") **já** só
+aparece quando há produtos ativos. Antes: Fase 5.4d (contadores do dia no painel; Fase 5.4 concluída))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -243,6 +243,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     (`dia`). **Guarda de exclusão**: o evento complexo já é protegido (não exclui com inscrições/pedidos —
     cobre presença/entrega); guarda por presença em **evento simples** fica como futuro (não há presença
     em evento simples ainda).
+  - **Atalhos de balcão no console** (refino): o topo do "Dia do evento" tem os botões **"Nova inscrição
+    (balcão)"** (`evento_pdv_inscricao`) e **"Vender na lojinha"** (`evento_pdv`) — para o atendente
+    vender/inscrever sem sair da tela. Gates: inscrição enquanto o evento não terminou; venda quando a loja
+    está aberta e há produtos ativos (contexto `pode_inscrever`/`pode_vender`).
+  - **Barra de abas em card** (refino): a `.painel-abas` virou um card/toolbar (fundo/borda/cantos), aba de
+    seção ativa **preenchida** em azul e **divisor** antes das abas de ação — deixa claro que são os botões
+    do painel.
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==

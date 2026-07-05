@@ -22,6 +22,38 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Refinos de UX: abas do painel em card + atalhos de balcão no "Dia do evento"
+
+### Resumo
+Três ajustes pedidos pelo usuário:
+1. **Lojinha só quando há produtos** (verificação): confirmado que a página do evento (botão "Comprar na
+   loja", via `tem_loja`) e o formulário de inscrição (seção "Quer levar algo da lojinha?", via
+   `produtos_loja`) **já** só aparecem quando existem produtos **ativos**. Testado com um evento sem
+   produtos: nenhum dos dois aparece. Também conferido que não há produto ativo sem variação. **Sem
+   mudança de código** (já estava correto).
+2. **Barra de abas do painel em card**: a `.painel-abas` virou um **card/toolbar** (fundo branco, borda,
+   cantos arredondados, sombra leve). A aba de seção **ativa** ficou **preenchida em azul** (antes era só
+   sublinhado verde), e as **abas de ação** (Dia do evento / Vender no balcão / Operadores) ganharam um
+   **divisor** à esquerda — deixando claro que o conjunto são os botões daquele painel.
+3. **Atalhos de balcão no "Dia do evento"**: o topo do console ganhou **"Nova inscrição (balcão)"** e
+   **"Vender na lojinha"**, para o atendente vender/inscrever **sem sair da tela** (pesquisa, marca entrega
+   e vende no mesmo lugar). Gates: inscrição enquanto o evento não terminou; venda quando a loja está
+   aberta e há produtos ativos.
+
+### Arquivos alterados
+- `static/css/eventos.css`: `.painel-abas` (card), `.painel-aba`/`.ativa` (pílula preenchida),
+  `.painel-aba-acao::before` (divisor); `.dia-acoes` (linha de atalhos).
+- `templates/core/evento_dia.html`: linha de atalhos (`.dia-acoes`) com os dois botões.
+- `core/views.py`: `evento_dia_view` passa `pode_inscrever` (evento não terminou) e `pode_vender`
+  (loja aberta + produtos ativos).
+
+### Validação
+- `manage.py check` OK. Teste (test client): evento sem produtos → "Comprar na loja"/"Quer levar algo da
+  lojinha?" **ausentes**. **Visual (Chrome headless)**: abas do painel num card com "Resumo" ativo
+  preenchido e divisor antes das ações; console "Dia do evento" com os dois atalhos no topo.
+
+---
+
 ## 2026-07-05 - Evento complexo — Fase 5.4d: contadores do dia no painel (encerra a Fase 5.4)
 
 ### Resumo

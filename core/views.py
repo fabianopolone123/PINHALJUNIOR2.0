@@ -2322,6 +2322,10 @@ def evento_dia_view(request, pk):
         "inscricoes": inscricoes,
         "avulsos": avulsos,
         "resumo_dia": _resumo_dia(evento),
+        # Atalhos de balcão (mesma tela): inscrição enquanto o evento não terminou;
+        # venda quando a loja está aberta e há produtos ativos.
+        "pode_inscrever": not evento.ja_terminou(),
+        "pode_vender": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
     }
     return render(request, "core/evento_dia.html", contexto)
 
