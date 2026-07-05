@@ -116,6 +116,9 @@ urlpatterns = [
         views.evento_campo_mover_view,
         name="evento_campo_mover",
     ),
+    path("presenca/", views.presenca_view, name="presenca"),
+    path("presenca/<int:pk>/", views.presenca_evento_view, name="presenca_evento"),
+    path("presenca/<int:pk>/marcar/", views.presenca_marcar_view, name="presenca_marcar"),
     path("cadastro/", views.cadastro_view, name="cadastro"),
     path(
         "cadastro/novo-aventureiro/",

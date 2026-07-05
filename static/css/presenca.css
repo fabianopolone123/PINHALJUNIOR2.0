@@ -1,0 +1,83 @@
+/* =========================================================
+   Módulo Presença — seletor de evento + folha de presença.
+   Complementa base.css / inicio.css / eventos.css.
+   ========================================================= */
+
+/* ----- Seletor de evento ----- */
+.pres-eventos { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.pres-evento-card {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 16px 18px; text-decoration: none;
+    background: var(--branco, #fff); border: 1px solid var(--borda, #e2e8f0);
+    border-radius: 14px; box-shadow: 0 3px 10px rgba(15, 76, 129, 0.06);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.pres-evento-card:hover {
+    transform: translateY(-2px); border-color: var(--azul-claro);
+    box-shadow: 0 8px 20px rgba(15, 76, 129, 0.12);
+}
+.pres-evento-nome { font-weight: 800; color: var(--azul-escuro); font-size: 1.05rem; }
+.pres-evento-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 0.88rem; color: var(--texto-suave); }
+.pres-evento-qtd { color: #2f7d2f; font-weight: 700; }
+
+/* ----- Resumo (contador) ----- */
+.pres-resumo {
+    margin: 4px 0 14px; padding: 10px 16px; display: inline-block;
+    background: rgba(58, 157, 58, 0.10); border: 1px solid rgba(58, 157, 58, 0.28);
+    border-radius: 12px; color: var(--texto); font-size: 0.95rem;
+}
+.pres-resumo strong { color: #2f7d2f; font-size: 1.15rem; }
+
+/* ----- Lista de aventureiros ----- */
+.pres-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pres-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px; background: var(--branco, #fff);
+    border: 1px solid var(--borda, #e2e8f0); border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(15, 76, 129, 0.05);
+}
+.pres-foto {
+    flex-shrink: 0; width: 76px; height: 96px; padding: 0;
+    border-radius: 12px; overflow: hidden; border: 2px solid rgba(15, 76, 129, 0.12);
+    background: linear-gradient(135deg, var(--azul-escuro), var(--azul));
+    display: block;
+}
+button.pres-foto-btn { cursor: pointer; transition: transform 0.1s ease, box-shadow 0.1s ease; }
+button.pres-foto-btn:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba(15, 76, 129, 0.25); }
+.pres-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pres-foto-vazia {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 1.4rem; letter-spacing: 0.03em;
+}
+.pres-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pres-nome { font-weight: 700; color: var(--azul-escuro); overflow-wrap: anywhere; }
+.pres-idade { font-size: 0.85rem; color: var(--texto-suave); }
+
+/* Botão marcar (toggle) */
+.pres-marcar {
+    flex-shrink: 0; cursor: pointer; font: inherit; font-weight: 700;
+    padding: 10px 18px; border-radius: 999px; min-width: 108px; text-align: center;
+    color: var(--azul); background: rgba(23, 105, 170, 0.10);
+    border: 1.5px solid rgba(23, 105, 170, 0.35);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.06s ease;
+}
+.pres-marcar:hover { background: rgba(23, 105, 170, 0.18); }
+.pres-marcar:active { transform: translateY(1px); }
+.pres-marcar.presente {
+    color: #fff; background: var(--verde); border-color: var(--verde);
+}
+.pres-marcar:disabled { opacity: 0.6; cursor: default; }
+
+.pres-vazio { color: var(--texto-suave); padding: 12px 0; }
+
+/* ----- Foto ampliada no modal ----- */
+.pres-modal-corpo { display: flex; justify-content: center; }
+.pres-foto-grande {
+    max-width: 100%; max-height: 70vh; border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 480px) {
+    .pres-marcar { min-width: 92px; padding: 9px 12px; }
+    .pres-foto { width: 64px; height: 84px; }
+}

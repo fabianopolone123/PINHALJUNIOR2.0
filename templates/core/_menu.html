@@ -25,9 +25,13 @@ Estado "ativo" pelo nome da URL atual.
             <span class="menu-icone" aria-hidden="true">👥</span>
             <span class="menu-texto">Usuários</span>
         </a>
-        <a href="{% url 'core:eventos' %}" class="menu-item{% if un == 'eventos' or un == 'evento_novo' or un == 'evento_complexo_novo' or un == 'evento_painel' or un == 'evento_produto_novo' or un == 'evento_produto_editar' or un == 'evento_pdv' or un == 'evento_pdv_inscricao' or un == 'evento_operadores' %} ativo{% endif %}">
+        <a href="{% url 'core:eventos' %}" class="menu-item{% if un == 'eventos' or un == 'evento_novo' or un == 'evento_complexo_novo' or un == 'evento_painel' or un == 'evento_produto_novo' or un == 'evento_produto_editar' or un == 'evento_pdv' or un == 'evento_pdv_inscricao' or un == 'evento_operadores' or un == 'evento_dia' %} ativo{% endif %}">
             <span class="menu-icone" aria-hidden="true">📅</span>
             <span class="menu-texto">Eventos</span>
+        </a>
+        <a href="{% url 'core:presenca' %}" class="menu-item{% if un == 'presenca' or un == 'presenca_evento' %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">✅</span>
+            <span class="menu-texto">Presença</span>
         </a>
         {% endif %}
         {% include "core/_menu_eventos.html" %}

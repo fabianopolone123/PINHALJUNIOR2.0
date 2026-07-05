@@ -44,6 +44,7 @@ from .models import (
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
+    PresencaEvento,
     ProdutoEvento,
     RespostaInscricao,
     VariacaoProduto,
@@ -614,10 +615,13 @@ def usuarios_view(request):
 def eventos_view(request):
     """Lista os eventos do clube. Restrito ao perfil Diretor."""
     eventos = list(Evento.objects.all())
-    # Um evento só pode ser excluído se estiver "vazio" (sem inscrições nem
-    # pedidos) — protege dados de pessoas/vendas. Ver `evento_excluir_view`.
+    # Um evento só pode ser excluído se estiver "vazio" (sem inscrições, pedidos
+    # nem presença marcada) — protege dados de pessoas/vendas/presença. Ver
+    # `evento_excluir_view`.
     for e in eventos:
-        e.pode_excluir = not (e.inscricoes.exists() or e.pedidos.exists())
+        e.pode_excluir = not (
+            e.inscricoes.exists() or e.pedidos.exists() or e.presencas.exists()
+        )
     return render(request, "core/eventos.html", {"eventos": eventos})
 
 
@@ -625,16 +629,16 @@ def eventos_view(request):
 @require_POST
 def evento_excluir_view(request, pk):
     """Exclui um evento (Diretor), **apenas se estiver vazio** — sem nenhuma
-    inscrição e sem nenhum pedido da lojinha. Assim é possível apagar eventos de
-    teste/erro sem risco de destruir dados de pessoas ou de vendas. A exclusão
-    remove em cascata os dados de configuração do evento (custos, produtos,
-    faixas, campos e operadores)."""
+    inscrição, pedido da lojinha ou **presença marcada**. Assim é possível apagar
+    eventos de teste/erro sem risco de destruir dados de pessoas, vendas ou
+    presença. A exclusão remove em cascata os dados de configuração do evento
+    (custos, produtos, faixas, campos e operadores)."""
     evento = get_object_or_404(Evento, pk=pk)
-    if evento.inscricoes.exists() or evento.pedidos.exists():
+    if evento.inscricoes.exists() or evento.pedidos.exists() or evento.presencas.exists():
         messages.error(
             request,
-            "Não é possível excluir: este evento já tem inscrições ou pedidos. "
-            "Ele é mantido para preservar esses dados.",
+            "Não é possível excluir: este evento já tem inscrições, pedidos ou "
+            "presença marcada. Ele é mantido para preservar esses dados.",
         )
         return redirect("core:eventos")
     nome = evento.nome
@@ -2590,6 +2594,65 @@ def evento_custo_excluir_view(request, pk, custo_id):
         custo.delete()
         messages.success(request, "Custo removido.")
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#custos")
+
+
+# ---------------------------------------------------------------------------
+# Presença do clube: marca quais aventureiros estiveram num evento. Restrito ao
+# Diretor. Independente do check-in de inscrição do evento complexo.
+# ---------------------------------------------------------------------------
+@diretor_required
+def presenca_view(request):
+    """Passo 1: escolher o evento para marcar presença (lista de eventos)."""
+    eventos = list(Evento.objects.all())
+    for e in eventos:
+        e.qtd_presentes = e.presencas.count()
+    return render(request, "core/presenca_selecionar.html", {"eventos": eventos})
+
+
+@diretor_required
+def presenca_evento_view(request, pk):
+    """Passo 2: lista de todos os aventureiros do clube para marcar presença
+    naquele evento (com foto grande e toggle presente/ausente)."""
+    evento = Evento.objects.filter(pk=pk).first()
+    if evento is None:
+        messages.info(request, "Esse evento não existe mais.")
+        return redirect("core:presenca")
+    aventureiros = list(Aventureiro.objects.all().order_by("nome_completo"))
+    presentes_ids = set(
+        evento.presencas.values_list("aventureiro_id", flat=True)
+    )
+    for av in aventureiros:
+        av.foto_ok = _foto_valida(av)
+        av.iniciais = _iniciais(av.nome_completo)
+        av.idade = _idade(av.data_nascimento)
+        av.presente = av.id in presentes_ids
+    contexto = {
+        "evento": evento,
+        "aventureiros": aventureiros,
+        "total": len(aventureiros),
+        "presentes": len(presentes_ids),
+    }
+    return render(request, "core/presenca_evento.html", contexto)
+
+
+@diretor_required
+@require_POST
+def presenca_marcar_view(request, pk):
+    """Marca/desmarca a presença de um aventureiro no evento (JSON, sem recarregar)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    av = Aventureiro.objects.filter(pk=request.POST.get("aventureiro")).first()
+    if av is None:
+        return JsonResponse({"ok": False, "erro": "Aventureiro não encontrado."}, status=404)
+    presente = request.POST.get("presente") == "1"
+    if presente:
+        PresencaEvento.objects.get_or_create(
+            evento=evento, aventureiro=av, defaults={"marcado_por": request.user}
+        )
+    else:
+        evento.presencas.filter(aventureiro=av).delete()
+    return JsonResponse({
+        "ok": True, "presente": presente, "presentes": evento.presencas.count(),
+    })
 
 
 def cadastro_sucesso_view(request):

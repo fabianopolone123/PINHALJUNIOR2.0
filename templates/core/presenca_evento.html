@@ -1,0 +1,124 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Presença — {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/presenca.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Presença</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:presenca' %}" class="voltar-link">← Trocar de evento</a>
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">{{ evento.nome }}</h1>
+                    <p class="cabecalho-sub">Marque quem está presente. Toque na foto para ampliar.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div id="presDados"
+                     data-marcar-url="{% url 'core:presenca_marcar' evento.id %}"
+                     data-csrf="{{ csrf_token }}" hidden></div>
+
+                <div class="pres-resumo">
+                    <span aria-hidden="true">✅</span> Presentes:
+                    <strong id="presCount">{{ presentes }}</strong> de {{ total }}
+                </div>
+
+                {% if aventureiros %}
+                <div class="busca-box">
+                    <svg class="busca-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="search" id="buscaPres" class="busca-input" placeholder="Buscar aventureiro pelo nome…" autocomplete="off">
+                </div>
+
+                <ul class="pres-lista">
+                    {% for av in aventureiros %}
+                    <li class="pres-item pres-busca">
+                        {% if av.foto_ok %}
+                        <button type="button" class="pres-foto pres-foto-btn" data-foto="{{ av.foto.url }}" data-nome="{{ av.nome_completo }}" aria-label="Ampliar foto de {{ av.nome_completo }}">
+                            <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome_completo }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                            <span class="pres-foto-vazia" style="display:none">{{ av.iniciais }}</span>
+                        </button>
+                        {% else %}
+                        <span class="pres-foto"><span class="pres-foto-vazia" title="Sem foto">{{ av.iniciais }}</span></span>
+                        {% endif %}
+                        <div class="pres-info">
+                            <span class="pres-nome">{{ av.nome_completo }}</span>
+                            {% if av.idade is not None %}<span class="pres-idade">{{ av.idade }} anos</span>{% endif %}
+                        </div>
+                        <button type="button" class="pres-marcar{% if av.presente %} presente{% endif %}" data-av="{{ av.id }}" aria-pressed="{% if av.presente %}true{% else %}false{% endif %}">
+                            <span class="pres-marcar-txt">{% if av.presente %}✅ Presente{% else %}Marcar{% endif %}</span>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p id="presVazio" class="pres-vazio" hidden>Nenhum aventureiro encontrado.</p>
+                {% else %}
+                <p class="pres-vazio">Nenhum aventureiro cadastrado no clube ainda.</p>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: foto ampliada do aventureiro -->
+    <div class="modal-overlay" id="fotoModal" hidden>
+        <div class="modal-caixa">
+            <div class="modal-topo">
+                <span class="modal-titulo" id="fotoModalTitulo"></span>
+                <button type="button" class="modal-fechar" id="fotoModalFechar" aria-label="Fechar">✕</button>
+            </div>
+            <div class="modal-corpo pres-modal-corpo">
+                <img id="fotoModalImg" src="" alt="" class="pres-foto-grande">
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/presenca.js' %}"></script>
+</body>
+</html>

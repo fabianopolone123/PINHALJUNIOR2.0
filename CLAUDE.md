@@ -42,9 +42,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 ## Models (`core/models.py`)
 - `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal). Um usuário → vários.
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne).
-- **Eventos/Lojinha**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
+- **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
-  `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario` (migrations até `0013`). Detalhes em ESTADO_ATUAL.
+  `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`
+  (migrations até `0017`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

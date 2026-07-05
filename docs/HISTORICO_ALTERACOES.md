@@ -22,6 +22,47 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Módulo Presença do clube (+ guarda de exclusão por presença)
+
+### Resumo
+Novo módulo **Presença** (item no menu, Diretor), para marcar quais aventureiros do clube estiveram num
+evento — pensado para **eventos simples** (reuniões, eventos fora), mas funciona para qualquer evento. É
+**independente** do check-in de inscrição do evento complexo (`ParticipanteInscricao.presente`).
+
+Fluxo (como no sistema antigo, com melhorias):
+1. **Escolher o evento** (lista dos eventos cadastrados).
+2. **Folha de presença**: lista de **todos os aventureiros** do clube, cada um com **foto grande**, nome +
+   idade e um botão **Marcar** (toggle **presente ↔ ausente**, sem recarregar). Contador "presentes X de Y"
+   ao vivo e **busca** por nome.
+3. **Clicar na foto** abre a **foto ampliada** num modal (para conferir a pessoa no dia).
+
+Também foi **ativada a guarda de exclusão** pendente da Fase 5.4: um evento com **presença marcada** não
+pode mais ser excluído (junto de inscrições/pedidos).
+
+### Arquivos criados/alterados
+- `core/models.py`: model **`PresencaEvento`** (evento, aventureiro, marcado_em/por; `unique_together`;
+  existência = presente). Migration **`0017`**.
+- `core/views.py`: `presenca_view` (escolher evento), `presenca_evento_view` (folha), `presenca_marcar_view`
+  (POST JSON toggle). `eventos_view`/`evento_excluir_view` passam a considerar `presencas` na guarda de
+  exclusão. Import de `PresencaEvento`.
+- `core/urls.py`: rotas `presenca`, `presenca_evento`, `presenca_marcar`.
+- `templates/core/presenca_selecionar.html` e `presenca_evento.html` (novos); `_menu.html` (item
+  "Presença", Diretor).
+- `static/js/presenca.js` (novo: toggle fetch/JSON + modal da foto + busca). `static/css/presenca.css` (novo).
+
+### Validação
+- `manage.py check` OK; `migrate` aplicado. Teste (test client, Diretor): seletor 200; folha 200 (lista +
+  modal); marcar → cria registro (presentes=1); desmarcar → remove (presentes=0); **guarda de exclusão**:
+  evento com presença → `pode_excluir` False e POST excluir **bloqueado** (evento preservado). Registros de
+  teste removidos. Visual do seletor conferido (headless); a folha **não** foi capturada para não expor
+  fotos reais de menores (validada funcionalmente).
+
+### Pendências / próximo passo
+- (Opcional) abrir a presença a outros perfis além do Diretor. Migrar os eventos "Reunião do Clube" (2/4/5)
+  do sistema antigo, onde a presença será usada.
+
+---
+
 ## 2026-07-05 - Correção da migração do "Passaporte" (conferência com o relatório do sistema antigo)
 
 ### Resumo

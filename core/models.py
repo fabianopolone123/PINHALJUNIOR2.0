@@ -1077,3 +1077,45 @@ class CupomDesconto(models.Model):
             codigo = "D" + "".join(random.choices(alfabeto, k=5))
             if not CupomDesconto.objects.filter(codigo=codigo).exists():
                 return codigo
+
+
+class PresencaEvento(models.Model):
+    """Presença de um aventureiro do clube num evento (módulo Presença).
+
+    A **existência** do registro significa "presente" (marcar/desmarcar cria/
+    remove a linha). É o registro de **presença do clube** — usado principalmente
+    em eventos simples (reuniões, etc.) — e é **independente** do check-in de
+    inscrição do evento complexo (`ParticipanteInscricao.presente`), que é
+    operacional. Um evento com presença marcada não pode ser excluído.
+    """
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="presencas",
+        verbose_name="Evento",
+    )
+    aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.CASCADE,
+        related_name="presencas",
+        verbose_name="Aventureiro",
+    )
+    marcado_em = models.DateTimeField("Marcado em", auto_now_add=True)
+    marcado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="presencas_marcadas",
+        verbose_name="Marcado por",
+    )
+
+    class Meta:
+        verbose_name = "Presença"
+        verbose_name_plural = "Presenças"
+        unique_together = [("evento", "aventureiro")]
+        ordering = ["-marcado_em"]
+
+    def __str__(self):
+        return f"{self.aventureiro.nome_completo} @ {self.evento.nome}"

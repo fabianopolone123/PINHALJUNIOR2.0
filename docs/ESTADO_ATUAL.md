@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Refinos de UX dos eventos**: (1) a **barra de abas do painel** virou
+**Última atualização:** 2026-07-05 (**Módulo Presença do clube**: novo item **"Presença"** no menu
+(Diretor) → escolhe o **evento** → **lista de todos os aventureiros** do clube com **foto grande** e botão
+**Marcar** (toggle presente/ausente, sem recarregar); **clicar na foto** abre a foto ampliada num **modal**.
+Busca em tempo real e contador "presentes X de Y". É **independente** do check-in de inscrição do evento
+complexo. Model `PresencaEvento` (existência = presente; mig. **0017**). Também **ativada a guarda de
+exclusão**: evento com **presença marcada** não pode ser excluído (fecha o item pendente da Fase 5.4).
+Antes: Refinos de UX dos eventos)
+
+**Anterior:** (**Refinos de UX dos eventos**: (1) a **barra de abas do painel** virou
 um **card/toolbar** (fundo, borda, cantos arredondados), com a aba de seção ativa **preenchida** em azul e
 um **divisor** antes das abas de ação (Dia do evento / Vender no balcão / Operadores) — fica claro que são
 os botões do painel; (2) o console **"Dia do evento"** ganhou **atalhos de balcão** no topo (**Nova
@@ -73,9 +81,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   data, horário de início e término. Cada evento na lista tem um botão **Duplicar** que abre o
   formulário já preenchido com aquele evento (`?duplicar=<id>`), para recadastrar algo recorrente
   mudando só a data/horário. Menu "Eventos" aparece só para o diretor. Cada evento tem também um botão
-  **Excluir** (🗑️) que aparece **apenas quando o evento está "vazio"** (sem nenhuma inscrição e sem
-  nenhum pedido); a exclusão pede **confirmação** e mostra **toast**. Eventos com inscrições/pedidos
-  **não** têm o botão (são preservados). A view (`evento_excluir_view`, POST) revalida a regra no
+  **Excluir** (🗑️) que aparece **apenas quando o evento está "vazio"** (sem nenhuma inscrição, sem
+  nenhum pedido **e sem presença marcada**); a exclusão pede **confirmação** e mostra **toast**. Eventos
+  com inscrições/pedidos/presença **não** têm o botão (são preservados). A view (`evento_excluir_view`, POST) revalida a regra no
   servidor e a exclusão remove em cascata a configuração do evento (custos, produtos, faixas, campos,
   operadores).
 - **Evento complexo (com inscrição) — Fase 1**: no modal de "Criar evento", a opção **"Evento com
@@ -391,6 +399,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   usado, FK **`participante`** opcional = quem usou, `usado_por`, `valor_desconto`, `usado_em`,
   `criado_por`; property `usado`). Uso único; aplica em **1 participante** (o que o usuário escolher,
   digitando o código na linha dele). Migrations `0014` (base) e **`0015`** (`faixa` + `participante`).
+- `PresencaEvento` — presença de um **aventureiro** do clube num **evento** (FK `evento` related_name
+  `presencas`, FK `aventureiro`, `marcado_em`, `marcado_por`; `unique_together` evento+aventureiro). A
+  **existência do registro = presente**. Independente do check-in de inscrição do evento complexo. Usado
+  pelo módulo **Presença** e pela **guarda de exclusão** de eventos. Migration **0017**.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -442,6 +454,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/evento_operar.html` (landing do operador), `evento_operadores.html` (gerência) e `trocar_senha.html`
 - `templates/core/evento_dia.html` (console "Dia do evento": check-in + retirada) e `_dia_entrega.html`
   (parcial: controle de retirada por unidade de um item — selo clicável + stepper)
+- `templates/core/presenca_selecionar.html` (escolher evento) e `presenca_evento.html` (folha de presença:
+  lista de aventureiros com foto + marcar + modal da foto ampliada)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -461,6 +475,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/css/inicio.css`
 - `static/css/cadastro.css`
 - `static/css/usuarios.css` (complementa `inicio.css` na tela "Usuários")
+- `static/css/presenca.css` — módulo Presença (seletor de evento, folha com foto grande + botão marcar,
+  foto ampliada no modal)
 
 ## Arquivos JavaScript existentes
 - `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
@@ -494,6 +510,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_dia.js` — console "Dia do evento": busca em tempo real (responsável/participante/
   código) + **ações de marcar** (check-in por participante e entrega por unidade via fetch/JSON com
   `X-CSRFToken`, atualização inline dos selos/stepper e do resumo do dia).
+- `static/js/presenca.js` — módulo Presença: marcar/desmarcar (fetch/JSON + `X-CSRFToken`, atualiza botão e
+  contador), **modal da foto** ampliada e busca em tempo real.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -530,6 +548,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/inscricoes/campo/novo/`, `.../campo/<id>/excluir/` e `.../campo/<id>/mover/` — adicionar/remover/reordenar campo do formulário (POST).
 - `/eventos/<id>/descontos/novo/` e `/eventos/<id>/descontos/<id>/excluir/` — gerar (com quantidade/faixa) / remover cupom de desconto (POST, Diretor).
 - `/eventos/<id>/cupom/validar/` — validação **ao vivo** de um cupom para um participante (GET, JSON; não grava) (`core:evento_cupom_validar`).
+- `/presenca/` — módulo Presença: escolher o evento (Diretor) (`core.views.presenca_view`, nome `core:presenca`).
+- `/presenca/<id>/` — folha de presença: lista de aventureiros com foto + marcar (`core:presenca_evento`).
+- `/presenca/<id>/marcar/` — marca/desmarca presença de um aventureiro (POST JSON, Diretor) (`core:presenca_marcar`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
