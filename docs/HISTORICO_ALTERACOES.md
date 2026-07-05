@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Correção da migração do "Passaporte" (conferência com o relatório do sistema antigo)
+
+### Resumo
+O usuário baixou o **relatório PDF do evento no sistema antigo** para conferir, e havia diferenças grandes
+vs a 1ª importação (evento 61). Investigado e **corrigido** (reimportado como **evento 62**; o 61 foi
+apagado). Três causas:
+1. **Inscrição contava como venda de loja**: no antigo, a inscrição é um **item do pedido** com título
+   "Inscricao do evento: …". A 1ª importação somou essas linhas na lojinha → **R$ 4.505,50** em vez de
+   **R$ 1.825,50**. Correção: itens com esse título **não** entram na loja; pedido que só tem a inscrição
+   é ignorado (a inscrição já vem da `eventoinscricao`).
+2. **Idade como texto**: 8 participantes tinham `Idade` = "6 anos" (texto). O parser antigo (`int`) falhava
+   → caíam em "sem faixa". Correção: extrair o número por regex (`\d+`). Faixas passaram a 13 (1-4) / 58 → 56.
+3. **Inscrição de teste**: 1 inscrição confirmada e **não paga** com nomes "teste/testee" (R$ 80) passou.
+   Removida (heurística de nomes de teste).
+
+Também, a pedido do usuário, a **taxa de cartão/Pix do Mercado Pago (R$ 423,73)** foi lançada como
+**custo**, para o Resultado bater com o **"líquido"** do relatório.
+
+### Resultado final (idêntico ao relatório antigo)
+- Vendas lojinha **R$ 1.825,50** · Inscrições **R$ 2.500,00** (69 crianças: 13 na faixa 1-4 + 56 na 5-12)
+- Bruto **R$ 4.325,50** · Custos **R$ 607,12** (R$ 183,39 + taxa R$ 423,73) · **Resultado R$ 3.718,38**
+
+### Aprendizado (registrado p/ os próximos eventos com lojinha)
+- Excluir itens "Inscricao do evento" da loja; parsear idade por regex; pular inscrições/pedidos de teste
+  (`transacao_teste` + nomes de teste). Ver memória `migracao-eventos-conciliacao`.
+
+---
+
 ## 2026-07-05 - Migração do evento "Passaporte da Diversão" (com lojinha completa)
 
 ### Resumo

@@ -307,11 +307,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   migrados os **9 custos** do evento (R$ 4.723,50) com nome/valor/data — **Resultado do acampamento =
   −R$ 126,09** — e os **9 comprovantes anexados** (contrato da chácara, invoices, fotos das compras),
   trazidos do export atualizado ("com_arquivos") e copiados para `media/eventos/custos/` (git-ignored).
-  Também migrado o **"Passaporte da Diversão"** (evento 6 antigo → **evento 61**): faixas (1-4=R$20 /
-  5-12=R$40), **52 inscrições** (R$ 2.580), **4 produtos da lojinha com fotos** + 13 variações, **141
-  vendas** (R$ 4.505,50; só pagas e não-teste — puladas canceladas/testes) com **retirada por item**
-  preservada, e **3 custos** com comprovantes (R$ 183,39). **Resultado = R$ 6.902,11**. Valores do
-  Passaporte vieram **corretos do sistema antigo** (sem conciliação bancária, a pedido do usuário).
+  Também migrado o **"Passaporte da Diversão"** (evento 6 antigo → **evento 62**): faixas (1-4=R$20 /
+  5-12=R$40), **51 inscrições / 69 crianças** (R$ 2.500), **4 produtos da lojinha com fotos** + 13
+  variações, **vendas R$ 1.825,50** (229 itens; só pagas e não-teste) com **retirada por item** preservada,
+  e custos R$ 607,12 (3 do antigo R$ 183,39 + **taxa de cartão/Pix do Mercado Pago R$ 423,73** lançada como
+  custo). **Resultado = R$ 3.718,38**. Conferido contra o **relatório PDF do sistema antigo** (bruto/loja/
+  inscrições/faixas/líquido idênticos). Valores corretos do antigo (sem conciliação bancária).
+  **Cuidado aprendido**: no sistema antigo a **inscrição é um item do pedido da loja** ("Inscricao do
+  evento") — não contar como venda; e a **idade** pode vir como texto ("6 anos") — parsear o número.
   Próximo: migrar os eventos restantes (ids 2/4/5 "Reunião do Clube"), um a um.
 - **Perfis de acesso** (grupos nativos do Django): **Diretor, Responsável, Professor, Tesoureiro,
   Secretário**. Conceito: "Diretoria" é o grupo de integrantes do clube (diretor, secretário,
