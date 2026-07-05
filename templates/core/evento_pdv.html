@@ -76,6 +76,11 @@
                         <h3 class="bloco-rotulo">Itens</h3>
                         {% include "core/_loja_itens.html" %}
 
+                        <label class="entregar-agora">
+                            <input type="checkbox" name="entregar_agora" value="1"{% if entregar_agora %} checked{% endif %}>
+                            <span><strong>Entregar os itens agora</strong> <small class="ajuda">(retirada na hora; desmarque se for retirar depois)</small></span>
+                        </label>
+
                         <div class="campo">
                             <label for="inscricao">Vincular a uma inscrição <small class="ajuda">(opcional)</small></label>
                             <select name="inscricao" id="inscricao" class="campo-select">

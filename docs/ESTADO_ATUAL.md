@@ -2,13 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Fase 5.4b — marcar check-in e entrega no console "Dia do evento"**:
-o console (`/eventos/<id>/dia/`, Diretor/operador) deixou de ser só leitura — agora dá para **marcar o
-check-in** de cada participante (Marcar chegada ↔ ✅ Chegou) e a **retirada de cada item** da lojinha,
-**por unidade** (o selo entrega/desfaz tudo; itens com mais de 1 têm **stepper − x/y +** para entrega
-parcial). Tudo **sem recarregar** (endpoints JSON `evento_checkin`/`evento_entrega` + atualização inline +
-**resumo do dia** ao vivo), guardando **quem marcou e quando**. Antes: Fase 5.4a (console só leitura +
-campos de modelo, mig. 0016))
+**Última atualização:** 2026-07-05 (**Fase 5.4c — "vai levar agora?" no balcão**: ao registrar uma venda
+no **PDV de vendas** ou no **PDV de inscrição**, um checkbox **"Entregar os itens agora"** (marcado por
+padrão) já registra os itens como **entregues** na hora (`quantidade_entregue = quantidade`, com quem/
+quando); se desmarcado, ficam **pendentes** para retirar depois no console "Dia do evento". Parâmetro
+`entregar_agora` no helper `_criar_pedido`. Antes: Fase 5.4b (marcar check-in/entrega no console))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -232,6 +230,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     limitam a entrega a 0..quantidade) atualizam a linha e o **resumo do dia** ao vivo; guardam **quem
     marcou e quando** (`presente_por`/`presente_em`, `entregue_por`/`entregue_em`). Parcial: `_dia_entrega.html`
     (parcial reutilizado nas duas seções) + `evento_dia.js` (fetch com `X-CSRFToken`).
+  - **5.4c** ("vai levar agora?" no balcão): tanto o **PDV de vendas** (`evento_pdv`) quanto o **PDV de
+    inscrição** (`evento_pdv_inscricao`) têm um checkbox **"Entregar os itens agora"** (marcado por
+    padrão). Marcado → o pedido já nasce **entregue** (`quantidade_entregue = quantidade` + quem/quando);
+    desmarcado → itens ficam **pendentes** para retirar depois no console. Implementado com o parâmetro
+    `entregar_agora` no helper `_criar_pedido` (usado pelos dois PDVs).
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
@@ -364,9 +367,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro), parte 2 (**Resumo/dashboard**:
   KPIs, gráficos CSS/SVG, cobertura do clube + buscas) e parte 3 (**cupons de desconto** — por
   participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. **Fase 5.4 (Check-in +
-  Retirada)** em andamento: **5.4a + 5.4b CONCLUÍDAS** (console "Dia do evento" com consulta **e**
-  marcações de check-in/entrega). Falta: **5.4c** ("vai levar agora?" no balcão), **5.4d** (contadores no
-  painel + guarda de exclusão do evento simples).
+  Retirada)** em andamento: **5.4a + 5.4b + 5.4c CONCLUÍDAS** (console "Dia do evento" com consulta e
+  marcações; e "entregar agora" no balcão). Falta: **5.4d** (contadores no painel + guarda de exclusão do
+  evento simples).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar

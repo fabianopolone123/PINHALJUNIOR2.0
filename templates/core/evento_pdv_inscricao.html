@@ -97,6 +97,10 @@
                         <h3 class="bloco-rotulo">Itens da lojinha <small class="ajuda">(opcional)</small></h3>
                         {% if erros_loja %}<div class="erros">{% for e in erros_loja %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
                         {% include "core/_loja_itens.html" %}
+                        <label class="entregar-agora">
+                            <input type="checkbox" name="entregar_agora" value="1"{% if entregar_agora %} checked{% endif %}>
+                            <span><strong>Entregar os itens agora</strong> <small class="ajuda">(retirada na hora; desmarque se for retirar depois)</small></span>
+                        </label>
                         {% endif %}
 
                         <h3 class="bloco-rotulo">Pagamento</h3>

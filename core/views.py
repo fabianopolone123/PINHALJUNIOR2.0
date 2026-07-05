@@ -1669,15 +1669,19 @@ def _marcar_quantidades(produtos, desejados):
 
 def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None,
                   forma_pagamento="online", valor_recebido=None, origem="online",
-                  registrado_por=None):
+                  registrado_por=None, entregar_agora=False):
     """Cria o PedidoLoja + itens e baixa o estoque. Retorna o pedido (ou None se vazio).
 
     Se `forma_pagamento` == "cortesia", os itens são registrados como grátis
     (valor 0), mas o estoque é baixado normalmente.
+
+    Se `entregar_agora` (venda de balcão retirada na hora — Fase 5.4c), cada item
+    já nasce **entregue** (quantidade_entregue = quantidade), registrando quem/quando.
     """
     if not desejados:
         return None
     cortesia = forma_pagamento == "cortesia"
+    agora = timezone.now() if entregar_agora else None
     pedido = PedidoLoja(
         evento=evento,
         usuario=usuario,
@@ -1700,6 +1704,8 @@ def _criar_pedido(evento, desejados, comprador, usuario=None, inscricao=None,
         itens.append(ItemPedidoLoja(
             variacao=v, produto_nome=v.produto.nome, variacao_nome=v.nome,
             quantidade=qtd, valor_unitario=v.valor, valor_total=subtotal,
+            quantidade_entregue=qtd if entregar_agora else 0,
+            entregue_em=agora, entregue_por=registrado_por if entregar_agora else None,
         ))
         if v.produto.controla_estoque:
             VariacaoProduto.objects.filter(pk=v.id).update(estoque=F("estoque") - qtd)
@@ -1992,12 +1998,14 @@ def evento_pdv_view(request, pk):
     forma = "dinheiro"
     valor_recebido_raw = ""
     inscricao_sel = ""
+    entregar_agora = True  # venda de balcão: normalmente leva na hora
 
     if request.method == "POST":
         comprador = {"nome": (request.POST.get("comprador_nome") or "").strip()}
         forma = request.POST.get("forma_pagamento") or ""
         valor_recebido_raw = (request.POST.get("valor_recebido") or "").strip()
         inscricao_sel = request.POST.get("inscricao") or ""
+        entregar_agora = request.POST.get("entregar_agora") == "1"
         desejados, erros = _coletar_itens_loja(request, produtos)
         if not desejados:
             erros.append("Escolha ao menos um item.")
@@ -2029,9 +2037,11 @@ def evento_pdv_view(request, pk):
                     evento, desejados, {"nome": nome},
                     inscricao=inscricao_obj, forma_pagamento=forma,
                     valor_recebido=valor_recebido, origem="pdv",
-                    registrado_por=request.user,
+                    registrado_por=request.user, entregar_agora=entregar_agora,
                 )
             msg = f"Venda {pedido.codigo} registrada."
+            if entregar_agora:
+                msg += " Itens entregues."
             if forma == "dinheiro" and pedido.troco is not None:
                 msg += " Troco: R$ " + f"{pedido.troco:.2f}".replace(".", ",")
             messages.success(request, msg)
@@ -2048,6 +2058,7 @@ def evento_pdv_view(request, pk):
         "forma": forma,
         "valor_recebido_raw": valor_recebido_raw,
         "inscricao_sel": inscricao_sel,
+        "entregar_agora": entregar_agora,
         "erros": erros,
     }
     return render(request, "core/evento_pdv.html", contexto)
@@ -2077,11 +2088,13 @@ def evento_pdv_inscricao_view(request, pk):
     erros_loja = []
     forma = "dinheiro"
     valor_recebido_raw = ""
+    entregar_agora = True  # itens da lojinha: normalmente levados na hora
 
     if request.method == "POST":
         form = InscricaoForm(request.POST, evento=evento)
         forma = request.POST.get("forma_pagamento") or ""
         valor_recebido_raw = (request.POST.get("valor_recebido") or "").strip()
+        entregar_agora = request.POST.get("entregar_agora") == "1"
         cortesia = forma == "cortesia"
         if produtos_loja:
             desejados_loja, erros_loja = _coletar_itens_loja(request, produtos_loja)
@@ -2174,6 +2187,7 @@ def evento_pdv_inscricao_view(request, pk):
                     },
                     inscricao=inscricao, forma_pagamento=forma,
                     valor_recebido=None, origem="pdv", registrado_por=request.user,
+                    entregar_agora=entregar_agora,
                 )
                 _marcar_cupons_usados(aplicados, inscricao)
             msg = f"Inscrição {inscricao.codigo} registrada."
@@ -2197,6 +2211,7 @@ def evento_pdv_inscricao_view(request, pk):
         "erros_part": erros_part,
         "produtos_loja": produtos_loja,
         "erros_loja": erros_loja,
+        "entregar_agora": entregar_agora,
         "formas": formas,
         "forma": forma,
         "valor_recebido_raw": valor_recebido_raw,

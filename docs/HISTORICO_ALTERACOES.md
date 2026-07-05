@@ -22,6 +22,43 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Evento complexo — Fase 5.4c: "vai levar agora?" no balcão (entrega na hora da venda)
+
+### Resumo
+Fecha o fluxo do dia pelo lado do **balcão**: ao registrar uma venda, o atendente diz se o cliente **vai
+levar os itens agora**. Um checkbox **"Entregar os itens agora"** (marcado por padrão) foi adicionado ao
+**PDV de vendas** (`evento_pdv`) e ao **PDV de inscrição** (`evento_pdv_inscricao`):
+- **Marcado** → o pedido já nasce **entregue** (`quantidade_entregue = quantidade`, registrando quem/quando).
+- **Desmarcado** → os itens ficam **pendentes** e são retirados depois pelo console "Dia do evento" (5.4b).
+
+Assim, a venda de balcão de consumo imediato não precisa ser marcada de novo no console, e a compra "para
+levar depois" entra automaticamente na fila de retirada.
+
+### Arquivos alterados
+- `core/views.py`: `_criar_pedido` ganhou o parâmetro **`entregar_agora`** (nasce entregue, com
+  `entregue_em`/`entregue_por`). `evento_pdv_view` e `evento_pdv_inscricao_view` leem o checkbox
+  (`entregar_agora`, default marcado), passam ao helper e devolvem o estado ao template; a venda no PDV
+  avisa "Itens entregues." quando aplicável.
+- `templates/core/evento_pdv.html` e `evento_pdv_inscricao.html`: checkbox "Entregar os itens agora"
+  (este só quando há itens da lojinha). `static/css/eventos.css`: estilo `.entregar-agora`.
+
+### Decisões
+- **Default marcado**: a maioria das vendas de balcão é retirada na hora; desmarca-se para "levar depois".
+- Vale para venda avulsa **e** para a lojinha comprada junto da inscrição presencial. Cortesia também
+  entrega (item físico), só não soma em dinheiro.
+
+### Validação
+- `manage.py check` OK. PDV de **vendas** (test client, Diretor): `entregar_agora` ausente → item **0/1**
+  (pendente); marcado → **1/1** (entregue) + `entregue_por`. PDV de **inscrição**: idem no pedido vinculado
+  (0/1 vs 1/1). Novos registros de teste **removidos** (banco limpo). **Visual (Chrome headless)**: checkbox
+  em caixa verde, marcado por padrão, entre os itens e o vínculo/pagamento.
+
+### Pendências / próximo passo
+- **5.4d**: contadores de presença/retirada no painel + **guarda de exclusão do evento simples** (só
+  exclui sem presença marcada).
+
+---
+
 ## 2026-07-05 - Evento complexo — Fase 5.4b: marcar check-in e entrega no console "Dia do evento"
 
 ### Resumo

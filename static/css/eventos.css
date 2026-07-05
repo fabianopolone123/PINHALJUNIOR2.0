@@ -1278,3 +1278,18 @@ a.tipo-card:hover {
     color: var(--texto-suave);
 }
 
+/* "Entregar agora?" no balcão (5.4c) */
+.entregar-agora {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 10px 0 4px;
+    padding: 12px 14px;
+    background: rgba(58, 157, 58, 0.08);
+    border: 1px solid rgba(58, 157, 58, 0.25);
+    border-radius: 12px;
+    cursor: pointer;
+}
+.entregar-agora input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+.entregar-agora .ajuda { display: block; font-weight: 400; }
+
