@@ -2,11 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Fase 5.4c — "vai levar agora?" no balcão**: ao registrar uma venda
-no **PDV de vendas** ou no **PDV de inscrição**, um checkbox **"Entregar os itens agora"** (marcado por
-padrão) já registra os itens como **entregues** na hora (`quantidade_entregue = quantidade`, com quem/
-quando); se desmarcado, ficam **pendentes** para retirar depois no console "Dia do evento". Parâmetro
-`entregar_agora` no helper `_criar_pedido`. Antes: Fase 5.4b (marcar check-in/entrega no console))
+**Última atualização:** 2026-07-05 (**Fase 5.4d — contadores do dia no painel (encerra a Fase 5.4)**: a
+aba **Resumo** do painel ganhou um painel **"📋 Dia do evento"** com os contadores de **check-in**
+(presentes X/Y) e **retiradas** (itens entregues X/Y) + botão **"Abrir console"** (só aparece quando há
+participantes/itens). Sobre a **guarda de exclusão**: o evento **complexo** já é protegido (não exclui se
+tiver inscrições/pedidos, o que cobre qualquer presença/entrega); o evento **simples** não tem módulo de
+presença (é do complexo), então a guarda por presença em evento simples segue como item **futuro**. Antes:
+Fase 5.4c ("vai levar agora?" no balcão))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -235,6 +237,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     padrão). Marcado → o pedido já nasce **entregue** (`quantidade_entregue = quantidade` + quem/quando);
     desmarcado → itens ficam **pendentes** para retirar depois no console. Implementado com o parâmetro
     `entregar_agora` no helper `_criar_pedido` (usado pelos dois PDVs).
+  - **5.4d** (contadores no painel — encerra a Fase 5.4): a aba **Resumo** tem o painel **"📋 Dia do
+    evento"** com **check-in** (presentes X/Y) e **retiradas** (itens entregues X/Y) + botão **"Abrir
+    console"** (só quando há participantes/itens) — helper `_resumo_dia` reusado no contexto do painel
+    (`dia`). **Guarda de exclusão**: o evento complexo já é protegido (não exclui com inscrições/pedidos —
+    cobre presença/entrega); guarda por presença em **evento simples** fica como futuro (não há presença
+    em evento simples ainda).
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
@@ -367,9 +375,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro), parte 2 (**Resumo/dashboard**:
   KPIs, gráficos CSS/SVG, cobertura do clube + buscas) e parte 3 (**cupons de desconto** — por
   participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. **Fase 5.4 (Check-in +
-  Retirada)** em andamento: **5.4a + 5.4b + 5.4c CONCLUÍDAS** (console "Dia do evento" com consulta e
-  marcações; e "entregar agora" no balcão). Falta: **5.4d** (contadores no painel + guarda de exclusão do
-  evento simples).
+  Retirada) CONCLUÍDA** (5.4a console + campos; 5.4b marcar check-in/entrega; 5.4c "entregar agora" no
+  balcão; 5.4d contadores do dia no painel). Guarda de exclusão por presença em **evento simples** fica
+  como item futuro (depende de presença em evento simples, que não existe). **Próximos:** pagamentos reais
+  (gateway) e loja oficial do clube (uniformes, separada).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar

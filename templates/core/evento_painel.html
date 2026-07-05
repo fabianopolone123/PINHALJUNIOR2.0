@@ -178,6 +178,20 @@
                         </div>
                     </div>
 
+                    {% if dia.total_part or dia.total_itens %}
+                    <!-- Dia do evento: check-in + retiradas (atalho para o console) -->
+                    <div class="dia-band">
+                        <div class="dia-band-info">
+                            <span class="dia-band-titulo"><span aria-hidden="true">📋</span> Dia do evento</span>
+                            <div class="dia-band-nums">
+                                {% if dia.total_part %}<span class="dia-band-num"><span aria-hidden="true">✅</span> Check-in: <strong>{{ dia.presentes }}</strong> de {{ dia.total_part }}</span>{% endif %}
+                                {% if dia.total_itens %}<span class="dia-band-num"><span aria-hidden="true">📦</span> Retiradas: <strong>{{ dia.entregues }}</strong> de {{ dia.total_itens }}</span>{% endif %}
+                            </div>
+                        </div>
+                        <a href="{% url 'core:evento_dia' evento.id %}" class="btn-acao btn-acao-pequeno"><span aria-hidden="true">📋</span> Abrir console</a>
+                    </div>
+                    {% endif %}
+
                     {% if dashboard.tem_dados %}
                     <!-- Gráficos -->
                     <div class="dash-graficos">

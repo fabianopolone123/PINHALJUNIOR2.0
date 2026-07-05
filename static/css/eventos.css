@@ -1278,6 +1278,24 @@ a.tipo-card:hover {
     color: var(--texto-suave);
 }
 
+/* Painel "Dia do evento" no Resumo (5.4d) */
+.dia-band {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 18px 0;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(15, 76, 129, 0.06), rgba(58, 157, 58, 0.06));
+    border: 1px solid rgba(15, 76, 129, 0.15);
+    border-radius: 14px;
+}
+.dia-band-titulo { font-weight: 800; color: var(--azul-escuro); }
+.dia-band-nums { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 4px; }
+.dia-band-num { font-size: 0.92rem; color: var(--texto-suave); }
+.dia-band-num strong { color: var(--azul-escuro); font-size: 1.05rem; }
+
 /* "Entregar agora?" no balcão (5.4c) */
 .entregar-agora {
     display: flex;

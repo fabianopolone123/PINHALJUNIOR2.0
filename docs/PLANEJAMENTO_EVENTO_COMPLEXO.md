@@ -106,8 +106,12 @@ lojinha, custos e resultado (lucro/prejuízo).
 - **Fase 5.4c CONCLUÍDA** (2026-07-05): **"vai levar agora?" no balcão** — checkbox "Entregar os itens
   agora" (default marcado) no PDV de vendas e no PDV de inscrição; marcado → pedido nasce entregue,
   desmarcado → pendente para o console. Parâmetro `entregar_agora` no `_criar_pedido`.
-- **PRÓXIMO PASSO = Fase 5.4d**: **contadores de presença/retirada no painel** + **guarda de exclusão do
-  evento simples** (só exclui sem presença marcada — ver memória do projeto). Encerra a Fase 5.4.
+- **Fase 5.4d CONCLUÍDA** (2026-07-05): **contadores do dia no painel** — band "📋 Dia do evento" na aba
+  Resumo (check-in X/Y + retiradas X/Y + botão "Abrir console"), via `_resumo_dia`. **Guarda de exclusão**:
+  o evento complexo já é protegido (não exclui com inscrições/pedidos); presença em evento **simples** (e a
+  guarda por ela) fica como futuro. **🎉 Fase 5.4 CONCLUÍDA.**
+- **PRÓXIMO PASSO** = pagamentos reais (gateway, ex.: Mercado Pago) e/ou **loja oficial do clube**
+  (uniformes, separada da lojinha de evento). Ver também presença em evento simples (futuro).
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -200,8 +204,10 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
      - **5.4c — CONCLUÍDA ✅** (2026-07-05) — "vai levar agora?" no balcão (PDV venda e PDV inscrição):
        checkbox "Entregar os itens agora" (default marcado) → pedido nasce entregue; senão fica pendente
        para o console. Parâmetro `entregar_agora` no `_criar_pedido`.
-     - **5.4d — PRÓXIMA ⏭️** — contadores no painel + **guarda de exclusão do evento simples** (só exclui
-       sem presença).
+     - **5.4d — CONCLUÍDA ✅** (2026-07-05) — contadores do dia no painel (band "Dia do evento" na aba
+       Resumo: check-in X/Y + retiradas X/Y + "Abrir console", via `_resumo_dia`). **Guarda de exclusão**:
+       complexo já protegido (não exclui com inscrições/pedidos); guarda por presença em evento **simples**
+       fica futura (não há presença em evento simples). **🎉 Fase 5.4 CONCLUÍDA.**
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
 

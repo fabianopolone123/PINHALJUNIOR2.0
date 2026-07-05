@@ -22,6 +22,39 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Evento complexo — Fase 5.4d: contadores do dia no painel (encerra a Fase 5.4)
+
+### Resumo
+Fecha a Fase 5.4 com a visão de acompanhamento no **painel do evento**. A aba **Resumo** ganhou um painel
+**"📋 Dia do evento"** com os contadores ao vivo do dia — **Check-in** (presentes X/Y) e **Retiradas**
+(itens entregues X/Y) — e um botão **"Abrir console"** que leva à tela "Dia do evento". Aparece só quando
+há participantes ou itens (não polui eventos sem inscrição/lojinha). Reusa o helper `_resumo_dia`.
+
+### Guarda de exclusão (esclarecimento)
+O item "guarda de exclusão do evento simples" da Fase 5.4 **não exigiu código novo**: o evento **complexo**
+já é protegido (`evento_excluir_view`/`eventos_view` bloqueiam a exclusão quando há inscrições ou pedidos,
+o que cobre qualquer presença/entrega). O **evento simples** não tem módulo de presença (presença é do
+evento complexo), então a guarda por presença em evento simples permanece como **item futuro** — ver
+memória `exclusao-evento-presenca`. Nada a mudar por ora.
+
+### Arquivos alterados
+- `core/views.py`: `evento_painel_view` passa `dia = _resumo_dia(evento)` no contexto.
+- `templates/core/evento_painel.html`: painel "Dia do evento" na aba Resumo (após os KPIs), com os
+  contadores e o botão "Abrir console"; só renderiza se `dia.total_part` ou `dia.total_itens`.
+- `static/css/eventos.css`: estilo `.dia-band` (+ `.dia-band-titulo`/`-nums`/`-num`).
+
+### Validação
+- `manage.py check` OK. Render do painel (test client, Diretor) com 2 presentes + 1 item entregue:
+  o band aparece com **Check-in 2 de 4** e **Retiradas 1 de 12** + "Abrir console". **Visual (Chrome
+  headless)**: band com gradiente azul/verde, entre os KPIs e os gráficos. Marcações de teste revertidas.
+
+### Pendências / próximo passo
+- **🎉 Fase 5.4 (Check-in + Retirada) CONCLUÍDA.** Futuro: presença em **evento simples** (aí a guarda de
+  exclusão por presença passa a valer para eles). Depois: **pagamentos reais** (gateway) e **loja oficial
+  do clube** (uniformes, separada da lojinha de evento).
+
+---
+
 ## 2026-07-05 - Evento complexo — Fase 5.4c: "vai levar agora?" no balcão (entrega na hora da venda)
 
 ### Resumo

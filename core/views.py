@@ -984,6 +984,7 @@ def evento_painel_view(request, pk):
         },
         "financeiro": financeiro,
         "dashboard": dashboard,
+        "dia": _resumo_dia(evento),
     }
     return render(request, "core/evento_painel.html", contexto)
 
