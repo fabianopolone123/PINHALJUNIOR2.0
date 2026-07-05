@@ -1140,3 +1140,86 @@ a.tipo-card:hover {
 .cupom-input::placeholder { text-transform: none; }
 .sucesso-cupom { color: #8a6d00; margin: 6px 0 0; font-weight: 600; }
 
+/* ===================== Console "Dia do evento" (Fase 5.4) ===================== */
+.dia-resumo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+.dia-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid rgba(15, 76, 129, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(15, 76, 129, 0.06);
+}
+.dia-kpi-icone { font-size: 1.3rem; }
+.dia-kpi-rotulo { font-size: 0.82rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.03em; }
+.dia-kpi-num { font-size: 1.6rem; font-weight: 800; color: var(--azul-escuro); }
+.dia-kpi-num small { font-size: 0.95rem; font-weight: 600; color: var(--texto-suave); }
+.dia-kpi-sub { font-size: 0.82rem; color: var(--texto-suave); }
+
+.dia-nota { font-size: 0.9rem; color: var(--texto-suave); margin: 0 0 14px; }
+
+.dia-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.dia-card { padding: 14px 16px; }
+.dia-card-topo {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(15, 76, 129, 0.08);
+}
+.dia-card-nome { font-weight: 700; color: var(--azul-escuro); }
+.dia-card-codigo {
+    font-family: ui-monospace, "Courier New", monospace;
+    font-size: 0.82rem;
+    color: var(--texto-suave);
+    background: rgba(15, 76, 129, 0.06);
+    padding: 2px 8px;
+    border-radius: 8px;
+}
+.dia-bloco + .dia-bloco { margin-top: 12px; }
+.dia-bloco-titulo {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--texto-suave);
+    margin-bottom: 6px;
+}
+.dia-itens { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dia-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.dia-item-nome { color: var(--texto); }
+.dia-item-nome small { color: var(--texto-suave); }
+
+.selo {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.selo-ok { background: rgba(58, 157, 58, 0.15); color: #2f7d2f; }
+.selo-parcial { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
+.selo-pendente { background: rgba(192, 57, 43, 0.12); color: #b23a2e; }
+
+.dia-vazio { color: var(--texto-suave); padding: 12px 0; }
+
+.dia-secao-avulsos { margin-top: 26px; }
+.dia-secao-titulo { font-size: 1.05rem; color: var(--azul-escuro); margin: 0 0 4px; }
+

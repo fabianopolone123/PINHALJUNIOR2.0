@@ -93,8 +93,15 @@ lojinha, custos e resultado (lucro/prejuízo).
   etária** (erro se o participante não casar); a geração ganhou **quantidade** (stepper, até **5 por
   vez**) e **seletor de faixa**, com o **layout** do campo de % revisado. `CupomDesconto.faixa`/
   `.participante` (mig. 0015). JS único `evento_insc_cupom.js` (substituiu `evento_pdv_inscricao.js`).
-- **PRÓXIMO PASSO = Fase 5 (parte 4): presença/check-in** (também vira guarda de exclusão dos eventos
-  simples — ver memória do projeto).
+- **Fase 5.4a CONCLUÍDA** (2026-07-05): **Check-in + Retirada — console "Dia do evento" (só leitura)**.
+  Modelos com check-in por participante (`ParticipanteInscricao.presente/…`) e retirada **por unidade**
+  (`ItemPedidoLoja.quantidade_entregue/…`, mig. **0016**); tela `/eventos/<id>/dia/` (Diretor/operador)
+  lista, por família, o status de check-in e de retirada dos itens (+ pedidos avulsos), com busca e resumo
+  do dia. Helper `_casar_pedidos_inscricoes`. Decisões: entrega por unidade, todos os itens entregáveis,
+  check-in por participante.
+- **PRÓXIMO PASSO = Fase 5.4b**: **ações de marcar** (check-in por participante + entrega por unidade, com
+  status ao vivo). Depois **5.4c** ("vai levar agora?" no balcão) e **5.4d** (contadores no painel + guarda
+  de exclusão do evento simples — ver memória do projeto).
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -176,7 +183,13 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
      desconto em R$), com **faixa etária** (erro se não casar), **geração em lote** (até 5 por vez, com
      stepper) e **seletor de faixa**; layout do campo de % revisado. `CupomDesconto.faixa`/`.participante`
      (mig. 0015); endpoint `evento_cupom_validar`; JS único `evento_insc_cupom.js`.
-   - **5.4 — PRÓXIMA ⏭️** — **Presença/check-in** (também vira guarda de exclusão dos eventos simples).
+   - **5.4 — Check-in + Retirada** ("Dia do evento"), em partes:
+     - **5.4a — CONCLUÍDA ✅** (2026-07-05) — modelos (check-in por participante + retirada por unidade,
+       mig. 0016) + **console "Dia do evento"** (`/eventos/<id>/dia/`, só leitura): status de check-in e
+       de retirada por família + pedidos avulsos, com busca e resumo. Helper `_casar_pedidos_inscricoes`.
+     - **5.4b — PRÓXIMA ⏭️** — ações de marcar (check-in por participante + entrega por unidade).
+     - **5.4c** — "vai levar agora?" no balcão (PDV venda e PDV inscrição).
+     - **5.4d** — contadores no painel + **guarda de exclusão do evento simples** (só exclui sem presença).
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
 

@@ -78,6 +78,7 @@
                     <button class="painel-aba" data-aba="descontos" type="button"><span aria-hidden="true">🏷️</span> Desconto</button>
                     <button class="painel-aba" data-aba="financeiro" type="button"><span aria-hidden="true">📈</span> Financeiro</button>
                     {% comment %}Abas de ação: abrem páginas próprias (balcão/operadores).{% endcomment %}
+                    <a href="{% url 'core:evento_dia' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">📋</span> Dia do evento</a>
                     <a href="{% url 'core:evento_pdv' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">🧾</span> Vender no balcão</a>
                     <a href="{% url 'core:evento_operadores' evento.id %}" class="painel-aba painel-aba-acao"><span aria-hidden="true">👥</span> Operadores</a>
                 </nav>

@@ -75,6 +75,11 @@
                         <span class="operar-texto">Registrar uma venda de itens da lojinha.</span>
                     </a>
                     {% endif %}
+                    <a href="{% url 'core:evento_dia' evento.id %}" class="operar-card">
+                        <span class="operar-icone" aria-hidden="true">📋</span>
+                        <strong class="operar-titulo">Dia do evento</strong>
+                        <span class="operar-texto">Check-in dos participantes e retirada dos itens da lojinha.</span>
+                    </a>
                 </div>
             </div>
         </main>

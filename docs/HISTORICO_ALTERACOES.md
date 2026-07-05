@@ -22,6 +22,55 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Evento complexo — Fase 5.4a: Check-in + Retirada (console "Dia do evento", só leitura)
+
+### Resumo
+Início da **Fase 5.4** (definida com o usuário): controle do **dia do evento** — **check-in** dos
+participantes e **retirada/entrega** dos itens da lojinha. Escopo desta parte (**5.4a**): os **modelos** e
+a **tela de consulta**, ainda **só leitura** (as marcações vêm na 5.4b).
+
+- **Modelos**: `ParticipanteInscricao` ganhou **check-in por participante** (`presente`, `presente_em`,
+  `presente_por`) e `ItemPedidoLoja` ganhou **retirada por unidade** (`quantidade_entregue`, `entregue_em`,
+  `entregue_por`) — permite **entrega parcial** (props `entregue`/`entrega_parcial`/`status_entrega`).
+  Migration **0016**.
+- **Console "Dia do evento"** (`/eventos/<id>/dia/`, **Diretor + operadores**): por **família** (inscrição
+  confirmada), mostra os **participantes** com o selo de check-in (✅ Chegou / Não chegou) e os **itens da
+  lojinha comprados** com o selo de retirada (Não entregue / Parcial (x/y) / ✅ Entregue). Tem **resumo do
+  dia** (check-in X/Y + retiradas X/Y), **busca** em tempo real (responsável/participante/código) e uma
+  seção de **pedidos avulsos** (passantes sem inscrição). Os pedidos são casados à inscrição pela **mesma
+  regra do painel** (vínculo direto ou mesma conta única) — helper `_casar_pedidos_inscricoes` (extraído
+  para reuso).
+- **Pontos de entrada**: aba-link **"📋 Dia do evento"** na barra do painel e card na landing **"Operar"**.
+
+### Decisões (definidas com o usuário)
+- **Entrega por unidade** (permite retirada parcial: pegou 1 de 3 agora, o resto depois).
+- **Todos os itens** da lojinha entram no controle (sem marcar "entregável" por produto).
+- **Check-in por participante** (cada criança), não por família — melhor para a presença.
+- Escopo de "entregável" cobre também **pedidos avulsos** (passantes), em seção separada.
+
+### Arquivos criados/alterados
+- `core/models.py`: campos de check-in em `ParticipanteInscricao` e de retirada em `ItemPedidoLoja` (+
+  props). `core/migrations/0016_itempedidoloja_entregue_em_and_more.py` (novo).
+- `core/views.py`: `evento_dia_view` (`@operador_required`, só leitura) e helper `_casar_pedidos_inscricoes`.
+- `core/urls.py`: rota `evento_dia` (`/eventos/<id>/dia/`).
+- `templates/core/evento_dia.html` (novo); `evento_painel.html` (aba-link "Dia do evento");
+  `evento_operar.html` (card "Dia do evento").
+- `static/js/evento_dia.js` (novo: busca). `static/css/eventos.css`: estilos do console (`.dia-*`, `.selo-*`).
+
+### Validação
+- `manage.py check` OK; `migrate` aplicado. Render (test client, Diretor) do evento 4: **200**, com resumo
+  (Check-in 1/4, Retiradas 0/12), busca, cards por inscrição (selos Chegou/Não chegou e Não entregue) e
+  seção de pedidos avulsos. Property `status_entrega` conferida (0/3→pendente, 1/3→parcial, 3/3→entregue).
+  **Visual (Chrome headless, desktop 900px e mobile 430px)** conferido — layout consistente com o padrão
+  azul/verde. As marcações de teste feitas nos dados reais foram **revertidas** (banco limpo).
+
+### Pendências / próximo passo
+- **5.4b**: ações de marcar (check-in por participante + entrega por unidade, com status ao vivo).
+- **5.4c**: "vai levar agora?" no balcão (PDV venda e PDV inscrição).
+- **5.4d**: contadores no painel + guarda de exclusão do evento simples.
+
+---
+
 ## 2026-07-05 - Lista de eventos: botões Duplicar/Excluir menores, consistentes e grudados na base
 
 ### Resumo

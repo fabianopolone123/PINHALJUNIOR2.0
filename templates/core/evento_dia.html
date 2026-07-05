@@ -1,0 +1,185 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Dia do evento — {{ evento.nome }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Dia do evento</span>
+            </header>
+
+            <div class="conteudo-interno">
+                {% if is_diretor %}
+                <a href="{% url 'core:evento_painel' evento.id %}#inscricoes" class="voltar-link">← Voltar para o painel</a>
+                {% else %}
+                <a href="{% url 'core:evento_operar' evento.id %}" class="voltar-link">← Voltar para o balcão</a>
+                {% endif %}
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">{{ evento.nome }}</h1>
+                    <p class="cabecalho-sub">Check-in dos participantes e retirada dos itens da lojinha.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Resumo do dia -->
+                <div class="dia-resumo">
+                    <div class="dia-kpi">
+                        <span class="dia-kpi-icone" aria-hidden="true">✅</span>
+                        <span class="dia-kpi-rotulo">Check-in</span>
+                        <span class="dia-kpi-num">{{ resumo_dia.presentes }} <small>de {{ resumo_dia.total_part }}</small></span>
+                        <span class="dia-kpi-sub">{{ resumo_dia.faltam_part }} ainda não chegaram</span>
+                    </div>
+                    <div class="dia-kpi">
+                        <span class="dia-kpi-icone" aria-hidden="true">📦</span>
+                        <span class="dia-kpi-rotulo">Retiradas</span>
+                        <span class="dia-kpi-num">{{ resumo_dia.entregues }} <small>de {{ resumo_dia.total_itens }}</small></span>
+                        <span class="dia-kpi-sub">{{ resumo_dia.pendentes_itens }} itens pendentes</span>
+                    </div>
+                </div>
+
+                <p class="dia-nota">
+                    Consulte pelo nome e confira o que já entrou e o que já foi retirado.
+                    <strong>As marcações (check-in e entrega) chegam na próxima etapa.</strong>
+                </p>
+
+                {% if inscricoes %}
+                <div class="busca-box">
+                    <svg class="busca-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="search" id="buscaDia" class="busca-input" placeholder="Buscar por responsável, participante ou código…" autocomplete="off">
+                </div>
+
+                <ul class="dia-lista">
+                    {% for i in inscricoes %}
+                    <li class="card dia-card dia-busca">
+                        <div class="dia-card-topo">
+                            <span class="dia-card-nome">{{ i.responsavel_nome }}</span>
+                            <span class="dia-card-codigo">{{ i.codigo }}</span>
+                        </div>
+
+                        <div class="dia-bloco">
+                            <span class="dia-bloco-titulo">Participantes</span>
+                            <ul class="dia-itens">
+                                {% for p in i.participantes.all %}
+                                <li class="dia-item">
+                                    <span class="dia-item-nome">{{ p.nome }}{% if p.idade %} <small>({{ p.idade }} anos)</small>{% endif %}</span>
+                                    {% if p.presente %}
+                                    <span class="selo selo-ok">✅ Chegou</span>
+                                    {% else %}
+                                    <span class="selo selo-pendente">Não chegou</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        {% if i.compras %}
+                        <div class="dia-bloco">
+                            <span class="dia-bloco-titulo">🛒 Itens da lojinha</span>
+                            <ul class="dia-itens">
+                                {% for pedido in i.compras %}
+                                {% for item in pedido.itens.all %}
+                                <li class="dia-item">
+                                    <span class="dia-item-nome">{{ item.quantidade }}× {{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}</span>
+                                    {% if item.status_entrega == "entregue" %}
+                                    <span class="selo selo-ok">✅ Entregue</span>
+                                    {% elif item.status_entrega == "parcial" %}
+                                    <span class="selo selo-parcial">Parcial ({{ item.quantidade_entregue }}/{{ item.quantidade }})</span>
+                                    {% else %}
+                                    <span class="selo selo-pendente">Não entregue</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p id="diaVazio" class="dia-vazio" hidden>Nenhuma inscrição encontrada.</p>
+                {% else %}
+                <p class="dia-vazio">Ainda não há inscrições confirmadas neste evento.</p>
+                {% endif %}
+
+                {% if avulsos %}
+                <section class="dia-secao-avulsos">
+                    <h2 class="dia-secao-titulo">Pedidos avulsos (sem inscrição)</h2>
+                    <p class="dia-nota">Compras da lojinha feitas por passantes (sem inscrição vinculada).</p>
+                    <ul class="dia-lista">
+                        {% for pedido in avulsos %}
+                        <li class="card dia-card dia-busca">
+                            <div class="dia-card-topo">
+                                <span class="dia-card-nome">{{ pedido.comprador_nome|default:"Cliente (balcão)" }}</span>
+                                <span class="dia-card-codigo">{{ pedido.codigo }}</span>
+                            </div>
+                            <div class="dia-bloco">
+                                <ul class="dia-itens">
+                                    {% for item in pedido.itens.all %}
+                                    <li class="dia-item">
+                                        <span class="dia-item-nome">{{ item.quantidade }}× {{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}</span>
+                                        {% if item.status_entrega == "entregue" %}
+                                        <span class="selo selo-ok">✅ Entregue</span>
+                                        {% elif item.status_entrega == "parcial" %}
+                                        <span class="selo selo-parcial">Parcial ({{ item.quantidade_entregue }}/{{ item.quantidade }})</span>
+                                        {% else %}
+                                        <span class="selo selo-pendente">Não entregue</span>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/evento_dia.js' %}"></script>
+</body>
+</html>

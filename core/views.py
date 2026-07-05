@@ -2230,6 +2230,75 @@ def evento_operar_view(request, pk):
     })
 
 
+def _casar_pedidos_inscricoes(inscricoes, pedidos):
+    """Casa pedidos da lojinha com a inscrição da pessoa (mesma regra do painel):
+    vínculo direto (FK) ou mesma conta logada — só quando o responsável tem UMA
+    inscrição no evento (evita atribuir errado). Anexa `.compras` a cada inscrição
+    e retorna a lista de pedidos avulsos (sem dono)."""
+    insc_por_usuario = {}
+    for i in inscricoes:
+        if i.usuario_id:
+            insc_por_usuario[i.usuario_id] = insc_por_usuario.get(i.usuario_id, 0) + 1
+    compras_por_insc = {}
+    avulsos = []
+    for p in pedidos:
+        alvo = None
+        if p.inscricao_id:
+            alvo = p.inscricao_id
+        elif p.usuario_id and insc_por_usuario.get(p.usuario_id) == 1:
+            alvo = next((i.id for i in inscricoes if i.usuario_id == p.usuario_id), None)
+        if alvo:
+            compras_por_insc.setdefault(alvo, []).append(p)
+        else:
+            avulsos.append(p)
+    for i in inscricoes:
+        i.compras = compras_por_insc.get(i.id, [])
+    return avulsos
+
+
+@operador_required
+def evento_dia_view(request, pk):
+    """Console "Dia do evento" (Fase 5.4a): consulta o check-in dos participantes
+    e a retirada/entrega dos itens da lojinha, por família.
+
+    Nesta parte (5.4a) é **só leitura** — mostra o status de cada participante
+    (presente/não chegou) e de cada item (não entregue / parcial / entregue). As
+    ações de marcar check-in e entrega vêm na 5.4b."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    inscricoes = list(
+        evento.inscricoes.filter(status="confirmada")
+        .prefetch_related("participantes", "pedidos__itens")
+        .order_by("responsavel_nome")
+    )
+    pedidos = list(
+        evento.pedidos.filter(status="confirmado").prefetch_related("itens")
+    )
+    avulsos = _casar_pedidos_inscricoes(inscricoes, pedidos)
+
+    # Contadores do dia (presença por participante; itens por unidade).
+    participantes = [pt for i in inscricoes for pt in i.participantes.all()]
+    itens = [it for p in pedidos for it in p.itens.all()]
+    total_part = len(participantes)
+    presentes = sum(1 for pt in participantes if pt.presente)
+    total_itens = sum(it.quantidade for it in itens)
+    entregues = sum(it.quantidade_entregue for it in itens)
+
+    contexto = {
+        "evento": evento,
+        "inscricoes": inscricoes,
+        "avulsos": avulsos,
+        "resumo_dia": {
+            "presentes": presentes,
+            "total_part": total_part,
+            "faltam_part": total_part - presentes,
+            "entregues": entregues,
+            "total_itens": total_itens,
+            "pendentes_itens": total_itens - entregues,
+        },
+    }
+    return render(request, "core/evento_dia.html", contexto)
+
+
 @diretor_required
 def evento_operadores_view(request, pk):
     """Gerência dos operadores do evento (Diretor)."""

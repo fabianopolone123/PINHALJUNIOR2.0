@@ -674,6 +674,18 @@ class ParticipanteInscricao(models.Model):
     )
     valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
 
+    # --- Check-in / presença no dia do evento (Fase 5.4) ---
+    presente = models.BooleanField("Presente (check-in)", default=False)
+    presente_em = models.DateTimeField("Check-in em", null=True, blank=True)
+    presente_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="checkins_registrados",
+        verbose_name="Check-in registrado por",
+    )
+
     class Meta:
         verbose_name = "Participante da inscrição"
         verbose_name_plural = "Participantes da inscrição"
@@ -859,6 +871,20 @@ class ItemPedidoLoja(models.Model):
         "Valor total", max_digits=10, decimal_places=2, default=0
     )
 
+    # --- Retirada / entrega no dia do evento (Fase 5.4) ---
+    # Quantidade já retirada (por unidade: permite entrega parcial). O item está
+    # "entregue" quando `quantidade_entregue >= quantidade`.
+    quantidade_entregue = models.PositiveIntegerField("Quantidade entregue", default=0)
+    entregue_em = models.DateTimeField("Última entrega em", null=True, blank=True)
+    entregue_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="itens_entregues",
+        verbose_name="Entrega registrada por",
+    )
+
     class Meta:
         verbose_name = "Item do pedido"
         verbose_name_plural = "Itens do pedido"
@@ -866,6 +892,25 @@ class ItemPedidoLoja(models.Model):
 
     def __str__(self):
         return f"{self.quantidade}x {self.produto_nome} — {self.pedido.codigo}"
+
+    @property
+    def entregue(self):
+        """True se toda a quantidade já foi retirada."""
+        return self.quantidade_entregue >= self.quantidade
+
+    @property
+    def entrega_parcial(self):
+        """True se parte (mas não tudo) já foi retirada."""
+        return 0 < self.quantidade_entregue < self.quantidade
+
+    @property
+    def status_entrega(self):
+        """'entregue', 'parcial' ou 'pendente' (para o selo na tela)."""
+        if self.entregue:
+            return "entregue"
+        if self.entrega_parcial:
+            return "parcial"
+        return "pendente"
 
 
 class RespostaInscricao(models.Model):

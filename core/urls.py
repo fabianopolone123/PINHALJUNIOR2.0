@@ -51,6 +51,7 @@ urlpatterns = [
     path("eventos/<int:pk>/pdv/", views.evento_pdv_view, name="evento_pdv"),
     path("eventos/<int:pk>/pdv/inscricao/", views.evento_pdv_inscricao_view, name="evento_pdv_inscricao"),
     path("eventos/<int:pk>/operar/", views.evento_operar_view, name="evento_operar"),
+    path("eventos/<int:pk>/dia/", views.evento_dia_view, name="evento_dia"),
     path("eventos/<int:pk>/operadores/", views.evento_operadores_view, name="evento_operadores"),
     path("eventos/<int:pk>/operadores/diretoria/", views.evento_operador_add_diretoria_view, name="evento_operador_add_diretoria"),
     path("eventos/<int:pk>/operadores/externo/", views.evento_operador_add_externo_view, name="evento_operador_add_externo"),

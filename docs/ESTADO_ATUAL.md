@@ -2,13 +2,14 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Fase 5.3b — Cupom por participante + faixa + lote + validação ao
-vivo**: o cupom deixou de ser um campo único e virou **um campo por participante** na inscrição (online e
-balcão); ao digitar, **valida ao vivo** (endpoint JSON + toast), **abate do total** e mostra o **desconto
-em R$**; o cupom pode ser **restrito a uma faixa etária** (erro se o participante não casar); a aba
-**Desconto** ganhou **Quantidade** (stepper, até **5 por vez**) e **seletor de faixa**, com o layout do
-campo de % revisado. Models `CupomDesconto.faixa`/`.participante` (mig. **0015**). Antes: Fase 5.3 (cupom
-único, "de maior valor", mig. 0014))
+**Última atualização:** 2026-07-05 (**Fase 5.4a — Check-in + Retirada: console "Dia do evento" (só
+leitura)**: nova tela `/eventos/<id>/dia/` (Diretor/operador) que, por família, mostra o **check-in de
+cada participante** (Chegou / Não chegou) e a **retirada de cada item da lojinha** (Não entregue /
+Parcial / Entregue), com **busca** (responsável/participante/código), **resumo do dia** (check-in e
+retiradas) e seção de **pedidos avulsos**. Novos campos: `ParticipanteInscricao.presente`/`presente_em`/
+`presente_por` e `ItemPedidoLoja.quantidade_entregue`/`entregue_em`/`entregue_por` (entrega **por
+unidade**; migration **0016**). **Ainda só leitura** — as marcações de check-in/entrega vêm na 5.4b.
+Antes: Fase 5.3b (cupom por participante + faixa + lote + validação ao vivo, mig. 0015))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -213,6 +214,19 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     não há cupom "reservado" por formulário aberto). Guarda quem usou, **qual participante**, valor e
     vínculo à inscrição; aparece na inscrição (painel) e na tela de sucesso. Models `CupomDesconto.faixa`
     e `.participante` (migration `0015`; base era a `0014`).
+- **Evento complexo — Fase 5.4a (Check-in + Retirada: console "Dia do evento" — só leitura)**: nova tela
+  **"Dia do evento"** (`/eventos/<id>/dia/`, botão na barra de abas do painel e na landing "Operar"),
+  aberta ao **Diretor e aos operadores** do evento. Serve para o dia do evento: por **família**
+  (inscrição confirmada), lista os **participantes** com o status de **check-in** (✅ Chegou / Não chegou)
+  e os **itens da lojinha comprados** com o status de **retirada** (Não entregue / Parcial (x/y) /
+  ✅ Entregue). Os pedidos são casados à inscrição por **vínculo direto** (`PedidoLoja.inscricao`) ou
+  **mesma conta única** (mesma regra do painel; helper `_casar_pedidos_inscricoes`); os **pedidos
+  avulsos** (passantes, sem dono) aparecem numa **seção separada**. Tem **resumo do dia** (check-in
+  X/Y + retiradas X/Y) e **busca** em tempo real (responsável/participante/código). A entrega é **por
+  unidade** (`ItemPedidoLoja.quantidade_entregue`), permitindo entrega parcial. **Nesta parte (5.4a) é só
+  leitura** — as ações de marcar check-in e entrega chegam na **5.4b**. Novos campos:
+  `ParticipanteInscricao.presente`/`presente_em`/`presente_por` e `ItemPedidoLoja.quantidade_entregue`/
+  `entregue_em`/`entregue_por` (props `entregue`/`entrega_parcial`/`status_entrega`; migration **0016**).
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
@@ -314,7 +328,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
   único, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**, **registrado_por**,
   valor_total; props `total_com_loja`/`troco`). Migration `0012`. `ParticipanteInscricao` (nome, idade, eh_diretoria,
-  faixa, valor) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
+  faixa, valor + **check-in**: `presente`/`presente_em`/`presente_por`, mig. `0016`) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
   snapshot + valor). Migrations `0006`, `0007`. Respostas de campos "por participante" têm
   `participante` preenchido; as de campos "uma vez" ficam com `participante` nulo.
 - `ProdutoEvento` — produto da lojinha do evento (FK `evento`, nome, descrição, foto, controla_estoque,
@@ -323,7 +337,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `PedidoLoja` — pedido da lojinha (FK `evento`, FK `usuario` opcional, **FK `inscricao` opcional**,
   dados do comprador, código, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**,
   **registrado_por**, valor_total; property `troco`) e `ItemPedidoLoja` (FK `pedido`, FK `variacao`
-  opcional + snapshots de nome, quantidade e valores). Migrations `0009`, `0010`, `0011`.
+  opcional + snapshots de nome, quantidade e valores + **retirada por unidade**:
+  `quantidade_entregue`/`entregue_em`/`entregue_por`, props `entregue`/`entrega_parcial`/`status_entrega`,
+  mig. `0016`). Migrations `0009`, `0010`, `0011`.
 - `CupomDesconto` — cupom de desconto de **inscrição** (FK `evento`, `codigo` único, `percentual`,
   `ativo`, FK **`faixa`** opcional = faixa etária a que se aplica, FK `inscricao` opcional = onde foi
   usado, FK **`participante`** opcional = quem usou, `usado_por`, `valor_desconto`, `usado_em`,
@@ -342,8 +358,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   PDV de inscrição, operadores).
 - **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro), parte 2 (**Resumo/dashboard**:
   KPIs, gráficos CSS/SVG, cobertura do clube + buscas) e parte 3 (**cupons de desconto** — por
-  participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. Falta: **presença/
-  check-in** (Fase 5.4).
+  participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. **Fase 5.4 (Check-in +
+  Retirada)** em andamento: **5.4a CONCLUÍDA** (console "Dia do evento" só leitura + campos de modelo).
+  Falta: **5.4b** (marcar check-in e entrega), **5.4c** ("vai levar agora?" no balcão), **5.4d**
+  (contadores no painel + guarda de exclusão do evento simples).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
@@ -375,6 +393,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/_loja_itens.html` (parcial: itens da lojinha para escolher — loja, inscrição e PDV)
 - `templates/core/_menu.html` (parcial: menu lateral central, usado por todas as telas internas)
 - `templates/core/evento_operar.html` (landing do operador), `evento_operadores.html` (gerência) e `trocar_senha.html`
+- `templates/core/evento_dia.html` (console "Dia do evento": check-in + retirada, só leitura na 5.4a)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -424,6 +443,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_insc_cupom.js` — inscrição (online **e** balcão): total ao vivo (faixa/diretoria +
   lojinha), **cupom por participante** (validação ao vivo contra o servidor + toast + abate do total) e
   troco no balcão. Substituiu o antigo `evento_pdv_inscricao.js`.
+- `static/js/evento_dia.js` — busca em tempo real do console "Dia do evento" (responsável/participante/
+  código). As ações de check-in/entrega chegam na 5.4b.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -449,6 +470,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/pdv/` — PDV / balcão de vendas da lojinha (Diretor por ora) (`core:evento_pdv`).
 - `/eventos/<id>/pdv/inscricao/` — PDV: inscrição presencial + lojinha, pagamento combinado (`core:evento_pdv_inscricao`).
 - `/eventos/<id>/operar/` — landing do operador (vender/inscrever) (`core:evento_operar`, operador ou Diretor).
+- `/eventos/<id>/dia/` — console "Dia do evento": check-in dos participantes + retirada dos itens (só leitura na 5.4a) (`core:evento_dia`, operador ou Diretor).
 - `/eventos/<id>/operadores/` — gerência de operadores (Diretor); rotas POST de add diretoria/externo, reset e remover.
 - `/trocar-senha/` — troca de senha (obrigatória no 1º acesso das contas temporárias) (`core:trocar_senha`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
