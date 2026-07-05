@@ -24,6 +24,11 @@ media/
 exportacao_migracao_*.zip
 migracao/
 
+# Extratos bancários (dados financeiros/pessoais — NUNCA versionar)
+EXTRATOS/
+extratos/
+*.ofx
+
 # Editores / SO
 .vscode/
 .idea/

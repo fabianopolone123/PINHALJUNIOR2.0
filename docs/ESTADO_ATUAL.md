@@ -295,6 +295,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   Primeira execução (2026-07-03): **35 logins + 37 aventureiros** (com ficha médica, termo e foto).
   As fotos importadas são dados **reais** dos membros e ficam **apenas** em `media/` (git-ignored) —
   **nunca** versionadas. Os dados pessoais de menores (JSON/CSV/zip da exportação) **não** vão ao Git.
+- **Migração de eventos (por evento, com conciliação bancária)**: o **"ACAMPAMENTO 2026"** (evento 7 do
+  sistema antigo) foi migrado para o **evento 60** — dados do evento + 5 faixas + **24 inscrições reais**
+  com **valor recebido conciliado contra o extrato** (Mercado Pago): R$ 4.597,41 (14 Pix + 3 cartão + 7
+  cortesia/diretoria), `forma_pagamento` e **data original** preservadas. Feito por scripts one-off
+  (parser do extrato + matcher + Artifact de revisão), sem comando versionado (conciliação é manual). Os
+  **extratos bancários** (`EXTRATOS/`) são dados financeiros e **não** vão ao Git (`.gitignore`). Próximo:
+  migrar os demais eventos, um a um.
 - **Perfis de acesso** (grupos nativos do Django): **Diretor, Responsável, Professor, Tesoureiro,
   Secretário**. Conceito: "Diretoria" é o grupo de integrantes do clube (diretor, secretário,
   tesoureiro, professor); "Responsável" é o lado dos pais. Uma pessoa pode ter os dois lados e

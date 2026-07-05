@@ -22,6 +22,42 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Migração do evento "Acampamento 2026" do sistema antigo (com conciliação bancária)
+
+### Resumo
+Migrado o primeiro evento do sistema antigo para o novo: **"ACAMPAMENTO AVENTUREIROS PINHAL JÚNIOR,
+2026"** (era o evento 7 no antigo → **evento 60** no novo). Trazidos: dados do evento (nome, local,
+descrição, datas 19–21/06 14h–17h), as **5 faixas etárias** (0-5 isento · 6-9 R$45 · 10-12 R$60 ·
+13-17 R$80 · 18+ R$150) e as **24 inscrições reais confirmadas** (puladas as não confirmadas e um teste).
+
+**Conciliação dos valores:** o sistema antigo gravava valores inconsistentes (taxa de cartão, campos
+zerados, etc.). Os valores foram **conciliados contra o extrato bancário (Mercado Pago, abr–jun)** —
+cruzando data + nome do pagador + valor — para registrar o **valor realmente recebido** em cada inscrição.
+Resultado: **R$ 4.597,41** (14 Pix + 3 cartão + 7 cortesia/diretoria). Decisões de cortesia/diretoria e
+casos de pagamento parcial confirmados com o usuário antes da importação.
+
+### Como foi feito
+- Análise/conciliação por **scripts one-off** no scratchpad (parser dos PDFs do extrato + matcher
+  inscrição↔transação) + **relatório visual** (Artifact) para revisão do usuário. **Não** virou comando
+  versionado porque a conciliação é bespoke (revisão manual do banco caso a caso).
+- Importação direta no banco (SQLite): `Inscricao` + `ParticipanteInscricao` por inscrição, com
+  `forma_pagamento` (pix/cartao/cortesia), `valor_total` = recebido conciliado e **`criado_em` = data
+  original** da inscrição (para rastreabilidade). Sem tela de edição (decisão do usuário: subir já certo).
+
+### Privacidade
+- Os **PDFs do extrato** (`EXTRATOS/`) e os JSONs da exportação contêm dados financeiros/pessoais e
+  **NÃO são versionados** (adicionado `EXTRATOS/`, `extratos/`, `*.ofx` ao `.gitignore`). Ficam só local.
+
+### Pendências / próximo passo
+- Migrar os **demais eventos** do sistema antigo (mesmo processo, um a um). Custos do acampamento (se
+  houver) podem ser lançados na aba Custos depois. Vínculo `Inscricao.usuario`→conta migrada não foi feito
+  (histórico); dá para casar por nome/CPF no futuro se necessário.
+
+### Arquivos alterados
+- `.gitignore`: ignora `EXTRATOS/`, `extratos/`, `*.ofx`. (Dados do evento entram só no banco local.)
+
+---
+
 ## 2026-07-05 - "Dia do evento": botão Voltar do balcão volta para o console (não para o painel)
 
 ### Resumo
