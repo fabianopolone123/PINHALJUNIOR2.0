@@ -1296,6 +1296,12 @@ a.tipo-card:hover {
     color: var(--texto-suave);
 }
 
+/* Lista "a conferir" da cobertura do clube (nomes ambíguos) */
+.cob-conferir { list-style: none; margin: 6px 0 0; padding: 8px 10px; display: grid; gap: 5px;
+    background: rgba(224, 168, 0, 0.10); border: 1px solid rgba(224, 168, 0, 0.30); border-radius: 10px; }
+.cob-conferir li { font-size: 0.86rem; color: var(--texto); }
+.cob-conferir small { color: var(--texto-suave); }
+
 /* Painel "Dia do evento" no Resumo (5.4d) */
 .dia-band {
     display: flex;

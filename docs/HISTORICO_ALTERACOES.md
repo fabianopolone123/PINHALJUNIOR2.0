@@ -22,6 +22,36 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Cobertura do clube: casamento de nomes mais esperto + lista de "a conferir"
+
+### Resumo
+No painel do evento, o card **"Aventureiros do clube neste evento"** (cobertura) casava mal os nomes: se a
+inscrição abreviava o nome do meio (ex.: **"Alice Z Moreira"**), não casava com **"Alice Zanatta Moreira"**
+(a regra exigia todos os tokens idênticos). Melhorias:
+- **Casamento ciente de iniciais**: um token de 1 letra casa com um token que começa por ela — "Alice Z
+  Moreira" → "Alice Zanatta Moreira". Mantém o subconjunto (ex.: "Beatriz Gonçalves" → "Beatriz Gonçalves
+  Steinmeyer"). Helpers `_tokens_lista` + `_cobre_token` + `_nome_casa` (substituem o `_tokens_nome`/subset).
+- **Desambiguação pelo sobrenome do responsável**: quando um nome curto casa com mais de um aventureiro,
+  usa o sobrenome do responsável para escolher (ex.: "Beatriz" + responsável "…Staine" → "Beatriz Gonçalves
+  Staine"; a outra Beatriz fica de fora). Só vira "a conferir" se ainda restar ambiguidade.
+- **"A conferir" agora é uma lista** (participante + inscrição + candidatos), não só um contador — o
+  Diretor vê exatamente quais nomes ficaram ambíguos.
+
+Efeito no Acampamento 2026: cobertura subiu de **17 → 19 de 39** e **0 a conferir** (Alice e Beatriz
+resolvidas). Os ~20 restantes são adultos/pais e crianças **não cadastradas** (corretamente fora).
+
+### Arquivos alterados
+- `core/views.py`: `_tokens_lista`/`_cobre_token`/`_nome_casa` (novos); `_montar_dashboard` usa o novo
+  casamento + desambiguação por responsável e devolve `cobertura.ambiguos_lista`. Removido `_tokens_nome`.
+- `templates/core/evento_painel.html`: lista `.cob-conferir` (os "a conferir"). `static/css/eventos.css`:
+  estilo `.cob-conferir`.
+
+### Validação
+- `manage.py check` OK. Render do evento 60: cobertura **19 de 39**, sem "a conferir"; "Alice Zanatta
+  Moreira" e "Beatriz Gonçalves Staine" passaram a casar. Casos legítimos fora (não-membros) seguem fora.
+
+---
+
 ## 2026-07-05 - Migração do evento "Acampamento 2026" do sistema antigo (com conciliação bancária)
 
 ### Resumo

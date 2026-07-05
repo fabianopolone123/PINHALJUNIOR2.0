@@ -474,9 +474,35 @@ def _normaliza(texto):
 _CONECTORES_NOME = {"de", "da", "do", "das", "dos", "e"}
 
 
-def _tokens_nome(nome):
-    """Conjunto de nomes significativos (sem acento/caixa e sem conectores)."""
-    return {t for t in _normaliza(nome).split() if t not in _CONECTORES_NOME}
+def _tokens_lista(nome):
+    """Nomes significativos, em ordem (sem acento/caixa e sem conectores).
+    Usado para casar nomes de participantes com aventureiros cadastrados."""
+    return [t for t in _normaliza(nome).split() if t not in _CONECTORES_NOME]
+
+
+def _cobre_token(p, a):
+    """True se o token `p` (do participante) casa com `a` (do aventureiro):
+    igualdade, ou uma **inicial** (token de 1 letra) que começa o outro
+    (ex.: 'z' casa com 'zanatta')."""
+    return p == a or (len(p) == 1 and a.startswith(p)) or (len(a) == 1 and p.startswith(a))
+
+
+def _nome_casa(pt, at):
+    """True se **todos** os tokens do participante (`pt`, lista) são cobertos por
+    tokens **distintos** do aventureiro (`at`, lista) — igualdade ou inicial. Assim
+    'Alice Z Moreira' casa com 'Alice Zanatta Moreira', e 'Beatriz Gonçalves' ainda
+    casa com 'Beatriz Gonçalves Steinmeyer' (subconjunto)."""
+    if not pt:
+        return False
+    resto = list(at)
+    for p in pt:
+        alvo = next((j for j, a in enumerate(resto) if a == p), None)  # exato primeiro
+        if alvo is None:
+            alvo = next((j for j, a in enumerate(resto) if _cobre_token(p, a)), None)
+        if alvo is None:
+            return False
+        resto.pop(alvo)
+    return True
 
 
 _ORDEM_PAPEIS = {"Pai": 0, "Mãe": 1, "Responsável legal": 2}
@@ -771,20 +797,35 @@ def _montar_dashboard(confirmadas, pedidos_confirmados, custos, faixas, receitas
     Percentuais das barras já vêm prontos (o template só aplica a largura)."""
     # --- Cobertura: quais aventureiros do clube estão neste evento ---
     aventureiros = list(Aventureiro.objects.all().order_by("nome_completo"))
-    av_tokens = [(av, _tokens_nome(av.nome_completo)) for av in aventureiros]
-    # Para cada participante, quais aventureiros seus nomes poderiam ser (subconjunto).
+    av_tokens = [(av, _tokens_lista(av.nome_completo)) for av in aventureiros]
+    # Para cada participante, quais aventureiros seus nomes poderiam ser (casa por
+    # igualdade/inicial). Vínculo manual (participante.aventureiro) tem prioridade.
     inscritos_ids = set()
-    ambiguos = 0
+    ambiguos_lista = []
     for i in confirmadas:
         for p in i.participantes.all():
-            pt = _tokens_nome(p.nome)
+            pt = _tokens_lista(p.nome)
             if not pt:
                 continue
-            candidatos = [av for av, at in av_tokens if pt <= at]
+            candidatos = [av for av, at in av_tokens if _nome_casa(pt, at)]
+            if len(candidatos) > 1:
+                # Desambigua pelo sobrenome do responsável: ex. "Beatriz" +
+                # responsável "...Staine" -> "Beatriz Gonçalves Staine".
+                resp_tok = set(_tokens_lista(i.responsavel_nome))
+                por_resp = [av for av, at in av_tokens
+                            if av in candidatos and resp_tok & set(at)]
+                if len(por_resp) == 1:
+                    candidatos = por_resp
             if len(candidatos) == 1:
                 inscritos_ids.add(candidatos[0].id)
             elif len(candidatos) > 1:
-                ambiguos += 1  # nome serve para mais de um -> não casa (a conferir)
+                # nome serve para mais de um -> "a conferir" (não casa sozinho)
+                ambiguos_lista.append({
+                    "participante": p.nome,
+                    "responsavel": i.responsavel_nome,
+                    "candidatos": [av.nome_completo for av in candidatos],
+                })
+    ambiguos = len(ambiguos_lista)
     inscritos_clube = []
     fora_clube = []
     for av in aventureiros:
@@ -836,6 +877,7 @@ def _montar_dashboard(confirmadas, pedidos_confirmados, custos, faixas, receitas
             "inscritos": inscritos_clube,
             "fora": fora_clube,
             "ambiguos": ambiguos,
+            "ambiguos_lista": ambiguos_lista,
         },
         "formas": formas_chart,
         "faixas": faixas_chart,

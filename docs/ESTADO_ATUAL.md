@@ -186,11 +186,14 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **Inscritos por faixa etária** (barras azul, com valor rotulado); e um painel **"Aventureiros do clube
   neste evento"** com um **donut** ("X de Y inscritos", %) e duas listas — **Inscritos** e **Ainda não
   inscritos** — dos aventureiros cadastrados no clube, com **busca em tempo real**. O casamento é por
-  **conjunto de nomes** (tokens sem acento/caixa/conectores): o participante casa com o aventureiro
-  quando **todos os nomes digitados estão contidos** no nome cadastrado **e** isso aponta para **um
-  único** aventureiro; se servir para mais de um, vira **"a conferir"** (não casa errado). Ainda é
-  **melhor esforço** (inscrição guarda nome livre) — o vínculo exato virá na inscrição (ver Próximas
-  etapas). A aba **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para
+  **conjunto de nomes** (tokens sem acento/caixa/conectores, helper `_nome_casa`): o participante casa com
+  o aventureiro quando **todos os nomes digitados são cobertos** por tokens do nome cadastrado **e** isso
+  aponta para **um único** aventureiro. O casamento é **ciente de iniciais** — um token de 1 letra casa
+  com um token que começa por ela (ex.: "Alice **Z** Moreira" casa com "Alice **Zanatta** Moreira") — e,
+  quando um nome curto serve para mais de um, **desambigua pelo sobrenome do responsável** (ex.: "Beatriz"
+  + responsável "…Staine" → "Beatriz Gonçalves Staine"). Se ainda restar mais de um, vira **"a conferir"**
+  — e agora a tela **lista** cada caso (participante + inscrição + os candidatos), em vez de só um contador.
+  Ainda é **melhor esforço** (inscrição guarda nome livre) — o vínculo exato/manual pode vir depois. A aba **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para
   responder "fulano se inscreveu?" (quando não acha, **a lista some** e aparece só "nenhuma inscrição
   encontrada"). Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
   sempre com **rótulo** (cor nunca é a única pista).

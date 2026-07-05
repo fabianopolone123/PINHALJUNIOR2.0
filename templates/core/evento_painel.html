@@ -272,7 +272,12 @@
                                 <p class="cobertura-tag cob-verde">✅ Inscritos: <strong>{{ dashboard.cobertura.inscritos_count }}</strong></p>
                                 <p class="cobertura-tag cob-cinza">⬜ Ainda não: <strong>{{ dashboard.cobertura.fora_count }}</strong></p>
                                 {% if dashboard.cobertura.ambiguos %}
-                                <p class="cobertura-tag cob-aviso">⚠️ {{ dashboard.cobertura.ambiguos }} a conferir <small>(nome bate com mais de um aventureiro)</small></p>
+                                <p class="cobertura-tag cob-aviso">⚠️ {{ dashboard.cobertura.ambiguos }} a conferir <small>(o nome digitado bate com mais de um aventureiro)</small></p>
+                                <ul class="cob-conferir">
+                                    {% for a in dashboard.cobertura.ambiguos_lista %}
+                                    <li><strong>{{ a.participante }}</strong> <small>(inscrição de {{ a.responsavel }})</small> → {{ a.candidatos|join:" ou " }}</li>
+                                    {% endfor %}
+                                </ul>
                                 {% endif %}
                                 <p class="painel-nota">Comparação por <strong>nome</strong> (o cadastro não fica “amarrado” à inscrição), então serve como referência.</p>
                             </div>
