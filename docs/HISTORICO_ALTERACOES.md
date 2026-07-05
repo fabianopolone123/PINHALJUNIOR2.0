@@ -22,6 +22,29 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Lista de eventos: botões Duplicar/Excluir menores, consistentes e grudados na base
+
+### Resumo
+Ajuste visual dos botões dos cards da lista de **Eventos**:
+- **Duplicar** passou a usar o mesmo estilo pequeno do "Abrir painel"/"Criar evento" (`btn-acao
+  btn-acao-pequeno`, verde) — antes era o `btn-secundario` (grandão).
+- **Excluir** virou um **botão pequeno vermelho** (fundo/borda suaves, mesmo tamanho) em vez de texto
+  solto — mais bonito e do mesmo tamanho dos outros.
+- **Bug corrigido**: os botões ficavam "no meio" do card. Havia **duas** regras `.evento-acoes` no
+  `eventos.css` e a da página pública (`margin-top: 24px`) sobrescrevia a da lista (`margin-top: auto`).
+  Escopei a da lista em **`.evento-card .evento-acoes`**, então os botões voltam a **grudar na base** do
+  card (alinhados entre cards de alturas diferentes).
+
+### Arquivos criados/alterados
+- `templates/core/eventos.html`: "Duplicar" usa `btn-acao btn-acao-pequeno`.
+- `static/css/eventos.css`: `.evento-card .evento-acoes` (escopo + `margin-top:auto`); `.btn-excluir-evento`
+  menor e com fundo/borda (botão, não texto).
+
+### Decisões tomadas
+- Duplicar em verde (igual ao "Abrir painel"); Excluir em vermelho (destrutivo) — mesmo tamanho/forma.
+
+---
+
 ## 2026-07-05 - Lista de eventos: etiqueta do tipo mais compacta e bonita
 
 ### Resumo

@@ -91,33 +91,38 @@
 }
 
 /* Empurra as ações para a base, deixando os cards da mesma linha com botões alinhados. */
-.evento-acoes {
+/* Ações do card na LISTA (escopado em .evento-card para não colidir com a regra
+   `.evento-acoes` da página pública do evento, mais abaixo). `margin-top:auto`
+   gruda os botões na base do card. */
+.evento-card .evento-acoes {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: auto;
-    padding-top: 4px;
+    padding-top: 8px;
 }
 
-/* Botão "Excluir" (só em eventos vazios): discreto e destrutivo. */
+/* Botão "Excluir" (só em eventos vazios): pequeno e destrutivo, mesmo tamanho
+   do "Abrir painel"/"Duplicar". */
 .form-excluir-evento { display: contents; }
 .btn-excluir-evento {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 14px;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    background: transparent;
+    padding: 9px 15px;
+    border: 1.5px solid #f0b7b0;
+    border-radius: var(--raio-item);
+    background: #fdecea;
     color: #c0392b;
     font: inherit;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.86rem;
     cursor: pointer;
-    transition: background var(--transicao), border-color var(--transicao);
+    transition: background var(--transicao), transform var(--transicao);
 }
-.btn-excluir-evento:hover { background: #fdecea; border-color: #f0b7b0; }
+.btn-excluir-evento:hover { background: #f9d9d4; transform: translateY(-2px); }
 
 /* Descrição completa no modal de visualização do evento. */
 .evento-modal-desc {
