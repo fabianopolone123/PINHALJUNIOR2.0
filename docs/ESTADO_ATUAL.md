@@ -2,10 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Barra de abas do painel unificada**: todas as abas (Resumo,
-Inscrições, Lojinha, Custos, Financeiro + Vender no balcão, Operadores) agora têm **ícone** e o **mesmo
-estilo** (azul, ativa com sublinhado verde + fundo suave) — antes as de ação destoavam. Antes: reorg
-completa (etapas 1–4): abas em Inscrições/Lojinha, Balcão/Operadores no topo, cards clicáveis no Resumo)
+**Última atualização:** 2026-07-04 (**Fase 5.3 — Cupons de desconto (só para inscrição)**: nova aba
+**Desconto** no painel gera cupons por **%** e lista com **status (usado/disponível)** + **quem usou**;
+no formulário de inscrição (online e balcão) há um **campo de cupom** — o desconto se aplica a **um
+participante** (o de maior valor), **uso único**. Model `CupomDesconto` (mig. 0014). Antes: barra de abas
+unificada com ícones)
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -191,6 +192,16 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   responder "fulano se inscreveu?" (quando não acha, **a lista some** e aparece só "nenhuma inscrição
   encontrada"). Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
   sempre com **rótulo** (cor nunca é a única pista).
+- **Evento complexo — Fase 5.3 (Cupons de desconto)**: aba **"Desconto"** no painel (Diretor) para
+  **gerar cupons** — informa a **% de desconto** e clica em "Gerar cupom" (gera um código único); a
+  **lista** mostra cada cupom com **status** (Disponível / "Usado por FULANO · −R$ X") e permite remover
+  os não usados. O cupom vale **só para inscrição** (não na lojinha), é de **uso único** e aplica o
+  desconto em **um participante** da inscrição — o de **maior valor**. Nos formulários de inscrição
+  (**online** e **balcão/PDV**) há um **campo "Cupom de desconto"**: código inválido/já usado bloqueia
+  com aviso; válido reduz o valor daquele participante e o total e marca o cupom como usado (com quem
+  usou, valor e vínculo à inscrição). O cupom aplicado aparece na inscrição (painel) e na tela de
+  sucesso. Model `CupomDesconto` (migration `0014`). No balcão, o total ao vivo ainda **não** reflete o
+  cupom (o servidor aplica ao confirmar).
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
@@ -302,6 +313,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   dados do comprador, código, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**,
   **registrado_por**, valor_total; property `troco`) e `ItemPedidoLoja` (FK `pedido`, FK `variacao`
   opcional + snapshots de nome, quantidade e valores). Migrations `0009`, `0010`, `0011`.
+- `CupomDesconto` — cupom de desconto de **inscrição** (FK `evento`, `codigo` único, `percentual`,
+  `ativo`, FK `inscricao` opcional = onde foi usado, `usado_por`, `valor_desconto`, `usado_em`,
+  `criado_por`; property `usado`). Uso único; aplica em 1 participante (o de maior valor). Migration `0014`.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -426,6 +440,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).
 - `/eventos/<id>/inscricoes/campo/novo/`, `.../campo/<id>/excluir/` e `.../campo/<id>/mover/` — adicionar/remover/reordenar campo do formulário (POST).
+- `/eventos/<id>/descontos/novo/` e `/eventos/<id>/descontos/<id>/excluir/` — gerar/remover cupom de desconto (POST, Diretor).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

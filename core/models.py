@@ -954,3 +954,63 @@ class OperadorEvento(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} @ {self.evento.nome}"
+
+
+class CupomDesconto(models.Model):
+    """Cupom de desconto (Fase 5.3) — vale **somente para inscrição** (não na
+    lojinha). Uso único: ao ser usado, aplica o `percentual` em **um** participante
+    da inscrição (o de maior valor). Guarda quem usou, quando e quanto foi
+    descontado, para acompanhamento no painel."""
+
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.CASCADE,
+        related_name="cupons",
+        verbose_name="Evento",
+    )
+    codigo = models.CharField("Código", max_length=20, unique=True)
+    percentual = models.PositiveIntegerField("Percentual de desconto (%)")
+    ativo = models.BooleanField("Ativo", default=True)
+    # Inscrição que usou o cupom (nulo enquanto disponível).
+    inscricao = models.ForeignKey(
+        "Inscricao",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cupons",
+        verbose_name="Inscrição que usou",
+    )
+    usado_por = models.CharField("Usado por", max_length=150, blank=True)
+    valor_desconto = models.DecimalField(
+        "Valor descontado", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    usado_em = models.DateTimeField("Usado em", null=True, blank=True)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cupons_criados",
+        verbose_name="Criado por",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cupom de desconto"
+        verbose_name_plural = "Cupons de desconto"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.codigo} ({self.percentual}%)"
+
+    @property
+    def usado(self):
+        return self.usado_em is not None
+
+    @staticmethod
+    def gerar_codigo_unico():
+        alfabeto = string.ascii_uppercase + string.digits
+        while True:
+            codigo = "D" + "".join(random.choices(alfabeto, k=5))
+            if not CupomDesconto.objects.filter(codigo=codigo).exists():
+                return codigo

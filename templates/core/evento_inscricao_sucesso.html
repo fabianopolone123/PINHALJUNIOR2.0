@@ -34,6 +34,9 @@
                     {% endfor %}
                 </ul>
 
+                {% for cp in inscricao.cupons.all %}
+                <p class="sucesso-cupom">🏷️ Cupom <strong>{{ cp.codigo }}</strong> aplicado ({{ cp.percentual }}%): <strong>−R$ {{ cp.valor_desconto|moeda }}</strong></p>
+                {% endfor %}
                 <p class="sucesso-total">Total: <strong>R$ {{ inscricao.valor_total|moeda }}</strong></p>
 
                 {% if pedido %}

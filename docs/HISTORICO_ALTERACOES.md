@@ -22,6 +22,55 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-04 - Evento complexo — Fase 5.3: cupons de desconto (só para inscrição)
+
+### Resumo
+Nova frente da Fase 5: **cupons de desconto**, **somente para inscrição** (não valem na lojinha).
+- **Aba "Desconto"** no painel (Diretor): gera cupom informando a **% de desconto** ("Gerar cupom" → cria
+  um **código único**); a **lista** mostra cada cupom com **status** ("Disponível" / "Usado por FULANO ·
+  −R$ X") e permite **remover** os não usados.
+- **Campo "Cupom de desconto"** nos formulários de inscrição — **online** (`evento_inscrever`) e
+  **balcão/PDV** (`evento_pdv_inscricao`). Código inválido ou já usado **bloqueia** com aviso.
+- **Regra**: cupom de **uso único**; o desconto se aplica a **um participante só** — o de **maior valor**
+  (decisão nossa; mais vantajoso). Reduz o valor desse participante e o total; marca o cupom como usado
+  (quem usou, valor descontado e vínculo à inscrição). O cupom aparece na inscrição (painel) e na tela de
+  sucesso.
+
+### Arquivos criados/alterados
+- `core/models.py`: model **`CupomDesconto`** (evento, codigo único, percentual, ativo, inscricao,
+  usado_por, valor_desconto, usado_em, criado_por; property `usado`; `gerar_codigo_unico`). Migration
+  `0014`.
+- `core/views.py`: helpers `_buscar_cupom_valido` e `_aplicar_desconto_cupom` (aplica no participante de
+  maior valor); `evento_inscrever_view` e `evento_pdv_inscricao_view` leem/validam/aplicam o cupom (num
+  participante) e marcam o uso; novas `evento_cupom_novo_view` / `evento_cupom_excluir_view`; o painel
+  passa `cupons` e anexa `i.cupom_aplicado` a cada inscrição.
+- `core/urls.py`: rotas `evento_cupom_novo` / `evento_cupom_excluir`.
+- `templates/core/evento_painel.html`: aba "Desconto" (topo) + seção (gerar + lista) + pílula do cupom
+  na inscrição. `evento_inscrever.html` e `evento_pdv_inscricao.html`: campo "Cupom de desconto".
+  `evento_inscricao_sucesso.html`: linha do desconto aplicado.
+- `core/admin.py`: registra `CupomDesconto`. `static/css/eventos.css`: estilos do cupom (`.cupom-*`,
+  `.pill-cupom`).
+
+### Decisões tomadas
+- **Um participante por cupom** (o de maior valor); **uso único**; **só inscrição**. Código
+  case-insensitive.
+- **Balcão**: o total ao vivo (JS) **não** reflete o cupom (precisaria validar o código no cliente); o
+  **servidor** aplica o desconto e calcula o troco ao confirmar. Anotado como limitação.
+- Cancelar a inscrição **não** libera o cupom (permanece usado) — simplicidade; revisitar se necessário.
+
+### Validação
+- `manage.py check` OK. Teste ponta a ponta: gerar cupom (50%); rejeitar 150% (não cria); inscrição
+  online com cupom (2 participantes 30/50 → desconto no de 50 → 25; total 55); cupom marcado usado (por
+  quem, −R$ 25, vínculo); **reusar** o cupom → bloqueado; **inexistente** → bloqueado; **balcão** aplica
+  (20% de 40 → −R$ 8, total 32). Visual (headless): aba "Desconto" com gerar + lista (1 disponível, 1
+  usado com "Usado por … · −R$ 8,00").
+
+### Pendências / próximo passo
+- **Fase 5.4 — presença/check-in** (também vira guarda de exclusão dos eventos simples). Melhoria
+  possível: refletir o cupom no total ao vivo do balcão (validação via AJAX).
+
+---
+
 ## 2026-07-04 - Barra de abas do painel unificada (ícones + mesmo estilo)
 
 ### Resumo

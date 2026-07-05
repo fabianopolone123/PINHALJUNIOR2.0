@@ -72,6 +72,12 @@ urlpatterns = [
         views.evento_custo_excluir_view,
         name="evento_custo_excluir",
     ),
+    path("eventos/<int:pk>/descontos/novo/", views.evento_cupom_novo_view, name="evento_cupom_novo"),
+    path(
+        "eventos/<int:pk>/descontos/<int:cupom_id>/excluir/",
+        views.evento_cupom_excluir_view,
+        name="evento_cupom_excluir",
+    ),
     path(
         "eventos/<int:pk>/inscricoes/config/",
         views.evento_inscricao_config_view,

@@ -4,6 +4,7 @@ from .models import (
     Aventureiro,
     AutorizacaoImagem,
     CampoInscricao,
+    CupomDesconto,
     CustoEvento,
     Evento,
     FaixaEtariaPreco,
@@ -57,6 +58,13 @@ class CustoEventoAdmin(admin.ModelAdmin):
 class FaixaEtariaPrecoAdmin(admin.ModelAdmin):
     list_display = ("evento", "rotulo", "idade_min", "idade_max", "valor", "ordem")
     search_fields = ("rotulo", "evento__nome")
+    list_filter = ("evento",)
+
+
+@admin.register(CupomDesconto)
+class CupomDescontoAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "evento", "percentual", "usado", "usado_por", "valor_desconto", "criado_em")
+    search_fields = ("codigo", "evento__nome", "usado_por")
     list_filter = ("evento",)
 
 

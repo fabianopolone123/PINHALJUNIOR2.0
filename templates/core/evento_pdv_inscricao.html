@@ -99,6 +99,12 @@
                         {% include "core/_loja_itens.html" %}
                         {% endif %}
 
+                        <h3 class="bloco-rotulo">Cupom de desconto <small class="ajuda">(opcional)</small></h3>
+                        <div class="campo">
+                            <input type="text" name="cupom" class="campo-input cupom-input" value="{{ cupom_codigo }}" placeholder="Código do cupom" autocomplete="off">
+                            <small class="ajuda">Aplica o desconto em um participante ao <strong>confirmar</strong> (o total acima ainda não reflete o cupom).</small>
+                        </div>
+
                         <h3 class="bloco-rotulo">Pagamento</h3>
                         <div class="pdv-formas">
                             {% for f in formas %}

@@ -1011,3 +1011,21 @@ a.tipo-card:hover {
     border-radius: 999px; padding: 1px 8px;
 }
 
+/* ===== Cupons de desconto (Fase 5.3) ===== */
+.cupom-gerar { margin: 6px 0 16px; }
+.cupom-gerar-rotulo { display: block; font-size: 0.9rem; color: var(--texto); margin-bottom: 6px; }
+.cupom-gerar-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cupom-pct-input { width: 90px; }
+.cupom-gerar-linha .btn-acao { margin-top: 0; }
+.cupom-pct { font-weight: 800; color: var(--texto-suave); margin-right: 4px; }
+.cupons-lista { display: flex; flex-direction: column; gap: 10px; }
+.cupom-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; }
+.cupom-usado { opacity: 0.72; }
+.cupom-info { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cupom-codigo { font-family: monospace; font-weight: 800; font-size: 1.05rem; color: var(--azul-escuro); letter-spacing: 0.06em; }
+.cupom-pct-pill { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
+.pill-cupom { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
+.cupom-input { text-transform: uppercase; }
+.cupom-input::placeholder { text-transform: none; }
+.sucesso-cupom { color: #8a6d00; margin: 6px 0 0; font-weight: 600; }
+

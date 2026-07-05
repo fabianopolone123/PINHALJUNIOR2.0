@@ -84,8 +84,11 @@ lojinha, custos e resultado (lucro/prejuízo).
 - **Fase 5 — parte 2 (Resumo/dashboard) CONCLUÍDA** (2026-07-04): KPIs repaginados + gráficos CSS/SVG
   (receitas×custos, formas de pagamento, faixa etária) + **cobertura do clube** (donut + listas
   inscritos/não, por nome) com busca; e **busca na aba Inscrições**. Helper `_montar_dashboard`.
-- **PRÓXIMO PASSO = Fase 5 (parte 3): códigos de desconto** (cupons %). Depois: **presença/check-in**
-  (a presença também vira guarda de exclusão dos eventos simples — ver memória do projeto).
+- **Fase 5 — parte 3 (cupons de desconto) CONCLUÍDA** (2026-07-04): aba "Desconto" gera cupom por % +
+  lista (usado/quem usou); campo de cupom na inscrição (online e balcão); uso único; desconto em 1
+  participante (o de maior valor); só inscrição. Model `CupomDesconto`.
+- **PRÓXIMO PASSO = Fase 5 (parte 4): presença/check-in** (também vira guarda de exclusão dos eventos
+  simples — ver memória do projeto).
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -160,8 +163,10 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
    - **5.2 — CONCLUÍDA ✅** — **Dashboard/gráficos** no Resumo (CSS/SVG puro, sem libs): KPIs, barras
      (receitas×custos, formas de pagamento, faixa etária), **cobertura do clube** (donut + listas por
      nome) e busca na aba Inscrições. Helper `_montar_dashboard`.
-   - **5.3 — PRÓXIMA ⏭️** — **Códigos de desconto** (cupons %).
-   - **5.4** — **Presença/check-in** (também vira guarda de exclusão dos eventos simples).
+   - **5.3 — CONCLUÍDA ✅** — **Cupons de desconto** (só inscrição): aba "Desconto" gera cupom por % +
+     lista (usado/quem usou); campo de cupom na inscrição (online e balcão); uso único; desconto em 1
+     participante (o de maior valor). Model `CupomDesconto` (mig. 0014).
+   - **5.4 — PRÓXIMA ⏭️** — **Presença/check-in** (também vira guarda de exclusão dos eventos simples).
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.
 
