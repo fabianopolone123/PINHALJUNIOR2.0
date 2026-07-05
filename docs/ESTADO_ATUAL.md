@@ -511,7 +511,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   código) + **ações de marcar** (check-in por participante e entrega por unidade via fetch/JSON com
   `X-CSRFToken`, atualização inline dos selos/stepper e do resumo do dia).
 - `static/js/presenca.js` — módulo Presença: marcar/desmarcar (fetch/JSON + `X-CSRFToken`, atualiza botão e
-  contador), **modal da foto** ampliada e busca em tempo real.
+  contador), **modal da foto** ampliada e busca em tempo real. Ao marcar/desmarcar com sucesso, mostra o
+  **toast** padrão ("<nome> — presente ✅" / "<nome> — ausente"); toast de erro em falha.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).

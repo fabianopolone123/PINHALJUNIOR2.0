@@ -61,6 +61,16 @@
                     var txt = btn.querySelector(".pres-marcar-txt");
                     if (txt) txt.textContent = d.presente ? "✅ Presente" : "Marcar";
                     if (contador) contador.textContent = d.presentes;
+                    // Confirma a marcação com o toast padrão do sistema.
+                    if (window.mostrarToast) {
+                        var item = btn.closest(".pres-item");
+                        var nomeEl = item && item.querySelector(".pres-nome");
+                        var nome = nomeEl ? nomeEl.textContent.trim() : "Aventureiro";
+                        window.mostrarToast(
+                            d.presente ? nome + " — presente ✅" : nome + " — ausente",
+                            d.presente ? "success" : "info"
+                        );
+                    }
                 })
                 .catch(function () {
                     if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error");

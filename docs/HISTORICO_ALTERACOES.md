@@ -22,6 +22,16 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Presença: toast ao marcar/desmarcar (confirmação)
+
+### Resumo
+Pedido do usuário: confirmar que a marcação deu certo. O `presenca.js` passou a mostrar o **toast padrão**
+do sistema (`window.mostrarToast`) no **sucesso** de marcar/desmarcar — "<nome> — presente ✅" (success) ou
+"<nome> — ausente" (info). Antes só havia toast em caso de erro. `inicio.js` (que expõe `mostrarToast`) já
+é carregado antes do `presenca.js` na folha. `manage.py check` OK.
+
+---
+
 ## 2026-07-05 - Módulo Presença do clube (+ guarda de exclusão por presença)
 
 ### Resumo
