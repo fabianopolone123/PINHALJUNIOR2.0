@@ -352,7 +352,7 @@
                                 <span class="pill {% if i.status == 'confirmada' %}pill-verde{% else %}pill-cinza{% endif %}">{{ i.get_status_display }}</span>
                                 {% if i.origem == "pdv" %}<span class="pill">🎟️ Balcão · {{ i.get_forma_pagamento_display }}</span>{% endif %}
                                 {% if i.total_compras %}<span class="pill pill-loja">🛒 R$ {{ i.total_compras|moeda }}</span>{% endif %}
-                                {% if i.cupom_aplicado %}<span class="pill pill-cupom">🏷️ {{ i.cupom_aplicado.codigo }} · −R$ {{ i.cupom_aplicado.valor_desconto|moeda }}</span>{% endif %}
+                                {% for cp in i.cupons_aplicados %}<span class="pill pill-cupom">🏷️ {{ cp.codigo }} · −R$ {{ cp.valor_desconto|moeda }}</span>{% endfor %}
                                 <span class="inscrito-valor">R$ {{ i.valor_total|moeda }}</span>
                             </div>
                             <strong class="inscrito-resp">{{ i.responsavel_nome }}</strong>
@@ -664,16 +664,37 @@
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Cupons de desconto</h2>
                     </div>
-                    <p class="painel-nota">Valem <strong>só para inscrição</strong> (não na lojinha) e são de <strong>uso único</strong>. Cada cupom aplica o desconto em <strong>um participante</strong> da inscrição (o de maior valor).</p>
+                    <p class="painel-nota">Valem <strong>só para inscrição</strong> (não na lojinha) e são de <strong>uso único</strong>. Na inscrição, o código é digitado <strong>na linha de um participante</strong> e o desconto vale só para ele. Você pode restringir o cupom a uma <strong>faixa etária</strong>.</p>
 
-                    <form method="post" action="{% url 'core:evento_cupom_novo' evento.id %}" class="cupom-gerar" novalidate>
+                    <form method="post" action="{% url 'core:evento_cupom_novo' evento.id %}" class="cupom-gerar card" novalidate id="cupomGerarForm">
                         {% csrf_token %}
-                        <label for="cupomPercentual" class="cupom-gerar-rotulo">Gerar cupom com desconto de</label>
-                        <div class="cupom-gerar-linha">
-                            <input type="number" id="cupomPercentual" name="percentual" class="campo-input cupom-pct-input" min="1" max="100" placeholder="20" inputmode="numeric">
-                            <span class="cupom-pct">%</span>
-                            <button type="submit" class="btn-acao btn-acao-pequeno"><span aria-hidden="true">🏷️</span> Gerar cupom</button>
+                        <div class="cupom-gerar-grade">
+                            <div class="cupom-campo">
+                                <label for="cupomPercentual">Desconto</label>
+                                <div class="cupom-pct-wrap">
+                                    <input type="number" id="cupomPercentual" name="percentual" class="campo-input" min="1" max="100" placeholder="20" inputmode="numeric" required>
+                                    <span class="cupom-pct-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="cupom-campo">
+                                <label for="cupomQtd">Quantidade</label>
+                                <div class="cupom-qtd-stepper" data-max="5" data-min="1">
+                                    <button type="button" class="cupom-qtd-btn" data-passo="-1" aria-label="Diminuir quantidade">−</button>
+                                    <input type="number" id="cupomQtd" name="quantidade" class="campo-input cupom-qtd-input" min="1" max="5" value="1" inputmode="numeric" readonly aria-live="polite">
+                                    <button type="button" class="cupom-qtd-btn" data-passo="1" aria-label="Aumentar quantidade">+</button>
+                                </div>
+                            </div>
+                            <div class="cupom-campo">
+                                <label for="cupomFaixa">Faixa etária</label>
+                                <select id="cupomFaixa" name="faixa" class="campo-select">
+                                    <option value="">Qualquer faixa</option>
+                                    {% for f in faixas %}<option value="{{ f.id }}">{% if f.rotulo %}{{ f.rotulo }} · {% endif %}{{ f.faixa_txt }} — R$ {{ f.valor|moeda }}</option>{% endfor %}
+                                    {% if evento.valor_diretoria is not None %}<option value="" disabled>(diretoria: valor fixo)</option>{% endif %}
+                                </select>
+                            </div>
                         </div>
+                        <button type="submit" class="btn-acao btn-acao-pequeno cupom-gerar-btn"><span aria-hidden="true">🏷️</span> Gerar cupom</button>
+                        <p class="ajuda cupom-gerar-ajuda">Você pode gerar até <strong>5 cupons por vez</strong> com o mesmo percentual e faixa.</p>
                     </form>
 
                     {% if cupons %}
@@ -683,6 +704,7 @@
                             <div class="cupom-info">
                                 <span class="cupom-codigo selecionavel">{{ cp.codigo }}</span>
                                 <span class="pill cupom-pct-pill">{{ cp.percentual }}% off</span>
+                                {% if cp.faixa %}<span class="pill">👥 {% if cp.faixa.rotulo %}{{ cp.faixa.rotulo }}{% else %}{{ cp.faixa.faixa_txt }}{% endif %}</span>{% else %}<span class="pill pill-cinza">👥 qualquer faixa</span>{% endif %}
                                 {% if cp.usado %}
                                 <span class="pill pill-cinza">Usado por {{ cp.usado_por|default:"—" }}{% if cp.valor_desconto %} · −R$ {{ cp.valor_desconto|moeda }}{% endif %}</span>
                                 {% else %}
@@ -699,7 +721,7 @@
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <p class="painel-nota">Nenhum cupom gerado ainda. Gere acima informando o percentual.</p>
+                    <p class="painel-nota">Nenhum cupom gerado ainda. Gere acima informando o percentual e a faixa.</p>
                     {% endif %}
                 </section>
 

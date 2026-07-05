@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import F
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -935,14 +936,17 @@ def evento_painel_view(request, pk):
             alvo = next((i.id for i in inscricoes if i.usuario_id == p.usuario_id), None)
         if alvo:
             compras_por_insc.setdefault(alvo, []).append(p)
-    cupom_por_insc = {c.inscricao_id: c for c in cupons if c.inscricao_id}
+    cupons_por_insc = {}
+    for c in cupons:
+        if c.inscricao_id:
+            cupons_por_insc.setdefault(c.inscricao_id, []).append(c)
     for i in inscricoes:
         i.compras = compras_por_insc.get(i.id, [])
         i.total_compras = sum(
             (p.valor_total for p in i.compras if p.status == "confirmado"), Decimal("0")
         )
         i.total_geral = i.valor_total + i.total_compras
-        i.cupom_aplicado = cupom_por_insc.get(i.id)
+        i.cupons_aplicados = cupons_por_insc.get(i.id, [])
 
     financeiro = _montar_financeiro(
         inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
@@ -1089,21 +1093,39 @@ def evento_campo_mover_view(request, pk, campo_id):
 @diretor_required
 @require_POST
 def evento_cupom_novo_view(request, pk):
-    """Gera um cupom de desconto para inscrição (Fase 5.3). Só vale na inscrição."""
+    """Gera cupons de desconto para inscrição (Fase 5.3). Só valem na inscrição.
+
+    Aceita `percentual` (1–100), `quantidade` (1–5, gera vários de uma vez) e
+    `faixa` (id de uma FaixaEtariaPreco do evento; vazio = qualquer faixa)."""
     evento = get_object_or_404(Evento, pk=pk)
     try:
         percentual = int(request.POST.get("percentual") or "")
     except (TypeError, ValueError):
         percentual = 0
+    try:
+        quantidade = int(request.POST.get("quantidade") or "1")
+    except (TypeError, ValueError):
+        quantidade = 1
+    faixa_id = request.POST.get("faixa") or ""
+    faixa = evento.faixas_preco.filter(pk=faixa_id).first() if faixa_id else None
+
     if not (1 <= percentual <= 100):
         messages.error(request, "Informe um percentual de desconto entre 1 e 100.")
+    elif not (1 <= quantidade <= 5):
+        messages.error(request, "A quantidade deve ser de 1 a 5 cupons por vez.")
     else:
-        cupom = CupomDesconto.objects.create(
-            evento=evento, codigo=CupomDesconto.gerar_codigo_unico(),
-            percentual=percentual, criado_por=request.user,
-        )
+        for _ in range(quantidade):
+            CupomDesconto.objects.create(
+                evento=evento, codigo=CupomDesconto.gerar_codigo_unico(),
+                percentual=percentual, faixa=faixa, criado_por=request.user,
+            )
+        if faixa is not None:
+            alvo = " · " + (faixa.rotulo or f"{faixa.idade_min}–{faixa.idade_max} anos")
+        else:
+            alvo = " · qualquer faixa"
+        plural = "cupom" if quantidade == 1 else "cupons"
         messages.success(
-            request, f"Cupom {cupom.codigo} gerado ({percentual}% de desconto)."
+            request, f"{quantidade} {plural} de {percentual}% gerado(s){alvo}."
         )
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#descontos")
 
@@ -1196,13 +1218,15 @@ def _linha_participante(request, idx, campos_part, tem_diretoria):
             "texto": texto,
             "erro": erro,
         })
-    return {"idx": str(idx), "nome": nome, "idade": idade, "diretoria": eh_dir, "campos": campos}
+    cupom = (request.POST.get(f"part_cupom_{idx}") or "").strip()
+    return {"idx": str(idx), "nome": nome, "idade": idade, "diretoria": eh_dir,
+            "campos": campos, "cupom": cupom}
 
 
 def _linha_vazia(idx, campos_part):
     """Linha de participante em branco (para GET e para o modelo do JS)."""
     return {
-        "idx": str(idx), "nome": "", "idade": None, "diretoria": False,
+        "idx": str(idx), "nome": "", "idade": None, "diretoria": False, "cupom": "",
         "campos": [
             {"campo": c, "valor": "", "valores": [], "texto": "", "erro": None}
             for c in campos_part
@@ -1221,19 +1245,112 @@ def _buscar_cupom_valido(evento, codigo):
     return None
 
 
-def _aplicar_desconto_cupom(participantes, percentual):
-    """Aplica o desconto (`percentual` %) no participante de MAIOR valor: muta o
-    `.valor` dele e retorna (valor_desconto, alvo). (Decimal('0'), None) se não
-    houver participante com valor > 0. O cupom vale para UM participante só."""
-    alvo = None
-    for p in participantes:
-        if p.valor and p.valor > 0 and (alvo is None or p.valor > alvo.valor):
-            alvo = p
-    if alvo is None:
-        return Decimal("0"), None
-    desconto = (alvo.valor * Decimal(percentual) / Decimal(100)).quantize(Decimal("0.01"))
-    alvo.valor = alvo.valor - desconto
-    return desconto, alvo
+def _processar_cupons_participantes(evento, dados, cortesia=False):
+    """Valida e aplica o cupom de CADA participante (o código digitado na linha
+    dele). `dados` = lista de (participante, linha). Retorna (aplicados, erros):
+    `aplicados` = [(cupom, participante, desconto)] para marcar após salvar; muta o
+    `.valor` do participante com desconto. Regras: uso único; não repetir o mesmo
+    código na inscrição; se o cupom tem faixa, a idade do participante deve casar."""
+    aplicados = []
+    erros = []
+    usados = set()  # códigos já usados nesta submissão
+    for p, linha in dados:
+        codigo = (linha.get("cupom") or "").strip()
+        if not codigo:
+            continue
+        if cortesia:
+            continue  # inscrição cortesia já é grátis; o cupom não se aplica
+        chave = codigo.lower()
+        cupom = _buscar_cupom_valido(evento, codigo)
+        if cupom is None or chave in usados:
+            erros.append(f"Cupom “{codigo}” inválido ou já utilizado.")
+            continue
+        if cupom.faixa_id is not None:
+            f = cupom.faixa
+            if p.idade is None or not (f.idade_min <= p.idade <= f.idade_max):
+                rot = f.rotulo or f"{f.idade_min}–{f.idade_max} anos"
+                erros.append(
+                    f"Cupom “{codigo}” é só para {rot} — "
+                    f"“{p.nome}” não está nessa faixa etária."
+                )
+                continue
+        usados.add(chave)
+        if not p.valor or p.valor <= 0:
+            continue  # nada a descontar (não consome o cupom)
+        desconto = (p.valor * Decimal(cupom.percentual) / Decimal(100)).quantize(
+            Decimal("0.01")
+        )
+        p.valor = p.valor - desconto
+        aplicados.append((cupom, p, desconto))
+    return aplicados, erros
+
+
+def _marcar_cupons_usados(aplicados, inscricao):
+    """Marca como usados os cupons aplicados (retorno de
+    `_processar_cupons_participantes`), já com a inscrição/participante salvos.
+    Cada cupom guarda em quem foi usado, o valor descontado e quando."""
+    agora = timezone.now()
+    for cupom, participante, desconto in aplicados:
+        cupom.usado_em = agora
+        cupom.inscricao = inscricao
+        cupom.participante = participante
+        cupom.usado_por = participante.nome or inscricao.responsavel_nome
+        cupom.valor_desconto = desconto
+        cupom.save(update_fields=[
+            "usado_em", "inscricao", "participante", "usado_por", "valor_desconto"
+        ])
+
+
+def evento_cupom_validar_view(request, pk):
+    """Validação AO VIVO de um cupom para um participante (JSON, sem gravar nada).
+    Recebe (GET) `codigo`, `idade` e `diretoria` (1/0) e devolve se o cupom vale
+    para aquele participante e o desconto em R$ que ele daria — usado pelo JS para
+    o toast e para abater do total. A gravação/uso único só acontece ao confirmar."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    codigo = (request.GET.get("codigo") or "").strip()
+    diretoria = (request.GET.get("diretoria") or "") in ("1", "true", "on")
+    try:
+        idade = int(request.GET.get("idade"))
+    except (TypeError, ValueError):
+        idade = None
+
+    if not codigo:
+        return JsonResponse({"valido": False, "mensagem": "Informe o código do cupom."})
+    cupom = _buscar_cupom_valido(evento, codigo)
+    if cupom is None:
+        return JsonResponse({
+            "valido": False,
+            "mensagem": f"Cupom “{codigo}” inválido ou já utilizado.",
+        })
+    if cupom.faixa_id is not None:
+        f = cupom.faixa
+        if idade is None or not (f.idade_min <= idade <= f.idade_max):
+            rot = f.rotulo or f"{f.idade_min}–{f.idade_max} anos"
+            return JsonResponse({
+                "valido": False,
+                "mensagem": f"Cupom “{codigo}” é só para {rot}.",
+            })
+
+    faixas = list(evento.faixas_preco.all())
+    valor, _faixa = evento.preco_participante(idade, diretoria, faixas)
+    if valor and valor > 0:
+        desconto = (valor * Decimal(cupom.percentual) / Decimal(100)).quantize(
+            Decimal("0.01")
+        )
+    else:
+        desconto = Decimal("0")
+    if desconto > 0:
+        desconto_txt = "−R$ " + f"{desconto:.2f}".replace(".", ",")
+        mensagem = f"Cupom {cupom.codigo} aplicado ({cupom.percentual}%): {desconto_txt}"
+    else:
+        mensagem = f"Cupom {cupom.codigo} válido — sem valor a descontar."
+    return JsonResponse({
+        "valido": True,
+        "percentual": cupom.percentual,
+        "desconto": str(desconto),
+        "codigo": cupom.codigo,
+        "mensagem": mensagem,
+    })
 
 
 def evento_inscrever_view(request, pk):
@@ -1256,8 +1373,6 @@ def evento_inscrever_view(request, pk):
     erros_part = []
     desejados_loja = []
     erros_loja = []
-    cupom_codigo = ""
-    cupom = None
 
     if request.method == "POST":
         form = InscricaoForm(request.POST, evento=evento)
@@ -1276,10 +1391,20 @@ def evento_inscrever_view(request, pk):
         if not linhas:
             erros_part.append("Adicione ao menos um participante.")
 
-        cupom_codigo = (request.POST.get("cupom") or "").strip()
-        cupom = _buscar_cupom_valido(evento, cupom_codigo)
-        if cupom_codigo and cupom is None:
-            erros_part.append("Cupom de desconto inválido ou já utilizado.")
+        # Monta os participantes com o preço da faixa/diretoria e aplica o cupom
+        # digitado na linha de cada um (o desconto vale para AQUELE participante).
+        dados = []  # (participante, linha)
+        for linha in linhas:
+            valor, faixa = evento.preco_participante(
+                linha["idade"], linha["diretoria"], faixas
+            )
+            p = ParticipanteInscricao(
+                nome=linha["nome"], idade=linha["idade"],
+                eh_diretoria=linha["diretoria"], faixa=faixa, valor=valor,
+            )
+            dados.append((p, linha))
+        aplicados, erros_cupom = _processar_cupons_participantes(evento, dados)
+        erros_part.extend(erros_cupom)
 
         if form.is_valid() and not erros_part and not erros_loja:
             with transaction.atomic():
@@ -1293,28 +1418,12 @@ def evento_inscrever_view(request, pk):
                     codigo=Inscricao.gerar_codigo_unico(),
                     status="confirmada",
                 )
-                dados = []
-                for linha in linhas:
-                    valor, faixa = evento.preco_participante(
-                        linha["idade"], linha["diretoria"], faixas
-                    )
-                    p = ParticipanteInscricao(
-                        nome=linha["nome"], idade=linha["idade"],
-                        eh_diretoria=linha["diretoria"], faixa=faixa, valor=valor,
-                    )
-                    dados.append((p, linha["campos"]))
-                # Cupom de desconto: aplica em UM participante (o de maior valor).
-                desconto_cupom = Decimal("0")
-                if cupom is not None:
-                    desconto_cupom, _alvo = _aplicar_desconto_cupom(
-                        [p for p, _ in dados], cupom.percentual
-                    )
                 inscricao.valor_total = sum((p.valor for p, _ in dados), Decimal("0"))
                 inscricao.save()
-                for p, campos in dados:
+                for p, linha in dados:
                     p.inscricao = inscricao
                     p.save()
-                    for c in campos:
+                    for c in linha["campos"]:
                         RespostaInscricao.objects.create(
                             inscricao=inscricao, participante=p, campo=c["campo"],
                             campo_rotulo=c["campo"].rotulo, valor=c["texto"],
@@ -1335,14 +1444,7 @@ def evento_inscrever_view(request, pk):
                     usuario=request.user if request.user.is_authenticated else None,
                     inscricao=inscricao,
                 )
-                if cupom is not None and desconto_cupom > 0:
-                    cupom.usado_em = timezone.now()
-                    cupom.inscricao = inscricao
-                    cupom.usado_por = inscricao.responsavel_nome
-                    cupom.valor_desconto = desconto_cupom
-                    cupom.save(update_fields=[
-                        "usado_em", "inscricao", "usado_por", "valor_desconto"
-                    ])
+                _marcar_cupons_usados(aplicados, inscricao)
             request.session["inscricao_codigo"] = inscricao.codigo
             return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
         messages.error(request, "Verifique os campos destacados e os participantes.")
@@ -1364,7 +1466,14 @@ def evento_inscrever_view(request, pk):
         "erros_part": erros_part,
         "produtos_loja": produtos_loja,
         "erros_loja": erros_loja,
-        "cupom_codigo": cupom_codigo,
+        "tem_cupons": evento.cupons.filter(ativo=True, usado_em__isnull=True).exists(),
+        "faixas_json": [
+            {"min": f.idade_min, "max": f.idade_max, "valor": str(f.valor)}
+            for f in faixas
+        ],
+        "diretoria_json": (
+            str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
+        ),
     }
     return render(request, "core/evento_inscrever.html", contexto)
 
@@ -1968,8 +2077,6 @@ def evento_pdv_inscricao_view(request, pk):
     erros_loja = []
     forma = "dinheiro"
     valor_recebido_raw = ""
-    cupom_codigo = ""
-    cupom = None
 
     if request.method == "POST":
         form = InscricaoForm(request.POST, evento=evento)
@@ -1993,13 +2100,9 @@ def evento_pdv_inscricao_view(request, pk):
         if forma not in {f[0] for f in formas}:
             erros_part.append("Escolha a forma de pagamento.")
 
-        cupom_codigo = (request.POST.get("cupom") or "").strip()
-        cupom = _buscar_cupom_valido(evento, cupom_codigo)
-        if cupom_codigo and cupom is None:
-            erros_part.append("Cupom de desconto inválido ou já utilizado.")
-
-        # Preços (cortesia zera tudo) e total combinado (inscrição + lojinha).
-        precos = []
+        # Preços (cortesia zera tudo) e cupom por participante (só quando não é
+        # cortesia, que já é grátis). Total combinado (inscrição + lojinha).
+        dados = []  # (participante, linha)
         for linha in linhas:
             valor, faixa = evento.preco_participante(
                 linha["idade"], linha["diretoria"], faixas
@@ -2010,14 +2113,12 @@ def evento_pdv_inscricao_view(request, pk):
                 nome=linha["nome"], idade=linha["idade"],
                 eh_diretoria=linha["diretoria"], faixa=faixa, valor=valor,
             )
-            precos.append((p, linha["campos"]))
-        # Cupom: aplica em UM participante (o de maior valor). Cortesia já é grátis.
-        desconto_cupom = Decimal("0")
-        if cupom is not None and not cortesia:
-            desconto_cupom, _alvo = _aplicar_desconto_cupom(
-                [p for p, _ in precos], cupom.percentual
-            )
-        insc_total = sum((p.valor for p, _ in precos), Decimal("0"))
+            dados.append((p, linha))
+        aplicados, erros_cupom = _processar_cupons_participantes(
+            evento, dados, cortesia=cortesia
+        )
+        erros_part.extend(erros_cupom)
+        insc_total = sum((p.valor for p, _ in dados), Decimal("0"))
         loja_total = Decimal("0") if cortesia else sum(
             (v.valor * q for v, q in desejados_loja), Decimal("0")
         )
@@ -2049,10 +2150,10 @@ def evento_pdv_inscricao_view(request, pk):
                 )
                 inscricao.valor_total = insc_total
                 inscricao.save()
-                for p, campos in precos:
+                for p, linha in dados:
                     p.inscricao = inscricao
                     p.save()
-                    for c in campos:
+                    for c in linha["campos"]:
                         RespostaInscricao.objects.create(
                             inscricao=inscricao, participante=p, campo=c["campo"],
                             campo_rotulo=c["campo"].rotulo, valor=c["texto"],
@@ -2074,14 +2175,7 @@ def evento_pdv_inscricao_view(request, pk):
                     inscricao=inscricao, forma_pagamento=forma,
                     valor_recebido=None, origem="pdv", registrado_por=request.user,
                 )
-                if cupom is not None and desconto_cupom > 0:
-                    cupom.usado_em = timezone.now()
-                    cupom.inscricao = inscricao
-                    cupom.usado_por = inscricao.responsavel_nome
-                    cupom.valor_desconto = desconto_cupom
-                    cupom.save(update_fields=[
-                        "usado_em", "inscricao", "usado_por", "valor_desconto"
-                    ])
+                _marcar_cupons_usados(aplicados, inscricao)
             msg = f"Inscrição {inscricao.codigo} registrada."
             if forma == "dinheiro" and inscricao.troco is not None:
                 msg += " Troco: R$ " + f"{inscricao.troco:.2f}".replace(".", ",")
@@ -2106,6 +2200,7 @@ def evento_pdv_inscricao_view(request, pk):
         "formas": formas,
         "forma": forma,
         "valor_recebido_raw": valor_recebido_raw,
+        "tem_cupons": evento.cupons.filter(ativo=True, usado_em__isnull=True).exists(),
         "faixas_json": [
             {"min": f.idade_min, "max": f.idade_max, "valor": str(f.valor)}
             for f in faixas
@@ -2113,7 +2208,6 @@ def evento_pdv_inscricao_view(request, pk):
         "diretoria_json": (
             str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
         ),
-        "cupom_codigo": cupom_codigo,
     }
     return render(request, "core/evento_pdv_inscricao.html", contexto)
 

@@ -958,9 +958,10 @@ class OperadorEvento(models.Model):
 
 class CupomDesconto(models.Model):
     """Cupom de desconto (Fase 5.3) — vale **somente para inscrição** (não na
-    lojinha). Uso único: ao ser usado, aplica o `percentual` em **um** participante
-    da inscrição (o de maior valor). Guarda quem usou, quando e quanto foi
-    descontado, para acompanhamento no painel."""
+    lojinha). Uso único: aplica o `percentual` em **um participante** da inscrição
+    (o participante em cuja linha o código foi digitado). Pode ser restrito a uma
+    **faixa etária** (`faixa`): só vale se a idade do participante casar. Guarda
+    quem usou, em qual participante, quando e quanto foi descontado."""
 
     evento = models.ForeignKey(
         Evento,
@@ -971,7 +972,16 @@ class CupomDesconto(models.Model):
     codigo = models.CharField("Código", max_length=20, unique=True)
     percentual = models.PositiveIntegerField("Percentual de desconto (%)")
     ativo = models.BooleanField("Ativo", default=True)
-    # Inscrição que usou o cupom (nulo enquanto disponível).
+    # Faixa etária a que o cupom se aplica (vazio = qualquer faixa/idade).
+    faixa = models.ForeignKey(
+        "FaixaEtariaPreco",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cupons",
+        verbose_name="Faixa etária do cupom",
+    )
+    # Inscrição/participante que usou o cupom (nulos enquanto disponível).
     inscricao = models.ForeignKey(
         "Inscricao",
         on_delete=models.SET_NULL,
@@ -979,6 +989,14 @@ class CupomDesconto(models.Model):
         blank=True,
         related_name="cupons",
         verbose_name="Inscrição que usou",
+    )
+    participante = models.ForeignKey(
+        "ParticipanteInscricao",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cupons",
+        verbose_name="Participante que usou",
     )
     usado_por = models.CharField("Usado por", max_length=150, blank=True)
     valor_desconto = models.DecimalField(

@@ -1,6 +1,7 @@
 {% comment %}
 Uma linha de participante da inscrição.
-Recebe `linha` (idx, nome, idade, diretoria, campos) e `tem_diretoria`.
+Recebe `linha` (idx, nome, idade, diretoria, cupom, campos), `tem_diretoria` e
+`tem_cupons` (mostra o campo de cupom, que se aplica só a este participante).
 `campos` é a lista de campos "por participante" com valor/valores repostos.
 {% endcomment %}
 <div class="part-linha card">
@@ -15,6 +16,13 @@ Recebe `linha` (idx, nome, idade, diretoria, campos) e `tem_diretoria`.
         {% endif %}
         <button type="button" class="part-remover" aria-label="Remover participante">✕</button>
     </div>
+
+    {% if tem_cupons %}
+    <div class="part-cupom-wrap">
+        <input type="text" name="part_cupom_{{ linha.idx }}" class="campo-input part-cupom cupom-input" value="{{ linha.cupom }}" placeholder="🏷️ Cupom de desconto (opcional)" autocomplete="off">
+        <span class="part-cupom-feedback" aria-live="polite"></span>
+    </div>
+    {% endif %}
 
     {% if linha.campos %}
     <div class="part-campos">

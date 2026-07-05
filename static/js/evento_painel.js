@@ -179,4 +179,29 @@
             });
         });
     }
+
+    // ---- Stepper de quantidade ao gerar cupons (1 a 5) ----
+    // Ao tentar passar do máximo, mostra o toast padrão do sistema.
+    var stepper = document.querySelector(".cupom-qtd-stepper");
+    if (stepper) {
+        var qtdInput = stepper.querySelector(".cupom-qtd-input");
+        var minQ = parseInt(stepper.dataset.min, 10) || 1;
+        var maxQ = parseInt(stepper.dataset.max, 10) || 5;
+        stepper.addEventListener("click", function (e) {
+            var btn = e.target.closest(".cupom-qtd-btn");
+            if (!btn || !qtdInput) return;
+            var atual = parseInt(qtdInput.value, 10);
+            if (isNaN(atual)) atual = minQ;
+            var passo = parseInt(btn.dataset.passo, 10) || 0;
+            var novo = atual + passo;
+            if (novo > maxQ) {
+                novo = maxQ;
+                if (window.mostrarToast) {
+                    window.mostrarToast("No máximo 5 cupons gerados por vez.", "info");
+                }
+            }
+            if (novo < minQ) novo = minQ;
+            qtdInput.value = novo;
+        });
+    }
 })();

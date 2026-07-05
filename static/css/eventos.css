@@ -537,6 +537,25 @@ a.tipo-card:hover {
 .check-opcao { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; }
 #addParticipante { margin: 4px 0 12px; }
 
+/* Cupom por participante (dentro da linha do participante). */
+.part-cupom-wrap { margin-top: 8px; }
+.part-cupom { max-width: 320px; }
+.part-cupom.cupom-ok { border-color: #3a9d3a; box-shadow: 0 0 0 3px rgba(58, 157, 58, 0.15); }
+.part-cupom.cupom-erro { border-color: #c0392b; box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12); }
+.part-cupom-feedback { display: block; margin-top: 4px; font-size: 0.82rem; font-weight: 600; }
+.cupom-fb-ok { color: #226b22; }
+.cupom-fb-erro { color: #c0392b; }
+
+/* Caixa de total ao vivo da inscrição. */
+.insc-total-box {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+    margin: 14px 0 4px;
+}
+.insc-total-linha { font-size: 1.15rem; }
+.insc-total-label { color: var(--texto-suave); font-weight: 600; }
+.insc-total-linha strong { color: var(--azul-escuro); }
+.insc-total-desc { font-size: 0.9rem; font-weight: 700; color: #8a6d00; }
+
 .campo-escopo { font-size: 0.72rem; }
 
 .btn-mapa {
@@ -1012,12 +1031,82 @@ a.tipo-card:hover {
 }
 
 /* ===== Cupons de desconto (Fase 5.3) ===== */
-.cupom-gerar { margin: 6px 0 16px; }
-.cupom-gerar-rotulo { display: block; font-size: 0.9rem; color: var(--texto); margin-bottom: 6px; }
-.cupom-gerar-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.cupom-pct-input { width: 90px; }
-.cupom-gerar-linha .btn-acao { margin-top: 0; }
-.cupom-pct { font-weight: 800; color: var(--texto-suave); margin-right: 4px; }
+.cupom-gerar { margin: 6px 0 18px; padding: 16px 16px 14px; }
+.cupom-gerar-grade {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 18px;
+    align-items: flex-end;
+}
+.cupom-campo { display: flex; flex-direction: column; gap: 5px; }
+.cupom-campo > label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--texto-suave);
+}
+/* Como o painel não carrega o CSS de formulário, estilizamos aqui os campos. */
+.cupom-gerar .campo-input,
+.cupom-gerar .campo-select {
+    padding: 11px 13px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--texto);
+    background: var(--branco);
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-item);
+    transition: border-color var(--transicao), box-shadow var(--transicao);
+    min-height: 46px;
+}
+.cupom-gerar .campo-input:focus,
+.cupom-gerar .campo-select:focus {
+    outline: none;
+    border-color: var(--azul-claro);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.15);
+}
+.cupom-gerar .campo-select { min-width: 210px; }
+/* Campo de porcentagem com sufixo "%" dentro da caixa. */
+.cupom-pct-wrap { position: relative; width: 130px; }
+.cupom-pct-wrap .campo-input { width: 100%; padding-right: 34px; text-align: center; font-weight: 700; }
+.cupom-pct-suffix {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: 800;
+    color: var(--texto-suave);
+    pointer-events: none;
+}
+/* Stepper de quantidade (− [n] +). */
+.cupom-qtd-stepper { display: flex; align-items: center; gap: 0; }
+.cupom-qtd-btn {
+    width: 42px;
+    min-height: 46px;
+    border: 1.5px solid var(--borda);
+    background: var(--cinza-claro, #f2f5f9);
+    color: var(--azul-escuro);
+    font-size: 1.3rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transicao);
+}
+.cupom-qtd-btn:first-child { border-radius: var(--raio-item) 0 0 var(--raio-item); }
+.cupom-qtd-btn:last-child { border-radius: 0 var(--raio-item) var(--raio-item) 0; }
+.cupom-qtd-btn:hover { background: rgba(74, 144, 217, 0.18); }
+.cupom-qtd-input {
+    width: 56px;
+    text-align: center;
+    font-weight: 800;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 0 !important;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.cupom-qtd-input::-webkit-outer-spin-button,
+.cupom-qtd-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cupom-gerar-btn { margin-top: 14px; }
+.cupom-gerar-ajuda { margin-top: 8px; }
+
 .cupons-lista { display: flex; flex-direction: column; gap: 10px; }
 .cupom-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; }
 .cupom-usado { opacity: 0.72; }

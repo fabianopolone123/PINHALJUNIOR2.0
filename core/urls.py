@@ -79,6 +79,11 @@ urlpatterns = [
         name="evento_cupom_excluir",
     ),
     path(
+        "eventos/<int:pk>/cupom/validar/",
+        views.evento_cupom_validar_view,
+        name="evento_cupom_validar",
+    ),
+    path(
         "eventos/<int:pk>/inscricoes/config/",
         views.evento_inscricao_config_view,
         name="evento_inscricao_config",

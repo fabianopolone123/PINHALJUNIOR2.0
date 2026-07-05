@@ -2,11 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-04 (**Fase 5.3 — Cupons de desconto (só para inscrição)**: nova aba
-**Desconto** no painel gera cupons por **%** e lista com **status (usado/disponível)** + **quem usou**;
-no formulário de inscrição (online e balcão) há um **campo de cupom** — o desconto se aplica a **um
-participante** (o de maior valor), **uso único**. Model `CupomDesconto` (mig. 0014). Antes: barra de abas
-unificada com ícones)
+**Última atualização:** 2026-07-05 (**Fase 5.3b — Cupom por participante + faixa + lote + validação ao
+vivo**: o cupom deixou de ser um campo único e virou **um campo por participante** na inscrição (online e
+balcão); ao digitar, **valida ao vivo** (endpoint JSON + toast), **abate do total** e mostra o **desconto
+em R$**; o cupom pode ser **restrito a uma faixa etária** (erro se o participante não casar); a aba
+**Desconto** ganhou **Quantidade** (stepper, até **5 por vez**) e **seletor de faixa**, com o layout do
+campo de % revisado. Models `CupomDesconto.faixa`/`.participante` (mig. **0015**). Antes: Fase 5.3 (cupom
+único, "de maior valor", mig. 0014))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -193,15 +195,24 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   encontrada"). Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
   sempre com **rótulo** (cor nunca é a única pista).
 - **Evento complexo — Fase 5.3 (Cupons de desconto)**: aba **"Desconto"** no painel (Diretor) para
-  **gerar cupons** — informa a **% de desconto** e clica em "Gerar cupom" (gera um código único); a
-  **lista** mostra cada cupom com **status** (Disponível / "Usado por FULANO · −R$ X") e permite remover
-  os não usados. O cupom vale **só para inscrição** (não na lojinha), é de **uso único** e aplica o
-  desconto em **um participante** da inscrição — o de **maior valor**. Nos formulários de inscrição
-  (**online** e **balcão/PDV**) há um **campo "Cupom de desconto"**: código inválido/já usado bloqueia
-  com aviso; válido reduz o valor daquele participante e o total e marca o cupom como usado (com quem
-  usou, valor e vínculo à inscrição). O cupom aplicado aparece na inscrição (painel) e na tela de
-  sucesso. Model `CupomDesconto` (migration `0014`). No balcão, o total ao vivo ainda **não** reflete o
-  cupom (o servidor aplica ao confirmar).
+  **gerar cupons** — informa a **% de desconto**, a **quantidade** (stepper − / +, **até 5 por vez**; ao
+  passar de 5, toast "no máximo 5 cupons por vez") e a **faixa etária** a que o cupom se aplica (ou
+  "qualquer faixa"). A **lista** mostra cada cupom com a **faixa**, o **percentual** e o **status**
+  (Disponível / "Usado por FULANO · −R$ X") e permite remover os não usados. O cupom vale **só para
+  inscrição** (não na lojinha) e é de **uso único**.
+  - **Cupom por participante**: nos formulários de inscrição (**online** e **balcão/PDV**) cada
+    participante tem seu **próprio campo de cupom** — o desconto vale **só para aquele participante** (o
+    usuário escolhe em quem aplicar). Pode haver mais de um cupom por inscrição (um por participante).
+  - **Validação ao vivo**: ao digitar/sair do campo, o sistema valida no servidor (endpoint JSON
+    `evento_cupom_validar`, que **não grava nada**) e mostra o **toast padrão** — verde quando aplicado
+    (com o **desconto em R$**) ou vermelho quando inválido. O **total** já **abate** o desconto na hora e
+    um resumo mostra **"Cupons: −R$ X"** (vale para online **e** balcão).
+  - **Faixa etária**: se o cupom é restrito a uma faixa e a idade do participante não casar, aparece o
+    erro "**Cupom é só para <faixa>**" (no ao vivo e ao enviar). **Cortesia** (balcão) ignora o cupom.
+  - **Uso único**: o cupom só é marcado como usado ao **confirmar** a inscrição (o servidor revalida —
+    não há cupom "reservado" por formulário aberto). Guarda quem usou, **qual participante**, valor e
+    vínculo à inscrição; aparece na inscrição (painel) e na tela de sucesso. Models `CupomDesconto.faixa`
+    e `.participante` (migration `0015`; base era a `0014`).
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
@@ -314,8 +325,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **registrado_por**, valor_total; property `troco`) e `ItemPedidoLoja` (FK `pedido`, FK `variacao`
   opcional + snapshots de nome, quantidade e valores). Migrations `0009`, `0010`, `0011`.
 - `CupomDesconto` — cupom de desconto de **inscrição** (FK `evento`, `codigo` único, `percentual`,
-  `ativo`, FK `inscricao` opcional = onde foi usado, `usado_por`, `valor_desconto`, `usado_em`,
-  `criado_por`; property `usado`). Uso único; aplica em 1 participante (o de maior valor). Migration `0014`.
+  `ativo`, FK **`faixa`** opcional = faixa etária a que se aplica, FK `inscricao` opcional = onde foi
+  usado, FK **`participante`** opcional = quem usou, `usado_por`, `valor_desconto`, `usado_em`,
+  `criado_por`; property `usado`). Uso único; aplica em **1 participante** (o que o usuário escolher,
+  digitando o código na linha dele). Migrations `0014` (base) e **`0015`** (`faixa` + `participante`).
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -327,11 +340,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 ## Próximas etapas previstas
 - **🎉 Lojinha (Fase 4) concluída** (produtos, comprar na página, junto da inscrição, PDV de vendas,
   PDV de inscrição, operadores).
-- **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro) e parte 2 (**Resumo/dashboard**:
-  KPIs, gráficos CSS/SVG, cobertura do clube + buscas) **CONCLUÍDAS**. Falta: **códigos de desconto** e
-  **presença/check-in**.
+- **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro), parte 2 (**Resumo/dashboard**:
+  KPIs, gráficos CSS/SVG, cobertura do clube + buscas) e parte 3 (**cupons de desconto** — por
+  participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. Falta: **presença/
+  check-in** (Fase 5.4).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
-- **Evento complexo — Financeiro/gráficos** (receitas × custos detalhado, cupons de desconto, presença).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
   lista de inscritos, e-mail de confirmação.
@@ -408,7 +421,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_pagamento.js` — botão "Copiar" do código Pix na tela de pagamento (com fallback);
   o feedback usa o toast padrão via `window.mostrarToast`.
 - `static/js/evento_pdv.js` — PDV vendas: total, forma de pagamento e troco.
-- `static/js/evento_pdv_inscricao.js` — PDV inscrição: total combinado (faixa/diretoria + lojinha) + troco.
+- `static/js/evento_insc_cupom.js` — inscrição (online **e** balcão): total ao vivo (faixa/diretoria +
+  lojinha), **cupom por participante** (validação ao vivo contra o servidor + toast + abate do total) e
+  troco no balcão. Substituiu o antigo `evento_pdv_inscricao.js`.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -440,7 +455,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).
 - `/eventos/<id>/inscricoes/campo/novo/`, `.../campo/<id>/excluir/` e `.../campo/<id>/mover/` — adicionar/remover/reordenar campo do formulário (POST).
-- `/eventos/<id>/descontos/novo/` e `/eventos/<id>/descontos/<id>/excluir/` — gerar/remover cupom de desconto (POST, Diretor).
+- `/eventos/<id>/descontos/novo/` e `/eventos/<id>/descontos/<id>/excluir/` — gerar (com quantidade/faixa) / remover cupom de desconto (POST, Diretor).
+- `/eventos/<id>/cupom/validar/` — validação **ao vivo** de um cupom para um participante (GET, JSON; não grava) (`core:evento_cupom_validar`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

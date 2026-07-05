@@ -22,7 +22,57 @@ Descrição curta do que foi feito.
 
 ---
 
-## 2026-07-04 - Evento complexo — Fase 5.3: cupons de desconto (só para inscrição)
+## 2026-07-05 - Evento complexo — Fase 5.3b: cupom por participante + faixa + geração em lote + validação ao vivo
+
+### Resumo
+Evolução dos cupons de desconto (Fase 5.3), definida com o usuário. O cupom deixou de ser um campo
+único da inscrição (que abatia "o participante de maior valor") e passou a ser **por participante**,
+com **validação ao vivo** e **restrição por faixa etária**:
+- **Cupom por participante**: cada participante da inscrição (online e balcão) tem seu **próprio campo
+  de cupom**; o desconto vale **só para aquele participante** (o usuário escolhe em quem aplicar).
+- **Validação ao vivo**: ao digitar/sair do campo, o sistema valida no servidor (endpoint JSON) e mostra
+  o **toast padrão** — verde quando aplicado (com o **desconto em R$**) ou vermelho quando inválido.
+  O **total** da inscrição já **abate** o desconto na hora e um resumo mostra **"Cupons: −R$ X"**.
+- **Faixa etária no cupom**: ao gerar, o Diretor pode restringir o cupom a uma **faixa etária**. Se o
+  participante não estiver na faixa, aparece o erro "**Cupom é só para <faixa>**" (no ao vivo e ao enviar).
+- **Geração em lote**: a aba "Desconto" ganhou **Quantidade** (stepper − / +), gerando **até 5 cupons por
+  vez** com o mesmo percentual e faixa; ao tentar passar de 5, toast "**No máximo 5 cupons por vez**".
+- **Layout revisado** da aba "Desconto": o campo de **%** (que parecia sem estilo, pois o painel não
+  carrega o CSS de formulário) agora é estilizado localmente, em uma **grade** (Desconto · Quantidade ·
+  Faixa) dentro de um card.
+
+### Arquivos criados/alterados
+- `core/models.py`: `CupomDesconto` ganhou **`faixa`** (FK opcional a `FaixaEtariaPreco`) e **`participante`**
+  (FK opcional a `ParticipanteInscricao`, quem usou). Migration **`0015`**.
+- `core/views.py`: `_processar_cupons_participantes` (valida/aplica o cupom digitado na linha de cada
+  participante: uso único, sem repetir código, casa a faixa) e `_marcar_cupons_usados`; **`evento_cupom_validar_view`**
+  (endpoint JSON GET de validação ao vivo — não grava nada); `evento_inscrever_view` e
+  `evento_pdv_inscricao_view` passaram a usar esses helpers (corrige a `_aplicar_desconto_cupom` removida);
+  `evento_cupom_novo_view` aceita **`quantidade`** (1–5) e **`faixa`**; o painel anexa `i.cupons_aplicados`
+  (lista) a cada inscrição (pode haver mais de um cupom por inscrição). `tem_cupons`/`faixas_json`/`diretoria_json`
+  no contexto das duas telas de inscrição. Import de `JsonResponse`.
+- `core/urls.py`: rota **`evento_cupom_validar`** (`.../cupom/validar/`).
+- `templates/core/_participante_linha.html`: **campo de cupom por participante** (`part_cupom_<idx>`) +
+  feedback inline, sob `tem_cupons`.
+- `templates/core/evento_inscrever.html` e `evento_pdv_inscricao.html`: removido o campo de cupom único;
+  passam `tem_cupons` e a URL de validação; JSON de faixas/diretoria; **total ao vivo** com resumo de cupons.
+- `templates/core/evento_painel.html`: aba "Desconto" reformulada (grade % / quantidade-stepper / faixa) +
+  nota atualizada + pílulas de faixa no cupom + pílula por cupom aplicado (loop).
+- `static/js/evento_insc_cupom.js` (**novo**): total ao vivo + validação do cupom por participante + troco
+  (PDV). Substitui `static/js/evento_pdv_inscricao.js` (**removido**).
+- `static/js/evento_painel.js`: stepper de quantidade dos cupons (toast ao passar de 5).
+- `static/css/eventos.css`: layout da geração de cupons (grade, campo de %, stepper), campo de cupom por
+  participante (ok/erro) e caixa de total da inscrição.
+
+### Decisões tomadas
+- **Cupom por participante** (o usuário escolhe em quem aplicar), no lugar de "o de maior valor".
+- **Validação ao vivo por GET** (endpoint JSON sem CSRF, não grava): o **uso único** só é gravado ao
+  **confirmar** a inscrição (o servidor revalida). Assim não há cupom "reservado" por formulário aberto.
+- **Cortesia** (balcão) ignora cupom (já é grátis) — sem erro de faixa nesse caso.
+- Um script único (`evento_insc_cupom.js`) serve as duas telas (online e PDV), evitando duplicação.
+
+### Pendências
+- Presença/check-in (Fase 5.4) — próximo passo.
 
 ### Resumo
 Nova frente da Fase 5: **cupons de desconto**, **somente para inscrição** (não valem na lojinha).

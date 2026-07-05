@@ -85,8 +85,14 @@ lojinha, custos e resultado (lucro/prejuízo).
   (receitas×custos, formas de pagamento, faixa etária) + **cobertura do clube** (donut + listas
   inscritos/não, por nome) com busca; e **busca na aba Inscrições**. Helper `_montar_dashboard`.
 - **Fase 5 — parte 3 (cupons de desconto) CONCLUÍDA** (2026-07-04): aba "Desconto" gera cupom por % +
-  lista (usado/quem usou); campo de cupom na inscrição (online e balcão); uso único; desconto em 1
-  participante (o de maior valor); só inscrição. Model `CupomDesconto`.
+  lista (usado/quem usou); campo de cupom na inscrição (online e balcão); uso único; só inscrição.
+  Model `CupomDesconto` (mig. 0014).
+- **Fase 5 — parte 3b (evolução dos cupons) CONCLUÍDA** (2026-07-05): o cupom virou **por participante**
+  (o usuário escolhe em quem aplicar, digitando na linha dele) com **validação ao vivo** (endpoint JSON
+  `evento_cupom_validar` + toast + abate do total + desconto em R$); pode ser **restrito a uma faixa
+  etária** (erro se o participante não casar); a geração ganhou **quantidade** (stepper, até **5 por
+  vez**) e **seletor de faixa**, com o **layout** do campo de % revisado. `CupomDesconto.faixa`/
+  `.participante` (mig. 0015). JS único `evento_insc_cupom.js` (substituiu `evento_pdv_inscricao.js`).
 - **PRÓXIMO PASSO = Fase 5 (parte 4): presença/check-in** (também vira guarda de exclusão dos eventos
   simples — ver memória do projeto).
 
@@ -164,8 +170,12 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
      (receitas×custos, formas de pagamento, faixa etária), **cobertura do clube** (donut + listas por
      nome) e busca na aba Inscrições. Helper `_montar_dashboard`.
    - **5.3 — CONCLUÍDA ✅** — **Cupons de desconto** (só inscrição): aba "Desconto" gera cupom por % +
-     lista (usado/quem usou); campo de cupom na inscrição (online e balcão); uso único; desconto em 1
-     participante (o de maior valor). Model `CupomDesconto` (mig. 0014).
+     lista (usado/quem usou); campo de cupom na inscrição (online e balcão); uso único. Model
+     `CupomDesconto` (mig. 0014).
+   - **5.3b — CONCLUÍDA ✅** — Cupom **por participante** (validação ao vivo + toast + abate do total +
+     desconto em R$), com **faixa etária** (erro se não casar), **geração em lote** (até 5 por vez, com
+     stepper) e **seletor de faixa**; layout do campo de % revisado. `CupomDesconto.faixa`/`.participante`
+     (mig. 0015); endpoint `evento_cupom_validar`; JS único `evento_insc_cupom.js`.
    - **5.4 — PRÓXIMA ⏭️** — **Presença/check-in** (também vira guarda de exclusão dos eventos simples).
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.

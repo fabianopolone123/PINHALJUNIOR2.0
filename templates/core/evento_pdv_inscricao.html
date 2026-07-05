@@ -86,11 +86,11 @@
                         {% if erros_part %}
                         <div class="erros">{% for e in erros_part %}<div>{{ e }}</div>{% endfor %}</div>
                         {% endif %}
-                        <p class="ajuda">Nome e idade de cada participante.{% if tem_diretoria %} Marque “diretoria” para o valor da diretoria.{% endif %}</p>
-                        <div id="participantes">
-                            {% for linha in linhas %}{% include "core/_participante_linha.html" with linha=linha tem_diretoria=tem_diretoria %}{% endfor %}
+                        <p class="ajuda">Nome e idade de cada participante.{% if tem_diretoria %} Marque “diretoria” para o valor da diretoria.{% endif %}{% if tem_cupons %} Tem cupom? Digite o código na linha do participante que vai receber o desconto.{% endif %}</p>
+                        <div id="participantes" data-cupom-url="{% url 'core:evento_cupom_validar' evento.id %}">
+                            {% for linha in linhas %}{% include "core/_participante_linha.html" with linha=linha tem_diretoria=tem_diretoria tem_cupons=tem_cupons %}{% endfor %}
                         </div>
-                        <template id="part-modelo">{% include "core/_participante_linha.html" with linha=linha_modelo tem_diretoria=tem_diretoria %}</template>
+                        <template id="part-modelo">{% include "core/_participante_linha.html" with linha=linha_modelo tem_diretoria=tem_diretoria tem_cupons=tem_cupons %}</template>
                         <button type="button" class="btn-secundario" id="addParticipante">➕ Adicionar participante</button>
 
                         {% if produtos_loja %}
@@ -98,12 +98,6 @@
                         {% if erros_loja %}<div class="erros">{% for e in erros_loja %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
                         {% include "core/_loja_itens.html" %}
                         {% endif %}
-
-                        <h3 class="bloco-rotulo">Cupom de desconto <small class="ajuda">(opcional)</small></h3>
-                        <div class="campo">
-                            <input type="text" name="cupom" class="campo-input cupom-input" value="{{ cupom_codigo }}" placeholder="Código do cupom" autocomplete="off">
-                            <small class="ajuda">Aplica o desconto em um participante ao <strong>confirmar</strong> (o total acima ainda não reflete o cupom).</small>
-                        </div>
 
                         <h3 class="bloco-rotulo">Pagamento</h3>
                         <div class="pdv-formas">
@@ -118,7 +112,10 @@
                         </div>
 
                         <div class="loja-rodape">
-                            <div class="loja-total">Total: <strong id="pdvTotal">R$ 0,00</strong></div>
+                            <div class="loja-total">
+                                <span class="insc-total-desc" data-insc-descontos hidden></span>
+                                Total: <strong id="pdvTotal" data-insc-total>R$ 0,00</strong>
+                            </div>
                             <button type="submit" class="btn-acao">
                                 <span aria-hidden="true">💾</span> Registrar inscrição
                             </button>
@@ -132,6 +129,6 @@
     <script src="{% static 'js/inicio.js' %}"></script>
     <script src="{% static 'js/qtd_stepper.js' %}"></script>
     <script src="{% static 'js/evento_inscrever.js' %}"></script>
-    <script src="{% static 'js/evento_pdv_inscricao.js' %}"></script>
+    <script src="{% static 'js/evento_insc_cupom.js' %}"></script>
 </body>
 </html>
