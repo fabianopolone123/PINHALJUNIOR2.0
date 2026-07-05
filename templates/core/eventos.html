@@ -77,7 +77,9 @@
                     <article class="card evento-card evento-clicavel" data-evento="{{ e.id }}">
                         <div class="evento-topo">
                             <h3 class="evento-nome">{{ e.nome }}</h3>
-                            <span class="pill {% if e.tipo == 'inscricao' %}pill-verde{% endif %}">{{ e.get_tipo_display }}</span>
+                            <span class="evento-tipo evento-tipo-{{ e.tipo }}">
+                                {% if e.tipo == 'inscricao' %}<span aria-hidden="true">🎟️</span> Com inscrição{% else %}<span aria-hidden="true">🗓️</span> Simples{% endif %}
+                            </span>
                         </div>
                         <div class="evento-meta">
                             <span class="evento-info">📆 {{ e.data|date:"d/m/Y" }}{% if e.data_fim %} – {{ e.data_fim|date:"d/m/Y" }}{% endif %}</span>

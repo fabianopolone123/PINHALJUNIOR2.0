@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Lista de eventos: etiqueta do tipo mais compacta e bonita
+
+### Resumo
+Na lista de **Eventos**, a etiqueta ao lado do título (antes o pill grande "Evento com inscrição" /
+"Evento simples") virou uma **etiqueta compacta com ícone**: **🎟️ Com inscrição** (verde suave) e
+**🗓️ Simples** (azul suave). Menor, com texto curto e sem quebrar linha.
+
+### Arquivos criados/alterados
+- `templates/core/eventos.html`: a etiqueta do tipo usa `.evento-tipo`/`.evento-tipo-<tipo>` com ícone +
+  texto curto (em vez de `.pill` com `get_tipo_display`).
+- `static/css/eventos.css`: estilos `.evento-tipo`, `.evento-tipo-inscricao`, `.evento-tipo-simples`.
+
+### Decisões tomadas
+- Texto curto ("Com inscrição" / "Simples") com ícone; o tipo completo continua no modal de detalhes.
+
+---
+
 ## 2026-07-05 - Evento complexo — Fase 5.3b: cupom por participante + faixa + geração em lote + validação ao vivo
 
 ### Resumo
