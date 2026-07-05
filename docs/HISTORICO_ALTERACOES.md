@@ -22,6 +22,32 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - "Dia do evento": botão Voltar do balcão volta para o console (não para o painel)
+
+### Resumo
+Quando o atendente abre um atalho de balcão a partir do console **"Dia do evento"** (Nova inscrição /
+Vender na lojinha), o botão **Voltar** dessas telas levava sempre ao painel. Agora ele **volta para o
+"Dia do evento"**, de onde veio — para o atendente pesquisar/marcar entrega e vender na mesma tela sem
+ficar navegando.
+
+### Como
+- Os atalhos no console apontam para o PDV com **`?de=dia`**.
+- `evento_pdv_view` e `evento_pdv_inscricao_view` leem `de` (GET **ou** POST), passam ao template e
+  **preservam** `?de=dia` no redirect após registrar (para continuar registrando e o Voltar seguir certo).
+- As telas de PDV têm um **hidden `de`** no form e o link de Voltar passou a ter o ramo
+  `{% if de == "dia" %}` → "← Voltar para o Dia do evento" (senão, mantém painel/operar como antes).
+
+### Arquivos alterados
+- `core/views.py`: `de` nas duas views de PDV (contexto + redirect com `?de=dia`).
+- `templates/core/evento_dia.html`: atalhos com `?de=dia`.
+- `templates/core/evento_pdv.html` e `evento_pdv_inscricao.html`: hidden `de` + ramo do Voltar.
+
+### Validação
+- `manage.py check` OK. Render (test client): `/pdv/?de=dia` e `/pdv/inscricao/?de=dia` mostram "Voltar
+  para o Dia do evento" e o hidden `de=dia`; sem `?de=dia`, mantêm o Voltar para o painel.
+
+---
+
 ## 2026-07-05 - Refinos de UX: abas do painel em card + atalhos de balcão no "Dia do evento"
 
 ### Resumo

@@ -47,7 +47,9 @@
             </header>
 
             <div class="conteudo-interno">
-                {% if is_diretor %}
+                {% if de == "dia" %}
+                <a href="{% url 'core:evento_dia' evento.id %}" class="voltar-link">← Voltar para o Dia do evento</a>
+                {% elif is_diretor %}
                 <a href="{% url 'core:evento_painel' evento.id %}#lojinha" class="voltar-link">← Voltar para o painel</a>
                 {% else %}
                 <a href="{% url 'core:evento_operar' evento.id %}" class="voltar-link">← Voltar</a>
@@ -69,6 +71,7 @@
                 <section class="card evento-form-card">
                     <form method="post" action="{% url 'core:evento_pdv' evento.id %}" class="evento-form" novalidate id="pdvForm">
                         {% csrf_token %}
+                        <input type="hidden" name="de" value="{{ de }}">
                         {% if erros %}
                         <div class="erros">{% for e in erros %}<div>{{ e }}</div>{% endfor %}</div>
                         {% endif %}

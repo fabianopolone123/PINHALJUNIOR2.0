@@ -246,7 +246,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   - **Atalhos de balcão no console** (refino): o topo do "Dia do evento" tem os botões **"Nova inscrição
     (balcão)"** (`evento_pdv_inscricao`) e **"Vender na lojinha"** (`evento_pdv`) — para o atendente
     vender/inscrever sem sair da tela. Gates: inscrição enquanto o evento não terminou; venda quando a loja
-    está aberta e há produtos ativos (contexto `pode_inscrever`/`pode_vender`).
+    está aberta e há produtos ativos (contexto `pode_inscrever`/`pode_vender`). Os atalhos passam
+    **`?de=dia`**; nas telas de PDV o botão **Voltar** então retorna ao **"Dia do evento"** (o `de` é
+    preservado no redirect após registrar).
   - **Barra de abas em card** (refino): a `.painel-abas` virou um card/toolbar (fundo/borda/cantos), aba de
     seção ativa **preenchida** em azul e **divisor** antes das abas de ação — deixa claro que são os botões
     do painel.

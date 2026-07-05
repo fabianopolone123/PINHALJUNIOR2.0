@@ -2000,12 +2000,13 @@ def evento_pdv_view(request, pk):
     valor_recebido_raw = ""
     inscricao_sel = ""
     entregar_agora = True  # venda de balcão: normalmente leva na hora
+    # "de=dia" quando veio do console "Dia do evento" (para o botão Voltar).
+    de = request.POST.get("de") or request.GET.get("de") or ""
 
     if request.method == "POST":
         comprador = {"nome": (request.POST.get("comprador_nome") or "").strip()}
         forma = request.POST.get("forma_pagamento") or ""
         valor_recebido_raw = (request.POST.get("valor_recebido") or "").strip()
-        inscricao_sel = request.POST.get("inscricao") or ""
         entregar_agora = request.POST.get("entregar_agora") == "1"
         desejados, erros = _coletar_itens_loja(request, produtos)
         if not desejados:
@@ -2046,7 +2047,10 @@ def evento_pdv_view(request, pk):
             if forma == "dinheiro" and pedido.troco is not None:
                 msg += " Troco: R$ " + f"{pedido.troco:.2f}".replace(".", ",")
             messages.success(request, msg)
-            return redirect("core:evento_pdv", pk=evento.pk)
+            destino = reverse("core:evento_pdv", args=[evento.pk])
+            if de == "dia":
+                destino += "?de=dia"
+            return redirect(destino)
         messages.error(request, "Verifique os itens e o pagamento.")
 
     _marcar_quantidades(produtos, desejados)
@@ -2060,6 +2064,7 @@ def evento_pdv_view(request, pk):
         "valor_recebido_raw": valor_recebido_raw,
         "inscricao_sel": inscricao_sel,
         "entregar_agora": entregar_agora,
+        "de": de,
         "erros": erros,
     }
     return render(request, "core/evento_pdv.html", contexto)
@@ -2090,6 +2095,8 @@ def evento_pdv_inscricao_view(request, pk):
     forma = "dinheiro"
     valor_recebido_raw = ""
     entregar_agora = True  # itens da lojinha: normalmente levados na hora
+    # "de=dia" quando veio do console "Dia do evento" (para o botão Voltar).
+    de = request.POST.get("de") or request.GET.get("de") or ""
 
     if request.method == "POST":
         form = InscricaoForm(request.POST, evento=evento)
@@ -2195,7 +2202,10 @@ def evento_pdv_inscricao_view(request, pk):
             if forma == "dinheiro" and inscricao.troco is not None:
                 msg += " Troco: R$ " + f"{inscricao.troco:.2f}".replace(".", ",")
             messages.success(request, msg)
-            return redirect("core:evento_pdv_inscricao", pk=evento.pk)
+            destino = reverse("core:evento_pdv_inscricao", args=[evento.pk])
+            if de == "dia":
+                destino += "?de=dia"
+            return redirect(destino)
         messages.error(request, "Verifique os dados, os participantes e o pagamento.")
     else:
         form = InscricaoForm(evento=evento)
@@ -2213,6 +2223,7 @@ def evento_pdv_inscricao_view(request, pk):
         "produtos_loja": produtos_loja,
         "erros_loja": erros_loja,
         "entregar_agora": entregar_agora,
+        "de": de,
         "formas": formas,
         "forma": forma,
         "valor_recebido_raw": valor_recebido_raw,

@@ -73,10 +73,10 @@
                 <!-- Atalhos de balcão: vender/inscrever sem sair da tela do dia -->
                 <div class="dia-acoes">
                     {% if pode_inscrever %}
-                    <a href="{% url 'core:evento_pdv_inscricao' evento.id %}" class="btn-acao"><span aria-hidden="true">🎟️</span> Nova inscrição (balcão)</a>
+                    <a href="{% url 'core:evento_pdv_inscricao' evento.id %}?de=dia" class="btn-acao"><span aria-hidden="true">🎟️</span> Nova inscrição (balcão)</a>
                     {% endif %}
                     {% if pode_vender %}
-                    <a href="{% url 'core:evento_pdv' evento.id %}" class="btn-secundario"><span aria-hidden="true">🧾</span> Vender na lojinha</a>
+                    <a href="{% url 'core:evento_pdv' evento.id %}?de=dia" class="btn-secundario"><span aria-hidden="true">🧾</span> Vender na lojinha</a>
                     {% endif %}
                 </div>
                 {% endif %}
