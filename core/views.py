@@ -544,7 +544,6 @@ def usuarios_view(request):
     )
 
     responsaveis = {}   # chave -> {nome, papeis, contato..., vinculos: {av_id: {...}}}
-    total_vinculos = 0
 
     for av in aventureiros:
         # Dados de exibição do aventureiro (usados no modal detalhado).
@@ -564,7 +563,6 @@ def usuarios_view(request):
             chave = _chave_responsavel(nome, cpf, whats)
             if chave is None:
                 continue
-            total_vinculos += 1
             resp = responsaveis.setdefault(chave, {
                 "nome": nome.strip(), "papeis": set(),
                 "cpf": "", "email": "", "celular": "", "whatsapp": "",
@@ -614,7 +612,7 @@ def usuarios_view(request):
         "aventureiros": aventureiros,
         "total_responsaveis": len(lista_responsaveis),
         "total_aventureiros": len(aventureiros),
-        "total_vinculos": total_vinculos,
+        "total_ativos": sum(1 for a in aventureiros if a.ativo),
     }
     return render(request, "core/usuarios.html", contexto)
 

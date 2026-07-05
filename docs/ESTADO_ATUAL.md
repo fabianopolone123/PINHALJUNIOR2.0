@@ -72,7 +72,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   geral de responsáveis e aventureiros com o vínculo familiar. Agrupa responsáveis únicos (pai, mãe e
   responsável legal de todos os aventureiros) por CPF (ou nome+WhatsApp, ou nome), juntando papéis
   quando é a mesma pessoa; mostra os aventureiros vinculados a cada responsável (com idade e papel do
-  vínculo) e um resumo por aventureiro. Tem contadores (Responsáveis/Aventureiros/Vínculos) e
+  vínculo) e um resumo por aventureiro. Tem contadores (Responsáveis/Aventureiros/**Ativos**) e
   **pesquisa inteligente** em tempo real (ignora maiúsculas/acentos). **Ao clicar em qualquer card**
   (responsável ou aventureiro), abre um **modal responsivo** (tela cheia no celular) com **todos os
   dados** daquela pessoa — no responsável: CPF, e-mail, celular/WhatsApp, papéis e aventureiros

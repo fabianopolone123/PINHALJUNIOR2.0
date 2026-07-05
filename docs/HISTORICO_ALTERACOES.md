@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Usuários: contador "Vínculos" → "Ativos" (aventureiros ativos)
+
+### Resumo
+A pedido do usuário, o contador **"Vínculos"** (abstrato, pouco útil) na tela Usuários virou **"Ativos"** —
+a quantidade de **aventureiros ativos**. Ficam: **Responsáveis · Aventureiros (total) · Ativos**.
+
+### Arquivos alterados
+- `core/views.py`: `usuarios_view` passa `total_ativos` (conta `ativo=True`); removido o cálculo de
+  `total_vinculos`. `templates/core/usuarios.html`: card "Ativos".
+
+### Validação
+- `manage.py check` OK. Render: contadores **72 Responsáveis · 39 Aventureiros · 38 Ativos** (1 inativa).
+
+---
+
 ## 2026-07-05 - Inativo: responsável aparece inativo + cobertura conta só ativos
 
 ### Resumo
