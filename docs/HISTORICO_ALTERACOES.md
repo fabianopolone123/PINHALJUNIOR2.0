@@ -48,10 +48,18 @@ casos de pagamento parcial confirmados com o usuário antes da importação.
 - Os **PDFs do extrato** (`EXTRATOS/`) e os JSONs da exportação contêm dados financeiros/pessoais e
   **NÃO são versionados** (adicionado `EXTRATOS/`, `extratos/`, `*.ofx` ao `.gitignore`). Ficam só local.
 
+### Custos (adicionado em seguida)
+- Migrados os **9 custos** do evento 7 (nome, valor, data): Aluguel chácara R$ 2.000, comidas, lonas,
+  pó de festa, pão, produtos vegetarianos, etc. — **total R$ 4.723,50**. Com isso o **Resultado do
+  acampamento = R$ 4.597,41 − R$ 4.723,50 = −R$ 126,09**.
+- **Comprovantes**: os arquivos **não vieram no export** (só as assinaturas médicas foram incluídas em
+  `arquivos/`). Cada custo guarda na descrição o nome do arquivo original ("...a anexar: <arquivo>") para
+  anexar quando os arquivos forem obtidos do servidor do sistema antigo.
+
 ### Pendências / próximo passo
-- Migrar os **demais eventos** do sistema antigo (mesmo processo, um a um). Custos do acampamento (se
-  houver) podem ser lançados na aba Custos depois. Vínculo `Inscricao.usuario`→conta migrada não foi feito
-  (histórico); dá para casar por nome/CPF no futuro se necessário.
+- **Anexar os comprovantes** dos custos (quando os arquivos forem trazidos do servidor antigo).
+- Migrar os **demais eventos** do sistema antigo (mesmo processo, um a um). Vínculo
+  `Inscricao.usuario`→conta migrada não foi feito (histórico); dá para casar por nome/CPF se necessário.
 
 ### Arquivos alterados
 - `.gitignore`: ignora `EXTRATOS/`, `extratos/`, `*.ofx`. (Dados do evento entram só no banco local.)
