@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Count, F, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -2256,14 +2256,40 @@ def _casar_pedidos_inscricoes(inscricoes, pedidos):
     return avulsos
 
 
+def _resumo_dia(evento):
+    """Contadores do "Dia do evento": check-in (participantes de inscrições
+    confirmadas) e retiradas (itens por unidade em pedidos confirmados). Fonte
+    única, reusada pela tela e pelos endpoints de marcar."""
+    part = ParticipanteInscricao.objects.filter(
+        inscricao__evento=evento, inscricao__status="confirmada"
+    ).aggregate(total=Count("id"), presentes=Count("id", filter=Q(presente=True)))
+    itens = ItemPedidoLoja.objects.filter(
+        pedido__evento=evento, pedido__status="confirmado"
+    ).aggregate(total=Sum("quantidade"), entregues=Sum("quantidade_entregue"))
+    total_part = part["total"] or 0
+    presentes = part["presentes"] or 0
+    total_itens = itens["total"] or 0
+    entregues = itens["entregues"] or 0
+    return {
+        "presentes": presentes,
+        "total_part": total_part,
+        "faltam_part": total_part - presentes,
+        "entregues": entregues,
+        "total_itens": total_itens,
+        "pendentes_itens": total_itens - entregues,
+    }
+
+
 @operador_required
 def evento_dia_view(request, pk):
-    """Console "Dia do evento" (Fase 5.4a): consulta o check-in dos participantes
-    e a retirada/entrega dos itens da lojinha, por família.
+    """Console "Dia do evento" (Fase 5.4): check-in dos participantes e retirada/
+    entrega dos itens da lojinha, por família.
 
-    Nesta parte (5.4a) é **só leitura** — mostra o status de cada participante
-    (presente/não chegou) e de cada item (não entregue / parcial / entregue). As
-    ações de marcar check-in e entrega vêm na 5.4b."""
+    Mostra o status de cada participante (presente/não chegou) e de cada item
+    (não entregue / parcial / entregue) e permite **marcar** cada um (5.4b): o
+    check-in é por participante e a entrega é por unidade (permite parcial). As
+    marcações usam endpoints JSON (`evento_checkin`/`evento_entrega`) e atualizam
+    a tela sem recarregar."""
     evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
     inscricoes = list(
         evento.inscricoes.filter(status="confirmada")
@@ -2275,28 +2301,67 @@ def evento_dia_view(request, pk):
     )
     avulsos = _casar_pedidos_inscricoes(inscricoes, pedidos)
 
-    # Contadores do dia (presença por participante; itens por unidade).
-    participantes = [pt for i in inscricoes for pt in i.participantes.all()]
-    itens = [it for p in pedidos for it in p.itens.all()]
-    total_part = len(participantes)
-    presentes = sum(1 for pt in participantes if pt.presente)
-    total_itens = sum(it.quantidade for it in itens)
-    entregues = sum(it.quantidade_entregue for it in itens)
-
     contexto = {
         "evento": evento,
         "inscricoes": inscricoes,
         "avulsos": avulsos,
-        "resumo_dia": {
-            "presentes": presentes,
-            "total_part": total_part,
-            "faltam_part": total_part - presentes,
-            "entregues": entregues,
-            "total_itens": total_itens,
-            "pendentes_itens": total_itens - entregues,
-        },
+        "resumo_dia": _resumo_dia(evento),
     }
     return render(request, "core/evento_dia.html", contexto)
+
+
+@operador_required
+@require_POST
+def evento_checkin_view(request, pk):
+    """Marca/desmarca o check-in (presença) de um participante (Fase 5.4b).
+    Endpoint JSON: recebe `participante` e `presente` (1/0)."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    p = ParticipanteInscricao.objects.filter(
+        pk=request.POST.get("participante"),
+        inscricao__evento=evento,
+        inscricao__status="confirmada",
+    ).first()
+    if p is None:
+        return JsonResponse({"ok": False, "erro": "Participante não encontrado."}, status=404)
+    presente = request.POST.get("presente") == "1"
+    p.presente = presente
+    p.presente_em = timezone.now() if presente else None
+    p.presente_por = request.user if presente else None
+    p.save(update_fields=["presente", "presente_em", "presente_por"])
+    return JsonResponse({
+        "ok": True, "presente": p.presente, "resumo": _resumo_dia(evento),
+    })
+
+
+@operador_required
+@require_POST
+def evento_entrega_view(request, pk):
+    """Registra a retirada/entrega de um item da lojinha, **por unidade** (Fase
+    5.4b). Endpoint JSON: recebe `item` e `quantidade` (nova quantidade entregue,
+    limitada a 0..quantidade do item)."""
+    evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    it = ItemPedidoLoja.objects.filter(
+        pk=request.POST.get("item"),
+        pedido__evento=evento,
+        pedido__status="confirmado",
+    ).first()
+    if it is None:
+        return JsonResponse({"ok": False, "erro": "Item não encontrado."}, status=404)
+    try:
+        qtd = int(request.POST.get("quantidade"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "erro": "Quantidade inválida."}, status=400)
+    qtd = max(0, min(qtd, it.quantidade))
+    it.quantidade_entregue = qtd
+    it.entregue_em = timezone.now() if qtd > 0 else None
+    it.entregue_por = request.user if qtd > 0 else None
+    it.save(update_fields=["quantidade_entregue", "entregue_em", "entregue_por"])
+    return JsonResponse({
+        "ok": True,
+        "quantidade_entregue": it.quantidade_entregue,
+        "status": it.status_entrega,
+        "resumo": _resumo_dia(evento),
+    })
 
 
 @diretor_required

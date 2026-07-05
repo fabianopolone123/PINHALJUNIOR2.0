@@ -2,14 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Fase 5.4a — Check-in + Retirada: console "Dia do evento" (só
-leitura)**: nova tela `/eventos/<id>/dia/` (Diretor/operador) que, por família, mostra o **check-in de
-cada participante** (Chegou / Não chegou) e a **retirada de cada item da lojinha** (Não entregue /
-Parcial / Entregue), com **busca** (responsável/participante/código), **resumo do dia** (check-in e
-retiradas) e seção de **pedidos avulsos**. Novos campos: `ParticipanteInscricao.presente`/`presente_em`/
-`presente_por` e `ItemPedidoLoja.quantidade_entregue`/`entregue_em`/`entregue_por` (entrega **por
-unidade**; migration **0016**). **Ainda só leitura** — as marcações de check-in/entrega vêm na 5.4b.
-Antes: Fase 5.3b (cupom por participante + faixa + lote + validação ao vivo, mig. 0015))
+**Última atualização:** 2026-07-05 (**Fase 5.4b — marcar check-in e entrega no console "Dia do evento"**:
+o console (`/eventos/<id>/dia/`, Diretor/operador) deixou de ser só leitura — agora dá para **marcar o
+check-in** de cada participante (Marcar chegada ↔ ✅ Chegou) e a **retirada de cada item** da lojinha,
+**por unidade** (o selo entrega/desfaz tudo; itens com mais de 1 têm **stepper − x/y +** para entrega
+parcial). Tudo **sem recarregar** (endpoints JSON `evento_checkin`/`evento_entrega` + atualização inline +
+**resumo do dia** ao vivo), guardando **quem marcou e quando**. Antes: Fase 5.4a (console só leitura +
+campos de modelo, mig. 0016))
 
 ## Nome do sistema
 Clube de Aventureiros Pinhal Júnior
@@ -214,19 +213,25 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     não há cupom "reservado" por formulário aberto). Guarda quem usou, **qual participante**, valor e
     vínculo à inscrição; aparece na inscrição (painel) e na tela de sucesso. Models `CupomDesconto.faixa`
     e `.participante` (migration `0015`; base era a `0014`).
-- **Evento complexo — Fase 5.4a (Check-in + Retirada: console "Dia do evento" — só leitura)**: nova tela
-  **"Dia do evento"** (`/eventos/<id>/dia/`, botão na barra de abas do painel e na landing "Operar"),
-  aberta ao **Diretor e aos operadores** do evento. Serve para o dia do evento: por **família**
-  (inscrição confirmada), lista os **participantes** com o status de **check-in** (✅ Chegou / Não chegou)
-  e os **itens da lojinha comprados** com o status de **retirada** (Não entregue / Parcial (x/y) /
-  ✅ Entregue). Os pedidos são casados à inscrição por **vínculo direto** (`PedidoLoja.inscricao`) ou
-  **mesma conta única** (mesma regra do painel; helper `_casar_pedidos_inscricoes`); os **pedidos
-  avulsos** (passantes, sem dono) aparecem numa **seção separada**. Tem **resumo do dia** (check-in
-  X/Y + retiradas X/Y) e **busca** em tempo real (responsável/participante/código). A entrega é **por
-  unidade** (`ItemPedidoLoja.quantidade_entregue`), permitindo entrega parcial. **Nesta parte (5.4a) é só
-  leitura** — as ações de marcar check-in e entrega chegam na **5.4b**. Novos campos:
-  `ParticipanteInscricao.presente`/`presente_em`/`presente_por` e `ItemPedidoLoja.quantidade_entregue`/
-  `entregue_em`/`entregue_por` (props `entregue`/`entrega_parcial`/`status_entrega`; migration **0016**).
+- **Evento complexo — Fase 5.4 (Check-in + Retirada: console "Dia do evento")**: tela **"Dia do evento"**
+  (`/eventos/<id>/dia/`, botão na barra de abas do painel e na landing "Operar"), aberta ao **Diretor e
+  aos operadores** do evento. Serve para o dia do evento: por **família** (inscrição confirmada), lista os
+  **participantes** com o **check-in** (Marcar chegada ↔ ✅ Chegou) e os **itens da lojinha comprados**
+  com a **retirada** (Não entregue / Parcial (x/y) / ✅ Entregue). Os pedidos são casados à inscrição por
+  **vínculo direto** (`PedidoLoja.inscricao`) ou **mesma conta única** (mesma regra do painel; helper
+  `_casar_pedidos_inscricoes`); os **pedidos avulsos** (passantes, sem dono) aparecem numa **seção
+  separada**. Tem **resumo do dia** (check-in X/Y + retiradas X/Y) e **busca** em tempo real
+  (responsável/participante/código).
+  - **5.4a** (só leitura): os campos de modelo e a tela de consulta. Novos campos:
+    `ParticipanteInscricao.presente`/`presente_em`/`presente_por` e `ItemPedidoLoja.quantidade_entregue`/
+    `entregue_em`/`entregue_por` (props `entregue`/`entrega_parcial`/`status_entrega`; migration **0016**).
+  - **5.4b** (marcar): dá para **marcar check-in por participante** e **entrega por unidade** direto na
+    tela, **sem recarregar** — o **selo é clicável** (entrega/desfaz tudo) e itens com mais de 1 têm
+    **stepper − x/y +** (entrega parcial). Endpoints JSON `evento_checkin` e `evento_entrega` (POST,
+    `@operador_required`, validam que o participante/item é do evento e de inscrição/pedido **confirmado**,
+    limitam a entrega a 0..quantidade) atualizam a linha e o **resumo do dia** ao vivo; guardam **quem
+    marcou e quando** (`presente_por`/`presente_em`, `entregue_por`/`entregue_em`). Parcial: `_dia_entrega.html`
+    (parcial reutilizado nas duas seções) + `evento_dia.js` (fetch com `X-CSRFToken`).
 - **Evento complexo — Compras da lojinha por inscrição**: na aba **Inscrições** do painel, cada inscrito
   mostra (ao expandir) um bloco **"Compras na lojinha"** com os pedidos daquela pessoa — casados por
   **vínculo direto** (`PedidoLoja.inscricao`) **ou pela mesma conta logada** (`pedido.usuario ==
@@ -359,9 +364,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro), parte 2 (**Resumo/dashboard**:
   KPIs, gráficos CSS/SVG, cobertura do clube + buscas) e parte 3 (**cupons de desconto** — por
   participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. **Fase 5.4 (Check-in +
-  Retirada)** em andamento: **5.4a CONCLUÍDA** (console "Dia do evento" só leitura + campos de modelo).
-  Falta: **5.4b** (marcar check-in e entrega), **5.4c** ("vai levar agora?" no balcão), **5.4d**
-  (contadores no painel + guarda de exclusão do evento simples).
+  Retirada)** em andamento: **5.4a + 5.4b CONCLUÍDAS** (console "Dia do evento" com consulta **e**
+  marcações de check-in/entrega). Falta: **5.4c** ("vai levar agora?" no balcão), **5.4d** (contadores no
+  painel + guarda de exclusão do evento simples).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
 - Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
@@ -393,7 +398,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/_loja_itens.html` (parcial: itens da lojinha para escolher — loja, inscrição e PDV)
 - `templates/core/_menu.html` (parcial: menu lateral central, usado por todas as telas internas)
 - `templates/core/evento_operar.html` (landing do operador), `evento_operadores.html` (gerência) e `trocar_senha.html`
-- `templates/core/evento_dia.html` (console "Dia do evento": check-in + retirada, só leitura na 5.4a)
+- `templates/core/evento_dia.html` (console "Dia do evento": check-in + retirada) e `_dia_entrega.html`
+  (parcial: controle de retirada por unidade de um item — selo clicável + stepper)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -443,8 +449,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/evento_insc_cupom.js` — inscrição (online **e** balcão): total ao vivo (faixa/diretoria +
   lojinha), **cupom por participante** (validação ao vivo contra o servidor + toast + abate do total) e
   troco no balcão. Substituiu o antigo `evento_pdv_inscricao.js`.
-- `static/js/evento_dia.js` — busca em tempo real do console "Dia do evento" (responsável/participante/
-  código). As ações de check-in/entrega chegam na 5.4b.
+- `static/js/evento_dia.js` — console "Dia do evento": busca em tempo real (responsável/participante/
+  código) + **ações de marcar** (check-in por participante e entrega por unidade via fetch/JSON com
+  `X-CSRFToken`, atualização inline dos selos/stepper e do resumo do dia).
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -470,7 +477,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/pdv/` — PDV / balcão de vendas da lojinha (Diretor por ora) (`core:evento_pdv`).
 - `/eventos/<id>/pdv/inscricao/` — PDV: inscrição presencial + lojinha, pagamento combinado (`core:evento_pdv_inscricao`).
 - `/eventos/<id>/operar/` — landing do operador (vender/inscrever) (`core:evento_operar`, operador ou Diretor).
-- `/eventos/<id>/dia/` — console "Dia do evento": check-in dos participantes + retirada dos itens (só leitura na 5.4a) (`core:evento_dia`, operador ou Diretor).
+- `/eventos/<id>/dia/` — console "Dia do evento": check-in dos participantes + retirada dos itens (`core:evento_dia`, operador ou Diretor).
+- `/eventos/<id>/dia/checkin/` — marca/desmarca check-in de um participante (POST JSON, operador/Diretor) (`core:evento_checkin`).
+- `/eventos/<id>/dia/entrega/` — registra a entrega de um item por unidade (POST JSON, operador/Diretor) (`core:evento_entrega`).
 - `/eventos/<id>/operadores/` — gerência de operadores (Diretor); rotas POST de add diretoria/externo, reset e remover.
 - `/trocar-senha/` — troca de senha (obrigatória no 1º acesso das contas temporárias) (`core:trocar_senha`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).

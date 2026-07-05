@@ -1,0 +1,18 @@
+{% comment %}
+Controle de retirada/entrega de um item da lojinha (Fase 5.4b), por unidade.
+- O selo é clicável: entrega tudo (se pendente/parcial) ou desfaz (se entregue).
+- Quando a quantidade é maior que 1, aparece um stepper (− x/y +) para entrega parcial.
+Espera a variável `item` (ItemPedidoLoja).
+{% endcomment %}
+<div class="entrega" data-item="{{ item.id }}" data-qtd="{{ item.quantidade }}" data-entregue="{{ item.quantidade_entregue }}">
+    <button type="button" class="selo selo-btn entrega-selo selo-{% if item.status_entrega == 'entregue' %}ok{% elif item.status_entrega == 'parcial' %}parcial{% else %}pendente{% endif %}">
+        <span class="entrega-txt">{% if item.status_entrega == 'entregue' %}✅ Entregue{% elif item.status_entrega == 'parcial' %}Parcial{% else %}Não entregue{% endif %}</span>
+    </button>
+    {% if item.quantidade > 1 %}
+    <span class="entrega-stepper">
+        <button type="button" class="entrega-btn entrega-menos" aria-label="Retirar uma unidade">−</button>
+        <span class="entrega-num">{{ item.quantidade_entregue }}/{{ item.quantidade }}</span>
+        <button type="button" class="entrega-btn entrega-mais" aria-label="Entregar uma unidade">+</button>
+    </span>
+    {% endif %}
+</div>

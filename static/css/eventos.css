@@ -1223,3 +1223,58 @@ a.tipo-card:hover {
 .dia-secao-avulsos { margin-top: 26px; }
 .dia-secao-titulo { font-size: 1.05rem; color: var(--azul-escuro); margin: 0 0 4px; }
 
+/* Controles de marcar (5.4b): selo clicável + stepper de entrega */
+.selo-btn {
+    font: inherit;
+    line-height: 1.1;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.06s ease;
+}
+.selo-btn:hover { filter: brightness(0.95); }
+.selo-btn:active { transform: translateY(1px); }
+.selo-btn:disabled { opacity: 0.6; cursor: default; }
+/* Estado "a fazer" (pendente) num botão: dá aparência de ação a clicar */
+.checkin-btn.selo-pendente {
+    background: rgba(23, 105, 170, 0.10);
+    color: var(--azul);
+    border-color: rgba(23, 105, 170, 0.30);
+}
+
+.entrega { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.entrega-selo.selo-pendente {
+    background: rgba(23, 105, 170, 0.10);
+    color: var(--azul);
+    border-color: rgba(23, 105, 170, 0.30);
+}
+.entrega-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid rgba(15, 76, 129, 0.20);
+    border-radius: 999px;
+    padding: 2px;
+}
+.entrega-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(15, 76, 129, 0.06);
+    color: var(--azul-escuro);
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.entrega-btn:hover { background: rgba(15, 76, 129, 0.14); }
+.entrega-btn:active { transform: translateY(1px); }
+.entrega-num {
+    min-width: 34px;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--texto-suave);
+}
+

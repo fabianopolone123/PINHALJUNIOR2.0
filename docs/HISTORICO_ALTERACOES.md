@@ -22,6 +22,48 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Evento complexo — Fase 5.4b: marcar check-in e entrega no console "Dia do evento"
+
+### Resumo
+Continuação da Fase 5.4: o console **"Dia do evento"** (`/eventos/<id>/dia/`) deixou de ser só leitura —
+agora o Diretor/operador **marca** o dia de fato, **sem recarregar a página**:
+- **Check-in por participante**: cada participante tem um botão que alterna **Marcar chegada ↔ ✅ Chegou**.
+- **Retirada por unidade**: o **selo** do item é clicável (entrega **tudo** ou **desfaz**); itens com mais
+  de 1 unidade ganham um **stepper − x/y +** para **entrega parcial** (ex.: pegou 1 de 3 agora).
+- **Resumo do dia ao vivo**: os contadores (check-in X/Y, retiradas X/Y, pendentes) atualizam na hora.
+- Cada marcação guarda **quem** marcou e **quando** (`presente_por`/`presente_em`, `entregue_por`/`entregue_em`).
+
+### Como funciona
+- Endpoints JSON **`evento_checkin`** e **`evento_entrega`** (POST, `@operador_required`): validam que o
+  participante/item pertence ao evento e a uma **inscrição/pedido confirmado**, limitam a entrega a
+  **0..quantidade** do item e devolvem o novo status + o **resumo do dia** recalculado (helper único
+  **`_resumo_dia`**, reusado pela tela e pelos endpoints). O JS envia via `fetch` com **`X-CSRFToken`** e
+  atualiza a linha (selo/stepper) e o resumo. Toast só em caso de erro (marcar em massa não polui a tela).
+
+### Arquivos criados/alterados
+- `core/views.py`: helper `_resumo_dia`; views `evento_checkin_view` e `evento_entrega_view`;
+  `evento_dia_view` passou a usar `_resumo_dia`. Import de `Count`/`Q`/`Sum`.
+- `core/urls.py`: rotas `evento_checkin` (`.../dia/checkin/`) e `evento_entrega` (`.../dia/entrega/`).
+- `templates/core/_dia_entrega.html` (novo): controle de retirada por unidade (selo clicável + stepper),
+  reusado nas duas seções (inscrições e avulsos). `evento_dia.html`: botão de check-in, `#diaDados`
+  (URLs + csrf), IDs no resumo, inclui o parcial de entrega nas duas seções, nota atualizada.
+- `static/js/evento_dia.js`: ações de marcar (fetch/JSON, atualização inline dos selos/stepper e do
+  resumo). `static/css/eventos.css`: `.selo-btn`, `.entrega`/`.entrega-stepper`/`.entrega-btn`/`.entrega-num`.
+
+### Validação
+- `manage.py check` OK. Endpoints (test client, Diretor): check-in ON→presente=True + `presente_por` +
+  resumo.presentes=1; OFF→zera presente/em/por; entrega 1→entregue, 999→**clamp** para a quantidade,
+  0→pendente + zera em/por; item inexistente→**404**; **GET**→**405**. Property `status_entrega` conferida.
+  **Visual (Chrome headless, desktop)**: selos clicáveis "Marcar chegada"/"✅ Chegou" e "Não entregue", e
+  item com qtd>1 mostrando selo **Parcial** + stepper **− 1/3 +** — consistente nas duas seções. Marcações
+  de teste revertidas (banco limpo).
+
+### Pendências / próximo passo
+- **5.4c**: "vai levar agora?" no balcão (PDV venda e PDV inscrição) — já marcar a entrega na hora.
+- **5.4d**: contadores no painel + guarda de exclusão do evento simples.
+
+---
+
 ## 2026-07-05 - Evento complexo — Fase 5.4a: Check-in + Retirada (console "Dia do evento", só leitura)
 
 ### Resumo

@@ -99,9 +99,13 @@ lojinha, custos e resultado (lucro/prejuízo).
   lista, por família, o status de check-in e de retirada dos itens (+ pedidos avulsos), com busca e resumo
   do dia. Helper `_casar_pedidos_inscricoes`. Decisões: entrega por unidade, todos os itens entregáveis,
   check-in por participante.
-- **PRÓXIMO PASSO = Fase 5.4b**: **ações de marcar** (check-in por participante + entrega por unidade, com
-  status ao vivo). Depois **5.4c** ("vai levar agora?" no balcão) e **5.4d** (contadores no painel + guarda
-  de exclusão do evento simples — ver memória do projeto).
+- **Fase 5.4b CONCLUÍDA** (2026-07-05): **ações de marcar** no console — check-in por participante (botão
+  alterna Marcar chegada ↔ ✅ Chegou) e **entrega por unidade** (selo entrega/desfaz tudo; stepper − x/y +
+  para parcial), tudo via endpoints JSON `evento_checkin`/`evento_entrega` + atualização inline e resumo ao
+  vivo; guarda quem/quando. Helper `_resumo_dia`; parcial `_dia_entrega.html`.
+- **PRÓXIMO PASSO = Fase 5.4c**: **"vai levar agora?" no balcão** (PDV venda e PDV inscrição) — já marcar a
+  entrega dos itens na hora da venda. Depois **5.4d** (contadores no painel + guarda de exclusão do evento
+  simples — ver memória do projeto).
 
 #### PDV — decisões (definidas com o usuário em 2026-07-04)
 - **Operadores** (4.4c): o Diretor escolhe, por evento — **diretoria selecionada** + **ajudantes
@@ -187,8 +191,12 @@ Usada em vários momentos, tudo dentro do evento (para o financeiro fechar):
      - **5.4a — CONCLUÍDA ✅** (2026-07-05) — modelos (check-in por participante + retirada por unidade,
        mig. 0016) + **console "Dia do evento"** (`/eventos/<id>/dia/`, só leitura): status de check-in e
        de retirada por família + pedidos avulsos, com busca e resumo. Helper `_casar_pedidos_inscricoes`.
-     - **5.4b — PRÓXIMA ⏭️** — ações de marcar (check-in por participante + entrega por unidade).
-     - **5.4c** — "vai levar agora?" no balcão (PDV venda e PDV inscrição).
+     - **5.4b — CONCLUÍDA ✅** (2026-07-05) — **ações de marcar**: check-in por participante + entrega por
+       unidade (selo clicável + stepper), via endpoints JSON `evento_checkin`/`evento_entrega` (POST,
+       operador/Diretor) com atualização inline e resumo ao vivo. Helper `_resumo_dia`; parcial
+       `_dia_entrega.html`.
+     - **5.4c — PRÓXIMA ⏭️** — "vai levar agora?" no balcão (PDV venda e PDV inscrição): já marcar a
+       entrega dos itens na hora da venda.
      - **5.4d** — contadores no painel + **guarda de exclusão do evento simples** (só exclui sem presença).
 6. **Depois** — Pagamentos reais (gateway); mapa (o botão "Ver no mapa" já abre o Google Maps);
    **loja oficial do clube** (uniformes) — separada da lojinha de evento.

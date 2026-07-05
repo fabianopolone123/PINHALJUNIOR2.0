@@ -64,25 +64,30 @@
                 </div>
                 {% endif %}
 
+                <div id="diaDados"
+                     data-checkin-url="{% url 'core:evento_checkin' evento.id %}"
+                     data-entrega-url="{% url 'core:evento_entrega' evento.id %}"
+                     data-csrf="{{ csrf_token }}" hidden></div>
+
                 <!-- Resumo do dia -->
                 <div class="dia-resumo">
                     <div class="dia-kpi">
                         <span class="dia-kpi-icone" aria-hidden="true">✅</span>
                         <span class="dia-kpi-rotulo">Check-in</span>
-                        <span class="dia-kpi-num">{{ resumo_dia.presentes }} <small>de {{ resumo_dia.total_part }}</small></span>
-                        <span class="dia-kpi-sub">{{ resumo_dia.faltam_part }} ainda não chegaram</span>
+                        <span class="dia-kpi-num"><span id="resPresentes">{{ resumo_dia.presentes }}</span> <small>de <span id="resTotalPart">{{ resumo_dia.total_part }}</span></small></span>
+                        <span class="dia-kpi-sub"><span id="resFaltam">{{ resumo_dia.faltam_part }}</span> ainda não chegaram</span>
                     </div>
                     <div class="dia-kpi">
                         <span class="dia-kpi-icone" aria-hidden="true">📦</span>
                         <span class="dia-kpi-rotulo">Retiradas</span>
-                        <span class="dia-kpi-num">{{ resumo_dia.entregues }} <small>de {{ resumo_dia.total_itens }}</small></span>
-                        <span class="dia-kpi-sub">{{ resumo_dia.pendentes_itens }} itens pendentes</span>
+                        <span class="dia-kpi-num"><span id="resEntregues">{{ resumo_dia.entregues }}</span> <small>de <span id="resTotalItens">{{ resumo_dia.total_itens }}</span></small></span>
+                        <span class="dia-kpi-sub"><span id="resPendentes">{{ resumo_dia.pendentes_itens }}</span> itens pendentes</span>
                     </div>
                 </div>
 
                 <p class="dia-nota">
-                    Consulte pelo nome e confira o que já entrou e o que já foi retirado.
-                    <strong>As marcações (check-in e entrega) chegam na próxima etapa.</strong>
+                    Consulte pelo nome, marque o <strong>check-in</strong> de cada participante e a
+                    <strong>retirada</strong> de cada item conforme forem chegando.
                 </p>
 
                 {% if inscricoes %}
@@ -105,11 +110,9 @@
                                 {% for p in i.participantes.all %}
                                 <li class="dia-item">
                                     <span class="dia-item-nome">{{ p.nome }}{% if p.idade %} <small>({{ p.idade }} anos)</small>{% endif %}</span>
-                                    {% if p.presente %}
-                                    <span class="selo selo-ok">✅ Chegou</span>
-                                    {% else %}
-                                    <span class="selo selo-pendente">Não chegou</span>
-                                    {% endif %}
+                                    <button type="button" class="selo selo-btn checkin-btn selo-{% if p.presente %}ok{% else %}pendente{% endif %}" data-part="{{ p.id }}" aria-pressed="{% if p.presente %}true{% else %}false{% endif %}">
+                                        <span class="checkin-txt">{% if p.presente %}✅ Chegou{% else %}Marcar chegada{% endif %}</span>
+                                    </button>
                                 </li>
                                 {% endfor %}
                             </ul>
@@ -123,13 +126,7 @@
                                 {% for item in pedido.itens.all %}
                                 <li class="dia-item">
                                     <span class="dia-item-nome">{{ item.quantidade }}× {{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}</span>
-                                    {% if item.status_entrega == "entregue" %}
-                                    <span class="selo selo-ok">✅ Entregue</span>
-                                    {% elif item.status_entrega == "parcial" %}
-                                    <span class="selo selo-parcial">Parcial ({{ item.quantidade_entregue }}/{{ item.quantidade }})</span>
-                                    {% else %}
-                                    <span class="selo selo-pendente">Não entregue</span>
-                                    {% endif %}
+                                    {% include "core/_dia_entrega.html" with item=item %}
                                 </li>
                                 {% endfor %}
                                 {% endfor %}
@@ -160,13 +157,7 @@
                                     {% for item in pedido.itens.all %}
                                     <li class="dia-item">
                                         <span class="dia-item-nome">{{ item.quantidade }}× {{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}</span>
-                                        {% if item.status_entrega == "entregue" %}
-                                        <span class="selo selo-ok">✅ Entregue</span>
-                                        {% elif item.status_entrega == "parcial" %}
-                                        <span class="selo selo-parcial">Parcial ({{ item.quantidade_entregue }}/{{ item.quantidade }})</span>
-                                        {% else %}
-                                        <span class="selo selo-pendente">Não entregue</span>
-                                        {% endif %}
+                                        {% include "core/_dia_entrega.html" with item=item %}
                                     </li>
                                     {% endfor %}
                                 </ul>
