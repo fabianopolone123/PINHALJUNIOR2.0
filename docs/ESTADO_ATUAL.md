@@ -307,7 +307,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   migrados os **9 custos** do evento (R$ 4.723,50) com nome/valor/data — **Resultado do acampamento =
   −R$ 126,09** — e os **9 comprovantes anexados** (contrato da chácara, invoices, fotos das compras),
   trazidos do export atualizado ("com_arquivos") e copiados para `media/eventos/custos/` (git-ignored).
-  Próximo: migrar os demais eventos, um a um.
+  Também migrado o **"Passaporte da Diversão"** (evento 6 antigo → **evento 61**): faixas (1-4=R$20 /
+  5-12=R$40), **52 inscrições** (R$ 2.580), **4 produtos da lojinha com fotos** + 13 variações, **141
+  vendas** (R$ 4.505,50; só pagas e não-teste — puladas canceladas/testes) com **retirada por item**
+  preservada, e **3 custos** com comprovantes (R$ 183,39). **Resultado = R$ 6.902,11**. Valores do
+  Passaporte vieram **corretos do sistema antigo** (sem conciliação bancária, a pedido do usuário).
+  Próximo: migrar os eventos restantes (ids 2/4/5 "Reunião do Clube"), um a um.
 - **Perfis de acesso** (grupos nativos do Django): **Diretor, Responsável, Professor, Tesoureiro,
   Secretário**. Conceito: "Diretoria" é o grupo de integrantes do clube (diretor, secretário,
   tesoureiro, professor); "Responsável" é o lado dos pais. Uma pessoa pode ter os dois lados e

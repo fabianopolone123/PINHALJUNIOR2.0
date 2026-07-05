@@ -22,6 +22,45 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Migração do evento "Passaporte da Diversão" (com lojinha completa)
+
+### Resumo
+Migrado o 2º evento do sistema antigo: **"Passaporte da Diversão"** (evento 6 → **evento 61**), agora com
+**lojinha** (produtos, variações, fotos e vendas). Valores vieram **corretos do sistema antigo** — sem
+conciliação bancária (a pedido do usuário).
+
+- **Evento**: Colégio Adventista de São Carlos, 24/05/2026 13h–17h (1 dia), só membros. **Faixas**:
+  1-4 anos R$ 20 · 5-12 anos R$ 40.
+- **Inscrições**: **52** confirmadas (71 participantes), R$ 2.580,00. Puladas 6 não-confirmadas + 1
+  cancelada. `valor_total` = valor gravado (correto); forma "online".
+- **Lojinha**: **4 produtos** (Mini pizza, Bebidas, Pipoca, Açaí) com **fotos** + **13 variações** (preço
+  por variação). Sem controle de estoque (evento histórico).
+- **Vendas**: **141 pedidos** (R$ 4.505,50), só **status "pago" e não-teste** (puladas 23 canceladas +
+  13 testes), com **226 itens** e a **retirada por item** (`quantidade_entregue`) preservada do antigo.
+  Forma real (pix/dinheiro/cartão); dinheiro→balcão, resto→online; vínculo à inscrição via
+  `evento_inscricao`.
+- **Custos**: **3** (Pulseiras, pizzas, estorno) = R$ 183,39, **com comprovantes**.
+- **Resultado**: receitas R$ 7.085,50 − custos R$ 183,39 = **R$ 6.902,11** (lucro).
+
+### Como foi feito
+- Script one-off (`importar_evento6.py` no scratchpad) lendo o export atualizado ("com_arquivos"): cria
+  evento+faixas, produtos+variações (fotos extraídas para `media/eventos/produtos/`), inscrições
+  (`criado_em` original), pedidos+itens (com mapa old→new de inscrição e variação) e custos (comprovantes
+  em `media/eventos/custos/`). Mídia é **git-ignored**.
+- Mapeamento de chaves flexível (o form do Passaporte usa "Nome do responsável"/"Nome da Criança", difere
+  do Acampamento) via helpers de extração no script.
+
+### Validação
+- Render do evento 61 (Diretor): Inscritos 71, Arrecadação R$ 2.580, Vendas R$ 4.505,50, Custos R$ 183,39,
+  **Resultado R$ 6.902,11**; "por forma" (Pix 131 / Online 52 / Dinheiro 8 / Cartão 2); faixas (5-12: 52,
+  1-4: 11); **retiradas 192 de 287** (item-level); cobertura 25/39, 0 "a conferir"; 4 fotos de produto e
+  3 comprovantes de custo existentes. Sem erros.
+
+### Pendências / próximo passo
+- Migrar os eventos restantes (ids 2/4/5 "Reunião do Clube" — simples, sem inscrição/lojinha).
+
+---
+
 ## 2026-07-05 - Cobertura do clube: casamento de nomes mais esperto + lista de "a conferir"
 
 ### Resumo
