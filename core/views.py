@@ -2988,23 +2988,22 @@ def recuperar_senha_view(request):
     if request.user.is_authenticated:
         return redirect("core:inicio")
     cpf_digitado = ""
-    erro = None
     if request.method == "POST":
         cpf_digitado = (request.POST.get("cpf") or "").strip()
         if len(_so_digitos(cpf_digitado)) != 11:
-            erro = "Digite um CPF válido (11 dígitos)."
+            messages.error(request, "Digite um CPF válido (11 dígitos).")
         else:
             usuario = _conta_por_cpf_resp(cpf_digitado)
             if usuario is None:
-                erro = "Não encontramos uma conta com esse CPF de responsável legal."
+                messages.error(request, "Não encontramos uma conta com esse CPF de responsável legal.")
             else:
                 destino = _whatsapp_principal(usuario)
                 if not destino:
-                    erro = "Não há WhatsApp cadastrado para enviar o código. Procure a diretoria."
+                    messages.error(request, "Não há WhatsApp cadastrado para enviar o código. Procure a diretoria.")
                 else:
                     ok, resultado = _recup_gerar_e_enviar(usuario, destino)
                     if not ok:
-                        erro = resultado
+                        messages.error(request, resultado)
                     else:
                         request.session["recup"] = resultado
                         messages.success(
@@ -3012,7 +3011,7 @@ def recuperar_senha_view(request):
                             f"Código enviado para o WhatsApp {_mascara_telefone(destino)}.",
                         )
                         return redirect("core:recuperar_senha_codigo")
-    return render(request, "core/recuperar_cpf.html", {"cpf_digitado": cpf_digitado, "erro": erro})
+    return render(request, "core/recuperar_cpf.html", {"cpf_digitado": cpf_digitado})
 
 
 def recuperar_senha_codigo_view(request):
@@ -3028,7 +3027,6 @@ def recuperar_senha_codigo_view(request):
         messages.error(request, "O código expirou. Peça um novo.")
         return redirect("core:recuperar_senha")
 
-    erro = None
     if request.method == "POST":
         codigo = _so_digitos(request.POST.get("codigo"))
         if check_password(codigo, sessao["codigo_hash"]):
@@ -3044,9 +3042,12 @@ def recuperar_senha_codigo_view(request):
             messages.error(request, "Muitas tentativas. Peça um novo código.")
             return redirect("core:recuperar_senha")
         restantes = RECUP_MAX_TENTATIVAS - sessao["tentativas"]
-        erro = f"Código incorreto. Você ainda tem {restantes} tentativa{'s' if restantes != 1 else ''}."
+        messages.error(
+            request,
+            f"Código incorreto. Você ainda tem {restantes} tentativa{'s' if restantes != 1 else ''}.",
+        )
 
-    contexto = {"erro": erro, "mascara": _mascara_telefone(sessao.get("telefone", ""))}
+    contexto = {"mascara": _mascara_telefone(sessao.get("telefone", ""))}
     return render(request, "core/recuperar_codigo.html", contexto)
 
 
@@ -3090,14 +3091,13 @@ def recuperar_senha_nova_view(request):
         messages.error(request, "A sessão expirou. Recomece a recuperação.")
         return redirect("core:recuperar_senha")
 
-    erro = None
     if request.method == "POST":
         s1 = request.POST.get("senha1") or ""
         s2 = request.POST.get("senha2") or ""
         if len(s1) < 6:
-            erro = "A senha deve ter pelo menos 6 caracteres."
+            messages.error(request, "A senha deve ter pelo menos 6 caracteres.")
         elif s1 != s2:
-            erro = "As duas senhas não coincidem."
+            messages.error(request, "As duas senhas não coincidem.")
         else:
             usuario = User.objects.filter(pk=sessao["user_id"]).first()
             if usuario is None:
@@ -3115,7 +3115,7 @@ def recuperar_senha_nova_view(request):
             messages.success(request, "Senha redefinida! Faça login com a nova senha.")
             return redirect("core:login")
 
-    return render(request, "core/recuperar_nova_senha.html", {"erro": erro})
+    return render(request, "core/recuperar_nova_senha.html", {})
 
 
 @diretor_required

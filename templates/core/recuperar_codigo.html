@@ -29,8 +29,13 @@
                 <li>Nova senha</li>
             </ol>
 
-            {% include "core/_recup_avisos.html" %}
-            {% if erro %}<div class="aviso-login" role="alert">{{ erro }}</div>{% endif %}
+            {% if messages %}
+            <div class="mensagens">
+                {% for m in messages %}
+                <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             <form class="form-login" method="post" action="{% url 'core:recuperar_senha_codigo' %}" novalidate>
                 {% csrf_token %}
@@ -52,5 +57,6 @@
         </section>
         <footer class="rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
     </main>
+    <script src="{% static 'js/inicio.js' %}"></script>
 </body>
 </html>

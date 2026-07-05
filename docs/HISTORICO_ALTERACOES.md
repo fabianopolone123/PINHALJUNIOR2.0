@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Recuperação de senha: usar o toast padrão (não mais avisos inline)
+
+### Resumo
+A pedido do usuário, as telas de recuperação de senha passaram a usar as **notificações padrão do
+sistema (toasts)**, e não os avisos inline. Para isso, o **CSS do toast** (`.mensagens`/`.mensagem`)
+foi **movido do `inicio.css` para o `base.css`** (componente reutilizável, com fallback de cores),
+ficando disponível em **qualquer página** — inclusive as públicas do login/recuperação. As telas de
+recuperação agora carregam `inicio.js` (o módulo de toasts é seguro em qualquer página) e todo o
+feedback passa pelo framework de `messages`.
+
+### Arquivos criados/alterados
+- `static/css/base.css`: recebeu o bloco de **notificações/toasts** (antes em `inicio.css`).
+- `static/css/inicio.css`: removido o bloco de toasts (agora só um comentário apontando para o `base.css`).
+- `static/css/recuperar.css`: removido o `.aviso-ok` (não é mais usado).
+- `core/views.py`: `recuperar_senha_view`, `recuperar_senha_codigo_view`, `recuperar_senha_nova_view`
+  usam `messages.error(...)` em vez do contexto `erro`.
+- `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html`: usam o
+  markup padrão `.mensagens`/`.mensagem` e carregam `inicio.js`.
+- Removido `templates/core/_recup_avisos.html` (não é mais necessário).
+
+### Decisões tomadas
+- Toast é **um componente reutilizável** e deve morar no `base.css` (que já hospeda o modal), não no
+  `inicio.css`. Confirmado que **toda** página que usa `inicio.css` também carrega `base.css`.
+
+### Pendências
+- Sem novas. (A tela de **login** em si continua com o aviso inline `.aviso-login` do jeito que já era.)
+
 ## 2026-07-05 - Recuperação de senha pelo WhatsApp (código de 4 dígitos)
 
 ### Resumo

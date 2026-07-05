@@ -119,3 +119,84 @@ body.modal-aberto { overflow: hidden; }
     .modal-overlay,
     .modal-fechar { transition: none; animation: none; }
 }
+
+/* =========================================================
+   Componente reutilizável: NOTIFICAÇÕES (toasts flutuantes)
+   Padrão ÚNICO de notificação do sistema. Balões no canto superior
+   direito da TELA (o JS de inicio.js move o contêiner para o <body>,
+   auto-fecha e expõe window.mostrarToast). Fica no base.css para valer
+   em QUALQUER página (inclusive as públicas do login/recuperação).
+   Cores com fallback caso a página não defina o :root da paleta.
+   ========================================================= */
+.mensagens {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    left: auto;
+    z-index: 1300;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(400px, calc(100vw - 36px));
+    margin: 0;
+    pointer-events: none;
+}
+
+.mensagem {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    pointer-events: auto;
+    cursor: pointer;
+    padding: 16px 18px;
+    border-radius: 14px;
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--texto, #1c2733);
+    background: var(--branco, #ffffff);
+    border-left: 6px solid var(--azul, #1769aa);
+    box-shadow: 0 16px 40px rgba(15, 76, 129, 0.28);
+    animation: toast-entra 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.mensagem::before { font-size: 1.25rem; line-height: 1.15; }
+.mensagem::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 4px;
+    width: 100%;
+    background: currentColor;
+    opacity: 0.35;
+    transform-origin: left;
+    animation: toast-barra 4.5s linear forwards;
+}
+.mensagem.saindo { animation: toast-sai 0.35s ease forwards; }
+
+.mensagem-success { border-left-color: var(--verde, #3a9d3a); color: #1f6b1f; }
+.mensagem-success::before { content: "✅"; }
+.mensagem-error { border-left-color: #c0392b; color: #a5281b; }
+.mensagem-error::before { content: "⛔"; }
+.mensagem-info { border-left-color: var(--azul-claro, #4a90d9); color: var(--azul-escuro, #0f4c81); }
+.mensagem-info::before { content: "ℹ️"; }
+.mensagem-warning { border-left-color: #e0a800; color: #8a6d00; }
+.mensagem-warning::before { content: "⚠️"; }
+
+@keyframes toast-entra {
+    from { opacity: 0; transform: translateX(40px) scale(0.96); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes toast-sai {
+    to { opacity: 0; transform: translateX(40px) scale(0.96); }
+}
+@keyframes toast-barra {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+@media (max-width: 560px) {
+    .mensagens { top: 10px; right: 10px; left: 10px; width: auto; }
+}

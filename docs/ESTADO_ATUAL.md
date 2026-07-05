@@ -495,7 +495,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   lista de aventureiros com foto + marcar + modal da foto ampliada)
 - `templates/core/whatsapp.html` (módulo WhatsApp: configurar instância W-API + enviar mensagem de teste)
 - `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html` (recuperação
-  de senha em 3 etapas) e o parcial `_recup_avisos.html` (mensagens inline nas telas públicas)
+  de senha em 3 etapas; usam o **toast padrão** via `messages` + `inicio.js`)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -508,8 +508,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/css/base.css` — regras globais de interface (linkado em todas as telas, **antes** do CSS
   da página). Torna o texto de interface **não selecionável** (sem cursor de texto/caret fora de
   campos digitáveis); mantém selecionáveis os campos de formulário e os valores de dados
-  (`.dado-valor` / `.selecionavel`). Também hospeda o **componente reutilizável de modal** (janela
-  suspensa) usado por várias telas.
+  (`.dado-valor` / `.selecionavel`). Também hospeda os **componentes reutilizáveis** de **modal** (janela
+  suspensa) e de **notificações/toasts** (`.mensagens`/`.mensagem`, com fallback de cores) — para o toast
+  valer em qualquer página, inclusive as públicas do login/recuperação. (Antes o toast ficava no `inicio.css`.)
 - `static/css/eventos.css` — tela de Eventos (lista, cards, formulário e cards de escolha de tipo).
 - `static/css/login.css`
 - `static/css/inicio.css`
@@ -520,7 +521,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/css/whatsapp.css` — módulo WhatsApp (cards de configuração e de envio; inputs próprios;
   paleta azul/verde; mobile-first)
 - `static/css/recuperar.css` — recuperação de senha (indicador de etapas, campo do código grande,
-  aviso verde de sucesso, link de reenvio); complementa `login.css`
+  link de reenvio); complementa `login.css`. As notificações usam o **toast padrão** (CSS em `base.css`).
 
 ## Arquivos JavaScript existentes
 - `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
@@ -532,7 +533,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   o `<body>`, auto-fecha (~4,5s, igual à barra de progresso), fecha ao clicar e expõe
   **`window.mostrarToast(texto, tipo)`** para criar toast pelo JS (ex.: "copiado!"). É seguro em
   qualquer página (cada bloco tem guarda de elemento), por isso é carregado também nas páginas públicas
-  do evento (loja, pagamento, sucesso, página do evento, inscrição).
+  do evento (loja, pagamento, sucesso, página do evento, inscrição) e nas telas de **recuperação de
+  senha**. O CSS do toast vive no `base.css` (componente reutilizável).
 - `static/js/usuarios.js` — pesquisa em tempo real na tela "Usuários" e o **modal** de dados
   completos (clona o detalhe do card, expande as seções e fecha no X/fora/Esc).
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).

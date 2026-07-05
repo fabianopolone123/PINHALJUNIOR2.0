@@ -2,20 +2,6 @@
    Recuperação de senha (telas públicas). Complementa login.css.
    ========================================================= */
 
-/* Aviso de sucesso/info (o vermelho .aviso-login continua para erros). */
-.aviso-ok {
-    margin-bottom: 16px;
-    padding: 12px 14px;
-    border-radius: var(--raio-campo, 12px);
-    background: rgba(58, 157, 58, 0.12);
-    border: 1px solid rgba(58, 157, 58, 0.35);
-    color: #1f6b1f;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-align: center;
-    animation: surgir-aviso 0.3s ease;
-}
-
 /* Indicador de etapas (CPF → Código → Nova senha). */
 .recup-passos {
     display: flex;

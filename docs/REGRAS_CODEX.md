@@ -454,4 +454,6 @@ internas ou no fluxo de login, seguir estas regras:
 - **WhatsApp principal**: só o Diretor define hoje (`/usuarios/conta/<id>/principal/`), no detalhe do
   responsável em Usuários; guarda a **origem** (pai/mãe/resp) e o número é resolvido ao vivo. O bloco só
   aparece quando o CPF do responsável liga a **exatamente uma** conta.
-- Telas públicas usam **mensagens inline** (`_recup_avisos.html`), não o toast (não têm o JS de toasts).
+- Feedback usa o **toast padrão** do sistema (framework de `messages` → `.mensagens`/`.mensagem`), igual
+  ao resto. As telas públicas carregam `inicio.js` (o módulo de toasts é seguro em qualquer página) e o
+  **CSS do toast fica no `base.css`** (componente reutilizável, com fallback de cores) — não no `inicio.css`.
