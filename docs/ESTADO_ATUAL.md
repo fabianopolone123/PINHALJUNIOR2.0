@@ -7,8 +7,9 @@
 Campo `Aventureiro.ativo` (mig. **0018**). **Cascata**: ao inativar, se o responsável (conta `usuario`) não
 tiver mais **nenhum** aventureiro ativo, a **conta é desativada** (`is_active=False`); se tiver outro ativo
 (irmão), a conta continua ativa; reativar volta a conta. **Contas de Diretor/staff são protegidas** (nunca
-desativadas). Cards de aventureiro inativo ficam com selo **"Inativo"** e riscados; a **Presença** lista só
-**ativos**. Antes: Módulo Presença do clube)
+desativadas). Cards de aventureiro inativo ficam com selo **"Inativo"** e riscados; o **responsável** (pai/
+mãe/resp) também aparece **Inativo** quando **todos os aventureiros dele** estão inativos; a **Presença** e
+a **cobertura do Resumo** contam só **ativos**. Antes: Módulo Presença do clube)
 
 **Anterior:** (**Módulo Presença do clube**: novo item **"Presença"** no menu
 (Diretor) → escolhe o **evento** → **lista de todos os aventureiros** do clube com **foto grande** e botão
@@ -209,7 +210,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   quando um nome curto serve para mais de um, **desambigua pelo sobrenome do responsável** (ex.: "Beatriz"
   + responsável "…Staine" → "Beatriz Gonçalves Staine"). Se ainda restar mais de um, vira **"a conferir"**
   — e agora a tela **lista** cada caso (participante + inscrição + os candidatos), em vez de só um contador.
-  Ainda é **melhor esforço** (inscrição guarda nome livre) — o vínculo exato/manual pode vir depois. A aba **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para
+  Ainda é **melhor esforço** (inscrição guarda nome livre) — o vínculo exato/manual pode vir depois. A
+  cobertura conta **só aventureiros ativos** (os inativos/desligados saem do total do clube). A aba **Inscrições** ganhou uma **busca** sobre a lista (por responsável/participante) para
   responder "fulano se inscreveu?" (quando não acha, **a lista some** e aparece só "nenhuma inscrição
   encontrada"). Cor segue a regra: barras de magnitude em **um tom** (azul) e status (verde/vermelho)
   sempre com **rótulo** (cor nunca é a única pista).

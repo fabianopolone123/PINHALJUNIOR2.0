@@ -578,23 +578,30 @@ def usuarios_view(request):
                 if not resp[campo] and (valor or "").strip():
                     resp[campo] = valor.strip()
             vinc = resp["vinculos"].setdefault(
-                av.id, {"nome": av.nome_completo, "idade": av.idade, "papeis": set()}
+                av.id,
+                {"nome": av.nome_completo, "idade": av.idade,
+                 "papeis": set(), "ativo": av.ativo},
             )
             vinc["papeis"].add(papel)
 
     lista_responsaveis = []
     for resp in responsaveis.values():
         vinculos = [
-            {"nome": v["nome"], "idade": v["idade"], "papeis": _ordena_papeis(v["papeis"])}
+            {"nome": v["nome"], "idade": v["idade"],
+             "papeis": _ordena_papeis(v["papeis"]), "ativo": v["ativo"]}
             for v in resp["vinculos"].values()
         ]
         vinculos.sort(key=lambda x: _normaliza(x["nome"]))
+        # Responsável é "ativo" enquanto tiver ao menos um aventureiro ativo
+        # (mesma regra da conta). Todos inativos -> responsável inativo.
+        resp_ativo = any(v["ativo"] for v in vinculos)
         lista_responsaveis.append({
             "nome": resp["nome"],
             "papeis": _ordena_papeis(resp["papeis"]),
             "cpf": resp["cpf"], "email": resp["email"],
             "celular": resp["celular"], "whatsapp": resp["whatsapp"],
             "vinculos": vinculos,
+            "ativo": resp_ativo,
         })
     lista_responsaveis.sort(key=lambda x: _normaliza(x["nome"]))
     for i, resp in enumerate(lista_responsaveis):
@@ -837,7 +844,10 @@ def _montar_dashboard(confirmadas, pedidos_confirmados, custos, faixas, receitas
     sendo **melhor esforço** (a inscrição guarda nome livre, sem vínculo rígido).
     Percentuais das barras já vêm prontos (o template só aplica a largura)."""
     # --- Cobertura: quais aventureiros do clube estão neste evento ---
-    aventureiros = list(Aventureiro.objects.all().order_by("nome_completo"))
+    # Só aventureiros ATIVOS (os inativos/desligados não contam no total do clube).
+    aventureiros = list(
+        Aventureiro.objects.filter(ativo=True).order_by("nome_completo")
+    )
     av_tokens = [(av, _tokens_lista(av.nome_completo)) for av in aventureiros]
     # Para cada participante, quais aventureiros seus nomes poderiam ser (casa por
     # igualdade/inicial). Vínculo manual (participante.aventureiro) tem prioridade.

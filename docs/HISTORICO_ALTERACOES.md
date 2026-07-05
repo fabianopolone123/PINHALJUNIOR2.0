@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Inativo: responsável aparece inativo + cobertura conta só ativos
+
+### Resumo
+Ajustes após o usuário testar (marcou a aventureira "Heloísa" inativa — a conta do responsável foi
+desativada corretamente no banco, mas a tela não mostrava isso):
+- **Responsável inativo na tela Usuários**: o card do pai/mãe/responsável agora aparece **Inativo** (selo +
+  riscado) quando **todos os aventureiros vinculados a ele estão inativos** (mesma regra da conta). No modal
+  do responsável, selo Ativo/Inativo + nota explicando. Vínculos inativos aparecem marcados na lista.
+- **Cobertura do Resumo (dashboard)**: "Aventureiros do clube neste evento" passou a contar **só ativos**
+  (`_montar_dashboard` filtra `Aventureiro.objects.filter(ativo=True)`) — inativos saem do total do clube.
+
+### Arquivos alterados
+- `core/views.py`: `usuarios_view` anota `ativo` em cada vínculo e `ativo` do responsável (any vínculo
+  ativo); `_montar_dashboard` filtra aventureiros ativos na cobertura.
+- `templates/core/usuarios.html`: selo/greyed no card e no modal do responsável + marca de vínculo inativo.
+  `static/css/usuarios.css`: `.vinc-inativo`, strike no `.resp-nome-item`.
+
+### Validação
+- `manage.py check` OK. Verificado: conta da Heloísa (Mariane) `is_active=False` (cascata correta); os cards
+  do pai (denner) e mãe (Mariane) agora vêm `av-inativo` com selo. Cobertura do evento 62: total caiu de 39
+  → 38 (Heloísa fora) e cai +1 ao inativar um inscrito (testado e revertido).
+
+### Observação
+- "Heloísa Mendes carolino" foi marcada inativa pelo próprio usuário testando a feature (não é dado de teste
+  meu). Fica como está.
+
+---
+
 ## 2026-07-05 - Aventureiro inativo/desligado (com cascata na conta do responsável)
 
 ### Resumo

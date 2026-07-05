@@ -311,3 +311,6 @@
 }
 .btn-reativar:hover { background: rgba(58, 157, 58, 0.20); }
 .av-status-nota { font-size: 0.85rem; color: var(--texto-suave); margin: 0; }
+
+.vinc-inativo .vinc-nome { color: var(--texto-suave); }
+.av-inativo .resp-nome-item { text-decoration: line-through; text-decoration-color: rgba(178,58,46,.5); }

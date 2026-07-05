@@ -87,7 +87,7 @@
                 <h2 class="secao-titulo">Responsáveis e vínculos</h2>
                 <section class="lista-responsaveis" id="listaResponsaveis">
                     {% for r in responsaveis %}
-                    <article class="card resp-item busca-item clicavel" data-modal="{{ r.id }}">
+                    <article class="card resp-item busca-item clicavel{% if not r.ativo %} av-inativo{% endif %}" data-modal="{{ r.id }}">
                         <div class="resp-cab">
                             <span class="resp-ava" aria-hidden="true">🧑‍🤝‍🧑</span>
                             <div class="resp-cab-info">
@@ -96,6 +96,7 @@
                                     {% for p in r.papeis %}
                                     <span class="pill papel">{{ p }}</span>
                                     {% endfor %}
+                                    {% if not r.ativo %}<span class="pill pill-inativo">Inativo</span>{% endif %}
                                 </div>
                             </div>
                         </div>
@@ -103,8 +104,8 @@
                             <span class="vinc-rotulo">Aventureiros vinculados</span>
                             <ul class="vinc-lista">
                                 {% for v in r.vinculos %}
-                                <li class="vinc-item">
-                                    <span class="vinc-nome">{{ v.nome }}</span>
+                                <li class="vinc-item{% if not v.ativo %} vinc-inativo{% endif %}">
+                                    <span class="vinc-nome">{{ v.nome }}{% if not v.ativo %} <span class="pill pill-inativo">inativo</span>{% endif %}</span>
                                     <span class="vinc-idade">{% if v.idade is not None %}{{ v.idade }} anos{% else %}Idade não informada{% endif %}</span>
                                     <span class="vinc-papeis">{{ v.papeis|join:" / " }}</span>
                                 </li>
@@ -157,9 +158,13 @@
                         <h3 class="modal-pessoa-nome">{{ r.nome }}</h3>
                         <div class="pills">
                             {% for p in r.papeis %}<span class="pill papel">{{ p }}</span>{% endfor %}
+                            <span class="pill {% if r.ativo %}pill-verde{% else %}pill-inativo{% endif %}">{% if r.ativo %}Ativo{% else %}Inativo{% endif %}</span>
                         </div>
                     </div>
                 </div>
+                {% if not r.ativo %}
+                <p class="av-status-nota">Responsável sem nenhum aventureiro ativo — a conta de acesso dele fica desativada. Para reativar, reative um aventureiro (abaixo) na tela do aventureiro.</p>
+                {% endif %}
                 <div class="dados-grade">
                     {% include "core/_dado.html" with rotulo="Nome" valor=r.nome %}
                     {% include "core/_dado.html" with rotulo="Papéis" valor=r.papeis|join:", " %}
@@ -171,8 +176,8 @@
                 <h4 class="bloco-rotulo">Aventureiros vinculados</h4>
                 <ul class="vinc-lista">
                     {% for v in r.vinculos %}
-                    <li class="vinc-item">
-                        <span class="vinc-nome">{{ v.nome }}</span>
+                    <li class="vinc-item{% if not v.ativo %} vinc-inativo{% endif %}">
+                        <span class="vinc-nome">{{ v.nome }}{% if not v.ativo %} <span class="pill pill-inativo">inativo</span>{% endif %}</span>
                         <span class="vinc-idade">{% if v.idade is not None %}{{ v.idade }} anos{% else %}Idade não informada{% endif %}</span>
                         <span class="vinc-papeis">{{ v.papeis|join:" / " }}</span>
                     </li>
