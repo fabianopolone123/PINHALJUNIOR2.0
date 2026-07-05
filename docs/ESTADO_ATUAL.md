@@ -495,7 +495,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   lista de aventureiros com foto + marcar + modal da foto ampliada)
 - `templates/core/whatsapp.html` (módulo WhatsApp: configurar instância W-API + enviar mensagem de teste)
 - `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html` (recuperação
-  de senha em 3 etapas; usam o **toast padrão** via `messages` + `inicio.js`)
+  de senha em 3 etapas; **envio por AJAX** via `recuperar.js`, com **toast padrão** — `messages` +
+  `inicio.js`; erro não recarrega a página)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -562,6 +563,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/whatsapp.js` — módulo WhatsApp: **prévia ao vivo** do telefone normalizado, botão
   **mostrar/ocultar** token e **envio AJAX** (fetch/JSON + `X-CSRFToken`) com o **toast** padrão de
   sucesso/erro.
+- `static/js/recuperar.js` — recuperação de senha: envia os formulários (`form[data-ajax-recup]`) por
+  **fetch**; a resposta é `{"redirect":url}` (navega) ou `{"msg","tipo"}` (só toast, sem recarregar).
+  Assim o erro **repete a notificação** sem recarregar a página. Fallback: sem JS, POST normal.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).

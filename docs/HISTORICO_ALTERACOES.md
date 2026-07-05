@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Recuperação/Login: envio por AJAX (toast sem recarregar) + fim do vazamento de mensagem
+
+### Resumo
+Dois ajustes pedidos pelo usuário:
+1. **Recuperação por AJAX**: os formulários das telas de recuperação (CPF, código, reenviar, nova senha)
+   passam a enviar por **fetch**. Em caso de erro, a notificação (toast) **repete sem recarregar a
+   página**; em caso de sucesso, o JS navega para a próxima etapa. Sem JS, os formulários continuam
+   funcionando com POST normal (fallback).
+2. **Login com o toast padrão + fim do vazamento**: o login agora **renderiza e consome** as mensagens
+   (toast). Isso conserta um **vazamento**: a mensagem "Senha redefinida! Faça login…" era enfileirada e,
+   como o login não a exibia, ficava **presa na store** e reaparecia depois (inclusive numa tentativa de
+   login com senha errada). Agora ela aparece **uma vez** no login (correto) e some. O erro do próprio
+   login ("Usuário ou senha inválidos.") também virou toast.
+
+### Arquivos criados/alterados
+- `core/views.py`: helpers `_eh_ajax`, `_recup_ir` (JSON `{"redirect":url}`), `_recup_msg`
+  (JSON `{"msg","tipo"}`); as 4 views de recuperação respondem JSON quando AJAX (erro → toast; sucesso →
+  redirect). `login_view` usa `messages.error` em vez do contexto `erro`.
+- `static/js/recuperar.js` (novo): intercepta `form[data-ajax-recup]`, faz o fetch e trata
+  `redirect`/`msg` (usa `window.mostrarToast`).
+- `templates/core/recuperar_cpf.html`, `recuperar_codigo.html`, `recuperar_nova_senha.html`: forms com
+  `data-ajax-recup` + carregam `recuperar.js`.
+- `templates/core/login.html`: bloco de `.mensagens` (toast) + carrega `inicio.js`; removido o aviso
+  inline `.aviso-login`.
+
+### Decisões tomadas
+- Contrato JSON das telas de recuperação: `{"redirect": url}` (JS navega; mensagens enfileiradas
+  aparecem no destino) ou `{"msg","tipo"}` (só toast, sem recarregar).
+- Toda página que é **destino** de um redirect com mensagem precisa **renderizar `messages`** (senão a
+  mensagem vaza). Por isso o login passou a renderizar.
+
+### Pendências
+- Sem novas. (O `.aviso-login` do `login.css` ficou sem uso; mantido no CSS por ora.)
+
 ## 2026-07-05 - Recuperação de senha: espaçamento do indicador de etapas
 
 ### Resumo

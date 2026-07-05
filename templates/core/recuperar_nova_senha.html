@@ -37,7 +37,7 @@
             </div>
             {% endif %}
 
-            <form class="form-login" method="post" action="{% url 'core:recuperar_senha_nova' %}" novalidate>
+            <form class="form-login" method="post" action="{% url 'core:recuperar_senha_nova' %}" data-ajax-recup novalidate>
                 {% csrf_token %}
                 <div class="campo">
                     <label for="senha1">Nova senha</label>
@@ -55,5 +55,6 @@
         <footer class="rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
     </main>
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/recuperar.js' %}"></script>
 </body>
 </html>

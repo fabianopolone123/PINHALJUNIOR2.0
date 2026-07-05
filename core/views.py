@@ -78,7 +78,6 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect("core:inicio")
 
-    erro = None
     usuario_digitado = ""
     if request.method == "POST":
         usuario_digitado = request.POST.get("usuario", "").strip()
@@ -106,10 +105,9 @@ def login_view(request):
             ):
                 return redirect(destino)
             return redirect("core:inicio")
-        erro = "Usuário ou senha inválidos."
+        messages.error(request, "Usuário ou senha inválidos.")
 
     contexto = {
-        "erro": erro,
         "usuario_digitado": usuario_digitado,
         "next": request.GET.get("next", ""),
     }
@@ -2983,34 +2981,56 @@ def _recup_expirado(sessao):
         return True
 
 
+def _eh_ajax(request):
+    """True se a requisição veio do fetch das telas de recuperação (JS)."""
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def _recup_ir(url):
+    """Resposta AJAX que manda o JS navegar (mensagens já enfileiradas aparecem lá)."""
+    return JsonResponse({"redirect": url})
+
+
+def _recup_msg(msg, tipo="error"):
+    """Resposta AJAX que só mostra um toast, sem recarregar a página."""
+    return JsonResponse({"msg": msg, "tipo": tipo})
+
+
 def recuperar_senha_view(request):
     """Etapa 1: digitar o CPF do responsável legal para receber o código."""
     if request.user.is_authenticated:
         return redirect("core:inicio")
     cpf_digitado = ""
     if request.method == "POST":
+        ajax = _eh_ajax(request)
         cpf_digitado = (request.POST.get("cpf") or "").strip()
+        erro = None
         if len(_so_digitos(cpf_digitado)) != 11:
-            messages.error(request, "Digite um CPF válido (11 dígitos).")
+            erro = "Digite um CPF válido (11 dígitos)."
         else:
             usuario = _conta_por_cpf_resp(cpf_digitado)
             if usuario is None:
-                messages.error(request, "Não encontramos uma conta com esse CPF de responsável legal.")
+                erro = "Não encontramos uma conta com esse CPF de responsável legal."
             else:
                 destino = _whatsapp_principal(usuario)
                 if not destino:
-                    messages.error(request, "Não há WhatsApp cadastrado para enviar o código. Procure a diretoria.")
+                    erro = "Não há WhatsApp cadastrado para enviar o código. Procure a diretoria."
                 else:
                     ok, resultado = _recup_gerar_e_enviar(usuario, destino)
                     if not ok:
-                        messages.error(request, resultado)
+                        erro = resultado
                     else:
                         request.session["recup"] = resultado
                         messages.success(
                             request,
                             f"Código enviado para o WhatsApp {_mascara_telefone(destino)}.",
                         )
+                        if ajax:
+                            return _recup_ir(reverse("core:recuperar_senha_codigo"))
                         return redirect("core:recuperar_senha_codigo")
+        if ajax:
+            return _recup_msg(erro)
+        messages.error(request, erro)
     return render(request, "core/recuperar_cpf.html", {"cpf_digitado": cpf_digitado})
 
 
@@ -3028,11 +3048,14 @@ def recuperar_senha_codigo_view(request):
         return redirect("core:recuperar_senha")
 
     if request.method == "POST":
+        ajax = _eh_ajax(request)
         codigo = _so_digitos(request.POST.get("codigo"))
         if check_password(codigo, sessao["codigo_hash"]):
             sessao["validado"] = True
             request.session["recup"] = sessao
             request.session.modified = True
+            if ajax:
+                return _recup_ir(reverse("core:recuperar_senha_nova"))
             return redirect("core:recuperar_senha_nova")
         sessao["tentativas"] = int(sessao.get("tentativas", 0)) + 1
         request.session["recup"] = sessao
@@ -3040,12 +3063,14 @@ def recuperar_senha_codigo_view(request):
         if sessao["tentativas"] >= RECUP_MAX_TENTATIVAS:
             request.session.pop("recup", None)
             messages.error(request, "Muitas tentativas. Peça um novo código.")
+            if ajax:
+                return _recup_ir(reverse("core:recuperar_senha"))
             return redirect("core:recuperar_senha")
         restantes = RECUP_MAX_TENTATIVAS - sessao["tentativas"]
-        messages.error(
-            request,
-            f"Código incorreto. Você ainda tem {restantes} tentativa{'s' if restantes != 1 else ''}.",
-        )
+        erro = f"Código incorreto. Você ainda tem {restantes} tentativa{'s' if restantes != 1 else ''}."
+        if ajax:
+            return _recup_msg(erro)
+        messages.error(request, erro)
 
     contexto = {"mascara": _mascara_telefone(sessao.get("telefone", ""))}
     return render(request, "core/recuperar_codigo.html", contexto)
@@ -3054,27 +3079,36 @@ def recuperar_senha_codigo_view(request):
 @require_POST
 def recuperar_senha_reenviar_view(request):
     """Reenvia o código (respeitando a espera mínima entre reenvios)."""
+    ajax = _eh_ajax(request)
     sessao = request.session.get("recup")
     if not sessao or not sessao.get("user_id"):
-        return redirect("core:recuperar_senha")
+        return _recup_ir(reverse("core:recuperar_senha")) if ajax else redirect("core:recuperar_senha")
     try:
         ultimo = datetime.datetime.fromisoformat(sessao.get("reenviado_em"))
         espera = (timezone.now() - ultimo).total_seconds()
     except (ValueError, TypeError):
         espera = RECUP_REENVIO_ESPERA
     if espera < RECUP_REENVIO_ESPERA:
-        messages.info(request, f"Aguarde {int(RECUP_REENVIO_ESPERA - espera)}s para reenviar.")
+        msg = f"Aguarde {int(RECUP_REENVIO_ESPERA - espera)}s para reenviar."
+        if ajax:
+            return _recup_msg(msg, "info")
+        messages.info(request, msg)
         return redirect("core:recuperar_senha_codigo")
     usuario = User.objects.filter(pk=sessao["user_id"]).first()
     if usuario is None:
         request.session.pop("recup", None)
-        return redirect("core:recuperar_senha")
+        return _recup_ir(reverse("core:recuperar_senha")) if ajax else redirect("core:recuperar_senha")
     ok, resultado = _recup_gerar_e_enviar(usuario, sessao["telefone"])
     if not ok:
+        if ajax:
+            return _recup_msg(resultado)
         messages.error(request, resultado)
         return redirect("core:recuperar_senha_codigo")
     request.session["recup"] = resultado
-    messages.success(request, f"Novo código enviado para o WhatsApp {_mascara_telefone(sessao['telefone'])}.")
+    msg = f"Novo código enviado para o WhatsApp {_mascara_telefone(sessao['telefone'])}."
+    if ajax:
+        return _recup_msg(msg, "success")
+    messages.success(request, msg)
     return redirect("core:recuperar_senha_codigo")
 
 
@@ -3092,17 +3126,21 @@ def recuperar_senha_nova_view(request):
         return redirect("core:recuperar_senha")
 
     if request.method == "POST":
+        ajax = _eh_ajax(request)
         s1 = request.POST.get("senha1") or ""
         s2 = request.POST.get("senha2") or ""
+        erro = None
         if len(s1) < 6:
-            messages.error(request, "A senha deve ter pelo menos 6 caracteres.")
+            erro = "A senha deve ter pelo menos 6 caracteres."
         elif s1 != s2:
-            messages.error(request, "As duas senhas não coincidem.")
+            erro = "As duas senhas não coincidem."
         else:
             usuario = User.objects.filter(pk=sessao["user_id"]).first()
             if usuario is None:
                 request.session.pop("recup", None)
                 messages.error(request, "Conta não encontrada. Recomece a recuperação.")
+                if ajax:
+                    return _recup_ir(reverse("core:recuperar_senha"))
                 return redirect("core:recuperar_senha")
             usuario.set_password(s1)
             usuario.save(update_fields=["password"])
@@ -3113,7 +3151,12 @@ def recuperar_senha_nova_view(request):
                 perfil.save(update_fields=["precisa_trocar_senha"])
             request.session.pop("recup", None)
             messages.success(request, "Senha redefinida! Faça login com a nova senha.")
+            if ajax:
+                return _recup_ir(reverse("core:login"))
             return redirect("core:login")
+        if ajax:
+            return _recup_msg(erro)
+        messages.error(request, erro)
 
     return render(request, "core/recuperar_nova_senha.html", {})
 

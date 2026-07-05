@@ -215,8 +215,10 @@ O sistema usa a **autenticação padrão do Django** (username + senha). Ao mexe
 internas ou no fluxo de login, seguir estas regras:
 
 - **Login** (`core:login`, rota `/`): a view usa `authenticate` + `login`. Os campos do formulário
-  se chamam `usuario` e `senha`. Em erro, mostra "Usuário ou senha inválidos." (classe `.aviso-login`).
-  Respeita o parâmetro `next` (validado com `url_has_allowed_host_and_scheme`).
+  se chamam `usuario` e `senha`. Em erro, usa `messages.error("Usuário ou senha inválidos.")` exibido
+  como **toast** (o login renderiza `.mensagens` e carrega `inicio.js`); também mostra mensagens vindas
+  de outros fluxos (ex.: "Senha redefinida…" da recuperação). Respeita o parâmetro `next`
+  (validado com `url_has_allowed_host_and_scheme`).
 - **Logout** (`core:sair`, rota `/sair/`): view protegida por `@require_POST` (usar sempre um
   `<form method="post">` com `{% csrf_token %}`, nunca um link GET). Redireciona para o login.
 - **Proteção de telas internas**: usar `@login_required` nas views logadas. Estão configurados
@@ -457,3 +459,10 @@ internas ou no fluxo de login, seguir estas regras:
 - Feedback usa o **toast padrão** do sistema (framework de `messages` → `.mensagens`/`.mensagem`), igual
   ao resto. As telas públicas carregam `inicio.js` (o módulo de toasts é seguro em qualquer página) e o
   **CSS do toast fica no `base.css`** (componente reutilizável, com fallback de cores) — não no `inicio.css`.
+- **Envio por AJAX** (`static/js/recuperar.js`, `form[data-ajax-recup]`): erro **repete o toast sem
+  recarregar** a página; sucesso navega. Contrato JSON quando `X-Requested-With: XMLHttpRequest`:
+  `{"redirect": url}` (JS navega) ou `{"msg","tipo"}` (só toast). Helpers `_eh_ajax`, `_recup_ir`,
+  `_recup_msg`. Sem JS, POST normal (fallback com `messages`).
+- **Cuidado com vazamento de `messages`**: mensagem enfileirada antes de um `redirect` só é consumida se
+  a página de **destino renderizar `{% for m in messages %}`**. Por isso o **login também renderiza
+  messages** (mostra "Senha redefinida…" e não deixa a mensagem sobrar para telas seguintes).
