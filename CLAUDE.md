@@ -40,7 +40,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/admin/`
 
 ## Models (`core/models.py`)
-- `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal). Um usuário → vários.
+- `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal; campo `ativo`). Um usuário → vários.
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne).
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,

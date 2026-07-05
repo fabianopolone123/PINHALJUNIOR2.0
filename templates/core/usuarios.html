@@ -121,10 +121,11 @@
                 <h2 class="secao-titulo">Resumo por aventureiro</h2>
                 <section class="lista-aventureiros" id="listaAventureiros">
                     {% for av in aventureiros %}
-                    <article class="card av-resumo busca-item clicavel" data-modal="av-{{ av.id }}">
+                    <article class="card av-resumo busca-item clicavel{% if not av.ativo %} av-inativo{% endif %}" data-modal="av-{{ av.id }}">
                         <div class="av-resumo-cab">
                             <h3 class="av-resumo-nome">{{ av.nome_completo }}</h3>
                             <span class="pill">{% if av.idade is not None %}{{ av.idade }} anos{% else %}Idade não informada{% endif %}</span>
+                            {% if not av.ativo %}<span class="pill pill-inativo">Inativo</span>{% endif %}
                         </div>
                         <p class="av-resumo-linha"><span>Pai:</span> {{ av.pai_nome|default:"Não informado" }}</p>
                         <p class="av-resumo-linha"><span>Mãe:</span> {{ av.mae_nome|default:"Não informado" }}</p>
@@ -197,9 +198,28 @@
                         <div class="pills">
                             {% if av.idade is not None %}<span class="pill">{{ av.idade }} anos</span>{% endif %}
                             {% for c in av.classes %}<span class="pill pill-verde">{{ c }}</span>{% endfor %}
+                            <span class="pill {% if av.ativo %}pill-verde{% else %}pill-inativo{% endif %}">{% if av.ativo %}Ativo{% else %}Inativo (desligado){% endif %}</span>
                         </div>
                     </div>
                 </div>
+
+                <div class="av-status-acao">
+                    <form method="post" action="{% url 'core:aventureiro_toggle_ativo' av.id %}"
+                          data-confirmar="{% if av.ativo %}Marcar “{{ av.nome_completo }}” como inativo (desligado do clube)?{% else %}Reativar “{{ av.nome_completo }}”?{% endif %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-secundario btn-status {% if av.ativo %}btn-inativar{% else %}btn-reativar{% endif %}">
+                            {% if av.ativo %}<span aria-hidden="true">⛔</span> Marcar como inativo{% else %}<span aria-hidden="true">✅</span> Reativar aventureiro{% endif %}
+                        </button>
+                    </form>
+                    <p class="av-status-nota">
+                        {% if av.ativo %}
+                        Ao desligar, se o responsável não tiver outro aventureiro ativo, a conta de acesso dele também é desativada.
+                        {% else %}
+                        Conta de acesso do responsável: {% if av.conta_ativa %}ativa{% else %}desativada{% endif %}. Reativar volta a contar este aventureiro no clube.
+                        {% endif %}
+                    </p>
+                </div>
+
                 {% include "core/_aventureiro_detalhe.html" with av=av %}
             </div>
             {% endfor %}

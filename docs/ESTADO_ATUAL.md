@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Módulo Presença do clube**: novo item **"Presença"** no menu
+**Última atualização:** 2026-07-05 (**Aventureiro inativo/desligado + cascata na conta**: em **Usuários**
+(Diretor), ao abrir um aventureiro (modal), há o botão **"Marcar como inativo"** (⛔) / **"Reativar"** (✅).
+Campo `Aventureiro.ativo` (mig. **0018**). **Cascata**: ao inativar, se o responsável (conta `usuario`) não
+tiver mais **nenhum** aventureiro ativo, a **conta é desativada** (`is_active=False`); se tiver outro ativo
+(irmão), a conta continua ativa; reativar volta a conta. **Contas de Diretor/staff são protegidas** (nunca
+desativadas). Cards de aventureiro inativo ficam com selo **"Inativo"** e riscados; a **Presença** lista só
+**ativos**. Antes: Módulo Presença do clube)
+
+**Anterior:** (**Módulo Presença do clube**: novo item **"Presença"** no menu
 (Diretor) → escolhe o **evento** → **lista de todos os aventureiros** do clube com **foto grande** e botão
 **Marcar** (toggle presente/ausente, sem recarregar); **clicar na foto** abre a foto ampliada num **modal**.
 Busca em tempo real e contador "presentes X de Y". É **independente** do check-in de inscrição do evento
@@ -399,6 +407,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   usado, FK **`participante`** opcional = quem usou, `usado_por`, `valor_desconto`, `usado_em`,
   `criado_por`; property `usado`). Uso único; aplica em **1 participante** (o que o usuário escolher,
   digitando o código na linha dele). Migrations `0014` (base) e **`0015`** (`faixa` + `participante`).
+- `Aventureiro.ativo` (BooleanField, default True; mig. **0018**) — aventureiro ativo/inativo (desligado).
+  Ao desligar, a conta (`usuario`) é desativada se não sobrar nenhum aventureiro ativo. A Presença lista só
+  aventureiros ativos.
 - `PresencaEvento` — presença de um **aventureiro** do clube num **evento** (FK `evento` related_name
   `presencas`, FK `aventureiro`, `marcado_em`, `marcado_por`; `unique_together` evento+aventureiro). A
   **existência do registro = presente**. Independente do check-in de inscrição do evento complexo. Usado
@@ -520,6 +531,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/inicio/` — área "Meus Dados", protegida por `@login_required` (`core.views.inicio_view`, nome `core:inicio`).
 - `/meus-dados/responsavel/editar/` — edição do responsável, protegida por login (`core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
 - `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`core.views.usuarios_view`, nome `core:usuarios`).
+- `/usuarios/aventureiro/<id>/ativo/` — marca inativo/reativa um aventureiro (POST, Diretor; cascata na conta) (`core:aventureiro_toggle_ativo`).
 - `/eventos/` — lista de eventos, **restrita ao Diretor** (`core.views.eventos_view`, nome `core:eventos`).
 - `/eventos/novo/` — cadastro de evento simples, **restrita ao Diretor** (`core.views.evento_novo_view`, nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/eventos/complexo/novo/` — cria evento complexo (`core.views.evento_complexo_novo_view`, nome `core:evento_complexo_novo`).

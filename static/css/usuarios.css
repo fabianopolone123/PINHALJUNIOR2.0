@@ -287,3 +287,27 @@
 @media (prefers-reduced-motion: reduce) {
     .clicavel { transition: none; }
 }
+
+/* ===== Aventureiro inativo (desligado) + ação de ligar/desligar ===== */
+.pill-inativo { background: rgba(192, 57, 43, 0.14); color: #b23a2e; }
+.av-inativo { opacity: 0.72; }
+.av-inativo .av-resumo-nome { text-decoration: line-through; text-decoration-color: rgba(178,58,46,.5); }
+
+.av-status-acao {
+    display: flex; flex-direction: column; gap: 8px;
+    margin: 4px 0 16px; padding: 14px 16px;
+    background: rgba(15, 76, 129, 0.05);
+    border: 1px solid rgba(15, 76, 129, 0.14); border-radius: 12px;
+}
+.av-status-acao .btn-status { margin-top: 0; align-self: flex-start; cursor: pointer; }
+.btn-inativar {
+    color: #b23a2e; background: rgba(192, 57, 43, 0.10);
+    border: 1.5px solid rgba(192, 57, 43, 0.35);
+}
+.btn-inativar:hover { background: rgba(192, 57, 43, 0.18); }
+.btn-reativar {
+    color: #2f7d2f; background: rgba(58, 157, 58, 0.12);
+    border: 1.5px solid rgba(58, 157, 58, 0.40);
+}
+.btn-reativar:hover { background: rgba(58, 157, 58, 0.20); }
+.av-status-nota { font-size: 0.85rem; color: var(--texto-suave); margin: 0; }

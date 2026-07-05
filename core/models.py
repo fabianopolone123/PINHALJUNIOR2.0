@@ -134,6 +134,11 @@ class Aventureiro(models.Model):
         "Autorização de imagem aceita", default=False
     )
 
+    # Aventureiro ativo (frequenta o clube) ou inativo/desligado. Ao desligar,
+    # se o responsável (usuario) não tiver mais nenhum aventureiro ativo, a conta
+    # dele também é desativada (ver views/usuarios).
+    ativo = models.BooleanField("Ativo (frequenta o clube)", default=True)
+
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:

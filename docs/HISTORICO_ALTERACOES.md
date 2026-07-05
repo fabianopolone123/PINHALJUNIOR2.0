@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Aventureiro inativo/desligado (com cascata na conta do responsável)
+
+### Resumo
+Alguns membros saem do clube no meio do ano e pedem para desligar. Agora, em **Usuários** (Diretor), ao
+abrir o aventureiro (modal), há o botão **"Marcar como inativo"** (⛔) / **"Reativar"** (✅), com confirmação.
+
+**Cascata na conta** (`Aventureiro.usuario`): ao inativar, se o responsável **não tiver mais nenhum
+aventureiro ativo**, a **conta é desativada** (`is_active=False`, não loga mais). Se ainda tiver outro
+ativo (ex.: dois irmãos, inativo só um), a conta **continua ativa** para gerenciar o que ficou. Reativar um
+aventureiro reativa a conta. **Contas de Diretor/staff/superuser são protegidas** (nunca desativadas por
+aqui, para não travar o acesso admin).
+
+### Arquivos criados/alterados
+- `core/models.py`: campo **`Aventureiro.ativo`** (default True). Migration **`0018`**.
+- `core/views.py`: `aventureiro_toggle_ativo_view` (POST, Diretor; toggle + cascata com guarda de
+  diretor/staff); `usuarios_view` anota `av.conta_ativa` (`select_related("usuario")`); `presenca_evento_view`
+  passou a listar só `ativo=True`. Import de `eh_diretor`.
+- `core/urls.py`: rota `aventureiro_toggle_ativo`.
+- `templates/core/usuarios.html`: selo "Inativo" + card riscado; no modal, selo Ativo/Inativo, botão de
+  ligar/desligar (form `data-confirmar`) e nota da cascata. `static/js/usuarios.js`: handler genérico de
+  `form[data-confirmar]` (confirm antes de enviar). `static/css/usuarios.css`: `.pill-inativo`,
+  `.av-inativo`, `.av-status-acao`, `.btn-inativar`/`.btn-reativar`.
+
+### Validação
+- `manage.py check` OK; `migrate` (0018). Teste (test client, Diretor): **irmãos** — inativar 1 → conta
+  ativa; inativar o 2º → conta desativada; reativar 1 → conta volta. **Solo** — inativar único → conta
+  desativada; reativar → volta. Diretor protegido. Registros de teste revertidos (0 aventureiros inativos).
+  (A conta "Miguel Ferreira Mendes" está inativa desde a **importação** do sistema antigo — não é resíduo.)
+
+---
+
 ## 2026-07-05 - Presença: toast ao marcar/desmarcar (confirmação)
 
 ### Resumo

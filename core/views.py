@@ -49,7 +49,7 @@ from .models import (
     RespostaInscricao,
     VariacaoProduto,
 )
-from .permissoes import diretor_required, operador_required, pode_operar_evento
+from .permissoes import diretor_required, eh_diretor, operador_required, pode_operar_evento
 
 # ---------------------------------------------------------------------------
 # Identificação do usuário durante o cadastro.
@@ -539,7 +539,7 @@ def usuarios_view(request):
     """
     aventureiros = list(
         Aventureiro.objects
-        .select_related("ficha_medica", "autorizacao_imagem")
+        .select_related("ficha_medica", "autorizacao_imagem", "usuario")
         .all()
     )
 
@@ -552,6 +552,7 @@ def usuarios_view(request):
         av.classes = _classes_investidas(av)
         av.foto_ok = _foto_valida(av)
         av.iniciais = _iniciais(av.nome_completo)
+        av.conta_ativa = bool(av.usuario and av.usuario.is_active)
         _preparar_ficha(getattr(av, "ficha_medica", None))
 
         candidatos = [
@@ -609,6 +610,42 @@ def usuarios_view(request):
         "total_vinculos": total_vinculos,
     }
     return render(request, "core/usuarios.html", contexto)
+
+
+@diretor_required
+@require_POST
+def aventureiro_toggle_ativo_view(request, pk):
+    """Marca um aventureiro como inativo (desligado) ou reativa (Diretor).
+
+    Cascata na conta do responsável (`usuario`): se, após a mudança, o usuário
+    não tiver **nenhum** aventureiro ativo, a conta é **desativada** (`is_active`
+    = False); se tiver pelo menos um ativo, a conta fica/volta ativa. Contas de
+    Diretor/staff nunca são desativadas por aqui (evita travar o acesso admin)."""
+    av = get_object_or_404(Aventureiro, pk=pk)
+    av.ativo = not av.ativo
+    av.save(update_fields=["ativo"])
+
+    user = av.usuario
+    conta_desativada = False
+    if user is not None:
+        tem_ativo = user.aventureiros.filter(ativo=True).exists()
+        protegido = (
+            user.is_staff or user.is_superuser or eh_diretor(user)
+        )
+        novo_status = tem_ativo or protegido
+        if user.is_active != novo_status:
+            user.is_active = novo_status
+            user.save(update_fields=["is_active"])
+        conta_desativada = not novo_status and not tem_ativo
+
+    if av.ativo:
+        messages.success(request, f"“{av.nome_completo}” foi reativado.")
+    else:
+        msg = f"“{av.nome_completo}” marcado como inativo (desligado)."
+        if conta_desativada:
+            msg += " A conta do responsável também foi desativada (sem aventureiros ativos)."
+        messages.success(request, msg)
+    return redirect("core:usuarios")
 
 
 @diretor_required
@@ -2617,7 +2654,10 @@ def presenca_evento_view(request, pk):
     if evento is None:
         messages.info(request, "Esse evento não existe mais.")
         return redirect("core:presenca")
-    aventureiros = list(Aventureiro.objects.all().order_by("nome_completo"))
+    # Só aventureiros ativos (os inativos/desligados não frequentam mais).
+    aventureiros = list(
+        Aventureiro.objects.filter(ativo=True).order_by("nome_completo")
+    )
     presentes_ids = set(
         evento.presencas.values_list("aventureiro_id", flat=True)
     )

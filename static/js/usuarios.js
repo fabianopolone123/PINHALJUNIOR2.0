@@ -121,3 +121,19 @@
         if (e.key === "Escape" && !modal.hidden) fecharModal();
     });
 })();
+
+/* =========================================================
+   Confirmação de ações destrutivas/sensíveis: qualquer <form data-confirmar>
+   pede confirmação antes de enviar (ex.: marcar aventureiro inativo no modal).
+   ========================================================= */
+(function () {
+    "use strict";
+    document.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (form && form.matches && form.matches("form[data-confirmar]")) {
+            if (!window.confirm(form.getAttribute("data-confirmar"))) {
+                e.preventDefault();
+            }
+        }
+    });
+})();
