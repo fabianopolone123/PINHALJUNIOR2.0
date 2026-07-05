@@ -22,6 +22,45 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Módulo WhatsApp (W-API): configuração da instância + envio de mensagem
+
+### Resumo
+Novo item de menu **WhatsApp** (só Diretor) para integrar a **API da W-API**
+(`https://api.w-api.app/v1`). A tela tem duas seções:
+1. **Configuração da instância** — campos para o **ID da instância**, o **token** (exibido só com os
+   **últimos 4 dígitos**, `••••••3456`; só é substituído se um novo for digitado) e a **URL base**
+   (opcional, com o padrão já preenchido). No começo tudo vem em branco, pronto para cadastrar; um
+   selo mostra "Não configurado" / "✓ Configurado".
+2. **Enviar mensagem** — campos de **número** e **texto**. O número é **normalizado** (aceita espaços,
+   traços, parênteses, `+55`, `00…`) para o formato que a API exige (só dígitos, com DDI 55); há uma
+   **prévia ao vivo** ("Será enviado para: +55 (47) 99224-9708"). O envio é **AJAX** e usa o **toast
+   padrão** do sistema para sucesso/erro. Os campos ficam desabilitados até a instância estar configurada.
+
+### Arquivos criados/alterados
+- `core/models.py`: novo model **`WhatsappConfig`** (singleton via `get_solo()`; `instance_id`, `token`,
+  `base_url`, `atualizado_por/_em`; propriedades `configurado` e `token_mascarado`).
+- `core/migrations/0019_whatsappconfig.py`: cria a tabela.
+- `core/views.py`: `whatsapp_view` (tela), `whatsapp_config_view` (salvar — não apaga o token quando o
+  campo vem vazio), `whatsapp_enviar_view` (envio AJAX/JSON), helper `normalizar_telefone` e
+  `_enviar_whatsapp` (POST na W-API via **urllib** da stdlib, sem novas dependências).
+- `core/urls.py`: rotas `/whatsapp/`, `/whatsapp/config/`, `/whatsapp/enviar/`.
+- `templates/core/_menu.html`: item **WhatsApp** (💬) dentro de `{% if is_diretor %}`.
+- `templates/core/whatsapp.html`: nova tela (mobile-first, cards do sistema).
+- `static/js/whatsapp.js`: prévia do telefone, mostrar/ocultar token, envio AJAX + toast.
+- `static/css/whatsapp.css`: estilos da tela (paleta azul/verde; inputs próprios; responsivo).
+
+### Decisões tomadas
+- **Sem novas dependências**: o POST na W-API usa `urllib.request` (regra do projeto).
+- **Token nunca é exibido inteiro**: só os últimos 4 dígitos; para trocar, digita-se um novo (campo
+  vazio mantém o token guardado). Botão "Mostrar" ajuda só na hora de colar o novo token.
+- **Endpoint** (docs W-API): `POST {base_url}/message/send-text?instanceId=<id>`, header
+  `Authorization: Bearer <token>`, body JSON `{"phone","message"}`.
+- **Normalização de telefone** feita no back-end (fonte da verdade) e espelhada no JS só para a prévia.
+
+### Pendências
+- Envio de mensagem em lote / a partir dos cadastros (por ora é só teste de 1 número).
+- Só o Diretor tem acesso (conforme pedido).
+
 ## 2026-07-05 - Usuários: contador "Vínculos" → "Ativos" (aventureiros ativos)
 
 ### Resumo

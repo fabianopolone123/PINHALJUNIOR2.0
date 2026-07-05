@@ -9,8 +9,9 @@ Sistema web do **Clube de Aventureiros Pinhal Júnior** (Django). Já possui aut
 cadastro de conta e de aventureiros (com ficha médica e autorização de imagem), área interna
 "Meus Dados", a tela "Usuários" (vínculos familiares) e um **módulo de Eventos** completo: evento
 simples e **evento complexo** com inscrições (Fase 2), lojinha e **PDV/balcão** com operadores
-(Fase 4). **Próximo passo: Fase 5 (Financeiro/gráficos)** — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`
-e `docs/ESTADO_ATUAL.md`.
+(Fase 4). Também há o módulo **Presença** e o módulo **WhatsApp** (integração com a API da W-API —
+configurar a instância e enviar mensagens; só Diretor). **Próximo passo: Fase 5 (Financeiro/gráficos)**
+— ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
 
 ## Stack
 - Django 5.2 / Python 3.10+ · SQLite · Pillow (foto 3x4)
@@ -37,6 +38,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/cadastro/` conta+1º aventureiro · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
+- **Presença** (Diretor): `/presenca/`, `/presenca/<id>/`, `/presenca/<id>/marcar/`
+- **WhatsApp** (Diretor): `/whatsapp/` (config W-API + envio), `/whatsapp/config/`, `/whatsapp/enviar/`
 - `/admin/`
 
 ## Models (`core/models.py`)
@@ -44,8 +47,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne).
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
-  `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`
-  (migrations até `0017`). Detalhes em ESTADO_ATUAL.
+  `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`.
+- **WhatsApp**: `WhatsappConfig` (singleton; ID/token/URL base da W-API) — módulo WhatsApp (só Diretor).
+  (migrations até `0019`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

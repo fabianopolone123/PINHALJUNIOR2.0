@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>WhatsApp — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/whatsapp.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">WhatsApp</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo"><span aria-hidden="true">💬</span> WhatsApp</h1>
+                    <p class="cabecalho-sub">
+                        Configure a instância da API (W-API) e envie mensagens de teste.
+                    </p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- ===================== Configuração da instância ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">🔧 Configuração da instância</h2>
+                        <span class="wa-status {% if config.configurado %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                            {% if config.configurado %}✓ Configurado{% else %}Não configurado{% endif %}
+                        </span>
+                    </div>
+                    <p class="wa-ajuda">
+                        Os dados abaixo vêm do painel da W-API. Por segurança, o token é exibido só
+                        com os últimos dígitos — digite um novo apenas se quiser trocá-lo.
+                    </p>
+
+                    <form method="post" action="{% url 'core:whatsapp_config' %}" class="wa-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="instance_id">ID da instância</label>
+                            <input type="text" id="instance_id" name="instance_id"
+                                   value="{{ config.instance_id }}"
+                                   placeholder="Ex.: T34398-VYR3QD-MS29SL" autocomplete="off">
+                        </div>
+
+                        <div class="campo">
+                            <label for="token">Token da instância</label>
+                            {% if config.token %}
+                            <p class="wa-token-atual">Token atual: <strong>{{ config.token_mascarado }}</strong></p>
+                            {% endif %}
+                            <div class="wa-token-linha">
+                                <input type="password" id="token" name="token"
+                                       placeholder="{% if config.token %}Digite um novo token para trocar{% else %}Cole o token da instância{% endif %}"
+                                       autocomplete="off">
+                                <button type="button" class="btn-secundario wa-ver-token" id="verToken"
+                                        aria-pressed="false">Mostrar</button>
+                            </div>
+                        </div>
+
+                        <div class="campo">
+                            <label for="base_url">URL base da API <span class="wa-opcional">(opcional)</span></label>
+                            <input type="text" id="base_url" name="base_url"
+                                   value="{{ config.base_url }}"
+                                   placeholder="https://api.w-api.app/v1" autocomplete="off">
+                            <small class="ajuda">Deixe o padrão, a menos que a W-API informe outro endereço.</small>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ===================== Enviar mensagem de teste ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">✉️ Enviar mensagem</h2>
+                    </div>
+                    {% if not config.configurado %}
+                    <p class="wa-aviso">Configure o ID e o token da instância acima para poder enviar.</p>
+                    {% endif %}
+
+                    <form class="wa-form" id="waEnviarForm"
+                          data-url="{% url 'core:whatsapp_enviar' %}"
+                          data-csrf="{{ csrf_token }}">
+                        <div class="campo">
+                            <label for="wa_telefone">Número do WhatsApp</label>
+                            <input type="tel" id="wa_telefone" name="telefone" inputmode="tel"
+                                   placeholder="(47) 99224-9708" autocomplete="off"
+                                   {% if not config.configurado %}disabled{% endif %}>
+                            <small class="ajuda">
+                                Pode digitar com DDD, espaços ou traços — ajustamos o formato.
+                                <span id="waPreview" class="wa-preview" hidden></span>
+                            </small>
+                        </div>
+
+                        <div class="campo">
+                            <label for="wa_mensagem">Mensagem</label>
+                            <textarea id="wa_mensagem" name="mensagem" rows="4"
+                                      placeholder="Digite o texto que será enviado…"
+                                      {% if not config.configurado %}disabled{% endif %}></textarea>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao" id="waEnviarBtn"
+                                    {% if not config.configurado %}disabled{% endif %}>
+                                <span aria-hidden="true">🚀</span> Enviar mensagem
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/whatsapp.js' %}"></script>
+</body>
+</html>

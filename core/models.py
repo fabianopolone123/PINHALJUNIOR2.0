@@ -1124,3 +1124,50 @@ class PresencaEvento(models.Model):
 
     def __str__(self):
         return f"{self.aventureiro.nome_completo} @ {self.evento.nome}"
+
+
+class WhatsappConfig(models.Model):
+    """Configuração do gateway de WhatsApp (W-API). Linha única (singleton):
+    ID da instância, token e URL base da API. Usada pelo módulo WhatsApp."""
+
+    instance_id = models.CharField("ID da instância", max_length=150, blank=True)
+    token = models.CharField("Token da instância", max_length=255, blank=True)
+    base_url = models.CharField(
+        "URL base da API", max_length=200, blank=True,
+        default="https://api.w-api.app/v1",
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="whatsapp_configs",
+        verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuração do WhatsApp"
+        verbose_name_plural = "Configuração do WhatsApp"
+
+    def __str__(self):
+        return "Configuração do WhatsApp (W-API)"
+
+    @classmethod
+    def get_solo(cls):
+        """Retorna (criando se preciso) a única linha de configuração."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def configurado(self):
+        return bool(self.instance_id and self.token)
+
+    @property
+    def token_mascarado(self):
+        """Só os últimos 4 dígitos do token (para exibir sem vazar o token)."""
+        if not self.token:
+            return ""
+        if len(self.token) <= 4:
+            return "•" * len(self.token)
+        return "•" * 6 + self.token[-4:]

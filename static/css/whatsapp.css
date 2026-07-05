@@ -1,0 +1,165 @@
+/* =========================================================
+   Módulo WhatsApp (W-API). Reaproveita a paleta e os cards do
+   sistema (inicio.css). Mobile-first.
+   ========================================================= */
+
+.wa-card {
+    max-width: 640px;
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.wa-card-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.wa-titulo {
+    font-size: 1.12rem;
+    color: var(--azul-escuro, #0f4c81);
+    margin: 0;
+}
+
+.wa-status {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.wa-status-ok {
+    background: rgba(58, 157, 58, 0.14);
+    color: #1f6b1f;
+}
+
+.wa-status-off {
+    background: rgba(0, 0, 0, 0.06);
+    color: #666;
+}
+
+.wa-ajuda,
+.wa-aviso {
+    font-size: 0.85rem;
+    color: var(--texto-suave, #667);
+    margin: 0 0 14px;
+}
+
+.wa-aviso {
+    background: rgba(74, 144, 217, 0.1);
+    border-left: 4px solid var(--azul-claro, #4a90d9);
+    padding: 10px 12px;
+    border-radius: 8px;
+}
+
+/* Inputs próprios (o template usa <input>/<textarea> crus dentro de .campo). */
+.wa-form .campo {
+    margin-bottom: 16px;
+}
+
+.wa-form label {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--azul-escuro, #0f4c81);
+    margin-bottom: 6px;
+}
+
+.wa-form input[type="text"],
+.wa-form input[type="password"],
+.wa-form input[type="tel"],
+.wa-form textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: #222;
+    background: #fff;
+    border: 1.5px solid #d6dde6;
+    border-radius: 10px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    min-height: 46px;
+}
+
+.wa-form textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.wa-form input:focus,
+.wa-form textarea:focus {
+    outline: none;
+    border-color: var(--azul-claro, #4a90d9);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.18);
+}
+
+.wa-form input:disabled,
+.wa-form textarea:disabled {
+    background: #f3f5f8;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.wa-opcional {
+    font-weight: 400;
+    color: var(--texto-suave, #889);
+    font-size: 0.8rem;
+}
+
+.wa-token-atual {
+    font-size: 0.85rem;
+    color: var(--texto-suave, #667);
+    margin: 0 0 8px;
+}
+
+.wa-token-atual strong {
+    letter-spacing: 1px;
+    color: var(--azul-escuro, #0f4c81);
+}
+
+.wa-token-linha {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.wa-token-linha input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wa-ver-token {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.wa-preview {
+    display: block;
+    margin-top: 6px;
+    font-weight: 600;
+    color: #1f6b1f;
+}
+
+.wa-preview-erro {
+    color: var(--erro, #c0392b);
+    font-weight: 500;
+}
+
+.wa-acoes {
+    margin-top: 4px;
+}
+
+.wa-acoes .btn-acao {
+    width: 100%;
+    justify-content: center;
+}
+
+@media (min-width: 560px) {
+    .wa-acoes .btn-acao {
+        width: auto;
+    }
+}

@@ -421,3 +421,19 @@ internas ou no fluxo de login, seguir estas regras:
 - **WhatsApp obrigatório** (e-mail opcional) nos dados do comprador da loja pública. Os dados do
   comprador são lembrados no **localStorage** do aparelho (`static/js/loja_comprador.js`) e
   autopreenchidos em pedidos seguintes — sem back-end, funciona logado ou anônimo.
+
+## Módulo WhatsApp (W-API)
+
+- **Rotas** `core:whatsapp` (`/whatsapp/`), `core:whatsapp_config` e `core:whatsapp_enviar`, todas
+  `@diretor_required`. Item de menu **WhatsApp** (💬) só para o diretor (`{% if is_diretor %}`).
+- **Configuração** em `WhatsappConfig` (**singleton**, `get_solo()`): `instance_id`, `token`, `base_url`.
+  **Nunca exibir o token inteiro** — só `token_mascarado` (últimos 4 dígitos). Ao salvar, **token vazio
+  não sobrescreve** o guardado (permite editar o resto sem redigitar o token).
+- **Envio**: `POST {base_url}/message/send-text?instanceId=<id>`, header `Authorization: Bearer <token>`,
+  body JSON `{"phone","message"}` (docs W-API). Feito com **urllib** da stdlib — **não** adicionar
+  `requests` nem outra dependência.
+- **Normalização do telefone** (`normalizar_telefone` em `views.py`) é a fonte da verdade (aceita
+  espaços/traços/parênteses/`+55`/`00…` → DDI 55 + dígitos). O JS só **espelha** essa lógica para a
+  **prévia ao vivo**; a validação real é no back-end. Envio é **AJAX** e usa o **toast padrão**
+  (`window.mostrarToast`).
+- **Não enviar mensagens reais em testes automatizados** nem versionar tokens/IDs reais.

@@ -1,6 +1,11 @@
 import datetime
 import hashlib
+import json
+import re
 import unicodedata
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -48,6 +53,7 @@ from .models import (
     ProdutoEvento,
     RespostaInscricao,
     VariacaoProduto,
+    WhatsappConfig,
 )
 from .permissoes import diretor_required, eh_diretor, operador_required, pode_operar_evento
 
@@ -2714,3 +2720,120 @@ def cadastro_sucesso_view(request):
         "pode_cadastrar_outro": pode_cadastrar_outro,
     }
     return render(request, "core/cadastro_sucesso.html", contexto)
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp (W-API) — configuração e envio de mensagens (só Diretor)
+# ---------------------------------------------------------------------------
+def normalizar_telefone(bruto):
+    """Normaliza um telefone digitado (com espaços, traços, parênteses, +55…)
+    para o formato que a W-API espera: só dígitos, com DDI 55 do Brasil.
+
+    Aceita entradas como "(47) 99224-9708", "47 99224 9708", "+55 47 9922-4708"
+    e devolve algo como "5547992249708". Se não for possível reconhecer um
+    número brasileiro válido, devolve os dígitos como estão (melhor esforço)."""
+    digitos = re.sub(r"\D", "", bruto or "")
+    if not digitos:
+        return ""
+    # Tira o "00" de discagem internacional, se vier (ex.: 0055…).
+    if digitos.startswith("00"):
+        digitos = digitos[2:]
+    # Já veio com DDI 55 e comprimento de número BR (12 = fixo, 13 = celular).
+    if digitos.startswith("55") and len(digitos) in (12, 13):
+        return digitos
+    # Número local: DDD + número (10 dígitos = fixo, 11 = celular) → põe o 55.
+    if len(digitos) in (10, 11):
+        return "55" + digitos
+    # Formato inesperado: devolve o que temos (a W-API valida no envio).
+    return digitos
+
+
+def _enviar_whatsapp(config, phone, message):
+    """Faz o POST na W-API para enviar um texto. Usa só a stdlib (urllib).
+    Retorna (ok: bool, detalhe: str). `detalhe` é a mensagem de erro ou o
+    messageId em caso de sucesso."""
+    base = (config.base_url or "https://api.w-api.app/v1").rstrip("/")
+    url = f"{base}/message/send-text?instanceId={urllib.parse.quote(config.instance_id)}"
+    corpo = json.dumps({"phone": phone, "message": message}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=corpo,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {config.token}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            bruto = resp.read().decode("utf-8", "replace")
+        dados = json.loads(bruto) if bruto else {}
+        msg_id = dados.get("messageId") or dados.get("insertedId") or ""
+        return True, msg_id
+    except urllib.error.HTTPError as e:
+        detalhe = e.read().decode("utf-8", "replace") if e.fp else ""
+        try:
+            j = json.loads(detalhe)
+            detalhe = j.get("message") or j.get("error") or detalhe
+        except (ValueError, TypeError):
+            pass
+        return False, f"Erro {e.code}: {detalhe or e.reason}"
+    except urllib.error.URLError as e:
+        return False, f"Falha de conexão: {e.reason}"
+    except Exception as e:  # noqa: BLE001 — qualquer imprevisto vira mensagem amigável
+        return False, f"Erro inesperado: {e}"
+
+
+@diretor_required
+def whatsapp_view(request):
+    """Tela do módulo WhatsApp (só Diretor): configurar a instância (ID/token
+    da W-API) e enviar uma mensagem de teste."""
+    config = WhatsappConfig.get_solo()
+    return render(request, "core/whatsapp.html", {"config": config})
+
+
+@diretor_required
+@require_POST
+def whatsapp_config_view(request):
+    """Salva o ID da instância, o token e (opcional) a URL base da W-API.
+
+    O token só é substituído se um novo for digitado — assim a tela pode
+    exibir apenas os últimos dígitos sem apagar o token guardado."""
+    config = WhatsappConfig.get_solo()
+    config.instance_id = (request.POST.get("instance_id") or "").strip()
+    base_url = (request.POST.get("base_url") or "").strip()
+    if base_url:
+        config.base_url = base_url
+    novo_token = (request.POST.get("token") or "").strip()
+    if novo_token:
+        config.token = novo_token
+    config.atualizado_por = request.user
+    config.save()
+    messages.success(request, "Configuração do WhatsApp salva.")
+    return redirect("core:whatsapp")
+
+
+@diretor_required
+@require_POST
+def whatsapp_enviar_view(request):
+    """Envia uma mensagem de teste pela W-API (JSON, sem recarregar a página)."""
+    config = WhatsappConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure o ID da instância e o token antes de enviar."},
+            status=400,
+        )
+    mensagem = (request.POST.get("mensagem") or "").strip()
+    telefone = normalizar_telefone(request.POST.get("telefone"))
+    if not mensagem:
+        return JsonResponse({"ok": False, "erro": "Digite a mensagem."}, status=400)
+    if not telefone or len(telefone) < 12:
+        return JsonResponse(
+            {"ok": False, "erro": "Número de telefone inválido. Verifique o DDD."},
+            status=400,
+        )
+    ok, detalhe = _enviar_whatsapp(config, telefone, mensagem)
+    if ok:
+        return JsonResponse({"ok": True, "telefone": telefone, "message_id": detalhe})
+    return JsonResponse({"ok": False, "erro": detalhe, "telefone": telefone}, status=502)
+

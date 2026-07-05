@@ -2,7 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Aventureiro inativo/desligado + cascata na conta**: em **Usuários**
+**Última atualização:** 2026-07-05 (**Módulo WhatsApp (W-API)**: novo item **"WhatsApp"** (💬) no menu
+(**só Diretor**). Tela `/whatsapp/` com duas seções: **Configuração da instância** (ID da instância,
+**token** exibido só com os **últimos 4 dígitos** e só substituído se digitar um novo, e **URL base**
+opcional com padrão `https://api.w-api.app/v1`) e **Enviar mensagem** (número + texto). O número é
+**normalizado** (aceita espaços/traços/parênteses/`+55`) para o formato da API (DDI 55 + dígitos), com
+**prévia ao vivo**; envio **AJAX** com **toast padrão**. POST na W-API via **urllib** (sem novas
+dependências): `POST {base_url}/message/send-text?instanceId=<id>`, `Authorization: Bearer <token>`,
+body `{"phone","message"}`. Model **`WhatsappConfig`** (singleton, mig. **0019**). Antes: Aventureiro
+inativo/desligado + cascata na conta)
+
+**Anterior:** (**Aventureiro inativo/desligado + cascata na conta**: em **Usuários**
 (Diretor), ao abrir um aventureiro (modal), há o botão **"Marcar como inativo"** (⛔) / **"Reativar"** (✅).
 Campo `Aventureiro.ativo` (mig. **0018**). **Cascata**: ao inativar, se o responsável (conta `usuario`) não
 tiver mais **nenhum** aventureiro ativo, a **conta é desativada** (`is_active=False`); se tiver outro ativo
@@ -416,6 +426,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   `presencas`, FK `aventureiro`, `marcado_em`, `marcado_por`; `unique_together` evento+aventureiro). A
   **existência do registro = presente**. Independente do check-in de inscrição do evento complexo. Usado
   pelo módulo **Presença** e pela **guarda de exclusão** de eventos. Migration **0017**.
+- `WhatsappConfig` — configuração do gateway **W-API** (**linha única/singleton** via `get_solo()`,
+  `pk=1`). Campos: `instance_id`, `token`, `base_url` (default `https://api.w-api.app/v1`),
+  `atualizado_por`/`atualizado_em`. Propriedades: `configurado` (tem ID + token) e `token_mascarado`
+  (só os últimos 4 dígitos). Usado pelo módulo **WhatsApp**. Migration **0019**.
 
 ## Funcionalidades incompletas / não implementadas
 - Link "Esqueci minha senha" — sem funcionalidade (aponta para `#`).
@@ -469,6 +483,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (parcial: controle de retirada por unidade de um item — selo clicável + stepper)
 - `templates/core/presenca_selecionar.html` (escolher evento) e `presenca_evento.html` (folha de presença:
   lista de aventureiros com foto + marcar + modal da foto ampliada)
+- `templates/core/whatsapp.html` (módulo WhatsApp: configurar instância W-API + enviar mensagem de teste)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
@@ -490,6 +505,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/css/usuarios.css` (complementa `inicio.css` na tela "Usuários")
 - `static/css/presenca.css` — módulo Presença (seletor de evento, folha com foto grande + botão marcar,
   foto ampliada no modal)
+- `static/css/whatsapp.css` — módulo WhatsApp (cards de configuração e de envio; inputs próprios;
+  paleta azul/verde; mobile-first)
 
 ## Arquivos JavaScript existentes
 - `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
@@ -526,6 +543,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/presenca.js` — módulo Presença: marcar/desmarcar (fetch/JSON + `X-CSRFToken`, atualiza botão e
   contador), **modal da foto** ampliada e busca em tempo real. Ao marcar/desmarcar com sucesso, mostra o
   **toast** padrão ("<nome> — presente ✅" / "<nome> — ausente"); toast de erro em falha.
+- `static/js/whatsapp.js` — módulo WhatsApp: **prévia ao vivo** do telefone normalizado, botão
+  **mostrar/ocultar** token e **envio AJAX** (fetch/JSON + `X-CSRFToken`) com o **toast** padrão de
+  sucesso/erro.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -566,6 +586,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/presenca/` — módulo Presença: escolher o evento (Diretor) (`core.views.presenca_view`, nome `core:presenca`).
 - `/presenca/<id>/` — folha de presença: lista de aventureiros com foto + marcar (`core:presenca_evento`).
 - `/presenca/<id>/marcar/` — marca/desmarca presença de um aventureiro (POST JSON, Diretor) (`core:presenca_marcar`).
+- `/whatsapp/` — módulo WhatsApp: configurar a instância W-API + enviar mensagem de teste (Diretor) (`core.views.whatsapp_view`, nome `core:whatsapp`).
+- `/whatsapp/config/` — salva ID/token/URL base da instância (POST, Diretor; token vazio não sobrescreve) (`core:whatsapp_config`).
+- `/whatsapp/enviar/` — envia uma mensagem pela W-API (POST JSON, Diretor; normaliza o telefone) (`core:whatsapp_enviar`).
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).

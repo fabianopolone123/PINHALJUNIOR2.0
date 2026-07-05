@@ -33,6 +33,10 @@ Estado "ativo" pelo nome da URL atual.
             <span class="menu-icone" aria-hidden="true">✅</span>
             <span class="menu-texto">Presença</span>
         </a>
+        <a href="{% url 'core:whatsapp' %}" class="menu-item{% if un == 'whatsapp' %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">💬</span>
+            <span class="menu-texto">WhatsApp</span>
+        </a>
         {% endif %}
         {% include "core/_menu_eventos.html" %}
         {% if operador_eventos and not is_diretor %}
