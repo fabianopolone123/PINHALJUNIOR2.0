@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Cache-busting dos estáticos (JS/CSS antigo preso no navegador)
+
+### Resumo
+**Causa-raiz** de "corrigi e não resolveu": as correções de JavaScript (caminho do fetch, leitura do cookie de
+CSRF) eram entregues ao servidor, mas o **navegador continuava usando o `mensalidades.js`/`loja.js` antigos em
+cache** — então o "Desfazer"/"Marcar pago" seguia batendo no endereço errado (raiz = sistema antigo), que não
+devolve JSON → "não foi possível atualizar". Correções **server-side** (deslogar) pegavam na hora; as que
+dependiam de JS novo ficavam mascaradas pelo cache. Confirmado por teste automatizado: o Desfazer no servidor
+funciona (`MensalidadePixTests.test_desfazer_mensalidade_paga_via_pix`).
+
+### Solução
+Ativado **cache-busting** em produção: `STORAGES` usa `core.storages.CacheBustingStaticFilesStorage`
+(subclasse de `ManifestStaticFilesStorage`, `manifest_strict=False`), que renomeia cada estático com um hash do
+conteúdo (`mensalidades.<hash>.js`). Quando o arquivo muda, a URL muda e o navegador **sempre** baixa a versão
+nova; arquivos inalterados mantêm o hash (seguem em cache). Em `DEBUG` continua o storage simples.
+
+### Arquivos criados/alterados
+- `config/settings.py`: `STORAGES` com o storage de cache-busting quando `DEBUG=False`.
+- `core/storages.py`: **novo** — `CacheBustingStaticFilesStorage` (`manifest_strict=False`, para não quebrar
+  testes/páginas quando falta o manifesto ou uma entrada).
+
+### Notas
+- `collectstatic --noinput` (roda no deploy) valida e gera o manifesto; testado localmente (168 arquivos, ok).
+- Depois do deploy, basta **recarregar a página** — o HTML passa a apontar para o JS com hash novo; não precisa
+  mais de "atualização forçada" (Ctrl+F5) a cada correção.
+
+---
+
 ## 2026-07-06 - Correção: "deslogou sozinho" — cookies compartilhados com o sistema antigo
 
 ### Resumo

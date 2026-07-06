@@ -315,3 +315,29 @@ class MensalidadePixTests(TestCase):
         self.assertEqual(self.m1.forma_pagamento, "pix")
         self.assertEqual(self.m1.pagamento_id, pag.id)
         self.assertEqual(self.m1.valor_pago, Decimal("30.00"))
+
+    def test_desfazer_mensalidade_paga_via_pix(self):
+        # Paga via Pix (simular) e depois "Desfazer" — deve voltar para em aberto.
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-x", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            self.client.post(reverse("core:mensalidade_cobrar"),
+                             {"mensalidade_ids": [self.m1.id]})
+        pag = Pagamento.objects.get(tipo="mensalidade")
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+        self.m1.refresh_from_db()
+        self.assertEqual(self.m1.status, "paga")
+
+        # Desfazer (mesmo endpoint do botão).
+        resp = self.client.post(reverse("core:mensalidade_pagar"), {
+            "mensalidade_id": self.m1.id, "pagar": "0",
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["status"], "aberta")
+        self.m1.refresh_from_db()
+        self.assertEqual(self.m1.status, "aberta")
+        self.assertEqual(self.m1.valor_pago, None)

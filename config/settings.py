@@ -135,6 +135,22 @@ STATIC_URL = os.environ.get("DJANGO_STATIC_URL", f"{_url_prefix}/static/")
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = os.environ.get("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles")
 
+# Cache-busting dos estáticos em produção: o ManifestStaticFilesStorage renomeia
+# cada arquivo com um hash do conteúdo (ex.: mensalidades.abc123.js), então o
+# navegador SEMPRE baixa a versão nova a cada deploy (sem ficar preso a JS/CSS
+# antigo em cache). Em desenvolvimento (DEBUG) fica o storage simples, para não
+# depender de `collectstatic`.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "core.storages.CacheBustingStaticFilesStorage"
+        ),
+    },
+}
+
 # Arquivos de mídia (uploads dos usuários, ex.: foto 3x4 do aventureiro)
 MEDIA_URL = os.environ.get("DJANGO_MEDIA_URL", f"{_url_prefix}/media/")
 MEDIA_ROOT = os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media")
