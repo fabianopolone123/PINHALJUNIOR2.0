@@ -1,0 +1,81 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Pagamento — {{ titulo }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <article class="card evento-publico-card">
+                <h1 class="evento-publico-titulo">Pagamento</h1>
+                <p class="evento-publico-desc">{{ titulo }}</p>
+
+                {% if itens_resumo %}
+                <div class="pagamento-resumo">
+                    <ul class="pagamento-itens">
+                        {% for item in itens_resumo %}
+                        <li>
+                            <span class="pag-item-nome">{{ item.nome }}</span>
+                            <span class="pag-item-valor">R$ {{ item.valor }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="pagamento-total">Total a pagar: <strong>R$ {{ total|moeda }}</strong></p>
+                </div>
+                {% else %}
+                <p class="pagamento-total">Total a pagar: <strong>R$ {{ total|moeda }}</strong></p>
+                {% endif %}
+
+                <section class="pagamento-pix" id="pixMP"
+                         data-status-url="{{ status_url }}"
+                         data-simular-url="{{ simular_url }}"
+                         data-csrf="{{ csrf_token }}">
+                    <h2 class="evento-publico-h2">Pague com Pix</h2>
+                    {% if erro_pix %}
+                    <p class="pagamento-erro">Não foi possível gerar o Pix agora: {{ erro_pix }}.</p>
+                    {% else %}
+                    <p class="pagamento-instrucao">Abra o app do seu banco, escolha <strong>Pix &gt; Ler QR Code</strong> e aponte a câmera. Ou use o código <em>copia e cola</em>.</p>
+                    <div class="pix-qr">
+                        {% if qr_base64 %}<img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Code Pix" width="260" height="260">{% endif %}
+                    </div>
+                    <label class="pix-copia-rotulo" for="pixCodigo">Pix copia e cola</label>
+                    <div class="pix-copia">
+                        <input type="text" id="pixCodigo" class="pix-copia-input selecionavel" value="{{ pix_codigo }}" readonly>
+                        <button type="button" class="btn-secundario" id="btnCopiarPix" data-target="pixCodigo">Copiar</button>
+                    </div>
+                    <p class="pagamento-aguardando" id="pixAguardando">
+                        <span class="pix-spinner" aria-hidden="true"></span>
+                        Aguardando a confirmação do pagamento…
+                    </p>
+                    {% if is_teste %}
+                    <div class="pagamento-teste">
+                        <p class="painel-nota">🧪 <strong>Modo teste</strong>: o Pix acima não é cobrado de verdade. Use o botão abaixo para simular a aprovação (mesmo caminho do webhook real).</p>
+                        <button type="button" class="btn-acao" id="btnSimularPix">
+                            <span aria-hidden="true">✅</span> Simular pagamento aprovado (teste)
+                        </button>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </section>
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+
+    <script src="{% static 'js/evento_pagamento.js' %}"></script>
+    <script src="{% static 'js/pagamento_mp.js' %}"></script>
+</body>
+</html>

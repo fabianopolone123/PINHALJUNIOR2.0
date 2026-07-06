@@ -3129,7 +3129,31 @@ def _finalizar_pagamento(pagamento):
     """Cria/baixa o objeto pago conforme o tipo (roda dentro de transação)."""
     if pagamento.tipo == "loja_evento":
         _finalizar_loja_evento(pagamento)
-    # loja_clube, mensalidade e inscricao entram nas próximas etapas.
+    elif pagamento.tipo == "mensalidade":
+        _finalizar_mensalidade(pagamento)
+    # loja_clube e inscricao entram nas próximas etapas.
+
+
+def _finalizar_mensalidade(pagamento):
+    """Marca como pagas as mensalidades do payload (baixa múltipla de uma cobrança
+    Pix só). Idempotente: só mexe nas que ainda estão em aberto."""
+    dados = pagamento.payload or {}
+    ids = dados.get("mensalidade_ids", [])
+    qtd = 0
+    for m in Mensalidade.objects.filter(pk__in=ids, status="aberta"):
+        m.status = "paga"
+        m.forma_pagamento = "pix"
+        m.valor_pago = m.valor
+        m.pago_em = timezone.now()
+        m.registrado_por = pagamento.usuario
+        m.pagamento = pagamento
+        m.save(update_fields=[
+            "status", "forma_pagamento", "valor_pago", "pago_em",
+            "registrado_por", "pagamento",
+        ])
+        qtd += 1
+    dados["quitadas"] = qtd
+    pagamento.payload = dados
 
 
 def _finalizar_loja_evento(pagamento):
@@ -3170,7 +3194,8 @@ def _sucesso_url_e_sessao(request, pagamento):
         if codigo:
             request.session["pedido_codigo"] = codigo
         return reverse("core:evento_pedido_sucesso", args=[dados.get("evento_id")])
-    return reverse("core:inicio")
+    # Demais tipos usam a tela de sucesso genérica (por referência do pagamento).
+    return reverse("core:pagamento_sucesso", args=[pagamento.referencia])
 
 
 # --------------------------- Configuração (Diretor) ---------------------------
@@ -3287,6 +3312,93 @@ def pagamento_simular_view(request, ref):
     return JsonResponse(
         {"ok": True, "redirect": _sucesso_url_e_sessao(request, pagamento)}
     )
+
+
+# ------------------- Página de pagamento e sucesso (genéricas) ----------------
+def pagamento_view(request, ref):
+    """Tela de pagamento Pix GENÉRICA (reaproveitável por qualquer `tipo`): QR do
+    Mercado Pago + copia e cola + polling; no modo teste, botão de simular."""
+    pagamento = get_object_or_404(Pagamento, referencia=ref)
+    if pagamento.status == "aprovado" and pagamento.finalizado:
+        return redirect(_sucesso_url_e_sessao(request, pagamento))
+    config = _mp_config()
+    dados = pagamento.payload or {}
+    contexto = {
+        "pagamento": pagamento,
+        "titulo": dados.get("titulo") or pagamento.get_tipo_display(),
+        "itens_resumo": dados.get("itens", []),
+        "total": pagamento.valor_bruto,
+        "is_teste": config.is_teste,
+        "qr_base64": pagamento.qr_code_base64,
+        "pix_codigo": pagamento.qr_code,
+        "erro_pix": pagamento.detalhe if pagamento.status == "rejeitado" else "",
+        "status_url": reverse("core:pagamento_status", args=[ref]),
+        "simular_url": reverse("core:pagamento_simular", args=[ref]),
+    }
+    return render(request, "core/pagamento.html", contexto)
+
+
+def pagamento_sucesso_view(request, ref):
+    """Tela de sucesso GENÉRICA (mostra o que foi pago a partir do payload)."""
+    pagamento = get_object_or_404(Pagamento, referencia=ref)
+    dados = pagamento.payload or {}
+    voltar = reverse("core:mensalidades") if pagamento.tipo == "mensalidade" \
+        else reverse("core:inicio")
+    return render(request, "core/pagamento_sucesso.html", {
+        "pagamento": pagamento,
+        "titulo": dados.get("titulo") or pagamento.get_tipo_display(),
+        "itens_resumo": dados.get("itens", []),
+        "total": pagamento.valor_bruto,
+        "voltar_url": voltar,
+    })
+
+
+# ------------------- Cobrança de mensalidades via Pix (Etapa 2) ---------------
+@diretor_required
+@require_POST
+def mensalidade_cobrar_view(request):
+    """Gera UMA cobrança Pix para as mensalidades selecionadas (baixa múltipla no
+    webhook). Hoje disparada pelo Diretor para testar; a mesma engine servirá a
+    futura tela do responsável (selecionar as em aberto → pagar → baixa tudo)."""
+    config = _mp_config()
+    if not config.configurado:
+        messages.error(request, "Configure o Mercado Pago antes de cobrar via Pix.")
+        return redirect("core:mensalidades")
+    ids = request.POST.getlist("mensalidade_ids")
+    mens = list(
+        Mensalidade.objects.filter(pk__in=ids, status="aberta", isento=False)
+        .select_related("aventureiro")
+    )
+    if not mens:
+        messages.error(request, "Selecione ao menos uma mensalidade em aberto.")
+        return redirect("core:mensalidades")
+    # Segurança: todas devem ser do mesmo aventureiro (uma cobrança por pessoa).
+    av = mens[0].aventureiro
+    mens = [m for m in mens if m.aventureiro_id == av.id]
+    total = sum((m.valor for m in mens), Decimal("0"))
+    pagamento, erro = _criar_pagamento_pix(
+        request,
+        tipo="mensalidade",
+        valor=total,
+        descricao=f"Mensalidades — {av.nome_completo}",
+        payload={
+            "mensalidade_ids": [m.id for m in mens],
+            "aventureiro_id": av.id,
+            "titulo": f"Mensalidades — {av.nome_completo}",
+            "itens": [
+                {"nome": f"{m.mes_nome}/{m.ano}"
+                         + (" (inscrição)" if m.tipo == "inscricao" else ""),
+                 "valor": f"{m.valor:.2f}"}
+                for m in mens
+            ],
+        },
+        comprador={"nome": av.resp_nome or av.nome_completo, "email": av.resp_email},
+        usuario=request.user,
+    )
+    if erro:
+        messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+        return redirect("core:mensalidades")
+    return redirect("core:pagamento", ref=pagamento.referencia)
 
 
 # ---------------------------------------------------------------------------

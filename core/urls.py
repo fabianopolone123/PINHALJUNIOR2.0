@@ -140,6 +140,8 @@ urlpatterns = [
     path("webhooks/mercadopago/", views.mercadopago_webhook, name="mercadopago_webhook"),
     path("pagamento/<str:ref>/status/", views.pagamento_status_view, name="pagamento_status"),
     path("pagamento/<str:ref>/simular/", views.pagamento_simular_view, name="pagamento_simular"),
+    path("pagamento/<str:ref>/sucesso/", views.pagamento_sucesso_view, name="pagamento_sucesso"),
+    path("pagamento/<str:ref>/", views.pagamento_view, name="pagamento"),
     path("presenca/", views.presenca_view, name="presenca"),
     path("presenca/<int:pk>/", views.presenca_evento_view, name="presenca_evento"),
     path("presenca/<int:pk>/marcar/", views.presenca_marcar_view, name="presenca_marcar"),
@@ -187,6 +189,7 @@ urlpatterns = [
     path("mensalidades/reajustar/", views.mensalidade_reajustar_view, name="mensalidade_reajustar"),
     path("mensalidades/gerar/", views.mensalidades_gerar_view, name="mensalidades_gerar"),
     path("mensalidades/pagar/", views.mensalidade_pagar_view, name="mensalidade_pagar"),
+    path("mensalidades/cobrar/", views.mensalidade_cobrar_view, name="mensalidade_cobrar"),
     path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),
     path("mensalidades/editar/", views.mensalidade_editar_view, name="mensalidade_editar"),
     # --- Financeiro geral ---

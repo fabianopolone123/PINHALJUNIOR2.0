@@ -210,7 +210,7 @@
                             {% if l.tem %}
                             <div class="mens-meses">
                                 {% for m in l.meses %}
-                                <div class="mens-mes{% if m.status == 'cancelada' %} cancelada{% endif %}{% if m.isento %} isenta{% endif %}" data-mens="{{ m.id }}" data-status="{{ m.status }}">
+                                <div class="mens-mes{% if m.status == 'cancelada' %} cancelada{% endif %}{% if m.isento %} isenta{% endif %}" data-mens="{{ m.id }}" data-status="{{ m.status }}" data-valor="{{ m.valor|stringformat:'.2f' }}" data-nome="{{ m.mes_nome }}{% if m.tipo == 'inscricao' %} (inscrição){% endif %}">
                                     <span class="mens-mes-nome">{{ m.mes_nome }}{% if m.tipo == 'inscricao' %} <span class="mens-tag">inscrição</span>{% endif %}</span>
                                     <span class="mens-mes-valor">{% if m.isento %}<span class="mens-selo mens-isento">Isento</span>{% else %}R$ {{ m.valor|moeda }}{% endif %}</span>
                                     <span class="mens-mes-dir">
@@ -240,6 +240,13 @@
                                 </div>
                                 {% endfor %}
                             </div>
+                            {% if l.resumo.aberto_valor %}
+                            <div class="mens-cobrar-barra">
+                                <button type="button" class="btn-acao btn-acao-pequeno mens-cobrar-btn"
+                                        data-av="{{ l.av.nome_completo }}">💳 Cobrar em aberto via Pix</button>
+                                <small class="ajuda">Gera uma cobrança Pix; ao pagar, os meses escolhidos são quitados automaticamente.</small>
+                            </div>
+                            {% endif %}
                             {% else %}
                             <div class="mens-vazio-av">
                                 <span>Sem cobranças em {{ ano }}.</span>
@@ -350,10 +357,34 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal: cobrar mensalidades em aberto via Pix -->
+        <div class="modal-overlay" id="modalCobrarPix" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalCobrarTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalCobrarTitulo">💳 Cobrar via Pix</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p class="mens-modal-sub" id="cobrarSub"></p>
+                    <form method="post" action="{% url 'core:mensalidade_cobrar' %}" class="mens-modal-form" id="cobrarForm">
+                        {% csrf_token %}
+                        <div id="cobrarLista" class="mens-cobrar-lista"></div>
+                        <p class="pagamento-total">Total: <strong id="cobrarTotal">R$ 0,00</strong></p>
+                        <small class="ajuda">Marque os meses que quer cobrar. Ao confirmar, geramos o QR Pix; quando for pago, esses meses são quitados sozinhos.</small>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao" id="cobrarSubmit">Gerar cobrança Pix</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
     <script src="{% static 'js/moeda_br.js' %}"></script>
     <script src="{% static 'js/mensalidades.js' %}"></script>
+    <script src="{% static 'js/mensalidade_pix.js' %}"></script>
 </body>
 </html>

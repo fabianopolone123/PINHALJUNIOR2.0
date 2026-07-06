@@ -13,7 +13,9 @@ from django.utils import timezone
 
 from . import mercadopago as mp
 from .models import (
+    Aventureiro,
     Evento,
+    Mensalidade,
     MercadoPagoConfig,
     Pagamento,
     PedidoLoja,
@@ -246,3 +248,70 @@ class PagamentoLojinhaTests(TestCase):
         resp = self.client.post(pag_url)  # "simular aprovado" antigo cria o pedido
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(PedidoLoja.objects.count(), 1)
+
+
+class MensalidadePixTests(TestCase):
+    """Etapa 2: cobrar varias mensalidades numa cobranca Pix so; baixa multipla."""
+
+    def setUp(self):
+        from django.contrib.auth.models import Group
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir2", password="123456")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+        self.av = Aventureiro.objects.create(
+            usuario=self.diretor, nome_completo="Aventureiro Teste", sexo="M",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="000",
+            resp_nome="Resp", resp_cpf="111", resp_whatsapp="4799", resp_email="r@x.com",
+        )
+        self.m1 = Mensalidade.objects.create(
+            aventureiro=self.av, ano=2026, mes=7, tipo="mensalidade",
+            valor=Decimal("30.00"), status="aberta",
+        )
+        self.m2 = Mensalidade.objects.create(
+            aventureiro=self.av, ano=2026, mes=8, tipo="mensalidade",
+            valor=Decimal("30.00"), status="aberta",
+        )
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"
+        cfg.access_token_teste = "TEST-abc"
+        cfg.webhook_secret_teste = "s"
+        cfg.save()
+
+    def test_tela_mensalidades_renderiza_botao_cobrar(self):
+        resp = self.client.get(reverse("core:mensalidades") + "?ano=2026&aba=aventureiros")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Cobrar em aberto via Pix")
+        self.assertContains(resp, "modalCobrarPix")
+
+    def test_cobrar_gera_um_pix_e_simular_baixa_todas(self):
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-9", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            resp = self.client.post(
+                reverse("core:mensalidade_cobrar"),
+                {"mensalidade_ids": [self.m1.id, self.m2.id]},
+            )
+        self.assertEqual(resp.status_code, 302)
+        pag = Pagamento.objects.get(tipo="mensalidade")
+        self.assertEqual(pag.valor_bruto, Decimal("60.00"))
+        # Antes de pagar, as mensalidades continuam em aberto.
+        self.m1.refresh_from_db()
+        self.assertEqual(self.m1.status, "aberta")
+
+        # Simula a aprovacao (mesmo caminho do webhook).
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+        pag.refresh_from_db()
+        self.assertEqual(pag.status, "aprovado")
+        self.assertTrue(pag.finalizado)
+        self.assertEqual(pag.taxa, Decimal("0.60"))  # 1% de 60
+
+        self.m1.refresh_from_db()
+        self.m2.refresh_from_db()
+        self.assertEqual(self.m1.status, "paga")
+        self.assertEqual(self.m2.status, "paga")
+        self.assertEqual(self.m1.forma_pagamento, "pix")
+        self.assertEqual(self.m1.pagamento_id, pag.id)
+        self.assertEqual(self.m1.valor_pago, Decimal("30.00"))

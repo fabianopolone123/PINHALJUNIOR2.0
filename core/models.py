@@ -1794,6 +1794,16 @@ class Mensalidade(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="mensalidades_registradas", verbose_name="Registrado por",
     )
+    # Cobrança online (Pix/cartão via Mercado Pago) que quitou esta mensalidade.
+    # Nulo em pagamento manual/dinheiro/importado (taxa de gateway = zero).
+    pagamento = models.ForeignKey(
+        "Pagamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mensalidades",
+        verbose_name="Pagamento (gateway)",
+    )
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:

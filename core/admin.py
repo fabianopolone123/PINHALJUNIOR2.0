@@ -21,6 +21,7 @@ from .models import (
     ItemCompraLoja,
     ItemPedidoLoja,
     OperadorEvento,
+    Pagamento,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
@@ -206,6 +207,29 @@ class MensalidadeAdmin(admin.ModelAdmin):
 @admin.register(ConfigMensalidade)
 class ConfigMensalidadeAdmin(admin.ModelAdmin):
     list_display = ("valor_inscricao", "valor_mensalidade", "atualizado_em")
+
+
+@admin.register(Pagamento)
+class PagamentoAdmin(admin.ModelAdmin):
+    """Auditoria dos pagamentos do gateway (Mercado Pago). Só leitura — estes
+    registros são criados/atualizados pela engine e pelo webhook, nunca à mão."""
+
+    list_display = (
+        "id", "tipo", "forma", "status", "valor_bruto", "taxa", "valor_liquido",
+        "modo", "mp_payment_id", "criado_em", "pago_em",
+    )
+    list_filter = ("tipo", "status", "forma", "modo")
+    search_fields = ("referencia", "mp_payment_id")
+    date_hierarchy = "criado_em"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ComprovanteCustoClubeInline(admin.TabularInline):

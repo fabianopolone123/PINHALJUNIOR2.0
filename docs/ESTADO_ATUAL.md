@@ -2,8 +2,23 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 1: engine Pix + webhook + lojinha de
-evento**): início da integração real de pagamentos (**só Pix** nesta parte; cartão fica com o caminho preparado).
+**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 2: Mensalidades online + admin do
+Pagamento**): (1) o model `Pagamento` entrou no **/admin/** (lista só-leitura, para auditoria: bruto, taxa,
+líquido, status, forma, modo, mp_id). (2) **Mensalidades online via Pix**: na aba Aventureiros, cada aventureiro
+com valor em aberto tem o botão **"💳 Cobrar em aberto via Pix"** → modal seleciona os meses (checkbox + total ao
+vivo) → gera **uma cobrança Pix só** (`mensalidade_cobrar_view`, `Pagamento tipo="mensalidade"` com os ids no
+`payload`); na aprovação (webhook ou "Simular" no teste), `_finalizar_mensalidade` **quita todos os meses
+escolhidos** automaticamente (forma Pix, `valor_pago`, `pago_em`, FK `Mensalidade.pagamento`; idempotente).
+Reaproveita a engine da Etapa 1 e já serve a futura tela do responsável. Criadas ainda uma **página de pagamento
+genérica** (`pagamento.html`) e uma **tela de sucesso genérica** (`pagamento_sucesso.html`), por `referencia` do
+pagamento, reaproveitáveis nas Etapas 3/4. Rotas novas: `mensalidades/cobrar/`, `pagamento/<ref>/`,
+`pagamento/<ref>/sucesso/`. Migration **0032** (`Mensalidade.pagamento`). Testes em
+`core.tests.MensalidadePixTests`. **Pendências:** Loja do Clube (Etapa 3), Inscrição (Etapa 4), taxa/líquido nos
+relatórios (Etapa 5), cartão (Etapa 6); tela do responsável pagar as próprias mensalidades (futura). Antes:
+Pagamentos Mercado Pago — Etapa 1.
+
+**Anterior (Pagamentos Mercado Pago — Etapa 1: engine Pix + webhook + lojinha de
+evento):** início da integração real de pagamentos (**só Pix** nesta parte; cartão fica com o caminho preparado).
 Criada uma **engine única reaproveitável** para os 4 pontos (lojinha de evento, Loja do Clube, mensalidades,
 inscrição) e **ligada primeiro na lojinha de evento**. Peças: **`MercadoPagoConfig`** (singleton, só Diretor,
 tela `/mercadopago/`; **dois pares** de credenciais — teste/produção — + `modo` ativo; segredos mascarados,

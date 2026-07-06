@@ -1,0 +1,49 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Pagamento aprovado — {{ titulo }}</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <article class="card evento-publico-card">
+                <div class="sucesso-check" aria-hidden="true">✅</div>
+                <h1 class="evento-publico-titulo">Pagamento aprovado!</h1>
+                <p class="evento-publico-desc">{{ titulo }}</p>
+
+                {% if itens_resumo %}
+                <div class="pagamento-resumo">
+                    <ul class="pagamento-itens">
+                        {% for item in itens_resumo %}
+                        <li>
+                            <span class="pag-item-nome">{{ item.nome }}</span>
+                            <span class="pag-item-valor">R$ {{ item.valor }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="pagamento-total">Total pago: <strong>R$ {{ total|moeda }}</strong> <span class="pag-forma">· Pago com Pix</span></p>
+                </div>
+                {% else %}
+                <p class="pagamento-total">Total pago: <strong>R$ {{ total|moeda }}</strong> · Pago com Pix</p>
+                {% endif %}
+
+                <a href="{{ voltar_url }}" class="btn-acao pagamento-confirmar">Voltar</a>
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+</body>
+</html>

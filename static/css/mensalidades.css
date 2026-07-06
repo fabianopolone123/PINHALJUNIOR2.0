@@ -213,3 +213,13 @@
     .mens-av-resumo { margin-left: 0; flex-basis: 100%; }
     .mens-mes-dir { margin-left: 0; flex-basis: 100%; }
 }
+
+/* ===== Cobrar em aberto via Pix ===== */
+.mens-cobrar-barra { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.mens-cobrar-lista { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.mens-cobrar-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px;
+}
+.mens-cobrar-item .mens-cobrar-nome { flex: 1; }
+.mens-cobrar-item .mens-cobrar-valor { font-weight: 600; }

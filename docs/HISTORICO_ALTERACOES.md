@@ -22,6 +22,48 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Pagamentos Mercado Pago (Etapa 2): Mensalidades online + admin do Pagamento
+
+### Resumo
+Segunda etapa da integração. **(1)** `Pagamento` agora aparece no **/admin/** (lista só-leitura, para auditoria).
+**(2)** **Mensalidades online via Pix**: o Diretor seleciona os meses em aberto de um aventureiro e gera **uma
+única cobrança Pix**; quando o pagamento é aprovado (webhook ou "Simular" no teste), **todos os meses escolhidos
+são quitados automaticamente**. Reaproveita a engine da Etapa 1 e já fica pronto para a futura tela do
+responsável (mesmo fluxo: selecionar em aberto → pagar → baixa tudo). Criada também uma **página de pagamento
+genérica** (QR + polling + simular) e uma **tela de sucesso genérica**, reaproveitáveis pelas próximas etapas.
+
+### Como funciona
+- Na aba **Aventureiros** das Mensalidades, cada aventureiro com valor em aberto ganha o botão **"💳 Cobrar em
+  aberto via Pix"** → abre um modal com os meses em aberto (checkbox, total ao vivo) → **"Gerar cobrança Pix"**.
+- `mensalidade_cobrar_view` cria um `Pagamento` (`tipo="mensalidade"`, `payload` com os ids dos meses) + o Pix, e
+  leva à página de pagamento genérica.
+- Na aprovação, `_finalizar_mensalidade` marca cada mensalidade do payload como **paga** (forma Pix, `valor_pago`,
+  `pago_em`, `registrado_por`, FK `pagamento`). Idempotente (só mexe nas que ainda estão em aberto). O webhook
+  "sabe quem pagou e o quê" pelo `payload`.
+
+### Arquivos criados/alterados
+- `core/admin.py`: `PagamentoAdmin` (só-leitura: sem add/change/delete).
+- `core/models.py`: FK `Mensalidade.pagamento`. Migration **0032**.
+- `core/views.py`: `_finalizar_mensalidade` + dispatch; `_sucesso_url_e_sessao` para os tipos genéricos;
+  `pagamento_view` (página genérica), `pagamento_sucesso_view` (sucesso genérico), `mensalidade_cobrar_view`.
+- `core/urls.py`: `mensalidades/cobrar/`, `pagamento/<ref>/` e `pagamento/<ref>/sucesso/`.
+- `templates/core/pagamento.html` e `pagamento_sucesso.html`: **novas** (genéricas, reaproveitáveis).
+  `templates/core/mensalidades.html`: botão + modal de cobrança; `data-valor`/`data-nome` nos meses.
+- `static/js/mensalidade_pix.js`: **novo** (monta o modal com os meses em aberto + total ao vivo).
+  `static/css/mensalidades.css`: estilos do modal de cobrança.
+- `core/tests.py`: `MensalidadePixTests` (renderização da tela; cobrança → simular → baixa múltipla + taxa + FK).
+
+### Decisões tomadas
+- Uma cobrança Pix por **aventureiro** (a view garante que todas as mensalidades são do mesmo).
+- Por ora quem dispara é o **Diretor** (para testar); a engine já serve a futura tela do responsável.
+- Páginas de pagamento/sucesso **genéricas** (por `referencia` do pagamento) para reuso nas Etapas 3 e 4.
+
+### Pendências
+- Próximas: **Loja do Clube** (Etapa 3), **Inscrição de evento** (Etapa 4), **taxa/líquido nos relatórios**
+  (Etapa 5) e **cartão** (Etapa 6). Tela do responsável para pagar as próprias mensalidades: futura.
+
+---
+
 ## 2026-07-06 - Pagamentos Mercado Pago (Etapa 1): engine Pix + webhook + lojinha de evento
 
 ### Resumo
