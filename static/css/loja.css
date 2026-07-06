@@ -584,6 +584,28 @@
 .loja-entrega-parcial { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
 .loja-entrega-pendente { background: rgba(192, 57, 43, 0.12); color: #a5281b; }
 
+.loja-compras-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.loja-filtro-pendentes {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: #555;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.loja-entrega-tudo { flex: 0 0 auto; }
+.loja-entrega-tudo.loja-entrega-pendente,
+.loja-entrega-tudo.loja-entrega-parcial {
+    background: var(--verde, #3a9d3a);
+    color: #fff;
+    border-color: transparent;
+}
+.loja-entrega-tudo.loja-entrega-entregue {
+    background: rgba(15, 76, 129, 0.08);
+    color: var(--azul-escuro, #0f4c81);
+}
+
 .loja-item-entrega { flex-wrap: wrap; }
 .loja-entrega-toggle {
     flex: 0 0 auto;

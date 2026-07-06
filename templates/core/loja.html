@@ -304,31 +304,19 @@
                         </section>
                     </div>
 
-                    {% if relatorio.pendentes %}
-                    <section class="card loja-rel-bloco">
-                        <h2 class="secao-titulo">📦 A entregar ({{ relatorio.n_pendentes }})</h2>
-                        <ul class="loja-entregar-lista">
-                            {% for it in relatorio.pendentes %}
-                            <li class="loja-entregar-item" data-item="{{ it.id }}">
-                                <span class="loja-entregar-qtd">{{ it.falta_entregar }}×</span>
-                                <span class="loja-entregar-nome">{{ it.produto_nome }}{% if it.variacao_nome %} <small>({{ it.variacao_nome }})</small>{% endif %}</span>
-                                <span class="loja-entregar-comprador">{{ it.compra.comprador_nome }} · {{ it.compra.codigo }}</span>
-                                <button type="button" class="btn-secundario btn-acao-pequeno loja-entregar-btn" data-item="{{ it.id }}" data-entregar="1">✅ Entregar</button>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </section>
-                    {% endif %}
-
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Todas as compras</h2>
-                        <input type="search" id="lojaBuscaCompras" class="loja-busca" placeholder="🔎 Buscar por nome, código ou produto…" aria-label="Buscar compras">
+                        <div class="loja-compras-filtros">
+                            <input type="search" id="lojaBuscaCompras" class="loja-busca" placeholder="🔎 Buscar por nome, código ou produto…" aria-label="Buscar compras">
+                            <label class="loja-filtro-pendentes"><input type="checkbox" id="lojaSoPendentes"> Só a entregar</label>
+                        </div>
                     </div>
                     {% if compras %}
                     <div class="loja-compras" id="lojaComprasLista">
                         {% for c in compras %}
                         <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}"
-                                 data-busca="{{ c.comprador_nome|lower }} {{ c.codigo|lower }} {% for i in c.itens.all %}{{ i.produto_nome|lower }} {% endfor %}">
+                                 data-busca="{{ c.comprador_nome|lower }} {{ c.codigo|lower }} {% for i in c.itens.all %}{{ i.produto_nome|lower }} {% endfor %}"
+                                 data-pendente="{% if c.status != 'cancelado' and c.status_entrega != 'entregue' %}1{% else %}0{% endif %}">
                             <summary class="loja-compra-topo">
                                 <span class="loja-compra-codigo">{{ c.codigo }}</span>
                                 <span class="loja-compra-nome">{{ c.comprador_nome }}</span>
@@ -365,6 +353,10 @@
                                 </ul>
                                 {% if c.status != 'cancelado' %}
                                 <div class="loja-compra-rodape">
+                                    <button type="button" class="btn-secundario loja-entrega-tudo loja-entrega-{{ c.status_entrega }}" data-compra="{{ c.id }}"
+                                            data-entregar="{% if c.status_entrega == 'entregue' %}0{% else %}1{% endif %}">
+                                        {% if c.status_entrega == 'entregue' %}↩ Desfazer entregas{% else %}✅ Entregar tudo{% endif %}
+                                    </button>
                                     <form method="post" action="{% url 'core:loja_compra_cancelar' c.id %}" class="form-excluir-loja"
                                           data-confirmar="Cancelar a compra {{ c.codigo }}? O estoque será devolvido.">
                                         {% csrf_token %}

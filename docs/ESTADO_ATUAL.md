@@ -4,9 +4,9 @@
 
 **Última atualização:** 2026-07-05 (**Loja: aba "Vendas" (relatório + entrega) + import de pedidos**): a tela
 da Loja ganhou a aba **"Vendas"** (📊, Diretor): **KPIs** (arrecadado, nº de compras, ticket médio, itens a
-entregar), **Mais vendidos**, **Por forma de pagamento**, seção **"A entregar"** (pendentes com botão) e
-**Todas as compras** — lista detalhada e **buscável** com todos os dados e **marcar entrega por item** (toggle
-sem recarregar). O `ItemCompraLoja` ganhou controle de **entrega** (`quantidade_entregue`/`entregue_em`/
+entregar), **Mais vendidos** e **Por forma de pagamento**, e **Todas as compras** — lista detalhada,
+**buscável** (com filtro **"Só a entregar"**), com **marcar entrega por item** (toggle sem recarregar) e
+botão **"Entregar tudo"** por pedido (rota `loja/entrega/compra/`). O `ItemCompraLoja` ganhou controle de **entrega** (`quantidade_entregue`/`entregue_em`/
 `entregue_por`; mig. **0023**). Foram **importados os pedidos pagos** da loja antiga (21 compras, R$ 3.083,50,
 Pix) com comprador/forma/data/entrega preservados (dados locais, não versionados). Rota `loja/entrega/`.
 Antes: galeria de fotos + fix de estilo.

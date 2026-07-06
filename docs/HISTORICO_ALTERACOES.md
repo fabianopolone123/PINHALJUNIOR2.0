@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Loja/Vendas: entrega por pedido ("Entregar tudo") + filtro "Só a entregar"
+
+### Resumo
+Refino da entrega na aba **Vendas**, a pedido do usuário: a seção separada **"A entregar"** (que virava uma
+lista enorme) foi **removida**. Agora tudo acontece dentro de **"Todas as compras"** (ordenadas por data):
+cada compra mostra o **selo** de entrega e, ao expandir, tem os **toggles por item** e um botão **"Entregar
+tudo"** (entrega/desfaz todas as variações do pedido de uma vez — ideal para o Uniforme de Gala). Adicionado
+o filtro **"Só a entregar"** ao lado da busca, para achar rápido os pedidos pendentes. Os KPIs e o "Mais
+vendidos"/"Por forma" continuam.
+
+### Arquivos criados/alterados
+- `core/views.py`: `loja_entrega_compra_view` (marca/desmarca todos os itens de uma compra; JSON).
+- `core/urls.py`: rota `loja/entrega/compra/`.
+- `templates/core/loja.html`: remove a seção "A entregar"; adiciona botão "Entregar tudo" por compra,
+  `data-pendente` no card e o filtro "Só a entregar".
+- `static/js/loja.js`: handler do "Entregar tudo" (atualiza selo, botão e todos os toggles) + filtro
+  combinado (busca + só pendentes).
+- `static/css/loja.css`: estilos do filtro e do botão "Entregar tudo" (verde quando há o que entregar).
+
+### Decisões tomadas
+- Entrega segue por **item** (toggle) **ou por pedido inteiro** ("Entregar tudo"); nada de lista global —
+  o Diretor abre o pedido marcado como "A entregar" e resolve ali.
+
+---
+
 ## 2026-07-05 - Loja: aba "Vendas" (relatório + entrega) + importação dos pedidos pagos do sistema antigo
 
 ### Resumo

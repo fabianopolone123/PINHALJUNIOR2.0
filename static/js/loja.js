@@ -75,76 +75,113 @@
         return { cls: "pendente", txt: "⏳ A entregar" };
     }
 
-    function atualizarSeloCompra(compraEl, status) {
-        if (!compraEl) return;
-        var s = compraEl.querySelector(".loja-entrega-selo");
-        if (!s) return;
-        var info = selo(status);
-        s.className = "loja-entrega-selo loja-entrega-" + info.cls;
-        s.textContent = info.txt;
+    function setToggle(btn, status) {
+        var entregue = status === "entregue";
+        btn.dataset.entregar = entregue ? "0" : "1";
+        btn.textContent = entregue ? "✅ Entregue" : "Entregar";
+        btn.className = "loja-entrega-toggle loja-entrega-" + status;
     }
 
-    document.addEventListener("click", function (e) {
-        var btn = e.target.closest(".loja-entrega-toggle, .loja-entregar-btn");
-        if (!btn) return;
-        var itemId = btn.dataset.item;
-        var entregar = btn.dataset.entregar === "1" ? "1" : "0";
-        btn.disabled = true;
+    // Atualiza selo, botão "entregar tudo" e data-pendente de uma compra.
+    function atualizarCompra(compraEl, status) {
+        if (!compraEl) return;
+        var s = compraEl.querySelector(".loja-entrega-selo");
+        if (s) {
+            var info = selo(status);
+            s.className = "loja-entrega-selo loja-entrega-" + info.cls;
+            s.textContent = info.txt;
+        }
+        var tudo = compraEl.querySelector(".loja-entrega-tudo");
+        if (tudo) {
+            var entregue = status === "entregue";
+            tudo.dataset.entregar = entregue ? "0" : "1";
+            tudo.textContent = entregue ? "↩ Desfazer entregas" : "✅ Entregar tudo";
+            tudo.className = "btn-secundario loja-entrega-tudo loja-entrega-" + status;
+        }
+        compraEl.dataset.pendente = status === "entregue" ? "0" : "1";
+        if (soPendentes && soPendentes.checked) aplicarFiltro();
+    }
 
-        fetch("/loja/entrega/", {
+    function pedir(corpo) {
+        return fetch("/loja/entrega/" + (corpo.compra_id ? "compra/" : ""), {
             method: "POST",
             headers: {
                 "X-Requested-With": "XMLHttpRequest",
                 "X-CSRFToken": csrf(),
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            body: "item_id=" + encodeURIComponent(itemId) + "&entregar=" + entregar,
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (!d || !d.ok) {
+            body: Object.keys(corpo).map(function (k) {
+                return k + "=" + encodeURIComponent(corpo[k]);
+            }).join("&"),
+        }).then(function (r) { return r.json(); });
+    }
+
+    document.addEventListener("click", function (e) {
+        // Entrega de um item.
+        var btn = e.target.closest(".loja-entrega-toggle");
+        if (btn) {
+            btn.disabled = true;
+            pedir({ item_id: btn.dataset.item, entregar: btn.dataset.entregar === "1" ? "1" : "0" })
+                .then(function (d) {
+                    if (!d || !d.ok) throw new Error();
+                    setToggle(btn, d.status);
+                    atualizarCompra(btn.closest(".loja-compra"), d.compra_status);
+                    btn.disabled = false;
+                })
+                .catch(function () {
                     if (window.mostrarToast) window.mostrarToast("Não foi possível atualizar a entrega.", "error");
                     btn.disabled = false;
-                    return;
-                }
-                if (btn.classList.contains("loja-entregar-btn")) {
-                    // Item da lista "A entregar": some ao entregar.
-                    var li = btn.closest(".loja-entregar-item");
-                    if (li) li.remove();
-                    if (window.mostrarToast) window.mostrarToast("Entrega registrada ✅", "success");
-                } else {
-                    // Toggle dentro da compra.
-                    var entregue = d.status === "entregue";
-                    btn.dataset.entregar = entregue ? "0" : "1";
-                    btn.textContent = entregue ? "✅ Entregue" : "Entregar";
-                    btn.className = "loja-entrega-toggle loja-entrega-" + d.status;
-                    atualizarSeloCompra(btn.closest(".loja-compra"), d.compra_status);
-                }
-                btn.disabled = false;
-            })
-            .catch(function () {
-                if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error");
-                btn.disabled = false;
-            });
+                });
+            return;
+        }
+        // Entregar tudo (ou desfazer) de uma compra.
+        var tudo = e.target.closest(".loja-entrega-tudo");
+        if (tudo) {
+            tudo.disabled = true;
+            var alvo = tudo.dataset.entregar === "1" ? "1" : "0";
+            pedir({ compra_id: tudo.dataset.compra, entregar: alvo })
+                .then(function (d) {
+                    if (!d || !d.ok) throw new Error();
+                    var compraEl = tudo.closest(".loja-compra");
+                    (d.itens || []).forEach(function (it) {
+                        var b = compraEl.querySelector('.loja-entrega-toggle[data-item="' + it.id + '"]');
+                        if (b) setToggle(b, it.status);
+                    });
+                    atualizarCompra(compraEl, d.compra_status);
+                    if (window.mostrarToast) {
+                        window.mostrarToast(alvo === "1" ? "Pedido entregue ✅" : "Entregas desfeitas", alvo === "1" ? "success" : "info");
+                    }
+                    tudo.disabled = false;
+                })
+                .catch(function () {
+                    if (window.mostrarToast) window.mostrarToast("Não foi possível atualizar as entregas.", "error");
+                    tudo.disabled = false;
+                });
+        }
     });
 
-    // Busca nas compras.
+    // Busca + filtro "só a entregar".
     var busca = document.getElementById("lojaBuscaCompras");
+    var soPendentes = document.getElementById("lojaSoPendentes");
     var lista = document.getElementById("lojaComprasLista");
-    if (busca && lista) {
-        var vazio = document.querySelector(".loja-busca-vazio");
-        function normal(s) {
-            return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-        }
-        busca.addEventListener("input", function () {
-            var q = normal(busca.value.trim());
-            var achou = 0;
-            Array.prototype.forEach.call(lista.querySelectorAll(".loja-compra"), function (c) {
-                var ok = !q || normal(c.dataset.busca).indexOf(q) !== -1;
-                c.hidden = !ok;
-                if (ok) achou++;
-            });
-            if (vazio) vazio.hidden = achou !== 0;
-        });
+    var vazio = document.querySelector(".loja-busca-vazio");
+    function normal(s) {
+        return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     }
+    function aplicarFiltro() {
+        if (!lista) return;
+        var q = normal(busca ? busca.value.trim() : "");
+        var pend = soPendentes && soPendentes.checked;
+        var achou = 0;
+        Array.prototype.forEach.call(lista.querySelectorAll(".loja-compra"), function (c) {
+            var okBusca = !q || normal(c.dataset.busca).indexOf(q) !== -1;
+            var okPend = !pend || c.dataset.pendente === "1";
+            var ok = okBusca && okPend;
+            c.hidden = !ok;
+            if (ok) achou++;
+        });
+        if (vazio) vazio.hidden = achou !== 0;
+    }
+    if (busca) busca.addEventListener("input", aplicarFiltro);
+    if (soPendentes) soPendentes.addEventListener("change", aplicarFiltro);
 })();

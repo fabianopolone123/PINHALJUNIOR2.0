@@ -3592,6 +3592,27 @@ def loja_entrega_view(request):
     })
 
 
+@diretor_required
+@require_POST
+def loja_entrega_compra_view(request):
+    """Marca/desmarca a entrega de TODOS os itens de uma compra de uma vez. JSON."""
+    compra = get_object_or_404(CompraLoja, pk=request.POST.get("compra_id"))
+    entregar = request.POST.get("entregar") == "1"
+    agora = timezone.now() if entregar else None
+    itens = []
+    for item in compra.itens.all():
+        item.quantidade_entregue = item.quantidade if entregar else 0
+        item.entregue_em = agora
+        item.entregue_por = request.user if entregar else None
+        item.save(update_fields=["quantidade_entregue", "entregue_em", "entregue_por"])
+        itens.append({"id": item.id, "status": item.status_entrega})
+    return JsonResponse({
+        "ok": True,
+        "compra_status": compra.status_entrega,
+        "itens": itens,
+    })
+
+
 @login_required
 def loja_produto_view(request, pk):
     """Página de um produto na vitrine: configurar (tamanhos/itens) e adicionar ao
