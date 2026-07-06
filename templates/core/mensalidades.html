@@ -1,0 +1,202 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Mensalidades - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mensalidades.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Mensalidades</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Mensalidades 💰</h1>
+                    <p class="cabecalho-sub">Controle das cobranças dos aventureiros — quem pagou, quem falta.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- KPIs -->
+                <div class="mens-kpis">
+                    <div class="card mens-kpi">
+                        <span class="mens-kpi-icone" aria-hidden="true">📈</span>
+                        <span class="mens-kpi-valor">R$ {{ totais.previsto|moeda }}</span>
+                        <span class="mens-kpi-rotulo">Previsto ({{ ano }})</span>
+                    </div>
+                    <div class="card mens-kpi">
+                        <span class="mens-kpi-icone" aria-hidden="true">💰</span>
+                        <span class="mens-kpi-valor">R$ {{ totais.recebido|moeda }}</span>
+                        <span class="mens-kpi-rotulo">Recebido</span>
+                    </div>
+                    <div class="card mens-kpi{% if totais.aberto %} alerta{% endif %}">
+                        <span class="mens-kpi-icone" aria-hidden="true">⏳</span>
+                        <span class="mens-kpi-valor">R$ {{ totais.aberto|moeda }}</span>
+                        <span class="mens-kpi-rotulo">Em aberto</span>
+                    </div>
+                    <div class="card mens-kpi">
+                        <span class="mens-kpi-icone" aria-hidden="true">🎫</span>
+                        <span class="mens-kpi-valor">{{ totais.isentos }}</span>
+                        <span class="mens-kpi-rotulo">Isentos</span>
+                    </div>
+                </div>
+
+                <!-- Barra de configuração / ano / gerar -->
+                <section class="card mens-toolbar">
+                    <form method="post" action="{% url 'core:mensalidade_config' %}" class="mens-config">
+                        {% csrf_token %}
+                        <span class="mens-config-titulo">Valores padrão:</span>
+                        <label>Inscrição <input type="number" step="0.01" min="0" name="valor_inscricao" value="{{ config.valor_inscricao }}" class="mens-input-valor"></label>
+                        <label>Mensalidade <input type="number" step="0.01" min="0" name="valor_mensalidade" value="{{ config.valor_mensalidade }}" class="mens-input-valor"></label>
+                        <button type="submit" class="btn-secundario btn-acao-pequeno">Salvar valores</button>
+                    </form>
+                    <div class="mens-toolbar-dir">
+                        <form method="get" class="mens-ano-form">
+                            <label for="mensAno">Ano:</label>
+                            <select id="mensAno" name="ano" class="campo-select" onchange="this.form.submit()">
+                                {% for a in anos %}<option value="{{ a }}"{% if a == ano %} selected{% endif %}>{{ a }}</option>{% endfor %}
+                            </select>
+                        </form>
+                        <form method="post" action="{% url 'core:mensalidades_gerar' %}" class="mens-gerar-form"
+                              data-confirmar="Gerar as cobranças que faltam de {{ ano }} para todos os aventureiros ativos?">
+                            {% csrf_token %}
+                            <input type="hidden" name="ano" value="{{ ano }}">
+                            <button type="submit" class="btn-acao btn-acao-pequeno">⚙️ Gerar cobranças {{ ano }}</button>
+                        </form>
+                    </div>
+                </section>
+
+                <div class="secao-cabecalho">
+                    <h2 class="secao-titulo">Aventureiros</h2>
+                    <div class="mens-filtros">
+                        <input type="search" id="mensBusca" class="loja-busca" placeholder="🔎 Buscar aventureiro…" aria-label="Buscar aventureiro">
+                        <label class="mens-filtro-deve"><input type="checkbox" id="mensSoDeve"> Só quem deve</label>
+                    </div>
+                </div>
+
+                {% if linhas %}
+                <div class="mens-lista" id="mensLista">
+                    {% for l in linhas %}
+                    <details class="card mens-av" data-busca="{{ l.av.nome_completo|lower }}" data-deve="{% if l.resumo.aberto_valor %}1{% else %}0{% endif %}">
+                        <summary class="mens-av-topo">
+                            <span class="mens-av-nome">{{ l.av.nome_completo }}</span>
+                            {% if l.av.mensalidade_isento %}<span class="mens-badge mens-badge-isento">Isento</span>
+                            {% elif l.av.mensalidade_desconto_pct %}<span class="mens-badge mens-badge-desc">{{ l.av.mensalidade_desconto_pct }}% desc.</span>{% endif %}
+                            <span class="mens-av-resumo">
+                                <span data-resumo-pagas>{{ l.resumo.pagas }}</span>/<span data-resumo-total>{{ l.resumo.total }}</span> pagas
+                                · em aberto <strong data-resumo-aberto>R$ {{ l.resumo.aberto_valor|moeda }}</strong>
+                            </span>
+                        </summary>
+                        <div class="mens-av-corpo">
+                            <!-- Isenção / desconto -->
+                            <form method="post" action="{% url 'core:mensalidade_isencao' %}" class="mens-isencao">
+                                {% csrf_token %}
+                                <input type="hidden" name="aventureiro_id" value="{{ l.av.id }}">
+                                <input type="hidden" name="ano" value="{{ ano }}">
+                                <label class="mens-chk"><input type="checkbox" name="isento"{% if l.av.mensalidade_isento %} checked{% endif %}> Isento</label>
+                                <label>Desconto <input type="number" min="0" max="100" name="desconto_pct" value="{{ l.av.mensalidade_desconto_pct }}" class="mens-input-pct">%</label>
+                                <button type="submit" class="btn-secundario btn-acao-pequeno">Aplicar</button>
+                                <small class="ajuda">Recalcula as cobranças em aberto de {{ ano }}.</small>
+                            </form>
+
+                            {% if l.tem %}
+                            <div class="mens-meses">
+                                {% for m in l.meses %}
+                                <div class="mens-mes{% if m.status == 'cancelada' %} cancelada{% endif %}" data-mens="{{ m.id }}" data-status="{{ m.status }}">
+                                    <span class="mens-mes-nome">{{ m.mes_nome }}{% if m.tipo == 'inscricao' %} <span class="mens-tag">inscrição</span>{% endif %}</span>
+                                    <span class="mens-mes-valor">{% if m.isento %}<span class="mens-selo mens-isento">Isento</span>{% else %}R$ {{ m.valor|moeda }}{% endif %}</span>
+                                    {% if not m.isento and m.status != 'cancelada' %}
+                                    <span class="mens-acao">
+                                        <span class="mens-quando-aberta">
+                                            <select class="mens-forma campo-select" aria-label="Forma de pagamento">
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="pix">Pix</option>
+                                                <option value="cartao">Cartão</option>
+                                                <option value="online">Online</option>
+                                            </select>
+                                            <button type="button" class="btn-acao btn-acao-pequeno mens-pagar-btn" data-pagar="1">Marcar pago</button>
+                                        </span>
+                                        <span class="mens-quando-paga">
+                                            <span class="mens-selo mens-paga">✅ Pago{% if m.forma_pagamento %} · {{ m.get_forma_pagamento_display }}{% endif %}</span>
+                                            <button type="button" class="btn-secundario btn-acao-pequeno mens-pagar-btn" data-pagar="0">Desfazer</button>
+                                        </span>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="mens-vazio-av">
+                                <span>Sem cobranças em {{ ano }}.</span>
+                                <form method="post" action="{% url 'core:mensalidades_gerar' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="ano" value="{{ ano }}">
+                                    <input type="hidden" name="aventureiro_id" value="{{ l.av.id }}">
+                                    <button type="submit" class="btn-secundario btn-acao-pequeno">Gerar {{ ano }}</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+                <p class="painel-nota mens-busca-vazio" hidden>Nenhum aventureiro encontrado.</p>
+                {% else %}
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">💰</span>
+                    <h2 class="card-titulo">Nenhum aventureiro ativo</h2>
+                    <p class="card-texto">Cadastre aventureiros para gerar as mensalidades.</p>
+                </section>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/mensalidades.js' %}"></script>
+</body>
+</html>

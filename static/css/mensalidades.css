@@ -1,0 +1,100 @@
+/* =========================================================
+   Mensalidades. Complementa base.css / inicio.css / eventos.css.
+   Mobile-first; paleta azul/verde.
+   ========================================================= */
+
+.loja-busca, .mens-input-valor, .mens-input-pct {
+    padding: 8px 10px;
+    border: 1.5px solid var(--borda, #cdd7e1);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+.loja-busca { flex: 1 1 220px; max-width: 320px; }
+.loja-busca:focus, .mens-input-valor:focus, .mens-input-pct:focus {
+    outline: none; border-color: var(--azul-claro, #4a90d9);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.15);
+}
+.mens-input-valor { width: 90px; }
+.mens-input-pct { width: 64px; }
+
+/* KPIs */
+.mens-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+.mens-kpi { text-align: center; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mens-kpi-icone { font-size: 1.6rem; }
+.mens-kpi-valor { font-size: 1.35rem; font-weight: 800; color: var(--azul-escuro, #0f4c81); }
+.mens-kpi-rotulo { font-size: 0.82rem; color: #666; }
+.mens-kpi.alerta .mens-kpi-valor { color: #b8860b; }
+
+/* Toolbar (config + ano + gerar) */
+.mens-toolbar {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    justify-content: space-between; padding: 14px 16px; margin-bottom: 18px;
+}
+.mens-config { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.mens-config-titulo { font-weight: 700; color: var(--azul-escuro, #0f4c81); }
+.mens-config label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.mens-toolbar-dir { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.mens-ano-form { display: inline-flex; align-items: center; gap: 6px; }
+.mens-ano-form .campo-select { padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--borda, #cdd7e1); }
+
+/* Filtros */
+.mens-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.mens-filtro-deve { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; color: #555; white-space: nowrap; cursor: pointer; }
+
+/* Lista de aventureiros */
+.mens-lista { display: grid; gap: 10px; }
+.mens-av { padding: 0; }
+.mens-av-topo {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    padding: 12px 14px; cursor: pointer; list-style: none;
+}
+.mens-av-topo::-webkit-details-marker { display: none; }
+.mens-av-nome { font-weight: 700; color: var(--azul-escuro, #0f4c81); }
+.mens-av-resumo { margin-left: auto; font-size: 0.88rem; color: #555; }
+.mens-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.mens-badge-isento { background: rgba(58, 157, 58, 0.16); color: #1f6b1f; }
+.mens-badge-desc { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
+
+.mens-av-corpo { padding: 0 14px 14px; }
+
+/* Isenção / desconto */
+.mens-isencao {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 10px 12px; margin-bottom: 12px;
+    background: rgba(15, 76, 129, 0.04);
+    border: 1px solid rgba(15, 76, 129, 0.1); border-radius: 10px;
+}
+.mens-isencao label { display: inline-flex; align-items: center; gap: 5px; font-size: 0.9rem; }
+.mens-chk { font-weight: 600; }
+
+/* Meses */
+.mens-meses { display: grid; gap: 8px; }
+.mens-mes {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    padding: 8px 12px; border: 1px solid rgba(15, 76, 129, 0.12); border-radius: 10px;
+}
+.mens-mes.cancelada { opacity: 0.55; }
+.mens-mes[data-status="paga"] { border-color: rgba(58, 157, 58, 0.4); background: rgba(58, 157, 58, 0.05); }
+.mens-mes-nome { flex: 1 1 130px; font-weight: 600; }
+.mens-tag { font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(31, 111, 178, 0.14); color: var(--azul-escuro, #0f4c81); vertical-align: middle; }
+.mens-mes-valor { flex: 0 0 auto; min-width: 90px; font-weight: 700; }
+.mens-acao { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.mens-forma { padding: 5px 8px; border-radius: 8px; border: 1.5px solid var(--borda, #cdd7e1); font-size: 0.85rem; }
+.mens-quando-aberta, .mens-quando-paga { display: inline-flex; align-items: center; gap: 8px; }
+.mens-mes[data-status="paga"] .mens-quando-aberta { display: none; }
+.mens-mes:not([data-status="paga"]) .mens-quando-paga { display: none; }
+
+.mens-selo { font-size: 0.78rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.mens-paga { background: rgba(58, 157, 58, 0.16); color: #1f6b1f; }
+.mens-isento { background: rgba(15, 76, 129, 0.1); color: var(--azul-escuro, #0f4c81); }
+
+.mens-vazio-av { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #777; font-size: 0.9rem; }
+
+@media (min-width: 720px) {
+    .mens-kpis { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 560px) {
+    .mens-av-resumo { margin-left: 0; flex-basis: 100%; }
+    .mens-acao { margin-left: 0; flex-basis: 100%; }
+}

@@ -33,6 +33,10 @@ Estado "ativo" pelo nome da URL atual.
             <span class="menu-icone" aria-hidden="true">🛍️</span>
             <span class="menu-texto">Loja</span>
         </a>
+        <a href="{% url 'core:mensalidades' %}" class="menu-item{% if un == 'mensalidades' %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">💰</span>
+            <span class="menu-texto">Mensalidades</span>
+        </a>
         <a href="{% url 'core:presenca' %}" class="menu-item{% if un == 'presenca' or un == 'presenca_evento' %} ativo{% endif %}">
             <span class="menu-icone" aria-hidden="true">✅</span>
             <span class="menu-texto">Presença</span>

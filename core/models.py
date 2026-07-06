@@ -139,6 +139,13 @@ class Aventureiro(models.Model):
     # dele também é desativada (ver views/usuarios).
     ativo = models.BooleanField("Ativo (frequenta o clube)", default=True)
 
+    # Mensalidades: isenção total ou desconto percentual (0-100) aplicados ao
+    # valor das mensalidades/inscrição deste aventureiro.
+    mensalidade_isento = models.BooleanField("Isento de mensalidade", default=False)
+    mensalidade_desconto_pct = models.PositiveSmallIntegerField(
+        "Desconto na mensalidade (%)", default=0
+    )
+
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:
@@ -1508,3 +1515,113 @@ class FotoProdutoLoja(models.Model):
 
     def __str__(self):
         return f"Foto de {self.produto.nome}"
+
+
+# ===========================================================================
+# Mensalidades do clube. Cada aventureiro tem, por mês do ano, uma cobrança:
+# o mês em que se inscreveu nasce como "inscrição" e os meses seguintes como
+# "mensalidade" (valores configuráveis; padrão R$ 30 cada). Aventureiros podem
+# ser isentos ou ter desconto percentual. Controle simples de pago/em aberto.
+# ===========================================================================
+
+MESES_PT = [
+    "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+]
+
+TIPO_MENSALIDADE_CHOICES = [
+    ("inscricao", "Inscrição"),
+    ("mensalidade", "Mensalidade"),
+]
+
+STATUS_MENSALIDADE_CHOICES = [
+    ("aberta", "Em aberto"),
+    ("paga", "Paga"),
+    ("cancelada", "Cancelada"),
+]
+
+
+class ConfigMensalidade(models.Model):
+    """Valores padrão das cobranças (linha única/singleton)."""
+
+    valor_inscricao = models.DecimalField(
+        "Valor da inscrição", max_digits=10, decimal_places=2, default=30
+    )
+    valor_mensalidade = models.DecimalField(
+        "Valor da mensalidade", max_digits=10, decimal_places=2, default=30
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="config_mensalidades", verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuração de mensalidades"
+        verbose_name_plural = "Configuração de mensalidades"
+
+    def __str__(self):
+        return "Configuração de mensalidades"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def valor_base(self, tipo):
+        return self.valor_inscricao if tipo == "inscricao" else self.valor_mensalidade
+
+
+class Mensalidade(models.Model):
+    """Uma cobrança mensal de um aventureiro (inscrição ou mensalidade)."""
+
+    aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.CASCADE,
+        related_name="mensalidades",
+        verbose_name="Aventureiro",
+    )
+    ano = models.PositiveIntegerField("Ano")
+    mes = models.PositiveSmallIntegerField("Mês")  # 1-12
+    tipo = models.CharField(
+        "Tipo", max_length=12, choices=TIPO_MENSALIDADE_CHOICES, default="mensalidade"
+    )
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    isento = models.BooleanField("Isento", default=False)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_MENSALIDADE_CHOICES, default="aberta"
+    )
+    forma_pagamento = models.CharField(
+        "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES, blank=True
+    )
+    valor_pago = models.DecimalField(
+        "Valor pago", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    pago_em = models.DateTimeField("Pago em", null=True, blank=True)
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="mensalidades_registradas", verbose_name="Registrado por",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Mensalidade"
+        verbose_name_plural = "Mensalidades"
+        unique_together = [("aventureiro", "ano", "mes")]
+        ordering = ["ano", "mes"]
+
+    def __str__(self):
+        return f"{self.aventureiro.nome_completo} — {self.mes:02d}/{self.ano}"
+
+    @property
+    def mes_nome(self):
+        return MESES_PT[self.mes] if 1 <= self.mes <= 12 else str(self.mes)
+
+    @property
+    def competencia(self):
+        return f"{self.mes:02d}/{self.ano}"
+
+    @property
+    def em_aberto(self):
+        """Deve pagar: em aberto, não isenta e não cancelada."""
+        return self.status == "aberta" and not self.isento

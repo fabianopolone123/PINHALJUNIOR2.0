@@ -5,9 +5,11 @@ from .models import (
     AutorizacaoImagem,
     CampoInscricao,
     CompraLoja,
+    ConfigMensalidade,
     CupomDesconto,
     CustoEvento,
     Evento,
+    Mensalidade,
     FaixaEtariaPreco,
     FichaMedica,
     FotoProdutoLoja,
@@ -181,3 +183,15 @@ class CompraLojaAdmin(admin.ModelAdmin):
     search_fields = ("codigo", "comprador_nome")
     list_filter = ("status", "forma_pagamento")
     inlines = [ItemCompraLojaInline]
+
+
+@admin.register(Mensalidade)
+class MensalidadeAdmin(admin.ModelAdmin):
+    list_display = ("aventureiro", "ano", "mes", "tipo", "valor", "status", "isento", "forma_pagamento")
+    search_fields = ("aventureiro__nome_completo",)
+    list_filter = ("ano", "tipo", "status", "isento")
+
+
+@admin.register(ConfigMensalidade)
+class ConfigMensalidadeAdmin(admin.ModelAdmin):
+    list_display = ("valor_inscricao", "valor_mensalidade", "atualizado_em")

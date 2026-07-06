@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Módulo Mensalidades
+
+### Resumo
+Novo módulo **"Mensalidades"** (💰, só Diretor), separado do financeiro. Cada aventureiro tem, por mês do
+ano, uma **cobrança**: o mês em que se inscreve nasce como **"inscrição"** e os meses seguintes como
+**"mensalidade"** (gerado **automaticamente** no cadastro). **Valores configuráveis** (padrão R$ 30 cada, em
+`ConfigMensalidade`). Aventureiros podem ser **isentos** ou ter **desconto %** — aplicável às cobranças em
+aberto. Tela com **KPIs** (previsto/recebido/em aberto/isentos do ano), **seletor de ano**, botão **"Gerar
+cobranças <ano>"** (todos ou um), e por aventureiro (card expansível) os **12 meses** com **marcar pago/
+desfazer** (forma de pagamento, sem recarregar) + controle de isenção/desconto. **Busca** e filtro **"Só quem
+deve"**. Contas de mensalidade ficam no banco local (não versionadas).
+
+### Arquivos criados/alterados
+- `core/models.py`: `ConfigMensalidade` (singleton) e `Mensalidade` (aventureiro, ano, mês, tipo, valor,
+  isento, status, forma/valor_pago/pago_em); campos `Aventureiro.mensalidade_isento` e
+  `mensalidade_desconto_pct`; constantes `MESES_PT`. Migration **0024**.
+- `core/views.py`: `_gerar_mensalidades`/`_valor_mensalidade`/`_resumo_mensalidades`/`_fmt_moeda`;
+  `mensalidades_view`, `mensalidade_config_view`, `mensalidades_gerar_view`, `mensalidade_pagar_view` (JSON),
+  `mensalidade_isencao_view`; geração automática no `_salvar_aventureiro` (cadastro).
+- `core/urls.py`: rotas `mensalidades/…`. `core/admin.py`: `Mensalidade`/`ConfigMensalidade`.
+- `templates/core/_menu.html`: item "Mensalidades" (💰, Diretor).
+- `templates/core/mensalidades.html`; `static/js/mensalidades.js`; `static/css/mensalidades.css`.
+
+### Decisões tomadas
+- Uma `Mensalidade` por (aventureiro, ano, mês) — controle simples de pago/aberto (sem agregador de
+  pagamento por ora). Isenção/desconto ficam no aventureiro e são reaplicados às cobranças **em aberto**
+  (as **pagas** não mudam). Geração é **idempotente**.
+
+### Pendências
+- Importar o **histórico de mensalidades** do sistema antigo (360 cobranças + pagamentos) — precisa mapear
+  aventureiro antigo→novo. Cobrança/lembrete por WhatsApp. Financeiro geral consolidando as 3 áreas.
+
+---
+
 ## 2026-07-05 - Loja/Vendas: remove os chips por produto (redundantes com a busca)
 
 ### Resumo

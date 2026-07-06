@@ -170,4 +170,10 @@ urlpatterns = [
     path("loja/compra/<int:compra_id>/cancelar/", views.loja_compra_cancelar_view, name="loja_compra_cancelar"),
     path("loja/entrega/", views.loja_entrega_view, name="loja_entrega"),
     path("loja/entrega/compra/", views.loja_entrega_compra_view, name="loja_entrega_compra"),
+    # --- Mensalidades ---
+    path("mensalidades/", views.mensalidades_view, name="mensalidades"),
+    path("mensalidades/config/", views.mensalidade_config_view, name="mensalidade_config"),
+    path("mensalidades/gerar/", views.mensalidades_gerar_view, name="mensalidades_gerar"),
+    path("mensalidades/pagar/", views.mensalidade_pagar_view, name="mensalidade_pagar"),
+    path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),
 ]

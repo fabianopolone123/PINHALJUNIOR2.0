@@ -12,9 +12,10 @@ simples e **evento complexo** com inscrições (Fase 2), lojinha e **PDV/balcão
 (Fase 4). Também há o módulo **Presença**, o módulo **WhatsApp** (integração com a API da W-API —
 configurar a instância e enviar mensagens; só Diretor) e a **Loja do Clube** (loja oficial de uniformes/
 lenços, independente da lojinha de evento; cadastro de produtos com **grupos/variações** + vitrine com
-**carrinho** e pagamento simulado; só Diretor por ora). O clube tem **3 áreas financeiras**: eventos (feito),
-**mensalidades** (a fazer) e **loja** (base feita). **Próximos:** mensalidades e um Financeiro geral
-consolidando as três — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
+**carrinho** e pagamento simulado; só Diretor por ora) e o módulo **Mensalidades** (cobranças mensais por aventureiro,
+inscrição+mensalidade, valores configuráveis, isenção/desconto, controle de pago; só Diretor). O clube tem
+**3 áreas financeiras**: eventos, **mensalidades** e **loja** (todas com base feita). **Próximo:** um
+Financeiro geral consolidando as três — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
 
 ## Stack
 - Django 5.2 / Python 3.10+ · SQLite · Pillow (foto 3x4)
@@ -46,7 +47,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **WhatsApp** (Diretor): `/whatsapp/` (config W-API + envio), `/whatsapp/config/`, `/whatsapp/enviar/`
 - **Loja do Clube** (Diretor no menu; vitrine/carrinho `@login_required`): `/loja/` (abas Gerenciar/Loja),
   `/loja/produto/novo|<id>/editar|<id>/excluir/`, `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`,
-  `/loja/finalizar|pagamento|sucesso/`, `/loja/compra/<id>/cancelar/`
+  `/loja/finalizar|pagamento|sucesso/`, `/loja/compra/<id>/cancelar/`, `/loja/entrega/…`
+- **Mensalidades** (Diretor): `/mensalidades/`, `/mensalidades/config|gerar|pagar|isencao/`
 - `/admin/`
 
 ## Models (`core/models.py`)
@@ -61,9 +63,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
   um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
   (mais vendidos, a entregar, KPIs) + todas as compras.
+- **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão) e `Mensalidade` (aventureiro, ano, mês,
+  tipo inscrição/mensalidade, valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/
+  `mensalidade_desconto_pct`. Geração automática no cadastro.
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0023`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0024`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

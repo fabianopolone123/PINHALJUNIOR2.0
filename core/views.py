@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import json
+from collections import defaultdict
 import re
 import secrets
 import unicodedata
@@ -43,8 +44,10 @@ from .forms import (
 )
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
+    MESES_PT,
     Aventureiro,
     CompraLoja,
+    ConfigMensalidade,
     CupomDesconto,
     Evento,
     FotoProdutoLoja,
@@ -52,6 +55,7 @@ from .models import (
     Inscricao,
     ItemCompraLoja,
     ItemPedidoLoja,
+    Mensalidade,
     OperadorEvento,
     ParticipanteInscricao,
     PedidoLoja,
@@ -381,6 +385,10 @@ def _salvar_aventureiro(usuario, aventureiro, medica, imagem):
         autorizacao = imagem.save(commit=False)
         autorizacao.aventureiro = aventureiro_obj
         autorizacao.save()
+        # Gera as mensalidades do ano: o mês atual como inscrição e os
+        # seguintes como mensalidade (valores/isenção conforme configuração).
+        hoje = timezone.localdate()
+        _gerar_mensalidades(aventureiro_obj, hoje.year, mes_inscricao=hoje.month)
     return aventureiro_obj
 
 
@@ -3863,4 +3871,217 @@ def loja_compra_cancelar_view(request, compra_id):
             compra.save(update_fields=["status"])
         messages.success(request, "Compra cancelada.")
     return redirect(reverse("core:loja") + "?aba=gerenciar")
+
+
+# ===========================================================================
+# Mensalidades do clube
+# ===========================================================================
+def _valor_mensalidade(config, aventureiro, tipo):
+    """(valor, isento) de uma cobrança conforme config + isenção/desconto do av."""
+    if aventureiro.mensalidade_isento:
+        return Decimal("0"), True
+    base = config.valor_base(tipo)
+    pct = aventureiro.mensalidade_desconto_pct or 0
+    if pct:
+        base = (base * (100 - pct) / Decimal("100")).quantize(Decimal("0.01"))
+    return base, False
+
+
+def _gerar_mensalidades(aventureiro, ano, mes_inscricao=None):
+    """Cria as cobranças que faltam do ano: `mes_inscricao` (se dado) nasce como
+    'inscrição' e os demais como 'mensalidade'. Idempotente. Retorna quantas criou."""
+    config = ConfigMensalidade.get_solo()
+    inicio = mes_inscricao or 1
+    existentes = set(
+        aventureiro.mensalidades.filter(ano=ano).values_list("mes", flat=True)
+    )
+    novas = 0
+    for mes in range(inicio, 13):
+        if mes in existentes:
+            continue
+        tipo = "inscricao" if mes == mes_inscricao else "mensalidade"
+        valor, isento = _valor_mensalidade(config, aventureiro, tipo)
+        Mensalidade.objects.create(
+            aventureiro=aventureiro, ano=ano, mes=mes, tipo=tipo,
+            valor=valor, isento=isento, status="aberta",
+        )
+        novas += 1
+    return novas
+
+
+def _resumo_mensalidades(meses):
+    """Resumo de uma lista de Mensalidade (de um aventureiro/ano)."""
+    pagas = [m for m in meses if m.status == "paga"]
+    abertas = [m for m in meses if m.em_aberto]
+    isentas = [m for m in meses if m.isento and m.status != "cancelada"]
+    return {
+        "pagas": len(pagas),
+        "abertas": len(abertas),
+        "isentas": len(isentas),
+        "total": len([m for m in meses if m.status != "cancelada"]),
+        "aberto_valor": sum((m.valor for m in abertas), Decimal("0")),
+        "recebido": sum((m.valor_pago or Decimal("0") for m in pagas), Decimal("0")),
+        "previsto": sum(
+            (m.valor for m in meses if m.status != "cancelada" and not m.isento),
+            Decimal("0"),
+        ),
+    }
+
+
+@diretor_required
+def mensalidades_view(request):
+    """Painel de mensalidades (Diretor): por aventureiro, os meses do ano com o
+    controle de pago/em aberto, isenção/desconto e geração das cobranças."""
+    anos = sorted(
+        set(Mensalidade.objects.values_list("ano", flat=True)) | {timezone.localdate().year},
+        reverse=True,
+    )
+    try:
+        ano = int(request.GET.get("ano", anos[0]))
+    except (TypeError, ValueError):
+        ano = anos[0]
+
+    aventureiros = list(Aventureiro.objects.filter(ativo=True).order_by("nome_completo"))
+    mens = Mensalidade.objects.filter(ano=ano).select_related("aventureiro")
+    por_av = defaultdict(list)
+    for m in mens:
+        por_av[m.aventureiro_id].append(m)
+
+    linhas = []
+    tot = {"previsto": Decimal("0"), "recebido": Decimal("0"),
+           "aberto": Decimal("0"), "isentos": 0}
+    for av in aventureiros:
+        meses = sorted(por_av.get(av.id, []), key=lambda x: x.mes)
+        resumo = _resumo_mensalidades(meses)
+        linhas.append({"av": av, "meses": meses, "resumo": resumo,
+                       "tem": bool(meses)})
+        tot["previsto"] += resumo["previsto"]
+        tot["recebido"] += resumo["recebido"]
+        tot["aberto"] += resumo["aberto_valor"]
+        if av.mensalidade_isento:
+            tot["isentos"] += 1
+
+    contexto = {
+        "config": ConfigMensalidade.get_solo(),
+        "ano": ano,
+        "anos": anos,
+        "linhas": linhas,
+        "totais": tot,
+        "formas_pagamento": [
+            ("dinheiro", "Dinheiro"), ("pix", "Pix"),
+            ("cartao", "Cartão"), ("online", "Online"),
+        ],
+    }
+    return render(request, "core/mensalidades.html", contexto)
+
+
+@diretor_required
+@require_POST
+def mensalidade_config_view(request):
+    """Salva os valores padrão de inscrição/mensalidade."""
+    config = ConfigMensalidade.get_solo()
+    try:
+        config.valor_inscricao = Decimal((request.POST.get("valor_inscricao") or "0").replace(",", "."))
+        config.valor_mensalidade = Decimal((request.POST.get("valor_mensalidade") or "0").replace(",", "."))
+        if config.valor_inscricao < 0 or config.valor_mensalidade < 0:
+            raise InvalidOperation
+    except (InvalidOperation, ValueError):
+        messages.error(request, "Valores inválidos.")
+        return redirect("core:mensalidades")
+    config.atualizado_por = request.user
+    config.save()
+    messages.success(request, "Valores atualizados. Novas cobranças usarão esses valores.")
+    return redirect("core:mensalidades")
+
+
+@diretor_required
+@require_POST
+def mensalidades_gerar_view(request):
+    """Gera as cobranças do ano que faltam (um aventureiro ou todos os ativos)."""
+    try:
+        ano = int(request.POST.get("ano") or timezone.localdate().year)
+    except (TypeError, ValueError):
+        ano = timezone.localdate().year
+    av_id = request.POST.get("aventureiro_id") or ""
+    if av_id:
+        alvos = Aventureiro.objects.filter(pk=av_id, ativo=True)
+    else:
+        alvos = Aventureiro.objects.filter(ativo=True)
+    total = 0
+    for av in alvos:
+        total += _gerar_mensalidades(av, ano)
+    messages.success(request, f"{total} cobrança(s) gerada(s) para {ano}.")
+    return redirect(f"{reverse('core:mensalidades')}?ano={ano}")
+
+
+@diretor_required
+@require_POST
+def mensalidade_pagar_view(request):
+    """Marca/desmarca uma mensalidade como paga (JSON). Retorna o resumo do av."""
+    try:
+        m = Mensalidade.objects.select_related("aventureiro").get(pk=request.POST.get("mensalidade_id"))
+    except (Mensalidade.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({"ok": False}, status=404)
+    pagar = request.POST.get("pagar") == "1"
+    if pagar:
+        m.status = "paga"
+        m.forma_pagamento = request.POST.get("forma") or "dinheiro"
+        m.valor_pago = m.valor
+        m.pago_em = timezone.now()
+        m.registrado_por = request.user
+    else:
+        m.status = "aberta"
+        m.forma_pagamento = ""
+        m.valor_pago = None
+        m.pago_em = None
+        m.registrado_por = None
+    m.save()
+    meses = list(m.aventureiro.mensalidades.filter(ano=m.ano))
+    r = _resumo_mensalidades(meses)
+    return JsonResponse({
+        "ok": True,
+        "status": m.status,
+        "pagas": r["pagas"],
+        "total": r["total"],
+        "aberto_fmt": _fmt_moeda(r["aberto_valor"]),
+    })
+
+
+@diretor_required
+@require_POST
+def mensalidade_isencao_view(request):
+    """Define isenção/desconto de um aventureiro e (opcional) reaplica nas
+    cobranças em aberto do ano."""
+    av = get_object_or_404(Aventureiro, pk=request.POST.get("aventureiro_id"))
+    av.mensalidade_isento = bool(request.POST.get("isento"))
+    try:
+        pct = int(request.POST.get("desconto_pct") or 0)
+    except (TypeError, ValueError):
+        pct = 0
+    av.mensalidade_desconto_pct = min(max(pct, 0), 100)
+    av.save(update_fields=["mensalidade_isento", "mensalidade_desconto_pct"])
+
+    try:
+        ano = int(request.POST.get("ano") or timezone.localdate().year)
+    except (TypeError, ValueError):
+        ano = timezone.localdate().year
+    config = ConfigMensalidade.get_solo()
+    afetadas = 0
+    for m in av.mensalidades.filter(ano=ano).exclude(status="paga").exclude(status="cancelada"):
+        valor, isento = _valor_mensalidade(config, av, m.tipo)
+        m.valor, m.isento = valor, isento
+        m.save(update_fields=["valor", "isento"])
+        afetadas += 1
+    messages.success(
+        request,
+        f"Atualizado: {'isento' if av.mensalidade_isento else (str(av.mensalidade_desconto_pct) + '% de desconto' if av.mensalidade_desconto_pct else 'sem desconto')}. "
+        f"{afetadas} cobrança(s) em aberto recalculada(s).",
+    )
+    return redirect(f"{reverse('core:mensalidades')}?ano={ano}")
+
+
+def _fmt_moeda(valor):
+    """R$ no formato pt-BR (para respostas JSON)."""
+    s = f"{valor:,.2f}"
+    return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
 

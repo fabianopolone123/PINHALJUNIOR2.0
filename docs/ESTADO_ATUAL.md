@@ -2,7 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Loja: aba "Vendas" (relatório + entrega) + import de pedidos**): a tela
+**Última atualização:** 2026-07-05 (**Módulo Mensalidades**): novo item **"Mensalidades"** (💰, só Diretor),
+separado do financeiro. Cada aventureiro tem, por mês do ano, uma cobrança — o mês de inscrição nasce como
+**"inscrição"** e os seguintes como **"mensalidade"** (gerado **automaticamente** no cadastro). **Valores
+configuráveis** (padrão R$ 30, `ConfigMensalidade`); aventureiros podem ser **isentos** ou ter **desconto %**.
+Tela com KPIs (previsto/recebido/em aberto/isentos), seletor de ano, **"Gerar cobranças <ano>"** e, por
+aventureiro, os 12 meses com **marcar pago/desfazer** (forma, sem recarregar) + isenção/desconto; busca e
+filtro **"Só quem deve"**. Modelos `ConfigMensalidade`/`Mensalidade` + campos no Aventureiro (mig. **0024**);
+rotas `/mensalidades/…`. Antes: Loja (aba Vendas + import de pedidos).
+
+**Anterior:** (**Loja: aba "Vendas" (relatório + entrega) + import de pedidos**): a tela
 da Loja ganhou a aba **"Vendas"** (📊, Diretor): **KPIs** (arrecadado, nº de compras, ticket médio, itens a
 entregar), **Mais vendidos** (produto **composto** conta **por pedido**; simples por **unidade**) e **Por
 forma de pagamento**, e **Todas as compras** — lista detalhada, **buscável** (busca + filtro **"Só a
