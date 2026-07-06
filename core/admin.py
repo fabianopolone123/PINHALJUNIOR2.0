@@ -10,6 +10,7 @@ from .models import (
     Evento,
     FaixaEtariaPreco,
     FichaMedica,
+    FotoProdutoLoja,
     GrupoLoja,
     Inscricao,
     ItemCompraLoja,
@@ -156,12 +157,17 @@ class GrupoLojaInline(admin.TabularInline):
     extra = 1
 
 
+class FotoProdutoLojaInline(admin.TabularInline):
+    model = FotoProdutoLoja
+    extra = 1
+
+
 @admin.register(ProdutoLoja)
 class ProdutoLojaAdmin(admin.ModelAdmin):
     list_display = ("nome", "composto", "controla_estoque", "ativo", "ordem")
     search_fields = ("nome",)
     list_filter = ("composto", "ativo")
-    inlines = [GrupoLojaInline]
+    inlines = [FotoProdutoLojaInline, GrupoLojaInline]
 
 
 class ItemCompraLojaInline(admin.TabularInline):

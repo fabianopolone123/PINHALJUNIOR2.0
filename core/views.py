@@ -47,6 +47,7 @@ from .models import (
     CompraLoja,
     CupomDesconto,
     Evento,
+    FotoProdutoLoja,
     GrupoLoja,
     Inscricao,
     ItemCompraLoja,
@@ -3354,6 +3355,7 @@ def _produto_loja_form(request, produto):
                     prod.ordem = (ultimo.ordem + 1) if ultimo else 0
                 prod.save()
                 _salvar_grupos_loja(prod, grupos_data)
+                _salvar_fotos_loja(request, prod)
             messages.success(request, "Produto salvo.")
             return redirect(reverse("core:loja") + "?aba=gerenciar")
         messages.error(request, "Verifique os dados do produto e as variações.")
@@ -3366,12 +3368,25 @@ def _produto_loja_form(request, produto):
     contexto = {
         "form": form,
         "produto": produto,
+        "fotos": list(produto.fotos.all()) if produto else [],
         "grupos": grupos,
         "grupo_modelo": _grupo_loja_vazio("__G__"),
         "linha_modelo": _variacao_loja_vazia("__V__"),
         "erros_var": erros_var,
     }
     return render(request, "core/loja_produto_form.html", contexto)
+
+
+def _salvar_fotos_loja(request, produto):
+    """Remove as fotos marcadas e adiciona as novas enviadas (upload múltiplo)."""
+    for foto in list(produto.fotos.all()):
+        if request.POST.get(f"foto_remover_{foto.id}"):
+            foto.delete()
+    ultimo = produto.fotos.order_by("-ordem").first()
+    ordem = (ultimo.ordem + 1) if ultimo else 0
+    for arquivo in request.FILES.getlist("fotos"):
+        FotoProdutoLoja.objects.create(produto=produto, imagem=arquivo, ordem=ordem)
+        ordem += 1
 
 
 @diretor_required
@@ -3490,7 +3505,7 @@ def loja_view(request):
     com carrinho). Por ora, só o Diretor vê o menu; a vitrine já é @login_required
     para quando abrirmos aos responsáveis."""
     produtos = list(
-        ProdutoLoja.objects.prefetch_related("grupos__variacoes").all()
+        ProdutoLoja.objects.prefetch_related("grupos__variacoes", "fotos").all()
     )
     compras = list(CompraLoja.objects.prefetch_related("itens").all()[:100])
     kits, total = _loja_cart_detalhado(request)
@@ -3512,12 +3527,14 @@ def loja_produto_view(request, pk):
     """Página de um produto na vitrine: configurar (tamanhos/itens) e adicionar ao
     carrinho. Mostra o seletor de aventureiro quando o login tem mais de um."""
     produto = get_object_or_404(
-        ProdutoLoja.objects.prefetch_related("grupos__variacoes"), pk=pk, ativo=True
+        ProdutoLoja.objects.prefetch_related("grupos__variacoes", "fotos"),
+        pk=pk, ativo=True,
     )
     aventureiros = list(_aventureiros_do_usuario(request.user))
     contexto = {
         "produto": produto,
         "grupos": list(produto.grupos.all()),
+        "fotos": list(produto.fotos.all()),
         "aventureiros": aventureiros,
     }
     return render(request, "core/loja_produto.html", contexto)

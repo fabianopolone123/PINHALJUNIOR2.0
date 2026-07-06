@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Loja do Clube (loja oficial)**): novo módulo **"Loja"** (🛍️) no menu
+**Última atualização:** 2026-07-05 (**Loja: galeria de fotos + fix de estilo**): produto agora tem
+**galeria de fotos** (várias por produto — como fica o uniforme, tabela de tamanhos) com **miniaturas** e
+**ampliação em tela cheia (lightbox)** no celular e no PC; no cadastro há **upload múltiplo** e remoção; a 1ª
+foto é a **capa** (`ProdutoLoja.capa`, modelo `FotoProdutoLoja`, mig. **0022**). Corrigido o **estilo dos
+campos do comprador** no carrinho (faltava a classe `evento-form`). Importado o **"Uniforme de Gala -
+Aventureiro (Completo)"** do sistema antigo: **61 variações** (Camiseta / Calça-Saia em escolha única +
+Acessórios obrigatórios) + **5 fotos** (as fotos ficam só em `media/`, git-ignored). Antes: criação do módulo Loja.
+
+**Anterior:** (**Loja do Clube (loja oficial)**): novo módulo **"Loja"** (🛍️) no menu
 (**só Diretor** por ora), **independente** da lojinha de evento — é a 1ª das 3 áreas financeiras do clube
 (eventos ✅, mensalidades ⏳, loja ▶). Tela com **2 abas**: **Gerenciar** (cadastrar produtos + compras
 recentes) e **Loja** (vitrine com **carrinho na sessão**). Produto em 3 níveis **Produto → Grupos →
@@ -468,6 +476,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   - `CompraLoja` — compra (FK `usuario`, dados do comprador, código `LC…`, status, `forma_pagamento`,
     `valor_total`). `ItemCompraLoja` — item (FK `compra`/`produto`/`variacao`/`aventureiro` + snapshots +
     `quantidade`/valores + `kit` = agrupa itens adicionados juntos, ex.: peças de um uniforme).
+  - `FotoProdutoLoja` — foto da **galeria** de um produto (FK `produto`, `imagem`, `ordem`; a 1ª é a capa,
+    via property `ProdutoLoja.capa`). Mig. **0022**. Suporta várias fotos + lightbox na vitrine.
 
 ## Funcionalidades incompletas / não implementadas
 - Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos).

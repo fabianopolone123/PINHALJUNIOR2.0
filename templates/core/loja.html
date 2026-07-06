@@ -85,8 +85,8 @@
                         {% for p in produtos %}
                         <article class="card loja-admin-card{% if not p.ativo %} inativo{% endif %}">
                             <div class="loja-admin-foto">
-                                {% if p.foto %}
-                                <img src="{{ p.foto.url }}" alt="" onerror="this.style.display='none'">
+                                {% if p.capa %}
+                                <img src="{{ p.capa.url }}" alt="" onerror="this.style.display='none'">
                                 {% else %}
                                 <span class="loja-admin-foto-vazia" aria-hidden="true">🛍️</span>
                                 {% endif %}
@@ -175,11 +175,12 @@
                         {% for p in produtos_ativos %}
                         <a class="card loja-vitrine-card" href="{% url 'core:loja_produto' p.id %}">
                             <div class="loja-vitrine-foto">
-                                {% if p.foto %}
-                                <img src="{{ p.foto.url }}" alt="" onerror="this.style.display='none'">
+                                {% if p.capa %}
+                                <img src="{{ p.capa.url }}" alt="" onerror="this.style.display='none'">
                                 {% else %}
                                 <span class="loja-vitrine-foto-vazia" aria-hidden="true">🛍️</span>
                                 {% endif %}
+                                {% if p.fotos.count > 1 %}<span class="loja-vitrine-fotos-badge">📷 {{ p.fotos.count }}</span>{% endif %}
                             </div>
                             <div class="loja-vitrine-info">
                                 <h3 class="loja-vitrine-nome">{{ p.nome }}</h3>
@@ -227,7 +228,7 @@
                             </div>
                             {% endfor %}
 
-                            <form method="post" action="{% url 'core:loja_finalizar' %}" class="loja-checkout" id="lojaCheckout">
+                            <form method="post" action="{% url 'core:loja_finalizar' %}" class="evento-form loja-checkout" id="lojaCheckout">
                                 {% csrf_token %}
                                 <div class="loja-total-linha">Total: <strong>R$ {{ cart_total|moeda }}</strong></div>
 

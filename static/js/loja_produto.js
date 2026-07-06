@@ -136,3 +136,69 @@
         });
     }
 })();
+
+/* =========================================================
+   Galeria de fotos do produto + lightbox (ampliar no celular e PC).
+   ========================================================= */
+(function () {
+    "use strict";
+
+    var dados = document.getElementById("lojaGaleriaDados");
+    if (!dados) return;
+    var urls = Array.prototype.map.call(dados.querySelectorAll("span[data-url]"),
+        function (s) { return s.getAttribute("data-url"); });
+    if (!urls.length) return;
+
+    var principalImg = document.getElementById("lojaGaleriaImg");
+    var thumbs = document.querySelectorAll(".loja-galeria-thumb");
+    var atual = 0;
+
+    function selecionar(i) {
+        atual = (i + urls.length) % urls.length;
+        if (principalImg) principalImg.src = urls[atual];
+        Array.prototype.forEach.call(thumbs, function (t) {
+            t.classList.toggle("ativa", parseInt(t.dataset.idx, 10) === atual);
+        });
+    }
+
+    Array.prototype.forEach.call(thumbs, function (t) {
+        t.addEventListener("click", function () { selecionar(parseInt(t.dataset.idx, 10)); });
+    });
+
+    // Lightbox
+    var lb = document.getElementById("lojaLightbox");
+    var lbImg = document.getElementById("lightImg");
+    var lbCont = document.getElementById("lightContador");
+    var btnPrincipal = document.querySelector(".loja-galeria-principal");
+
+    function mostrarLb() {
+        if (!lb) return;
+        lbImg.src = urls[atual];
+        if (lbCont) lbCont.textContent = (atual + 1) + " / " + urls.length;
+        lb.hidden = false;
+        document.body.style.overflow = "hidden";
+    }
+    function fecharLb() {
+        if (!lb) return;
+        lb.hidden = true;
+        document.body.style.overflow = "";
+    }
+    function navegar(d) { selecionar(atual + d); lbImg.src = urls[atual]; if (lbCont) lbCont.textContent = (atual + 1) + " / " + urls.length; }
+
+    if (btnPrincipal) btnPrincipal.addEventListener("click", mostrarLb);
+    if (lb) {
+        document.getElementById("lightFechar").addEventListener("click", fecharLb);
+        var ant = document.getElementById("lightAnt");
+        var prox = document.getElementById("lightProx");
+        var umaFoto = urls.length < 2;
+        if (ant) { ant.hidden = umaFoto; ant.addEventListener("click", function () { navegar(-1); }); }
+        if (prox) { prox.hidden = umaFoto; prox.addEventListener("click", function () { navegar(1); }); }
+        lb.addEventListener("click", function (e) { if (e.target === lb) fecharLb(); });
+        document.addEventListener("keydown", function (e) {
+            if (lb.hidden) return;
+            if (e.key === "Escape") fecharLb();
+            else if (e.key === "ArrowLeft") navegar(-1);
+            else if (e.key === "ArrowRight") navegar(1);
+        });
+    }
+})();

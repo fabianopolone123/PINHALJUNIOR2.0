@@ -22,6 +22,44 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Loja: galeria de fotos (com lightbox) + correção do estilo dos campos do carrinho
+
+### Resumo
+Dois ajustes na Loja do Clube: (1) **galeria de fotos por produto** — um produto pode ter **várias fotos**
+(ex.: como fica o uniforme, tabela de tamanhos), com **miniaturas** e **ampliação em tela cheia (lightbox)**
+no celular e no PC (setas/teclado/toque, fecha no X/fundo/Esc). No cadastro, **upload múltiplo** e remoção de
+fotos; a 1ª é a capa (vitrine/gerenciar). (2) **Correção**: os campos "Dados do comprador" (nome/WhatsApp/
+e-mail) no carrinho estavam **sem estilo** porque o CSS de campo é escopado em `.evento-form` e o form do
+carrinho não tinha essa classe — adicionada nele e no form de configuração do produto.
+
+Também foi **importado o "Uniforme de Gala - Aventureiro (Completo)"** do sistema antigo (produto 7): **61
+variações** em 3 grupos (Camiseta escolha única/obrigatório; Calça/Saia escolha única/obrigatório — calça
+meninos, saia meninas; Acessórios em itens, cada um obrigatório) + as **5 fotos** da galeria. Preços exatos.
+As fotos ficam **só em `media/`** (git-ignored), como as fotos dos membros.
+
+### Arquivos criados/alterados
+- `core/models.py`: modelo **`FotoProdutoLoja`** (galeria) + property **`ProdutoLoja.capa`** (1ª foto/legado).
+  Migration **0022**.
+- `core/forms.py`: `ProdutoLojaForm` deixa de ter o campo único `foto` (galeria via upload múltiplo na view).
+- `core/views.py`: `_produto_loja_form` trata upload/remoção de fotos (`_salvar_fotos_loja`); `loja_produto_view`
+  e `loja_view` passam/prefetch as fotos.
+- `core/admin.py`: inline `FotoProdutoLojaInline` em `ProdutoLoja`.
+- `templates/core/loja_produto.html`: galeria (principal + miniaturas) + **lightbox**; form de config com `evento-form`.
+- `templates/core/loja_produto_form.html`: seção "Fotos do produto" (existentes + remover + upload múltiplo).
+- `templates/core/loja.html`: cards usam `capa`; badge "📷 N" na vitrine; form do carrinho com `evento-form` (fix).
+- `static/js/loja_produto.js`: galeria + lightbox (miniaturas, setas, teclado, fechar).
+- `static/css/loja.css`: galeria, miniaturas, lightbox, gerenciador de fotos e badge.
+
+### Decisões tomadas
+- Galeria em modelo próprio (`FotoProdutoLoja`), sem foto por variação por ora (as fotos do antigo eram
+  `todas_variacoes=True`). A capa é a 1ª foto (ou o antigo `foto`, mantido só como fallback).
+- Fotos reais do uniforme/tabelas ficam **apenas em `media/`** (git-ignored), nunca versionadas.
+
+### Pendências
+- Fotos por variação (se um dia quiserem foto por tamanho/cor) — hoje é galeria do produto.
+
+---
+
 ## 2026-07-05 - Loja do Clube (loja oficial): cadastro, vitrine com carrinho e pagamento simulado
 
 ### Resumo

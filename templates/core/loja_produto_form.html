@@ -70,7 +70,24 @@
 
                         {% include "core/_campo.html" with campo=form.nome %}
                         {% include "core/_campo.html" with campo=form.descricao %}
-                        {% include "core/_campo.html" with campo=form.foto %}
+
+                        <div class="campo">
+                            <label>Fotos do produto <small class="ajuda">(a 1ª é a capa; pode enviar várias)</small></label>
+                            {% if fotos %}
+                            <div class="loja-fotos-atuais">
+                                {% for f in fotos %}
+                                <div class="loja-foto-atual">
+                                    <img src="{{ f.imagem.url }}" alt="">
+                                    <label class="loja-foto-remover">
+                                        <input type="checkbox" name="foto_remover_{{ f.id }}"> remover
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <input type="file" name="fotos" class="campo-file" accept="image/*" multiple>
+                            <small class="ajuda">Ex.: como fica o uniforme, tabela de tamanhos, detalhes. Aparecem numa galeria com ampliação.</small>
+                        </div>
 
                         <div class="campo">
                             <div class="campo-checkbox">

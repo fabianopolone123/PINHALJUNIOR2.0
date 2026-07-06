@@ -397,10 +397,10 @@ class ProdutoLojaForm(EstiloFormMixin, forms.ModelForm):
 
     class Meta:
         model = ProdutoLoja
-        fields = ["nome", "descricao", "foto", "composto", "controla_estoque", "ativo"]
+        # As fotos são uma galeria (várias), tratadas na view (upload múltiplo).
+        fields = ["nome", "descricao", "composto", "controla_estoque", "ativo"]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 2}),
-            "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):

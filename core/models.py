@@ -1235,6 +1235,14 @@ class ProdutoLoja(models.Model):
         ]
 
     @property
+    def capa(self):
+        """Imagem de capa: a 1ª foto da galeria; senão o campo `foto` (legado)."""
+        primeira = self.fotos.first()
+        if primeira is not None:
+            return primeira.imagem
+        return self.foto if self.foto else None
+
+    @property
     def preco_minimo(self):
         """Menor preço entre as variações ativas (para 'a partir de R$…')."""
         valores = [v.valor for v in self.variacoes_ativas]
@@ -1427,3 +1435,26 @@ class ItemCompraLoja(models.Model):
 
     def __str__(self):
         return f"{self.quantidade}x {self.produto_nome} — {self.compra.codigo}"
+
+
+class FotoProdutoLoja(models.Model):
+    """Uma foto da galeria de um produto da loja (várias por produto: como fica o
+    uniforme, tabela de tamanhos etc.). A 1ª (menor `ordem`) é a capa."""
+
+    produto = models.ForeignKey(
+        ProdutoLoja,
+        on_delete=models.CASCADE,
+        related_name="fotos",
+        verbose_name="Produto",
+    )
+    imagem = models.ImageField("Imagem", upload_to="loja/produtos/")
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Foto do produto"
+        verbose_name_plural = "Fotos do produto"
+        ordering = ["ordem", "id"]
+
+    def __str__(self):
+        return f"Foto de {self.produto.nome}"

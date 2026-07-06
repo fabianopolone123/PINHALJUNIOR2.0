@@ -60,20 +60,41 @@
 
                 <section class="card loja-detalhe">
                     <div class="loja-detalhe-topo">
-                        <div class="loja-detalhe-foto">
-                            {% if produto.foto %}
-                            <img src="{{ produto.foto.url }}" alt="" onerror="this.style.display='none'">
+                        <div class="loja-galeria">
+                            {% if fotos %}
+                            <button type="button" class="loja-galeria-principal" data-idx="0" aria-label="Ampliar foto">
+                                <img src="{{ fotos.0.imagem.url }}" alt="Foto de {{ produto.nome }}" id="lojaGaleriaImg">
+                                <span class="loja-galeria-zoom" aria-hidden="true">🔍</span>
+                            </button>
+                            {% if fotos|length > 1 %}
+                            <div class="loja-galeria-tiras">
+                                {% for f in fotos %}
+                                <button type="button" class="loja-galeria-thumb{% if forloop.first %} ativa{% endif %}" data-idx="{{ forloop.counter0 }}" aria-label="Ver foto {{ forloop.counter }}">
+                                    <img src="{{ f.imagem.url }}" alt="">
+                                </button>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                             {% else %}
-                            <span class="loja-detalhe-foto-vazia" aria-hidden="true">🛍️</span>
+                            <div class="loja-detalhe-foto">
+                                <span class="loja-detalhe-foto-vazia" aria-hidden="true">🛍️</span>
+                            </div>
                             {% endif %}
                         </div>
                         <div class="loja-detalhe-cabecalho">
                             <h1 class="loja-detalhe-nome">{{ produto.nome }}</h1>
                             {% if produto.descricao %}<p class="loja-detalhe-desc">{{ produto.descricao|linebreaksbr }}</p>{% endif %}
+                            {% if fotos|length > 1 %}<p class="loja-galeria-dica">📷 {{ fotos|length }} fotos — toque para ampliar.</p>{% endif %}
                         </div>
                     </div>
 
-                    <form method="post" action="{% url 'core:loja_carrinho_add' %}" class="loja-config-form" id="lojaConfigForm">
+                    {% if fotos %}
+                    <div id="lojaGaleriaDados" hidden>
+                        {% for f in fotos %}<span data-url="{{ f.imagem.url }}"></span>{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'core:loja_carrinho_add' %}" class="evento-form loja-config-form" id="lojaConfigForm">
                         {% csrf_token %}
                         <input type="hidden" name="produto_id" value="{{ produto.id }}">
 
@@ -152,6 +173,15 @@
                 </section>
             </div>
         </main>
+
+        <!-- Lightbox: foto em tamanho grande (celular e PC) -->
+        <div class="loja-lightbox" id="lojaLightbox" hidden>
+            <button type="button" class="loja-lightbox-fechar" id="lightFechar" aria-label="Fechar">✕</button>
+            <button type="button" class="loja-lightbox-nav loja-lightbox-ant" id="lightAnt" aria-label="Foto anterior">‹</button>
+            <img src="" alt="" class="loja-lightbox-img" id="lightImg">
+            <button type="button" class="loja-lightbox-nav loja-lightbox-prox" id="lightProx" aria-label="Próxima foto">›</button>
+            <span class="loja-lightbox-contador" id="lightContador"></span>
+        </div>
 
         <!-- Modal: aviso de itens obrigatórios não selecionados (soft) -->
         <div class="modal-overlay" id="modalObrig" hidden>
