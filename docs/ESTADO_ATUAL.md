@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Mensalidades: dashboard mês a mês**): a tela de Mensalidades ganhou
+**Última atualização:** 2026-07-05 (**Módulo Financeiro geral**): novo item **"Financeiro"** (📈, só Diretor)
+que **consolida mensalidades + loja + eventos** num só lugar. KPIs (Entradas/Saídas/Resultado) e 3 abas:
+**Resumo** (resumo por fonte, **donut** de entradas por fonte, **fluxo mensal** entradas × saídas), **Extrato**
+(extrato consolidado único, cronológico, com **filtro por fonte** + busca, +verde/−vermelho e comprovantes) e
+**Custos do clube** (lançar gastos gerais com valor/data/**comprovante**, listar/remover). Modelo `CustoClube`
+(mig. **0025**); rotas `/financeiro/…`. Entradas = mensalidades pagas + loja + (inscrições + lojinha de
+eventos); Saídas = custos de evento + custos do clube. Antes: Mensalidades (dashboard mês a mês).
+
+**Anterior:** (**Mensalidades: dashboard mês a mês**): a tela de Mensalidades ganhou
 **abas** — **Resumo** (dashboard: **donut de taxa de pagamento**, **gráfico de barras mês a mês** recebido ×
 em aberto em CSS puro, e **cards "Detalhe por mês"** — % paga com barra colorida, pagas/em aberto/isentos e
 recebido/a receber por mês) e **Aventureiros** (a lista operacional). O resumo conta inscrições + mensalidades.

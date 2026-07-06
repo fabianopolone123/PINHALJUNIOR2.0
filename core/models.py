@@ -1625,3 +1625,29 @@ class Mensalidade(models.Model):
     def em_aberto(self):
         """Deve pagar: em aberto, não isenta e não cancelada."""
         return self.status == "aberta" and not self.isento
+
+
+class CustoClube(models.Model):
+    """Despesa/custo geral do clube (não vinculada a um evento). Usado no
+    Financeiro geral, com comprovante anexo — igual aos custos de evento."""
+
+    nome = models.CharField("Descrição do gasto", max_length=150)
+    descricao = models.TextField("Observação", blank=True)
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    data = models.DateField("Data", default=datetime.date.today)
+    comprovante = models.FileField(
+        "Comprovante", upload_to="clube/custos/", blank=True, null=True
+    )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="custos_clube", verbose_name="Criado por",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Custo do clube"
+        verbose_name_plural = "Custos do clube"
+        ordering = ["-data", "-id"]
+
+    def __str__(self):
+        return f"{self.nome} — R$ {self.valor}"

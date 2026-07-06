@@ -15,6 +15,7 @@ from .models import (
     Aventureiro,
     AutorizacaoImagem,
     CampoInscricao,
+    CustoClube,
     CustoEvento,
     Evento,
     FaixaEtariaPreco,
@@ -426,4 +427,26 @@ class CustoEventoForm(EstiloFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["nome"].required = True
+        self._aplicar_estilo()
+
+
+class CustoClubeForm(EstiloFormMixin, forms.ModelForm):
+    """Custo/despesa geral do clube (com data e comprovante)."""
+
+    class Meta:
+        model = CustoClube
+        fields = ["nome", "descricao", "valor", "data", "comprovante"]
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 2}),
+            "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "data": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "comprovante": forms.ClearableFileInput(
+                attrs={"accept": "image/*,application/pdf"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nome"].required = True
+        self.fields["data"].input_formats = ["%Y-%m-%d"]
         self._aplicar_estilo()

@@ -31,6 +31,7 @@ from .forms import (
     AventureiroForm,
     CampoInscricaoForm,
     ContaForm,
+    CustoClubeForm,
     CustoEventoForm,
     EventoComplexoForm,
     EventoForm,
@@ -49,6 +50,8 @@ from .models import (
     CompraLoja,
     ConfigMensalidade,
     CupomDesconto,
+    CustoClube,
+    CustoEvento,
     Evento,
     FotoProdutoLoja,
     GrupoLoja,
@@ -4189,3 +4192,143 @@ def _fmt_moeda(valor):
     s = f"{valor:,.2f}"
     return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
 
+
+
+# ===========================================================================
+# Financeiro geral do clube (consolida mensalidades + loja + eventos + custos)
+# ===========================================================================
+def _dt_data(dt):
+    """Converte datetime/date/None em date (para agrupar/ordenar o extrato)."""
+    if dt is None:
+        return None
+    return dt.date() if hasattr(dt, "date") else dt
+
+
+@diretor_required
+def financeiro_view(request):
+    """Painel financeiro do clube inteiro: resumo por fonte, gráficos, custos do
+    clube e extrato consolidado (mensalidades + loja + eventos)."""
+    hoje = timezone.localdate()
+
+    mens_pagas = list(Mensalidade.objects.filter(status="paga").select_related("aventureiro"))
+    compras = list(CompraLoja.objects.filter(status="confirmado"))
+    inscricoes = list(Inscricao.objects.exclude(status="cancelada").select_related("evento"))
+    pedidos_ev = list(PedidoLoja.objects.filter(status="confirmado").select_related("evento"))
+    custos_ev = list(CustoEvento.objects.select_related("evento"))
+    custos_clube = list(CustoClube.objects.all())
+
+    mens_recebido = sum((m.valor_pago or Decimal("0") for m in mens_pagas), Decimal("0"))
+    mens_aberto = sum(
+        (m.valor for m in Mensalidade.objects.filter(status="aberta", aventureiro__ativo=True)),
+        Decimal("0"),
+    )
+    loja_total = sum((c.valor_total for c in compras), Decimal("0"))
+    inscr_total = sum((i.valor_total for i in inscricoes), Decimal("0"))
+    pedidos_total = sum((p.valor_total for p in pedidos_ev), Decimal("0"))
+    eventos_entradas = inscr_total + pedidos_total
+    custos_ev_total = sum((c.valor for c in custos_ev), Decimal("0"))
+    custos_clube_total = sum((c.valor for c in custos_clube), Decimal("0"))
+
+    entradas = mens_recebido + loja_total + eventos_entradas
+    saidas = custos_ev_total + custos_clube_total
+    resultado = entradas - saidas
+
+    resumo = {
+        "mensalidades": {"entradas": mens_recebido, "aberto": mens_aberto, "n": len(mens_pagas)},
+        "loja": {"entradas": loja_total, "n": len(compras)},
+        "eventos": {
+            "entradas": eventos_entradas, "inscricoes": inscr_total,
+            "pedidos": pedidos_total, "custos": custos_ev_total,
+            "resultado": eventos_entradas - custos_ev_total,
+        },
+        "custos_clube": {"total": custos_clube_total, "n": len(custos_clube)},
+    }
+
+    # Extrato consolidado
+    extrato = []
+    for m in mens_pagas:
+        extrato.append({"data": _dt_data(m.pago_em or m.criado_em), "fonte": "mensalidade",
+                        "tipo": "Mensalidade", "desc": f"{m.aventureiro.nome_completo} — {m.mes:02d}/{m.ano}",
+                        "valor": m.valor_pago or Decimal("0"), "saida": False, "comprovante": None})
+    for c in compras:
+        extrato.append({"data": _dt_data(c.criado_em), "fonte": "loja", "tipo": "Loja",
+                        "desc": f"{c.comprador_nome} — {c.codigo}", "valor": c.valor_total,
+                        "saida": False, "comprovante": None})
+    for i in inscricoes:
+        extrato.append({"data": _dt_data(i.criado_em), "fonte": "eventos", "tipo": "Inscrição",
+                        "desc": f"{i.evento.nome} — {i.responsavel_nome}", "valor": i.valor_total,
+                        "saida": False, "comprovante": None})
+    for p in pedidos_ev:
+        extrato.append({"data": _dt_data(p.criado_em), "fonte": "eventos", "tipo": "Lojinha do evento",
+                        "desc": f"{p.evento.nome} — {p.comprador_nome}", "valor": p.valor_total,
+                        "saida": False, "comprovante": None})
+    for cu in custos_ev:
+        extrato.append({"data": _dt_data(cu.criado_em), "fonte": "eventos", "tipo": "Custo do evento",
+                        "desc": f"{cu.evento.nome} — {cu.nome}", "valor": cu.valor,
+                        "saida": True, "comprovante": (cu.comprovante.url if cu.comprovante else None)})
+    for cc in custos_clube:
+        extrato.append({"data": cc.data, "fonte": "custos", "tipo": "Custo do clube",
+                        "desc": cc.nome, "valor": cc.valor, "saida": True,
+                        "comprovante": (cc.comprovante.url if cc.comprovante else None)})
+    extrato.sort(key=lambda e: (e["data"] or datetime.date.min), reverse=True)
+
+    # Fluxo mensal do ano atual (entradas x saídas por mês)
+    ent_mes = [Decimal("0")] * 13
+    sai_mes = [Decimal("0")] * 13
+    for e in extrato:
+        d = e["data"]
+        if d and d.year == hoje.year and 1 <= d.month <= 12:
+            if e["saida"]:
+                sai_mes[d.month] += e["valor"]
+            else:
+                ent_mes[d.month] += e["valor"]
+    maxm = max([Decimal("1")] + ent_mes[1:] + sai_mes[1:])
+    fluxo = []
+    for mes in range(1, 13):
+        fluxo.append({
+            "abrev": MESES_PT[mes][:3], "entrada": ent_mes[mes], "saida": sai_mes[mes],
+            "h_ent": int(ent_mes[mes] / maxm * 100), "h_sai": int(sai_mes[mes] / maxm * 100),
+        })
+
+    # Donut de entradas por fonte
+    total_ent = entradas or Decimal("1")
+    p1 = float(mens_recebido / total_ent * 100)
+    p2 = float((mens_recebido + loja_total) / total_ent * 100)
+    donut = mark_safe(
+        f"conic-gradient(#1f6fb2 0 {p1:.1f}%, #3a9d3a {p1:.1f}% {p2:.1f}%, "
+        f"#e0a800 {p2:.1f}% 100%)"
+    )
+
+    contexto = {
+        "entradas": entradas, "saidas": saidas, "resultado": resultado,
+        "resumo": resumo, "extrato": extrato, "fluxo": fluxo, "donut": donut,
+        "custos_clube": custos_clube, "custo_form": CustoClubeForm(),
+        "ano": hoje.year, "aba": request.GET.get("aba", "resumo"),
+    }
+    return render(request, "core/financeiro.html", contexto)
+
+
+@diretor_required
+@require_POST
+def custo_clube_novo_view(request):
+    """Lança um custo/gasto do clube (com comprovante)."""
+    form = CustoClubeForm(request.POST, request.FILES)
+    if form.is_valid():
+        custo = form.save(commit=False)
+        custo.criado_por = request.user
+        custo.save()
+        messages.success(request, "Custo lançado.")
+    else:
+        messages.error(request, "Verifique os dados do custo.")
+    return redirect(reverse("core:financeiro") + "?aba=custos")
+
+
+@diretor_required
+@require_POST
+def custo_clube_excluir_view(request, custo_id):
+    """Remove um custo do clube."""
+    custo = CustoClube.objects.filter(pk=custo_id).first()
+    if custo is not None:
+        custo.delete()
+        messages.success(request, "Custo removido.")
+    return redirect(reverse("core:financeiro") + "?aba=custos")

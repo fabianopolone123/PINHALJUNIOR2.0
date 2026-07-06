@@ -7,6 +7,7 @@ from .models import (
     CompraLoja,
     ConfigMensalidade,
     CupomDesconto,
+    CustoClube,
     CustoEvento,
     Evento,
     Mensalidade,
@@ -195,3 +196,10 @@ class MensalidadeAdmin(admin.ModelAdmin):
 @admin.register(ConfigMensalidade)
 class ConfigMensalidadeAdmin(admin.ModelAdmin):
     list_display = ("valor_inscricao", "valor_mensalidade", "atualizado_em")
+
+
+@admin.register(CustoClube)
+class CustoClubeAdmin(admin.ModelAdmin):
+    list_display = ("nome", "valor", "data", "criado_por", "criado_em")
+    search_fields = ("nome",)
+    list_filter = ("data",)

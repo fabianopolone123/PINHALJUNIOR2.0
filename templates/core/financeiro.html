@@ -1,0 +1,249 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Financeiro - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/financeiro.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span><span class="botao-menu-barra"></span><span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Financeiro</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Financeiro 📈</h1>
+                    <p class="cabecalho-sub">Saúde financeira do clube: mensalidades, loja e eventos num só lugar.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- KPIs -->
+                <div class="fin-kpis">
+                    <div class="card fin-kpi">
+                        <span class="fin-kpi-icone" aria-hidden="true">⬆️</span>
+                        <span class="fin-kpi-valor entrada">R$ {{ entradas|moeda }}</span>
+                        <span class="fin-kpi-rotulo">Entradas</span>
+                    </div>
+                    <div class="card fin-kpi">
+                        <span class="fin-kpi-icone" aria-hidden="true">⬇️</span>
+                        <span class="fin-kpi-valor saida">R$ {{ saidas|moeda }}</span>
+                        <span class="fin-kpi-rotulo">Saídas</span>
+                    </div>
+                    <div class="card fin-kpi fin-kpi-resultado {% if resultado >= 0 %}pos{% else %}neg{% endif %}">
+                        <span class="fin-kpi-icone" aria-hidden="true">{% if resultado >= 0 %}✅{% else %}⚠️{% endif %}</span>
+                        <span class="fin-kpi-valor">R$ {{ resultado|moeda }}</span>
+                        <span class="fin-kpi-rotulo">Resultado · {% if resultado >= 0 %}Saldo positivo{% else %}Negativo{% endif %}</span>
+                    </div>
+                </div>
+
+                <div class="fin-abas" role="tablist">
+                    <button type="button" class="fin-aba{% if aba != 'extrato' and aba != 'custos' %} ativa{% endif %}" data-aba="resumo" role="tab"><span aria-hidden="true">📊</span> Resumo</button>
+                    <button type="button" class="fin-aba{% if aba == 'extrato' %} ativa{% endif %}" data-aba="extrato" role="tab"><span aria-hidden="true">🧾</span> Extrato</button>
+                    <button type="button" class="fin-aba{% if aba == 'custos' %} ativa{% endif %}" data-aba="custos" role="tab"><span aria-hidden="true">🧰</span> Custos do clube</button>
+                </div>
+
+                <!-- ================= RESUMO ================= -->
+                <section class="fin-painel" data-painel="resumo"{% if aba == 'extrato' or aba == 'custos' %} hidden{% endif %}>
+                    <div class="fin-resumo-fontes">
+                        <div class="card fin-fonte fonte-mensalidades">
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">💰</span><h3>Mensalidades</h3></div>
+                            <p class="fin-fonte-valor">R$ {{ resumo.mensalidades.entradas|moeda }}</p>
+                            <ul class="fin-fonte-det">
+                                <li>{{ resumo.mensalidades.n }} pagamento(s)</li>
+                                <li>A receber (ativos): <strong>R$ {{ resumo.mensalidades.aberto|moeda }}</strong></li>
+                            </ul>
+                            <a href="{% url 'core:mensalidades' %}" class="fin-fonte-link">Ver mensalidades →</a>
+                        </div>
+                        <div class="card fin-fonte fonte-loja">
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🛍️</span><h3>Loja</h3></div>
+                            <p class="fin-fonte-valor">R$ {{ resumo.loja.entradas|moeda }}</p>
+                            <ul class="fin-fonte-det">
+                                <li>{{ resumo.loja.n }} compra(s)</li>
+                            </ul>
+                            <a href="{% url 'core:loja' %}?aba=vendas" class="fin-fonte-link">Ver loja →</a>
+                        </div>
+                        <div class="card fin-fonte fonte-eventos">
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🎟️</span><h3>Eventos</h3></div>
+                            <p class="fin-fonte-valor">R$ {{ resumo.eventos.entradas|moeda }}</p>
+                            <ul class="fin-fonte-det">
+                                <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
+                                <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
+                                <li>Custos: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
+                                <li>Resultado: <strong class="{% if resumo.eventos.resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.resultado|moeda }}</strong></li>
+                            </ul>
+                            <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
+                        </div>
+                        <div class="card fin-fonte fonte-custos">
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos do clube</h3></div>
+                            <p class="fin-fonte-valor saida">R$ {{ resumo.custos_clube.total|moeda }}</p>
+                            <ul class="fin-fonte-det">
+                                <li>{{ resumo.custos_clube.n }} lançamento(s)</li>
+                            </ul>
+                            <a href="#" class="fin-fonte-link" data-ir-aba="custos">Lançar / ver custos →</a>
+                        </div>
+                    </div>
+
+                    <div class="fin-graficos">
+                        <div class="card fin-grafico-card">
+                            <h2 class="secao-titulo">Entradas por fonte</h2>
+                            <div class="fin-donut-wrap">
+                                <div class="fin-donut" style="background: {{ donut }};">
+                                    <span class="fin-donut-num">R$ {{ entradas|moeda }}</span>
+                                </div>
+                                <div class="fin-donut-leg">
+                                    <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#1f6fb2"></span> Mensalidades — R$ {{ resumo.mensalidades.entradas|moeda }}</span>
+                                    <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#3a9d3a"></span> Loja — R$ {{ resumo.loja.entradas|moeda }}</span>
+                                    <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#e0a800"></span> Eventos — R$ {{ resumo.eventos.entradas|moeda }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card fin-grafico-card">
+                            <div class="fin-grafico-cab">
+                                <h2 class="secao-titulo">Fluxo mensal — {{ ano }}</h2>
+                                <div class="fin-legenda">
+                                    <span class="fin-leg-item"><span class="fin-leg-cor" style="background:var(--verde,#3a9d3a)"></span> Entradas</span>
+                                    <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#c0392b"></span> Saídas</span>
+                                </div>
+                            </div>
+                            <div class="fin-fluxo-scroll">
+                                <div class="fin-fluxo">
+                                    {% for f in fluxo %}
+                                    <div class="fin-col" title="{{ f.abrev }}: entradas R$ {{ f.entrada|moeda }} · saídas R$ {{ f.saida|moeda }}">
+                                        <div class="fin-col-barras">
+                                            <div class="fin-barra fin-barra-ent" style="height: {{ f.h_ent }}%"></div>
+                                            <div class="fin-barra fin-barra-sai" style="height: {{ f.h_sai }}%"></div>
+                                        </div>
+                                        <span class="fin-col-rot">{{ f.abrev }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ================= EXTRATO ================= -->
+                <section class="fin-painel" data-painel="extrato"{% if aba != 'extrato' %} hidden{% endif %}>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Extrato consolidado</h2>
+                        <input type="search" id="finBusca" class="fin-busca" placeholder="🔎 Buscar no extrato…" aria-label="Buscar no extrato">
+                    </div>
+                    <div class="fin-chips" id="finChips">
+                        <button type="button" class="fin-chip ativa" data-fonte="">Tudo</button>
+                        <button type="button" class="fin-chip" data-fonte="mensalidade">Mensalidades</button>
+                        <button type="button" class="fin-chip" data-fonte="loja">Loja</button>
+                        <button type="button" class="fin-chip" data-fonte="eventos">Eventos</button>
+                        <button type="button" class="fin-chip" data-fonte="custos">Custos</button>
+                    </div>
+                    {% if extrato %}
+                    <div class="card fin-extrato" id="finExtrato">
+                        {% for e in extrato %}
+                        <div class="fin-lanc" data-fonte="{{ e.fonte }}" data-busca="{{ e.desc|lower }} {{ e.tipo|lower }}">
+                            <span class="fin-lanc-data">{{ e.data|date:"d/m/y" }}</span>
+                            <span class="fin-lanc-badge fonte-{{ e.fonte }}">{{ e.tipo }}</span>
+                            <span class="fin-lanc-desc">{{ e.desc }}{% if e.comprovante %} <a href="{{ e.comprovante }}" target="_blank" class="fin-lanc-anexo" title="Ver comprovante">📎</a>{% endif %}</span>
+                            <span class="fin-lanc-valor {% if e.saida %}saida{% else %}entrada{% endif %}">{% if e.saida %}−{% else %}+{% endif %} R$ {{ e.valor|moeda }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="painel-nota fin-extrato-vazio" hidden>Nenhum lançamento encontrado.</p>
+                    {% else %}
+                    <p class="painel-nota">Nenhum lançamento financeiro ainda.</p>
+                    {% endif %}
+                </section>
+
+                <!-- ================= CUSTOS ================= -->
+                <section class="fin-painel" data-painel="custos"{% if aba != 'custos' %} hidden{% endif %}>
+                    <section class="card fin-custo-form-card">
+                        <h2 class="secao-titulo">Lançar custo do clube</h2>
+                        <p class="ajuda">Gastos do clube (compras, materiais, taxas…). Anexe o comprovante.</p>
+                        <form method="post" action="{% url 'core:custo_clube_novo' %}" enctype="multipart/form-data" class="evento-form fin-custo-form">
+                            {% csrf_token %}
+                            {% include "core/_campo.html" with campo=custo_form.nome %}
+                            <div class="form-linha">
+                                {% include "core/_campo.html" with campo=custo_form.valor %}
+                                {% include "core/_campo.html" with campo=custo_form.data %}
+                            </div>
+                            {% include "core/_campo.html" with campo=custo_form.descricao %}
+                            {% include "core/_campo.html" with campo=custo_form.comprovante %}
+                            <div class="form-acoes">
+                                <button type="submit" class="btn-acao"><span aria-hidden="true">➕</span> Lançar custo</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <div class="secao-cabecalho"><h2 class="secao-titulo">Custos lançados</h2></div>
+                    {% if custos_clube %}
+                    <div class="fin-custos-lista">
+                        {% for c in custos_clube %}
+                        <article class="card fin-custo-item">
+                            <div class="fin-custo-info">
+                                <strong class="fin-custo-nome">{{ c.nome }}</strong>
+                                <span class="fin-custo-data">{{ c.data|date:"d/m/Y" }}</span>
+                                {% if c.descricao %}<p class="fin-custo-desc">{{ c.descricao }}</p>{% endif %}
+                            </div>
+                            <span class="fin-custo-valor saida">− R$ {{ c.valor|moeda }}</span>
+                            <div class="fin-custo-acoes">
+                                {% if c.comprovante %}<a href="{{ c.comprovante.url }}" target="_blank" class="btn-secundario btn-acao-pequeno">📎 Comprovante</a>{% endif %}
+                                <form method="post" action="{% url 'core:custo_clube_excluir' c.id %}" class="fin-form-excluir" data-confirmar="Remover o custo “{{ c.nome }}”?">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-excluir-evento">🗑️</button>
+                                </form>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="painel-nota">Nenhum custo do clube lançado ainda.</p>
+                    {% endif %}
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/financeiro.js' %}"></script>
+</body>
+</html>

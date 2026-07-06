@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Módulo Financeiro geral (mensalidades + loja + eventos + custos do clube)
+
+### Resumo
+Novo item **"Financeiro"** (📈, só Diretor) que **consolida as três frentes** — mensalidades, loja e eventos —
+num só lugar. Tem **KPIs** (Entradas, Saídas, Resultado com selo positivo/negativo), **3 abas**:
+- **Resumo**: **resumo por fonte** (cards de Mensalidades, Loja, Eventos com inscrições/lojinha/custos/
+  resultado, e Custos do clube), **donut** de entradas por fonte e **gráfico de fluxo mensal** (entradas ×
+  saídas por mês, CSS puro).
+- **Extrato**: **extrato consolidado único** (mensalidades pagas, compras da loja, inscrições e lojinha de
+  eventos como entradas; custos de evento e do clube como saídas), **cronológico**, com **filtro por fonte**
+  (chips) + busca; cada lançamento com data, badge da fonte, valor (+verde/−vermelho) e link do comprovante.
+- **Custos do clube**: **lançar** gastos gerais do clube (descrição, valor, data, **comprovante** anexo) e
+  listar/remover — igual aos custos de evento, mas do clube.
+Tudo responsivo (mobile/desktop). Números batem com cada módulo (entrada por lá para detalhes finos).
+
+### Arquivos criados/alterados
+- `core/models.py`: modelo **`CustoClube`** (nome, valor, data, comprovante). Migration **0025**.
+- `core/forms.py`: `CustoClubeForm`. `core/admin.py`: `CustoClube`.
+- `core/views.py`: `financeiro_view` (agrega as 3 fontes + custos, monta resumo/extrato/fluxo/donut),
+  `custo_clube_novo_view`, `custo_clube_excluir_view`, helper `_dt_data`.
+- `core/urls.py`: rotas `financeiro/…`. `templates/core/_menu.html`: item "Financeiro" (📈, Diretor).
+- `templates/core/financeiro.html`; `static/js/financeiro.js`; `static/css/financeiro.css`.
+
+### Decisões tomadas
+- **Um extrato único** com filtro por fonte (em vez de extratos separados) — mais fácil de ver o todo e
+  segmentar quando quiser. Entradas = mensalidades pagas + loja + (inscrições + lojinha de eventos); Saídas =
+  custos de evento + custos do clube. Cancelados não entram. Custos do clube ficam em `media/` (git-ignored).
+
+### Pendências
+- Filtro por período/ano no extrato; exportar; gráficos por evento. Financeiro é consolidação — o detalhe fino
+  fica em cada módulo.
+
+---
+
 ## 2026-07-05 - Mensalidades: aventureiro inativo não interfere nos totais (mantém só dados anteriores)
 
 ### Resumo
