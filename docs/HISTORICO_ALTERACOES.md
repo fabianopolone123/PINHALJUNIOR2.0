@@ -22,6 +22,25 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: dashboard mês a mês (abas Resumo / Aventureiros)
+
+### Resumo
+A tela de Mensalidades ganhou **abas**: **Resumo** (dashboard) e **Aventureiros** (a lista operacional que já
+existia). O **Resumo** mostra a visão geral do ano: um **donut de taxa de pagamento** (recebido ÷ previsto)
+com a legenda recebido × em aberto, um **gráfico de barras mês a mês** (recebido em verde, em aberto em
+amarelo, empilhados; CSS puro, sem libs; rolagem horizontal no celular) e uma **tabela "Detalhe por mês"**
+(pagas, em aberto, recebido, a receber, % pago, com linha de total). Tudo respeita o **ano** selecionado.
+
+### Arquivos alterados
+- `core/views.py`: `_mensalidades_dashboard(mens)` (agrupa por mês: recebido/aberto/% + alturas das barras);
+  `mensalidades_view` passa `dashboard`, `taxa` e `aba`.
+- `templates/core/mensalidades.html`: abas + painel Resumo (donut, gráfico, tabela); lista vira painel
+  "Aventureiros".
+- `static/js/mensalidades.js`: alternância das abas (com `?aba=`). `static/css/mensalidades.css`: abas,
+  donut (conic-gradient), gráfico de barras, tabela.
+
+---
+
 ## 2026-07-05 - Mensalidades: edição por mês vira desconto % (com valor ao vivo) + remove "Gerar cobranças"
 
 ### Resumo

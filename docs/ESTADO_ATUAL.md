@@ -2,7 +2,12 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Módulo Mensalidades**): novo item **"Mensalidades"** (💰, só Diretor),
+**Última atualização:** 2026-07-05 (**Mensalidades: dashboard mês a mês**): a tela de Mensalidades ganhou
+**abas** — **Resumo** (dashboard: **donut de taxa de pagamento**, **gráfico de barras mês a mês** recebido ×
+em aberto em CSS puro, e **tabela "Detalhe por mês"** com total) e **Aventureiros** (a lista operacional).
+Tudo por **ano**. Antes: módulo Mensalidades (base).
+
+**Anterior:** (**Módulo Mensalidades**): novo item **"Mensalidades"** (💰, só Diretor),
 separado do financeiro. Cada aventureiro tem, por mês do ano, uma cobrança — o mês de inscrição nasce como
 **"inscrição"** e os seguintes como **"mensalidade"** (gerado **automaticamente** no cadastro). **Valores
 configuráveis** (padrão R$ 30, `ConfigMensalidade`); aventureiros podem ser **isentos** ou ter **desconto %**.

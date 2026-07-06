@@ -104,6 +104,89 @@
                     </div>
                 </section>
 
+                <div class="mens-abas" role="tablist">
+                    <button type="button" class="mens-aba{% if aba != 'aventureiros' %} ativa{% endif %}" data-aba="resumo" role="tab">
+                        <span aria-hidden="true">📊</span> Resumo
+                    </button>
+                    <button type="button" class="mens-aba{% if aba == 'aventureiros' %} ativa{% endif %}" data-aba="aventureiros" role="tab">
+                        <span aria-hidden="true">👥</span> Aventureiros
+                    </button>
+                </div>
+
+                <!-- ===== ABA: RESUMO (dashboard) ===== -->
+                <section class="mens-painel" data-painel="resumo"{% if aba == 'aventureiros' %} hidden{% endif %}>
+                    <div class="mens-resumo-topo">
+                        <div class="card mens-donut-card">
+                            <div class="mens-donut" style="--pct: {{ taxa|floatformat:0 }}">
+                                <span class="mens-donut-num">{{ taxa|floatformat:0 }}%</span>
+                            </div>
+                            <div class="mens-donut-leg">
+                                <strong>Taxa de pagamento ({{ ano }})</strong>
+                                <span class="mens-leg-item"><span class="mens-leg-cor cor-recebido"></span> Recebido: R$ {{ totais.recebido|moeda }}</span>
+                                <span class="mens-leg-item"><span class="mens-leg-cor cor-aberto"></span> Em aberto: R$ {{ totais.aberto|moeda }}</span>
+                            </div>
+                        </div>
+
+                        <div class="card mens-grafico-card">
+                            <div class="mens-grafico-cab">
+                                <h2 class="secao-titulo">Mês a mês — {{ ano }}</h2>
+                                <div class="mens-legenda">
+                                    <span class="mens-leg-item"><span class="mens-leg-cor cor-recebido"></span> Recebido</span>
+                                    <span class="mens-leg-item"><span class="mens-leg-cor cor-aberto"></span> Em aberto</span>
+                                </div>
+                            </div>
+                            <div class="mens-grafico-scroll">
+                                <div class="mens-grafico">
+                                    {% for d in dashboard %}
+                                    <div class="mens-col" title="{{ d.nome }}: recebido R$ {{ d.recebido|moeda }} · em aberto R$ {{ d.aberto|moeda }}">
+                                        <div class="mens-barras">
+                                            <div class="mens-barra cor-aberto" style="height: {{ d.h_aberto }}%"></div>
+                                            <div class="mens-barra cor-recebido" style="height: {{ d.h_recebido }}%"></div>
+                                        </div>
+                                        <span class="mens-col-rot">{{ d.abrev }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <section class="card mens-tabela-card">
+                        <h2 class="secao-titulo">Detalhe por mês</h2>
+                        <div class="mens-tabela-scroll">
+                            <table class="loja-tabela mens-tabela">
+                                <thead>
+                                    <tr><th>Mês</th><th>Pagas</th><th>Em aberto</th><th>Recebido</th><th>A receber</th><th>% pago</th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for d in dashboard %}
+                                    <tr>
+                                        <td>{{ d.nome }}</td>
+                                        <td class="num">{{ d.pagas }}</td>
+                                        <td class="num">{{ d.abertas }}</td>
+                                        <td class="num">R$ {{ d.recebido|moeda }}</td>
+                                        <td class="num">R$ {{ d.aberto|moeda }}</td>
+                                        <td class="num">{{ d.pct|floatformat:0 }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td>Total</td>
+                                        <td class="num">—</td>
+                                        <td class="num">—</td>
+                                        <td class="num">R$ {{ totais.recebido|moeda }}</td>
+                                        <td class="num">R$ {{ totais.aberto|moeda }}</td>
+                                        <td class="num">{{ taxa|floatformat:0 }}%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+
+                <!-- ===== ABA: AVENTUREIROS (lista operacional) ===== -->
+                <section class="mens-painel" data-painel="aventureiros"{% if aba != 'aventureiros' %} hidden{% endif %}>
                 <div class="secao-cabecalho">
                     <h2 class="secao-titulo">Aventureiros</h2>
                     <div class="mens-filtros">
@@ -193,6 +276,7 @@
                     <p class="card-texto">Cadastre aventureiros para gerar as mensalidades.</p>
                 </section>
                 {% endif %}
+                </section>
             </div>
         </main>
 

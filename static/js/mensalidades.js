@@ -15,6 +15,22 @@
 
     var FORMAS = { dinheiro: "Dinheiro", pix: "Pix", cartao: "Cartão", online: "Online" };
 
+    // Abas Resumo / Aventureiros.
+    var abas = document.querySelectorAll(".mens-aba");
+    var paineis = document.querySelectorAll(".mens-painel");
+    Array.prototype.forEach.call(abas, function (a) {
+        a.addEventListener("click", function () {
+            var nome = a.dataset.aba;
+            Array.prototype.forEach.call(abas, function (x) { x.classList.toggle("ativa", x === a); });
+            Array.prototype.forEach.call(paineis, function (p) { p.hidden = p.dataset.painel !== nome; });
+            try {
+                var url = new URL(window.location.href);
+                url.searchParams.set("aba", nome);
+                window.history.replaceState({}, "", url);
+            } catch (e) { /* ignora */ }
+        });
+    });
+
     // Confirmação (gerar cobranças).
     document.addEventListener("submit", function (e) {
         var f = e.target;

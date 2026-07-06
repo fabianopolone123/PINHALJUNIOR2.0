@@ -3961,18 +3961,56 @@ def mensalidades_view(request):
         if av.mensalidade_isento:
             tot["isentos"] += 1
 
+    taxa = (tot["recebido"] / (tot["recebido"] + tot["aberto"]) * 100) \
+        if (tot["recebido"] + tot["aberto"]) else Decimal("0")
     contexto = {
         "config": ConfigMensalidade.get_solo(),
         "ano": ano,
         "anos": anos,
         "linhas": linhas,
         "totais": tot,
+        "taxa": taxa,
+        "dashboard": _mensalidades_dashboard(mens),
+        "aba": request.GET.get("aba", "resumo"),
         "formas_pagamento": [
             ("dinheiro", "Dinheiro"), ("pix", "Pix"),
             ("cartao", "Cartão"), ("online", "Online"),
         ],
     }
     return render(request, "core/mensalidades.html", contexto)
+
+
+def _mensalidades_dashboard(mens):
+    """Resumo mês a mês (para o dashboard): recebido, em aberto e % pago por mês."""
+    por_mes = {m: [] for m in range(1, 13)}
+    for x in mens:
+        if 1 <= x.mes <= 12:
+            por_mes[x.mes].append(x)
+    linhas = []
+    maxv = Decimal("0")
+    for mes in range(1, 13):
+        ms = por_mes[mes]
+        recebido = sum((x.valor_pago or Decimal("0") for x in ms if x.status == "paga"), Decimal("0"))
+        aberto = sum((x.valor for x in ms if x.em_aberto), Decimal("0"))
+        pagas = sum(1 for x in ms if x.status == "paga")
+        abertas = sum(1 for x in ms if x.em_aberto)
+        isentas = sum(1 for x in ms if x.isento and x.status != "cancelada")
+        total_valor = recebido + aberto
+        if total_valor > maxv:
+            maxv = total_valor
+        pct = (recebido / total_valor * 100) if total_valor else (100 if pagas else 0)
+        linhas.append({
+            "mes": mes, "nome": MESES_PT[mes], "abrev": MESES_PT[mes][:3],
+            "recebido": recebido, "aberto": aberto, "total_valor": total_valor,
+            "pagas": pagas, "abertas": abertas, "isentas": isentas,
+            "cobrancas": pagas + abertas + isentas, "pct": pct,
+        })
+    # Percentuais de altura das barras (0-100) para o gráfico em CSS.
+    maxv = maxv or Decimal("1")
+    for l in linhas:
+        l["h_recebido"] = int(l["recebido"] / maxv * 100)
+        l["h_aberto"] = int(l["aberto"] / maxv * 100)
+    return linhas
 
 
 @diretor_required
