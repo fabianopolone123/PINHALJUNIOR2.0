@@ -50,7 +50,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/loja/produto/novo|<id>/editar|<id>/excluir/`, `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`,
   `/loja/finalizar|pagamento|sucesso/`, `/loja/compra/<id>/cancelar/`, `/loja/entrega/…`
 - **Mensalidades** (Diretor): `/mensalidades/`, `/mensalidades/config|gerar|pagar|isencao|reajustar|editar/`
-- **Financeiro** (Diretor): `/financeiro/` (abas Resumo/Extrato/Custos), `/financeiro/custo/novo|<id>/excluir/`
+- **Financeiro** (Diretor): `/financeiro/` (abas Resumo/Extrato/Custos), `/financeiro/custo/novo|<id>/excluir/`, `/financeiro/caixa/` (editar "Onde está o dinheiro")
 - `/admin/`
 
 ## Models (`core/models.py`)
@@ -68,12 +68,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão) e `Mensalidade` (aventureiro, ano, mês,
   tipo inscrição/mensalidade, valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/
   `mensalidade_desconto_pct`. Geração automática no cadastro.
-- **Financeiro**: `CustoClube` (nome, valor, data) + `ComprovanteCustoClube` (vários anexos por custo) —
-  gastos gerais do clube; o resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos, sem model
-  próprio).
+- **Financeiro**: `CustoClube` (nome, valor, data, destino) + `ComprovanteCustoClube` (vários anexos por custo) —
+  gastos gerais do clube; `CaixaClube` (singleton `get_solo`: `saldo_banco`, `a_receber`; espécie é calculada)
+  para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0026`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0028`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

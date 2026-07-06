@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from .models import (
     Aventureiro,
     AutorizacaoImagem,
+    CaixaClube,
     CampoInscricao,
     CustoClube,
     CustoEvento,
@@ -451,4 +452,25 @@ class CustoClubeForm(EstiloFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["nome"].required = True
+        self._aplicar_estilo()
+
+
+class CaixaClubeForm(EstiloFormMixin, forms.ModelForm):
+    """Onde está o dinheiro do clube: saldo na conta e valores a receber. A
+    espécie (caixa físico) é calculada na view (resultado − banco − a receber)."""
+
+    class Meta:
+        model = CaixaClube
+        fields = ["saldo_banco", "a_receber"]
+        widgets = {
+            "saldo_banco": forms.TextInput(
+                attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
+            ),
+            "a_receber": forms.TextInput(
+                attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._aplicar_estilo()

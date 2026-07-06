@@ -182,4 +182,5 @@ urlpatterns = [
     path("financeiro/", views.financeiro_view, name="financeiro"),
     path("financeiro/custo/novo/", views.custo_clube_novo_view, name="custo_clube_novo"),
     path("financeiro/custo/<int:custo_id>/excluir/", views.custo_clube_excluir_view, name="custo_clube_excluir"),
+    path("financeiro/caixa/", views.caixa_editar_view, name="caixa_editar"),
 ]

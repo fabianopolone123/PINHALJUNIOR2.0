@@ -86,47 +86,40 @@
 
                 <!-- ================= RESUMO ================= -->
                 <section class="fin-painel" data-painel="resumo"{% if aba == 'extrato' or aba == 'custos' %} hidden{% endif %}>
+                    <p class="fin-fontes-intro">Quanto cada fonte <strong>contribui no resultado líquido</strong> (já com sua parte dos custos gerais rateada). As três somam o resultado.</p>
                     <div class="fin-resumo-fontes">
                         <div class="card fin-fonte fonte-mensalidades">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">💰</span><h3>Mensalidades</h3></div>
-                            <p class="fin-fonte-valor {% if resumo.mensalidades.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.mensalidades.liquido|moeda }}</p>
-                            <span class="fin-fonte-tag">líquido da fonte</span>
+                            <p class="fin-fonte-valor {% if resumo.mensalidades.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.mensalidades.contrib|moeda }}</p>
+                            <span class="fin-fonte-tag">contribui no resultado · {{ resumo.mensalidades.pct|floatformat:1 }}%</span>
                             <ul class="fin-fonte-det">
-                                <li>{{ resumo.mensalidades.n }} pagamento(s)</li>
+                                <li>Recebido: R$ {{ resumo.mensalidades.entradas|moeda }} ({{ resumo.mensalidades.n }})</li>
+                                <li>Rateio custos gerais: <span class="saida">− R$ {{ resumo.mensalidades.rateio|moeda }}</span></li>
                                 <li>A receber (ativos): <strong>R$ {{ resumo.mensalidades.aberto|moeda }}</strong></li>
                             </ul>
                             <a href="{% url 'core:mensalidades' %}" class="fin-fonte-link">Ver mensalidades →</a>
                         </div>
                         <div class="card fin-fonte fonte-loja">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🛍️</span><h3>Loja</h3></div>
-                            <p class="fin-fonte-valor {% if resumo.loja.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.loja.liquido|moeda }}</p>
-                            <span class="fin-fonte-tag">líquido da fonte</span>
+                            <p class="fin-fonte-valor {% if resumo.loja.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.loja.contrib|moeda }}</p>
+                            <span class="fin-fonte-tag">contribui no resultado · {{ resumo.loja.pct|floatformat:1 }}%</span>
                             <ul class="fin-fonte-det">
-                                <li>Vendas: R$ {{ resumo.loja.entradas|moeda }}</li>
-                                <li>Custos: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
-                                <li>{{ resumo.loja.n }} compra(s)</li>
+                                <li>Vendas: R$ {{ resumo.loja.entradas|moeda }} ({{ resumo.loja.n }})</li>
+                                <li>Custos da loja: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
+                                <li>Rateio custos gerais: <span class="saida">− R$ {{ resumo.loja.rateio|moeda }}</span></li>
                             </ul>
                             <a href="{% url 'core:loja' %}?aba=vendas" class="fin-fonte-link">Ver loja →</a>
                         </div>
                         <div class="card fin-fonte fonte-eventos">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🎟️</span><h3>Eventos</h3></div>
-                            <p class="fin-fonte-valor {% if resumo.eventos.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.liquido|moeda }}</p>
-                            <span class="fin-fonte-tag">líquido da fonte</span>
+                            <p class="fin-fonte-valor {% if resumo.eventos.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.contrib|moeda }}</p>
+                            <span class="fin-fonte-tag">contribui no resultado · {{ resumo.eventos.pct|floatformat:1 }}%</span>
                             <ul class="fin-fonte-det">
-                                <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
-                                <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
-                                <li>Custos: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
+                                <li>Inscrições + lojinha: R$ {{ resumo.eventos.entradas|moeda }}</li>
+                                <li>Custos de evento: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
+                                <li>Rateio custos gerais: <span class="saida">− R$ {{ resumo.eventos.rateio|moeda }}</span></li>
                             </ul>
                             <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
-                        </div>
-                        <div class="card fin-fonte fonte-custos">
-                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos gerais do clube</h3></div>
-                            <p class="fin-fonte-valor saida">− R$ {{ resumo.custos_clube.total|moeda }}</p>
-                            <span class="fin-fonte-tag">gastos gerais (fora loja/eventos)</span>
-                            <ul class="fin-fonte-det">
-                                <li>{{ resumo.custos_clube.n }} lançamento(s)</li>
-                            </ul>
-                            <a href="#" class="fin-fonte-link" data-ir-aba="custos">Lançar / ver custos →</a>
                         </div>
                     </div>
 
@@ -142,28 +135,21 @@
                         <p class="fin-comp-nota">Os custos gerais (hospedagem, brindes, materiais…) saem do caixa comum, por isso reduzem o total mesmo não sendo de uma fonte só.</p>
                     </div>
 
-                    <div class="card fin-contrib">
-                        <h2 class="secao-titulo">Quanto cada fonte contribui no resultado</h2>
-                        <p class="fin-comp-nota">Os custos gerais do clube (R$ {{ custos_gerais_total|moeda }}) foram rateados entre as fontes, proporcionalmente ao líquido de cada uma — assim as três somam o resultado líquido.</p>
-                        <ul class="fin-contrib-lista">
-                            {% for c in contribuicao %}
-                            <li class="fin-contrib-item fonte-{{ c.classe }}">
-                                <div class="fin-contrib-topo">
-                                    <span class="fin-contrib-nome">{{ c.icone }} {{ c.fonte }}</span>
-                                    <span class="fin-contrib-val {% if c.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ c.contrib|moeda }}</span>
-                                </div>
-                                <div class="fin-contrib-barra"><div class="fin-contrib-fill" style="width: {{ c.pct_bar }}%;"></div></div>
-                                <div class="fin-contrib-det">
-                                    <span><strong>{{ c.pct|floatformat:1 }}%</strong> do resultado</span>
-                                    <span>líquido R$ {{ c.liquido|moeda }} <span class="saida">− rateio R$ {{ c.rateio|moeda }}</span></span>
-                                </div>
-                            </li>
-                            {% endfor %}
-                            <li class="fin-contrib-total">
-                                <span>= Resultado líquido</span>
-                                <span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span>
-                            </li>
+                    <div class="card fin-caixa">
+                        <div class="fin-caixa-cab">
+                            <h2 class="secao-titulo">Onde está o dinheiro</h2>
+                            <button type="button" class="btn-acao btn-acao-pequeno" id="btnEditarCaixa"><span aria-hidden="true">✏️</span> Atualizar</button>
+                        </div>
+                        <p class="fin-comp-nota">O resultado líquido é o dinheiro que o clube tem. Aqui você vê onde ele está: na conta, a receber, ou em espécie (caixa físico).</p>
+                        <ul class="fin-caixa-lista">
+                            <li><span>🏦 Na conta (banco)</span><span>R$ {{ caixa.saldo_banco|moeda }}</span></li>
+                            <li><span>🤝 A receber (empréstimos/pendências)</span><span>R$ {{ caixa.a_receber|moeda }}</span></li>
+                            <li><span>💵 Em espécie (caixa físico)</span><span class="{% if caixa_especie < 0 %}saida{% endif %}">R$ {{ caixa_especie|moeda }}</span></li>
+                            <li class="fin-caixa-total"><span>= Resultado líquido</span><span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span></li>
                         </ul>
+                        {% if caixa_especie < 0 %}
+                        <p class="fin-comp-nota saida">A espécie ficou negativa — confira o saldo na conta e os valores a receber (a soma não pode passar do resultado).</p>
+                        {% endif %}
                     </div>
 
                     <div class="fin-graficos">
@@ -317,6 +303,34 @@
                         <div class="form-acoes">
                             <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
                             <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Lançar custo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: onde está o dinheiro -->
+        <div class="modal-overlay" id="modalCaixa" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalCaixaTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalCaixaTitulo">✏️ Onde está o dinheiro</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <form method="post" action="{% url 'core:caixa_editar' %}" class="evento-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="{{ caixa_form.saldo_banco.id_for_label }}">Quanto tem na conta (banco)</label>
+                            {{ caixa_form.saldo_banco }}
+                        </div>
+                        <div class="campo">
+                            <label for="{{ caixa_form.a_receber.id_for_label }}">A receber <small class="ajuda">(empréstimos/pendências a devolver ao clube)</small></label>
+                            {{ caixa_form.a_receber }}
+                        </div>
+                        <p class="ajuda">A <strong>espécie</strong> (caixa físico) é calculada sozinha: resultado − conta − a receber.</p>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar</button>
                         </div>
                     </form>
                 </div>

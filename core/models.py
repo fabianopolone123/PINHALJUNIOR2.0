@@ -1680,3 +1680,34 @@ class ComprovanteCustoClube(models.Model):
 
     def __str__(self):
         return f"Comprovante de {self.custo.nome}"
+
+
+class CaixaClube(models.Model):
+    """Onde está o dinheiro do clube (linha única/singleton). O resultado líquido
+    é calculado pelas movimentações; aqui o Diretor informa quanto desse dinheiro
+    está na **conta (banco)** e quanto é **a receber** (ex.: empréstimos a devolver
+    ao clube). O que sobra fica em **espécie** (caixa físico), calculado."""
+
+    saldo_banco = models.DecimalField(
+        "Saldo na conta (banco)", max_digits=10, decimal_places=2, default=0
+    )
+    a_receber = models.DecimalField(
+        "A receber (empréstimos/pendências)", max_digits=10, decimal_places=2, default=0
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="caixa_atualizado", verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Caixa do clube"
+        verbose_name_plural = "Caixa do clube"
+
+    def __str__(self):
+        return "Caixa do clube"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

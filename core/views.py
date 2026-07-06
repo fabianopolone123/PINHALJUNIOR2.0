@@ -29,6 +29,7 @@ from django.views.decorators.http import require_POST
 from .forms import (
     AutorizacaoImagemForm,
     AventureiroForm,
+    CaixaClubeForm,
     CampoInscricaoForm,
     ContaForm,
     CustoClubeForm,
@@ -47,6 +48,7 @@ from .models import (
     FORMA_PAGAMENTO_CHOICES,
     MESES_PT,
     Aventureiro,
+    CaixaClube,
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
@@ -4258,33 +4260,32 @@ def financeiro_view(request):
                          "n": sum(1 for c in custos_clube if c.destino != "loja")},
     }
 
-    # Quanto cada fonte contribui no resultado: rateia os custos gerais do clube
+    # Quanto cada fonte CONTRIBUI no resultado: rateia os custos gerais do clube
     # (que não pertencem a nenhuma fonte) proporcionalmente ao líquido de cada uma,
-    # para que Mensalidades + Loja + Eventos somem exatamente o resultado.
-    liq_mens = mens_recebido
-    liq_loja = loja_total - custos_loja_total
-    liq_ev = eventos_entradas - custos_ev_total
-    soma_fontes = liq_mens + liq_loja + liq_ev
+    # para que Mensalidades + Loja + Eventos somem exatamente o resultado. Guarda
+    # a contribuição (líquido − rateio), o rateio e a % nos próprios cards do resumo.
+    liq = {"mensalidades": mens_recebido, "loja": loja_total - custos_loja_total,
+           "eventos": eventos_entradas - custos_ev_total}
+    soma_fontes = sum(liq.values(), Decimal("0"))
+    rateio = {}
     if soma_fontes:
-        rat_mens = (custos_geral_total * liq_mens / soma_fontes).quantize(Decimal("0.01"))
-        rat_loja = (custos_geral_total * liq_loja / soma_fontes).quantize(Decimal("0.01"))
-        rat_ev = custos_geral_total - rat_mens - rat_loja  # fecha exato
+        rateio["mensalidades"] = (custos_geral_total * liq["mensalidades"] / soma_fontes).quantize(Decimal("0.01"))
+        rateio["loja"] = (custos_geral_total * liq["loja"] / soma_fontes).quantize(Decimal("0.01"))
+        rateio["eventos"] = custos_geral_total - rateio["mensalidades"] - rateio["loja"]  # fecha exato
     else:
-        rat_mens = rat_loja = rat_ev = Decimal("0")
+        rateio = {"mensalidades": Decimal("0"), "loja": Decimal("0"), "eventos": Decimal("0")}
     _res = resultado or Decimal("1")
-    contribuicao = [
-        {"fonte": "Mensalidades", "icone": "💰", "classe": "mensalidades",
-         "liquido": liq_mens, "rateio": rat_mens, "contrib": liq_mens - rat_mens,
-         "pct": float((liq_mens - rat_mens) / _res * 100)},
-        {"fonte": "Loja", "icone": "🛍️", "classe": "loja",
-         "liquido": liq_loja, "rateio": rat_loja, "contrib": liq_loja - rat_loja,
-         "pct": float((liq_loja - rat_loja) / _res * 100)},
-        {"fonte": "Eventos", "icone": "🎟️", "classe": "eventos",
-         "liquido": liq_ev, "rateio": rat_ev, "contrib": liq_ev - rat_ev,
-         "pct": float((liq_ev - rat_ev) / _res * 100)},
-    ]
-    for c in contribuicao:  # largura da barra (int, sem vírgula de locale no CSS)
-        c["pct_bar"] = max(0, min(100, int(round(c["pct"]))))
+    for fonte in ("mensalidades", "loja", "eventos"):
+        contrib = liq[fonte] - rateio[fonte]
+        resumo[fonte]["rateio"] = rateio[fonte]
+        resumo[fonte]["contrib"] = contrib
+        pct = float(contrib / _res * 100)
+        resumo[fonte]["pct"] = pct
+        resumo[fonte]["pct_bar"] = max(0, min(100, int(round(pct))))
+
+    # Onde está o dinheiro: banco + a receber (informados) e espécie = o que sobra.
+    caixa = CaixaClube.get_solo()
+    caixa_especie = resultado - caixa.saldo_banco - caixa.a_receber
 
     # Extrato consolidado
     extrato = []
@@ -4347,7 +4348,9 @@ def financeiro_view(request):
     contexto = {
         "entradas": entradas, "saidas": saidas, "resultado": resultado,
         "resumo": resumo, "extrato": extrato, "fluxo": fluxo, "donut": donut,
-        "contribuicao": contribuicao, "custos_gerais_total": custos_geral_total,
+        "custos_gerais_total": custos_geral_total,
+        "caixa": caixa, "caixa_especie": caixa_especie,
+        "caixa_form": CaixaClubeForm(instance=caixa),
         "custos_clube": custos_clube, "custo_form": CustoClubeForm(),
         "ano": hoje.year, "aba": request.GET.get("aba", "resumo"),
     }
@@ -4386,3 +4389,20 @@ def custo_clube_excluir_view(request, custo_id):
         custo.delete()
         messages.success(request, "Custo removido.")
     return redirect(reverse("core:financeiro") + "?aba=custos")
+
+
+@diretor_required
+@require_POST
+def caixa_editar_view(request):
+    """Atualiza 'Onde está o dinheiro': saldo na conta e valores a receber. A
+    espécie é calculada (resultado − banco − a receber)."""
+    caixa = CaixaClube.get_solo()
+    form = CaixaClubeForm(request.POST, instance=caixa)
+    if form.is_valid():
+        caixa = form.save(commit=False)
+        caixa.atualizado_por = request.user
+        caixa.save()
+        messages.success(request, "Caixa atualizado.")
+    else:
+        messages.error(request, "Informe valores válidos.")
+    return redirect(reverse("core:financeiro"))

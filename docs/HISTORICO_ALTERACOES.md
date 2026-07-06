@@ -22,6 +22,42 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: cards por contribuição + card "Onde está o dinheiro"
+
+### Resumo
+Reorganização do Resumo do Financeiro a pedido do usuário:
+- **Cards do topo** (Mensalidades, Loja, Eventos) agora mostram **quanto cada fonte contribui no resultado**
+  (o líquido **já com o rateio dos custos gerais**), com **% do resultado**, em vez do total de vendas/receita.
+  As três **somam exatamente** o resultado líquido (resolve a confusão de "os cards não batem"). O card solto
+  **"Custos gerais do clube"** saiu do topo (já entra rateado nas fontes e segue no quadro "Como o resultado se
+  forma").
+- **Removido** o card separado "Quanto cada fonte contribui no resultado" (o conteúdo virou os cards do topo);
+  **mantido** o quadro "Como o resultado líquido se forma".
+- **Novo card "Onde está o dinheiro"**: mostra **na conta (banco)** + **a receber (empréstimos/pendências)** +
+  **em espécie (caixa físico)** = resultado líquido. O Diretor informa banco e a receber (modal ✏️ com máscara
+  de moeda); a **espécie é calculada** (resultado − banco − a receber). Se ficar negativa, avisa pra conferir.
+
+### Arquivos criados/alterados
+- `core/models.py`: modelo **`CaixaClube`** (singleton `get_solo`: `saldo_banco`, `a_receber`). Migration **0028**.
+- `core/forms.py`: `CaixaClubeForm` (banco/a_receber com `data-moeda`).
+- `core/views.py`: `financeiro_view` agrega `contrib`/`rateio`/`pct` em cada fonte do `resumo` e calcula
+  `caixa`/`caixa_especie`; nova `caixa_editar_view` (POST). `core/urls.py`: rota `financeiro/caixa/`.
+- `templates/core/financeiro.html`: cards do topo por contribuição (3, sem o de custos gerais); remove o card
+  de contribuição; card "Onde está o dinheiro" + modal de edição.
+- `static/js/financeiro.js`: `ligarModal` genérico (custo + caixa). `static/css/financeiro.css`: `.fin-caixa*`
+  e `.fin-fontes-intro` (remove `.fin-contrib*`).
+
+### Validação
+- `manage.py check` OK; `migrate` (0028). Render (test client, Diretor): cards mostram contribuição
+  (Mensalidades R$ 1.953,95 · 43,0%, Loja R$ 497,72 · 11,0%, Eventos R$ 2.088,33 · 46,0%); card "Onde está o
+  dinheiro" com Banco R$ 2.808,00 + A receber R$ 1.276,98 + Espécie R$ 455,02 = Resultado R$ 4.540,00. POST de
+  edição do caixa salva (valores restaurados após o teste).
+
+### Pendências
+- Sem novas. (Rateio dos custos gerais é proporcional ao líquido; ajustável se quiserem outro critério.)
+
+---
+
 ## 2026-07-06 - Financeiro: quadro "Quanto cada fonte contribui no resultado"
 
 ### Resumo

@@ -2,7 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Financeiro: quanto cada fonte contribui no resultado**): novo quadro na
+**Última atualização:** 2026-07-06 (**Financeiro: cards por contribuição + "Onde está o dinheiro"**): os cards
+do topo do Resumo (Mensalidades/Loja/Eventos) passaram a mostrar **quanto cada fonte contribui no resultado**
+(líquido já com o rateio dos custos gerais + % do resultado), somando exatamente o resultado — o card avulso de
+"Custos gerais" saiu do topo. Removido o card separado de contribuição (virou os cards do topo); mantido "Como o
+resultado se forma". Novo card **"Onde está o dinheiro"**: **na conta (banco)** + **a receber** + **em espécie
+(caixa físico)** = resultado; Diretor edita banco/a receber num modal (máscara de moeda) e a espécie é calculada.
+Modelo `CaixaClube` (singleton, mig. **0028**); `caixa_editar_view`; rota `financeiro/caixa/`. Antes: quadro
+"Quanto cada fonte contribui no resultado".
+
+**Anterior:** (**Financeiro: quanto cada fonte contribui no resultado**): novo quadro na
 aba **Resumo** que **rateia os custos gerais do clube** (que ficam à parte e por isso os cards de líquido por
 fonte não somavam o resultado) entre as fontes, proporcional ao líquido de cada uma, mostrando por fonte o
 valor e a **% do resultado** (com barra) — Mensalidades/Loja/Eventos agora **somam exatamente** o resultado

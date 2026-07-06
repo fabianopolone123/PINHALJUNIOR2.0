@@ -68,13 +68,13 @@
         }
     });
 
-    // Modal: lançar custo do clube (abre pelos botões; fechamento seguro).
-    var modal = document.getElementById("modalCusto");
-    if (modal) {
-        function abrir() { modal.hidden = false; }
+    // Modais (fechamento seguro mousedown+click no fundo).
+    function ligarModal(modalId, gatilhoSelector) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
         function fechar() { modal.hidden = true; }
-        Array.prototype.forEach.call(document.querySelectorAll("#btnLancarCusto, #btnLancarCustoVazio"), function (b) {
-            b.addEventListener("click", abrir);
+        Array.prototype.forEach.call(document.querySelectorAll(gatilhoSelector), function (b) {
+            b.addEventListener("click", function () { modal.hidden = false; });
         });
         Array.prototype.forEach.call(modal.querySelectorAll("[data-fechar]"), function (el) {
             el.addEventListener("click", fechar);
@@ -89,4 +89,6 @@
             if (e.key === "Escape" && !modal.hidden) fechar();
         });
     }
+    ligarModal("modalCusto", "#btnLancarCusto, #btnLancarCustoVazio");
+    ligarModal("modalCaixa", "#btnEditarCaixa");
 })();
