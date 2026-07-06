@@ -9,6 +9,13 @@ de produção por variáveis de ambiente sem quebrar o uso local: `DJANGO_SECRET
 `gunicorn` ao `requirements.txt` para o serviço systemd do VPS. Localmente, sem variáveis, continua usando
 `DEBUG=True`, banco `db.sqlite3`, `static/` e `media/`. Antes: Cadastro: assinatura desenhada dos 3 documentos.
 
+**Deploy VPS:** em 2026-07-06, a nova versão ficou publicada em
+`https://pinhaljunior.com.br/sistema-novo/`, isolada do sistema antigo (`sitepinhal`, porta 8000). A nova
+instalação usa `/var/www/pinhaljunior2/current`, venv em `/var/www/pinhaljunior2/.venv`, SQLite persistente em
+`/var/www/pinhaljunior2/data/db.sqlite3`, media em `/var/www/pinhaljunior2/media`, staticfiles em
+`/var/www/pinhaljunior2/staticfiles`, env file `/etc/pinhaljunior2.env`, serviço `pinhaljunior2.service`
+(Gunicorn em `127.0.0.1:8010`) e atalho global `pinhaljunior2-deploy`.
+
 **Última atualização:** 2026-07-06 (**Cadastro: assinatura desenhada dos 3 documentos**): o responsável **assina
 com o dedo/mouse** (canvas, sem lib) os **3 documentos** da inscrição — ficha de inscrição, declaração médica e
 termo de imagem — e a **assinatura substitui o checkbox** (assinar = aceitar). Cada assinatura vira um

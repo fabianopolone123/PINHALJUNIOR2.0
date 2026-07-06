@@ -47,6 +47,39 @@ repositório, `DEBUG=False`, hosts/CSRF corretos, arquivos estáticos coletados 
 
 ---
 
+## 2026-07-06 - Deploy inicial no VPS em /sistema-novo
+
+### Resumo
+Publicado o sistema novo no VPS, sem substituir o sistema antigo do domínio principal. A nova versão responde em
+`https://pinhaljunior.com.br/sistema-novo/`, usando serviço, banco, media, staticfiles e comando de deploy próprios.
+O sistema antigo continua no domínio raiz e no serviço `sitepinhal.service`.
+
+### Arquivos/configurações criados ou alterados no VPS
+- `/var/www/pinhaljunior2/current`: clone do repositório GitHub.
+- `/var/www/pinhaljunior2/.venv`: ambiente virtual Python do novo sistema.
+- `/var/www/pinhaljunior2/data/db.sqlite3`: banco SQLite persistente da nova versão.
+- `/var/www/pinhaljunior2/media` e `/var/www/pinhaljunior2/staticfiles`: uploads e estáticos coletados.
+- `/etc/pinhaljunior2.env`: variáveis de produção, incluindo prefixo `/sistema-novo`.
+- `/etc/systemd/system/pinhaljunior2.service`: Gunicorn em `127.0.0.1:8010`.
+- `/usr/local/bin/pinhaljunior2-deploy`: deploy global via GitHub, com backup do SQLite, migrations,
+  collectstatic, restart e healthcheck.
+- `/etc/nginx/sites-available/sitepinhal`: adicionadas apenas as rotas `/sistema-novo/`,
+  `/sistema-novo/static/` e `/sistema-novo/media/`; backup criado antes da alteração.
+
+### Validação
+- `pinhaljunior2-deploy` concluiu com healthcheck OK.
+- `nginx -t` OK e reload aplicado.
+- `https://pinhaljunior.com.br/sistema-novo/` respondeu `200`.
+- `https://pinhaljunior.com.br/sistema-novo/static/css/login.css` respondeu `200`.
+- Login real com `Fabiano` retornou `302` para `/sistema-novo/inicio/`.
+- Serviços `pinhaljunior2.service`, `nginx` e `sitepinhal.service` ficaram ativos.
+
+### Pendências
+- Trocar a senha inicial do usuário diretor `Fabiano`.
+- Configurar dados reais de produção e integrações de pagamento quando a etapa de gateway começar.
+
+---
+
 ## 2026-07-06 - Cadastro: assinatura desenhada dos 3 documentos da inscrição
 
 ### Resumo

@@ -104,6 +104,32 @@ Em produção, o projeto pode ser configurado sem alterar código usando variáv
 
 Sem essas variáveis, o comportamento local permanece o padrão de desenvolvimento.
 
+### Deploy no VPS
+
+A nova versão está publicada temporariamente em:
+
+```text
+https://pinhaljunior.com.br/sistema-novo/
+```
+
+No VPS, o deploy segue o padrão dos outros projetos e deve ser feito pelo GitHub, sem copiar arquivos
+manualmente:
+
+```bash
+pinhaljunior2-deploy
+```
+
+Estrutura no servidor:
+
+- Código: `/var/www/pinhaljunior2/current`
+- Venv: `/var/www/pinhaljunior2/.venv`
+- Banco SQLite: `/var/www/pinhaljunior2/data/db.sqlite3`
+- Uploads: `/var/www/pinhaljunior2/media`
+- Staticfiles: `/var/www/pinhaljunior2/staticfiles`
+- Variáveis de ambiente: `/etc/pinhaljunior2.env`
+- Serviço: `pinhaljunior2.service` (Gunicorn em `127.0.0.1:8010`)
+- Nginx: rotas adicionadas no site `sitepinhal` apenas para `/sistema-novo/`
+
 Observação: ao rodar, o Django pode exibir um aviso sobre migrações pendentes
 das apps internas (admin, auth, sessions). Isso é normal e não afeta a tela de
 login. Se quiser remover o aviso, rode `python manage.py migrate`.
