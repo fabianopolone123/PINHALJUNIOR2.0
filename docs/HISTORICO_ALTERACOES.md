@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: líquido por fonte + custos da loja + reclassificação + fluxo ao fundo
+
+### Resumo
+O clube tem **uma conta só**, então os cards de resumo agora mostram o **líquido de cada fonte** (quanto do
+dinheiro no caixa é de cada uma): **Mensalidades** (recebido), **Loja** (vendas − custos da loja),
+**Eventos** (entradas − custos de evento) e **Custos gerais do clube** (gastos que não são de loja/eventos).
+Os líquidos **somam o Resultado líquido** total. Para isso, o **custo do clube ganhou `destino`** (Geral do
+clube / Loja): custo com destino "loja" abate no líquido da loja. A **loja** ganhou, na aba Vendas, uma seção
+**"Custos / pagamentos da loja"** (pagamento de fornecedores, ex.: uniformes) com o **resultado da loja** e um
+botão **"Lançar custo da loja"** (modal, valor com máscara, comprovantes). **Reclassificados** os custos
+importados: *Pagamento Uniformes de Gala* → **loja**; *Aluguel Decoração Acampamento* → **custo do evento**
+Acampamento (movido para `CustoEvento`); os demais seguem como **gerais**. Ajuste visual: o gráfico de **fluxo
+mensal** foi empurrado para a **base do card** (sem espaço em branco embaixo).
+
+### Arquivos alterados
+- `core/models.py`: `CustoClube.destino` (geral/loja; mig. **0027**). `core/forms.py`: campo `destino`.
+- `core/views.py`: `financeiro_view` (líquido por fonte usando destino), `custo_clube_novo_view` (volta à
+  loja quando destino/`de`=loja), `loja_view` (custos da loja + resultado).
+- `templates/core/financeiro.html`: cards com líquido + tag; destino no modal de custo.
+- `templates/core/loja.html`: seção "Custos/pagamentos da loja" + modal (máscara + comprovantes) na aba Vendas.
+- `static/css/financeiro.css` (líquido/fluxo ao fundo) e `static/css/loja.css` (custos da loja).
+
+### Decisões tomadas
+- Custo de **evento** vira `CustoEvento` (aparece no painel do evento e no Financeiro); custo de **loja** é
+  `CustoClube` com destino=loja; o resto é `CustoClube` geral. Os líquidos por fonte somam o resultado total.
+
+### Pendências
+- Máscara pt-BR nos **preços de produto da loja** e **custos de evento** (ainda `type=number`).
+
+---
+
 ## 2026-07-06 - Financeiro: ajustes (custos importados, KPI, cards, custo em modal, máscara R$, extrato)
 
 ### Resumo

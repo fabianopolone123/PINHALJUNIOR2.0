@@ -3523,11 +3523,17 @@ def loja_view(request):
         CompraLoja.objects.prefetch_related("itens").select_related("usuario").all()
     )
     kits, total = _loja_cart_detalhado(request)
+    relatorio = _loja_relatorio()
+    custos_loja = list(CustoClube.objects.filter(destino="loja").prefetch_related("comprovantes"))
+    custos_loja_total = sum((c.valor for c in custos_loja), Decimal("0"))
     contexto = {
         "produtos": produtos,
         "produtos_ativos": [p for p in produtos if p.ativo],
         "compras": compras,
-        "relatorio": _loja_relatorio(),
+        "relatorio": relatorio,
+        "custos_loja": custos_loja,
+        "custos_loja_total": custos_loja_total,
+        "loja_resultado": relatorio["arrecadado"] - custos_loja_total,
         "cart_kits": kits,
         "cart_total": total,
         "comprador": _comprador_padrao(request.user),
@@ -4228,21 +4234,28 @@ def financeiro_view(request):
     pedidos_total = sum((p.valor_total for p in pedidos_ev), Decimal("0"))
     eventos_entradas = inscr_total + pedidos_total
     custos_ev_total = sum((c.valor for c in custos_ev), Decimal("0"))
-    custos_clube_total = sum((c.valor for c in custos_clube), Decimal("0"))
+    # Custos do clube separados por destino: 'loja' abate no líquido da loja;
+    # 'geral' é custo do clube em si.
+    custos_loja_total = sum((c.valor for c in custos_clube if c.destino == "loja"), Decimal("0"))
+    custos_geral_total = sum((c.valor for c in custos_clube if c.destino != "loja"), Decimal("0"))
 
     entradas = mens_recebido + loja_total + eventos_entradas
-    saidas = custos_ev_total + custos_clube_total
+    saidas = custos_ev_total + custos_loja_total + custos_geral_total
     resultado = entradas - saidas
 
     resumo = {
-        "mensalidades": {"entradas": mens_recebido, "aberto": mens_aberto, "n": len(mens_pagas)},
-        "loja": {"entradas": loja_total, "n": len(compras)},
+        # Líquido de cada fonte (quanto do dinheiro no banco é de cada uma).
+        "mensalidades": {"entradas": mens_recebido, "liquido": mens_recebido,
+                         "aberto": mens_aberto, "n": len(mens_pagas)},
+        "loja": {"entradas": loja_total, "custos": custos_loja_total,
+                 "liquido": loja_total - custos_loja_total, "n": len(compras)},
         "eventos": {
             "entradas": eventos_entradas, "inscricoes": inscr_total,
             "pedidos": pedidos_total, "custos": custos_ev_total,
-            "resultado": eventos_entradas - custos_ev_total,
+            "liquido": eventos_entradas - custos_ev_total,
         },
-        "custos_clube": {"total": custos_clube_total, "n": len(custos_clube)},
+        "custos_clube": {"total": custos_geral_total,
+                         "n": sum(1 for c in custos_clube if c.destino != "loja")},
     }
 
     # Extrato consolidado
@@ -4269,7 +4282,9 @@ def financeiro_view(request):
                         "saida": True, "comprovante": (cu.comprovante.url if cu.comprovante else None)})
     for cc in custos_clube:
         _prov = cc.comprovantes.all()
-        extrato.append({"data": cc.data, "fonte": "custos", "tipo": "Custo do clube",
+        _loja = cc.destino == "loja"
+        extrato.append({"data": cc.data, "fonte": ("loja" if _loja else "custos"),
+                        "tipo": ("Custo da loja" if _loja else "Custo do clube"),
                         "desc": cc.nome, "valor": cc.valor, "saida": True,
                         "comprovante": (_prov[0].arquivo.url if _prov else None)})
     extrato.sort(key=lambda e: (e["data"] or datetime.date.min), reverse=True)
@@ -4323,8 +4338,13 @@ def custo_clube_novo_view(request):
         for arquivo in request.FILES.getlist("comprovantes"):
             ComprovanteCustoClube.objects.create(custo=custo, arquivo=arquivo)
         messages.success(request, "Custo lançado.")
+        destino_ok = custo.destino
     else:
         messages.error(request, "Informe a descrição e um valor válido.")
+        destino_ok = request.POST.get("destino")
+    # Volta para a loja se veio de lá; senão, para o Financeiro (aba custos).
+    if request.POST.get("de") == "loja" or destino_ok == "loja":
+        return redirect(reverse("core:loja") + "?aba=vendas")
     return redirect(reverse("core:financeiro") + "?aba=custos")
 
 

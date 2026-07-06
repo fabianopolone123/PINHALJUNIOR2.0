@@ -303,6 +303,36 @@
                         </section>
                     </div>
 
+                    <section class="card loja-rel-bloco loja-custos-bloco">
+                        <div class="secao-cabecalho" style="margin-top:0;">
+                            <h2 class="secao-titulo">🧾 Custos / pagamentos da loja</h2>
+                            <button type="button" class="btn-secundario btn-acao-pequeno" id="btnCustoLoja">➕ Lançar custo da loja</button>
+                        </div>
+                        <div class="loja-resultado-linha">
+                            <span>Vendas <strong>R$ {{ relatorio.arrecadado|moeda }}</strong></span>
+                            <span>Custos <strong class="saida">− R$ {{ custos_loja_total|moeda }}</strong></span>
+                            <span>Resultado <strong class="{% if loja_resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ loja_resultado|moeda }}</strong></span>
+                        </div>
+                        {% if custos_loja %}
+                        <ul class="loja-custos-lista">
+                            {% for c in custos_loja %}
+                            <li class="loja-custo-item">
+                                <span class="loja-custo-nome">{{ c.nome }}</span>
+                                <span class="loja-custo-data">{{ c.data|date:"d/m/Y" }}</span>
+                                {% for p in c.comprovantes.all %}<a href="{{ p.arquivo.url }}" target="_blank" class="loja-custo-anexo" title="Comprovante">📎</a>{% endfor %}
+                                <span class="loja-custo-valor saida">− R$ {{ c.valor|moeda }}</span>
+                                <form method="post" action="{% url 'core:custo_clube_excluir' c.id %}" class="form-excluir-loja" data-confirmar="Remover o custo “{{ c.nome }}”?">
+                                    {% csrf_token %}
+                                    <button type="submit" class="loja-kit-remover" aria-label="Remover">✕</button>
+                                </form>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="painel-nota">Nenhum custo da loja lançado. Ex.: pagamento dos uniformes ao fornecedor.</p>
+                        {% endif %}
+                    </section>
+
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Todas as compras</h2>
                         <div class="loja-compras-filtros">
@@ -381,9 +411,45 @@
                 </section>
             </div>
         </main>
+
+        <!-- Modal: lançar custo/pagamento da loja -->
+        <div class="modal-overlay" id="modalCustoLoja" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalCustoLojaTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalCustoLojaTitulo">➕ Custo / pagamento da loja</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p class="painel-nota" style="margin-top:0;">Pagamentos de fornecedores da loja (ex.: uniformes, laços). Abatem no resultado da loja.</p>
+                    <form method="post" action="{% url 'core:custo_clube_novo' %}" enctype="multipart/form-data" class="evento-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="destino" value="loja">
+                        <input type="hidden" name="de" value="loja">
+                        <div class="campo">
+                            <label for="clNome">Descrição <span class="obrigatorio">*</span></label>
+                            <input type="text" id="clNome" name="nome" class="campo-input" placeholder="Ex.: Pagamento uniformes ao fornecedor">
+                        </div>
+                        <div class="campo">
+                            <label for="clValorVis">Valor (R$) <span class="obrigatorio">*</span></label>
+                            <input type="text" id="clValorVis" class="campo-input" inputmode="decimal" placeholder="0,00" data-moeda data-moeda-alvo="clValor">
+                            <input type="hidden" name="valor" id="clValor">
+                        </div>
+                        <div class="campo">
+                            <label for="clComp">Comprovantes <small class="ajuda">(pode anexar vários)</small></label>
+                            <input type="file" id="clComp" name="comprovantes" class="campo-file" accept="image/*,application/pdf" multiple>
+                        </div>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Lançar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/moeda_br.js' %}"></script>
     <script src="{% static 'js/loja.js' %}"></script>
 </body>
 </html>

@@ -1627,13 +1627,23 @@ class Mensalidade(models.Model):
         return self.status == "aberta" and not self.isento
 
 
+DESTINO_CUSTO_CHOICES = [
+    ("geral", "Geral do clube"),
+    ("loja", "Loja"),
+]
+
+
 class CustoClube(models.Model):
-    """Despesa/custo geral do clube (não vinculada a um evento). Usado no
-    Financeiro geral, com comprovante anexo — igual aos custos de evento."""
+    """Despesa/custo do clube. `destino` diz a que fonte pertence — 'geral' (do
+    clube) ou 'loja' (pagamento de fornecedores da loja) — para calcular o líquido
+    de cada fonte no Financeiro. Custos de evento ficam em `CustoEvento`."""
 
     nome = models.CharField("Descrição do gasto", max_length=150)
     descricao = models.TextField("Observação", blank=True)
     valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    destino = models.CharField(
+        "Destino", max_length=10, choices=DESTINO_CUSTO_CHOICES, default="geral"
+    )
     data = models.DateField("Data", default=datetime.date.today)
     comprovante = models.FileField(
         "Comprovante", upload_to="clube/custos/", blank=True, null=True

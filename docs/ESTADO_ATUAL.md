@@ -12,7 +12,10 @@ eventos); Saídas = custos de evento + custos do clube. **Ajustes (2026-07-06):*
 **custos do clube importados** do antigo (14, R$ 5.066,60, com comprovantes); custo agora é lançado por
 **modal** (sem data, vários **comprovantes** — `ComprovanteCustoClube`, mig. **0026**); donut centralizado +
 cards de mesma altura + botões no rodapé; **máscara de moeda pt-BR** (`moeda_br.js`) nos valores; extrato com
-filtros/busca corrigidos. Antes: Mensalidades (dashboard mês a mês).
+filtros/busca corrigidos. **Líquido por fonte (2026-07-06):** os cards mostram o **líquido** de cada fonte
+(mensalidades; loja = vendas − custos da loja; eventos = entradas − custos; custos gerais) e **somam o
+resultado**. Custo do clube tem **destino** (Geral/Loja, mig. **0027**); a **loja** (aba Vendas) tem seção de
+**custos/pagamentos da loja** + resultado. Antes: Mensalidades (dashboard mês a mês).
 
 **Anterior:** (**Mensalidades: dashboard mês a mês**): a tela de Mensalidades ganhou
 **abas** — **Resumo** (dashboard: **donut de taxa de pagamento**, **gráfico de barras mês a mês** recebido ×

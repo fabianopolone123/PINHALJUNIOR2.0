@@ -436,7 +436,7 @@ class CustoClubeForm(EstiloFormMixin, forms.ModelForm):
 
     class Meta:
         model = CustoClube
-        fields = ["nome", "descricao", "valor"]
+        fields = ["nome", "descricao", "valor", "destino"]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 2}),
             "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),

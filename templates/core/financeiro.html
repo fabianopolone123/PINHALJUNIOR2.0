@@ -89,7 +89,8 @@
                     <div class="fin-resumo-fontes">
                         <div class="card fin-fonte fonte-mensalidades">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">💰</span><h3>Mensalidades</h3></div>
-                            <p class="fin-fonte-valor">R$ {{ resumo.mensalidades.entradas|moeda }}</p>
+                            <p class="fin-fonte-valor {% if resumo.mensalidades.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.mensalidades.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido no caixa</span>
                             <ul class="fin-fonte-det">
                                 <li>{{ resumo.mensalidades.n }} pagamento(s)</li>
                                 <li>A receber (ativos): <strong>R$ {{ resumo.mensalidades.aberto|moeda }}</strong></li>
@@ -98,26 +99,30 @@
                         </div>
                         <div class="card fin-fonte fonte-loja">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🛍️</span><h3>Loja</h3></div>
-                            <p class="fin-fonte-valor">R$ {{ resumo.loja.entradas|moeda }}</p>
+                            <p class="fin-fonte-valor {% if resumo.loja.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.loja.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido no caixa</span>
                             <ul class="fin-fonte-det">
+                                <li>Vendas: R$ {{ resumo.loja.entradas|moeda }}</li>
+                                <li>Custos: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
                                 <li>{{ resumo.loja.n }} compra(s)</li>
                             </ul>
                             <a href="{% url 'core:loja' %}?aba=vendas" class="fin-fonte-link">Ver loja →</a>
                         </div>
                         <div class="card fin-fonte fonte-eventos">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🎟️</span><h3>Eventos</h3></div>
-                            <p class="fin-fonte-valor">R$ {{ resumo.eventos.entradas|moeda }}</p>
+                            <p class="fin-fonte-valor {% if resumo.eventos.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido no caixa</span>
                             <ul class="fin-fonte-det">
                                 <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
                                 <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
                                 <li>Custos: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
-                                <li>Resultado: <strong class="{% if resumo.eventos.resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.resultado|moeda }}</strong></li>
                             </ul>
                             <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
                         </div>
                         <div class="card fin-fonte fonte-custos">
-                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos do clube</h3></div>
-                            <p class="fin-fonte-valor saida">R$ {{ resumo.custos_clube.total|moeda }}</p>
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos gerais do clube</h3></div>
+                            <p class="fin-fonte-valor saida">− R$ {{ resumo.custos_clube.total|moeda }}</p>
+                            <span class="fin-fonte-tag">gastos gerais (fora loja/eventos)</span>
                             <ul class="fin-fonte-det">
                                 <li>{{ resumo.custos_clube.n }} lançamento(s)</li>
                             </ul>
@@ -250,10 +255,19 @@
                             <label for="custoNome">Descrição do gasto <span class="obrigatorio">*</span></label>
                             <input type="text" id="custoNome" name="nome" class="campo-input" placeholder="Ex.: Locação da chácara">
                         </div>
-                        <div class="campo">
-                            <label for="custoValorVis">Valor (R$) <span class="obrigatorio">*</span></label>
-                            <input type="text" id="custoValorVis" class="campo-input" inputmode="decimal" placeholder="0,00" data-moeda data-moeda-alvo="custoValor">
-                            <input type="hidden" name="valor" id="custoValor">
+                        <div class="form-linha">
+                            <div class="campo">
+                                <label for="custoValorVis">Valor (R$) <span class="obrigatorio">*</span></label>
+                                <input type="text" id="custoValorVis" class="campo-input" inputmode="decimal" placeholder="0,00" data-moeda data-moeda-alvo="custoValor">
+                                <input type="hidden" name="valor" id="custoValor">
+                            </div>
+                            <div class="campo">
+                                <label for="custoDestino">Destino</label>
+                                <select id="custoDestino" name="destino" class="campo-select">
+                                    <option value="geral">Geral do clube</option>
+                                    <option value="loja">Loja (fornecedores)</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="campo">
                             <label for="custoDesc">Observação <small class="ajuda">(opcional)</small></label>

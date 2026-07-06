@@ -56,6 +56,28 @@
     });
 })();
 
+/* Modal: lançar custo/pagamento da loja (fechamento seguro). */
+(function () {
+    "use strict";
+    var modal = document.getElementById("modalCustoLoja");
+    var btn = document.getElementById("btnCustoLoja");
+    if (!modal || !btn) return;
+    function fechar() { modal.hidden = true; }
+    btn.addEventListener("click", function () { modal.hidden = false; });
+    Array.prototype.forEach.call(modal.querySelectorAll("[data-fechar]"), function (el) {
+        el.addEventListener("click", fechar);
+    });
+    var fundoDown = false;
+    modal.addEventListener("mousedown", function (e) { fundoDown = e.target === modal; });
+    modal.addEventListener("click", function (e) {
+        if (e.target === modal && fundoDown) fechar();
+        fundoDown = false;
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !modal.hidden) fechar();
+    });
+})();
+
 /* =========================================================
    Aba Vendas: marcar entrega (fetch/JSON) + busca nas compras.
    ========================================================= */

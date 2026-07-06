@@ -36,6 +36,8 @@
 .fin-fonte-icone { font-size: 1.3rem; }
 .fin-fonte-valor { font-size: 1.5rem; font-weight: 800; color: var(--azul-escuro, #0f4c81); margin: 6px 0; }
 .fin-fonte-valor.saida { color: #c0392b; }
+.fin-fonte-valor.entrada { color: var(--verde, #3a9d3a); }
+.fin-fonte-tag { font-size: 0.75rem; color: #888; display: block; margin: -4px 0 8px; }
 .fin-fonte-det { list-style: none; margin: 0 0 8px; padding: 0; font-size: 0.88rem; color: #555; display: grid; gap: 2px; }
 .fin-fonte-det { margin-bottom: 12px; }
 .fin-fonte-link { font-size: 0.88rem; font-weight: 700; color: var(--azul, #1f6fb2); text-decoration: none; margin-top: auto; }
@@ -54,7 +56,7 @@
 
 .fin-grafico-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .fin-legenda { display: flex; gap: 14px; font-size: 0.85rem; color: #555; }
-.fin-fluxo-scroll { overflow-x: auto; padding-top: 10px; }
+.fin-fluxo-scroll { overflow-x: auto; padding-top: 10px; margin-top: auto; }
 .fin-fluxo { display: flex; align-items: flex-end; gap: 10px; min-width: 560px; height: 180px; border-bottom: 2px solid rgba(15,76,129,.15); padding-bottom: 4px; }
 .fin-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .fin-col-barras { display: flex; align-items: flex-end; gap: 3px; height: 100%; width: 100%; justify-content: center; }
