@@ -86,50 +86,71 @@
 
                 <!-- ================= RESUMO ================= -->
                 <section class="fin-painel" data-painel="resumo"{% if aba == 'extrato' or aba == 'custos' %} hidden{% endif %}>
-                    <p class="fin-fontes-intro">Quanto cada fonte <strong>contribui no resultado líquido</strong> (já com sua parte dos custos gerais rateada). As três somam o resultado.</p>
+                    <p class="fin-fontes-intro">Resultado <strong>líquido de cada fonte</strong> (entradas − custos da própria fonte) — pra ver o que gera mais lucro ou prejuízo.</p>
                     <div class="fin-resumo-fontes">
                         <div class="card fin-fonte fonte-mensalidades">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">💰</span><h3>Mensalidades</h3></div>
-                            <p class="fin-fonte-valor {% if resumo.mensalidades.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.mensalidades.contrib|moeda }}</p>
-                            <span class="fin-fonte-tag">contribui no resultado · {{ resumo.mensalidades.pct|floatformat:1 }}%</span>
+                            <p class="fin-fonte-valor {% if resumo.mensalidades.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.mensalidades.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
-                                <li>Recebido: R$ {{ resumo.mensalidades.entradas|moeda }} ({{ resumo.mensalidades.n }})</li>
-                                <li>Rateio custos gerais: <span class="saida">− R$ {{ resumo.mensalidades.rateio|moeda }}</span></li>
+                                <li>{{ resumo.mensalidades.n }} pagamento(s)</li>
                                 <li>A receber (ativos): <strong>R$ {{ resumo.mensalidades.aberto|moeda }}</strong></li>
                             </ul>
                             <a href="{% url 'core:mensalidades' %}" class="fin-fonte-link">Ver mensalidades →</a>
                         </div>
                         <div class="card fin-fonte fonte-loja">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🛍️</span><h3>Loja</h3></div>
-                            <p class="fin-fonte-valor {% if resumo.loja.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.loja.contrib|moeda }}</p>
-                            <span class="fin-fonte-tag">contribui no resultado · {{ resumo.loja.pct|floatformat:1 }}%</span>
+                            <p class="fin-fonte-valor {% if resumo.loja.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.loja.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
-                                <li>Vendas: R$ {{ resumo.loja.entradas|moeda }} ({{ resumo.loja.n }})</li>
-                                <li>Custos da loja: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
-                                <li>Rateio custos gerais: <span class="saida">− R$ {{ resumo.loja.rateio|moeda }}</span></li>
+                                <li>Vendas: R$ {{ resumo.loja.entradas|moeda }}</li>
+                                <li>Custos: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
+                                <li>{{ resumo.loja.n }} compra(s)</li>
                             </ul>
                             <a href="{% url 'core:loja' %}?aba=vendas" class="fin-fonte-link">Ver loja →</a>
                         </div>
                         <div class="card fin-fonte fonte-eventos">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🎟️</span><h3>Eventos</h3></div>
-                            <p class="fin-fonte-valor {% if resumo.eventos.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.contrib|moeda }}</p>
-                            <span class="fin-fonte-tag">contribui no resultado · {{ resumo.eventos.pct|floatformat:1 }}%</span>
+                            <p class="fin-fonte-valor {% if resumo.eventos.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
-                                <li>Inscrições + lojinha: R$ {{ resumo.eventos.entradas|moeda }}</li>
-                                <li>Custos de evento: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
-                                <li>Rateio custos gerais: <span class="saida">− R$ {{ resumo.eventos.rateio|moeda }}</span></li>
+                                <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
+                                <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
+                                <li>Custos: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
                             </ul>
                             <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
                         </div>
                         <div class="card fin-fonte fonte-custos">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos gerais do clube</h3></div>
                             <p class="fin-fonte-valor saida">− R$ {{ resumo.custos_clube.total|moeda }}</p>
-                            <span class="fin-fonte-tag">gastos gerais (já rateados nas 3 fontes)</span>
+                            <span class="fin-fonte-tag">gastos gerais (fora loja/eventos)</span>
                             <ul class="fin-fonte-det">
                                 <li>{{ resumo.custos_clube.n }} lançamento(s)</li>
                                 <li>Hospedagem, brindes, materiais…</li>
                             </ul>
                             <a href="#" class="fin-fonte-link" data-ir-aba="custos">Lançar / ver custos →</a>
+                        </div>
+                    </div>
+
+                    <div class="fin-contas">
+                        <div class="card fin-conta fin-conta-livre">
+                            <div class="fin-conta-topo"><span class="fin-conta-icone">💚</span><h3>Disponível pra gastar</h3></div>
+                            <p class="fin-conta-valor {% if disponivel >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ disponivel|moeda }}</p>
+                            <ul class="fin-conta-det">
+                                <li><span>Mensalidades</span><span class="entrada">+ R$ {{ resumo.mensalidades.liquido|moeda }}</span></li>
+                                <li><span>Eventos (lucro)</span><span class="{% if lucro_eventos >= 0 %}entrada{% else %}saida{% endif %}">{% if lucro_eventos >= 0 %}+{% else %}−{% endif %} R$ {{ lucro_eventos|moeda }}</span></li>
+                                <li><span>Custos gerais</span><span class="saida">− R$ {{ resumo.custos_clube.total|moeda }}</span></li>
+                            </ul>
+                            <span class="fin-conta-nota">Dinheiro do clube que pode ser usado livremente.</span>
+                        </div>
+                        <div class="card fin-conta fin-conta-travado">
+                            <div class="fin-conta-topo"><span class="fin-conta-icone">🔒</span><h3>Reservado da loja</h3></div>
+                            <p class="fin-conta-valor {% if reservado_loja >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ reservado_loja|moeda }}</p>
+                            <ul class="fin-conta-det">
+                                <li><span>Vendas da loja</span><span class="entrada">+ R$ {{ resumo.loja.entradas|moeda }}</span></li>
+                                <li><span>Pagamento a fornecedores</span><span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
+                            </ul>
+                            <span class="fin-conta-nota">Travado pra pagar os fornecedores da loja — não é lucro do clube.</span>
                         </div>
                     </div>
 

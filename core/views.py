@@ -4260,28 +4260,12 @@ def financeiro_view(request):
                          "n": sum(1 for c in custos_clube if c.destino != "loja")},
     }
 
-    # Quanto cada fonte CONTRIBUI no resultado: rateia os custos gerais do clube
-    # (que não pertencem a nenhuma fonte) proporcionalmente ao líquido de cada uma,
-    # para que Mensalidades + Loja + Eventos somem exatamente o resultado. Guarda
-    # a contribuição (líquido − rateio), o rateio e a % nos próprios cards do resumo.
-    liq = {"mensalidades": mens_recebido, "loja": loja_total - custos_loja_total,
-           "eventos": eventos_entradas - custos_ev_total}
-    soma_fontes = sum(liq.values(), Decimal("0"))
-    rateio = {}
-    if soma_fontes:
-        rateio["mensalidades"] = (custos_geral_total * liq["mensalidades"] / soma_fontes).quantize(Decimal("0.01"))
-        rateio["loja"] = (custos_geral_total * liq["loja"] / soma_fontes).quantize(Decimal("0.01"))
-        rateio["eventos"] = custos_geral_total - rateio["mensalidades"] - rateio["loja"]  # fecha exato
-    else:
-        rateio = {"mensalidades": Decimal("0"), "loja": Decimal("0"), "eventos": Decimal("0")}
-    _res = resultado or Decimal("1")
-    for fonte in ("mensalidades", "loja", "eventos"):
-        contrib = liq[fonte] - rateio[fonte]
-        resumo[fonte]["rateio"] = rateio[fonte]
-        resumo[fonte]["contrib"] = contrib
-        pct = float(contrib / _res * 100)
-        resumo[fonte]["pct"] = pct
-        resumo[fonte]["pct_bar"] = max(0, min(100, int(round(pct))))
+    # Duas "contas" do clube: o que pode gastar × o que está travado.
+    # - Disponível: mensalidades + lucro dos eventos − custos gerais do clube.
+    # - Reservado da loja: vendas − custos da loja (fica travado p/ pagar fornecedores).
+    lucro_eventos = eventos_entradas - custos_ev_total
+    disponivel = mens_recebido + lucro_eventos - custos_geral_total
+    reservado_loja = loja_total - custos_loja_total
 
     # Onde está o dinheiro: banco (informado) e espécie = o que sobra.
     caixa = CaixaClube.get_solo()
@@ -4349,6 +4333,8 @@ def financeiro_view(request):
         "entradas": entradas, "saidas": saidas, "resultado": resultado,
         "resumo": resumo, "extrato": extrato, "fluxo": fluxo, "donut": donut,
         "custos_gerais_total": custos_geral_total,
+        "disponivel": disponivel, "reservado_loja": reservado_loja,
+        "lucro_eventos": lucro_eventos,
         "caixa": caixa, "caixa_especie": caixa_especie,
         "caixa_form": CaixaClubeForm(instance=caixa),
         "custos_clube": custos_clube, "custo_form": CustoClubeForm(),

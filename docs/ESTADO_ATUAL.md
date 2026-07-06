@@ -2,15 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Financeiro: cards por contribuição + "Onde está o dinheiro"**): os cards
-do topo do Resumo (Mensalidades/Loja/Eventos) passaram a mostrar **quanto cada fonte contribui no resultado**
-(líquido já com o rateio dos custos gerais + % do resultado), somando exatamente o resultado — o card avulso de
-"Custos gerais" saiu do topo. Removido o card separado de contribuição (virou os cards do topo); mantido "Como o
-resultado se forma". Novo card **"Onde está o dinheiro"**: **na conta (banco)** + **em espécie
-(caixa físico)** = resultado; Diretor edita só o saldo do banco num modal (máscara de moeda) e a **espécie é
-calculada** (resultado − banco). Modelo `CaixaClube` (singleton `saldo_banco`, mig. **0028**; campo `a_receber`
-removido na **0029** — o empréstimo entra somado no saldo do banco); `caixa_editar_view`; rota `financeiro/caixa/`.
-Antes: quadro "Quanto cada fonte contribui no resultado".
+**Última atualização:** 2026-07-06 (**Financeiro: contas Disponível × Reservado (loja); fim do rateio**): os **4
+cards** do topo do Resumo mostram o **líquido de cada fonte** (Mensalidades/Loja/Eventos/Custos gerais) — pra ver
+quem gera mais lucro/prejuízo. **Removido o "rateio"** (confuso). Novo bloco de **duas contas**: **💚 Disponível
+pra gastar** (Mensalidades + lucro de eventos − custos gerais) e **🔒 Reservado da loja** (vendas − fornecedores,
+travado); as duas somam o resultado. Mantidos os quadros "Como o resultado se forma" e **"Onde está o dinheiro"**
+(**na conta/banco** + **em espécie**; espécie = resultado − banco; Diretor edita só o saldo do banco; `CaixaClube`
+singleton, mig. **0028/0029**; rota `financeiro/caixa/`). Antes: cards por contribuição.
 
 **Anterior:** (**Financeiro: quanto cada fonte contribui no resultado**): novo quadro na
 aba **Resumo** que **rateia os custos gerais do clube** (que ficam à parte e por isso os cards de líquido por

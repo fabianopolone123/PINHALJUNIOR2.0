@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: fim do "rateio" + contas Disponível × Reservado (loja)
+
+### Resumo
+A pedido do usuário, **removido o "rateio"** dos custos gerais (era confuso). Os **4 cards** do topo voltaram a
+mostrar o **líquido de cada fonte** (Mensalidades, Loja, Eventos, Custos gerais) — visão de "quem gera mais
+lucro/prejuízo". E entrou o modelo de **duas contas** que o usuário descreveu:
+- **💚 Disponível pra gastar** = Mensalidades + **lucro dos eventos** − Custos gerais do clube (dinheiro livre).
+- **🔒 Reservado da loja** = Vendas − pagamento a fornecedores (travado; não é lucro do clube).
+As duas somam o resultado líquido. Custo **geral** sai do disponível; custo com destino **loja** sai do
+reservado (usa o `destino` que já existe — sem rateio).
+
+### Arquivos alterados
+- `core/views.py`: `financeiro_view` remove o cálculo de contribuição/rateio; calcula `disponivel`,
+  `reservado_loja` e `lucro_eventos`.
+- `templates/core/financeiro.html`: 4 cards voltam ao líquido; novo bloco `.fin-contas` (Disponível × Reservado).
+- `static/css/financeiro.css`: estilos `.fin-contas`/`.fin-conta*` (borda verde = livre, âmbar = travado).
+
+### Validação
+- `manage.py check` OK. Render (test client): cards Mensalidades R$ 3.174,00 · Loja R$ 808,50 · Eventos
+  R$ 3.392,29 · Custos gerais −R$ 2.834,79; **Disponível R$ 3.731,50** + **Reservado (loja) R$ 808,50** =
+  Resultado R$ 4.540,00.
+
+### Pendências
+- Filtro por período (hoje tudo é acumulado desde o início do clube).
+
+---
+
 ## 2026-07-06 - Financeiro: "Onde está o dinheiro" simplificado (só banco + espécie)
 
 ### Resumo

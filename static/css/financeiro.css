@@ -52,8 +52,22 @@
 .fin-comp-total span:first-child { color: var(--azul-escuro, #0f4c81); }
 .fin-comp-nota { font-size: 0.82rem; color: #888; margin: 10px 0 0; }
 
-/* Intro dos cards de fonte (contribuição no resultado) */
+/* Intro dos cards de fonte */
 .fin-fontes-intro { font-size: 0.9rem; color: #555; margin: 0 0 10px; max-width: 70ch; }
+
+/* Duas contas: disponível (livre) × reservado (loja) */
+.fin-contas { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.fin-conta { padding: 16px 18px; border-left: 5px solid #ccc; }
+.fin-conta-livre { border-left-color: #3a9d3a; }
+.fin-conta-travado { border-left-color: #a9760a; }
+.fin-conta-topo { display: flex; align-items: center; gap: 8px; }
+.fin-conta-topo h3 { margin: 0; font-size: 1rem; color: var(--azul-escuro, #0f4c81); }
+.fin-conta-icone { font-size: 1.3rem; }
+.fin-conta-valor { font-size: 1.7rem; font-weight: 800; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+.fin-conta-det { list-style: none; margin: 0 0 8px; padding: 0; }
+.fin-conta-det li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 0.9rem; border-bottom: 1px solid rgba(15,76,129,.06); }
+.fin-conta-det li span:last-child { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fin-conta-nota { font-size: 0.8rem; color: #888; }
 
 /* Onde está o dinheiro (conta + a receber + espécie) */
 .fin-caixa { padding: 16px 18px; margin-bottom: 14px; }
