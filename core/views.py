@@ -1,3 +1,5 @@
+import base64
+import binascii
 import datetime
 import hashlib
 import json
@@ -8,10 +10,12 @@ import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.core.files.base import ContentFile
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, make_password
@@ -44,9 +48,11 @@ from .forms import (
     ProdutoLojaForm,
     ResponsavelLegalForm,
 )
+from . import termos
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
     MESES_PT,
+    AssinaturaDocumento,
     Aventureiro,
     CaixaClube,
     CompraLoja,
@@ -186,6 +192,16 @@ def _classes_investidas(av):
     return [rotulo for marcado, rotulo in mapa if marcado]
 
 
+def _preparar_assinaturas(av):
+    """Anexa ao aventureiro as datas de assinatura por documento (ou None), para
+    exibir o status "assinado em ..." em Meus Dados/Usuários. **Não** expõe a
+    imagem da assinatura (só a tela do Diretor mostra o termo assinado)."""
+    por_doc = {a.documento: a for a in av.assinaturas.all()}
+    av.assinado_medica = por_doc.get(AssinaturaDocumento.DOC_DECLARACAO_MEDICA)
+    av.assinado_imagem = por_doc.get(AssinaturaDocumento.DOC_AUTORIZACAO_IMAGEM)
+    av.assinado_inscricao = por_doc.get(AssinaturaDocumento.DOC_INSCRICAO)
+
+
 def _preparar_ficha(fm):
     """Anexa à ficha médica listas prontas para exibição (ou None)."""
     if fm is None:
@@ -260,6 +276,7 @@ def inicio_view(request):
     aventureiros = list(
         usuario.aventureiros
         .select_related("ficha_medica", "autorizacao_imagem")
+        .prefetch_related("assinaturas")
         .all()
     )
 
@@ -270,6 +287,7 @@ def inicio_view(request):
         av.iniciais = _iniciais(av.nome_completo)
         # Reverse OneToOne pode não existir; getattr evita exceção.
         _preparar_ficha(getattr(av, "ficha_medica", None))
+        _preparar_assinaturas(av)
 
     # Responsável principal: dados do responsável legal do aventureiro mais recente.
     ultimo = max(aventureiros, key=lambda a: a.criado_em) if aventureiros else None
@@ -363,20 +381,44 @@ def _instanciar_forms_aventureiro(request):
     return aventureiro, medica, imagem
 
 
-def _validar_aceites(aventureiro):
-    """Valida os aceites obrigatórios (declaração médica e uso de imagem)."""
+# Campos (name) de cada assinatura no POST → documento correspondente.
+CAMPOS_ASSINATURA = [
+    ("assinatura_inscricao", AssinaturaDocumento.DOC_INSCRICAO, "ficha de inscrição"),
+    ("assinatura_declaracao_medica", AssinaturaDocumento.DOC_DECLARACAO_MEDICA, "declaração médica"),
+    ("assinatura_termo_imagem", AssinaturaDocumento.DOC_AUTORIZACAO_IMAGEM, "autorização de uso de imagem"),
+]
+
+
+def _decode_signature(signature_data):
+    """Converte o data-URL (base64 PNG) da assinatura desenhada em um arquivo
+    pronto para gravar num ImageField. Retorna None se vazio/ inválido."""
+    if not signature_data:
+        return None
+    payload = signature_data
+    if "," in payload:
+        payload = payload.split(",", 1)[1]
+    try:
+        binario = base64.b64decode(payload)
+    except (binascii.Error, ValueError, TypeError):
+        return None
+    if not binario:
+        return None
+    return ContentFile(binario, name=f"assinatura_{uuid.uuid4().hex}.png")
+
+
+def _validar_aceites(request):
+    """Valida os aceites obrigatórios: exige a assinatura desenhada dos três
+    documentos (ficha de inscrição, declaração médica e uso de imagem)."""
     erros = []
-    declaracao_ok = bool(aventureiro.data.get("av-declaracao_medica_aceita"))
-    autorizacao_ok = bool(aventureiro.data.get("av-autorizacao_imagem_aceita"))
-    if not declaracao_ok:
-        erros.append("É necessário aceitar a declaração médica.")
-    if not autorizacao_ok:
-        erros.append("É necessário aceitar a autorização de uso de imagem.")
+    for campo, _doc, rotulo in CAMPOS_ASSINATURA:
+        if not _decode_signature(request.POST.get(campo, "")):
+            erros.append(f"É necessário assinar a {rotulo}.")
     return erros
 
 
-def _salvar_aventureiro(usuario, aventureiro, medica, imagem):
-    """Salva o aventureiro + ficha médica + autorização de imagem (transacional)."""
+def _salvar_aventureiro(usuario, aventureiro, medica, imagem, request):
+    """Salva o aventureiro + ficha médica + autorização de imagem e as três
+    assinaturas dos documentos (transacional)."""
     with transaction.atomic():
         aventureiro_obj = aventureiro.save(commit=False)
         aventureiro_obj.usuario = usuario
@@ -391,11 +433,33 @@ def _salvar_aventureiro(usuario, aventureiro, medica, imagem):
         autorizacao = imagem.save(commit=False)
         autorizacao.aventureiro = aventureiro_obj
         autorizacao.save()
+
+        _salvar_assinaturas(aventureiro_obj, autorizacao, request)
+
         # Gera as mensalidades do ano: o mês atual como inscrição e os
         # seguintes como mensalidade (valores/isenção conforme configuração).
         hoje = timezone.localdate()
         _gerar_mensalidades(aventureiro_obj, hoje.year, mes_inscricao=hoje.month)
     return aventureiro_obj
+
+
+def _salvar_assinaturas(aventureiro_obj, autorizacao, request):
+    """Cria os três AssinaturaDocumento, guardando o texto do termo preenchido
+    (snapshot) e a imagem desenhada. A validação já garantiu que vieram."""
+    for campo, doc, _rotulo in CAMPOS_ASSINATURA:
+        imagem_assinatura = _decode_signature(request.POST.get(campo, ""))
+        if imagem_assinatura is None:
+            continue
+        titulo, texto = termos.montar_texto(doc, aventureiro_obj, autorizacao)
+        AssinaturaDocumento.objects.create(
+            aventureiro=aventureiro_obj,
+            documento=doc,
+            imagem=imagem_assinatura,
+            titulo_documento=titulo,
+            texto_documento=texto,
+            assinante_nome=aventureiro_obj.resp_nome,
+            assinante_cpf=aventureiro_obj.resp_cpf,
+        )
 
 
 def _dados_responsaveis_anteriores(usuario):
@@ -431,14 +495,14 @@ def cadastro_view(request):
                 imagem.is_valid(),
             ]
         )
-        erro_aceites = _validar_aceites(aventureiro)
+        erro_aceites = _validar_aceites(request)
 
         if formularios_ok and not erro_aceites:
             usuario = User.objects.create_user(
                 username=conta.cleaned_data["username"],
                 password=conta.cleaned_data["senha"],
             )
-            aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem)
+            aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem, request)
             # Login automático (autenticação real) + retaguarda por sessão.
             login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk
@@ -478,10 +542,10 @@ def cadastro_novo_aventureiro_view(request):
         formularios_ok = all(
             [aventureiro.is_valid(), medica.is_valid(), imagem.is_valid()]
         )
-        erro_aceites = _validar_aceites(aventureiro)
+        erro_aceites = _validar_aceites(request)
 
         if formularios_ok and not erro_aceites:
-            aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem)
+            aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem, request)
             request.session[SESSAO_ULTIMO_NOME] = aventureiro_obj.nome_completo
             return redirect("core:cadastro_sucesso")
 
@@ -574,6 +638,7 @@ def usuarios_view(request):
     aventureiros = list(
         Aventureiro.objects
         .select_related("ficha_medica", "autorizacao_imagem", "usuario")
+        .prefetch_related("assinaturas")
         .all()
     )
 
@@ -587,6 +652,7 @@ def usuarios_view(request):
         av.iniciais = _iniciais(av.nome_completo)
         av.conta_ativa = bool(av.usuario and av.usuario.is_active)
         _preparar_ficha(getattr(av, "ficha_medica", None))
+        _preparar_assinaturas(av)
 
         candidatos = [
             ("Pai", av.pai_nome, av.pai_cpf, av.pai_email, av.pai_celular, av.pai_whatsapp),
@@ -709,6 +775,27 @@ def aventureiro_toggle_ativo_view(request, pk):
             msg += " A conta do responsável também foi desativada (sem aventureiros ativos)."
         messages.success(request, msg)
     return redirect("core:usuarios")
+
+
+@diretor_required
+def aventureiro_termos_view(request, pk):
+    """Termos assinados de um aventureiro (só Diretor): monta cada termo com o
+    texto preenchido no momento da assinatura e a imagem da assinatura. Página
+    pronta para impressão (o navegador salva em PDF)."""
+    av = get_object_or_404(Aventureiro, pk=pk)
+    assinaturas = list(av.assinaturas.all())
+    # Mantém a ordem lógica dos documentos (inscrição → médica → imagem).
+    ordem = {
+        AssinaturaDocumento.DOC_INSCRICAO: 0,
+        AssinaturaDocumento.DOC_DECLARACAO_MEDICA: 1,
+        AssinaturaDocumento.DOC_AUTORIZACAO_IMAGEM: 2,
+    }
+    assinaturas.sort(key=lambda a: ordem.get(a.documento, 9))
+    contexto = {
+        "aventureiro": av,
+        "assinaturas": assinaturas,
+    }
+    return render(request, "core/aventureiro_termos.html", contexto)
 
 
 @diretor_required

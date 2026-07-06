@@ -1,0 +1,17 @@
+{% comment %}
+Bloco de assinatura de um documento. Parâmetros:
+  campo_id  -> name/id do input hidden (ex.: "assinatura_declaracao_medica")
+  rotulo    -> texto do botão (ex.: "Assinar declaração médica")
+O hidden fica dentro do <form> e é enviado no submit (data-URL PNG).
+{% endcomment %}
+<div class="assinatura-doc" data-signature-preview data-signature-for="{{ campo_id }}">
+    <input type="hidden" name="{{ campo_id }}" id="{{ campo_id }}" data-signature-field>
+    <div class="assinatura-doc-preview">
+        <img data-signature-preview-img hidden alt="Assinatura registrada">
+        <span class="assinatura-doc-status" data-signature-preview-text>Sem assinatura ainda.</span>
+    </div>
+    <button type="button" class="btn-secundario assinatura-doc-botao"
+            data-action="open-signature" data-signature-target="{{ campo_id }}">
+        ✍️ {{ rotulo }}
+    </button>
+</div>

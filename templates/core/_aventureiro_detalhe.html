@@ -105,8 +105,8 @@ Reaproveitado em "Meus Dados" (core:inicio) e no modal da tela "Usuários".
 
 <details class="secao">
     <summary>Declaração médica</summary>
-    <p class="aceite {% if av.declaracao_medica_aceita %}aceite-ok{% endif %}">
-        {% if av.declaracao_medica_aceita %}✓ Declaração médica aceita{% else %}Declaração médica não aceita{% endif %}
+    <p class="aceite {% if av.assinado_medica or av.declaracao_medica_aceita %}aceite-ok{% endif %}">
+        {% if av.assinado_medica %}✓ Assinada em {{ av.assinado_medica.assinado_em|date:"d/m/Y" }}{% elif av.declaracao_medica_aceita %}✓ Declaração médica aceita{% else %}Declaração médica não aceita{% endif %}
     </p>
     <p class="obs-termo">
         O responsável atestou serem verdadeiras todas as informações médicas
@@ -119,8 +119,8 @@ Reaproveitado em "Meus Dados" (core:inicio) e no modal da tela "Usuários".
 {% if av.autorizacao_imagem %}
 <details class="secao">
     <summary>Autorização de imagem</summary>
-    <p class="aceite {% if av.autorizacao_imagem_aceita %}aceite-ok{% endif %}">
-        {% if av.autorizacao_imagem_aceita %}✓ Termo de imagem aceito{% else %}Termo de imagem não aceito{% endif %}
+    <p class="aceite {% if av.assinado_imagem or av.autorizacao_imagem_aceita %}aceite-ok{% endif %}">
+        {% if av.assinado_imagem %}✓ Assinado em {{ av.assinado_imagem.assinado_em|date:"d/m/Y" }}{% elif av.autorizacao_imagem_aceita %}✓ Termo de imagem aceito{% else %}Termo de imagem não aceito{% endif %}
     </p>
     <div class="dados-grade">
         {% include "core/_dado.html" with rotulo="Nome do menor" valor=av.autorizacao_imagem.nome_menor %}
@@ -142,4 +142,12 @@ Reaproveitado em "Meus Dados" (core:inicio) e no modal da tela "Usuários".
         institucionais do clube, conforme o termo aceito no cadastro.
     </p>
 </details>
+{% endif %}
+
+{% if pode_ver_termos %}
+<p class="ver-termos">
+    <a href="{% url 'core:aventureiro_termos' av.id %}" target="_blank" rel="noopener">
+        📄 Ver termos assinados
+    </a>
+</p>
 {% endif %}

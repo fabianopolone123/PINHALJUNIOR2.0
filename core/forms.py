@@ -102,6 +102,10 @@ class AventureiroForm(EstiloFormMixin, forms.ModelForm):
         # Os aceites são validados/mostrados nas etapas 5 e 6, não aqui.
         self.fields["declaracao_medica_aceita"].required = False
         self.fields["autorizacao_imagem_aceita"].required = False
+        # Isenção/desconto de mensalidade são definidos pelo Diretor depois (tela
+        # Mensalidades), não no cadastro público — usam o padrão (0 / não isento).
+        self.fields["mensalidade_isento"].required = False
+        self.fields["mensalidade_desconto_pct"].required = False
         self._aplicar_estilo()
 
 

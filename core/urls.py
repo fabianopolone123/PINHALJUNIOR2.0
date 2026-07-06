@@ -20,6 +20,11 @@ urlpatterns = [
         name="aventureiro_toggle_ativo",
     ),
     path(
+        "usuarios/aventureiro/<int:pk>/termos/",
+        views.aventureiro_termos_view,
+        name="aventureiro_termos",
+    ),
+    path(
         "usuarios/conta/<int:conta_id>/principal/",
         views.usuario_principal_view,
         name="usuario_principal",

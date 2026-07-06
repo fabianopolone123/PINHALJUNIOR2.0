@@ -591,6 +591,140 @@ body {
     }
 }
 
+/* ---------- Assinatura dos documentos ---------- */
+.assinatura-instrucao {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--azul-escuro, #0f4c81);
+    margin: 4px 0 10px;
+}
+
+.termo [data-fill] {
+    color: var(--azul-escuro, #0f4c81);
+    font-weight: 600;
+}
+
+.assinatura-doc {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px dashed var(--borda, #cfdae7);
+    border-radius: 14px;
+    padding: 16px;
+    background: #f7fafd;
+    margin-bottom: 14px;
+}
+
+.assinatura-doc.assinado {
+    border-style: solid;
+    border-color: var(--verde, #3a9d3a);
+    background: rgba(58, 157, 58, 0.08);
+}
+
+.assinatura-doc-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 96px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid var(--borda, #e2e9f1);
+    padding: 10px;
+}
+
+.assinatura-doc-preview img {
+    max-width: 100%;
+    max-height: 120px;
+    display: block;
+}
+
+.assinatura-doc-status {
+    font-size: 0.88rem;
+    color: #6b7a89;
+}
+
+.assinatura-doc.assinado .assinatura-doc-status {
+    color: #1f6b1f;
+    font-weight: 600;
+}
+
+.assinatura-doc-botao {
+    align-self: center;
+}
+
+/* Modal do pad de assinatura */
+.assinatura-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(9, 30, 55, 0.55);
+}
+
+.assinatura-modal.visivel {
+    display: flex;
+}
+
+.assinatura-modal-caixa {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: min(480px, calc(100vw - 32px));
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 18px 45px rgba(9, 30, 55, 0.35);
+}
+
+.assinatura-modal-titulo {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+    color: var(--azul-escuro, #0f4c81);
+}
+
+.assinatura-canvas-wrap {
+    margin: 12px 0 16px;
+    border: 2px dashed var(--azul-claro, #4a90d9);
+    border-radius: 12px;
+    background: #fbfdff;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.assinatura-canvas-wrap canvas {
+    display: block;
+    width: 100%;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.assinatura-modal-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.assinatura-modal-acoes .btn-secundario {
+    flex: 1 1 auto;
+    min-width: 100px;
+}
+
+/* "Confirmar" ocupa a linha inteira (fica destacado e não estoura no mobile). */
+.assinatura-modal-acoes .btn-primario {
+    flex: 1 1 100%;
+    order: 3;
+}
+
+body.sem-scroll {
+    overflow: hidden;
+}
+
 /* ---------- Acessibilidade ---------- */
 @media (prefers-reduced-motion: reduce) {
     *,

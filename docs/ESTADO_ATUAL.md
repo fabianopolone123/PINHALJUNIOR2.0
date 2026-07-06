@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Loja/Vendas: "Pedido para o fornecedor"**): nova seção na aba Vendas da
+**Última atualização:** 2026-07-06 (**Cadastro: assinatura desenhada dos 3 documentos**): o responsável **assina
+com o dedo/mouse** (canvas, sem lib) os **3 documentos** da inscrição — ficha de inscrição, declaração médica e
+termo de imagem — e a **assinatura substitui o checkbox** (assinar = aceitar). Cada assinatura vira um
+`AssinaturaDocumento` (imagem PNG em `media/assinaturas/` + **snapshot do texto do termo preenchido**). O
+responsável **não** vê a própria assinatura depois (só "assinado em ..."); **só o Diretor** acessa o **termo
+assinado** numa página pronta pra imprimir/salvar PDF (`aventureiro_termos_view`, rota
+`usuarios/aventureiro/<pk>/termos/`, link "Ver termos assinados" na tela Usuários). Modal reutilizável
+(`static/js/assinatura.js`, `templates/core/_assinatura_doc.html`), termo de imagem interpolado com os dados no
+cadastro. Migration **0030**. De quebra, `mensalidade_isento/_desconto_pct` deixaram de ser obrigatórios no
+cadastro público (corrige travamento pré-existente). Antes: Loja/Vendas "Pedido para o fornecedor".
+
+**Anterior:** (**Loja/Vendas: "Pedido para o fornecedor"**): nova seção na aba Vendas da
 Loja com o relatório **por produto → variação** mostrando **só o que falta entregar** (= o que pedir ao
 fornecedor); itens já entregues não aparecem e, sem pendências, mostra "Tudo entregue". Em `_loja_relatorio`
 (chave `fornecedor`, só `falta_entregar > 0`). Antes: Financeiro contas Disponível × Reservado.
@@ -708,6 +719,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/meus-dados/responsavel/editar/` — edição do responsável, protegida por login (`core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
 - `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`core.views.usuarios_view`, nome `core:usuarios`).
 - `/usuarios/aventureiro/<id>/ativo/` — marca inativo/reativa um aventureiro (POST, Diretor; cascata na conta) (`core:aventureiro_toggle_ativo`).
+- `/usuarios/aventureiro/<id>/termos/` — **termos assinados** do aventureiro (Diretor): monta cada termo com o texto do momento + a imagem da assinatura, página pronta pra imprimir/salvar PDF (`core.views.aventureiro_termos_view`, nome `core:aventureiro_termos`).
 - `/usuarios/conta/<id>/principal/` — define o **WhatsApp principal** da conta (pai/mãe/resp legal) p/ recuperação (POST, Diretor) (`core:usuario_principal`).
 - `/eventos/` — lista de eventos, **restrita ao Diretor** (`core.views.eventos_view`, nome `core:eventos`).
 - `/eventos/novo/` — cadastro de evento simples, **restrita ao Diretor** (`core.views.evento_novo_view`, nome `core:evento_novo`; aceita `?duplicar=<id>`).

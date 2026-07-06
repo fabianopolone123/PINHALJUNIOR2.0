@@ -22,6 +22,46 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Cadastro: assinatura desenhada dos 3 documentos da inscrição
+
+### Resumo
+Voltou (do sistema antigo) a **assinatura desenhada** (dedo/mouse, estilo Canva) na inscrição do aventureiro.
+O responsável assina **3 documentos** — ficha de inscrição, declaração médica e termo de autorização de imagem
+— e a **assinatura substitui o checkbox de aceite** (assinar = aceitar). Cada assinatura vira um **documento de
+assinatura** guardado (imagem PNG + **texto do termo preenchido no momento**), para que o **Diretor** consiga
+depois gerar/imprimir o **termo assinado** de cada pessoa. O responsável **não** vê a própria assinatura depois
+(só o status "assinado em ..."); a imagem/termo assinado é acessível **só pelo Diretor**.
+
+### Arquivos criados/alterados
+- `core/termos.py` (novo): textos canônicos dos 3 termos, já preenchidos com os dados (fonte única).
+- `core/models.py`: model **`AssinaturaDocumento`** (aventureiro, documento, imagem, titulo/texto snapshot,
+  assinante_nome/cpf, assinado_em; único por aventureiro+documento). Migration `0030_assinaturadocumento`.
+- `core/views.py`: `_decode_signature` (base64→PNG), `_validar_aceites` agora exige as 3 assinaturas,
+  `_salvar_aventureiro`/`_salvar_assinaturas` criam os 3 registros; `_preparar_assinaturas` anota status;
+  nova view `aventureiro_termos_view` (Diretor) para o termo assinado; `prefetch_related("assinaturas")`.
+- `core/urls.py`: rota `usuarios/aventureiro/<pk>/termos/`.
+- `core/forms.py`: `mensalidade_isento`/`mensalidade_desconto_pct` deixam de ser obrigatórios no cadastro
+  público (Diretor define depois em Mensalidades) — **corrige** um travamento pré-existente do cadastro.
+- `core/admin.py`: registro de `AssinaturaDocumento`.
+- Templates: `_assinatura_doc.html` (novo, bloco reutilizável), `aventureiro_termos.html` (novo, pág. de
+  impressão do Diretor), `cadastro.html` (blocos de assinatura nas etapas 5, 6 e revisão; termo de imagem
+  interpolado com os dados), `_aventureiro_detalhe.html` (status assinado + link só Diretor),
+  `usuarios.html` (passa `pode_ver_termos=True`).
+- Estáticos: `static/js/assinatura.js` (novo, pad em canvas com pointer events, sem lib),
+  `static/js/cadastro.js` (validação por assinatura + revisão + interpolação do termo), `static/css/cadastro.css`
+  (pad/modal/preview), `static/css/inicio.css` (link "Ver termos assinados").
+
+### Decisões tomadas
+- **Sem biblioteca**: canvas + pointer events (dedo e mouse), como no sistema antigo.
+- Snapshot do texto do termo no ato da assinatura → o termo assinado é reconstruível mesmo se o cadastro mudar.
+- Imagens em `media/assinaturas/` (git-ignored, dado pessoal) — nunca versionar.
+- Página do Diretor pronta para impressão (`@media print`) — salva PDF pelo navegador, sem lib de PDF.
+
+### Pendências
+- Assinatura na diretoria (quando o cadastro de diretoria for implementado) pode reusar o mesmo padrão.
+
+---
+
 ## 2026-07-06 - Loja/Vendas: relatório "Pedido para o fornecedor" (só o que falta entregar)
 
 ### Resumo

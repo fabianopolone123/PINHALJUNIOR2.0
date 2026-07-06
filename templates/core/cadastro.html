@@ -317,12 +317,8 @@
                             decorrência de não informar problema médico ou de qualquer natureza.
                         </p>
                     </div>
-                    <div class="campo-checkbox destaque-aceite">
-                        {{ aventureiro_form.declaracao_medica_aceita }}
-                        <label for="{{ aventureiro_form.declaracao_medica_aceita.id_for_label }}">
-                            Li e aceito a declaração médica acima.
-                        </label>
-                    </div>
+                    <p class="assinatura-instrucao">Assine abaixo para aceitar a declaração médica.</p>
+                    {% include "core/_assinatura_doc.html" with campo_id="assinatura_declaracao_medica" rotulo="Assinar declaração médica" %}
                 </section>
 
                 <!-- ===================== Etapa 6: Autorização de imagem ===================== -->
@@ -357,14 +353,18 @@
                         {% include "core/_campo.html" with campo=imagem_form.resp_estado %}
                     </div>
 
-                    <div class="termo">
+                    <div class="termo" id="termoImagem">
                         <p>
-                            Eu, <strong>[NOME DO RESPONSÁVEL LEGAL]</strong>, [NACIONALIDADE],
-                            [ESTADO CIVIL], portador(a) da cédula de identidade RG nº [RG] e
-                            inscrito(a) no CPF sob nº [CPF], residente e domiciliado(a) na
-                            [ENDEREÇO], nº [NÚMERO], bairro [BAIRRO], município de [CIDADE] -
-                            [ESTADO], na qualidade de responsável legal pelo(a) menor
-                            <strong>[NOME DO AVENTUREIRO]</strong>, [NACIONALIDADE DO MENOR],
+                            Eu, <strong data-fill="id_img-resp_nome" data-vazio="[NOME DO RESPONSÁVEL LEGAL]">[NOME DO RESPONSÁVEL LEGAL]</strong>,
+                            <span data-fill="id_img-resp_nacionalidade" data-vazio="[NACIONALIDADE]">[NACIONALIDADE]</span>,
+                            <span data-fill="id_img-resp_estado_civil" data-vazio="[ESTADO CIVIL]">[ESTADO CIVIL]</span>,
+                            portador(a) da cédula de identidade RG nº <span data-fill="id_img-resp_rg" data-vazio="[RG]">[RG]</span> e
+                            inscrito(a) no CPF sob nº <span data-fill="id_img-resp_cpf" data-vazio="[CPF]">[CPF]</span>, residente e domiciliado(a) na
+                            <span data-fill="id_img-resp_endereco" data-vazio="[ENDEREÇO]">[ENDEREÇO]</span>, nº <span data-fill="id_img-resp_numero" data-vazio="[NÚMERO]">[NÚMERO]</span>,
+                            bairro <span data-fill="id_img-resp_bairro" data-vazio="[BAIRRO]">[BAIRRO]</span>, município de <span data-fill="id_img-resp_cidade" data-vazio="[CIDADE]">[CIDADE]</span> -
+                            <span data-fill="id_img-resp_estado" data-vazio="[ESTADO]">[ESTADO]</span>, na qualidade de responsável legal pelo(a) menor
+                            <strong data-fill="id_img-nome_menor" data-vazio="[NOME DO AVENTUREIRO]">[NOME DO AVENTUREIRO]</strong>,
+                            <span data-fill="id_img-nacionalidade_menor" data-vazio="[NACIONALIDADE DO MENOR]">[NACIONALIDADE DO MENOR]</span>,
                             autorizo o Clube de Aventureiros Pinhal Júnior a utilizar sua imagem,
                             voz e nome em fotos, vídeos, materiais impressos, redes sociais,
                             apresentações, divulgações internas, eventos, relatórios e demais
@@ -377,25 +377,32 @@
                             exclusivamente para fins institucionais, educativos, informativos e de
                             divulgação das atividades do Clube de Aventureiros Pinhal Júnior.
                         </p>
-                        <small class="ajuda">Os campos entre colchetes serão preenchidos com os dados informados acima.</small>
+                        <small class="ajuda">Os campos destacados são preenchidos com os dados informados acima.</small>
                     </div>
 
-                    <div class="campo-checkbox destaque-aceite">
-                        {{ aventureiro_form.autorizacao_imagem_aceita }}
-                        <label for="{{ aventureiro_form.autorizacao_imagem_aceita.id_for_label }}">
-                            Li e autorizo o uso de imagem conforme o termo acima.
-                        </label>
-                    </div>
+                    <p class="assinatura-instrucao">Assine abaixo para autorizar o uso de imagem.</p>
+                    {% include "core/_assinatura_doc.html" with campo_id="assinatura_termo_imagem" rotulo="Assinar termo de imagem" %}
                 </section>
 
                 <!-- ===================== Etapa 7: Revisão ===================== -->
                 <section class="passo" data-passo="7">
-                    <h2 class="passo-titulo">7. Revisão e envio</h2>
+                    <h2 class="passo-titulo">7. Revisão e assinatura da inscrição</h2>
                     <p class="passo-desc">Confira as informações antes de finalizar.</p>
                     <div class="revisao" id="revisao"></div>
                     <p class="aviso-revisao">
                         Verifique se os dados estão corretos. Ao finalizar, o cadastro será registrado.
                     </p>
+
+                    <div class="termo">
+                        <p>
+                            Declaro que todas as informações prestadas nesta ficha de inscrição são
+                            verdadeiras e concordo com a participação do(a) menor nas atividades do
+                            Clube de Aventureiros Pinhal Júnior, comprometendo-me a manter os dados
+                            atualizados. Na qualidade de responsável legal, assino a presente inscrição.
+                        </p>
+                    </div>
+                    <p class="assinatura-instrucao">Assine abaixo para confirmar a inscrição.</p>
+                    {% include "core/_assinatura_doc.html" with campo_id="assinatura_inscricao" rotulo="Assinar ficha de inscrição" %}
                 </section>
 
                 <!-- Navegação -->
@@ -416,6 +423,23 @@
         </section>
     </main>
 
+    <!-- Modal de assinatura (dedo/mouse) — reutilizado pelos três documentos -->
+    <div class="assinatura-modal" id="signature-modal" aria-hidden="true">
+        <div class="assinatura-modal-caixa" role="dialog" aria-modal="true" aria-label="Assinatura">
+            <h3 class="assinatura-modal-titulo">Assine no quadro abaixo</h3>
+            <p class="ajuda">Use o dedo (no celular) ou o mouse. Depois toque em “Confirmar”.</p>
+            <div class="assinatura-canvas-wrap">
+                <canvas></canvas>
+            </div>
+            <div class="assinatura-modal-acoes">
+                <button type="button" class="btn-secundario" data-action="clear-signature">Limpar</button>
+                <button type="button" class="btn-secundario" data-action="close-signature">Cancelar</button>
+                <button type="button" class="btn-primario" data-action="save-signature">Confirmar assinatura</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/assinatura.js' %}"></script>
     <script src="{% static 'js/cadastro.js' %}"></script>
 </body>
 </html>

@@ -735,6 +735,28 @@ body {
     line-height: 1.5;
 }
 
+/* Link "Ver termos assinados" (só Diretor, na tela Usuários) */
+.ver-termos {
+    margin: 10px 0 4px;
+    text-align: center;
+}
+
+.ver-termos a {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgba(74, 144, 217, 0.12);
+    border: 1px solid rgba(74, 144, 217, 0.35);
+    color: var(--azul-escuro, #0f4c81);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.ver-termos a:hover {
+    background: rgba(74, 144, 217, 0.22);
+}
+
 /* ===================== Estado vazio ===================== */
 .vazio-card {
     text-align: center;

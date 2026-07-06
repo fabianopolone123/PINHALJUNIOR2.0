@@ -39,7 +39,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 
 ## Rotas (todas as internas exigem `@login_required`)
 - `/` login (auth real) · `/sair/` logout (POST) · `/inicio/` "Meus Dados" · `/trocar-senha/`
-- `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos
+- `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos ·
+  `/usuarios/aventureiro/<id>/termos/` termos assinados (Diretor; página pra imprimir/salvar PDF)
 - `/cadastro/` conta+1º aventureiro · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
 - **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
@@ -55,7 +56,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 
 ## Models (`core/models.py`)
 - `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal; campo `ativo`). Um usuário → vários.
-- `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne).
+- `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne) · `AssinaturaDocumento` (assinatura desenhada de
+  cada documento da inscrição — ficha/médica/imagem; imagem PNG + snapshot do texto do termo; só o Diretor vê).
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
   `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`.
@@ -73,7 +75,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   calculada) para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0029`). Detalhes em ESTADO_ATUAL.
+- **Assinatura de documentos**: `AssinaturaDocumento` (aventureiro + tipo de documento + imagem PNG da assinatura
+  desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
+  aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
+  documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
+  (migrations até `0030`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

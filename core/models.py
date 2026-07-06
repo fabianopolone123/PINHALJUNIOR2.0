@@ -1708,3 +1708,44 @@ class CaixaClube(models.Model):
     def get_solo(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class AssinaturaDocumento(models.Model):
+    """Assinatura desenhada (dedo/mouse) de um documento da inscrição do
+    aventureiro. Uma por documento. Comprova o aceite daquele termo e guarda o
+    texto do termo preenchido no momento da assinatura, para que o Diretor
+    consiga reconstruir depois o termo assinado (fiel mesmo que o cadastro mude).
+    A imagem NÃO é exibida ao responsável — só ao Diretor."""
+
+    DOC_INSCRICAO = "inscricao"
+    DOC_DECLARACAO_MEDICA = "declaracao_medica"
+    DOC_AUTORIZACAO_IMAGEM = "autorizacao_imagem"
+    DOC_CHOICES = [
+        (DOC_INSCRICAO, "Ficha de inscrição"),
+        (DOC_DECLARACAO_MEDICA, "Declaração médica"),
+        (DOC_AUTORIZACAO_IMAGEM, "Termo de autorização de imagem"),
+    ]
+
+    aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.CASCADE,
+        related_name="assinaturas",
+        verbose_name="Aventureiro",
+    )
+    documento = models.CharField("Documento", max_length=30, choices=DOC_CHOICES)
+    imagem = models.ImageField("Assinatura", upload_to="assinaturas/%Y/%m")
+    # Snapshot do termo preenchido no momento da assinatura.
+    titulo_documento = models.CharField("Título do documento", max_length=150, blank=True)
+    texto_documento = models.TextField("Texto do termo assinado", blank=True)
+    assinante_nome = models.CharField("Assinado por", max_length=150, blank=True)
+    assinante_cpf = models.CharField("CPF de quem assinou", max_length=20, blank=True)
+    assinado_em = models.DateTimeField("Assinado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Assinatura de documento"
+        verbose_name_plural = "Assinaturas de documentos"
+        unique_together = ("aventureiro", "documento")
+        ordering = ["documento"]
+
+    def __str__(self):
+        return f"{self.get_documento_display()} — {self.aventureiro.nome_completo}"

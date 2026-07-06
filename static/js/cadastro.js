@@ -160,6 +160,10 @@
         var el = document.getElementById(id);
         return el && el.checked ? "Sim" : "Não";
     }
+    function assinou(id) {
+        var el = document.getElementById(id);
+        return el && el.value ? "Assinado ✓" : "Pendente";
+    }
     function montarRevisao() {
         var revisao = document.getElementById("revisao");
         if (!revisao) return;
@@ -176,8 +180,8 @@
             ["Responsável legal", valor("id_av-resp_nome")],
             ["CPF do responsável", valor("id_av-resp_cpf")],
             ["WhatsApp do responsável", valor("id_av-resp_whatsapp")],
-            ["Declaração médica aceita", marcado("id_av-declaracao_medica_aceita")],
-            ["Autorização de imagem aceita", marcado("id_av-autorizacao_imagem_aceita")],
+            ["Declaração médica", assinou("assinatura_declaracao_medica")],
+            ["Autorização de imagem", assinou("assinatura_termo_imagem")],
         ]);
         revisao.innerHTML = itens
             .map(function (par) {
@@ -200,22 +204,42 @@
         var passo = el ? el.closest(".passo") : null;
         return passo ? passos.indexOf(passo) : -1;
     }
+    // As três assinaturas são obrigatórias (substituem os antigos checkboxes).
+    var ASSINATURAS = [
+        ["assinatura_declaracao_medica", "a declaração médica"],
+        ["assinatura_termo_imagem", "a autorização de uso de imagem"],
+        ["assinatura_inscricao", "a ficha de inscrição"],
+    ];
     form.addEventListener("submit", function (evento) {
-        var decl = document.getElementById("id_av-declaracao_medica_aceita");
-        var img = document.getElementById("id_av-autorizacao_imagem_aceita");
-        if (decl && !decl.checked) {
-            evento.preventDefault();
-            mostrar(indicePasso("id_av-declaracao_medica_aceita"));
-            alert("É necessário aceitar a declaração médica para finalizar.");
-            return;
-        }
-        if (img && !img.checked) {
-            evento.preventDefault();
-            mostrar(indicePasso("id_av-autorizacao_imagem_aceita"));
-            alert("É necessário aceitar a autorização de uso de imagem para finalizar.");
-            return;
+        for (var i = 0; i < ASSINATURAS.length; i++) {
+            var campo = document.getElementById(ASSINATURAS[i][0]);
+            if (campo && !campo.value) {
+                evento.preventDefault();
+                mostrar(indicePasso(ASSINATURAS[i][0]));
+                alert("É necessário assinar " + ASSINATURAS[i][1] + " para finalizar.");
+                return;
+            }
         }
     });
+
+    /* ---------- Preenche o termo de imagem com os dados digitados ---------- */
+    function preencherTermoImagem() {
+        var alvos = document.querySelectorAll("#termoImagem [data-fill]");
+        Array.prototype.forEach.call(alvos, function (el) {
+            var campo = document.getElementById(el.dataset.fill);
+            var texto = campo && campo.value.trim() ? campo.value.trim() : (el.dataset.vazio || "");
+            el.textContent = texto;
+        });
+    }
+    var termoImagem = document.getElementById("termoImagem");
+    if (termoImagem) {
+        // Atualiza ao digitar nos campos do termo de imagem (prefixo "img").
+        Array.prototype.forEach.call(
+            document.querySelectorAll('[id^="id_img-"]'),
+            function (campo) { campo.addEventListener("input", preencherTermoImagem); }
+        );
+        preencherTermoImagem();
+    }
 
     // Estado inicial
     mostrar(0);
