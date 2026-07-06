@@ -42,6 +42,16 @@
 .fin-fonte-det { margin-bottom: 12px; }
 .fin-fonte-link { font-size: 0.88rem; font-weight: 700; color: var(--azul, #1f6fb2); text-decoration: none; margin-top: auto; }
 
+/* Composição do resultado */
+.fin-composicao { padding: 16px 18px; margin-bottom: 14px; }
+.fin-composicao .secao-titulo { margin-top: 0; }
+.fin-comp-lista { list-style: none; margin: 0; padding: 0; max-width: 520px; }
+.fin-comp-lista li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(15,76,129,.08); font-size: 0.95rem; }
+.fin-comp-lista li span:last-child { font-weight: 700; white-space: nowrap; }
+.fin-comp-total { border-top: 2px solid rgba(15,76,129,.2); border-bottom: none !important; margin-top: 2px; padding-top: 10px !important; font-size: 1.05rem; font-weight: 800; }
+.fin-comp-total span:first-child { color: var(--azul-escuro, #0f4c81); }
+.fin-comp-nota { font-size: 0.82rem; color: #888; margin: 10px 0 0; }
+
 /* Gráficos */
 .fin-graficos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .fin-grafico-card { padding: 16px; display: flex; flex-direction: column; }

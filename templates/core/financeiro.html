@@ -90,7 +90,7 @@
                         <div class="card fin-fonte fonte-mensalidades">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">💰</span><h3>Mensalidades</h3></div>
                             <p class="fin-fonte-valor {% if resumo.mensalidades.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.mensalidades.liquido|moeda }}</p>
-                            <span class="fin-fonte-tag">líquido no caixa</span>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
                                 <li>{{ resumo.mensalidades.n }} pagamento(s)</li>
                                 <li>A receber (ativos): <strong>R$ {{ resumo.mensalidades.aberto|moeda }}</strong></li>
@@ -100,7 +100,7 @@
                         <div class="card fin-fonte fonte-loja">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🛍️</span><h3>Loja</h3></div>
                             <p class="fin-fonte-valor {% if resumo.loja.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.loja.liquido|moeda }}</p>
-                            <span class="fin-fonte-tag">líquido no caixa</span>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
                                 <li>Vendas: R$ {{ resumo.loja.entradas|moeda }}</li>
                                 <li>Custos: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
@@ -111,7 +111,7 @@
                         <div class="card fin-fonte fonte-eventos">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🎟️</span><h3>Eventos</h3></div>
                             <p class="fin-fonte-valor {% if resumo.eventos.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.eventos.liquido|moeda }}</p>
-                            <span class="fin-fonte-tag">líquido no caixa</span>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
                                 <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
                                 <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
@@ -128,6 +128,18 @@
                             </ul>
                             <a href="#" class="fin-fonte-link" data-ir-aba="custos">Lançar / ver custos →</a>
                         </div>
+                    </div>
+
+                    <div class="card fin-composicao">
+                        <h2 class="secao-titulo">Como o resultado líquido se forma</h2>
+                        <ul class="fin-comp-lista">
+                            <li><span>💰 Mensalidades</span><span class="entrada">+ R$ {{ resumo.mensalidades.liquido|moeda }}</span></li>
+                            <li><span>🛍️ Loja (já sem custos)</span><span class="entrada">+ R$ {{ resumo.loja.liquido|moeda }}</span></li>
+                            <li><span>🎟️ Eventos (já sem custos)</span><span class="entrada">+ R$ {{ resumo.eventos.liquido|moeda }}</span></li>
+                            <li><span>🧰 Custos gerais do clube</span><span class="saida">− R$ {{ resumo.custos_clube.total|moeda }}</span></li>
+                            <li class="fin-comp-total"><span>= Resultado líquido</span><span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span></li>
+                        </ul>
+                        <p class="fin-comp-nota">Os custos gerais (hospedagem, brindes, materiais…) saem do caixa comum, por isso reduzem o total mesmo não sendo de uma fonte só.</p>
                     </div>
 
                     <div class="fin-graficos">
