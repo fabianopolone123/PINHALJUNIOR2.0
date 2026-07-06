@@ -14,12 +14,16 @@ from django.utils import timezone
 from . import mercadopago as mp
 from .models import (
     Aventureiro,
+    CompraLoja,
     Evento,
+    GrupoLoja,
     Mensalidade,
     MercadoPagoConfig,
     Pagamento,
     PedidoLoja,
     ProdutoEvento,
+    ProdutoLoja,
+    VariacaoLoja,
     VariacaoProduto,
     WhatsappConfig,
 )
@@ -341,3 +345,57 @@ class MensalidadePixTests(TestCase):
         self.m1.refresh_from_db()
         self.assertEqual(self.m1.status, "aberta")
         self.assertEqual(self.m1.valor_pago, None)
+
+
+class LojaClubePixTests(TestCase):
+    """Etapa 3: compra na Loja do Clube via Pix (cria a compra so na aprovacao)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("comprador", password="123456")
+        self.client.force_login(self.user)
+        self.produto = ProdutoLoja.objects.create(nome="Camiseta oficial")
+        self.grupo = GrupoLoja.objects.create(produto=self.produto, nome="Tamanho", modo="unica")
+        self.var = VariacaoLoja.objects.create(grupo=self.grupo, nome="M", valor=Decimal("40.00"))
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"
+        cfg.access_token_teste = "TEST-abc"
+        cfg.webhook_secret_teste = "s"
+        cfg.save()
+
+    def _por_no_carrinho(self):
+        session = self.client.session
+        session["loja_carrinho"] = [{
+            "produto_id": self.produto.id,
+            "aventureiro_id": None,
+            "itens": [{"variacao_id": self.var.id, "qtd": 1}],
+        }]
+        session.save()
+
+    def test_compra_loja_via_pix(self):
+        self._por_no_carrinho()
+        # Finaliza (define comprador/forma) e vai para o pagamento.
+        self.client.post(reverse("core:loja_finalizar"), {
+            "comprador_nome": "Fulano", "comprador_whatsapp": "4799", "forma_pagamento": "pix",
+        })
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-L", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            resp = self.client.get(reverse("core:loja_pagamento"))
+        self.assertEqual(resp.status_code, 302)  # redireciona para a pagina generica
+        pag = Pagamento.objects.get(tipo="loja_clube")
+        self.assertEqual(pag.valor_bruto, Decimal("40.00"))
+        self.assertEqual(CompraLoja.objects.count(), 0)  # nada criado ainda
+
+        # Simula a aprovacao.
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+        pag.refresh_from_db()
+        self.assertEqual(pag.status, "aprovado")
+        self.assertTrue(pag.finalizado)
+        self.assertEqual(pag.taxa, Decimal("0.40"))
+
+        compra = CompraLoja.objects.get()
+        self.assertEqual(compra.forma_pagamento, "pix")
+        self.assertEqual(compra.valor_total, Decimal("40.00"))
+        self.assertEqual(compra.pagamento_id, pag.id)

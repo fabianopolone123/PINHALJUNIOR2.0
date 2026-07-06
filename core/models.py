@@ -1554,6 +1554,16 @@ class CompraLoja(models.Model):
     valor_total = models.DecimalField(
         "Valor total", max_digits=10, decimal_places=2, default=0
     )
+    # Cobrança online (Pix/cartão via Mercado Pago) que gerou esta compra. Nulo em
+    # compras importadas/manuais (taxa de gateway = zero).
+    pagamento = models.ForeignKey(
+        "Pagamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="compras_loja",
+        verbose_name="Pagamento (gateway)",
+    )
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:

@@ -69,9 +69,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
   `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
   `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep
-  nova). FK `Mensalidade.pagamento` (Etapa 2). Pix ligado na **lojinha de evento** (Etapa 1) e nas
-  **mensalidades** (Etapa 2: cobra vários meses numa cobrança só, baixa múltipla no webhook). `Pagamento` no
-  /admin/ (só-leitura). Taxa **real** do MP (fallback 1%). Ver ESTADO_ATUAL.
+  nova). FKs `Mensalidade.pagamento`, `CompraLoja.pagamento`, `PedidoLoja.pagamento`. Pix ligado na **lojinha de
+  evento** (Etapa 1), **mensalidades** (Etapa 2: baixa múltipla) e **Loja do Clube** (Etapa 3). Página de
+  pagamento/sucesso **genéricas** (`/pagamento/<ref>/`). `Pagamento` no /admin/ (só-leitura). Taxa **real** do MP
+  (fallback 1%). Ver ESTADO_ATUAL.
 - **Loja do Clube**: `ProdutoLoja` → `GrupoLoja` → `VariacaoLoja` (produto composto: grupos "escolha única"/
   "itens", com obrigatório + orientação), `FotoProdutoLoja` (galeria + lightbox; capa = 1ª foto) e
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
@@ -89,7 +90,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0032`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0033`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

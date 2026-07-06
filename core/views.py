@@ -3131,7 +3131,23 @@ def _finalizar_pagamento(pagamento):
         _finalizar_loja_evento(pagamento)
     elif pagamento.tipo == "mensalidade":
         _finalizar_mensalidade(pagamento)
-    # loja_clube e inscricao entram nas próximas etapas.
+    elif pagamento.tipo == "loja_clube":
+        _finalizar_loja_clube(pagamento)
+    # inscricao entra na próxima etapa.
+
+
+def _finalizar_loja_clube(pagamento):
+    """Cria a CompraLoja da Loja do Clube a partir do carrinho salvo no payload."""
+    dados = pagamento.payload or {}
+    kits, total, _ = _loja_resolver_kits(dados.get("cart", []))
+    if not kits:
+        pagamento.detalhe = "Carrinho indisponível ao finalizar o pagamento."
+        return
+    compra = _criar_compra_loja(pagamento.usuario, kits, dados.get("comprador", {}), "pix")
+    compra.pagamento = pagamento
+    compra.save(update_fields=["pagamento"])
+    dados["compra_codigo"] = compra.codigo
+    pagamento.payload = dados
 
 
 def _finalizar_mensalidade(pagamento):
@@ -3194,6 +3210,13 @@ def _sucesso_url_e_sessao(request, pagamento):
         if codigo:
             request.session["pedido_codigo"] = codigo
         return reverse("core:evento_pedido_sucesso", args=[dados.get("evento_id")])
+    if pagamento.tipo == "loja_clube":
+        codigo = dados.get("compra_codigo")
+        if codigo:
+            request.session["loja_compra_codigo"] = codigo
+        request.session.pop("loja_clube_checkout", None)
+        _loja_cart_save(request, [])
+        return reverse("core:loja_sucesso")
     # Demais tipos usam a tela de sucesso genérica (por referência do pagamento).
     return reverse("core:pagamento_sucesso", args=[pagamento.referencia])
 
@@ -3967,23 +3990,19 @@ def _loja_cart_save(request, cart):
     request.session.modified = True
 
 
-def _loja_cart_detalhado(request):
-    """Resolve o carrinho da sessão em kits (produto + itens) e o total.
-
-    Descarta silenciosamente itens/produtos que ficaram indisponíveis, reescrevendo
-    o carrinho — assim a seleção da pessoa é preservada enquanto for válida."""
-    cart = _loja_cart(request)
+def _loja_resolver_kits(cart):
+    """Resolve uma lista de carrinho (JSON) em kits (produto + itens) + total, e
+    devolve também o carrinho "limpo" (sem itens/produtos indisponíveis). Puro: não
+    toca na sessão — usado pelo carrinho (sessão) e pela finalização do Pix."""
     kits = []
     total = Decimal("0")
     novo = []
-    mudou = False
-    for entry in cart:
+    for entry in cart or []:
         prod = (
             ProdutoLoja.objects.filter(pk=entry.get("produto_id"), ativo=True)
             .prefetch_related("grupos__variacoes").first()
         )
         if prod is None:
-            mudou = True
             continue
         aventureiro = None
         if entry.get("aventureiro_id"):
@@ -3999,14 +4018,12 @@ def _loja_cart_detalhado(request):
             except (TypeError, ValueError):
                 qtd = 0
             if v is None or qtd <= 0:
-                mudou = True
                 continue
             st = v.valor * qtd
             subtotal += st
             itens.append({"variacao": v, "grupo": v.grupo, "qtd": qtd, "subtotal": st})
             itens_ok.append({"variacao_id": v.id, "qtd": qtd})
         if not itens:
-            mudou = True
             continue
         total += subtotal
         kits.append({
@@ -4018,7 +4035,15 @@ def _loja_cart_detalhado(request):
             "aventureiro_id": aventureiro.id if aventureiro else None,
             "itens": itens_ok,
         })
-    if mudou:
+    return kits, total, novo
+
+
+def _loja_cart_detalhado(request):
+    """Resolve o carrinho da SESSÃO em kits + total; descarta silenciosamente o que
+    ficou indisponível, reescrevendo o carrinho (preserva a seleção válida)."""
+    cart = _loja_cart(request)
+    kits, total, novo = _loja_resolver_kits(cart)
+    if novo != cart:
         _loja_cart_save(request, novo)
     return kits, total
 
@@ -4354,6 +4379,40 @@ def loja_pagamento_view(request):
         return redirect(reverse("core:loja") + "?aba=loja")
     comprador = dados["comprador"]
     forma = dados["forma"]
+    config = _mp_config()
+
+    # Pix com Mercado Pago configurado → cobrança real (usa a página genérica).
+    if forma == "pix" and config.configurado:
+        ref = dados.get("pagamento_ref")
+        pagamento = Pagamento.objects.filter(referencia=ref).first() if ref else None
+        if pagamento is None or pagamento.status in ("rejeitado", "cancelado", "expirado"):
+            itens_disp = [
+                {"nome": f'{it["qtd"]}× {kit["produto"].nome}'
+                         + (f' ({it["variacao"].nome})' if it["variacao"].nome else ''),
+                 "valor": f'{it["subtotal"]:.2f}'}
+                for kit in kits for it in kit["itens"]
+            ]
+            pagamento, erro = _criar_pagamento_pix(
+                request,
+                tipo="loja_clube",
+                valor=total,
+                descricao="Loja do Clube",
+                payload={
+                    "cart": _loja_cart(request),
+                    "comprador": comprador,
+                    "titulo": "Loja do Clube",
+                    "itens": itens_disp,
+                },
+                comprador=comprador,
+                usuario=request.user,
+            )
+            if erro:
+                messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+                return redirect(reverse("core:loja") + "?aba=loja#carrinho")
+            dados["pagamento_ref"] = pagamento.referencia
+            request.session["loja_clube_checkout"] = dados
+            request.session.modified = True
+        return redirect("core:pagamento", ref=pagamento.referencia)
 
     if request.method == "POST":
         erros = []

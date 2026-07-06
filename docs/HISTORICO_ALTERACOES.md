@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Pagamentos Mercado Pago (Etapa 3): Loja do Clube via Pix
+
+### Resumo
+Terceira etapa: a **Loja do Clube** passou a cobrar por **Pix real** (Mercado Pago), reaproveitando a engine e a
+**página de pagamento genérica** da Etapa 2. Sem MP configurado, mantém o fluxo simulado antigo. A **compra só
+nasce na aprovação** (o carrinho fica na sessão/no payload até lá). De quebra, o "Marcar pago/Desfazer" das
+mensalidades agora mostra **toast de sucesso**.
+
+### Como funciona
+- `loja_pagamento_view`: com MP configurado + Pix, cria um `Pagamento` (`tipo="loja_clube"`, `payload` com o
+  **carrinho** serializado + comprador) e **redireciona para a página genérica** de pagamento (`/pagamento/<ref>/`).
+- Na aprovação, `_finalizar_loja_clube` reconstrói os itens do carrinho (`_loja_resolver_kits`, extraído de
+  `_loja_cart_detalhado`) e cria a `CompraLoja` (forma Pix, FK `pagamento`, baixa de estoque). O sucesso volta
+  para `loja_sucesso` (limpa carrinho/checkout da sessão).
+
+### Arquivos alterados
+- `core/models.py`: FK `CompraLoja.pagamento`. Migration **0033**.
+- `core/views.py`: `_loja_resolver_kits` (resolvedor puro do carrinho) + `_loja_cart_detalhado` refatorado;
+  `_finalizar_loja_clube` + dispatch; `_sucesso_url_e_sessao` trata `loja_clube`; `loja_pagamento_view` usa o Pix
+  real quando configurado.
+- `static/js/mensalidades.js`: toast de sucesso no marcar pago/desfazer.
+- `core/tests.py`: `LojaClubePixTests` (carrinho → Pix → simular → compra criada + taxa + FK).
+
+### Pendências
+- Próximas: **Inscrição de evento** (Etapa 4), **taxa/líquido nos relatórios** (Etapa 5), **cartão** (Etapa 6).
+
+---
+
 ## 2026-07-06 - Cache-busting dos estáticos (JS/CSS antigo preso no navegador)
 
 ### Resumo

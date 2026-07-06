@@ -2,8 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 2: Mensalidades online + admin do
-Pagamento**): (1) o model `Pagamento` entrou no **/admin/** (lista só-leitura, para auditoria: bruto, taxa,
+**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 3: Loja do Clube via Pix**): a **Loja do
+Clube** passou a cobrar **Pix real** (MP), reaproveitando a engine e a **página de pagamento genérica**.
+`loja_pagamento_view`, com MP configurado + Pix, cria um `Pagamento` (`tipo="loja_clube"`, `payload` com o
+carrinho serializado + comprador) e redireciona para `/pagamento/<ref>/`; na aprovação, `_finalizar_loja_clube`
+reconstrói os itens (`_loja_resolver_kits`, extraído de `_loja_cart_detalhado`) e cria a `CompraLoja` (Pix, FK
+`pagamento`, baixa estoque) → volta a `loja_sucesso`. Sem MP configurado, mantém o simulado. **A compra só nasce
+na aprovação.** Também: toast de sucesso no "Marcar pago/Desfazer" das mensalidades. FK `CompraLoja.pagamento`
+(migration **0033**). Testes em `core.tests.LojaClubePixTests`. **Pendências:** Inscrição (Etapa 4), taxa/líquido
+nos relatórios (Etapa 5), cartão (Etapa 6). Também nesta leva (correções do deploy no VPS): cookies próprios
+(`pinhaljunior2_sessionid`/`_csrftoken`) para não deslogar por colisão com o sistema antigo; **cache-busting** dos
+estáticos (`ManifestStaticFilesStorage`) para o navegador sempre pegar o JS/CSS novo; e fix de `fetch` com
+caminho absoluto que quebrava sob o prefixo `/sistema-novo/`. Antes: Etapa 2.
+
+**Anterior (Pagamentos Mercado Pago — Etapa 2: Mensalidades online + admin do
+Pagamento):** (1) o model `Pagamento` entrou no **/admin/** (lista só-leitura, para auditoria: bruto, taxa,
 líquido, status, forma, modo, mp_id). (2) **Mensalidades online via Pix**: na aba Aventureiros, cada aventureiro
 com valor em aberto tem o botão **"💳 Cobrar em aberto via Pix"** → modal seleciona os meses (checkbox + total ao
 vivo) → gera **uma cobrança Pix só** (`mensalidade_cobrar_view`, `Pagamento tipo="mensalidade"` com os ids no

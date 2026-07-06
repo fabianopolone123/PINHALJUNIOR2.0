@@ -83,6 +83,12 @@
                     if (a) a.textContent = d.aberto_fmt;
                     card.dataset.deve = d.aberto_fmt === "R$ 0,00" ? "0" : "1";
                 }
+                if (window.mostrarToast) {
+                    window.mostrarToast(
+                        d.status === "paga" ? "Mensalidade marcada como paga." : "Pagamento desfeito.",
+                        "success"
+                    );
+                }
                 btn.disabled = false;
             })
             .catch(function () {
