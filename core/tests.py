@@ -355,6 +355,10 @@ class MensalidadePixTests(TestCase):
         self.assertEqual(mens["liquido"], Decimal("29.70"))    # 30 - 0,30
         # A taxa entra nas saídas e reduz o resultado líquido.
         self.assertEqual(resp.context["resumo"]["taxas"]["total"], Decimal("0.30"))
+        # E aparece como linha no extrato consolidado.
+        taxas_extrato = [e for e in resp.context["extrato"] if e["tipo"] == "Taxa Mercado Pago"]
+        self.assertEqual(len(taxas_extrato), 1)
+        self.assertEqual(taxas_extrato[0]["valor"], Decimal("0.30"))
 
     def test_desfazer_mensalidade_paga_via_pix(self):
         # Paga via Pix (simular) e depois "Desfazer" — deve voltar para em aberto.

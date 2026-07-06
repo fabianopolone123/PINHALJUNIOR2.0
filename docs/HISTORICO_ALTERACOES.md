@@ -22,6 +22,25 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: extrato ordenado por data E hora (com hora na tela)
+
+### Resumo
+O extrato consolidado do Financeiro ordenava só por **data** (`_dt_data` truncava o horário), então lançamentos
+do mesmo dia ficavam na ordem de inserção, não do mais recente. Agora ordena por **data + hora** (mais recente
+no topo) e a tela mostra o **horário** de cada lançamento. Isso também deixa a linha **"Taxa Mercado Pago"**
+adjacente à venda que a gerou.
+
+### Arquivos alterados
+- `core/views.py`: `_dt_data` preserva o datetime; novo `_ordem_extrato` (chave aware date+hora, normaliza
+  date/datetime/None); `extrato.sort` usa essa chave.
+- `templates/core/financeiro.html`: data do extrato exibida como `d/m/y H:i`.
+- `core/tests.py`: confirma a linha "Taxa Mercado Pago" no extrato.
+
+### Nota
+- A taxa (1%) aparece como linha própria no extrato **a partir da Etapa 5** — se não apareceu, faltou o deploy.
+
+---
+
 ## 2026-07-06 - Pagamentos Mercado Pago (Etapa 5): taxa/líquido nos relatórios
 
 ### Resumo

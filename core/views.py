@@ -4961,10 +4961,19 @@ def _fmt_moeda(valor):
 # Financeiro geral do clube (consolida mensalidades + loja + eventos + custos)
 # ===========================================================================
 def _dt_data(dt):
-    """Converte datetime/date/None em date (para agrupar/ordenar o extrato)."""
-    if dt is None:
-        return None
-    return dt.date() if hasattr(dt, "date") else dt
+    """Devolve o datetime como veio (para ordenar/exibir o extrato COM hora)."""
+    return dt
+
+
+def _ordem_extrato(e):
+    """Chave de ordenação do extrato: datetime aware (data + hora). Normaliza
+    date/datetime/None para comparar sem erro."""
+    d = e.get("data")
+    if d is None:
+        return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+    if isinstance(d, datetime.datetime):
+        return d if timezone.is_aware(d) else timezone.make_aware(d)
+    return timezone.make_aware(datetime.datetime.combine(d, datetime.time.min))
 
 
 @diretor_required
@@ -5079,7 +5088,7 @@ def financeiro_view(request):
             "desc": f"{pg.get_tipo_display()} · {pg.get_forma_display()}",
             "valor": pg.taxa, "saida": True, "comprovante": None,
         })
-    extrato.sort(key=lambda e: (e["data"] or datetime.date.min), reverse=True)
+    extrato.sort(key=_ordem_extrato, reverse=True)
 
     # Fluxo mensal do ano atual (entradas x saídas por mês)
     ent_mes = [Decimal("0")] * 13

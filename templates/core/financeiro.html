@@ -241,7 +241,7 @@
                     <div class="card fin-extrato" id="finExtrato">
                         {% for e in extrato %}
                         <div class="fin-lanc" data-fonte="{{ e.fonte }}" data-busca="{{ e.desc|lower }} {{ e.tipo|lower }}">
-                            <span class="fin-lanc-data">{{ e.data|date:"d/m/y" }}</span>
+                            <span class="fin-lanc-data">{{ e.data|date:"d/m/y H:i" }}</span>
                             <span class="fin-lanc-badge fonte-{{ e.fonte }}">{{ e.tipo }}</span>
                             <span class="fin-lanc-desc">{{ e.desc }}{% if e.comprovante %} <a href="{{ e.comprovante }}" target="_blank" class="fin-lanc-anexo" title="Ver comprovante">📎</a>{% endif %}</span>
                             <span class="fin-lanc-valor {% if e.saida %}saida{% else %}entrada{% endif %}">{% if e.saida %}−{% else %}+{% endif %} R$ {{ e.valor|moeda }}</span>
