@@ -91,11 +91,15 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - Parciais de template reutilizáveis: `_campo.html`, `_campo_check.html` (formulários) e `_dado.html`
   (rótulo+valor em "Meus Dados").
 - Painéis expansíveis usam `<details>/<summary>` nativos; fechar-ao-clicar-fora em `static/js/inicio.js`.
-- **Campos de valor (R$) usam máscara pt-BR** (`static/js/moeda_br.js`): input **texto** com
-  `data-moeda data-moeda-alvo="idOculto"` + um `<input type="hidden" id="idOculto" name="...">`. Enquanto
-  digita, mostra `1.234,56` e grava o valor limpo (`1234.56`) no oculto (enviado ao servidor — back-end não
-  muda). Aplicar isso a **todo** campo de valor novo. (Já aplicado no custo do clube e nos valores de
-  mensalidade; falta migrar preços de produto da loja e custos de evento, que ainda usam `type=number`.)
+- **Campos de valor (R$) usam máscara pt-BR** (`static/js/moeda_br.js`), em **dois modos**: (1) **par
+  visível+oculto** — input **texto** com `data-moeda data-moeda-alvo="idOculto"` + um `<input type="hidden"
+  id="idOculto" name="...">` (o oculto é o enviado); (2) **inline** — um único `input[type=text] data-moeda`
+  **sem** `data-moeda-alvo` (o próprio campo é enviado; normalizado para o valor limpo pouco antes do
+  `submit`), ideal para campos de formulário Django e linhas repetíveis clonadas por JS. Em ambos, mostra
+  `1.234,56` e envia `1234.56` (back-end não muda). Aplicar isso a **todo** campo de valor novo. **Já em todos
+  os campos de valor R$**: custo do clube, mensalidades, preços de produto (Loja do Clube e lojinha de evento),
+  custo/faixa/valor da diretoria de evento. (Percentual, idade, estoque, quantidade e o `valor_recebido` do PDV
+  **não** usam a máscara — não são preço.)
 - **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless

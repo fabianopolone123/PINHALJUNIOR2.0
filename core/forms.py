@@ -213,7 +213,9 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
             "inscricao_limite": forms.DateTimeInput(
                 attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
             ),
-            "valor_diretoria": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "valor_diretoria": forms.TextInput(
+                attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
+            ),
         }
         help_texts = {
             "inscricao_aberta_publico": "Se desmarcado, só membros do clube podem se inscrever.",
@@ -239,7 +241,9 @@ class FaixaEtariaPrecoForm(EstiloFormMixin, forms.ModelForm):
         widgets = {
             "idade_min": forms.NumberInput(attrs={"min": "0", "max": "120"}),
             "idade_max": forms.NumberInput(attrs={"min": "0", "max": "120"}),
-            "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "valor": forms.TextInput(
+                attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -418,7 +422,9 @@ class CustoEventoForm(EstiloFormMixin, forms.ModelForm):
         fields = ["nome", "descricao", "valor", "comprovante"]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 2}),
-            "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "valor": forms.TextInput(
+                attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
+            ),
             "comprovante": forms.ClearableFileInput(
                 attrs={"accept": "image/*,application/pdf"}
             ),

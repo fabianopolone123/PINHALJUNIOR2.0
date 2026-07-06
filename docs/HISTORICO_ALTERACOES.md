@@ -22,6 +22,67 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Máscara de moeda pt-BR nos preços de produto e custos de evento (fecha a pendência)
+
+### Resumo
+Fecha a pendência recorrente "aplicar a **máscara de moeda pt-BR** também aos **preços de produto da loja**
+e aos **custos de evento** (ainda `type=number`)". Agora **todos** os campos de valor R$ do sistema usam o
+padrão `moeda_br.js` (mostram `1.234,56` ao digitar e enviam o valor limpo `1234.56`). Migrados:
+- **Loja do Clube** — preço da variação (`_loja_var_linha.html`).
+- **Lojinha de evento** — preço da variação (`_variacao_linha.html`).
+- **Evento** — **custo** (modal, `CustoEventoForm.valor`), **faixa etária** (`FaixaEtariaPrecoForm.valor`) e
+  **valor da diretoria** (`EventoInscricaoConfigForm.valor_diretoria`).
+
+Para cobrir os campos renderizados pelo Django e as **linhas de variação adicionadas por JS**, o
+`moeda_br.js` ganhou um **modo inline**: um único `input[type=text] data-moeda` (sem campo oculto) formata
+enquanto digita e é **normalizado para o valor limpo pouco antes do `submit`** (listener global em captura,
+que ignora os campos do modo par visível+oculto, com `data-moeda-alvo`). Assim o back-end **não muda**
+(continua recebendo `1234.56`; o parser das variações já fazia `replace(",", ".")`).
+
+### Arquivos alterados
+- `static/js/moeda_br.js`: modo inline (normalização no `submit`, em captura) + doc dos dois modos.
+- `core/forms.py`: `CustoEventoForm.valor`, `FaixaEtariaPrecoForm.valor` e `EventoInscricaoConfigForm.valor_diretoria`
+  passam de `NumberInput` para `TextInput` com `data-moeda`/`inputmode=decimal`/`placeholder=0,00`.
+- `templates/core/_loja_var_linha.html` e `_variacao_linha.html`: preço vira `type=text data-moeda` (o
+  `<template>` de clonagem usa os mesmos parciais, então linhas novas já nascem com a máscara).
+- `templates/core/evento_painel.html`, `loja_produto_form.html`, `evento_produto_form.html`: carregam
+  `moeda_br.js`.
+
+### Decisões tomadas
+- **Modo inline** em vez de par visível+oculto para os campos de formulário Django e as linhas repetíveis —
+  evita ter de gerar um `<input hidden>` por linha e mantém a renderização padrão do Django (com erros do
+  form). O modo par (com `data-moeda-alvo`) continua para os modais de custo do Financeiro/Loja.
+- `valor_recebido` do PDV (troco ao vivo) e campos de **percentual/idade/estoque/quantidade** ficam como
+  estão (não são preço em R$).
+
+### Validação
+- `manage.py check` OK. Render (test client, Diretor): as 3 telas carregam `moeda_br.js`; preço da loja e da
+  lojinha de evento com `type=text data-moeda` (sem `type=number` sobrando); painel do evento com 3 campos
+  `data-moeda` e nenhum `type=number step=0.01`. Forms validam com valor limpo: custo `1234.56`, faixa
+  `40.00`, diretoria `25.50` (POST do custo gravou `1234.56`).
+
+### Pendências
+- Sem novas. (Todos os campos de valor R$ agora usam a máscara.)
+
+---
+
+## 2026-07-06 - Financeiro: quadro "Como o resultado líquido se forma" (esclarece a soma)
+
+### Resumo
+> Registro retroativo (o commit `d0fc5d8` foi feito sem atualizar os docs).
+
+Os líquidos das 3 fontes não somavam sozinhos o resultado porque há os **custos gerais do clube** (que saem
+do caixa comum). Adiciona um **quadro de composição** explícito na aba Resumo do Financeiro:
+`mensalidades + loja + eventos − custos gerais = resultado líquido`, com nota explicativa. O rótulo dos cards
+de fonte muda de "líquido no caixa" para **"líquido da fonte"**.
+
+### Arquivos alterados
+- `templates/core/financeiro.html`: quadro `.fin-composicao` (lista dos líquidos por fonte − custos gerais =
+  resultado) + nota; rótulo dos cards → "líquido da fonte".
+- `static/css/financeiro.css`: estilos do quadro de composição.
+
+---
+
 ## 2026-07-06 - Financeiro: líquido por fonte + custos da loja + reclassificação + fluxo ao fundo
 
 ### Resumo

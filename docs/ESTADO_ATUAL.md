@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Módulo Financeiro geral**): novo item **"Financeiro"** (📈, só Diretor)
+**Última atualização:** 2026-07-06 (**Máscara de moeda pt-BR em todos os valores R$**): fecha a pendência —
+os **preços de produto** (Loja do Clube e lojinha de evento) e os **valores de evento** (custo, faixa etária e
+valor da diretoria) deixaram de ser `type=number` e passaram ao padrão `moeda_br.js` (mostra `1.234,56`, envia
+`1234.56`). Para isso o `moeda_br.js` ganhou um **modo inline** (um único `input[type=text] data-moeda` sem
+campo oculto, normalizado no `submit` por listener em captura) — usado pelos campos de formulário Django
+(`CustoEventoForm.valor`, `FaixaEtariaPrecoForm.valor`, `EventoInscricaoConfigForm.valor_diretoria`) e pelas
+linhas de variação clonadas por JS (`_loja_var_linha.html`, `_variacao_linha.html`). Back-end inalterado. Agora
+**todo** campo de valor R$ usa a máscara. Também registrado (retroativo) o quadro **"Como o resultado líquido
+se forma"** do Financeiro (commit `d0fc5d8`: mensalidades + loja + eventos − custos gerais = resultado líquido;
+cards de fonte passam a rotular "líquido da fonte"). Antes: Módulo Financeiro geral.
+
+**Anterior:** (**Módulo Financeiro geral**): novo item **"Financeiro"** (📈, só Diretor)
 que **consolida mensalidades + loja + eventos** num só lugar. KPIs (Entradas/Saídas/Resultado) e 3 abas:
 **Resumo** (resumo por fonte, **donut** de entradas por fonte, **fluxo mensal** entradas × saídas), **Extrato**
 (extrato consolidado único, cronológico, com **filtro por fonte** + busca, +verde/−vermelho e comprovantes) e

@@ -1,11 +1,19 @@
 /* =========================================================
-   Máscara de moeda pt-BR (padrão do sistema). Uso:
-     <input type="text" data-moeda data-moeda-alvo="idOculto" inputmode="decimal">
-     <input type="hidden" name="valor" id="idOculto">
-   Enquanto digita, formata "1.234,56" no campo visível e grava o valor
-   LIMPO com ponto decimal ("1234.56") no campo oculto (que é enviado ao
-   servidor). Assim o back-end não muda. Funciona com campos adicionados
-   dinamicamente (delegação). Sem libs.
+   Máscara de moeda pt-BR (padrão do sistema). Dois modos:
+
+   1) Par visível + oculto (o campo enviado é o oculto):
+        <input type="text" data-moeda data-moeda-alvo="idOculto" inputmode="decimal">
+        <input type="hidden" name="valor" id="idOculto">
+
+   2) Inline (o próprio campo é enviado — sem data-moeda-alvo). Útil para
+      campos de formulário Django e linhas de variação adicionadas por JS:
+        <input type="text" name="valor" data-moeda inputmode="decimal">
+      Enquanto digita mostra "1.234,56"; ao **enviar o formulário** o valor
+      é normalizado para o limpo ("1234.56") pouco antes do submit.
+
+   Em ambos, enquanto digita formata "1.234,56" no campo visível e o valor
+   LIMPO com ponto decimal ("1234.56") é o que chega ao servidor — o back-end
+   não muda. Funciona com campos adicionados dinamicamente (delegação). Sem libs.
    ========================================================= */
 (function () {
     "use strict";
@@ -49,12 +57,29 @@
         }
     }
 
+    // Modo inline: normaliza o próprio campo para o valor limpo ("1234.56").
+    function normalizarInline(campo) {
+        var digitos = (campo.value || "").replace(/\D/g, "");
+        campo.value = digitos ? (parseInt(digitos, 10) / 100).toFixed(2) : "";
+    }
+
     document.addEventListener("input", function (e) {
         var campo = e.target;
         if (campo && campo.matches && campo.matches("input[data-moeda]")) {
             limpar(campo);
         }
     });
+
+    // Antes de enviar qualquer formulário, converte os campos inline
+    // (data-moeda sem alvo) para o valor limpo que o back-end espera.
+    document.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (!form || !form.querySelectorAll) return;
+        Array.prototype.forEach.call(
+            form.querySelectorAll("input[data-moeda]:not([data-moeda-alvo])"),
+            normalizarInline
+        );
+    }, true);
 
     document.addEventListener("DOMContentLoaded", function () {
         Array.prototype.forEach.call(
