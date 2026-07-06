@@ -9,6 +9,7 @@ vários aventureiros no futuro. Cada aventureiro tem uma ficha de inscrição
 import datetime
 import random
 import string
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -829,6 +830,16 @@ class PedidoLoja(models.Model):
     valor_total = models.DecimalField(
         "Valor total", max_digits=10, decimal_places=2, default=0
     )
+    # Cobrança online que gerou este pedido (Pix/cartão via Mercado Pago). Nulo em
+    # pedidos de balcão/dinheiro ou importados — nesses a taxa de gateway é zero.
+    pagamento = models.ForeignKey(
+        "Pagamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pedidos_loja",
+        verbose_name="Pagamento (gateway)",
+    )
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     @property
@@ -1188,6 +1199,187 @@ class WhatsappConfig(models.Model):
         if len(self.token) <= 4:
             return "•" * len(self.token)
         return "•" * 6 + self.token[-4:]
+
+
+def _mascarar_segredo(valor):
+    """Mostra só os últimos 4 caracteres de um segredo (token/secret), sem vazá-lo."""
+    if not valor:
+        return ""
+    if len(valor) <= 4:
+        return "•" * len(valor)
+    return "•" * 6 + valor[-4:]
+
+
+class MercadoPagoConfig(models.Model):
+    """Configuração do gateway de pagamento (Mercado Pago). Linha única (singleton).
+
+    Guarda **dois pares** de credenciais — de **teste** (sandbox) e de **produção** —
+    e o `modo` ativo. Assim dá para validar tudo com as credenciais de teste e, no
+    fim, só virar a chave para produção sem reapagar/redigitar nada. As propriedades
+    `access_token`/`public_key`/`webhook_secret` já entregam as do modo ativo.
+
+    Espelha o padrão do `WhatsappConfig` (singleton `get_solo` + segredo mascarado +
+    troca só quando um novo valor é digitado). Usada pela engine de pagamentos
+    (`core/mercadopago.py`)."""
+
+    MODO_CHOICES = [
+        ("teste", "Teste (sandbox)"),
+        ("producao", "Produção"),
+    ]
+
+    modo = models.CharField("Modo", max_length=10, choices=MODO_CHOICES, default="teste")
+
+    # --- Credenciais de teste (sandbox) ---
+    access_token_teste = models.CharField("Access Token de teste", max_length=255, blank=True)
+    public_key_teste = models.CharField("Public Key de teste", max_length=255, blank=True)
+    webhook_secret_teste = models.CharField(
+        "Assinatura secreta do webhook (teste)", max_length=255, blank=True
+    )
+
+    # --- Credenciais de produção ---
+    access_token_prod = models.CharField("Access Token de produção", max_length=255, blank=True)
+    public_key_prod = models.CharField("Public Key de produção", max_length=255, blank=True)
+    webhook_secret_prod = models.CharField(
+        "Assinatura secreta do webhook (produção)", max_length=255, blank=True
+    )
+
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mercadopago_configs",
+        verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuração do Mercado Pago"
+        verbose_name_plural = "Configuração do Mercado Pago"
+
+    def __str__(self):
+        return "Configuração do Mercado Pago"
+
+    @classmethod
+    def get_solo(cls):
+        """Retorna (criando se preciso) a única linha de configuração."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    # --- Credenciais do modo ativo ---
+    @property
+    def access_token(self):
+        return self.access_token_prod if self.modo == "producao" else self.access_token_teste
+
+    @property
+    def public_key(self):
+        return self.public_key_prod if self.modo == "producao" else self.public_key_teste
+
+    @property
+    def webhook_secret(self):
+        return self.webhook_secret_prod if self.modo == "producao" else self.webhook_secret_teste
+
+    @property
+    def is_teste(self):
+        return self.modo != "producao"
+
+    @property
+    def configurado(self):
+        """Está pronto para cobrar no modo ativo? (tem access token)."""
+        return bool(self.access_token)
+
+    @property
+    def access_token_mascarado(self):
+        return _mascarar_segredo(self.access_token)
+
+    @property
+    def webhook_secret_mascarado(self):
+        return _mascarar_segredo(self.webhook_secret)
+
+
+STATUS_PAGAMENTO_CHOICES = [
+    ("pendente", "Aguardando pagamento"),
+    ("aprovado", "Aprovado"),
+    ("rejeitado", "Rejeitado"),
+    ("cancelado", "Cancelado"),
+    ("expirado", "Expirado"),
+    ("estornado", "Estornado"),
+]
+
+TIPO_PAGAMENTO_CHOICES = [
+    ("loja_evento", "Lojinha de evento"),
+    ("loja_clube", "Loja do Clube"),
+    ("mensalidade", "Mensalidades"),
+    ("inscricao", "Inscrição de evento"),
+]
+
+
+class Pagamento(models.Model):
+    """Cobrança online (engine única reaproveitada nos 4 pontos de venda).
+
+    Nasce **pendente** quando geramos a cobrança (Pix ou, no futuro, cartão) no
+    Mercado Pago; quando o dinheiro cai, o **webhook** (ou o botão "Simular
+    aprovação" no modo teste) marca **aprovado**, grava a **taxa real** cobrada e o
+    **líquido** que caiu, e dispara a *finalização* — que cria/baixa o objeto certo
+    conforme o `tipo` (pedido da lojinha, compra da loja, mensalidades, inscrição).
+
+    O `payload` guarda **o que está sendo pago** (itens/ids/comprador), para o
+    webhook saber **quem pagou e o quê** sem depender da sessão do navegador."""
+
+    tipo = models.CharField("Tipo", max_length=20, choices=TIPO_PAGAMENTO_CHOICES)
+    forma = models.CharField(
+        "Forma", max_length=12, choices=[("pix", "Pix"), ("cartao", "Cartão de crédito")],
+        default="pix",
+    )
+    # Nossa referência única (external_reference no MP) — casa o webhook ao pagamento.
+    referencia = models.CharField("Referência", max_length=40, unique=True)
+    # id do pagamento no Mercado Pago (só depois de criado lá).
+    mp_payment_id = models.CharField("ID no Mercado Pago", max_length=40, blank=True, db_index=True)
+    modo = models.CharField("Modo", max_length=10, default="teste")
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_PAGAMENTO_CHOICES, default="pendente"
+    )
+
+    valor_bruto = models.DecimalField("Valor bruto", max_digits=10, decimal_places=2)
+    taxa = models.DecimalField("Taxa do gateway", max_digits=10, decimal_places=2, default=0)
+    valor_liquido = models.DecimalField(
+        "Valor líquido (caiu no banco)", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+
+    payload = models.JSONField("Dados do que está sendo pago", default=dict, blank=True)
+
+    # Dados do Pix devolvidos pelo Mercado Pago.
+    qr_code = models.TextField("Pix copia e cola", blank=True)
+    qr_code_base64 = models.TextField("QR Code (base64)", blank=True)
+    ticket_url = models.URLField("Link do comprovante/QR", max_length=500, blank=True)
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pagamentos",
+        verbose_name="Usuário (se logado)",
+    )
+    # Marca que a finalização (criar/baixar o objeto pago) já rodou — idempotência.
+    finalizado = models.BooleanField("Finalizado", default=False)
+    detalhe = models.TextField("Detalhe/observações do gateway", blank=True)
+
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+    pago_em = models.DateTimeField("Pago em", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Pagamento"
+        verbose_name_plural = "Pagamentos"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} · {self.get_status_display()} · R$ {self.valor_bruto}"
+
+    @staticmethod
+    def gerar_referencia():
+        return uuid.uuid4().hex
 
 
 # ===========================================================================

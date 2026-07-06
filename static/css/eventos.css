@@ -1335,3 +1335,38 @@ a.tipo-card:hover {
 .entregar-agora input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
 .entregar-agora .ajuda { display: block; font-weight: 400; }
 
+
+/* ===== Pagamento Pix (Mercado Pago) ===== */
+.pagamento-aguardando {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin: 14px 0 0;
+    color: #0f4c81;
+    font-weight: 600;
+}
+.pix-spinner {
+    width: 18px;
+    height: 18px;
+    border: 3px solid #cfe0ef;
+    border-top-color: #0f4c81;
+    border-radius: 50%;
+    animation: pix-girar 0.8s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes pix-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pix-spinner { animation: none; } }
+.pagamento-erro {
+    background: #fdecea;
+    border: 1px solid #f5c6c0;
+    color: #a12a1e;
+    padding: 12px 14px;
+    border-radius: 10px;
+}
+.pagamento-teste {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed #cbd5e1;
+}
+.pagamento-teste .btn-acao { margin-top: 8px; }

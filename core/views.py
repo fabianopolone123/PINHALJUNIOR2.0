@@ -28,6 +28,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .forms import (
@@ -48,6 +49,7 @@ from .forms import (
     ProdutoLojaForm,
     ResponsavelLegalForm,
 )
+from . import mercadopago as mp
 from . import termos
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
@@ -67,8 +69,10 @@ from .models import (
     Inscricao,
     ItemCompraLoja,
     ItemPedidoLoja,
+    MercadoPagoConfig,
     Mensalidade,
     OperadorEvento,
+    Pagamento,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
@@ -2143,7 +2147,15 @@ def evento_pagamento_view(request, pk):
 
     comprador = dados["comprador"]
     forma = dados["forma"]
+    config = _mp_config()
 
+    # Pix com Mercado Pago configurado → cobrança real (QR do MP + webhook).
+    if forma == "pix" and config.configurado:
+        return _evento_pagamento_pix_mp(
+            request, evento, dados, comprador, itens_resumo, total, config
+        )
+
+    # Fluxo SIMULADO (sem MP configurado, ou cartão): comportamento anterior.
     if request.method == "POST":
         erros = _erros_estoque(desejados)
         if erros:
@@ -2175,6 +2187,56 @@ def evento_pagamento_view(request, pk):
     if forma == "pix":
         contexto["qr_svg"] = _qr_svg(f"PIX-{evento.id}-{total}")
         contexto["pix_codigo"] = _pix_copia_cola(total, f"L{evento.id:04d}")
+    return render(request, "core/evento_pagamento.html", contexto)
+
+
+def _evento_pagamento_pix_mp(request, evento, dados, comprador, itens_resumo, total, config):
+    """Tela de pagamento Pix com cobrança REAL no Mercado Pago. Reaproveita o
+    `Pagamento` pendente do checkout (na sessão) para não gerar um QR novo a cada
+    recarregamento. O pedido só nasce quando o pagamento é aprovado (webhook)."""
+    ref = dados.get("pagamento_ref")
+    pagamento = Pagamento.objects.filter(referencia=ref).first() if ref else None
+    erro_pix = ""
+    if pagamento is None or pagamento.status in ("rejeitado", "cancelado", "expirado"):
+        pagamento, erro_pix = _criar_pagamento_pix(
+            request,
+            tipo="loja_evento",
+            valor=total,
+            descricao=f"Lojinha — {evento.nome}",
+            payload={
+                "evento_id": evento.id,
+                "itens": dados["itens"],
+                "comprador": comprador,
+            },
+            comprador=comprador,
+            usuario=request.user,
+        )
+        if not erro_pix:
+            dados["pagamento_ref"] = pagamento.referencia
+            request.session["loja_checkout"] = dados
+            request.session.modified = True
+
+    # Se já foi aprovado (o webhook pode ter chegado antes do recarregamento), vai
+    # direto para o sucesso.
+    if pagamento and pagamento.status == "aprovado" and pagamento.finalizado:
+        request.session.pop("loja_checkout", None)
+        return redirect(_sucesso_url_e_sessao(request, pagamento))
+
+    contexto = {
+        "evento": evento,
+        "comprador": comprador,
+        "forma": "pix",
+        "forma_nome": "Pix",
+        "itens_resumo": itens_resumo,
+        "total": total,
+        "pagamento": pagamento,
+        "erro_pix": erro_pix,
+        "is_teste": config.is_teste,
+        "qr_base64": pagamento.qr_code_base64 if pagamento else "",
+        "pix_codigo": pagamento.qr_code if pagamento else "",
+        "status_url": reverse("core:pagamento_status", args=[pagamento.referencia]) if pagamento else "",
+        "simular_url": reverse("core:pagamento_simular", args=[pagamento.referencia]) if pagamento else "",
+    }
     return render(request, "core/evento_pagamento.html", contexto)
 
 
@@ -2977,6 +3039,254 @@ def whatsapp_enviar_view(request):
     if ok:
         return JsonResponse({"ok": True, "telefone": telefone, "message_id": detalhe})
     return JsonResponse({"ok": False, "erro": detalhe, "telefone": telefone}, status=502)
+
+
+# ===========================================================================
+# Pagamentos online (Mercado Pago) — engine única reaproveitada nos 4 pontos.
+#
+# Fluxo: geramos um `Pagamento` (pendente) + a cobrança Pix no MP → o cliente paga
+# → o Mercado Pago chama o WEBHOOK (ou, no modo teste, o botão "Simular aprovação")
+# → marcamos aprovado, gravamos a TAXA REAL + o líquido, e "finalizamos" (criamos/
+# baixamos o objeto pago conforme o `tipo`). O `payload` do Pagamento guarda o que
+# está sendo pago, então o webhook sabe quem pagou e o quê sem depender da sessão.
+# ===========================================================================
+PIX_EXPIRA_MIN = 30  # validade do QR Pix, em minutos
+
+
+def _mp_config():
+    return MercadoPagoConfig.get_solo()
+
+
+def _webhook_url(request):
+    """URL absoluta do nosso webhook (respeita prefixo/HTTPS do proxy do VPS)."""
+    try:
+        return request.build_absolute_uri(reverse("core:mercadopago_webhook"))
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _criar_pagamento_pix(request, *, tipo, valor, descricao, payload,
+                         comprador=None, usuario=None):
+    """Cria um `Pagamento` (pendente) e a cobrança Pix no Mercado Pago.
+    Retorna (pagamento, erro); `erro` != "" indica falha ao falar com o MP."""
+    config = _mp_config()
+    comprador = comprador or {}
+    pagamento = Pagamento.objects.create(
+        tipo=tipo,
+        forma="pix",
+        referencia=Pagamento.gerar_referencia(),
+        modo=config.modo,
+        valor_bruto=valor,
+        payload=payload,
+        usuario=usuario if (usuario and usuario.is_authenticated) else None,
+    )
+    resp = mp.criar_pix(
+        config,
+        referencia=pagamento.referencia,
+        valor=valor,
+        descricao=descricao,
+        payer_email=comprador.get("email", ""),
+        payer_nome=comprador.get("nome", ""),
+        notification_url=_webhook_url(request),
+        expira_minutos=PIX_EXPIRA_MIN,
+    )
+    if not resp.get("ok"):
+        pagamento.status = "rejeitado"
+        pagamento.detalhe = resp.get("erro", "")
+        pagamento.save(update_fields=["status", "detalhe"])
+        return pagamento, resp.get("erro", "Falha ao gerar o Pix.")
+    pagamento.mp_payment_id = resp["mp_payment_id"]
+    pagamento.status = resp["status"]
+    pagamento.qr_code = resp["qr_code"]
+    pagamento.qr_code_base64 = resp["qr_code_base64"]
+    pagamento.ticket_url = resp["ticket_url"]
+    pagamento.save(update_fields=[
+        "mp_payment_id", "status", "qr_code", "qr_code_base64", "ticket_url",
+    ])
+    return pagamento, ""
+
+
+def _aprovar_pagamento(pagamento, *, taxa=None, liquido=None):
+    """Marca o Pagamento como aprovado (com taxa/líquido) e dispara a finalização.
+    Idempotente: se já finalizou, não faz nada (o webhook pode chegar repetido)."""
+    if pagamento.finalizado:
+        return
+    if taxa is None:  # fallback: estimativa de 1% (Pix) quando não veio do MP
+        taxa = (pagamento.valor_bruto * Decimal("0.01")).quantize(Decimal("0.01"))
+    if liquido is None:
+        liquido = pagamento.valor_bruto - taxa
+    pagamento.status = "aprovado"
+    pagamento.taxa = taxa
+    pagamento.valor_liquido = liquido
+    pagamento.pago_em = timezone.now()
+    with transaction.atomic():
+        _finalizar_pagamento(pagamento)
+        pagamento.finalizado = True
+        pagamento.save()
+
+
+def _finalizar_pagamento(pagamento):
+    """Cria/baixa o objeto pago conforme o tipo (roda dentro de transação)."""
+    if pagamento.tipo == "loja_evento":
+        _finalizar_loja_evento(pagamento)
+    # loja_clube, mensalidade e inscricao entram nas próximas etapas.
+
+
+def _finalizar_loja_evento(pagamento):
+    """Cria o PedidoLoja da lojinha de evento a partir do payload do pagamento."""
+    dados = pagamento.payload or {}
+    evento = Evento.objects.filter(pk=dados.get("evento_id")).first()
+    if evento is None:
+        pagamento.detalhe = "Evento não encontrado ao finalizar o pagamento."
+        return
+    variacoes = {
+        v.id: v for v in VariacaoProduto.objects.filter(
+            produto__evento=evento
+        ).select_related("produto")
+    }
+    desejados = []
+    for vid, qtd in dados.get("itens", []):
+        v = variacoes.get(vid)
+        if v and qtd > 0:
+            desejados.append((v, qtd))
+    if not desejados:
+        pagamento.detalhe = "Itens indisponíveis ao finalizar o pagamento."
+        return
+    pedido = _criar_pedido(
+        evento, desejados, dados.get("comprador", {}),
+        usuario=pagamento.usuario, forma_pagamento="pix", origem="online",
+    )
+    pedido.pagamento = pagamento
+    pedido.save(update_fields=["pagamento"])
+    dados["pedido_codigo"] = pedido.codigo  # para a tela de sucesso achar o pedido
+    pagamento.payload = dados
+
+
+def _sucesso_url_e_sessao(request, pagamento):
+    """Prepara a sessão para a tela de sucesso e devolve a URL de destino."""
+    dados = pagamento.payload or {}
+    if pagamento.tipo == "loja_evento":
+        codigo = dados.get("pedido_codigo")
+        if codigo:
+            request.session["pedido_codigo"] = codigo
+        return reverse("core:evento_pedido_sucesso", args=[dados.get("evento_id")])
+    return reverse("core:inicio")
+
+
+# --------------------------- Configuração (Diretor) ---------------------------
+@diretor_required
+def mercadopago_view(request):
+    """Tela de configuração do Mercado Pago (só Diretor): credenciais de teste e
+    de produção, modo ativo e a URL do webhook para cadastrar no painel do MP."""
+    config = MercadoPagoConfig.get_solo()
+    return render(request, "core/mercadopago.html", {
+        "config": config,
+        "webhook_url": _webhook_url(request),
+    })
+
+
+@diretor_required
+@require_POST
+def mercadopago_config_view(request):
+    """Salva o modo e as credenciais. Cada segredo só é substituído se um novo for
+    digitado (a tela mostra só os últimos dígitos, sem apagar o guardado)."""
+    config = MercadoPagoConfig.get_solo()
+    modo = request.POST.get("modo")
+    if modo in dict(MercadoPagoConfig.MODO_CHOICES):
+        config.modo = modo
+    for campo in ("access_token_teste", "public_key_teste", "webhook_secret_teste",
+                  "access_token_prod", "public_key_prod", "webhook_secret_prod"):
+        novo = (request.POST.get(campo) or "").strip()
+        if novo:
+            setattr(config, campo, novo)
+    config.atualizado_por = request.user
+    config.save()
+    messages.success(request, "Configuração do Mercado Pago salva.")
+    return redirect("core:mercadopago")
+
+
+# ------------------------------- Webhook (público) ---------------------------
+@csrf_exempt
+@require_POST
+def mercadopago_webhook(request):
+    """Notificações do Mercado Pago (público). Valida a assinatura, consulta o
+    pagamento no MP (fonte da verdade) e aprova/finaliza. Idempotente e tolerante
+    (sempre responde rápido; erros de rede pedem retry)."""
+    config = MercadoPagoConfig.get_solo()
+    try:
+        corpo = json.loads(request.body.decode("utf-8")) if request.body else {}
+    except (ValueError, TypeError):
+        corpo = {}
+    data_id = (
+        request.GET.get("data.id") or request.GET.get("id")
+        or str((corpo.get("data") or {}).get("id") or corpo.get("id") or "")
+    )
+    tipo_evt = (
+        request.GET.get("type") or request.GET.get("topic")
+        or corpo.get("type") or corpo.get("topic") or ""
+    )
+    # Só tratamos notificações de pagamento (ignora merchant_order etc.).
+    if tipo_evt and "payment" not in tipo_evt:
+        return JsonResponse({"ok": True, "ignorado": tipo_evt})
+
+    assinatura_ok = mp.validar_assinatura(
+        config,
+        x_signature=request.headers.get("x-signature", ""),
+        x_request_id=request.headers.get("x-request-id", ""),
+        data_id=data_id,
+    )
+    if config.webhook_secret and not assinatura_ok:
+        return JsonResponse({"ok": False, "erro": "assinatura inválida"}, status=401)
+    if not data_id:
+        return JsonResponse({"ok": True, "sem_id": True})
+
+    info = mp.consultar_pagamento(config, data_id)
+    if not info.get("ok"):
+        # Não deu para consultar agora — 502 faz o MP tentar de novo depois.
+        return JsonResponse({"ok": False, "erro": info.get("erro", "")}, status=502)
+
+    ref = info.get("external_reference") or ""
+    pagamento = (
+        Pagamento.objects.filter(referencia=ref).first()
+        or Pagamento.objects.filter(mp_payment_id=str(data_id)).first()
+    )
+    if pagamento is None:
+        return JsonResponse({"ok": True, "desconhecido": True})
+
+    pagamento.mp_payment_id = str(data_id)
+    if info["status"] == "aprovado":
+        _aprovar_pagamento(pagamento, taxa=info["taxa"], liquido=info["liquido"])
+    else:
+        pagamento.status = info["status"]
+        pagamento.save(update_fields=["status", "mp_payment_id"])
+    return JsonResponse({"ok": True, "status": pagamento.status})
+
+
+# ----------------------- Status (polling) e simulação -------------------------
+def pagamento_status_view(request, ref):
+    """JSON com o status do pagamento (a tela de pagamento faz polling nisto).
+    Quando aprovado, devolve a URL de sucesso (e prepara a sessão)."""
+    pagamento = get_object_or_404(Pagamento, referencia=ref)
+    resposta = {"status": pagamento.status}
+    if pagamento.status == "aprovado" and pagamento.finalizado:
+        resposta["redirect"] = _sucesso_url_e_sessao(request, pagamento)
+    return JsonResponse(resposta)
+
+
+@require_POST
+def pagamento_simular_view(request, ref):
+    """Simula a aprovação (SÓ no modo teste): roda o mesmo caminho do webhook, com
+    taxa estimada de 1%. Serve para testar o fluxo inteiro sem pagar um Pix real."""
+    config = MercadoPagoConfig.get_solo()
+    if not config.is_teste:
+        return JsonResponse(
+            {"ok": False, "erro": "Só disponível no modo teste."}, status=403
+        )
+    pagamento = get_object_or_404(Pagamento, referencia=ref)
+    _aprovar_pagamento(pagamento)
+    return JsonResponse(
+        {"ok": True, "redirect": _sucesso_url_e_sessao(request, pagamento)}
+    )
 
 
 # ---------------------------------------------------------------------------

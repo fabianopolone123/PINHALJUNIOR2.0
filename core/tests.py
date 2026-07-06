@@ -1,9 +1,26 @@
+import datetime
+import hashlib
+import hmac
+from decimal import Decimal
+from unittest import mock
+
 from django.contrib.auth.models import Group, User
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
+from django.utils import timezone
 
-from .models import WhatsappConfig
+from . import mercadopago as mp
+from .models import (
+    Evento,
+    MercadoPagoConfig,
+    Pagamento,
+    PedidoLoja,
+    ProdutoEvento,
+    VariacaoProduto,
+    WhatsappConfig,
+)
 from .views import whatsapp_config_view
 
 
@@ -40,3 +57,192 @@ class WhatsappConfigTests(TestCase):
         config.refresh_from_db()
         self.assertEqual(config.instance_id, "INSTANCIA-SALVA")
         self.assertEqual(config.token, "TOKEN-SALVO")
+
+
+class MercadoPagoClienteTests(TestCase):
+    """Unidades do cliente: assinatura do webhook e extracao da TAXA real."""
+
+    def test_validar_assinatura_confere_hmac(self):
+        config = MercadoPagoConfig.get_solo()
+        config.modo = "teste"
+        config.webhook_secret_teste = "segredo-super"
+        config.save()
+
+        data_id = "123456"
+        request_id = "req-abc"
+        ts = "1700000000"
+        manifest = f"id:{data_id};request-id:{request_id};ts:{ts};"
+        v1 = hmac.new(b"segredo-super", manifest.encode(), hashlib.sha256).hexdigest()
+        header = f"ts={ts},v1={v1}"
+
+        self.assertTrue(mp.validar_assinatura(
+            config, x_signature=header, x_request_id=request_id, data_id=data_id
+        ))
+        # Assinatura adulterada nao passa.
+        self.assertFalse(mp.validar_assinatura(
+            config, x_signature=f"ts={ts},v1=deadbeef",
+            x_request_id=request_id, data_id=data_id,
+        ))
+
+    def test_consultar_pagamento_extrai_taxa_e_liquido(self):
+        config = MercadoPagoConfig.get_solo()
+        config.access_token_teste = "TEST-abc"
+        config.save()
+
+        fake = {
+            "status": "approved",
+            "transaction_amount": 100.0,
+            "fee_details": [{"type": "mercadopago_fee", "amount": 0.99}],
+            "transaction_details": {"net_received_amount": 99.01},
+            "external_reference": "ref-1",
+            "payment_type_id": "bank_transfer",
+        }
+        with mock.patch.object(mp, "_request", return_value=(True, fake)):
+            info = mp.consultar_pagamento(config, "123")
+        self.assertTrue(info["ok"])
+        self.assertEqual(info["status"], "aprovado")
+        self.assertEqual(info["taxa"], Decimal("0.99"))
+        self.assertEqual(info["liquido"], Decimal("99.01"))
+        self.assertEqual(info["external_reference"], "ref-1")
+
+
+class PagamentoLojinhaTests(TestCase):
+    """Fluxo Pix da lojinha de evento: engine + webhook + simulacao."""
+
+    def setUp(self):
+        self.evento = Evento.objects.create(
+            tipo="inscricao",
+            nome="Festa Junina",
+            data=timezone.localdate() + datetime.timedelta(days=7),
+            inscricao_aberta_publico=True,
+        )
+        self.produto = ProdutoEvento.objects.create(evento=self.evento, nome="Camiseta")
+        self.var = VariacaoProduto.objects.create(
+            produto=self.produto, nome="M", valor=Decimal("100.00")
+        )
+
+    def _config_mp(self, modo="teste"):
+        config = MercadoPagoConfig.get_solo()
+        config.modo = modo
+        config.access_token_teste = "TEST-abc"
+        config.webhook_secret_teste = "segredo"
+        config.access_token_prod = "APP_USR-xyz"
+        config.webhook_secret_prod = "segredo-prod"
+        config.save()
+        return config
+
+    def _iniciar_checkout(self):
+        """POST na lojinha (define a sessao) e GET na tela de pagamento (cria o
+        Pagamento pendente com o QR mockado). Retorna o Pagamento pendente."""
+        loja_url = reverse("core:evento_loja", args=[self.evento.id])
+        self.client.post(loja_url, {
+            "comprador_nome": "Fulano",
+            "comprador_whatsapp": "47999990000",
+            "comprador_email": "f@x.com",
+            "forma_pagamento": "pix",
+            f"qtd_{self.var.id}": "1",
+        })
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-1", "status": "pendente",
+            "qr_code": "PIXCOPIACOLA", "qr_code_base64": "QkFTRTY0", "ticket_url": "http://mp/t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            self.client.get(reverse("core:evento_pagamento", args=[self.evento.id]))
+        return Pagamento.objects.get(tipo="loja_evento")
+
+    def test_pagamento_pendente_nao_cria_pedido(self):
+        self._config_mp()
+        pagamento = self._iniciar_checkout()
+        self.assertEqual(pagamento.status, "pendente")
+        self.assertEqual(pagamento.mp_payment_id, "MP-1")
+        self.assertEqual(pagamento.valor_bruto, Decimal("100.00"))
+        self.assertEqual(PedidoLoja.objects.count(), 0)  # nada criado ainda
+
+    def test_simular_aprovacao_cria_pedido_com_taxa_1pct(self):
+        self._config_mp(modo="teste")
+        pagamento = self._iniciar_checkout()
+        url = reverse("core:pagamento_simular", args=[pagamento.referencia])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("redirect", resp.json())
+
+        pagamento.refresh_from_db()
+        self.assertEqual(pagamento.status, "aprovado")
+        self.assertTrue(pagamento.finalizado)
+        self.assertEqual(pagamento.taxa, Decimal("1.00"))       # 1% de 100
+        self.assertEqual(pagamento.valor_liquido, Decimal("99.00"))
+
+        pedido = PedidoLoja.objects.get()
+        self.assertEqual(pedido.forma_pagamento, "pix")
+        self.assertEqual(pedido.valor_total, Decimal("100.00"))
+        self.assertEqual(pedido.pagamento_id, pagamento.id)
+
+    def test_simular_bloqueado_em_producao(self):
+        self._config_mp(modo="producao")
+        # Em producao o checkout usa as credenciais de producao (configurado=True).
+        pagamento = self._iniciar_checkout()
+        url = reverse("core:pagamento_simular", args=[pagamento.referencia])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(PedidoLoja.objects.count(), 0)
+
+    def test_webhook_aprova_com_taxa_real_do_mp(self):
+        self._config_mp()
+        pagamento = self._iniciar_checkout()
+
+        info = {
+            "ok": True, "status": "aprovado",
+            "valor": Decimal("100.00"), "taxa": Decimal("1.50"),
+            "liquido": Decimal("98.50"), "external_reference": pagamento.referencia,
+            "forma": "bank_transfer", "raw": {},
+        }
+        data_id = "987654"
+        request_id = "req-1"
+        ts = "1700000000"
+        manifest = f"id:{data_id};request-id:{request_id};ts:{ts};"
+        v1 = hmac.new(b"segredo", manifest.encode(), hashlib.sha256).hexdigest()
+
+        url = reverse("core:mercadopago_webhook") + f"?data.id={data_id}&type=payment"
+        with mock.patch.object(mp, "consultar_pagamento", return_value=info):
+            resp = self.client.post(
+                url, data="{}", content_type="application/json",
+                HTTP_X_SIGNATURE=f"ts={ts},v1={v1}",
+                HTTP_X_REQUEST_ID=request_id,
+            )
+        self.assertEqual(resp.status_code, 200)
+
+        pagamento.refresh_from_db()
+        self.assertEqual(pagamento.status, "aprovado")
+        self.assertTrue(pagamento.finalizado)
+        self.assertEqual(pagamento.taxa, Decimal("1.50"))          # taxa REAL do MP
+        self.assertEqual(pagamento.valor_liquido, Decimal("98.50"))
+        self.assertEqual(PedidoLoja.objects.count(), 1)
+
+    def test_webhook_assinatura_invalida_rejeitada(self):
+        self._config_mp()
+        pagamento = self._iniciar_checkout()
+        url = reverse("core:mercadopago_webhook") + "?data.id=1&type=payment"
+        resp = self.client.post(
+            url, data="{}", content_type="application/json",
+            HTTP_X_SIGNATURE="ts=1,v1=errado", HTTP_X_REQUEST_ID="r",
+        )
+        self.assertEqual(resp.status_code, 401)
+        pagamento.refresh_from_db()
+        self.assertEqual(pagamento.status, "pendente")  # nada mudou
+
+    def test_sem_mp_configurado_mantem_fluxo_simulado(self):
+        # Sem credenciais -> o comportamento antigo (simulado) e preservado.
+        loja_url = reverse("core:evento_loja", args=[self.evento.id])
+        self.client.post(loja_url, {
+            "comprador_nome": "Fulano",
+            "comprador_whatsapp": "47999990000",
+            "forma_pagamento": "pix",
+            f"qtd_{self.var.id}": "1",
+        })
+        pag_url = reverse("core:evento_pagamento", args=[self.evento.id])
+        self.client.get(pag_url)
+        self.assertEqual(Pagamento.objects.count(), 0)  # nao usa a engine
+
+        resp = self.client.post(pag_url)  # "simular aprovado" antigo cria o pedido
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(PedidoLoja.objects.count(), 1)

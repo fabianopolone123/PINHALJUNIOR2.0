@@ -134,6 +134,12 @@ urlpatterns = [
     path("whatsapp/", views.whatsapp_view, name="whatsapp"),
     path("whatsapp/config/", views.whatsapp_config_view, name="whatsapp_config"),
     path("whatsapp/enviar/", views.whatsapp_enviar_view, name="whatsapp_enviar"),
+    # --- Pagamentos (Mercado Pago) ---
+    path("mercadopago/", views.mercadopago_view, name="mercadopago"),
+    path("mercadopago/config/", views.mercadopago_config_view, name="mercadopago_config"),
+    path("webhooks/mercadopago/", views.mercadopago_webhook, name="mercadopago_webhook"),
+    path("pagamento/<str:ref>/status/", views.pagamento_status_view, name="pagamento_status"),
+    path("pagamento/<str:ref>/simular/", views.pagamento_simular_view, name="pagamento_simular"),
     path("presenca/", views.presenca_view, name="presenca"),
     path("presenca/<int:pk>/", views.presenca_evento_view, name="presenca_evento"),
     path("presenca/<int:pk>/marcar/", views.presenca_marcar_view, name="presenca_marcar"),

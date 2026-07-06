@@ -47,6 +47,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** (Diretor): `/presenca/`, `/presenca/<id>/`, `/presenca/<id>/marcar/`
 - **WhatsApp** (Diretor): `/whatsapp/` (config W-API + envio), `/whatsapp/config/`, `/whatsapp/enviar/`
+- **Pagamentos (Mercado Pago)** (Diretor p/ config): `/mercadopago/` (config credenciais teste/produção + modo),
+  `/mercadopago/config/`; **webhook público** `/webhooks/mercadopago/`; status/simulação de um pagamento
+  `/pagamento/<ref>/status/` (polling) e `/pagamento/<ref>/simular/` (só no modo teste)
 - **Loja do Clube** (Diretor no menu; vitrine/carrinho `@login_required`): `/loja/` (abas Gerenciar/Loja),
   `/loja/produto/novo|<id>/editar|<id>/excluir/`, `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`,
   `/loja/finalizar|pagamento|sucesso/`, `/loja/compra/<id>/cancelar/`, `/loja/entrega/…`
@@ -62,6 +65,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
   `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`.
 - **WhatsApp**: `WhatsappConfig` (singleton; ID/token/URL base da W-API) — módulo WhatsApp (só Diretor).
+- **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
+  `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
+  `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep
+  nova). Etapa 1 = **só Pix na lojinha de evento**; taxa **real** do MP (fallback 1%). Ver ESTADO_ATUAL.
 - **Loja do Clube**: `ProdutoLoja` → `GrupoLoja` → `VariacaoLoja` (produto composto: grupos "escolha única"/
   "itens", com obrigatório + orientação), `FotoProdutoLoja` (galeria + lightbox; capa = 1ª foto) e
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
@@ -79,7 +86,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0030`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0031`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

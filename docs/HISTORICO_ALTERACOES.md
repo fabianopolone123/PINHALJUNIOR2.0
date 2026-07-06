@@ -22,6 +22,67 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Pagamentos Mercado Pago (Etapa 1): engine Pix + webhook + lojinha de evento
+
+### Resumo
+Início da integração real de pagamentos (Mercado Pago), começando **só por Pix**. Criada uma **engine única
+reaproveitável** para os 4 pontos de venda (lojinha de evento, Loja do Clube, mensalidades e inscrição) e
+**ligada primeiro na lojinha de evento**, substituindo o QR simulado pela cobrança Pix real. O clube **absorve a
+taxa** (não repassa), mas o sistema grava a **taxa real** informada pelo Mercado Pago e o **líquido** que caiu no
+banco (fallback de 1% quando o dado não vier) — base para os relatórios financeiros mostrarem o líquido (Etapa 5).
+
+### Componentes
+- **Config** `MercadoPagoConfig` (singleton, só Diretor, tela `/mercadopago/`): guarda **dois pares** de
+  credenciais — teste e produção — + `modo` ativo. Segredos mascarados; trocam só se um novo for digitado
+  (espelha o `WhatsappConfig`). Mostra a **URL do webhook** para cadastrar no painel do MP.
+- **Cliente** `core/mercadopago.py` (só `urllib`, sem dependência nova): `criar_pix`, `consultar_pagamento`
+  (extrai **taxa real** de `fee_details` e o **líquido** de `net_received_amount`), `validar_assinatura`
+  (HMAC-SHA256 do `x-signature`) e `mapear_status`. Usa a API clássica `/v1/payments`.
+- **Model** `Pagamento` (genérico): `tipo`, `forma`, `referencia` (external_reference), `mp_payment_id`,
+  `status`, `valor_bruto`/`taxa`/`valor_liquido`, `payload` (JSON = o que está sendo pago), dados do Pix (QR),
+  `finalizado` (idempotência). FK `PedidoLoja.pagamento` (nulo em balcão/dinheiro/importados → taxa zero).
+- **Webhook** `/webhooks/mercadopago/` (público, `csrf_exempt`, idempotente): valida a assinatura, **consulta o
+  pagamento no MP (fonte da verdade)**, e ao aprovar grava taxa/líquido e **finaliza** (cria o objeto pago
+  conforme o `tipo`). Despacho por tipo — só `loja_evento` implementado nesta etapa.
+- **Fluxo na lojinha**: `evento_pagamento_view` usa Pix real quando o MP está configurado (QR do MP +
+  **polling** de status + botão **"Simular aprovação" só no modo teste**); sem config, mantém o simulado antigo.
+  O `PedidoLoja` só nasce na aprovação (webhook/simulação), preservando "sem estoque reservado por carrinho
+  abandonado".
+
+### Arquivos criados/alterados
+- `core/models.py`: `MercadoPagoConfig`, `Pagamento`, `STATUS_PAGAMENTO_CHOICES`/`TIPO_PAGAMENTO_CHOICES`,
+  `PedidoLoja.pagamento`; import `uuid`. Migration **0031**.
+- `core/mercadopago.py`: **novo** cliente do gateway (urllib).
+- `core/views.py`: engine (`_criar_pagamento_pix`, `_aprovar_pagamento`, `_finalizar_pagamento`/
+  `_finalizar_loja_evento`, `_sucesso_url_e_sessao`), views de config, webhook, status (polling) e simulação;
+  `evento_pagamento_view` passa a usar o MP quando configurado (`_evento_pagamento_pix_mp`).
+- `core/urls.py`: rotas `mercadopago`, `mercadopago_config`, `mercadopago_webhook`, `pagamento_status`,
+  `pagamento_simular`.
+- `templates/core/mercadopago.html`: **nova** tela de config. `templates/core/evento_pagamento.html`: modo Pix
+  real (QR base64 + copia e cola + polling + simular) com fallback ao simulado. `templates/core/_menu.html`:
+  item "Mercado Pago" (💳, Diretor).
+- `static/js/pagamento_mp.js`: **novo** (polling + botão simular + copiar). `static/css/eventos.css`: estilos do
+  Pix (spinner/aguardando/erro/teste).
+- `core/tests.py`: `MercadoPagoClienteTests` (assinatura + extração de taxa) e `PagamentoLojinhaTests` (fluxo
+  pendente→aprovado, simulação só em teste, webhook com **taxa real**, assinatura inválida, retrocompat sem MP).
+
+### Decisões tomadas
+- **Taxa real do MP** (não 1% fixo), com fallback de 1% no Pix quando o dado não vier — bate com o extrato do banco.
+- **Dois pares de credenciais** (teste/produção) num só singleton: valida no teste e vira a chave sem redigitar.
+- **Engine genérica com `payload`**: o webhook sabe "quem pagou e o quê" sem depender da sessão do navegador.
+- **Sem dependência nova**: cliente via `urllib`, como a W-API.
+- Objeto pago só nasce na aprovação (mantém o padrão "não reserva estoque de carrinho abandonado").
+
+### Pendências
+- **Confirmar a taxa real com um pagamento de verdade**: no sandbox não dá para "pagar" um Pix de teste; o botão
+  "Simular" usa 1% estimado. O caminho da taxa real (webhook → `fee_details`) já está testado com dado mockado;
+  confirmar o **valor real** exige um Pix pequeno em produção (ou o fluxo de cartão de teste, na fase de cartão).
+- Cadastrar a **URL do webhook** e a **assinatura secreta** no painel do MP e colar a secret na tela de config.
+- Próximas etapas: **Mensalidades online** (seleção múltipla → uma cobrança → baixa automática), **Loja do
+  Clube**, **Inscrição de evento**, **taxa/líquido nos relatórios financeiros** e, por fim, **cartão de crédito**.
+
+---
+
 ## 2026-07-06 - Documentação dedicada de deploy no VPS
 
 ### Resumo

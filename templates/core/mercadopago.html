@@ -1,0 +1,164 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Mercado Pago — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/whatsapp.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Mercado Pago</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo"><span aria-hidden="true">💳</span> Mercado Pago</h1>
+                    <p class="cabecalho-sub">
+                        Credenciais do gateway de pagamento (Pix). Guarde os dois pares —
+                        <strong>teste</strong> e <strong>produção</strong> — e escolha o modo ativo.
+                    </p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'core:mercadopago_config' %}" class="wa-form">
+                    {% csrf_token %}
+
+                    <!-- ===================== Modo ativo ===================== -->
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">⚙️ Modo de operação</h2>
+                            <span class="wa-status {% if config.configurado %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                                {% if config.configurado %}✓ Pronto para cobrar{% else %}Falta o Access Token{% endif %}
+                            </span>
+                        </div>
+                        <p class="wa-ajuda">
+                            No modo <strong>teste</strong> nada é cobrado de verdade e aparece o botão
+                            “Simular pagamento aprovado” nas telas de Pix. Vire para <strong>produção</strong>
+                            só quando for cobrar com dinheiro real.
+                        </p>
+                        <div class="campo">
+                            <label><input type="radio" name="modo" value="teste" {% if config.modo != "producao" %}checked{% endif %}> 🧪 Teste (sandbox)</label>
+                        </div>
+                        <div class="campo">
+                            <label><input type="radio" name="modo" value="producao" {% if config.modo == "producao" %}checked{% endif %}> 🚀 Produção (dinheiro real)</label>
+                        </div>
+                    </section>
+
+                    <!-- ===================== Credenciais de teste ===================== -->
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🧪 Credenciais de teste</h2>
+                        </div>
+                        <p class="wa-ajuda">Do painel do Mercado Pago (Suas integrações → Credenciais de teste). Digite um novo valor apenas para trocar.</p>
+                        <div class="campo">
+                            <label for="access_token_teste">Access Token de teste</label>
+                            {% if config.access_token_teste %}<p class="wa-token-atual">Salvo (oculto por segurança).</p>{% endif %}
+                            <input type="password" id="access_token_teste" name="access_token_teste" autocomplete="off"
+                                   placeholder="{% if config.access_token_teste %}Digite um novo para trocar{% else %}TEST-... ou APP_USR-...{% endif %}">
+                        </div>
+                        <div class="campo">
+                            <label for="public_key_teste">Public Key de teste <span class="wa-opcional">(para cartão, futuro)</span></label>
+                            <input type="text" id="public_key_teste" name="public_key_teste" value="{{ config.public_key_teste }}" autocomplete="off"
+                                   placeholder="TEST-...">
+                        </div>
+                        <div class="campo">
+                            <label for="webhook_secret_teste">Assinatura secreta do webhook (teste)</label>
+                            {% if config.webhook_secret_teste %}<p class="wa-token-atual">Atual: <strong>{{ config.webhook_secret_mascarado }}</strong> <small>(salvo)</small></p>{% endif %}
+                            <input type="password" id="webhook_secret_teste" name="webhook_secret_teste" autocomplete="off"
+                                   placeholder="{% if config.webhook_secret_teste %}Digite uma nova para trocar{% else %}Do painel de Webhooks (aba Teste){% endif %}">
+                        </div>
+                    </section>
+
+                    <!-- ===================== Credenciais de produção ===================== -->
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🚀 Credenciais de produção</h2>
+                        </div>
+                        <p class="wa-ajuda">Do painel do Mercado Pago (Credenciais de produção). Só use com o modo em Produção.</p>
+                        <div class="campo">
+                            <label for="access_token_prod">Access Token de produção</label>
+                            {% if config.access_token_prod %}<p class="wa-token-atual">Salvo (oculto por segurança).</p>{% endif %}
+                            <input type="password" id="access_token_prod" name="access_token_prod" autocomplete="off"
+                                   placeholder="{% if config.access_token_prod %}Digite um novo para trocar{% else %}APP_USR-...{% endif %}">
+                        </div>
+                        <div class="campo">
+                            <label for="public_key_prod">Public Key de produção <span class="wa-opcional">(para cartão, futuro)</span></label>
+                            <input type="text" id="public_key_prod" name="public_key_prod" value="{{ config.public_key_prod }}" autocomplete="off"
+                                   placeholder="APP_USR-...">
+                        </div>
+                        <div class="campo">
+                            <label for="webhook_secret_prod">Assinatura secreta do webhook (produção)</label>
+                            {% if config.webhook_secret_prod %}<p class="wa-token-atual">Salvo (oculto por segurança).</p>{% endif %}
+                            <input type="password" id="webhook_secret_prod" name="webhook_secret_prod" autocomplete="off"
+                                   placeholder="{% if config.webhook_secret_prod %}Digite uma nova para trocar{% else %}Do painel de Webhooks (aba Produção){% endif %}">
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
+                        </div>
+                    </section>
+                </form>
+
+                <!-- ===================== URL do webhook ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">🔔 URL do webhook</h2>
+                    </div>
+                    <p class="wa-ajuda">Cadastre esta URL no painel do Mercado Pago (Suas integrações → Webhooks), assinando o evento <strong>Pagamentos</strong>. É por aqui que o MP avisa quando o Pix é pago.</p>
+                    <div class="campo">
+                        <div class="pix-copia">
+                            <input type="text" id="webhookUrl" class="pix-copia-input selecionavel" value="{{ webhook_url }}" readonly>
+                            <button type="button" class="btn-secundario" id="btnCopiarWebhook" data-target="webhookUrl">Copiar</button>
+                        </div>
+                        <small class="ajuda">A assinatura secreta que o painel gerar deve ser colada no campo “Assinatura secreta do webhook” acima (do modo correspondente).</small>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/pagamento_mp.js' %}"></script>
+</body>
+</html>

@@ -2,7 +2,27 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Preparação para deploy no VPS**): o projeto agora aceita configuração
+**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 1: engine Pix + webhook + lojinha de
+evento**): início da integração real de pagamentos (**só Pix** nesta parte; cartão fica com o caminho preparado).
+Criada uma **engine única reaproveitável** para os 4 pontos (lojinha de evento, Loja do Clube, mensalidades,
+inscrição) e **ligada primeiro na lojinha de evento**. Peças: **`MercadoPagoConfig`** (singleton, só Diretor,
+tela `/mercadopago/`; **dois pares** de credenciais — teste/produção — + `modo` ativo; segredos mascarados,
+trocam só se digitar novo; mostra a **URL do webhook**); **`core/mercadopago.py`** (cliente via `urllib`, sem
+dependência nova: `criar_pix`, `consultar_pagamento` que extrai a **taxa real** de `fee_details` + o **líquido**
+de `net_received_amount`, `validar_assinatura` HMAC-SHA256); model genérico **`Pagamento`** (tipo, forma,
+`referencia`, `mp_payment_id`, status, `valor_bruto`/`taxa`/`valor_liquido`, `payload` JSON = o que está sendo
+pago, `finalizado` p/ idempotência) + FK `PedidoLoja.pagamento`; **webhook** `/webhooks/mercadopago/` (público,
+`csrf_exempt`, idempotente — valida assinatura, consulta o pagamento no MP como fonte da verdade, grava taxa/
+líquido e **finaliza** criando o objeto pago). Na lojinha, `evento_pagamento_view` usa Pix real quando o MP está
+configurado (QR do MP + **polling** + botão **"Simular aprovação" só no modo teste**); sem config, mantém o
+simulado antigo. O **pedido só nasce na aprovação**. O clube **absorve a taxa** mas o sistema grava o **líquido
+real** (a exibição nos relatórios vem na Etapa 5). Migration **0031**. Testes em
+`core.tests.PagamentoLojinhaTests`/`MercadoPagoClienteTests`. **Pendências:** cadastrar a URL do webhook + a
+secret no painel do MP; confirmar a **taxa real** com um Pix de produção (o sandbox não paga Pix de teste — o
+botão "Simular" usa 1%); próximas etapas: mensalidades online, Loja do Clube, inscrição e taxa nos relatórios.
+Antes: Preparação para deploy no VPS.
+
+**Anterior (Preparação para deploy no VPS):** o projeto agora aceita configuração
 de produção por variáveis de ambiente sem quebrar o uso local: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`,
 `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SQLITE_PATH`, `DJANGO_FORCE_SCRIPT_NAME`,
 `DJANGO_STATIC_URL`, `DJANGO_STATIC_ROOT`, `DJANGO_MEDIA_URL` e `DJANGO_MEDIA_ROOT`. Também foi adicionado
