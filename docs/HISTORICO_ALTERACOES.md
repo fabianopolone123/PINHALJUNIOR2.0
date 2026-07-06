@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Pagamentos Mercado Pago (Etapa 5): taxa/líquido nos relatórios
+
+### Resumo
+Os relatórios financeiros passaram a mostrar o **valor líquido que caiu no banco** (bruto − custos − **taxa do
+Mercado Pago**). O clube absorve a taxa (não repassa ao cliente), mas ela agora aparece descontada em **todos os
+relatórios**: **Financeiro geral**, **painel financeiro do evento**, **Mensalidades** e **Loja (Vendas)**. Usa a
+`taxa` real gravada em cada `Pagamento` aprovado (fallback 1% já vem da engine).
+
+### Como a taxa é somada (sem contagem dupla)
+- **Geral**: soma `Pagamento.taxa` por **tipo** aprovado (mensalidade / loja_clube / loja_evento+inscricao) —
+  cada Pagamento tem uma taxa e é contado uma vez.
+- **Evento**: soma sobre os **Pagamentos distintos** ligados às inscrições/pedidos confirmados do evento (uma
+  inscrição e o pedido de lojinha que veio junto **compartilham** o mesmo Pagamento → `set` evita duplicar).
+- **Mensalidades/Loja**: soma a taxa dos Pagamentos das mensalidades do ano / das compras da loja.
+
+### Arquivos alterados
+- `core/views.py`:
+  - `financeiro_view`: taxa por fonte (`resumo.*.taxa`), líquido de cada fonte já **sem taxa**, `saidas` e
+    `resultado` incluem a taxa, `disponivel`/`reservado_loja` recalculados, e **linhas de "Taxa Mercado Pago"**
+    no extrato consolidado.
+  - `_montar_financeiro` (evento): `taxa` + `saidas_total` (custos + taxa), `resultado` líquido, taxa no extrato;
+    `evento_painel_view` reflete no `resumo`.
+  - `loja_view`: `taxa_loja` e `loja_resultado` já sem taxa.
+  - `mensalidades_view`: `totais.taxa_gateway` e `totais.liquido`.
+- Templates: `financeiro.html` (cards por fonte com linha de taxa + textos), `evento_painel.html` (Saídas =
+  custos + taxa), `loja.html` (linha de taxa nas Vendas), `mensalidades.html` (líquido no KPI Recebido).
+- `core/tests.py`: taxa refletida no geral (`test_financeiro_desconta_taxa_do_liquido`) e no painel do evento
+  (`test_painel_evento_desconta_taxa_no_resultado`).
+
+### Pendências
+- Próxima: **cartão de crédito** (Etapa 6). Pagamentos manuais/dinheiro/importados têm taxa zero (líquido = bruto).
+
+---
+
 ## 2026-07-06 - Pagamentos Mercado Pago (Etapa 4): Inscrição de evento via Pix
 
 ### Resumo

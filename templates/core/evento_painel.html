@@ -759,7 +759,8 @@
                         <span class="fin-res-op" aria-hidden="true">−</span>
                         <div class="fin-res-parte">
                             <span class="fin-res-rotulo">Saídas</span>
-                            <span class="fin-res-valor fin-saida">R$ {{ financeiro.custos|moeda }}</span>
+                            <span class="fin-res-valor fin-saida">R$ {{ financeiro.saidas_total|moeda }}</span>
+                            {% if financeiro.taxa %}<span class="fin-res-tag">custos + taxa MP</span>{% endif %}
                         </div>
                         <span class="fin-res-op" aria-hidden="true">=</span>
                         <div class="fin-res-parte fin-res-total">
@@ -802,10 +803,11 @@
                         </div>
 
                         <div class="fin-card fin-card-saida">
-                            <h3 class="fin-card-titulo">Saídas (custos)</h3>
+                            <h3 class="fin-card-titulo">Saídas (custos + taxas)</h3>
                             <ul class="fin-linhas">
-                                <li><span>Custos lançados</span><strong>{{ financeiro.qtd_custos }}</strong></li>
-                                <li class="fin-linha-total"><span>Total de saídas</span><strong>R$ {{ financeiro.custos|moeda }}</strong></li>
+                                <li><span>Custos lançados ({{ financeiro.qtd_custos }})</span><strong>R$ {{ financeiro.custos|moeda }}</strong></li>
+                                {% if financeiro.taxa %}<li><span>Taxa Mercado Pago</span><strong>R$ {{ financeiro.taxa|moeda }}</strong></li>{% endif %}
+                                <li class="fin-linha-total"><span>Total de saídas</span><strong>R$ {{ financeiro.saidas_total|moeda }}</strong></li>
                             </ul>
                             <button type="button" class="btn-secundario fin-ir-custos" data-aba-ir="custos">Gerenciar custos →</button>
                         </div>

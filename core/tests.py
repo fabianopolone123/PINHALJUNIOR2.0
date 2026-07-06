@@ -226,6 +226,21 @@ class PagamentoLojinhaTests(TestCase):
         self.assertEqual(pagamento.valor_liquido, Decimal("98.50"))
         self.assertEqual(PedidoLoja.objects.count(), 1)
 
+    def test_painel_evento_desconta_taxa_no_resultado(self):
+        self._config_mp()
+        pagamento = self._iniciar_checkout()
+        self.client.post(reverse("core:pagamento_simular", args=[pagamento.referencia]))
+        grupo = Group.objects.get_or_create(name="Diretor")[0]
+        diretor = User.objects.create_user("dir3", password="x")
+        diretor.groups.add(grupo)
+        self.client.force_login(diretor)
+        resp = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
+        self.assertEqual(resp.status_code, 200)
+        fin = resp.context["financeiro"]
+        self.assertEqual(fin["taxa"], Decimal("1.00"))            # 1% de 100
+        self.assertEqual(fin["saidas_total"], Decimal("1.00"))    # 0 custos + 1 taxa
+        self.assertEqual(resp.context["resumo"]["resultado"], Decimal("99.00"))
+
     def test_webhook_assinatura_invalida_rejeitada(self):
         self._config_mp()
         pagamento = self._iniciar_checkout()
@@ -321,6 +336,25 @@ class MensalidadePixTests(TestCase):
         self.assertEqual(self.m1.forma_pagamento, "pix")
         self.assertEqual(self.m1.pagamento_id, pag.id)
         self.assertEqual(self.m1.valor_pago, Decimal("30.00"))
+
+    def test_financeiro_desconta_taxa_do_liquido(self):
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-f", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            self.client.post(reverse("core:mensalidade_cobrar"),
+                             {"mensalidade_ids": [self.m1.id]})
+        pag = Pagamento.objects.get(tipo="mensalidade")
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+
+        resp = self.client.get(reverse("core:financeiro"))
+        self.assertEqual(resp.status_code, 200)
+        mens = resp.context["resumo"]["mensalidades"]
+        self.assertEqual(mens["taxa"], Decimal("0.30"))        # 1% de 30
+        self.assertEqual(mens["liquido"], Decimal("29.70"))    # 30 - 0,30
+        # A taxa entra nas saídas e reduz o resultado líquido.
+        self.assertEqual(resp.context["resumo"]["taxas"]["total"], Decimal("0.30"))
 
     def test_desfazer_mensalidade_paga_via_pix(self):
         # Paga via Pix (simular) e depois "Desfazer" — deve voltar para em aberto.

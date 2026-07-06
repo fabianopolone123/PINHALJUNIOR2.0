@@ -311,6 +311,7 @@
                         <div class="loja-resultado-linha">
                             <span>Vendas <strong>R$ {{ relatorio.arrecadado|moeda }}</strong></span>
                             <span>Custos <strong class="saida">− R$ {{ custos_loja_total|moeda }}</strong></span>
+                            {% if taxa_loja %}<span>Taxa Mercado Pago <strong class="saida">− R$ {{ taxa_loja|moeda }}</strong></span>{% endif %}
                             <span>Resultado <strong class="{% if loja_resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ loja_resultado|moeda }}</strong></span>
                         </div>
                         {% if custos_loja %}

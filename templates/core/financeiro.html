@@ -86,7 +86,7 @@
 
                 <!-- ================= RESUMO ================= -->
                 <section class="fin-painel" data-painel="resumo"{% if aba == 'extrato' or aba == 'custos' %} hidden{% endif %}>
-                    <p class="fin-fontes-intro">Resultado <strong>líquido de cada fonte</strong> (entradas − custos da própria fonte) — pra ver o que gera mais lucro ou prejuízo.</p>
+                    <p class="fin-fontes-intro">Resultado <strong>líquido de cada fonte</strong> (entradas − custos − <strong>taxas do Mercado Pago</strong>) — o que de fato ficou no banco.{% if resumo.taxas.total %} Taxas do gateway no total: <strong class="saida">− R$ {{ resumo.taxas.total|moeda }}</strong>.{% endif %}</p>
                     <div class="fin-resumo-fontes">
                         <div class="card fin-fonte fonte-mensalidades">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">💰</span><h3>Mensalidades</h3></div>
@@ -94,6 +94,7 @@
                             <span class="fin-fonte-tag">líquido da fonte</span>
                             <ul class="fin-fonte-det">
                                 <li>{{ resumo.mensalidades.n }} pagamento(s)</li>
+                                {% if resumo.mensalidades.taxa %}<li>Taxa Mercado Pago: <span class="saida">− R$ {{ resumo.mensalidades.taxa|moeda }}</span></li>{% endif %}
                                 <li>A receber (ativos): <strong>R$ {{ resumo.mensalidades.aberto|moeda }}</strong></li>
                             </ul>
                             <a href="{% url 'core:mensalidades' %}" class="fin-fonte-link">Ver mensalidades →</a>
@@ -105,6 +106,7 @@
                             <ul class="fin-fonte-det">
                                 <li>Vendas: R$ {{ resumo.loja.entradas|moeda }}</li>
                                 <li>Custos: <span class="saida">− R$ {{ resumo.loja.custos|moeda }}</span></li>
+                                {% if resumo.loja.taxa %}<li>Taxa Mercado Pago: <span class="saida">− R$ {{ resumo.loja.taxa|moeda }}</span></li>{% endif %}
                                 <li>{{ resumo.loja.n }} compra(s)</li>
                             </ul>
                             <a href="{% url 'core:loja' %}?aba=vendas" class="fin-fonte-link">Ver loja →</a>
@@ -117,6 +119,7 @@
                                 <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
                                 <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
                                 <li>Custos: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
+                                {% if resumo.eventos.taxa %}<li>Taxa Mercado Pago: <span class="saida">− R$ {{ resumo.eventos.taxa|moeda }}</span></li>{% endif %}
                             </ul>
                             <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
                         </div>
@@ -157,13 +160,13 @@
                     <div class="card fin-composicao">
                         <h2 class="secao-titulo">Como o resultado líquido se forma</h2>
                         <ul class="fin-comp-lista">
-                            <li><span>💰 Mensalidades</span><span class="entrada">+ R$ {{ resumo.mensalidades.liquido|moeda }}</span></li>
-                            <li><span>🛍️ Loja (já sem custos)</span><span class="entrada">+ R$ {{ resumo.loja.liquido|moeda }}</span></li>
-                            <li><span>🎟️ Eventos (já sem custos)</span><span class="entrada">+ R$ {{ resumo.eventos.liquido|moeda }}</span></li>
+                            <li><span>💰 Mensalidades (já sem taxas)</span><span class="entrada">+ R$ {{ resumo.mensalidades.liquido|moeda }}</span></li>
+                            <li><span>🛍️ Loja (já sem custos e taxas)</span><span class="entrada">+ R$ {{ resumo.loja.liquido|moeda }}</span></li>
+                            <li><span>🎟️ Eventos (já sem custos e taxas)</span><span class="entrada">+ R$ {{ resumo.eventos.liquido|moeda }}</span></li>
                             <li><span>🧰 Custos gerais do clube</span><span class="saida">− R$ {{ resumo.custos_clube.total|moeda }}</span></li>
                             <li class="fin-comp-total"><span>= Resultado líquido</span><span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span></li>
                         </ul>
-                        <p class="fin-comp-nota">Os custos gerais (hospedagem, brindes, materiais…) saem do caixa comum, por isso reduzem o total mesmo não sendo de uma fonte só.</p>
+                        <p class="fin-comp-nota">O clube absorve a <strong>taxa do Mercado Pago</strong> (não repassa ao cliente), mas ela já está descontada acima — cada líquido é o que <strong>de fato caiu no banco</strong>. Os custos gerais (hospedagem, brindes…) saem do caixa comum.</p>
                     </div>
 
                     <div class="card fin-caixa">

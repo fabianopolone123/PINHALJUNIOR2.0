@@ -908,7 +908,16 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
     (mostrados para auditoria, mas **fora** dos totais). Só entra nos totais o que
     está confirmado. Cortesia soma R$ 0 (mas conta como transação)."""
     receitas = arrecadacao_inscricoes + vendas_loja
-    resultado = receitas - total_custos
+    # Taxa do gateway (Mercado Pago) deste evento: soma sobre os Pagamentos DISTINTOS
+    # ligados às inscrições/pedidos confirmados (uma inscrição e o pedido de lojinha
+    # que veio junto compartilham o MESMO Pagamento — o set evita contagem dupla).
+    pag_ids = {i.pagamento_id for i in confirmadas if i.pagamento_id}
+    pag_ids |= {p.pagamento_id for p in pedidos_confirmados if p.pagamento_id}
+    taxa_total = (
+        Pagamento.objects.filter(id__in=pag_ids, status="aprovado").aggregate(
+            t=Sum("taxa"))["t"] or Decimal("0")
+    ) if pag_ids else Decimal("0")
+    resultado = receitas - total_custos - taxa_total
     formas_labels = dict(FORMA_PAGAMENTO_CHOICES)
 
     # --- Entradas por forma de pagamento (só confirmadas) ---
@@ -961,6 +970,12 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
             "descricao": c.nome, "forma": "", "canal": "",
             "valor": c.valor, "entrada": False, "cancelado": False,
         })
+    for pg in Pagamento.objects.filter(id__in=pag_ids, status="aprovado").exclude(taxa=0):
+        extrato.append({
+            "data": pg.pago_em or pg.criado_em, "tipo": "Taxa Mercado Pago",
+            "codigo": "", "descricao": pg.get_forma_display(), "forma": "", "canal": "",
+            "valor": pg.taxa, "entrada": False, "cancelado": False,
+        })
     extrato.sort(key=lambda x: x["data"], reverse=True)
 
     return {
@@ -968,6 +983,8 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
         "vendas_loja": vendas_loja,
         "receitas": receitas,
         "custos": total_custos,
+        "taxa": taxa_total,
+        "saidas_total": total_custos + taxa_total,
         "resultado": resultado,
         "entradas_por_forma": entradas_por_forma,
         "canal_online": canal_online,
@@ -1220,7 +1237,8 @@ def evento_painel_view(request, pk):
             "vendas_loja": vendas_loja,
             "receitas": receitas,
             "custos": total_custos,
-            "resultado": receitas - total_custos,
+            "taxa": financeiro["taxa"],
+            "resultado": receitas - total_custos - financeiro["taxa"],
         },
         "financeiro": financeiro,
         "dashboard": dashboard,
@@ -4193,6 +4211,9 @@ def loja_view(request):
     relatorio = _loja_relatorio()
     custos_loja = list(CustoClube.objects.filter(destino="loja").prefetch_related("comprovantes"))
     custos_loja_total = sum((c.valor for c in custos_loja), Decimal("0"))
+    # Taxa do gateway (Mercado Pago) nas vendas da loja (Pix/cartão aprovados).
+    taxa_loja = Pagamento.objects.filter(tipo="loja_clube", status="aprovado").aggregate(
+        t=Sum("taxa"))["t"] or Decimal("0")
     contexto = {
         "produtos": produtos,
         "produtos_ativos": [p for p in produtos if p.ativo],
@@ -4200,7 +4221,8 @@ def loja_view(request):
         "relatorio": relatorio,
         "custos_loja": custos_loja,
         "custos_loja_total": custos_loja_total,
-        "loja_resultado": relatorio["arrecadado"] - custos_loja_total,
+        "taxa_loja": taxa_loja,
+        "loja_resultado": relatorio["arrecadado"] - custos_loja_total - taxa_loja,
         "cart_kits": kits,
         "cart_total": total,
         "comprador": _comprador_padrao(request.user),
@@ -4700,6 +4722,17 @@ def mensalidades_view(request):
     tot["previsto"] = tot["recebido"] + tot["aberto"]
     tot["isentos"] = sum(1 for av in aventureiros if av.mensalidade_isento)
 
+    # Taxa do gateway (Mercado Pago) nas mensalidades do ano pagas via Pix/cartão.
+    pag_ids = set(
+        Mensalidade.objects.filter(ano=ano, pagamento__isnull=False)
+        .values_list("pagamento_id", flat=True)
+    )
+    tot["taxa_gateway"] = (
+        Pagamento.objects.filter(id__in=pag_ids, status="aprovado").aggregate(
+            t=Sum("taxa"))["t"] or Decimal("0")
+    ) if pag_ids else Decimal("0")
+    tot["liquido"] = tot["recebido"] - tot["taxa_gateway"]
+
     taxa = (tot["recebido"] / (tot["recebido"] + tot["aberto"]) * 100) \
         if (tot["recebido"] + tot["aberto"]) else Decimal("0")
     contexto = {
@@ -4962,31 +4995,45 @@ def financeiro_view(request):
     custos_loja_total = sum((c.valor for c in custos_clube if c.destino == "loja"), Decimal("0"))
     custos_geral_total = sum((c.valor for c in custos_clube if c.destino != "loja"), Decimal("0"))
 
+    # Taxas do gateway (Mercado Pago) — parte da venda que NÃO caiu no banco. Somadas
+    # por TIPO de pagamento aprovado (cada Pagamento tem 1 taxa; somar por tipo evita
+    # contagem dupla quando uma cobrança cobre inscrição + lojinha do evento).
+    def _soma_taxa(tipos):
+        return Pagamento.objects.filter(status="aprovado", tipo__in=tipos).aggregate(
+            t=Sum("taxa"))["t"] or Decimal("0")
+    taxa_mens = _soma_taxa(["mensalidade"])
+    taxa_loja = _soma_taxa(["loja_clube"])
+    taxa_eventos = _soma_taxa(["loja_evento", "inscricao"])
+    taxa_total = taxa_mens + taxa_loja + taxa_eventos
+
     entradas = mens_recebido + loja_total + eventos_entradas
-    saidas = custos_ev_total + custos_loja_total + custos_geral_total
+    saidas = custos_ev_total + custos_loja_total + custos_geral_total + taxa_total
     resultado = entradas - saidas
 
     resumo = {
-        # Líquido de cada fonte (quanto do dinheiro no banco é de cada uma).
-        "mensalidades": {"entradas": mens_recebido, "liquido": mens_recebido,
+        # Líquido de cada fonte = o que sobrou no banco (bruto − custos − taxa do gateway).
+        "mensalidades": {"entradas": mens_recebido, "taxa": taxa_mens,
+                         "liquido": mens_recebido - taxa_mens,
                          "aberto": mens_aberto, "n": len(mens_pagas)},
-        "loja": {"entradas": loja_total, "custos": custos_loja_total,
-                 "liquido": loja_total - custos_loja_total, "n": len(compras)},
+        "loja": {"entradas": loja_total, "custos": custos_loja_total, "taxa": taxa_loja,
+                 "liquido": loja_total - custos_loja_total - taxa_loja, "n": len(compras)},
         "eventos": {
             "entradas": eventos_entradas, "inscricoes": inscr_total,
-            "pedidos": pedidos_total, "custos": custos_ev_total,
-            "liquido": eventos_entradas - custos_ev_total,
+            "pedidos": pedidos_total, "custos": custos_ev_total, "taxa": taxa_eventos,
+            "liquido": eventos_entradas - custos_ev_total - taxa_eventos,
         },
         "custos_clube": {"total": custos_geral_total,
                          "n": sum(1 for c in custos_clube if c.destino != "loja")},
+        "taxas": {"total": taxa_total, "mensalidades": taxa_mens,
+                  "loja": taxa_loja, "eventos": taxa_eventos},
     }
 
     # Duas "contas" do clube: o que pode gastar × o que está travado.
     # - Disponível: mensalidades + lucro dos eventos − custos gerais do clube.
     # - Reservado da loja: vendas − custos da loja (fica travado p/ pagar fornecedores).
-    lucro_eventos = eventos_entradas - custos_ev_total
-    disponivel = mens_recebido + lucro_eventos - custos_geral_total
-    reservado_loja = loja_total - custos_loja_total
+    lucro_eventos = eventos_entradas - custos_ev_total - taxa_eventos
+    disponivel = (mens_recebido - taxa_mens) + lucro_eventos - custos_geral_total
+    reservado_loja = loja_total - custos_loja_total - taxa_loja
 
     # Onde está o dinheiro: banco (informado) e espécie = o que sobra.
     caixa = CaixaClube.get_solo()
@@ -5021,6 +5068,17 @@ def financeiro_view(request):
                         "tipo": ("Custo da loja" if _loja else "Custo do clube"),
                         "desc": cc.nome, "valor": cc.valor, "saida": True,
                         "comprovante": (_prov[0].arquivo.url if _prov else None)})
+    # Taxas do gateway como saída no extrato (para bater com o líquido). Uma linha
+    # por cobrança aprovada com taxa > 0.
+    _fonte_taxa = {"mensalidade": "mensalidade", "loja_clube": "loja"}
+    for pg in Pagamento.objects.filter(status="aprovado").exclude(taxa=0):
+        extrato.append({
+            "data": _dt_data(pg.pago_em or pg.criado_em),
+            "fonte": _fonte_taxa.get(pg.tipo, "eventos"),
+            "tipo": "Taxa Mercado Pago",
+            "desc": f"{pg.get_tipo_display()} · {pg.get_forma_display()}",
+            "valor": pg.taxa, "saida": True, "comprovante": None,
+        })
     extrato.sort(key=lambda e: (e["data"] or datetime.date.min), reverse=True)
 
     # Fluxo mensal do ano atual (entradas x saídas por mês)

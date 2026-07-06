@@ -71,7 +71,7 @@
                     <div class="card mens-kpi">
                         <span class="mens-kpi-icone" aria-hidden="true">💰</span>
                         <span class="mens-kpi-valor">R$ {{ totais.recebido|moeda }}</span>
-                        <span class="mens-kpi-rotulo">Recebido</span>
+                        <span class="mens-kpi-rotulo">Recebido{% if totais.taxa_gateway %} <small>· líquido R$ {{ totais.liquido|moeda }} (−R$ {{ totais.taxa_gateway|moeda }} taxa MP)</small>{% endif %}</span>
                     </div>
                     <div class="card mens-kpi{% if totais.aberto %} alerta{% endif %}">
                         <span class="mens-kpi-icone" aria-hidden="true">⏳</span>

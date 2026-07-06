@@ -2,7 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 4: Inscrição de evento via Pix**): a
+**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 5: taxa/líquido nos relatórios**): os
+relatórios financeiros agora mostram o **líquido que caiu no banco** (bruto − custos − **taxa do Mercado Pago**).
+O clube absorve a taxa (não repassa), mas ela aparece descontada no **Financeiro geral** (taxa por fonte +
+`saidas`/`resultado` líquidos + linhas "Taxa Mercado Pago" no extrato), no **painel financeiro do evento**
+(`saidas_total` = custos + taxa), nas **Mensalidades** (KPI Recebido mostra o líquido) e na **Loja (Vendas)**
+(linha de taxa). A taxa vem do campo `Pagamento.taxa` (real do MP, fallback 1%): no geral soma por **tipo**; no
+evento soma os **Pagamentos distintos** das inscrições/pedidos (evita duplicar quando inscrição+lojinha
+compartilham a cobrança). Pagamentos manuais/dinheiro/importados têm taxa zero → líquido = bruto. Testes em
+`core.tests` (geral e painel do evento). **Pendência:** cartão de crédito (Etapa 6). Antes: Etapa 4 (Inscrição).
+
+**Anterior (Pagamentos Mercado Pago — Etapa 4: Inscrição de evento via Pix):** a
 **inscrição online** passou a cobrar **Pix real** quando há valor a pagar (antes nascia confirmada sem pagar).
 Com MP configurado e total &gt; 0, `evento_inscrever_view` valida e **serializa** os dados (responsável;
 participantes com `valor`/`faixa_id`/respostas/cupom; campos extra; itens da lojinha) num `Pagamento`
