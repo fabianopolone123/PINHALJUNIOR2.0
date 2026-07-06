@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: import do histórico + isenção/desconto por mês + valores visíveis
+
+### Resumo
+Três ajustes: (1) **Importado o histórico** de mensalidades do sistema antigo (352 cobranças de 2026, **104
+pagas**, R$ 3.120 recebido; casadas pelo **nome** do aventureiro — pulou só 1 registro "teste"). As
+cobranças respeitam os meses reais (ex.: quem entrou em fevereiro tem Fev=inscrição em diante). (2) **Isenção/
+desconto por mês específico**: cada mês em aberto tem um botão **✏️** que abre um modal para **mudar o valor
+daquele mês** (desconto pontual) ou **isentar só aquele mês** (endpoint `mensalidade_editar`). Continua
+existindo a isenção/desconto do aventureiro inteiro. (3) **Valores padrão** agora aparecem preenchidos
+(R$ 30,00) — antes o `<input type=number>` rejeitava o decimal localizado e ficava vazio; corrigido com
+`stringformat`.
+
+### Arquivos alterados
+- `core/views.py`: `mensalidade_editar_view` (edita/isenta um mês; não mexe em pagas). `core/urls.py`: rota.
+- `templates/core/mensalidades.html`: botão ✏️ por mês + modal de edição; inputs de valores padrão com
+  `stringformat:'.2f'` (mostram o valor).
+- `static/js/mensalidades.js`: abrir/preencher o modal de edição. `static/css/mensalidades.css`: botão e modal.
+
+### Decisões tomadas
+- Import é **fonte da verdade** de 2026 (apaga as cobranças e recria a partir do antigo). Dados ficam no
+  banco local (não versionados). Edição por mês não altera cobranças **pagas** (desfazer o pagamento antes).
+
+---
+
 ## 2026-07-05 - Módulo Mensalidades
 
 ### Resumo

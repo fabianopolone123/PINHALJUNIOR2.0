@@ -90,8 +90,8 @@
                     <form method="post" action="{% url 'core:mensalidade_config' %}" class="mens-config">
                         {% csrf_token %}
                         <span class="mens-config-titulo">Valores padrão:</span>
-                        <label>Inscrição <input type="number" step="0.01" min="0" name="valor_inscricao" value="{{ config.valor_inscricao }}" class="mens-input-valor"></label>
-                        <label>Mensalidade <input type="number" step="0.01" min="0" name="valor_mensalidade" value="{{ config.valor_mensalidade }}" class="mens-input-valor"></label>
+                        <label>Inscrição <span class="mens-cifrao">R$</span><input type="number" step="0.01" min="0" name="valor_inscricao" value="{{ config.valor_inscricao|stringformat:'.2f' }}" class="mens-input-valor"></label>
+                        <label>Mensalidade <span class="mens-cifrao">R$</span><input type="number" step="0.01" min="0" name="valor_mensalidade" value="{{ config.valor_mensalidade|stringformat:'.2f' }}" class="mens-input-valor"></label>
                         <button type="submit" class="btn-secundario btn-acao-pequeno">Salvar valores</button>
                     </form>
                     <div class="mens-toolbar-dir">
@@ -146,11 +146,11 @@
                             {% if l.tem %}
                             <div class="mens-meses">
                                 {% for m in l.meses %}
-                                <div class="mens-mes{% if m.status == 'cancelada' %} cancelada{% endif %}" data-mens="{{ m.id }}" data-status="{{ m.status }}">
+                                <div class="mens-mes{% if m.status == 'cancelada' %} cancelada{% endif %}{% if m.isento %} isenta{% endif %}" data-mens="{{ m.id }}" data-status="{{ m.status }}">
                                     <span class="mens-mes-nome">{{ m.mes_nome }}{% if m.tipo == 'inscricao' %} <span class="mens-tag">inscrição</span>{% endif %}</span>
                                     <span class="mens-mes-valor">{% if m.isento %}<span class="mens-selo mens-isento">Isento</span>{% else %}R$ {{ m.valor|moeda }}{% endif %}</span>
-                                    {% if not m.isento and m.status != 'cancelada' %}
-                                    <span class="mens-acao">
+                                    <span class="mens-mes-dir">
+                                        {% if not m.isento and m.status != 'cancelada' %}
                                         <span class="mens-quando-aberta">
                                             <select class="mens-forma campo-select" aria-label="Forma de pagamento">
                                                 <option value="dinheiro">Dinheiro</option>
@@ -164,8 +164,14 @@
                                             <span class="mens-selo mens-paga">✅ Pago{% if m.forma_pagamento %} · {{ m.get_forma_pagamento_display }}{% endif %}</span>
                                             <button type="button" class="btn-secundario btn-acao-pequeno mens-pagar-btn" data-pagar="0">Desfazer</button>
                                         </span>
+                                        {% endif %}
+                                        {% if m.status != 'paga' and m.status != 'cancelada' %}
+                                        <button type="button" class="mens-editar-btn" title="Editar valor / isentar este mês"
+                                                data-mens="{{ m.id }}" data-valor="{{ m.valor|stringformat:'.2f' }}"
+                                                data-isento="{% if m.isento %}1{% else %}0{% endif %}"
+                                                data-label="{{ m.mes_nome }} · {{ l.av.nome_completo }}">✏️</button>
+                                        {% endif %}
                                     </span>
-                                    {% endif %}
                                 </div>
                                 {% endfor %}
                             </div>
@@ -194,6 +200,32 @@
                 {% endif %}
             </div>
         </main>
+
+        <!-- Modal: editar valor / isentar um mês específico -->
+        <div class="modal-overlay" id="modalEditar" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalEditarTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalEditarTitulo">Editar cobrança</h2>
+                    <button type="button" class="modal-fechar" id="modalEditarFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p class="mens-editar-sub" id="modalEditarSub"></p>
+                    <form method="post" action="{% url 'core:mensalidade_editar' %}" class="mens-editar-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="mensalidade_id" id="editarId">
+                        <label class="mens-editar-campo">Valor deste mês (R$)
+                            <input type="number" step="0.01" min="0" name="valor" id="editarValor" class="mens-input-valor">
+                        </label>
+                        <label class="mens-chk"><input type="checkbox" name="isento" id="editarIsento"> Isentar este mês (valor R$ 0,00)</label>
+                        <small class="ajuda">Use para dar desconto só neste mês (mude o valor) ou isentar só este mês.</small>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" id="modalEditarCancelar">Cancelar</button>
+                            <button type="submit" class="btn-acao">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>

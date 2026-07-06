@@ -70,6 +70,32 @@
             });
     });
 
+    // Modal de edição por mês (valor/isenção).
+    var modal = document.getElementById("modalEditar");
+    if (modal) {
+        var fId = document.getElementById("editarId");
+        var fValor = document.getElementById("editarValor");
+        var fIsento = document.getElementById("editarIsento");
+        var sub = document.getElementById("modalEditarSub");
+        function abrir(btn) {
+            fId.value = btn.dataset.mens;
+            fValor.value = btn.dataset.valor || "0.00";
+            fIsento.checked = btn.dataset.isento === "1";
+            if (sub) sub.textContent = btn.dataset.label || "";
+            fValor.disabled = fIsento.checked;
+            modal.hidden = false;
+        }
+        function fechar() { modal.hidden = true; }
+        document.addEventListener("click", function (e) {
+            var btn = e.target.closest(".mens-editar-btn");
+            if (btn) { abrir(btn); return; }
+        });
+        fIsento.addEventListener("change", function () { fValor.disabled = fIsento.checked; });
+        document.getElementById("modalEditarFechar").addEventListener("click", fechar);
+        document.getElementById("modalEditarCancelar").addEventListener("click", fechar);
+        modal.addEventListener("click", function (e) { if (e.target === modal) fechar(); });
+    }
+
     // Busca + "só quem deve".
     var busca = document.getElementById("mensBusca");
     var soDeve = document.getElementById("mensSoDeve");

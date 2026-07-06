@@ -176,4 +176,5 @@ urlpatterns = [
     path("mensalidades/gerar/", views.mensalidades_gerar_view, name="mensalidades_gerar"),
     path("mensalidades/pagar/", views.mensalidade_pagar_view, name="mensalidade_pagar"),
     path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),
+    path("mensalidades/editar/", views.mensalidade_editar_view, name="mensalidade_editar"),
 ]

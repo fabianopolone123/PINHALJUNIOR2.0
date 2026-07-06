@@ -4080,6 +4080,33 @@ def mensalidade_isencao_view(request):
     return redirect(f"{reverse('core:mensalidades')}?ano={ano}")
 
 
+@diretor_required
+@require_POST
+def mensalidade_editar_view(request):
+    """Edita UMA cobrança específica: define o valor (desconto pontual) ou isenta
+    aquele mês. Não mexe em cobranças já pagas."""
+    m = get_object_or_404(Mensalidade, pk=request.POST.get("mensalidade_id"))
+    if m.status == "paga":
+        messages.error(request, "Essa cobrança está paga. Desfaça o pagamento antes de editar.")
+        return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")
+    if request.POST.get("isento"):
+        m.isento = True
+        m.valor = Decimal("0")
+    else:
+        m.isento = False
+        try:
+            v = Decimal((request.POST.get("valor") or "0").replace(",", "."))
+            if v < 0:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            messages.error(request, "Valor inválido.")
+            return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")
+        m.valor = v
+    m.save(update_fields=["isento", "valor"])
+    messages.success(request, f"{m.mes_nome}/{m.ano} de {m.aventureiro.nome_completo} atualizado.")
+    return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")
+
+
 def _fmt_moeda(valor):
     """R$ no formato pt-BR (para respostas JSON)."""
     s = f"{valor:,.2f}"

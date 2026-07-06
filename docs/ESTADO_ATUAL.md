@@ -7,9 +7,11 @@ separado do financeiro. Cada aventureiro tem, por mês do ano, uma cobrança —
 **"inscrição"** e os seguintes como **"mensalidade"** (gerado **automaticamente** no cadastro). **Valores
 configuráveis** (padrão R$ 30, `ConfigMensalidade`); aventureiros podem ser **isentos** ou ter **desconto %**.
 Tela com KPIs (previsto/recebido/em aberto/isentos), seletor de ano, **"Gerar cobranças <ano>"** e, por
-aventureiro, os 12 meses com **marcar pago/desfazer** (forma, sem recarregar) + isenção/desconto; busca e
-filtro **"Só quem deve"**. Modelos `ConfigMensalidade`/`Mensalidade` + campos no Aventureiro (mig. **0024**);
-rotas `/mensalidades/…`. Antes: Loja (aba Vendas + import de pedidos).
+aventureiro, os 12 meses com **marcar pago/desfazer** (forma, sem recarregar), **isenção/desconto do
+aventureiro** e **edição por mês** (botão ✏️: valor pontual/desconto ou isentar só aquele mês, rota
+`mensalidades/editar/`); busca e filtro **"Só quem deve"**. Modelos `ConfigMensalidade`/`Mensalidade` +
+campos no Aventureiro (mig. **0024**); rotas `/mensalidades/…`. O **histórico de 2026** do sistema antigo foi
+**importado** (352 cobranças, 104 pagas; dados locais). Antes: Loja (aba Vendas + import de pedidos).
 
 **Anterior:** (**Loja: aba "Vendas" (relatório + entrega) + import de pedidos**): a tela
 da Loja ganhou a aba **"Vendas"** (📊, Diretor): **KPIs** (arrecadado, nº de compras, ticket médio, itens a
