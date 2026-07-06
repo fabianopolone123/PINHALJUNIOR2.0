@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Loja/Vendas: remove os chips por produto (redundantes com a busca)
+
+### Resumo
+A pedido do usuário, os **chips por produto** em "Todas as compras" foram **removidos** — davam o mesmo
+resultado de digitar o nome do produto na busca. Ficaram só o **campo de busca** e o **"Só a entregar"**.
+Removidos a marcação `data-produtos`, o JS e o CSS dos chips. (As demais mudanças do relatório — "mais
+vendidos" por pedido/unidade e "Média por compra" — foram mantidas.)
+
+### Arquivos alterados
+- `templates/core/loja.html`: remove a barra de chips e o `data-produtos`.
+- `static/js/loja.js`: remove o filtro por chip (mantém busca + "só a entregar").
+- `static/css/loja.css`: remove os estilos `.loja-chips`/`.loja-chip`.
+
+---
+
 ## 2026-07-05 - Loja/Vendas: "Mais vendidos" por pedido (composto) + chips por produto + rótulo do ticket
 
 ### Resumo

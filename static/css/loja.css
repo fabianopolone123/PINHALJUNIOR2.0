@@ -584,25 +584,6 @@
 .loja-entrega-parcial { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
 .loja-entrega-pendente { background: rgba(192, 57, 43, 0.12); color: #a5281b; }
 
-.loja-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
-.loja-chip {
-    border: 1.5px solid rgba(15, 76, 129, 0.2);
-    background: #fff;
-    color: var(--azul-escuro, #0f4c81);
-    border-radius: 999px;
-    padding: 6px 14px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.loja-chip:hover { border-color: var(--azul, #1f6fb2); }
-.loja-chip.ativa {
-    background: linear-gradient(135deg, var(--azul, #1f6fb2), var(--azul-escuro, #0f4c81));
-    color: #fff;
-    border-color: transparent;
-}
-
 .loja-compras-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .loja-filtro-pendentes {
     display: inline-flex;

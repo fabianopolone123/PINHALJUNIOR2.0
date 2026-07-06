@@ -311,20 +311,11 @@
                             <label class="loja-filtro-pendentes"><input type="checkbox" id="lojaSoPendentes"> Só a entregar</label>
                         </div>
                     </div>
-                    {% if produtos %}
-                    <div class="loja-chips" id="lojaChips">
-                        <button type="button" class="loja-chip ativa" data-prod="">Todos</button>
-                        {% for p in produtos %}
-                        <button type="button" class="loja-chip" data-prod="{{ p.nome|lower }}">{{ p.nome }}</button>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
                     {% if compras %}
                     <div class="loja-compras" id="lojaComprasLista">
                         {% for c in compras %}
                         <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}"
                                  data-busca="{{ c.comprador_nome|lower }} {{ c.codigo|lower }} {% for i in c.itens.all %}{{ i.produto_nome|lower }} {% endfor %}"
-                                 data-produtos="|{% for i in c.itens.all %}{{ i.produto_nome|lower }}|{% endfor %}"
                                  data-pendente="{% if c.status != 'cancelado' and c.status_entrega != 'entregue' %}1{% else %}0{% endif %}">
                             <summary class="loja-compra-topo">
                                 <span class="loja-compra-codigo">{{ c.codigo }}</span>
