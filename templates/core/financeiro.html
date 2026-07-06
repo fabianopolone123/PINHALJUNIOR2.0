@@ -121,6 +121,16 @@
                             </ul>
                             <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
                         </div>
+                        <div class="card fin-fonte fonte-custos">
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos gerais do clube</h3></div>
+                            <p class="fin-fonte-valor saida">− R$ {{ resumo.custos_clube.total|moeda }}</p>
+                            <span class="fin-fonte-tag">gastos gerais (já rateados nas 3 fontes)</span>
+                            <ul class="fin-fonte-det">
+                                <li>{{ resumo.custos_clube.n }} lançamento(s)</li>
+                                <li>Hospedagem, brindes, materiais…</li>
+                            </ul>
+                            <a href="#" class="fin-fonte-link" data-ir-aba="custos">Lançar / ver custos →</a>
+                        </div>
                     </div>
 
                     <div class="card fin-composicao">
