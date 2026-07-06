@@ -1,5 +1,5 @@
 from django.contrib.auth.models import Group, User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import WhatsappConfig
@@ -11,6 +11,7 @@ class WhatsappConfigTests(TestCase):
         self.user = User.objects.create_user(username="diretor", password="123456")
         self.user.groups.add(grupo)
 
+    @override_settings(FORCE_SCRIPT_NAME=None)
     def test_configuracao_persiste_quando_campos_sensiveis_vem_vazios(self):
         config = WhatsappConfig.get_solo()
         config.instance_id = "INSTANCIA-SALVA"
