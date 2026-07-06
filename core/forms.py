@@ -456,17 +456,14 @@ class CustoClubeForm(EstiloFormMixin, forms.ModelForm):
 
 
 class CaixaClubeForm(EstiloFormMixin, forms.ModelForm):
-    """Onde está o dinheiro do clube: saldo na conta e valores a receber. A
-    espécie (caixa físico) é calculada na view (resultado − banco − a receber)."""
+    """Onde está o dinheiro do clube: saldo na conta. A espécie (caixa físico) é
+    calculada na view (resultado − banco)."""
 
     class Meta:
         model = CaixaClube
-        fields = ["saldo_banco", "a_receber"]
+        fields = ["saldo_banco"]
         widgets = {
             "saldo_banco": forms.TextInput(
-                attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
-            ),
-            "a_receber": forms.TextInput(
                 attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
             ),
         }

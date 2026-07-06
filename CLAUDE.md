@@ -69,11 +69,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   tipo inscrição/mensalidade, valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/
   `mensalidade_desconto_pct`. Geração automática no cadastro.
 - **Financeiro**: `CustoClube` (nome, valor, data, destino) + `ComprovanteCustoClube` (vários anexos por custo) —
-  gastos gerais do clube; `CaixaClube` (singleton `get_solo`: `saldo_banco`, `a_receber`; espécie é calculada)
-  para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
+  gastos gerais do clube; `CaixaClube` (singleton `get_solo`: `saldo_banco`; espécie = resultado − banco,
+  calculada) para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0028`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0029`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

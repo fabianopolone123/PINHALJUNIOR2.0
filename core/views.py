@@ -4283,9 +4283,9 @@ def financeiro_view(request):
         resumo[fonte]["pct"] = pct
         resumo[fonte]["pct_bar"] = max(0, min(100, int(round(pct))))
 
-    # Onde está o dinheiro: banco + a receber (informados) e espécie = o que sobra.
+    # Onde está o dinheiro: banco (informado) e espécie = o que sobra.
     caixa = CaixaClube.get_solo()
-    caixa_especie = resultado - caixa.saldo_banco - caixa.a_receber
+    caixa_especie = resultado - caixa.saldo_banco
 
     # Extrato consolidado
     extrato = []

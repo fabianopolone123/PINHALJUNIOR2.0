@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: "Onde está o dinheiro" simplificado (só banco + espécie)
+
+### Resumo
+A pedido do usuário, o card "Onde está o dinheiro" ficou com **duas linhas**: **na conta (banco)** e **em
+espécie (caixa físico)**. Removida a linha **"a receber (empréstimos)"** — o valor do empréstimo entra **somado
+no saldo do banco** (ex.: banco 2.808,00 + empréstimo 1.276,98 = **4.084,98** informado como banco), e a
+**espécie** continua sendo o restante calculado (resultado − banco = **455,02**). O modal de edição passou a ter
+só o campo do saldo do banco.
+
+### Arquivos alterados
+- `core/models.py`: remove `CaixaClube.a_receber` (migration **0029**). `core/forms.py`: `CaixaClubeForm` só com
+  `saldo_banco`. `core/views.py`: `caixa_especie = resultado − saldo_banco`.
+- `templates/core/financeiro.html`: card e modal sem a linha/campo "a receber".
+
+### Validação
+- `manage.py check` OK; `migrate` (0029). Render (test client): card com Banco R$ 4.084,98 + Espécie R$ 455,02
+  = Resultado R$ 4.540,00; modal só com o saldo do banco; POST salva.
+
+---
+
 ## 2026-07-06 - Financeiro: cards por contribuição + card "Onde está o dinheiro"
 
 ### Resumo

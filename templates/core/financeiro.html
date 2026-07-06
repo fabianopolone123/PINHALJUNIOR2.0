@@ -140,15 +140,14 @@
                             <h2 class="secao-titulo">Onde está o dinheiro</h2>
                             <button type="button" class="btn-acao btn-acao-pequeno" id="btnEditarCaixa"><span aria-hidden="true">✏️</span> Atualizar</button>
                         </div>
-                        <p class="fin-comp-nota">O resultado líquido é o dinheiro que o clube tem. Aqui você vê onde ele está: na conta, a receber, ou em espécie (caixa físico).</p>
+                        <p class="fin-comp-nota">O resultado líquido é o dinheiro que o clube tem. Aqui você vê onde ele está: na conta ou em espécie (caixa físico).</p>
                         <ul class="fin-caixa-lista">
                             <li><span>🏦 Na conta (banco)</span><span>R$ {{ caixa.saldo_banco|moeda }}</span></li>
-                            <li><span>🤝 A receber (empréstimos/pendências)</span><span>R$ {{ caixa.a_receber|moeda }}</span></li>
                             <li><span>💵 Em espécie (caixa físico)</span><span class="{% if caixa_especie < 0 %}saida{% endif %}">R$ {{ caixa_especie|moeda }}</span></li>
                             <li class="fin-caixa-total"><span>= Resultado líquido</span><span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span></li>
                         </ul>
                         {% if caixa_especie < 0 %}
-                        <p class="fin-comp-nota saida">A espécie ficou negativa — confira o saldo na conta e os valores a receber (a soma não pode passar do resultado).</p>
+                        <p class="fin-comp-nota saida">A espécie ficou negativa — o saldo na conta não pode passar do resultado líquido. Confira o valor informado.</p>
                         {% endif %}
                     </div>
 
@@ -323,11 +322,7 @@
                             <label for="{{ caixa_form.saldo_banco.id_for_label }}">Quanto tem na conta (banco)</label>
                             {{ caixa_form.saldo_banco }}
                         </div>
-                        <div class="campo">
-                            <label for="{{ caixa_form.a_receber.id_for_label }}">A receber <small class="ajuda">(empréstimos/pendências a devolver ao clube)</small></label>
-                            {{ caixa_form.a_receber }}
-                        </div>
-                        <p class="ajuda">A <strong>espécie</strong> (caixa físico) é calculada sozinha: resultado − conta − a receber.</p>
+                        <p class="ajuda">A <strong>espécie</strong> (caixa físico) é calculada sozinha: resultado − conta.</p>
                         <div class="form-acoes">
                             <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
                             <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar</button>

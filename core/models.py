@@ -1685,14 +1685,11 @@ class ComprovanteCustoClube(models.Model):
 class CaixaClube(models.Model):
     """Onde está o dinheiro do clube (linha única/singleton). O resultado líquido
     é calculado pelas movimentações; aqui o Diretor informa quanto desse dinheiro
-    está na **conta (banco)** e quanto é **a receber** (ex.: empréstimos a devolver
-    ao clube). O que sobra fica em **espécie** (caixa físico), calculado."""
+    está na **conta (banco)**. O que sobra fica em **espécie** (caixa físico),
+    calculado (resultado − banco)."""
 
     saldo_banco = models.DecimalField(
         "Saldo na conta (banco)", max_digits=10, decimal_places=2, default=0
-    )
-    a_receber = models.DecimalField(
-        "A receber (empréstimos/pendências)", max_digits=10, decimal_places=2, default=0
     )
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
