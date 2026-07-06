@@ -22,24 +22,24 @@ Descrição curta do que foi feito.
 
 ---
 
-## 2026-07-06 - Loja/Vendas: relatório "Pedido para o fornecedor" (por variação)
+## 2026-07-06 - Loja/Vendas: relatório "Pedido para o fornecedor" (só o que falta entregar)
 
 ### Resumo
 Nova seção na aba **Vendas** da Loja: **"📦 Pedido para o fornecedor"** — por **produto → variação**
-(tamanho/item), mostra **Vendido**, **Entregue** e **A entregar**. A coluna **A entregar** (vendido − entregue)
-é exatamente o que o Diretor precisa **pedir ao fornecedor** para suprir as vendas. Cada produto tem um resumo
-no título (vendido X · a entregar Y) e um toggle **"Só o que falta entregar"** que esconde as variações já
-100% entregues. Ex.: Camiseta por tamanho (P/M/G Infantil/Adulto…), Uniforme de Gala por item (camiseta,
-calça, acessórios) e Laço.
+(tamanho/item), mostra **só o que falta entregar** (= exatamente o que pedir ao fornecedor). Variações e
+produtos **já 100% entregues não aparecem**; quando não há nada pendente, mostra "✅ Tudo entregue — nada a
+pedir". (Primeira versão trazia colunas Vendido/Entregue + toggle; a pedido do usuário ficou só "A entregar",
+sem dados desnecessários.) Ex.: Camiseta por tamanho, Uniforme de Gala por item, Laço.
 
 ### Arquivos alterados
-- `core/views.py`: `_loja_relatorio` agrega `fornecedor` (por produto/variação: vendido/entregue/falta).
-- `templates/core/loja.html`: seção "Pedido para o fornecedor" (antes de "Todas as compras").
-- `static/js/loja.js`: toggle "Só o que falta entregar". `static/css/loja.css`: estilos `.loja-forn-*`.
+- `core/views.py`: `_loja_relatorio` agrega `fornecedor` só com itens `falta_entregar > 0` (por produto/variação).
+- `templates/core/loja.html`: seção "Pedido para o fornecedor" (antes de "Todas as compras"), coluna única
+  "A entregar" + estado vazio.
+- `static/css/loja.css`: estilos `.loja-forn-*`.
 
 ### Validação
-- `manage.py check` OK. Render (test client): seção presente; Camiseta 14 (por tamanho), Uniforme de Gala 93
-  (23 variações), Laço 1 — no momento tudo entregue (a entregar = 0).
+- `manage.py check` OK. Render (test client): tudo entregue → mostra "Tudo entregue"; ao desmarcar 1 item, o
+  relatório lista só aquela variação com a quantidade a entregar.
 
 ---
 

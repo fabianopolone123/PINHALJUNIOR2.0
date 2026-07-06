@@ -3596,21 +3596,19 @@ def _loja_relatorio():
     )
     unidades_a_entregar = sum(i.falta_entregar for i in pendentes)
 
-    # Relatório para o fornecedor: por produto → variação (tamanho/item),
-    # quanto foi vendido, quanto já foi entregue e quanto FALTA entregar
-    # (esse "a entregar" é o que precisa pedir ao fornecedor).
+    # Relatório para o fornecedor: por produto → variação (tamanho/item), só o
+    # que FALTA entregar (= o que precisa pedir ao fornecedor). Já entregue não entra.
     forn = {}
     for it in itens:
+        if it.falta_entregar <= 0:
+            continue
         prod = forn.setdefault(it.produto_nome, {
-            "produto_nome": it.produto_nome, "vars": {},
-            "vendido": 0, "entregue": 0, "falta": 0,
+            "produto_nome": it.produto_nome, "vars": {}, "falta": 0,
         })
         rot = " · ".join(p for p in [it.grupo_nome, it.variacao_nome] if p) or "Único"
-        v = prod["vars"].setdefault(rot, {"rotulo": rot, "vendido": 0, "entregue": 0, "falta": 0})
-        for alvo in (v, prod):
-            alvo["vendido"] += it.quantidade
-            alvo["entregue"] += it.quantidade_entregue
-            alvo["falta"] += it.falta_entregar
+        v = prod["vars"].setdefault(rot, {"rotulo": rot, "falta": 0})
+        v["falta"] += it.falta_entregar
+        prod["falta"] += it.falta_entregar
     fornecedor = []
     for prod in forn.values():
         prod["variacoes"] = sorted(prod["vars"].values(), key=lambda x: x["rotulo"])

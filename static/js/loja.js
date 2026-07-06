@@ -206,23 +206,4 @@
     }
     if (busca) busca.addEventListener("input", aplicarFiltro);
     if (soPendentes) soPendentes.addEventListener("change", aplicarFiltro);
-
-    // Pedido pro fornecedor: alternar "só o que falta entregar".
-    var fornSoFalta = document.getElementById("fornSoFalta");
-    if (fornSoFalta) {
-        fornSoFalta.addEventListener("change", function () {
-            var so = fornSoFalta.checked;
-            Array.prototype.forEach.call(document.querySelectorAll(".loja-forn-produto"), function (p) {
-                if (so) {
-                    Array.prototype.forEach.call(p.querySelectorAll("tbody tr"), function (tr) {
-                        tr.hidden = tr.dataset.falta === "0";
-                    });
-                    p.hidden = p.dataset.temFalta !== "1";
-                } else {
-                    Array.prototype.forEach.call(p.querySelectorAll("tbody tr"), function (tr) { tr.hidden = false; });
-                    p.hidden = false;
-                }
-            });
-        });
-    }
 })();
