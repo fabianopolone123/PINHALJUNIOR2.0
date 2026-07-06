@@ -22,6 +22,32 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Máscara de moeda pt-BR no "valor recebido" do PDV (troco corrigido)
+
+### Resumo
+Estende a máscara de moeda pt-BR ao campo **"Valor recebido (dinheiro)"** dos dois balcões — **PDV de venda**
+(`evento_pdv.html`) e **PDV de inscrição** (`evento_pdv_inscricao.html`). Como o campo agora mostra
+`1.234,56`, o **cálculo de troco ao vivo** foi ajustado: em vez de `parseFloat(value.replace(",","."))` — que
+**quebraria** com o separador de milhar (`"1.234,56"` → `1.234`) — o JS passou a ler **os dígitos como
+centavos** (`value.replace(/\D/g,"")/100`), batendo exatamente com o valor exibido. Back-end inalterado (já
+fazia `replace(",",".")` e trata vazio/ inválido).
+
+### Arquivos alterados
+- `templates/core/evento_pdv.html` e `evento_pdv_inscricao.html`: `valor_recebido` vira `type=text data-moeda`;
+  ambos carregam `moeda_br.js`.
+- `static/js/evento_pdv.js` e `evento_insc_cupom.js`: leitura do recebido por dígitos/centavos (não `parseFloat`).
+
+### Validação
+- `manage.py check` OK. Render (test client, evento futuro temporário): ambos os PDVs carregam `moeda_br.js` e o
+  recebido vem `type=text data-moeda`. Simulação do parse: `"1.234,56"` → `1234.56` (o antigo dava `1.234`).
+  POST de venda em dinheiro (item R$ 35,00, recebido `50.00`): pedido criado com **total 35,00 · recebido 50,00
+  · troco 15,00**. (Evento/produto temporários removidos após o teste.)
+
+### Pendências
+- Sem novas.
+
+---
+
 ## 2026-07-06 - Máscara de moeda pt-BR nos preços de produto e custos de evento (fecha a pendência)
 
 ### Resumo

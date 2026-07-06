@@ -98,8 +98,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `submit`), ideal para campos de formulário Django e linhas repetíveis clonadas por JS. Em ambos, mostra
   `1.234,56` e envia `1234.56` (back-end não muda). Aplicar isso a **todo** campo de valor novo. **Já em todos
   os campos de valor R$**: custo do clube, mensalidades, preços de produto (Loja do Clube e lojinha de evento),
-  custo/faixa/valor da diretoria de evento. (Percentual, idade, estoque, quantidade e o `valor_recebido` do PDV
-  **não** usam a máscara — não são preço.)
+  custo/faixa/valor da diretoria de evento e o **`valor_recebido` do PDV** (dinheiro). Quem lê um campo
+  mascarado **em JS** (ex.: cálculo de troco) deve interpretar **os dígitos como centavos** (`value.replace(/\D/g,"")/100`),
+  não `parseFloat` (que quebra com o separador de milhar). (Percentual, idade, estoque e quantidade **não** usam
+  a máscara — não são valor em R$.)
 - **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless

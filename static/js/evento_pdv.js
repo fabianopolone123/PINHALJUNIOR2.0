@@ -44,7 +44,10 @@
         var ehDinheiro = forma === "dinheiro";
         if (dinheiroBox) dinheiroBox.style.display = ehDinheiro ? "" : "none";
         if (ehDinheiro && trocoEl && recebidoEl) {
-            var rec = parseFloat((recebidoEl.value || "").replace(",", "."));
+            // O campo usa a máscara de moeda (mostra "1.234,56"); lê os dígitos
+            // como centavos para bater com o valor exibido.
+            var dig = (recebidoEl.value || "").replace(/\D/g, "");
+            var rec = dig ? parseInt(dig, 10) / 100 : NaN;
             if (isNaN(rec)) {
                 trocoEl.textContent = moeda(0);
                 trocoEl.classList.remove("troco-falta");

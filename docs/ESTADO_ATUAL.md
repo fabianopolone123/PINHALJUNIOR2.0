@@ -3,9 +3,11 @@
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
 **Última atualização:** 2026-07-06 (**Máscara de moeda pt-BR em todos os valores R$**): fecha a pendência —
-os **preços de produto** (Loja do Clube e lojinha de evento) e os **valores de evento** (custo, faixa etária e
-valor da diretoria) deixaram de ser `type=number` e passaram ao padrão `moeda_br.js` (mostra `1.234,56`, envia
-`1234.56`). Para isso o `moeda_br.js` ganhou um **modo inline** (um único `input[type=text] data-moeda` sem
+os **preços de produto** (Loja do Clube e lojinha de evento), os **valores de evento** (custo, faixa etária e
+valor da diretoria) e o **"valor recebido" (dinheiro) do PDV** deixaram de ser `type=number` e passaram ao
+padrão `moeda_br.js` (mostra `1.234,56`, envia `1234.56`). No PDV, o **cálculo de troco ao vivo** foi ajustado
+para ler os **dígitos como centavos** (não `parseFloat`, que quebraria com o separador de milhar) — validado
+com POST de venda em dinheiro (troco correto). Para isso o `moeda_br.js` ganhou um **modo inline** (um único `input[type=text] data-moeda` sem
 campo oculto, normalizado no `submit` por listener em captura) — usado pelos campos de formulário Django
 (`CustoEventoForm.valor`, `FaixaEtariaPrecoForm.valor`, `EventoInscricaoConfigForm.valor_diretoria`) e pelas
 linhas de variação clonadas por JS (`_loja_var_linha.html`, `_variacao_linha.html`). Back-end inalterado. Agora
