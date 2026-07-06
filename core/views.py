@@ -3526,17 +3526,41 @@ def loja_view(request):
 
 
 def _loja_relatorio():
-    """Consolida os números de vendas da loja (só compras confirmadas)."""
+    """Consolida os números de vendas da loja (só compras confirmadas).
+
+    "Mais vendidos": produto **composto** (ex.: Uniforme de Gala) conta **por
+    pedido** (cada pedido que levou o produto = 1), pois ele tem vários itens
+    obrigatórios; produto **simples** conta por **quantidade** de unidades.
+    """
     conf = CompraLoja.objects.filter(status="confirmado")
-    itens = ItemCompraLoja.objects.filter(compra__status="confirmado")
+    itens = ItemCompraLoja.objects.filter(compra__status="confirmado").select_related("produto")
     n_compras = conf.count()
     arrecadado = conf.aggregate(s=Sum("valor_total"))["s"] or Decimal("0")
     ticket = (arrecadado / n_compras) if n_compras else Decimal("0")
-    mais_vendidos = list(
-        itens.values("produto_nome")
-        .annotate(qtd=Sum("quantidade"), total=Sum("valor_total"))
-        .order_by("-qtd")
-    )
+
+    agrup = {}
+    for it in itens:
+        d = agrup.setdefault(it.produto_nome, {
+            "produto_nome": it.produto_nome, "qtd": 0,
+            "total": Decimal("0"), "compras": set(), "composto": False,
+        })
+        d["qtd"] += it.quantidade
+        d["total"] += it.valor_total
+        d["compras"].add(it.compra_id)
+        if it.produto and it.produto.composto:
+            d["composto"] = True
+    mais_vendidos = []
+    for d in agrup.values():
+        if d["composto"]:
+            contagem, unidade = len(d["compras"]), "pedido(s)"
+        else:
+            contagem, unidade = d["qtd"], "un."
+        mais_vendidos.append({
+            "produto_nome": d["produto_nome"], "contagem": contagem,
+            "unidade": unidade, "total": d["total"],
+        })
+    mais_vendidos.sort(key=lambda x: x["total"], reverse=True)
+
     por_forma = list(
         conf.values("forma_pagamento")
         .annotate(n=Count("id"), total=Sum("valor_total"))

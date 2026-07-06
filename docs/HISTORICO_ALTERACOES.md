@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Loja/Vendas: "Mais vendidos" por pedido (composto) + chips por produto + rótulo do ticket
+
+### Resumo
+Ajustes no relatório da aba Vendas: (1) **"Mais vendidos"** — produto **composto** (Uniforme de Gala) agora
+conta **por pedido** (cada pedido que levou o produto = 1), pois tem vários itens obrigatórios; produtos
+**simples** (Camiseta, Laço) seguem contando por **quantidade** de unidades (ex.: 2 tamanhos no mesmo pedido
+= 2). A coluna mostra a **unidade** ("9 pedido(s)" / "14 un."). (2) **Chips por produto** ("Todos · <produto>…")
+acima de "Todas as compras": clicar mostra só os pedidos que contêm aquele produto (um pedido misto aparece
+em mais de um) — jeito leve de segmentar sem formulário de filtro. (3) O KPI "Ticket médio" virou **"Média por
+compra"** com dica (arrecadado ÷ nº de compras).
+
+### Arquivos criados/alterados
+- `core/views.py`: `_loja_relatorio` recalcula "mais vendidos" (composto = por pedido; simples = por unidade),
+  ordenado por total.
+- `templates/core/loja.html`: coluna "Vendidos" com unidade; KPI "Média por compra" + dica; chips de produto
+  (`#lojaChips`) e `data-produtos` em cada compra.
+- `static/js/loja.js`: filtro por chip integrado à busca/"só a entregar".
+- `static/css/loja.css`: estilos dos chips.
+
+### Decisões tomadas
+- Composto conta **por pedido** (via distintas compras que contêm o produto) — robusto mesmo com os pedidos
+  importados; simples conta por unidade. Ordenação por **total (R$)** por serem unidades diferentes.
+
+---
+
 ## 2026-07-05 - Loja/Vendas: entrega por pedido ("Entregar tudo") + filtro "Só a entregar"
 
 ### Resumo

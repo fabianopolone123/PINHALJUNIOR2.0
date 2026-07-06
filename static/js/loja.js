@@ -160,11 +160,13 @@
         }
     });
 
-    // Busca + filtro "só a entregar".
+    // Busca + filtro "só a entregar" + chips de produto.
     var busca = document.getElementById("lojaBuscaCompras");
     var soPendentes = document.getElementById("lojaSoPendentes");
     var lista = document.getElementById("lojaComprasLista");
     var vazio = document.querySelector(".loja-busca-vazio");
+    var chips = document.getElementById("lojaChips");
+    var prodSel = "";
     function normal(s) {
         return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     }
@@ -176,7 +178,8 @@
         Array.prototype.forEach.call(lista.querySelectorAll(".loja-compra"), function (c) {
             var okBusca = !q || normal(c.dataset.busca).indexOf(q) !== -1;
             var okPend = !pend || c.dataset.pendente === "1";
-            var ok = okBusca && okPend;
+            var okProd = !prodSel || (c.dataset.produtos || "").indexOf("|" + prodSel + "|") !== -1;
+            var ok = okBusca && okPend && okProd;
             c.hidden = !ok;
             if (ok) achou++;
         });
@@ -184,4 +187,15 @@
     }
     if (busca) busca.addEventListener("input", aplicarFiltro);
     if (soPendentes) soPendentes.addEventListener("change", aplicarFiltro);
+    if (chips) {
+        chips.addEventListener("click", function (e) {
+            var chip = e.target.closest(".loja-chip");
+            if (!chip) return;
+            prodSel = chip.dataset.prod || "";
+            Array.prototype.forEach.call(chips.querySelectorAll(".loja-chip"), function (ch) {
+                ch.classList.toggle("ativa", ch === chip);
+            });
+            aplicarFiltro();
+        });
+    }
 })();

@@ -250,10 +250,10 @@
                             <span class="loja-kpi-valor">{{ relatorio.n_compras }}</span>
                             <span class="loja-kpi-rotulo">Compras</span>
                         </div>
-                        <div class="card loja-kpi">
+                        <div class="card loja-kpi" title="Valor médio por compra = arrecadado ÷ nº de compras">
                             <span class="loja-kpi-icone" aria-hidden="true">🎯</span>
                             <span class="loja-kpi-valor">R$ {{ relatorio.ticket|moeda }}</span>
-                            <span class="loja-kpi-rotulo">Ticket médio</span>
+                            <span class="loja-kpi-rotulo">Média por compra</span>
                         </div>
                         <div class="card loja-kpi{% if relatorio.unidades_a_entregar %} alerta{% endif %}">
                             <span class="loja-kpi-icone" aria-hidden="true">📦</span>
@@ -267,12 +267,12 @@
                             <h2 class="secao-titulo">🏆 Mais vendidos</h2>
                             {% if relatorio.mais_vendidos %}
                             <table class="loja-tabela">
-                                <thead><tr><th>Produto</th><th>Qtd</th><th>Total</th></tr></thead>
+                                <thead><tr><th>Produto</th><th>Vendidos</th><th>Total</th></tr></thead>
                                 <tbody>
                                     {% for m in relatorio.mais_vendidos %}
                                     <tr>
                                         <td>{{ m.produto_nome }}</td>
-                                        <td class="num">{{ m.qtd }}</td>
+                                        <td class="num">{{ m.contagem }} <small>{{ m.unidade }}</small></td>
                                         <td class="num">R$ {{ m.total|moeda }}</td>
                                     </tr>
                                     {% endfor %}
@@ -311,11 +311,20 @@
                             <label class="loja-filtro-pendentes"><input type="checkbox" id="lojaSoPendentes"> Só a entregar</label>
                         </div>
                     </div>
+                    {% if produtos %}
+                    <div class="loja-chips" id="lojaChips">
+                        <button type="button" class="loja-chip ativa" data-prod="">Todos</button>
+                        {% for p in produtos %}
+                        <button type="button" class="loja-chip" data-prod="{{ p.nome|lower }}">{{ p.nome }}</button>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     {% if compras %}
                     <div class="loja-compras" id="lojaComprasLista">
                         {% for c in compras %}
                         <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}"
                                  data-busca="{{ c.comprador_nome|lower }} {{ c.codigo|lower }} {% for i in c.itens.all %}{{ i.produto_nome|lower }} {% endfor %}"
+                                 data-produtos="|{% for i in c.itens.all %}{{ i.produto_nome|lower }}|{% endfor %}"
                                  data-pendente="{% if c.status != 'cancelado' and c.status_entrega != 'entregue' %}1{% else %}0{% endif %}">
                             <summary class="loja-compra-topo">
                                 <span class="loja-compra-codigo">{{ c.codigo }}</span>
