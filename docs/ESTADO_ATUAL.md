@@ -16,6 +16,11 @@ instalação usa `/var/www/pinhaljunior2/current`, venv em `/var/www/pinhaljunio
 `/var/www/pinhaljunior2/staticfiles`, env file `/etc/pinhaljunior2.env`, serviço `pinhaljunior2.service`
 (Gunicorn em `127.0.0.1:8010`) e atalho global `pinhaljunior2-deploy`.
 
+**Dados no VPS:** em 2026-07-06, o banco `db.sqlite3` e a pasta `media/` locais foram enviados uma vez para o
+VPS novo. O serviço `pinhaljunior2` foi parado durante a troca, o banco/media anteriores do VPS foram salvos em
+backup com timestamp, permissões foram ajustadas e a aplicação voltou ativa. Validação: 37 usuários, 39
+aventureiros, 36 ativos e mídia servindo via `/sistema-novo/media/`.
+
 **Última atualização:** 2026-07-06 (**Cadastro: assinatura desenhada dos 3 documentos**): o responsável **assina
 com o dedo/mouse** (canvas, sem lib) os **3 documentos** da inscrição — ficha de inscrição, declaração médica e
 termo de imagem — e a **assinatura substitui o checkbox** (assinar = aceitar). Cada assinatura vira um

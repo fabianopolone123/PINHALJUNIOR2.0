@@ -47,6 +47,35 @@ repositório, `DEBUG=False`, hosts/CSRF corretos, arquivos estáticos coletados 
 
 ---
 
+## 2026-07-06 - Importação inicial do banco e mídias locais no VPS
+
+### Resumo
+Enviado para o novo sistema online o banco SQLite local e todos os arquivos da pasta `media/`, já que esses dados
+não passam pelo GitHub. A importação foi feita apenas na instalação nova (`pinhaljunior2`), sem tocar no sistema
+antigo do domínio raiz.
+
+### Arquivos/configurações envolvidos
+- Local: `db.sqlite3` e `media/` empacotados temporariamente para transferência.
+- VPS: `/var/www/pinhaljunior2/data/db.sqlite3` substituído pelo banco local.
+- VPS: `/var/www/pinhaljunior2/media` substituída pela pasta `media/` local.
+- VPS: backup prévio salvo em `/var/www/pinhaljunior2/backup/local_before_import_<timestamp>/`.
+
+### Validação
+- `manage.py check` OK no VPS.
+- `migrate --noinput` sem migrations pendentes.
+- Serviço `pinhaljunior2.service` reiniciado e ativo.
+- Contagem validada no banco importado: 37 usuários, 39 aventureiros e 36 aventureiros ativos.
+- Arquivo de mídia validado com HTTP 200 em `/sistema-novo/media/`.
+
+### Decisões tomadas
+- Remover os pacotes temporários com dados sensíveis após a importação.
+- Manter backup do banco/media anteriores do VPS, mesmo sendo a instalação nova.
+
+### Pendências
+- Sem novas pendências.
+
+---
+
 ## 2026-07-06 - Deploy inicial no VPS em /sistema-novo
 
 ### Resumo

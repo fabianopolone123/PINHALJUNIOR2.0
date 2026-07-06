@@ -130,6 +130,10 @@ Estrutura no servidor:
 - Serviço: `pinhaljunior2.service` (Gunicorn em `127.0.0.1:8010`)
 - Nginx: rotas adicionadas no site `sitepinhal` apenas para `/sistema-novo/`
 
+Em 2026-07-06, o banco e a pasta `media/` locais foram importados uma vez para essa instalação. Futuras
+alterações de código devem continuar indo pelo GitHub e pelo comando `pinhaljunior2-deploy`; não copiar código
+manualmente para o VPS.
+
 Observação: ao rodar, o Django pode exibir um aviso sobre migrações pendentes
 das apps internas (admin, auth, sessions). Isso é normal e não afeta a tela de
 login. Se quiser remover o aviso, rode `python manage.py migrate`.
