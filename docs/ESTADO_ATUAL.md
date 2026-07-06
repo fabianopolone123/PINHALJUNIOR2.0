@@ -21,6 +21,11 @@ VPS novo. O serviço `pinhaljunior2` foi parado durante a troca, o banco/media a
 backup com timestamp, permissões foram ajustadas e a aplicação voltou ativa. Validação: 37 usuários, 39
 aventureiros, 36 ativos e mídia servindo via `/sistema-novo/media/`.
 
+**WhatsApp:** a configuração da W-API (`WhatsappConfig`) é persistida no banco, não na sessão/navegador. Em
+2026-07-06 foi reforçada a proteção contra apagamento acidental: ID da instância e token só são substituídos
+quando um novo valor é digitado; envio com campos vazios preserva os valores salvos. Há teste automatizado para
+essa persistência (`core.tests.WhatsappConfigTests`).
+
 **Última atualização:** 2026-07-06 (**Cadastro: assinatura desenhada dos 3 documentos**): o responsável **assina
 com o dedo/mouse** (canvas, sem lib) os **3 documentos** da inscrição — ficha de inscrição, declaração médica e
 termo de imagem — e a **assinatura substitui o checkbox** (assinar = aceitar). Cada assinatura vira um

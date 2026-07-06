@@ -2939,7 +2939,9 @@ def whatsapp_config_view(request):
     O token só é substituído se um novo for digitado — assim a tela pode
     exibir apenas os últimos dígitos sem apagar o token guardado."""
     config = WhatsappConfig.get_solo()
-    config.instance_id = (request.POST.get("instance_id") or "").strip()
+    novo_instance_id = (request.POST.get("instance_id") or "").strip()
+    if novo_instance_id:
+        config.instance_id = novo_instance_id
     base_url = (request.POST.get("base_url") or "").strip()
     if base_url:
         config.base_url = base_url

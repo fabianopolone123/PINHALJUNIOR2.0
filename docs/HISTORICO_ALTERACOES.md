@@ -47,6 +47,29 @@ repositório, `DEBUG=False`, hosts/CSRF corretos, arquivos estáticos coletados 
 
 ---
 
+## 2026-07-06 - WhatsApp: preserva ID e token salvos
+
+### Resumo
+Reforçada a persistência da configuração do WhatsApp/W-API. A configuração já ficava no banco via
+`WhatsappConfig`, mas o ID da instância podia ser apagado se o formulário fosse enviado com o campo vazio. Agora
+ID da instância e token seguem a mesma regra: só são substituídos quando um novo valor é digitado.
+
+### Arquivos criados/alterados
+- `core/views.py`: `whatsapp_config_view` preserva `instance_id` quando o POST vem vazio, assim como já fazia
+  com o token.
+- `templates/core/whatsapp.html`: texto da tela deixa claro que novo ID/token só devem ser digitados para troca.
+- `core/tests.py`: teste automatizado garantindo que campos vazios não apagam ID/token salvos.
+- `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`: documentação atualizada.
+
+### Validação
+- `python manage.py test core.tests.WhatsappConfigTests` OK.
+- `python manage.py check` OK.
+
+### Pendências
+- Sem novas pendências.
+
+---
+
 ## 2026-07-06 - Importação inicial do banco e mídias locais no VPS
 
 ### Resumo

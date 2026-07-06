@@ -71,16 +71,20 @@
                     </div>
                     <p class="wa-ajuda">
                         Os dados abaixo vêm do painel da W-API. Por segurança, o token é exibido só
-                        com os últimos dígitos — digite um novo apenas se quiser trocá-lo.
+                        com os últimos dígitos — digite um novo ID ou token apenas se quiser trocá-los.
                     </p>
 
                     <form method="post" action="{% url 'core:whatsapp_config' %}" class="wa-form">
                         {% csrf_token %}
                         <div class="campo">
                             <label for="instance_id">ID da instância</label>
+                            {% if config.instance_id %}
+                            <p class="wa-token-atual">ID atual salvo.</p>
+                            {% endif %}
                             <input type="text" id="instance_id" name="instance_id"
                                    value="{{ config.instance_id }}"
-                                   placeholder="Ex.: T34398-VYR3QD-MS29SL" autocomplete="off">
+                                   placeholder="{% if config.instance_id %}Digite um novo ID para trocar{% else %}Ex.: T34398-VYR3QD-MS29SL{% endif %}"
+                                   autocomplete="off">
                         </div>
 
                         <div class="campo">
