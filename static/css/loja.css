@@ -494,8 +494,6 @@
 }
 
 /* ---------- Aba Vendas (relatório) ---------- */
-.loja-aba-badge-alerta { background: #e0a800; }
-
 .loja-kpis {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
