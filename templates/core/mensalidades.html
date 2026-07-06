@@ -183,7 +183,7 @@
                 </div>
 
                 {% if linhas %}
-                <div class="mens-lista" id="mensLista">
+                <div class="mens-lista" id="mensLista" data-pagar-url="{% url 'core:mensalidade_pagar' %}">
                     {% for l in linhas %}
                     <details class="card mens-av" data-busca="{{ l.av.nome_completo|lower }}" data-deve="{% if l.resumo.aberto_valor %}1{% else %}0{% endif %}">
                         <summary class="mens-av-topo">

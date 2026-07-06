@@ -15,6 +15,11 @@
 
     var FORMAS = { dinheiro: "Dinheiro", pix: "Pix", cartao: "Cartão", online: "Online" };
 
+    // URL respeitando o prefixo do app (FORCE_SCRIPT_NAME no VPS). Vem do template
+    // via {% url %}; o caminho fixo é só um fallback para o uso local.
+    var listaEl = document.getElementById("mensLista");
+    var PAGAR_URL = (listaEl && listaEl.dataset.pagarUrl) || "/mensalidades/pagar/";
+
     // Abas Resumo / Aventureiros.
     var abas = document.querySelectorAll(".mens-aba");
     var paineis = document.querySelectorAll(".mens-painel");
@@ -51,7 +56,7 @@
             if (sel) forma = sel.value;
         }
         btn.disabled = true;
-        fetch("/mensalidades/pagar/", {
+        fetch(PAGAR_URL, {
             method: "POST",
             headers: {
                 "X-Requested-With": "XMLHttpRequest",

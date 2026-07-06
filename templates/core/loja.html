@@ -366,7 +366,7 @@
                         </div>
                     </div>
                     {% if compras %}
-                    <div class="loja-compras" id="lojaComprasLista">
+                    <div class="loja-compras" id="lojaComprasLista" data-entrega-url="{% url 'core:loja_entrega' %}" data-entrega-compra-url="{% url 'core:loja_entrega_compra' %}">
                         {% for c in compras %}
                         <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}"
                                  data-busca="{{ c.comprador_nome|lower }} {{ c.codigo|lower }} {% for i in c.itens.all %}{{ i.produto_nome|lower }} {% endfor %}"

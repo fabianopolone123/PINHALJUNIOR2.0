@@ -124,8 +124,14 @@
         if (soPendentes && soPendentes.checked) aplicarFiltro();
     }
 
+    // URLs respeitando o prefixo do app (FORCE_SCRIPT_NAME no VPS). Vêm do template
+    // via {% url %}; os caminhos fixos são só fallback para o uso local.
+    var comprasEl = document.getElementById("lojaComprasLista");
+    var ENTREGA_URL = (comprasEl && comprasEl.dataset.entregaUrl) || "/loja/entrega/";
+    var ENTREGA_COMPRA_URL = (comprasEl && comprasEl.dataset.entregaCompraUrl) || "/loja/entrega/compra/";
+
     function pedir(corpo) {
-        return fetch("/loja/entrega/" + (corpo.compra_id ? "compra/" : ""), {
+        return fetch(corpo.compra_id ? ENTREGA_COMPRA_URL : ENTREGA_URL, {
             method: "POST",
             headers: {
                 "X-Requested-With": "XMLHttpRequest",

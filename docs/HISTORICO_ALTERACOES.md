@@ -22,6 +22,27 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Correção: fetch com caminho absoluto quebrava sob o prefixo do VPS
+
+### Resumo
+Bug **pré-existente** exposto pelo deploy no VPS (app sob `/sistema-novo/`): dois JS faziam `fetch` com
+**caminho absoluto fixo**, que no VPS resolvia para a raiz do domínio (sistema antigo) e falhava. Sintoma
+relatado: em Mensalidades, **"Desfazer"** (e o "Marcar pago") não funcionava. Também afetava a **marcação de
+entrega** da Loja do Clube (mesmo bug, ainda não percebido).
+
+### Arquivos alterados
+- `static/js/mensalidades.js`: usa a URL de `#mensLista[data-pagar-url]` (via `{% url %}`, que inclui o prefixo)
+  em vez de `"/mensalidades/pagar/"` fixo. `templates/core/mensalidades.html`: adiciona `data-pagar-url`.
+- `static/js/loja.js`: usa `#lojaComprasLista[data-entrega-url|data-entrega-compra-url]` em vez de
+  `"/loja/entrega/..."` fixo. `templates/core/loja.html`: adiciona os dois `data-`.
+
+### Decisões tomadas
+- Padrão a seguir dali em diante: **toda URL usada em JS vem do template via `{% url %}`** (num `data-`), nunca
+  caminho absoluto fixo — senão quebra sob `FORCE_SCRIPT_NAME`. O código novo dos pagamentos já seguia isso.
+- Mantido um fallback para o caminho local. Varredura confirmou que não há outros `fetch` absolutos.
+
+---
+
 ## 2026-07-06 - Pagamentos Mercado Pago (Etapa 2): Mensalidades online + admin do Pagamento
 
 ### Resumo
