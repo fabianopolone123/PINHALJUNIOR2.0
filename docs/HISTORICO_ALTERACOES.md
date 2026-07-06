@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: edição por mês vira desconto % (com valor ao vivo) + remove "Gerar cobranças"
+
+### Resumo
+Refinos a pedido do usuário: (1) no modal de edição por mês, em vez de digitar o valor, agora se informa a
+**% de desconto** e o **valor resultante aparece ao vivo** ("Ficará: R$ X — valor cheio: R$ Y"); "Isentar
+este mês" = 100%. O servidor calcula o valor a partir do **valor cheio** (config) × (1 − %). (2) **Removido o
+botão "Gerar cobranças <ano>"** do topo — desnecessário, pois o cadastro do aventureiro já gera as cobranças
+do mês atual até dezembro automaticamente. (A geração por aventureiro sem cobranças continua disponível.)
+
+### Arquivos alterados
+- `core/views.py`: `mensalidade_editar_view` passa a receber `desconto_pct` e calcular o valor a partir da base.
+- `templates/core/mensalidades.html`: modal com "% de desconto" + preview; `data-base` no botão ✏️; remove
+  a barra "Gerar cobranças".
+- `static/js/mensalidades.js`: preview ao vivo (base × desconto). `static/css/mensalidades.css`: preview.
+
+---
+
 ## 2026-07-05 - Mensalidades: import do histórico + isenção/desconto por mês + valores visíveis
 
 ### Resumo

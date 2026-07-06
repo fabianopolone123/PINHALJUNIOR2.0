@@ -4095,13 +4095,12 @@ def mensalidade_editar_view(request):
     else:
         m.isento = False
         try:
-            v = Decimal((request.POST.get("valor") or "0").replace(",", "."))
-            if v < 0:
-                raise InvalidOperation
-        except (InvalidOperation, ValueError):
-            messages.error(request, "Valor inválido.")
-            return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")
-        m.valor = v
+            pct = int(request.POST.get("desconto_pct") or 0)
+        except (TypeError, ValueError):
+            pct = 0
+        pct = min(max(pct, 0), 100)
+        base = ConfigMensalidade.get_solo().valor_base(m.tipo)
+        m.valor = (base * (100 - pct) / Decimal("100")).quantize(Decimal("0.01"))
     m.save(update_fields=["isento", "valor"])
     messages.success(request, f"{m.mes_nome}/{m.ano} de {m.aventureiro.nome_completo} atualizado.")
     return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")

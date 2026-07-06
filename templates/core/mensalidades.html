@@ -101,12 +101,6 @@
                                 {% for a in anos %}<option value="{{ a }}"{% if a == ano %} selected{% endif %}>{{ a }}</option>{% endfor %}
                             </select>
                         </form>
-                        <form method="post" action="{% url 'core:mensalidades_gerar' %}" class="mens-gerar-form"
-                              data-confirmar="Gerar as cobranças que faltam de {{ ano }} para todos os aventureiros ativos?">
-                            {% csrf_token %}
-                            <input type="hidden" name="ano" value="{{ ano }}">
-                            <button type="submit" class="btn-acao btn-acao-pequeno">⚙️ Gerar cobranças {{ ano }}</button>
-                        </form>
                     </div>
                 </section>
 
@@ -166,8 +160,9 @@
                                         </span>
                                         {% endif %}
                                         {% if m.status != 'paga' and m.status != 'cancelada' %}
-                                        <button type="button" class="mens-editar-btn" title="Editar valor / isentar este mês"
+                                        <button type="button" class="mens-editar-btn" title="Desconto / isentar este mês"
                                                 data-mens="{{ m.id }}" data-valor="{{ m.valor|stringformat:'.2f' }}"
+                                                data-base="{% if m.tipo == 'inscricao' %}{{ config.valor_inscricao|stringformat:'.2f' }}{% else %}{{ config.valor_mensalidade|stringformat:'.2f' }}{% endif %}"
                                                 data-isento="{% if m.isento %}1{% else %}0{% endif %}"
                                                 data-label="{{ m.mes_nome }} · {{ l.av.nome_completo }}">✏️</button>
                                         {% endif %}
@@ -213,11 +208,12 @@
                     <form method="post" action="{% url 'core:mensalidade_editar' %}" class="mens-editar-form">
                         {% csrf_token %}
                         <input type="hidden" name="mensalidade_id" id="editarId">
-                        <label class="mens-editar-campo">Valor deste mês (R$)
-                            <input type="number" step="0.01" min="0" name="valor" id="editarValor" class="mens-input-valor">
+                        <label class="mens-editar-campo">Desconto neste mês (%)
+                            <input type="number" step="1" min="0" max="100" name="desconto_pct" id="editarPct" class="mens-input-pct">
                         </label>
-                        <label class="mens-chk"><input type="checkbox" name="isento" id="editarIsento"> Isentar este mês (valor R$ 0,00)</label>
-                        <small class="ajuda">Use para dar desconto só neste mês (mude o valor) ou isentar só este mês.</small>
+                        <p class="mens-editar-preview">Ficará: <strong id="editarPreview">R$ 0,00</strong> <span class="mens-editar-base" id="editarBase"></span></p>
+                        <label class="mens-chk"><input type="checkbox" name="isento" id="editarIsento"> Isentar este mês (100%)</label>
+                        <small class="ajuda">Aumente o desconto e veja o valor que a cobrança vai ficar. Ou isente o mês inteiro.</small>
                         <div class="form-acoes">
                             <button type="button" class="btn-secundario" id="modalEditarCancelar">Cancelar</button>
                             <button type="submit" class="btn-acao">Salvar</button>

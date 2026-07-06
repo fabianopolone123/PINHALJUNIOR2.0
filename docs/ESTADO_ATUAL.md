@@ -8,8 +8,9 @@ separado do financeiro. Cada aventureiro tem, por mês do ano, uma cobrança —
 configuráveis** (padrão R$ 30, `ConfigMensalidade`); aventureiros podem ser **isentos** ou ter **desconto %**.
 Tela com KPIs (previsto/recebido/em aberto/isentos), seletor de ano, **"Gerar cobranças <ano>"** e, por
 aventureiro, os 12 meses com **marcar pago/desfazer** (forma, sem recarregar), **isenção/desconto do
-aventureiro** e **edição por mês** (botão ✏️: valor pontual/desconto ou isentar só aquele mês, rota
-`mensalidades/editar/`); busca e filtro **"Só quem deve"**. Modelos `ConfigMensalidade`/`Mensalidade` +
+aventureiro** e **edição por mês** (botão ✏️: **% de desconto** com o valor calculado ao vivo, ou isentar só
+aquele mês, rota `mensalidades/editar/`); busca e filtro **"Só quem deve"**. Novos aventureiros geram as
+cobranças automaticamente no cadastro (não há botão de gerar em massa). Modelos `ConfigMensalidade`/`Mensalidade` +
 campos no Aventureiro (mig. **0024**); rotas `/mensalidades/…`. O **histórico de 2026** do sistema antigo foi
 **importado** (352 cobranças, 104 pagas; dados locais). Antes: Loja (aba Vendas + import de pedidos).
 

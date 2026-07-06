@@ -70,27 +70,50 @@
             });
     });
 
-    // Modal de edição por mês (valor/isenção).
+    // Modal de edição por mês (desconto % / isenção, com valor ao vivo).
+    function moeda(v) {
+        return "R$ " + v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
     var modal = document.getElementById("modalEditar");
     if (modal) {
         var fId = document.getElementById("editarId");
-        var fValor = document.getElementById("editarValor");
+        var fPct = document.getElementById("editarPct");
         var fIsento = document.getElementById("editarIsento");
+        var fPreview = document.getElementById("editarPreview");
+        var fBase = document.getElementById("editarBase");
         var sub = document.getElementById("modalEditarSub");
+        var baseAtual = 0;
+
+        function atualizarPreview() {
+            var pct = parseInt(fPct.value, 10) || 0;
+            if (pct < 0) pct = 0; if (pct > 100) pct = 100;
+            var final = fIsento.checked ? 0 : baseAtual * (1 - pct / 100);
+            fPreview.textContent = moeda(final);
+        }
         function abrir(btn) {
+            baseAtual = parseFloat(btn.dataset.base) || 0;
+            var valor = parseFloat(btn.dataset.valor) || 0;
+            var pct = baseAtual > 0 ? Math.round((1 - valor / baseAtual) * 100) : 0;
+            if (pct < 0) pct = 0; if (pct > 100) pct = 100;
             fId.value = btn.dataset.mens;
-            fValor.value = btn.dataset.valor || "0.00";
+            fPct.value = pct;
             fIsento.checked = btn.dataset.isento === "1";
+            fPct.disabled = fIsento.checked;
             if (sub) sub.textContent = btn.dataset.label || "";
-            fValor.disabled = fIsento.checked;
+            if (fBase) fBase.textContent = "(valor cheio: " + moeda(baseAtual) + ")";
+            atualizarPreview();
             modal.hidden = false;
         }
         function fechar() { modal.hidden = true; }
         document.addEventListener("click", function (e) {
             var btn = e.target.closest(".mens-editar-btn");
-            if (btn) { abrir(btn); return; }
+            if (btn) abrir(btn);
         });
-        fIsento.addEventListener("change", function () { fValor.disabled = fIsento.checked; });
+        fPct.addEventListener("input", atualizarPreview);
+        fIsento.addEventListener("change", function () {
+            fPct.disabled = fIsento.checked;
+            atualizarPreview();
+        });
         document.getElementById("modalEditarFechar").addEventListener("click", fechar);
         document.getElementById("modalEditarCancelar").addEventListener("click", fechar);
         modal.addEventListener("click", function (e) { if (e.target === modal) fechar(); });
