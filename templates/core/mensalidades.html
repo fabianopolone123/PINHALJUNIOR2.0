@@ -102,6 +102,16 @@
                             </select>
                         </form>
                     </div>
+                    <form method="post" action="{% url 'core:mensalidade_reajustar' %}" class="mens-reajuste"
+                          data-confirmar="Aplicar os valores atuais a TODAS as cobranças em aberto a partir do mês escolhido de {{ ano }}? Isenções e descontos de cada aventureiro são mantidos; cobranças já pagas não mudam.">
+                        {% csrf_token %}
+                        <input type="hidden" name="ano" value="{{ ano }}">
+                        <span class="mens-reajuste-txt">🔁 Aplicar os valores atuais às cobranças <strong>em aberto</strong> a partir de</span>
+                        <select name="mes" class="campo-select">
+                            {% for num, nome in meses %}<option value="{{ num }}"{% if num == mes_atual %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+                        </select>
+                        <button type="submit" class="btn-secundario btn-acao-pequeno">Reajustar</button>
+                    </form>
                 </section>
 
                 <div class="mens-abas" role="tablist">

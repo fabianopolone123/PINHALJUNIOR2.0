@@ -132,7 +132,17 @@
         });
         document.getElementById("modalEditarFechar").addEventListener("click", fechar);
         document.getElementById("modalEditarCancelar").addEventListener("click", fechar);
-        modal.addEventListener("click", function (e) { if (e.target === modal) fechar(); });
+        // Fecha só se o clique começou E terminou no fundo (arrastar seleção de
+        // dentro para fora não fecha).
+        var fundoMousedown = false;
+        modal.addEventListener("mousedown", function (e) { fundoMousedown = e.target === modal; });
+        modal.addEventListener("click", function (e) {
+            if (e.target === modal && fundoMousedown) fechar();
+            fundoMousedown = false;
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && !modal.hidden) fechar();
+        });
     }
 
     // Busca + "só quem deve".

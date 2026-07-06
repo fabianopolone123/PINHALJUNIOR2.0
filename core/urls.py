@@ -173,6 +173,7 @@ urlpatterns = [
     # --- Mensalidades ---
     path("mensalidades/", views.mensalidades_view, name="mensalidades"),
     path("mensalidades/config/", views.mensalidade_config_view, name="mensalidade_config"),
+    path("mensalidades/reajustar/", views.mensalidade_reajustar_view, name="mensalidade_reajustar"),
     path("mensalidades/gerar/", views.mensalidades_gerar_view, name="mensalidades_gerar"),
     path("mensalidades/pagar/", views.mensalidade_pagar_view, name="mensalidade_pagar"),
     path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),

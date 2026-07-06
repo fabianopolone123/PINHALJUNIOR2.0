@@ -131,8 +131,13 @@
         });
         if (btnVoltar) btnVoltar.addEventListener("click", fecharModal);
         if (btnFechar) btnFechar.addEventListener("click", fecharModal);
+        // Fecha só se o clique começou E terminou no fundo (não fecha ao arrastar
+        // uma seleção de dentro para fora).
+        var fundoMousedown = false;
+        modal.addEventListener("mousedown", function (e) { fundoMousedown = e.target === modal; });
         modal.addEventListener("click", function (e) {
-            if (e.target === modal) fecharModal();
+            if (e.target === modal && fundoMousedown) fecharModal();
+            fundoMousedown = false;
         });
     }
 })();
@@ -193,7 +198,12 @@
         var umaFoto = urls.length < 2;
         if (ant) { ant.hidden = umaFoto; ant.addEventListener("click", function () { navegar(-1); }); }
         if (prox) { prox.hidden = umaFoto; prox.addEventListener("click", function () { navegar(1); }); }
-        lb.addEventListener("click", function (e) { if (e.target === lb) fecharLb(); });
+        var lbFundoDown = false;
+        lb.addEventListener("mousedown", function (e) { lbFundoDown = e.target === lb; });
+        lb.addEventListener("click", function (e) {
+            if (e.target === lb && lbFundoDown) fecharLb();
+            lbFundoDown = false;
+        });
         document.addEventListener("keydown", function (e) {
             if (lb.hidden) return;
             if (e.key === "Escape") fecharLb();

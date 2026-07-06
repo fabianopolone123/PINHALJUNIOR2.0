@@ -3972,6 +3972,8 @@ def mensalidades_view(request):
         "taxa": taxa,
         "dashboard": _mensalidades_dashboard(mens),
         "aba": request.GET.get("aba", "resumo"),
+        "meses": [(i, MESES_PT[i]) for i in range(1, 13)],
+        "mes_atual": timezone.localdate().month,
         "formas_pagamento": [
             ("dinheiro", "Dinheiro"), ("pix", "Pix"),
             ("cartao", "Cartão"), ("online", "Online"),
@@ -4030,6 +4032,35 @@ def mensalidade_config_view(request):
     config.save()
     messages.success(request, "Valores atualizados. Novas cobranças usarão esses valores.")
     return redirect("core:mensalidades")
+
+
+@diretor_required
+@require_POST
+def mensalidade_reajustar_view(request):
+    """Aplica os valores atuais da configuração às cobranças **em aberto** de um ano
+    a partir de um mês (respeitando isenção/desconto de cada aventureiro). Útil para
+    reajustar a mensalidade "a partir do próximo mês" para todos de uma vez."""
+    try:
+        ano = int(request.POST.get("ano") or timezone.localdate().year)
+        mes_ini = int(request.POST.get("mes") or 1)
+    except (TypeError, ValueError):
+        return redirect("core:mensalidades")
+    mes_ini = min(max(mes_ini, 1), 12)
+    config = ConfigMensalidade.get_solo()
+    afetadas = 0
+    for m in Mensalidade.objects.filter(
+        ano=ano, mes__gte=mes_ini, status="aberta"
+    ).select_related("aventureiro"):
+        valor, isento = _valor_mensalidade(config, m.aventureiro, m.tipo)
+        m.valor, m.isento = valor, isento
+        m.save(update_fields=["valor", "isento"])
+        afetadas += 1
+    messages.success(
+        request,
+        f"{afetadas} cobrança(s) em aberto de {MESES_PT[mes_ini]}/{ano} em diante "
+        f"reajustada(s) para os valores atuais.",
+    )
+    return redirect(f"{reverse('core:mensalidades')}?ano={ano}&aba=aventureiros")
 
 
 @diretor_required

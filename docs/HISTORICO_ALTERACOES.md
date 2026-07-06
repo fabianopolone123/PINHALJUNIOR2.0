@@ -22,6 +22,24 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: reajuste em massa a partir de um mês + modais não fecham ao arrastar
+
+### Resumo
+Dois pontos: (1) **Reajuste em massa** — na barra de valores há agora "🔁 Aplicar os valores atuais às
+cobranças **em aberto** a partir de [mês]" + **Reajustar**: recalcula todas as cobranças **em aberto** do ano,
+do mês escolhido em diante, com o **valor atual da configuração** (respeitando isenção/desconto de cada
+aventureiro; **pagas não mudam**). Assim dá para "a partir do próximo mês a mensalidade passa a ser R$ X para
+todos". (2) **Correção de modais**: o modal de editar mês (mensalidades) e os modais da loja (aviso de
+obrigatórios e lightbox) fechavam ao **arrastar uma seleção de dentro para fora**; agora só fecham se o clique
+**começar e terminar no fundo** (padrão `mousedown`+`click`, [[modais-fechamento-seguro]]).
+
+### Arquivos alterados
+- `core/views.py`: `mensalidade_reajustar_view`; contexto ganha `meses`/`mes_atual`. `core/urls.py`: rota.
+- `templates/core/mensalidades.html`: form de reajuste na barra. `static/css/mensalidades.css`: estilo.
+- `static/js/mensalidades.js` e `static/js/loja_produto.js`: fechamento seguro dos modais (mousedown+click).
+
+---
+
 ## 2026-07-05 - Mensalidades: dashboard mês a mês (abas Resumo / Aventureiros)
 
 ### Resumo
