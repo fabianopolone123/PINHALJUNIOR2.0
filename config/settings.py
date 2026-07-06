@@ -4,18 +4,34 @@ Configurações do projeto Django.
 Clube de Aventureiros Pinhal Júnior
 """
 
+import os
 from pathlib import Path
 
 # Diretório base do projeto (a pasta que contém o manage.py)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ATENÇÃO: mantenha a chave secreta em segredo em produção!
-SECRET_KEY = "django-insecure-troque-esta-chave-em-producao"
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-troque-esta-chave-em-producao",
+)
 
 # ATENÇÃO: não deixe DEBUG=True em produção!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "1").lower() in {"1", "true", "yes", "on"}
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Aplicações instaladas
@@ -71,7 +87,7 @@ LOGOUT_REDIRECT_URL = "core:login"  # destino após o logout
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": os.environ.get("DJANGO_SQLITE_PATH", BASE_DIR / "db.sqlite3"),
     }
 }
 
@@ -101,12 +117,16 @@ USE_TZ = True
 
 
 # Arquivos estáticos (CSS, JavaScript, Imagens)
-STATIC_URL = "static/"
+FORCE_SCRIPT_NAME = os.environ.get("DJANGO_FORCE_SCRIPT_NAME") or None
+_url_prefix = FORCE_SCRIPT_NAME.rstrip("/") if FORCE_SCRIPT_NAME else ""
+
+STATIC_URL = os.environ.get("DJANGO_STATIC_URL", f"{_url_prefix}/static/")
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = os.environ.get("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles")
 
 # Arquivos de mídia (uploads dos usuários, ex.: foto 3x4 do aventureiro)
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = os.environ.get("DJANGO_MEDIA_URL", f"{_url_prefix}/media/")
+MEDIA_ROOT = os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media")
 
 # Tipo de chave primária padrão
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

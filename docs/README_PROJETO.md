@@ -89,6 +89,21 @@ python manage.py runserver
 
 Depois, acesse no navegador: http://127.0.0.1:8000/
 
+### Configurações de produção por ambiente
+
+Em produção, o projeto pode ser configurado sem alterar código usando variáveis de ambiente:
+
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG` (`0`/`false` em produção)
+- `DJANGO_ALLOWED_HOSTS` (lista separada por vírgula)
+- `DJANGO_CSRF_TRUSTED_ORIGINS` (origens HTTPS separadas por vírgula)
+- `DJANGO_SQLITE_PATH` (banco persistente fora do diretório versionado)
+- `DJANGO_FORCE_SCRIPT_NAME` (quando publicado em subcaminho, ex.: `/sistema-novo`)
+- `DJANGO_STATIC_URL` e `DJANGO_STATIC_ROOT`
+- `DJANGO_MEDIA_URL` e `DJANGO_MEDIA_ROOT`
+
+Sem essas variáveis, o comportamento local permanece o padrão de desenvolvimento.
+
 Observação: ao rodar, o Django pode exibir um aviso sobre migrações pendentes
 das apps internas (admin, auth, sessions). Isso é normal e não afeta a tela de
 login. Se quiser remover o aviso, rode `python manage.py migrate`.

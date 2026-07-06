@@ -2,6 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
+**Última atualização:** 2026-07-06 (**Preparação para deploy no VPS**): o projeto agora aceita configuração
+de produção por variáveis de ambiente sem quebrar o uso local: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`,
+`DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SQLITE_PATH`, `DJANGO_FORCE_SCRIPT_NAME`,
+`DJANGO_STATIC_URL`, `DJANGO_STATIC_ROOT`, `DJANGO_MEDIA_URL` e `DJANGO_MEDIA_ROOT`. Também foi adicionado
+`gunicorn` ao `requirements.txt` para o serviço systemd do VPS. Localmente, sem variáveis, continua usando
+`DEBUG=True`, banco `db.sqlite3`, `static/` e `media/`. Antes: Cadastro: assinatura desenhada dos 3 documentos.
+
 **Última atualização:** 2026-07-06 (**Cadastro: assinatura desenhada dos 3 documentos**): o responsável **assina
 com o dedo/mouse** (canvas, sem lib) os **3 documentos** da inscrição — ficha de inscrição, declaração médica e
 termo de imagem — e a **assinatura substitui o checkbox** (assinar = aceitar). Cada assinatura vira um

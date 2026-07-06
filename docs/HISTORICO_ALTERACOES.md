@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Preparação para deploy no VPS
+
+### Resumo
+Preparado o projeto para rodar em produção no VPS sem alterar o comportamento local. As configurações sensíveis
+e específicas do servidor agora podem vir de variáveis de ambiente, permitindo usar SQLite persistente fora do
+repositório, `DEBUG=False`, hosts/CSRF corretos, arquivos estáticos coletados e publicação em subcaminho com
+`DJANGO_FORCE_SCRIPT_NAME`.
+
+### Arquivos criados/alterados
+- `config/settings.py`: lê `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
+  `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SQLITE_PATH`, `DJANGO_FORCE_SCRIPT_NAME`, `DJANGO_STATIC_URL`,
+  `DJANGO_STATIC_ROOT`, `DJANGO_MEDIA_URL` e `DJANGO_MEDIA_ROOT`; adiciona `STATIC_ROOT` e proxy HTTPS.
+- `requirements.txt`: adiciona `gunicorn` para execução via systemd/Gunicorn no VPS.
+- `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md` e `docs/README_PROJETO.md`: documentação atualizada.
+
+### Decisões tomadas
+- Manter os padrões locais quando as variáveis não existem, para não atrapalhar o desenvolvimento.
+- Usar configuração por ambiente no VPS, sem versionar segredo, banco ou uploads.
+
+### Pendências
+- Concluir a configuração no VPS: clone via GitHub, env file, serviço systemd, Nginx no subcaminho temporário e
+  atalho global de deploy.
+
+---
+
 ## 2026-07-06 - Cadastro: assinatura desenhada dos 3 documentos da inscrição
 
 ### Resumo
