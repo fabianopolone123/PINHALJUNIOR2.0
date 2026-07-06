@@ -58,8 +58,8 @@ ID da instância e token seguem a mesma regra: só são substituídos quando um 
 - `core/views.py`: `whatsapp_config_view` preserva `instance_id` quando o POST vem vazio, assim como já fazia
   com o token.
 - `templates/core/whatsapp.html`: texto da tela deixa claro que novo ID/token só devem ser digitados para troca.
-- `core/tests.py`: teste automatizado garantindo que campos vazios não apagam ID/token salvos; o teste isola
-  `FORCE_SCRIPT_NAME` para rodar igual no ambiente local e no VPS publicado em subcaminho.
+- `core/tests.py`: teste automatizado garantindo que campos vazios não apagam ID/token salvos, chamando a view
+  diretamente para não depender do prefixo `/sistema-novo` do ambiente de produção.
 - `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`: documentação atualizada.
 
 ### Validação
