@@ -85,32 +85,17 @@
                     </div>
                 </div>
 
-                <!-- Barra de configuração / ano / gerar -->
+                <!-- Barra de ações -->
                 <section class="card mens-toolbar">
-                    <form method="post" action="{% url 'core:mensalidade_config' %}" class="mens-config">
-                        {% csrf_token %}
-                        <span class="mens-config-titulo">Valores padrão:</span>
-                        <label>Inscrição <span class="mens-cifrao">R$</span><input type="number" step="0.01" min="0" name="valor_inscricao" value="{{ config.valor_inscricao|stringformat:'.2f' }}" class="mens-input-valor"></label>
-                        <label>Mensalidade <span class="mens-cifrao">R$</span><input type="number" step="0.01" min="0" name="valor_mensalidade" value="{{ config.valor_mensalidade|stringformat:'.2f' }}" class="mens-input-valor"></label>
-                        <button type="submit" class="btn-secundario btn-acao-pequeno">Salvar valores</button>
-                    </form>
-                    <div class="mens-toolbar-dir">
-                        <form method="get" class="mens-ano-form">
-                            <label for="mensAno">Ano:</label>
-                            <select id="mensAno" name="ano" class="campo-select" onchange="this.form.submit()">
-                                {% for a in anos %}<option value="{{ a }}"{% if a == ano %} selected{% endif %}>{{ a }}</option>{% endfor %}
-                            </select>
-                        </form>
+                    <div class="mens-toolbar-acoes">
+                        <button type="button" class="btn-secundario" id="btnValores">💲 Valores da mensalidade</button>
+                        <button type="button" class="btn-secundario" id="btnReajustar">🔁 Reajustar mensalidades</button>
                     </div>
-                    <form method="post" action="{% url 'core:mensalidade_reajustar' %}" class="mens-reajuste"
-                          data-confirmar="Aplicar os valores atuais a TODAS as cobranças em aberto a partir do mês escolhido de {{ ano }}? Isenções e descontos de cada aventureiro são mantidos; cobranças já pagas não mudam.">
-                        {% csrf_token %}
-                        <input type="hidden" name="ano" value="{{ ano }}">
-                        <span class="mens-reajuste-txt">🔁 Aplicar os valores atuais às cobranças <strong>em aberto</strong> a partir de</span>
-                        <select name="mes" class="campo-select">
-                            {% for num, nome in meses %}<option value="{{ num }}"{% if num == mes_atual %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+                    <form method="get" class="mens-ano-form">
+                        <label for="mensAno">Ano:</label>
+                        <select id="mensAno" name="ano" class="campo-select" onchange="this.form.submit()">
+                            {% for a in anos %}<option value="{{ a }}"{% if a == ano %} selected{% endif %}>{{ a }}</option>{% endfor %}
                         </select>
-                        <button type="submit" class="btn-secundario btn-acao-pequeno">Reajustar</button>
                     </form>
                 </section>
 
@@ -166,13 +151,12 @@
                         <span class="mens-detalhe-nota">Conta inscrições + mensalidades</span>
                     </div>
                     <div class="mens-meses-cards">
-                        {% for d in dashboard %}
-                        <div class="card mens-mes-card cor-{{ d.cor }}{% if not d.cobrancas %} vazio{% endif %}">
+                        {% for d in dashboard %}{% if d.cobrancas %}
+                        <div class="card mens-mes-card cor-{{ d.cor }}">
                             <div class="mmc-topo">
                                 <span class="mmc-nome">{{ d.nome }}</span>
-                                {% if d.cobrancas %}<span class="mmc-pct">{{ d.pct|floatformat:0 }}%</span>{% endif %}
+                                <span class="mmc-pct">{{ d.pct|floatformat:0 }}%</span>
                             </div>
-                            {% if d.cobrancas %}
                             <div class="mmc-barra"><div class="mmc-barra-fill" style="width: {{ d.pct|floatformat:0 }}%"></div></div>
                             <div class="mmc-contagem">
                                 <span class="mmc-pagas">✅ {{ d.pagas }} paga{{ d.pagas|pluralize }}</span>
@@ -183,11 +167,8 @@
                                 <span>Recebido<strong>R$ {{ d.recebido|moeda }}</strong></span>
                                 <span>A receber<strong>R$ {{ d.aberto|moeda }}</strong></span>
                             </div>
-                            {% else %}
-                            <p class="mmc-vazio-txt">Sem cobranças</p>
-                            {% endif %}
                         </div>
-                        {% endfor %}
+                        {% endif %}{% endfor %}
                     </div>
                 </section>
 
@@ -285,6 +266,61 @@
                 </section>
             </div>
         </main>
+
+        <!-- Modal: valores padrão da mensalidade -->
+        <div class="modal-overlay" id="modalValores" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalValoresTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalValoresTitulo">💲 Valores da mensalidade</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p class="mens-modal-sub">Valores usados nas <strong>novas cobranças</strong> (inscrição no mês de entrada e mensalidades seguintes).</p>
+                    <form method="post" action="{% url 'core:mensalidade_config' %}" class="mens-modal-form">
+                        {% csrf_token %}
+                        <label class="mens-editar-campo">Valor da inscrição (R$)
+                            <input type="number" step="0.01" min="0" name="valor_inscricao" value="{{ config.valor_inscricao|stringformat:'.2f' }}" class="mens-input-valor">
+                        </label>
+                        <label class="mens-editar-campo">Valor da mensalidade (R$)
+                            <input type="number" step="0.01" min="0" name="valor_mensalidade" value="{{ config.valor_mensalidade|stringformat:'.2f' }}" class="mens-input-valor">
+                        </label>
+                        <small class="ajuda">Isso não altera cobranças já criadas. Para aplicar às cobranças em aberto, use “Reajustar mensalidades”.</small>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao">Salvar valores</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: reajustar mensalidades em aberto -->
+        <div class="modal-overlay" id="modalReajustar" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalReajustarTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalReajustarTitulo">🔁 Reajustar mensalidades</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p class="mens-modal-sub">Aplica os <strong>valores atuais</strong> a todas as cobranças <strong>em aberto</strong> de {{ ano }}, a partir do mês escolhido, para todos os aventureiros.</p>
+                    <form method="post" action="{% url 'core:mensalidade_reajustar' %}" class="mens-modal-form"
+                          data-confirmar="Aplicar os valores atuais a TODAS as cobranças em aberto a partir do mês escolhido de {{ ano }}? Isenções e descontos de cada aventureiro são mantidos; cobranças já pagas não mudam.">
+                        {% csrf_token %}
+                        <input type="hidden" name="ano" value="{{ ano }}">
+                        <label class="mens-editar-campo">A partir do mês
+                            <select name="mes" class="campo-select">
+                                {% for num, nome in meses %}<option value="{{ num }}"{% if num == mes_atual %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+                            </select>
+                        </label>
+                        <small class="ajuda">Isenções e descontos de cada aventureiro são mantidos. Cobranças já pagas não mudam.</small>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao">Reajustar cobranças</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!-- Modal: editar valor / isentar um mês específico -->
         <div class="modal-overlay" id="modalEditar" hidden>

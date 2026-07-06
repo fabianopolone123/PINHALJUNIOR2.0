@@ -86,6 +86,29 @@
             });
     });
 
+    // Modais acionados por botão (valores padrão / reajustar), com fechamento seguro.
+    function ligarModalBotao(modalId, btnId) {
+        var modal = document.getElementById(modalId);
+        var btn = document.getElementById(btnId);
+        if (!modal || !btn) return;
+        function fechar() { modal.hidden = true; }
+        btn.addEventListener("click", function () { modal.hidden = false; });
+        Array.prototype.forEach.call(modal.querySelectorAll("[data-fechar]"), function (el) {
+            el.addEventListener("click", fechar);
+        });
+        var fundoDown = false;
+        modal.addEventListener("mousedown", function (e) { fundoDown = e.target === modal; });
+        modal.addEventListener("click", function (e) {
+            if (e.target === modal && fundoDown) fechar();
+            fundoDown = false;
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && !modal.hidden) fechar();
+        });
+    }
+    ligarModalBotao("modalValores", "btnValores");
+    ligarModalBotao("modalReajustar", "btnReajustar");
+
     // Modal de edição por mês (desconto % / isenção, com valor ao vivo).
     function moeda(v) {
         return "R$ " + v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");

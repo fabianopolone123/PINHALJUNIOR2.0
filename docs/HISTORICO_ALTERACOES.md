@@ -22,6 +22,22 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: valores/reajuste viram botões+modais; oculta meses sem cobrança
+
+### Resumo
+A barra ficava poluída com os formulários de "Valores padrão" e "Reajustar" inline. Agora são **dois botões**
+claros — **"💲 Valores da mensalidade"** e **"🔁 Reajustar mensalidades"** — que abrem **janelas (modais)**
+com o respectivo formulário e um texto explicando o que faz (fechamento seguro mousedown+click). No dashboard,
+os **cards de "Detalhe por mês"** deixam de mostrar os meses **sem cobrança** (ex.: Janeiro não aparece mais).
+
+### Arquivos alterados
+- `templates/core/mensalidades.html`: barra com 2 botões + modais "Valores"/"Reajustar"; cards só de meses
+  com cobrança.
+- `static/js/mensalidades.js`: `ligarModalBotao` (abre/fecha os modais por botão, com fechamento seguro).
+- `static/css/mensalidades.css`: barra de ações e formulários dos modais.
+
+---
+
 ## 2026-07-05 - Mensalidades: "Detalhe por mês" vira cards didáticos (corrige tabela sem estilo)
 
 ### Resumo
