@@ -22,6 +22,47 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Loja: aba "Vendas" (relatório + entrega) + importação dos pedidos pagos do sistema antigo
+
+### Resumo
+Nova aba **"Vendas"** (📊, Diretor) na tela da Loja, com **relatório** e controle de entregas: **KPIs**
+(arrecadado, nº de compras, ticket médio, itens a entregar), **Mais vendidos** (por produto: qtd + total),
+**Por forma de pagamento**, uma seção **"A entregar"** (itens pendentes, com botão de entregar) e **Todas as
+compras** — lista detalhada e **buscável** (nome/código/produto) com todos os dados (comprador, WhatsApp,
+e-mail, login, data, forma) e **marcar entrega por item** (toggle sem recarregar, via JSON). As "compras
+recentes" saíram do Gerenciar (que ficou só com produtos). Adicionado **controle de entrega** ao
+`ItemCompraLoja` (`quantidade_entregue`/`entregue_em`/`entregue_por` + props; mig. **0023**) e ao
+`CompraLoja` (props `status_entrega`/`falta_entregar_total`). Endpoint `loja_entrega` (POST/JSON, Diretor).
+
+Também **importados os pedidos pagos** da loja oficial do sistema antigo (21 compras, R$ 3.083,50, todas Pix;
+19 vinculadas a um login), com comprador, forma, **data original** e o **status de entrega** preservados
+(código `LM<id>`, idempotente). Só pedidos **pagos**, **não-teste**, da **loja oficial** (evento=None) e com
+produto do clube.
+
+### Arquivos criados/alterados
+- `core/models.py`: `ItemCompraLoja` ganha `quantidade_entregue`/`entregue_em`/`entregue_por` + props
+  (`entregue`/`entrega_parcial`/`status_entrega`/`falta_entregar`); `CompraLoja` ganha `status_entrega` e
+  `falta_entregar_total`. Migration **0023**.
+- `core/views.py`: `_loja_relatorio()` (KPIs + mais vendidos + por forma + pendentes), `loja_entrega_view`
+  (toggle JSON) e `loja_view` passa `relatorio`.
+- `core/urls.py`: rota `loja/entrega/`.
+- `templates/core/loja.html`: aba "Vendas" (KPIs, tabelas, "A entregar", "Todas as compras" com busca e
+  entrega por item); Gerenciar sem a lista de compras.
+- `static/js/loja.js`: toggle de entrega (fetch + `X-CSRFToken`, atualiza selo) e busca nas compras.
+- `static/css/loja.css`: KPIs, tabelas do relatório, lista "a entregar", selos/botões de entrega, busca.
+
+### Decisões tomadas
+- Entrega por **item** com toggle total (entregar tudo/desfazer); parcial fica para depois (o histórico
+  importado preserva a quantidade entregue original).
+- Pedidos importados usam código **`LM<id>`** (idempotente) e status `confirmado`; **cancelados/pendentes**
+  do antigo **não** entram. Fotos/produtos/pedidos são dados locais (`media/`+banco), não versionados.
+
+### Pendências
+- Entrega **parcial** pela tela (stepper), se necessário.
+- Vincular item importado ao aventureiro/variação exatos (hoje é snapshot + produto por título).
+
+---
+
 ## 2026-07-05 - Loja: galeria de fotos (com lightbox) + correção do estilo dos campos do carrinho
 
 ### Resumo

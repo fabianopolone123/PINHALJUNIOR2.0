@@ -3507,12 +3507,15 @@ def loja_view(request):
     produtos = list(
         ProdutoLoja.objects.prefetch_related("grupos__variacoes", "fotos").all()
     )
-    compras = list(CompraLoja.objects.prefetch_related("itens").all()[:100])
+    compras = list(
+        CompraLoja.objects.prefetch_related("itens").select_related("usuario").all()
+    )
     kits, total = _loja_cart_detalhado(request)
     contexto = {
         "produtos": produtos,
         "produtos_ativos": [p for p in produtos if p.ativo],
         "compras": compras,
+        "relatorio": _loja_relatorio(),
         "cart_kits": kits,
         "cart_total": total,
         "comprador": _comprador_padrao(request.user),
@@ -3520,6 +3523,73 @@ def loja_view(request):
         "aba": request.GET.get("aba", "gerenciar"),
     }
     return render(request, "core/loja.html", contexto)
+
+
+def _loja_relatorio():
+    """Consolida os números de vendas da loja (só compras confirmadas)."""
+    conf = CompraLoja.objects.filter(status="confirmado")
+    itens = ItemCompraLoja.objects.filter(compra__status="confirmado")
+    n_compras = conf.count()
+    arrecadado = conf.aggregate(s=Sum("valor_total"))["s"] or Decimal("0")
+    ticket = (arrecadado / n_compras) if n_compras else Decimal("0")
+    mais_vendidos = list(
+        itens.values("produto_nome")
+        .annotate(qtd=Sum("quantidade"), total=Sum("valor_total"))
+        .order_by("-qtd")
+    )
+    por_forma = list(
+        conf.values("forma_pagamento")
+        .annotate(n=Count("id"), total=Sum("valor_total"))
+        .order_by("-total")
+    )
+    formas_nomes = dict(FORMA_PAGAMENTO_CHOICES)
+    for f in por_forma:
+        f["nome"] = formas_nomes.get(f["forma_pagamento"], f["forma_pagamento"])
+    pendentes = list(
+        itens.filter(quantidade_entregue__lt=F("quantidade"))
+        .select_related("compra")
+        .order_by("compra__criado_em")
+    )
+    unidades_a_entregar = sum(i.falta_entregar for i in pendentes)
+    return {
+        "n_compras": n_compras,
+        "arrecadado": arrecadado,
+        "ticket": ticket,
+        "mais_vendidos": mais_vendidos,
+        "por_forma": por_forma,
+        "pendentes": pendentes,
+        "unidades_a_entregar": unidades_a_entregar,
+        "n_pendentes": len(pendentes),
+    }
+
+
+@diretor_required
+@require_POST
+def loja_entrega_view(request):
+    """Marca/desmarca a entrega de um item de compra (toggle total). JSON."""
+    try:
+        item = ItemCompraLoja.objects.select_related("compra").get(
+            pk=request.POST.get("item_id")
+        )
+    except (ItemCompraLoja.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({"ok": False, "erro": "Item não encontrado."}, status=404)
+    entregar = request.POST.get("entregar") == "1"
+    if entregar:
+        item.quantidade_entregue = item.quantidade
+        item.entregue_em = timezone.now()
+        item.entregue_por = request.user
+    else:
+        item.quantidade_entregue = 0
+        item.entregue_em = None
+        item.entregue_por = None
+    item.save(update_fields=["quantidade_entregue", "entregue_em", "entregue_por"])
+    return JsonResponse({
+        "ok": True,
+        "status": item.status_entrega,
+        "falta": item.falta_entregar,
+        "compra_status": item.compra.status_entrega,
+        "compra_falta": item.compra.falta_entregar_total,
+    })
 
 
 @login_required

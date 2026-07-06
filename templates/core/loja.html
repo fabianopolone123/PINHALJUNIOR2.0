@@ -62,17 +62,21 @@
                 {% endif %}
 
                 <div class="loja-abas" role="tablist">
-                    <button type="button" class="loja-aba{% if aba != 'loja' %} ativa{% endif %}" data-aba="gerenciar" role="tab">
+                    <button type="button" class="loja-aba{% if aba == 'gerenciar' %} ativa{% endif %}" data-aba="gerenciar" role="tab">
                         <span aria-hidden="true">🗂️</span> Gerenciar
                     </button>
                     <button type="button" class="loja-aba{% if aba == 'loja' %} ativa{% endif %}" data-aba="loja" role="tab">
                         <span aria-hidden="true">🛒</span> Loja
                         {% if cart_kits %}<span class="loja-aba-badge">{{ cart_kits|length }}</span>{% endif %}
                     </button>
+                    <button type="button" class="loja-aba{% if aba == 'vendas' %} ativa{% endif %}" data-aba="vendas" role="tab">
+                        <span aria-hidden="true">📊</span> Vendas
+                        {% if relatorio.n_pendentes %}<span class="loja-aba-badge loja-aba-badge-alerta">{{ relatorio.n_pendentes }}</span>{% endif %}
+                    </button>
                 </div>
 
                 <!-- ============ ABA: GERENCIAR ============ -->
-                <section class="loja-painel" data-painel="gerenciar"{% if aba == 'loja' %} hidden{% endif %}>
+                <section class="loja-painel" data-painel="gerenciar"{% if aba != 'gerenciar' %} hidden{% endif %}>
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Produtos da loja</h2>
                         <a href="{% url 'core:loja_produto_novo' %}" class="btn-acao">
@@ -118,48 +122,6 @@
                         <p class="card-texto">Cadastre o primeiro produto da loja do clube.</p>
                         <a href="{% url 'core:loja_produto_novo' %}" class="btn-acao"><span aria-hidden="true">➕</span> Cadastrar produto</a>
                     </section>
-                    {% endif %}
-
-                    <div class="secao-cabecalho loja-compras-cab">
-                        <h2 class="secao-titulo">Compras recentes</h2>
-                    </div>
-                    {% if compras %}
-                    <div class="loja-compras">
-                        {% for c in compras %}
-                        <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}">
-                            <summary class="loja-compra-topo">
-                                <span class="loja-compra-codigo">{{ c.codigo }}</span>
-                                <span class="loja-compra-nome">{{ c.comprador_nome }}</span>
-                                <span class="loja-compra-data">{{ c.criado_em|date:"d/m/Y H:i" }}</span>
-                                <span class="loja-compra-total">R$ {{ c.valor_total|moeda }}</span>
-                                {% if c.status == 'cancelado' %}<span class="loja-badge loja-badge-inativo">Cancelada</span>{% endif %}
-                            </summary>
-                            <div class="loja-compra-corpo">
-                                <ul class="pedido-lista">
-                                    {% for item in c.itens.all %}
-                                    <li class="pedido-item">
-                                        <span class="pedido-item-qtd">{{ item.quantidade }}×</span>
-                                        <span class="pedido-item-nome">{{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}{% if item.aventureiro_nome %} <small class="loja-para">→ {{ item.aventureiro_nome }}</small>{% endif %}</span>
-                                        <span class="pedido-item-valor">R$ {{ item.valor_total|moeda }}</span>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                                <div class="loja-compra-rodape">
-                                    <span class="loja-compra-forma">{{ c.get_forma_pagamento_display }}</span>
-                                    {% if c.status != 'cancelado' %}
-                                    <form method="post" action="{% url 'core:loja_compra_cancelar' c.id %}" class="form-excluir-loja"
-                                          data-confirmar="Cancelar a compra {{ c.codigo }}? O estoque será devolvido.">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn-excluir-evento">Cancelar compra</button>
-                                    </form>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </details>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="painel-nota">Nenhuma compra registrada ainda.</p>
                     {% endif %}
                 </section>
 
@@ -272,6 +234,159 @@
                         </div>
                         {% endif %}
                     </div>
+                </section>
+
+                <!-- ============ ABA: VENDAS (relatório) ============ -->
+                <section class="loja-painel" data-painel="vendas"{% if aba != 'vendas' %} hidden{% endif %}>
+                    {% if relatorio.n_compras or compras %}
+                    <div class="loja-kpis">
+                        <div class="card loja-kpi">
+                            <span class="loja-kpi-icone" aria-hidden="true">💰</span>
+                            <span class="loja-kpi-valor">R$ {{ relatorio.arrecadado|moeda }}</span>
+                            <span class="loja-kpi-rotulo">Arrecadado</span>
+                        </div>
+                        <div class="card loja-kpi">
+                            <span class="loja-kpi-icone" aria-hidden="true">🧾</span>
+                            <span class="loja-kpi-valor">{{ relatorio.n_compras }}</span>
+                            <span class="loja-kpi-rotulo">Compras</span>
+                        </div>
+                        <div class="card loja-kpi">
+                            <span class="loja-kpi-icone" aria-hidden="true">🎯</span>
+                            <span class="loja-kpi-valor">R$ {{ relatorio.ticket|moeda }}</span>
+                            <span class="loja-kpi-rotulo">Ticket médio</span>
+                        </div>
+                        <div class="card loja-kpi{% if relatorio.unidades_a_entregar %} alerta{% endif %}">
+                            <span class="loja-kpi-icone" aria-hidden="true">📦</span>
+                            <span class="loja-kpi-valor">{{ relatorio.unidades_a_entregar }}</span>
+                            <span class="loja-kpi-rotulo">Itens a entregar</span>
+                        </div>
+                    </div>
+
+                    <div class="loja-relatorio-grade">
+                        <section class="card loja-rel-bloco">
+                            <h2 class="secao-titulo">🏆 Mais vendidos</h2>
+                            {% if relatorio.mais_vendidos %}
+                            <table class="loja-tabela">
+                                <thead><tr><th>Produto</th><th>Qtd</th><th>Total</th></tr></thead>
+                                <tbody>
+                                    {% for m in relatorio.mais_vendidos %}
+                                    <tr>
+                                        <td>{{ m.produto_nome }}</td>
+                                        <td class="num">{{ m.qtd }}</td>
+                                        <td class="num">R$ {{ m.total|moeda }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <p class="painel-nota">Nenhuma venda ainda.</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="card loja-rel-bloco">
+                            <h2 class="secao-titulo">💳 Por forma de pagamento</h2>
+                            {% if relatorio.por_forma %}
+                            <table class="loja-tabela">
+                                <thead><tr><th>Forma</th><th>Nº</th><th>Total</th></tr></thead>
+                                <tbody>
+                                    {% for fp in relatorio.por_forma %}
+                                    <tr>
+                                        <td>{{ fp.nome }}</td>
+                                        <td class="num">{{ fp.n }}</td>
+                                        <td class="num">R$ {{ fp.total|moeda }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <p class="painel-nota">—</p>
+                            {% endif %}
+                        </section>
+                    </div>
+
+                    {% if relatorio.pendentes %}
+                    <section class="card loja-rel-bloco">
+                        <h2 class="secao-titulo">📦 A entregar ({{ relatorio.n_pendentes }})</h2>
+                        <ul class="loja-entregar-lista">
+                            {% for it in relatorio.pendentes %}
+                            <li class="loja-entregar-item" data-item="{{ it.id }}">
+                                <span class="loja-entregar-qtd">{{ it.falta_entregar }}×</span>
+                                <span class="loja-entregar-nome">{{ it.produto_nome }}{% if it.variacao_nome %} <small>({{ it.variacao_nome }})</small>{% endif %}</span>
+                                <span class="loja-entregar-comprador">{{ it.compra.comprador_nome }} · {{ it.compra.codigo }}</span>
+                                <button type="button" class="btn-secundario btn-acao-pequeno loja-entregar-btn" data-item="{{ it.id }}" data-entregar="1">✅ Entregar</button>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+                    {% endif %}
+
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Todas as compras</h2>
+                        <input type="search" id="lojaBuscaCompras" class="loja-busca" placeholder="🔎 Buscar por nome, código ou produto…" aria-label="Buscar compras">
+                    </div>
+                    {% if compras %}
+                    <div class="loja-compras" id="lojaComprasLista">
+                        {% for c in compras %}
+                        <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}"
+                                 data-busca="{{ c.comprador_nome|lower }} {{ c.codigo|lower }} {% for i in c.itens.all %}{{ i.produto_nome|lower }} {% endfor %}">
+                            <summary class="loja-compra-topo">
+                                <span class="loja-compra-codigo">{{ c.codigo }}</span>
+                                <span class="loja-compra-nome">{{ c.comprador_nome }}</span>
+                                <span class="loja-compra-data">{{ c.criado_em|date:"d/m/Y" }}</span>
+                                <span class="loja-compra-total">R$ {{ c.valor_total|moeda }}</span>
+                                {% if c.status == 'cancelado' %}
+                                <span class="loja-badge loja-badge-inativo">Cancelada</span>
+                                {% else %}
+                                <span class="loja-entrega-selo loja-entrega-{{ c.status_entrega }}" data-compra-selo="{{ c.id }}">{% if c.status_entrega == 'entregue' %}✅ Entregue{% elif c.status_entrega == 'parcial' %}◑ Parcial{% else %}⏳ A entregar{% endif %}</span>
+                                {% endif %}
+                            </summary>
+                            <div class="loja-compra-corpo">
+                                <div class="loja-compra-dados">
+                                    {% if c.comprador_whatsapp %}<span>📱 {{ c.comprador_whatsapp }}</span>{% endif %}
+                                    {% if c.comprador_email %}<span>✉️ {{ c.comprador_email }}</span>{% endif %}
+                                    <span>💳 {{ c.get_forma_pagamento_display }}</span>
+                                    {% if c.usuario %}<span>🔑 {{ c.usuario.username }}</span>{% endif %}
+                                    <span>🕒 {{ c.criado_em|date:"d/m/Y H:i" }}</span>
+                                </div>
+                                <ul class="pedido-lista">
+                                    {% for item in c.itens.all %}
+                                    <li class="pedido-item loja-item-entrega" data-item="{{ item.id }}">
+                                        <span class="pedido-item-qtd">{{ item.quantidade }}×</span>
+                                        <span class="pedido-item-nome">{{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}{% if item.aventureiro_nome %} <small class="loja-para">→ {{ item.aventureiro_nome }}</small>{% endif %}</span>
+                                        <span class="pedido-item-valor">R$ {{ item.valor_total|moeda }}</span>
+                                        {% if c.status != 'cancelado' %}
+                                        <button type="button" class="loja-entrega-toggle loja-entrega-{{ item.status_entrega }}" data-item="{{ item.id }}"
+                                                data-entregar="{% if item.entregue %}0{% else %}1{% endif %}">
+                                            {% if item.entregue %}✅ Entregue{% else %}Entregar{% endif %}
+                                        </button>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% if c.status != 'cancelado' %}
+                                <div class="loja-compra-rodape">
+                                    <form method="post" action="{% url 'core:loja_compra_cancelar' c.id %}" class="form-excluir-loja"
+                                          data-confirmar="Cancelar a compra {{ c.codigo }}? O estoque será devolvido.">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-excluir-evento">Cancelar compra</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+                    <p class="painel-nota loja-busca-vazio" hidden>Nenhuma compra encontrada.</p>
+                    {% else %}
+                    <p class="painel-nota">Nenhuma compra registrada ainda.</p>
+                    {% endif %}
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">📊</span>
+                        <h2 class="card-titulo">Ainda não há vendas</h2>
+                        <p class="card-texto">Quando houver compras, o relatório aparece aqui.</p>
+                    </section>
+                    {% endif %}
                 </section>
             </div>
         </main>

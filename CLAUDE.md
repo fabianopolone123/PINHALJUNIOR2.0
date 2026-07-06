@@ -59,10 +59,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Loja do Clube**: `ProdutoLoja` → `GrupoLoja` → `VariacaoLoja` (produto composto: grupos "escolha única"/
   "itens", com obrigatório + orientação), `FotoProdutoLoja` (galeria + lightbox; capa = 1ª foto) e
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
-  um mesmo uniforme). Pagamento simulado.
+  um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
+  (mais vendidos, a entregar, KPIs) + todas as compras.
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0022`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0023`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

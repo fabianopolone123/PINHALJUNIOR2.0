@@ -168,4 +168,5 @@ urlpatterns = [
     path("loja/pagamento/", views.loja_pagamento_view, name="loja_pagamento"),
     path("loja/sucesso/", views.loja_sucesso_view, name="loja_sucesso"),
     path("loja/compra/<int:compra_id>/cancelar/", views.loja_compra_cancelar_view, name="loja_compra_cancelar"),
+    path("loja/entrega/", views.loja_entrega_view, name="loja_entrega"),
 ]

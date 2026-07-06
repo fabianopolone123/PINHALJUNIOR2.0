@@ -55,3 +55,96 @@
         }
     });
 })();
+
+/* =========================================================
+   Aba Vendas: marcar entrega (fetch/JSON) + busca nas compras.
+   ========================================================= */
+(function () {
+    "use strict";
+
+    function csrf() {
+        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        if (m) return m[1];
+        var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return inp ? inp.value : "";
+    }
+
+    function selo(status) {
+        if (status === "entregue") return { cls: "entregue", txt: "✅ Entregue" };
+        if (status === "parcial") return { cls: "parcial", txt: "◑ Parcial" };
+        return { cls: "pendente", txt: "⏳ A entregar" };
+    }
+
+    function atualizarSeloCompra(compraEl, status) {
+        if (!compraEl) return;
+        var s = compraEl.querySelector(".loja-entrega-selo");
+        if (!s) return;
+        var info = selo(status);
+        s.className = "loja-entrega-selo loja-entrega-" + info.cls;
+        s.textContent = info.txt;
+    }
+
+    document.addEventListener("click", function (e) {
+        var btn = e.target.closest(".loja-entrega-toggle, .loja-entregar-btn");
+        if (!btn) return;
+        var itemId = btn.dataset.item;
+        var entregar = btn.dataset.entregar === "1" ? "1" : "0";
+        btn.disabled = true;
+
+        fetch("/loja/entrega/", {
+            method: "POST",
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "X-CSRFToken": csrf(),
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: "item_id=" + encodeURIComponent(itemId) + "&entregar=" + entregar,
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.ok) {
+                    if (window.mostrarToast) window.mostrarToast("Não foi possível atualizar a entrega.", "error");
+                    btn.disabled = false;
+                    return;
+                }
+                if (btn.classList.contains("loja-entregar-btn")) {
+                    // Item da lista "A entregar": some ao entregar.
+                    var li = btn.closest(".loja-entregar-item");
+                    if (li) li.remove();
+                    if (window.mostrarToast) window.mostrarToast("Entrega registrada ✅", "success");
+                } else {
+                    // Toggle dentro da compra.
+                    var entregue = d.status === "entregue";
+                    btn.dataset.entregar = entregue ? "0" : "1";
+                    btn.textContent = entregue ? "✅ Entregue" : "Entregar";
+                    btn.className = "loja-entrega-toggle loja-entrega-" + d.status;
+                    atualizarSeloCompra(btn.closest(".loja-compra"), d.compra_status);
+                }
+                btn.disabled = false;
+            })
+            .catch(function () {
+                if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error");
+                btn.disabled = false;
+            });
+    });
+
+    // Busca nas compras.
+    var busca = document.getElementById("lojaBuscaCompras");
+    var lista = document.getElementById("lojaComprasLista");
+    if (busca && lista) {
+        var vazio = document.querySelector(".loja-busca-vazio");
+        function normal(s) {
+            return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        }
+        busca.addEventListener("input", function () {
+            var q = normal(busca.value.trim());
+            var achou = 0;
+            Array.prototype.forEach.call(lista.querySelectorAll(".loja-compra"), function (c) {
+                var ok = !q || normal(c.dataset.busca).indexOf(q) !== -1;
+                c.hidden = !ok;
+                if (ok) achou++;
+            });
+            if (vazio) vazio.hidden = achou !== 0;
+        });
+    }
+})();

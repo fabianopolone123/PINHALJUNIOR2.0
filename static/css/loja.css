@@ -493,6 +493,117 @@
     .loja-lightbox-nav { width: 40px; height: 54px; font-size: 1.6rem; }
 }
 
+/* ---------- Aba Vendas (relatório) ---------- */
+.loja-aba-badge-alerta { background: #e0a800; }
+
+.loja-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.loja-kpi {
+    text-align: center;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+.loja-kpi-icone { font-size: 1.6rem; }
+.loja-kpi-valor { font-size: 1.4rem; font-weight: 800; color: var(--azul-escuro, #0f4c81); }
+.loja-kpi-rotulo { font-size: 0.82rem; color: #666; }
+.loja-kpi.alerta .loja-kpi-valor { color: #b8860b; }
+
+.loja-relatorio-grade {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.loja-rel-bloco { padding: 14px 16px; }
+.loja-rel-bloco .secao-titulo { margin-top: 0; }
+
+.loja-tabela { width: 100%; border-collapse: collapse; }
+.loja-tabela th, .loja-tabela td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid rgba(15, 76, 129, 0.1);
+    font-size: 0.92rem;
+}
+.loja-tabela th { color: #667; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
+.loja-tabela td.num, .loja-tabela th:nth-child(n+2) { text-align: right; white-space: nowrap; }
+.loja-tabela tbody tr:last-child td { border-bottom: none; }
+
+.loja-entregar-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.loja-entregar-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 8px 10px;
+    border: 1px solid rgba(224, 168, 0, 0.35);
+    border-radius: 10px;
+    background: rgba(224, 168, 0, 0.06);
+}
+.loja-entregar-qtd { font-weight: 800; color: #b8860b; }
+.loja-entregar-nome { flex: 1 1 160px; font-weight: 600; }
+.loja-entregar-comprador { font-size: 0.85rem; color: #666; }
+
+.loja-busca {
+    flex: 1 1 240px;
+    max-width: 340px;
+    padding: 9px 12px;
+    border: 1.5px solid var(--borda, #cdd7e1);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+.loja-busca:focus { outline: none; border-color: var(--azul-claro, #4a90d9); box-shadow: 0 0 0 4px rgba(74,144,217,.15); }
+
+.loja-compra-dados {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(15, 76, 129, 0.12);
+}
+
+/* Selos e botões de entrega */
+.loja-entrega-selo {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.loja-entrega-entregue { background: rgba(58, 157, 58, 0.16); color: #1f6b1f; }
+.loja-entrega-parcial { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
+.loja-entrega-pendente { background: rgba(192, 57, 43, 0.12); color: #a5281b; }
+
+.loja-item-entrega { flex-wrap: wrap; }
+.loja-entrega-toggle {
+    flex: 0 0 auto;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(15, 76, 129, 0.08);
+    color: var(--azul-escuro, #0f4c81);
+}
+.loja-entrega-toggle.loja-entrega-entregue { background: rgba(58, 157, 58, 0.16); color: #1f6b1f; }
+.loja-entrega-toggle:hover { filter: brightness(0.96); }
+
+@media (min-width: 720px) {
+    .loja-kpis { grid-template-columns: repeat(4, 1fr); }
+    .loja-relatorio-grade { grid-template-columns: 1fr 1fr; }
+}
+
 /* ---------- Telas maiores ---------- */
 @media (min-width: 720px) {
     .loja-admin-lista { grid-template-columns: repeat(2, 1fr); }

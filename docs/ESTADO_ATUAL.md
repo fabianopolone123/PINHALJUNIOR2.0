@@ -2,7 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Loja: galeria de fotos + fix de estilo**): produto agora tem
+**Última atualização:** 2026-07-05 (**Loja: aba "Vendas" (relatório + entrega) + import de pedidos**): a tela
+da Loja ganhou a aba **"Vendas"** (📊, Diretor): **KPIs** (arrecadado, nº de compras, ticket médio, itens a
+entregar), **Mais vendidos**, **Por forma de pagamento**, seção **"A entregar"** (pendentes com botão) e
+**Todas as compras** — lista detalhada e **buscável** com todos os dados e **marcar entrega por item** (toggle
+sem recarregar). O `ItemCompraLoja` ganhou controle de **entrega** (`quantidade_entregue`/`entregue_em`/
+`entregue_por`; mig. **0023**). Foram **importados os pedidos pagos** da loja antiga (21 compras, R$ 3.083,50,
+Pix) com comprador/forma/data/entrega preservados (dados locais, não versionados). Rota `loja/entrega/`.
+Antes: galeria de fotos + fix de estilo.
+
+**Anterior:** (**Loja: galeria de fotos + fix de estilo**): produto agora tem
 **galeria de fotos** (várias por produto — como fica o uniforme, tabela de tamanhos) com **miniaturas** e
 **ampliação em tela cheia (lightbox)** no celular e no PC; no cadastro há **upload múltiplo** e remoção; a 1ª
 foto é a **capa** (`ProdutoLoja.capa`, modelo `FotoProdutoLoja`, mig. **0022**). Corrigido o **estilo dos
@@ -474,8 +483,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   - `VariacaoLoja` — opção de um grupo (FK `grupo`, nome, valor, estoque, `obrigatorio` [itens], `ativo`,
     ordem). Props `rotulo`, `esgotado`.
   - `CompraLoja` — compra (FK `usuario`, dados do comprador, código `LC…`, status, `forma_pagamento`,
-    `valor_total`). `ItemCompraLoja` — item (FK `compra`/`produto`/`variacao`/`aventureiro` + snapshots +
-    `quantidade`/valores + `kit` = agrupa itens adicionados juntos, ex.: peças de um uniforme).
+    `valor_total`; props `status_entrega`/`falta_entregar_total`). `ItemCompraLoja` — item (FK `compra`/
+    `produto`/`variacao`/`aventureiro` + snapshots + `quantidade`/valores + `kit` = agrupa itens de um kit +
+    **entrega** `quantidade_entregue`/`entregue_em`/`entregue_por`, props `entregue`/`status_entrega`/
+    `falta_entregar`, mig. **0023**). Pedidos migrados do sistema antigo usam código `LM<id>`.
   - `FotoProdutoLoja` — foto da **galeria** de um produto (FK `produto`, `imagem`, `ordem`; a 1ª é a capa,
     via property `ProdutoLoja.capa`). Mig. **0022**. Suporta várias fotos + lightbox na vitrine.
 
@@ -675,6 +686,7 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   - `/loja/carrinho/adicionar/`, `/loja/carrinho/remover/` — carrinho na sessão (POST).
   - `/loja/finalizar/` → `/loja/pagamento/` → `/loja/sucesso/` — checkout + pagamento simulado.
   - `/loja/compra/<id>/cancelar/` — cancela compra e devolve estoque (POST, Diretor).
+  - `/loja/entrega/` — marca/desmarca entrega de um item (POST/JSON, Diretor). Aba "Vendas" = relatório.
 - `/admin/` — Django admin (models de cadastro registrados).
 - Em DEBUG, o Django serve os arquivos de mídia em `/media/`.
 

@@ -1373,6 +1373,24 @@ class CompraLoja(models.Model):
             if not CompraLoja.objects.filter(codigo=codigo).exists():
                 return codigo
 
+    @property
+    def falta_entregar_total(self):
+        """Total de unidades ainda não entregues (0 = tudo entregue)."""
+        return sum(i.falta_entregar for i in self.itens.all())
+
+    @property
+    def status_entrega(self):
+        """'entregue', 'parcial' ou 'pendente' (visão geral da compra)."""
+        itens = list(self.itens.all())
+        if not itens:
+            return "entregue"
+        entregues = sum(1 for i in itens if i.entregue)
+        if entregues == len(itens):
+            return "entregue"
+        if entregues > 0 or any(i.entrega_parcial for i in itens):
+            return "parcial"
+        return "pendente"
+
 
 class ItemCompraLoja(models.Model):
     """Um item de uma compra da loja (variação + quantidade), com snapshots.
@@ -1428,6 +1446,18 @@ class ItemCompraLoja(models.Model):
     # mesmo número), para agrupar na exibição.
     kit = models.PositiveIntegerField("Kit", default=0)
 
+    # --- Entrega / retirada ---
+    quantidade_entregue = models.PositiveIntegerField("Quantidade entregue", default=0)
+    entregue_em = models.DateTimeField("Última entrega em", null=True, blank=True)
+    entregue_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="itens_loja_entregues",
+        verbose_name="Entrega registrada por",
+    )
+
     class Meta:
         verbose_name = "Item da compra"
         verbose_name_plural = "Itens da compra"
@@ -1435,6 +1465,26 @@ class ItemCompraLoja(models.Model):
 
     def __str__(self):
         return f"{self.quantidade}x {self.produto_nome} — {self.compra.codigo}"
+
+    @property
+    def entregue(self):
+        return self.quantidade_entregue >= self.quantidade
+
+    @property
+    def entrega_parcial(self):
+        return 0 < self.quantidade_entregue < self.quantidade
+
+    @property
+    def status_entrega(self):
+        if self.entregue:
+            return "entregue"
+        if self.entrega_parcial:
+            return "parcial"
+        return "pendente"
+
+    @property
+    def falta_entregar(self):
+        return max(self.quantidade - self.quantidade_entregue, 0)
 
 
 class FotoProdutoLoja(models.Model):
