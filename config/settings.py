@@ -33,6 +33,17 @@ CSRF_TRUSTED_ORIGINS = [
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# O sistema roda no MESMO domínio do sistema antigo (sob /sistema-novo/ no VPS).
+# Se os dois apps Django usarem o mesmo nome de cookie ("sessionid"/"csrftoken"),
+# um sobrescreve o cookie do outro no navegador e derruba o login ("deslogou
+# sozinho"). Nomes de cookie DISTINTOS isolam os dois apps.
+SESSION_COOKIE_NAME = os.environ.get(
+    "DJANGO_SESSION_COOKIE_NAME", "pinhaljunior2_sessionid"
+)
+CSRF_COOKIE_NAME = os.environ.get(
+    "DJANGO_CSRF_COOKIE_NAME", "pinhaljunior2_csrftoken"
+)
+
 
 # Aplicações instaladas
 INSTALLED_APPS = [

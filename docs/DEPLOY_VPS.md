@@ -60,6 +60,12 @@ O arquivo `/etc/pinhaljunior2.env` define:
 - `DJANGO_MEDIA_URL=/sistema-novo/media/`
 - `DJANGO_MEDIA_ROOT=/var/www/pinhaljunior2/media`
 
+Opcionais (têm padrão no código; só defina para sobrescrever):
+
+- `DJANGO_SESSION_COOKIE_NAME` (padrão `pinhaljunior2_sessionid`) e `DJANGO_CSRF_COOKIE_NAME` (padrão
+  `pinhaljunior2_csrftoken`) — nomes de cookie próprios para **não colidir** com o sistema antigo no mesmo
+  domínio (senão o login de um derruba o do outro).
+
 Não versionar esse arquivo.
 
 ## Dados importados

@@ -22,6 +22,27 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Correção: "deslogou sozinho" — cookies compartilhados com o sistema antigo
+
+### Resumo
+No VPS o sistema novo e o antigo estão no **mesmo domínio** (`pinhaljunior.com.br`) e os dois são Django usando
+o **mesmo nome de cookie** de sessão (`sessionid`) e de CSRF (`csrftoken`). Cookie é do domínio inteiro → **um
+sobrescreve o do outro**, derrubando o login do sistema novo ("deslogou ao clicar em Mercado Pago"). Como efeito,
+o **Desfazer** das mensalidades (AJAX) recebia o redirecionamento para o login em vez de JSON → "não foi possível
+atualizar". Resolvido dando **cookies com nome próprio** ao sistema novo.
+
+### Arquivos alterados
+- `config/settings.py`: `SESSION_COOKIE_NAME=pinhaljunior2_sessionid` e `CSRF_COOKIE_NAME=pinhaljunior2_csrftoken`
+  (ambos via env: `DJANGO_SESSION_COOKIE_NAME` / `DJANGO_CSRF_COOKIE_NAME`).
+- `static/js/mensalidades.js` e `static/js/loja.js`: o leitor de CSRF passa a ler o novo nome de cookie (com
+  fallback para o token do formulário `csrfmiddlewaretoken`, que independe do nome).
+
+### Efeito colateral esperado
+- Ao subir, todas as sessões atuais do sistema novo caem uma vez (o cookie antigo `sessionid` é ignorado); é só
+  logar de novo. Depois disso o login do sistema novo não briga mais com o do antigo.
+
+---
+
 ## 2026-07-06 - Correção: fetch com caminho absoluto quebrava sob o prefixo do VPS
 
 ### Resumo

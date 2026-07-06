@@ -7,7 +7,7 @@
     "use strict";
 
     function csrf() {
-        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        var m = document.cookie.match(/(?:^|;\s*)pinhaljunior2_csrftoken=([^;]+)/);
         if (m) return m[1];
         var i = document.querySelector('input[name=csrfmiddlewaretoken]');
         return i ? i.value : "";
