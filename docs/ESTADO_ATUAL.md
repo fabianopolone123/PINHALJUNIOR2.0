@@ -14,7 +14,7 @@ de produção por variáveis de ambiente sem quebrar o uso local: `DJANGO_SECRET
 instalação usa `/var/www/pinhaljunior2/current`, venv em `/var/www/pinhaljunior2/.venv`, SQLite persistente em
 `/var/www/pinhaljunior2/data/db.sqlite3`, media em `/var/www/pinhaljunior2/media`, staticfiles em
 `/var/www/pinhaljunior2/staticfiles`, env file `/etc/pinhaljunior2.env`, serviço `pinhaljunior2.service`
-(Gunicorn em `127.0.0.1:8010`) e atalho global `pinhaljunior2-deploy`.
+(Gunicorn em `127.0.0.1:8010`) e atalho global `pinhaljunior2-deploy`. Detalhes em `docs/DEPLOY_VPS.md`.
 
 **Dados no VPS:** em 2026-07-06, o banco `db.sqlite3` e a pasta `media/` locais foram enviados uma vez para o
 VPS novo. O serviço `pinhaljunior2` foi parado durante a troca, o banco/media anteriores do VPS foram salvos em

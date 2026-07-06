@@ -5,6 +5,7 @@ Sistema web do **Clube de Aventureiros Pinhal Júnior** (Django/Python).
 A documentação interna do projeto está na pasta [`docs/`](docs/):
 
 - [docs/README_PROJETO.md](docs/README_PROJETO.md) — visão geral, stack, como rodar, rotas e estrutura.
+- [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md) — deploy no VPS, atalho global, caminhos e cuidados.
 - [docs/REGRAS_CODEX.md](docs/REGRAS_CODEX.md) — regras obrigatórias para alterações.
 - [docs/ESTADO_ATUAL.md](docs/ESTADO_ATUAL.md) — resumo do estado atual do sistema.
 - [docs/HISTORICO_ALTERACOES.md](docs/HISTORICO_ALTERACOES.md) — histórico de alterações.

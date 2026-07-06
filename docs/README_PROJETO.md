@@ -106,6 +106,8 @@ Sem essas variáveis, o comportamento local permanece o padrão de desenvolvimen
 
 ### Deploy no VPS
 
+Detalhes completos em [`docs/DEPLOY_VPS.md`](DEPLOY_VPS.md).
+
 A nova versão está publicada temporariamente em:
 
 ```text

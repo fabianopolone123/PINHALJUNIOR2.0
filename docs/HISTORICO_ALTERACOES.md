@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Documentação dedicada de deploy no VPS
+
+### Resumo
+Criado um documento específico para o deploy no VPS, reunindo em um só lugar a URL temporária, estrutura do
+servidor, atalho global, variáveis de ambiente, dados importados, validações e cuidados para não afetar o sistema
+antigo.
+
+### Arquivos criados/alterados
+- `docs/DEPLOY_VPS.md`: novo guia de deploy e operação do VPS.
+- `README.md`: adiciona link para o guia de deploy.
+- `docs/README_PROJETO.md`: aponta para o guia dedicado na seção "Deploy no VPS".
+- `docs/ESTADO_ATUAL.md`: referencia `docs/DEPLOY_VPS.md` no resumo do deploy.
+- `docs/HISTORICO_ALTERACOES.md`: esta entrada.
+
+### Decisões tomadas
+- Manter o guia operacional separado do histórico para facilitar continuidade.
+- Registrar explicitamente que código vai por GitHub + `pinhaljunior2-deploy`, e que o sistema antigo não deve
+  ser alterado sem pedido.
+
+### Pendências
+- Sem novas pendências.
+
+---
+
 ## 2026-07-06 - Preparação para deploy no VPS
 
 ### Resumo
