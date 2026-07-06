@@ -655,3 +655,12 @@
     .loja-var-linha .loja-var-valor,
     .loja-var-linha .loja-var-estoque { flex: 1 1 120px; width: auto; }
 }
+
+/* Pedido para o fornecedor (aba Vendas) */
+.loja-forn-produto { margin-top: 16px; }
+.loja-forn-produto:first-of-type { margin-top: 8px; }
+.loja-forn-titulo { font-size: 0.95rem; margin: 0 0 6px; color: #0f4c81; }
+.loja-forn-resumo { font-weight: normal; color: #888; font-size: 0.82rem; margin-left: 6px; }
+.loja-forn-toggle { font-weight: normal; margin-left: 4px; white-space: nowrap; cursor: pointer; }
+.loja-forn-tabela .loja-forn-ok td { color: #9aa4ad; }
+.loja-forn-tabela td.num strong.saida { color: #c0392b; }

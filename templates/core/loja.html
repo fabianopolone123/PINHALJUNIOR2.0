@@ -333,6 +333,33 @@
                         {% endif %}
                     </section>
 
+                    <section class="card loja-rel-bloco loja-forn-bloco">
+                        <h2 class="secao-titulo">📦 Pedido para o fornecedor</h2>
+                        <p class="painel-nota">Por variação: quanto foi <strong>vendido</strong>, quanto já foi <strong>entregue</strong> e quanto <strong>falta entregar</strong> — a coluna <strong>A entregar</strong> é o que você precisa pedir ao fornecedor. <label class="loja-forn-toggle"><input type="checkbox" id="fornSoFalta"> Só o que falta entregar</label></p>
+                        {% if relatorio.fornecedor %}
+                        {% for p in relatorio.fornecedor %}
+                        <div class="loja-forn-produto{% if p.falta %} tem-falta{% endif %}" data-tem-falta="{% if p.falta %}1{% else %}0{% endif %}">
+                            <h3 class="loja-forn-titulo">{{ p.produto_nome }} <span class="loja-forn-resumo">vendido {{ p.vendido }} · a entregar <strong class="{% if p.falta %}saida{% endif %}">{{ p.falta }}</strong></span></h3>
+                            <table class="loja-tabela loja-forn-tabela">
+                                <thead><tr><th>Variação</th><th class="num">Vendido</th><th class="num">Entregue</th><th class="num">A entregar</th></tr></thead>
+                                <tbody>
+                                    {% for v in p.variacoes %}
+                                    <tr data-falta="{{ v.falta }}"{% if not v.falta %} class="loja-forn-ok"{% endif %}>
+                                        <td>{{ v.rotulo }}</td>
+                                        <td class="num">{{ v.vendido }}</td>
+                                        <td class="num">{{ v.entregue }}</td>
+                                        <td class="num"><strong class="{% if v.falta %}saida{% endif %}">{{ v.falta }}</strong></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="painel-nota">Nenhuma venda ainda.</p>
+                        {% endif %}
+                    </section>
+
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Todas as compras</h2>
                         <div class="loja-compras-filtros">

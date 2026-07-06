@@ -3595,6 +3595,29 @@ def _loja_relatorio():
         .order_by("compra__criado_em")
     )
     unidades_a_entregar = sum(i.falta_entregar for i in pendentes)
+
+    # Relatório para o fornecedor: por produto → variação (tamanho/item),
+    # quanto foi vendido, quanto já foi entregue e quanto FALTA entregar
+    # (esse "a entregar" é o que precisa pedir ao fornecedor).
+    forn = {}
+    for it in itens:
+        prod = forn.setdefault(it.produto_nome, {
+            "produto_nome": it.produto_nome, "vars": {},
+            "vendido": 0, "entregue": 0, "falta": 0,
+        })
+        rot = " · ".join(p for p in [it.grupo_nome, it.variacao_nome] if p) or "Único"
+        v = prod["vars"].setdefault(rot, {"rotulo": rot, "vendido": 0, "entregue": 0, "falta": 0})
+        for alvo in (v, prod):
+            alvo["vendido"] += it.quantidade
+            alvo["entregue"] += it.quantidade_entregue
+            alvo["falta"] += it.falta_entregar
+    fornecedor = []
+    for prod in forn.values():
+        prod["variacoes"] = sorted(prod["vars"].values(), key=lambda x: x["rotulo"])
+        prod.pop("vars")
+        fornecedor.append(prod)
+    fornecedor.sort(key=lambda x: x["produto_nome"])
+
     return {
         "n_compras": n_compras,
         "arrecadado": arrecadado,
@@ -3604,6 +3627,7 @@ def _loja_relatorio():
         "pendentes": pendentes,
         "unidades_a_entregar": unidades_a_entregar,
         "n_pendentes": len(pendentes),
+        "fornecedor": fornecedor,
     }
 
 

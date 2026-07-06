@@ -22,6 +22,27 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Loja/Vendas: relatório "Pedido para o fornecedor" (por variação)
+
+### Resumo
+Nova seção na aba **Vendas** da Loja: **"📦 Pedido para o fornecedor"** — por **produto → variação**
+(tamanho/item), mostra **Vendido**, **Entregue** e **A entregar**. A coluna **A entregar** (vendido − entregue)
+é exatamente o que o Diretor precisa **pedir ao fornecedor** para suprir as vendas. Cada produto tem um resumo
+no título (vendido X · a entregar Y) e um toggle **"Só o que falta entregar"** que esconde as variações já
+100% entregues. Ex.: Camiseta por tamanho (P/M/G Infantil/Adulto…), Uniforme de Gala por item (camiseta,
+calça, acessórios) e Laço.
+
+### Arquivos alterados
+- `core/views.py`: `_loja_relatorio` agrega `fornecedor` (por produto/variação: vendido/entregue/falta).
+- `templates/core/loja.html`: seção "Pedido para o fornecedor" (antes de "Todas as compras").
+- `static/js/loja.js`: toggle "Só o que falta entregar". `static/css/loja.css`: estilos `.loja-forn-*`.
+
+### Validação
+- `manage.py check` OK. Render (test client): seção presente; Camiseta 14 (por tamanho), Uniforme de Gala 93
+  (23 variações), Laço 1 — no momento tudo entregue (a entregar = 0).
+
+---
+
 ## 2026-07-06 - Financeiro: fim do "rateio" + contas Disponível × Reservado (loja)
 
 ### Resumo

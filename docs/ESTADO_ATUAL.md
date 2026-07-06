@@ -2,7 +2,12 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Financeiro: contas Disponível × Reservado (loja); fim do rateio**): os **4
+**Última atualização:** 2026-07-06 (**Loja/Vendas: "Pedido para o fornecedor"**): nova seção na aba Vendas da
+Loja com o relatório **por produto → variação** (Vendido / Entregue / **A entregar**), onde "A entregar" é o que
+pedir ao fornecedor pra suprir as vendas; toggle "Só o que falta entregar". Em `_loja_relatorio` (chave
+`fornecedor`). Antes: Financeiro contas Disponível × Reservado.
+
+**Anterior:** (**Financeiro: contas Disponível × Reservado (loja); fim do rateio**): os **4
 cards** do topo do Resumo mostram o **líquido de cada fonte** (Mensalidades/Loja/Eventos/Custos gerais) — pra ver
 quem gera mais lucro/prejuízo. **Removido o "rateio"** (confuso). Novo bloco de **duas contas**: **💚 Disponível
 pra gastar** (Mensalidades + lucro de eventos − custos gerais) e **🔒 Reservado da loja** (vendas − fornecedores,
