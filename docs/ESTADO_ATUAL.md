@@ -2,7 +2,14 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Máscara de moeda pt-BR em todos os valores R$**): fecha a pendência —
+**Última atualização:** 2026-07-06 (**Financeiro: quanto cada fonte contribui no resultado**): novo quadro na
+aba **Resumo** que **rateia os custos gerais do clube** (que ficam à parte e por isso os cards de líquido por
+fonte não somavam o resultado) entre as fontes, proporcional ao líquido de cada uma, mostrando por fonte o
+valor e a **% do resultado** (com barra) — Mensalidades/Loja/Eventos agora **somam exatamente** o resultado
+líquido. Contexto `contribuicao`/`custos_gerais_total` em `financeiro_view`; card `.fin-contrib`. Antes:
+Máscara de moeda pt-BR em todos os valores R$.
+
+**Anterior:** (**Máscara de moeda pt-BR em todos os valores R$**): fecha a pendência —
 os **preços de produto** (Loja do Clube e lojinha de evento), os **valores de evento** (custo, faixa etária e
 valor da diretoria) e o **"valor recebido" (dinheiro) do PDV** deixaram de ser `type=number` e passaram ao
 padrão `moeda_br.js` (mostra `1.234,56`, envia `1234.56`). No PDV, o **cálculo de troco ao vivo** foi ajustado

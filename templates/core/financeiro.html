@@ -142,6 +142,30 @@
                         <p class="fin-comp-nota">Os custos gerais (hospedagem, brindes, materiais…) saem do caixa comum, por isso reduzem o total mesmo não sendo de uma fonte só.</p>
                     </div>
 
+                    <div class="card fin-contrib">
+                        <h2 class="secao-titulo">Quanto cada fonte contribui no resultado</h2>
+                        <p class="fin-comp-nota">Os custos gerais do clube (R$ {{ custos_gerais_total|moeda }}) foram rateados entre as fontes, proporcionalmente ao líquido de cada uma — assim as três somam o resultado líquido.</p>
+                        <ul class="fin-contrib-lista">
+                            {% for c in contribuicao %}
+                            <li class="fin-contrib-item fonte-{{ c.classe }}">
+                                <div class="fin-contrib-topo">
+                                    <span class="fin-contrib-nome">{{ c.icone }} {{ c.fonte }}</span>
+                                    <span class="fin-contrib-val {% if c.contrib >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ c.contrib|moeda }}</span>
+                                </div>
+                                <div class="fin-contrib-barra"><div class="fin-contrib-fill" style="width: {{ c.pct_bar }}%;"></div></div>
+                                <div class="fin-contrib-det">
+                                    <span><strong>{{ c.pct|floatformat:1 }}%</strong> do resultado</span>
+                                    <span>líquido R$ {{ c.liquido|moeda }} <span class="saida">− rateio R$ {{ c.rateio|moeda }}</span></span>
+                                </div>
+                            </li>
+                            {% endfor %}
+                            <li class="fin-contrib-total">
+                                <span>= Resultado líquido</span>
+                                <span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span>
+                            </li>
+                        </ul>
+                    </div>
+
                     <div class="fin-graficos">
                         <div class="card fin-grafico-card">
                             <h2 class="secao-titulo">Entradas por fonte</h2>

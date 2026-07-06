@@ -52,6 +52,25 @@
 .fin-comp-total span:first-child { color: var(--azul-escuro, #0f4c81); }
 .fin-comp-nota { font-size: 0.82rem; color: #888; margin: 10px 0 0; }
 
+/* Contribuição de cada fonte no resultado (custos gerais rateados) */
+.fin-contrib { padding: 16px 18px; margin-bottom: 14px; }
+.fin-contrib .secao-titulo { margin-top: 0; }
+.fin-contrib .fin-comp-nota { margin: 0 0 14px; }
+.fin-contrib-lista { list-style: none; margin: 0; padding: 0; max-width: 560px; }
+.fin-contrib-item { padding: 10px 0; border-bottom: 1px solid rgba(15,76,129,.08); }
+.fin-contrib-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.fin-contrib-nome { font-weight: 600; }
+.fin-contrib-val { font-weight: 800; white-space: nowrap; }
+.fin-contrib-barra { height: 8px; border-radius: 999px; background: rgba(15,76,129,.09); margin: 6px 0 5px; overflow: hidden; }
+.fin-contrib-fill { height: 100%; border-radius: 999px; background: #1f6fb2; }
+.fin-contrib-item.fonte-mensalidades .fin-contrib-fill { background: #1f6fb2; }
+.fin-contrib-item.fonte-loja .fin-contrib-fill { background: #3a9d3a; }
+.fin-contrib-item.fonte-eventos .fin-contrib-fill { background: #e0a800; }
+.fin-contrib-det { display: flex; justify-content: space-between; gap: 12px; font-size: 0.8rem; color: #888; flex-wrap: wrap; }
+.fin-contrib-total { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 11px; margin-top: 3px; border-top: 2px solid rgba(15,76,129,.2); font-size: 1.05rem; font-weight: 800; }
+.fin-contrib-total span:first-child { color: var(--azul-escuro, #0f4c81); }
+.fin-contrib-total span:last-child { white-space: nowrap; }
+
 /* Gráficos */
 .fin-graficos { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .fin-grafico-card { padding: 16px; display: flex; flex-direction: column; }

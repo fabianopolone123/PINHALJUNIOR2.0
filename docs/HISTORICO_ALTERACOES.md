@@ -22,6 +22,32 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: quadro "Quanto cada fonte contribui no resultado"
+
+### Resumo
+Os cards de "líquido por fonte" **não somavam** o resultado, porque os **custos gerais do clube** ficam num
+balde à parte (não pertencem a nenhuma fonte) — então Mensalidades + Loja + Eventos dava mais que o resultado
+líquido. Novo quadro na aba **Resumo** que **rateia os custos gerais** entre as fontes (proporcional ao líquido
+de cada uma) e mostra, por fonte, **quanto ela contribui no resultado** (valor + **% do resultado** com barra),
+de modo que as três **somam exatamente** o resultado líquido. O rateio é uma **escolha** (custo geral não é
+"causado" por uma fonte); usei o critério proporcional, o mais comum.
+
+### Arquivos alterados
+- `core/views.py` (`financeiro_view`): calcula `contribuicao` (líquido de cada fonte − rateio dos custos gerais,
+  contribuição, % e largura da barra) e `custos_gerais_total`; adiciona ao contexto.
+- `templates/core/financeiro.html`: card `.fin-contrib` (3 fontes + barra de % + linha de total) após o quadro
+  "Como o resultado líquido se forma".
+- `static/css/financeiro.css`: estilos do card (barras nas cores das fontes: azul/verde/amarelo).
+
+### Validação
+- `manage.py check` OK. Render (test client, Diretor): quadro presente com Mensalidades **R$ 1.941,97 (47,5%)**,
+  Loja **R$ 494,67 (12,1%)**, Eventos **R$ 1.648,34 (40,4%)**, somando **R$ 4.084,98**; barras 48/12/40%.
+
+### Pendências
+- Sem novas. (Critério de rateio dos custos gerais é ajustável se o clube preferir outro.)
+
+---
+
 ## 2026-07-06 - Máscara de moeda pt-BR no "valor recebido" do PDV (troco corrigido)
 
 ### Resumo

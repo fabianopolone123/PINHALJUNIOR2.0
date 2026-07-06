@@ -4258,6 +4258,34 @@ def financeiro_view(request):
                          "n": sum(1 for c in custos_clube if c.destino != "loja")},
     }
 
+    # Quanto cada fonte contribui no resultado: rateia os custos gerais do clube
+    # (que não pertencem a nenhuma fonte) proporcionalmente ao líquido de cada uma,
+    # para que Mensalidades + Loja + Eventos somem exatamente o resultado.
+    liq_mens = mens_recebido
+    liq_loja = loja_total - custos_loja_total
+    liq_ev = eventos_entradas - custos_ev_total
+    soma_fontes = liq_mens + liq_loja + liq_ev
+    if soma_fontes:
+        rat_mens = (custos_geral_total * liq_mens / soma_fontes).quantize(Decimal("0.01"))
+        rat_loja = (custos_geral_total * liq_loja / soma_fontes).quantize(Decimal("0.01"))
+        rat_ev = custos_geral_total - rat_mens - rat_loja  # fecha exato
+    else:
+        rat_mens = rat_loja = rat_ev = Decimal("0")
+    _res = resultado or Decimal("1")
+    contribuicao = [
+        {"fonte": "Mensalidades", "icone": "💰", "classe": "mensalidades",
+         "liquido": liq_mens, "rateio": rat_mens, "contrib": liq_mens - rat_mens,
+         "pct": float((liq_mens - rat_mens) / _res * 100)},
+        {"fonte": "Loja", "icone": "🛍️", "classe": "loja",
+         "liquido": liq_loja, "rateio": rat_loja, "contrib": liq_loja - rat_loja,
+         "pct": float((liq_loja - rat_loja) / _res * 100)},
+        {"fonte": "Eventos", "icone": "🎟️", "classe": "eventos",
+         "liquido": liq_ev, "rateio": rat_ev, "contrib": liq_ev - rat_ev,
+         "pct": float((liq_ev - rat_ev) / _res * 100)},
+    ]
+    for c in contribuicao:  # largura da barra (int, sem vírgula de locale no CSS)
+        c["pct_bar"] = max(0, min(100, int(round(c["pct"]))))
+
     # Extrato consolidado
     extrato = []
     for m in mens_pagas:
@@ -4319,6 +4347,7 @@ def financeiro_view(request):
     contexto = {
         "entradas": entradas, "saidas": saidas, "resultado": resultado,
         "resumo": resumo, "extrato": extrato, "fluxo": fluxo, "donut": donut,
+        "contribuicao": contribuicao, "custos_gerais_total": custos_geral_total,
         "custos_clube": custos_clube, "custo_form": CustoClubeForm(),
         "ano": hoje.year, "aba": request.GET.get("aba", "resumo"),
     }
