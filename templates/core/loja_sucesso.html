@@ -1,0 +1,96 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Compra confirmada - Loja</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/loja.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Compra confirmada</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <section class="card evento-publico-card sucesso-card">
+                    <span class="sucesso-check" aria-hidden="true">✅</span>
+                    <h1 class="evento-publico-titulo">Compra confirmada!</h1>
+                    <p class="evento-publico-desc">Sua compra na <strong>Loja do Clube</strong> foi registrada. Guarde o código.</p>
+
+                    <div class="sucesso-codigo">
+                        <span class="sucesso-codigo-rotulo">Código da compra</span>
+                        <span class="sucesso-codigo-valor selecionavel">{{ compra.codigo }}</span>
+                    </div>
+
+                    {% regroup compra.itens.all by kit as kits_list %}
+                    {% for kit in kits_list %}
+                    <div class="loja-sucesso-kit">
+                        {% with primeiro=kit.list.0 %}
+                        <h3 class="loja-sucesso-kit-nome">{{ primeiro.produto_nome }}{% if primeiro.aventureiro_nome %} <small class="loja-para">→ {{ primeiro.aventureiro_nome }}</small>{% endif %}</h3>
+                        {% endwith %}
+                        <ul class="pedido-lista">
+                            {% for item in kit.list %}
+                            <li class="pedido-item">
+                                <span class="pedido-item-qtd">{{ item.quantidade }}×</span>
+                                <span class="pedido-item-nome">{% if item.grupo_nome %}{{ item.grupo_nome }}: {% endif %}{{ item.variacao_nome|default:item.produto_nome }}</span>
+                                <span class="pedido-item-valor">R$ {{ item.valor_total|moeda }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+
+                    <p class="sucesso-total">Total: <strong>R$ {{ compra.valor_total|moeda }}</strong></p>
+                    {% if compra.forma_pagamento == "pix" or compra.forma_pagamento == "cartao" %}
+                    <p class="pedido-forma">Pago com <strong>{{ compra.get_forma_pagamento_display }}</strong></p>
+                    {% endif %}
+                    <p class="painel-nota">Pagamento simulado — a compra já consta como confirmada.</p>
+
+                    <div class="evento-publico-acao">
+                        <a href="{% url 'core:loja' %}?aba=loja" class="btn-secundario">Continuar comprando</a>
+                        <a href="{% url 'core:inicio' %}" class="btn-acao">Ir para Meus Dados</a>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+</body>
+</html>

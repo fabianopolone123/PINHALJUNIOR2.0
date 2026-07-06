@@ -1,0 +1,136 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>{% if produto %}Editar produto{% else %}Novo produto{% endif %} - Loja</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/loja.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">{% if produto %}Editar produto{% else %}Novo produto{% endif %}</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:loja' %}?aba=gerenciar" class="voltar-link">← Voltar para a loja</a>
+
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">{% if produto %}Editar produto 🛍️{% else %}Novo produto 🛍️{% endif %}</h1>
+                    <p class="cabecalho-sub">Loja do Clube</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <section class="card evento-form-card">
+                    <form method="post" enctype="multipart/form-data" class="evento-form loja-produto-form" novalidate id="produtoLojaForm">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}<div class="erros">{{ form.non_field_errors }}</div>{% endif %}
+
+                        {% include "core/_campo.html" with campo=form.nome %}
+                        {% include "core/_campo.html" with campo=form.descricao %}
+                        {% include "core/_campo.html" with campo=form.foto %}
+
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ form.composto }}
+                                <label for="{{ form.composto.id_for_label }}">{{ form.composto.label }}</label>
+                            </div>
+                            <small class="ajuda">Marque para itens como o <strong>Uniforme de Gala</strong>, que têm vários grupos (camiseta, calça/saia, acessórios). Desmarcado = produto simples (uma lista de opções).</small>
+                        </div>
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ form.controla_estoque }}
+                                <label for="{{ form.controla_estoque.id_for_label }}">{{ form.controla_estoque.label }}</label>
+                            </div>
+                            <small class="ajuda">Marque se o produto tem quantidade limitada.</small>
+                        </div>
+                        <div class="campo">
+                            <div class="campo-checkbox">
+                                {{ form.ativo }}
+                                <label for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                            </div>
+                            <small class="ajuda">Desmarque para esconder o produto da loja sem apagá-lo.</small>
+                        </div>
+
+                        <h3 class="bloco-rotulo">Opções e preços</h3>
+                        <p class="ajuda loja-ajuda-simples">Cada opção tem seu preço{% if produto.controla_estoque %} e estoque{% endif %}. Ex.: camiseta P, M, G. Se o produto é único, deixe uma opção só.</p>
+                        <p class="ajuda loja-ajuda-composto">Organize em <strong>grupos</strong>. Ex.: grupo “Camiseta” (escolha única de 1 tamanho), grupo “Acessórios” (vários itens, marque os obrigatórios).</p>
+                        {% if erros_var %}
+                        <div class="erros">{% for e in erros_var %}<div>{{ e }}</div>{% endfor %}</div>
+                        {% endif %}
+
+                        <div class="var-cabecalho loja-var-cabecalho">
+                            <span class="var-col-nome">Opção</span>
+                            <span class="var-col-valor">Preço</span>
+                            <span class="var-col-estoque var-estoque-campo">Estoque</span>
+                            <span class="var-col-obrig itens-only">Obrig.</span>
+                            <span class="var-col-acao"></span>
+                        </div>
+
+                        <div id="loja-grupos">
+                            {% for g in grupos %}{% include "core/_loja_grupo.html" with g=g %}{% endfor %}
+                        </div>
+
+                        <template id="loja-grupo-modelo">{% include "core/_loja_grupo.html" with g=grupo_modelo %}</template>
+                        <template id="loja-var-modelo">{% include "core/_loja_var_linha.html" with g_idx="__G__" ln=linha_modelo %}</template>
+
+                        <button type="button" class="btn-secundario loja-add-grupo" id="lojaAddGrupo">➕ Adicionar grupo</button>
+
+                        <div class="form-acoes">
+                            <a href="{% url 'core:loja' %}?aba=gerenciar" class="btn-secundario">Cancelar</a>
+                            <button type="submit" class="btn-acao">
+                                <span aria-hidden="true">💾</span> Salvar produto
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/loja_produto_form.js' %}"></script>
+</body>
+</html>

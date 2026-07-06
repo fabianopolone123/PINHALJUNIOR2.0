@@ -156,4 +156,16 @@ urlpatterns = [
         views.recuperar_senha_nova_view,
         name="recuperar_senha_nova",
     ),
+    # --- Loja do Clube (loja oficial) ---
+    path("loja/", views.loja_view, name="loja"),
+    path("loja/produto/novo/", views.loja_produto_novo_view, name="loja_produto_novo"),
+    path("loja/produto/<int:pk>/editar/", views.loja_produto_editar_view, name="loja_produto_editar"),
+    path("loja/produto/<int:pk>/excluir/", views.loja_produto_excluir_view, name="loja_produto_excluir"),
+    path("loja/produto/<int:pk>/", views.loja_produto_view, name="loja_produto"),
+    path("loja/carrinho/adicionar/", views.loja_carrinho_add_view, name="loja_carrinho_add"),
+    path("loja/carrinho/remover/", views.loja_carrinho_remover_view, name="loja_carrinho_remover"),
+    path("loja/finalizar/", views.loja_finalizar_view, name="loja_finalizar"),
+    path("loja/pagamento/", views.loja_pagamento_view, name="loja_pagamento"),
+    path("loja/sucesso/", views.loja_sucesso_view, name="loja_sucesso"),
+    path("loja/compra/<int:compra_id>/cancelar/", views.loja_compra_cancelar_view, name="loja_compra_cancelar"),
 ]

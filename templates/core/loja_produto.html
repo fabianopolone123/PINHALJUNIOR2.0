@@ -1,0 +1,180 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>{{ produto.nome }} - Loja</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/loja.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">{{ produto.nome }}</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:loja' %}?aba=loja" class="voltar-link">← Voltar para a loja</a>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <section class="card loja-detalhe">
+                    <div class="loja-detalhe-topo">
+                        <div class="loja-detalhe-foto">
+                            {% if produto.foto %}
+                            <img src="{{ produto.foto.url }}" alt="" onerror="this.style.display='none'">
+                            {% else %}
+                            <span class="loja-detalhe-foto-vazia" aria-hidden="true">🛍️</span>
+                            {% endif %}
+                        </div>
+                        <div class="loja-detalhe-cabecalho">
+                            <h1 class="loja-detalhe-nome">{{ produto.nome }}</h1>
+                            {% if produto.descricao %}<p class="loja-detalhe-desc">{{ produto.descricao|linebreaksbr }}</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <form method="post" action="{% url 'core:loja_carrinho_add' %}" class="loja-config-form" id="lojaConfigForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="produto_id" value="{{ produto.id }}">
+
+                        {% if aventureiros %}
+                        <div class="campo loja-para-quem">
+                            <label for="aventureiro_id">Para qual aventureiro é?</label>
+                            {% if aventureiros|length == 1 %}
+                            {% with av=aventureiros.0 %}
+                            <input type="hidden" name="aventureiro_id" value="{{ av.id }}">
+                            <p class="loja-para-fixo">→ <strong>{{ av.nome_completo }}</strong></p>
+                            {% endwith %}
+                            {% else %}
+                            <select name="aventureiro_id" id="aventureiro_id" class="campo-select">
+                                <option value="">— Geral / não especificar —</option>
+                                {% for av in aventureiros %}
+                                <option value="{{ av.id }}">{{ av.nome_completo }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="ajuda">Útil para itens personalizados (ex.: nome bordado no uniforme).</small>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% for g in grupos %}
+                        <div class="loja-cfg-grupo" data-grupo="{{ g.id }}" data-modo="{{ g.modo }}" data-obrig="{% if g.obrigatorio %}1{% else %}0{% endif %}" data-nome="{{ g.nome|default:produto.nome }}">
+                            {% if g.nome or g.orientacao %}
+                            <div class="loja-cfg-grupo-cab">
+                                {% if g.nome %}<h2 class="loja-cfg-grupo-nome">{{ g.nome }}{% if g.obrigatorio %} <span class="loja-obrig-tag">obrigatório</span>{% endif %}</h2>{% endif %}
+                                {% if g.orientacao %}<p class="loja-cfg-orient">{{ g.orientacao|linebreaksbr }}</p>{% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if g.modo == 'unica' %}
+                            <div class="loja-cfg-opcoes">
+                                {% for v in g.variacoes.all %}{% if v.ativo %}
+                                <label class="loja-cfg-opcao{% if v.esgotado %} esgotada{% endif %}">
+                                    <input type="radio" name="grupo_{{ g.id }}" value="{{ v.id }}" data-preco="{{ v.valor }}"{% if v.esgotado %} disabled{% endif %}>
+                                    <span class="loja-cfg-opcao-nome">{{ v.rotulo }}</span>
+                                    <span class="loja-cfg-opcao-preco">R$ {{ v.valor|moeda }}</span>
+                                    {% if v.esgotado %}<span class="var-estoque esgotado">esgotado</span>{% endif %}
+                                </label>
+                                {% endif %}{% endfor %}
+                            </div>
+                            {% else %}
+                            <ul class="loja-cfg-itens">
+                                {% for v in g.variacoes.all %}{% if v.ativo %}
+                                <li class="loja-cfg-item{% if v.obrigatorio %} obrigatorio{% endif %}">
+                                    <span class="loja-cfg-item-nome">{{ v.rotulo }}{% if v.obrigatorio %} <span class="loja-obrig-tag">obrigatório</span>{% endif %}</span>
+                                    <span class="loja-cfg-item-preco">R$ {{ v.valor|moeda }}</span>
+                                    {% if v.esgotado %}
+                                    <span class="var-estoque esgotado">esgotado</span>
+                                    {% else %}
+                                    <div class="qtd-stepper">
+                                        <button type="button" class="qtd-btn qtd-menos" aria-label="Diminuir">−</button>
+                                        <input type="number" name="item_{{ v.id }}" class="loja-qtd"
+                                               min="0" {% if produto.controla_estoque %}max="{{ v.estoque }}"{% endif %}
+                                               value="0" data-preco="{{ v.valor }}" data-obrig="{% if v.obrigatorio %}1{% else %}0{% endif %}"
+                                               data-nome="{{ v.rotulo }}" inputmode="numeric" aria-label="Quantidade de {{ v.rotulo }}">
+                                        <button type="button" class="qtd-btn qtd-mais" aria-label="Aumentar">+</button>
+                                    </div>
+                                    {% endif %}
+                                </li>
+                                {% endif %}{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        <div class="loja-cfg-rodape">
+                            <div class="loja-cfg-total">Subtotal: <strong id="lojaCfgTotal">R$ 0,00</strong></div>
+                            <button type="submit" class="btn-acao loja-cfg-add">
+                                <span aria-hidden="true">🛒</span> Adicionar ao carrinho
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+
+        <!-- Modal: aviso de itens obrigatórios não selecionados (soft) -->
+        <div class="modal-overlay" id="modalObrig" hidden>
+            <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalObrigTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalObrigTitulo">⚠️ Itens obrigatórios não selecionados</h2>
+                    <button type="button" class="modal-fechar" id="modalObrigFechar" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p>Estes itens são <strong>obrigatórios</strong> neste produto e você não adicionou:</p>
+                    <ul class="loja-obrig-lista" id="modalObrigLista"></ul>
+                    <p class="painel-nota">Se você <strong>já possui</strong> esses itens, pode continuar. Senão, volte e adicione-os.</p>
+                    <div class="form-acoes">
+                        <button type="button" class="btn-secundario" id="modalObrigVoltar">Voltar e revisar</button>
+                        <button type="button" class="btn-acao" id="modalObrigContinuar">Adicionar mesmo assim</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/qtd_stepper.js' %}"></script>
+    <script src="{% static 'js/loja_produto.js' %}"></script>
+</body>
+</html>

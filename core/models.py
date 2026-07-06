@@ -1181,3 +1181,249 @@ class WhatsappConfig(models.Model):
         if len(self.token) <= 4:
             return "•" * len(self.token)
         return "•" * 6 + self.token[-4:]
+
+
+# ===========================================================================
+# Loja do Clube (loja oficial: uniformes, lenços etc.). É INDEPENDENTE da
+# lojinha de evento. Estrutura em 3 níveis: Produto → Grupos → Variações.
+# - Produto simples: 1 grupo padrão com as variações diretas (ex.: camiseta P/M/G).
+# - Produto composto: vários grupos (ex.: Uniforme de Gala = Camiseta + Calça +
+#   Saia + Acessórios). Cada grupo é "escolha única" (pega 1 opção) ou "itens"
+#   (vários, cada um com quantidade). Itens/grupos podem ser marcados como
+#   obrigatórios — o aviso na vitrine é "soft" (avisa, mas não bloqueia; a pessoa
+#   pode já ter o item).
+# Pagamento SIMULADO (Pix/cartão), igual à lojinha de evento; a compra fica
+# vinculada ao login e, opcionalmente, a um aventureiro (bordado do Kit Nome).
+# ===========================================================================
+
+MODO_GRUPO_CHOICES = [
+    ("unica", "Escolha única (1 opção da lista)"),
+    ("itens", "Itens (vários, cada um com quantidade)"),
+]
+
+
+class ProdutoLoja(models.Model):
+    """Produto da loja oficial do clube."""
+
+    nome = models.CharField("Nome do produto", max_length=150)
+    descricao = models.TextField("Descrição", blank=True)
+    foto = models.ImageField(
+        "Foto", upload_to="loja/produtos/", blank=True, null=True
+    )
+    composto = models.BooleanField("Produto composto (com grupos)", default=False)
+    controla_estoque = models.BooleanField("Controlar estoque", default=False)
+    ativo = models.BooleanField("À venda", default=True)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Produto da loja"
+        verbose_name_plural = "Produtos da loja"
+        ordering = ["ordem", "id"]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def variacoes_ativas(self):
+        """Todas as variações ativas do produto (achatando os grupos)."""
+        return [
+            v
+            for g in self.grupos.all()
+            for v in g.variacoes.all()
+            if v.ativo
+        ]
+
+    @property
+    def preco_minimo(self):
+        """Menor preço entre as variações ativas (para 'a partir de R$…')."""
+        valores = [v.valor for v in self.variacoes_ativas]
+        return min(valores) if valores else None
+
+    @property
+    def preco_base(self):
+        """Soma dos itens obrigatórios + o menor tamanho de cada grupo obrigatório
+        de escolha única — uma estimativa do 'preço a partir de' do kit completo.
+        Para produto simples, é o menor preço."""
+        if not self.composto:
+            return self.preco_minimo or Decimal("0")
+        total = Decimal("0")
+        for g in self.grupos.all():
+            ativos = [v for v in g.variacoes.all() if v.ativo]
+            if not ativos:
+                continue
+            if g.modo == "unica":
+                if g.obrigatorio:
+                    total += min(v.valor for v in ativos)
+            else:
+                total += sum(v.valor for v in ativos if v.obrigatorio)
+        return total
+
+
+class GrupoLoja(models.Model):
+    """Um grupo de variações de um produto (ex.: 'Camiseta', 'Acessórios')."""
+
+    produto = models.ForeignKey(
+        ProdutoLoja,
+        on_delete=models.CASCADE,
+        related_name="grupos",
+        verbose_name="Produto",
+    )
+    nome = models.CharField("Nome do grupo", max_length=100, blank=True)
+    modo = models.CharField(
+        "Modo", max_length=10, choices=MODO_GRUPO_CHOICES, default="itens"
+    )
+    obrigatorio = models.BooleanField("Grupo obrigatório", default=False)
+    orientacao = models.TextField("Orientação", blank=True)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+
+    class Meta:
+        verbose_name = "Grupo de variações"
+        verbose_name_plural = "Grupos de variações"
+        ordering = ["ordem", "id"]
+
+    def __str__(self):
+        return f"{self.nome or 'Grupo'} — {self.produto.nome}"
+
+
+class VariacaoLoja(models.Model):
+    """Uma opção dentro de um grupo (ex.: tamanho 'M', acessório 'Lenço')."""
+
+    grupo = models.ForeignKey(
+        GrupoLoja,
+        on_delete=models.CASCADE,
+        related_name="variacoes",
+        verbose_name="Grupo",
+    )
+    nome = models.CharField("Nome da variação", max_length=100, blank=True)
+    valor = models.DecimalField("Preço", max_digits=10, decimal_places=2, default=0)
+    estoque = models.PositiveIntegerField("Estoque", default=0)
+    # Só faz sentido em grupo modo "itens": o item é obrigatório no produto (aviso
+    # soft na vitrine se a pessoa não adicionar).
+    obrigatorio = models.BooleanField("Item obrigatório", default=False)
+    ativo = models.BooleanField("Disponível", default=True)
+    ordem = models.PositiveIntegerField("Ordem", default=0)
+
+    class Meta:
+        verbose_name = "Variação da loja"
+        verbose_name_plural = "Variações da loja"
+        ordering = ["ordem", "id"]
+
+    @property
+    def rotulo(self):
+        return self.nome or "Único"
+
+    @property
+    def esgotado(self):
+        """Sem estoque (só conta quando o produto controla estoque)."""
+        return self.grupo.produto.controla_estoque and self.estoque <= 0
+
+    def __str__(self):
+        return f"{self.rotulo} — {self.grupo.produto.nome}"
+
+
+class CompraLoja(models.Model):
+    """Uma compra na loja do clube (pagamento simulado). Vinculada ao login."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="compras_loja",
+        verbose_name="Usuário (comprador)",
+    )
+    comprador_nome = models.CharField("Nome do comprador", max_length=150)
+    comprador_whatsapp = models.CharField("WhatsApp", max_length=20, blank=True)
+    comprador_email = models.EmailField("E-mail", blank=True)
+    codigo = models.CharField("Código da compra", max_length=20, unique=True)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_PEDIDO_CHOICES, default="confirmado"
+    )
+    forma_pagamento = models.CharField(
+        "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES,
+        default="online",
+    )
+    valor_total = models.DecimalField(
+        "Valor total", max_digits=10, decimal_places=2, default=0
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Compra da loja"
+        verbose_name_plural = "Compras da loja"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.codigo} — {self.comprador_nome}"
+
+    @staticmethod
+    def gerar_codigo_unico():
+        alfabeto = string.ascii_uppercase + string.digits
+        while True:
+            codigo = "LC" + "".join(random.choices(alfabeto, k=5))
+            if not CompraLoja.objects.filter(codigo=codigo).exists():
+                return codigo
+
+
+class ItemCompraLoja(models.Model):
+    """Um item de uma compra da loja (variação + quantidade), com snapshots.
+
+    O campo `produto` (e o snapshot `produto_nome`) permite agrupar, na exibição,
+    os vários itens de um mesmo "kit" (ex.: todas as peças de um Uniforme de Gala
+    comprado para um aventureiro). `aventureiro` guarda para quem é a compra.
+    """
+
+    compra = models.ForeignKey(
+        CompraLoja,
+        on_delete=models.CASCADE,
+        related_name="itens",
+        verbose_name="Compra",
+    )
+    produto = models.ForeignKey(
+        ProdutoLoja,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="itens_comprados",
+        verbose_name="Produto",
+    )
+    variacao = models.ForeignKey(
+        VariacaoLoja,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="itens_comprados",
+        verbose_name="Variação",
+    )
+    aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="itens_loja",
+        verbose_name="Aventureiro (para quem é)",
+    )
+    # Snapshots (mantêm a compra legível mesmo se o produto mudar/for apagado).
+    produto_nome = models.CharField("Produto", max_length=150)
+    grupo_nome = models.CharField("Grupo", max_length=100, blank=True)
+    variacao_nome = models.CharField("Variação", max_length=100, blank=True)
+    aventureiro_nome = models.CharField("Aventureiro", max_length=150, blank=True)
+    quantidade = models.PositiveIntegerField("Quantidade", default=1)
+    valor_unitario = models.DecimalField(
+        "Valor unitário", max_digits=10, decimal_places=2, default=0
+    )
+    valor_total = models.DecimalField(
+        "Valor total", max_digits=10, decimal_places=2, default=0
+    )
+    # Índice do "kit" dentro da compra (itens adicionados juntos compartilham o
+    # mesmo número), para agrupar na exibição.
+    kit = models.PositiveIntegerField("Kit", default=0)
+
+    class Meta:
+        verbose_name = "Item da compra"
+        verbose_name_plural = "Itens da compra"
+        ordering = ["kit", "id"]
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto_nome} — {self.compra.codigo}"

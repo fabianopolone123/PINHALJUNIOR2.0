@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-05 (**Recuperação de senha pelo WhatsApp** + notificações/AJAX): o link
+**Última atualização:** 2026-07-05 (**Loja do Clube (loja oficial)**): novo módulo **"Loja"** (🛍️) no menu
+(**só Diretor** por ora), **independente** da lojinha de evento — é a 1ª das 3 áreas financeiras do clube
+(eventos ✅, mensalidades ⏳, loja ▶). Tela com **2 abas**: **Gerenciar** (cadastrar produtos + compras
+recentes) e **Loja** (vitrine com **carrinho na sessão**). Produto em 3 níveis **Produto → Grupos →
+Variações**: **simples** (lista direta) ou **composto** (ex.: **Uniforme de Gala** = Camiseta/Calça/Saia em
+"escolha única" + Acessórios em "itens"). Grupo tem modo (escolha única/itens), **obrigatório** e
+**orientação**; itens podem ser obrigatórios com **aviso soft** (avisa o que falta e pergunta se já tem — não
+bloqueia). Compra **vinculada ao login** e opcionalmente a um **aventureiro** (1 = automático; 2+ = escolher,
+útil pro bordado do Kit Nome). **Pagamento simulado** (Pix QR/copia-e-cola + cartão via Mercado Pago no
+futuro), reaproveitando os helpers do evento; `CompraLoja` só nasce após a aprovação; Diretor pode
+**cancelar** (devolve estoque). Modelos `ProdutoLoja`/`GrupoLoja`/`VariacaoLoja`/`CompraLoja`/`ItemCompraLoja`
+(mig. **0021**). Rotas `/loja/…`. Antes: Recuperação de senha pelo WhatsApp + notificações/AJAX.
+
+**Anterior:** (**Recuperação de senha pelo WhatsApp** + notificações/AJAX): o link
 **"Esqueci minha senha"** funciona. Fluxo público em 3 etapas (sessão): **CPF** do responsável legal →
 envia **código de 4 dígitos** para o **WhatsApp principal** da conta → digita o código (5 tentativas,
 expira em 10 min, reenvio com espera de 60 s) → **nova senha** (2×). Código guardado **com hash** na
@@ -445,6 +458,16 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   `pk=1`). Campos: `instance_id`, `token`, `base_url` (default `https://api.w-api.app/v1`),
   `atualizado_por`/`atualizado_em`. Propriedades: `configurado` (tem ID + token) e `token_mascarado`
   (só os últimos 4 dígitos). Usado pelo módulo **WhatsApp**. Migration **0019**.
+- **Loja do Clube** (loja oficial, independente da lojinha de evento; mig. **0021**):
+  - `ProdutoLoja` — produto da loja (nome, descrição, foto, `composto`, `controla_estoque`, `ativo`, ordem).
+    Props `variacoes_ativas`, `preco_minimo`, `preco_base` (estimativa "a partir de" somando obrigatórios).
+  - `GrupoLoja` — grupo de variações de um produto (FK `produto`, nome, `modo` = `unica`/`itens`,
+    `obrigatorio`, `orientacao`, ordem). Produto simples = 1 grupo padrão.
+  - `VariacaoLoja` — opção de um grupo (FK `grupo`, nome, valor, estoque, `obrigatorio` [itens], `ativo`,
+    ordem). Props `rotulo`, `esgotado`.
+  - `CompraLoja` — compra (FK `usuario`, dados do comprador, código `LC…`, status, `forma_pagamento`,
+    `valor_total`). `ItemCompraLoja` — item (FK `compra`/`produto`/`variacao`/`aventureiro` + snapshots +
+    `quantidade`/valores + `kit` = agrupa itens adicionados juntos, ex.: peças de um uniforme).
 
 ## Funcionalidades incompletas / não implementadas
 - Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos).
@@ -504,6 +527,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   de senha em 3 etapas; **envio por AJAX** via `ajax_form.js` — `form[data-ajax-toast]` —, com **toast
   padrão**; erro não recarrega a página)
 - `templates/core/_menu_eventos.html` (parcial: seção "Eventos ativos" do menu, para todos os perfis)
+- **Loja do Clube**: `loja.html` (abas Gerenciar + vitrine/carrinho), `loja_produto_form.html` (cadastro
+  com grupos/variações), `loja_produto.html` (configurador + carrinho + aviso soft), `loja_pagamento.html`
+  (pagamento simulado), `loja_sucesso.html`; parciais `_loja_grupo.html` e `_loja_var_linha.html`
 - `templates/core/_participante_linha.html` e `_variacao_linha.html` (parciais de linha repetível)
 - `templates/core/_aventureiro_detalhe.html` (parcial com o detalhe completo do aventureiro)
 - `templates/core/cadastro.html` (wizard de cadastro)
@@ -529,6 +555,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   paleta azul/verde; mobile-first)
 - `static/css/recuperar.css` — recuperação de senha (indicador de etapas, campo do código grande,
   link de reenvio); complementa `login.css`. As notificações usam o **toast padrão** (CSS em `base.css`).
+- `static/css/loja.css` — **Loja do Clube** (abas, cards de gerenciamento, vitrine em grade, carrinho,
+  cadastro de grupos/variações, configurador do produto e telas de pagamento); mobile-first; paleta azul/verde.
 
 ## Arquivos JavaScript existentes
 - `static/js/cadastro.js` — wizard de etapas (numeração e índices calculados dinamicamente, servindo
@@ -573,6 +601,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **fetch**; a resposta é `{"redirect":url}` (navega) ou `{"msg","tipo"}` (só toast, sem recarregar).
   Assim o erro **repete a notificação** sem recarregar a página. Usado no **login** (senha errada) e nas
   telas de **recuperação de senha**. Fallback: sem JS, POST normal.
+- `static/js/loja.js` — **Loja**: alternância das abas (Gerenciar/Loja), confirmação de ações destrutivas
+  (`form[data-confirmar]`) e atalho para o carrinho.
+- `static/js/loja_produto_form.js` — cadastro de produto: alternar simples/composto, adicionar/remover
+  **grupos** e **opções** (índices únicos), mostrar/ocultar estoque e a coluna "obrig." por modo do grupo.
+- `static/js/loja_produto.js` — configurador do produto na vitrine: **subtotal ao vivo**, **aviso soft** de
+  itens obrigatórios (modal: continuar/voltar) e rascunho da seleção no localStorage (não perde ao recarregar).
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -624,6 +658,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/recuperar-senha/codigo/` — etapa 2: digitar o código de 4 dígitos (`core:recuperar_senha_codigo`).
 - `/recuperar-senha/reenviar/` — reenvia o código (POST, espera de 60 s) (`core:recuperar_senha_reenviar`).
 - `/recuperar-senha/nova-senha/` — etapa 3: definir a nova senha 2× (`core:recuperar_senha_nova`).
+- **Loja do Clube** (Diretor no menu; vitrine/carrinho `@login_required`):
+  - `/loja/` — tela com abas Gerenciar/Loja (`core:loja`, Diretor).
+  - `/loja/produto/novo/`, `/loja/produto/<id>/editar/`, `/loja/produto/<id>/excluir/` — CRUD de produto (Diretor).
+  - `/loja/produto/<id>/` — página do produto na vitrine (configurar + adicionar ao carrinho) (`core:loja_produto`).
+  - `/loja/carrinho/adicionar/`, `/loja/carrinho/remover/` — carrinho na sessão (POST).
+  - `/loja/finalizar/` → `/loja/pagamento/` → `/loja/sucesso/` — checkout + pagamento simulado.
+  - `/loja/compra/<id>/cancelar/` — cancela compra e devolve estoque (POST, Diretor).
 - `/admin/` — Django admin (models de cadastro registrados).
 - Em DEBUG, o Django serve os arquivos de mídia em `/media/`.
 

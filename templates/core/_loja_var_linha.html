@@ -1,0 +1,16 @@
+{% comment %}
+Uma linha de variação (opção) de um grupo de produto da loja.
+Recebe `g_idx` (índice do grupo) e `ln` (idx, id, nome, valor_raw, estoque_raw, obrig).
+O campo de estoque é ocultado por CSS quando o produto não controla estoque.
+{% endcomment %}
+<div class="loja-var-linha">
+    <input type="hidden" name="var_idx_{{ g_idx }}" value="{{ ln.idx }}">
+    <input type="hidden" name="var_id_{{ g_idx }}_{{ ln.idx }}" value="{{ ln.id }}">
+    <input type="text" name="var_nome_{{ g_idx }}_{{ ln.idx }}" class="campo-input loja-var-nome" placeholder="Opção (ex.: P, M, G ou Lenço)" value="{{ ln.nome }}">
+    <input type="number" step="0.01" min="0" name="var_valor_{{ g_idx }}_{{ ln.idx }}" class="campo-input loja-var-valor" placeholder="Preço" value="{{ ln.valor_raw }}">
+    <input type="number" min="0" name="var_estoque_{{ g_idx }}_{{ ln.idx }}" class="campo-input loja-var-estoque var-estoque-campo" placeholder="Estoque" value="{{ ln.estoque_raw }}">
+    <label class="loja-var-obrig itens-only" title="Marque se este item é obrigatório no produto (aviso na loja)">
+        <input type="checkbox" name="var_obrig_{{ g_idx }}_{{ ln.idx }}"{% if ln.obrig %} checked{% endif %}> obrig.
+    </label>
+    <button type="button" class="part-remover loja-var-remover" aria-label="Remover opção">✕</button>
+</div>

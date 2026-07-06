@@ -1,0 +1,282 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Loja - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/loja.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Loja</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Loja do Clube 🛍️</h1>
+                    <p class="cabecalho-sub">Uniformes, lenços e itens oficiais do Pinhal Júnior.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="loja-abas" role="tablist">
+                    <button type="button" class="loja-aba{% if aba != 'loja' %} ativa{% endif %}" data-aba="gerenciar" role="tab">
+                        <span aria-hidden="true">🗂️</span> Gerenciar
+                    </button>
+                    <button type="button" class="loja-aba{% if aba == 'loja' %} ativa{% endif %}" data-aba="loja" role="tab">
+                        <span aria-hidden="true">🛒</span> Loja
+                        {% if cart_kits %}<span class="loja-aba-badge">{{ cart_kits|length }}</span>{% endif %}
+                    </button>
+                </div>
+
+                <!-- ============ ABA: GERENCIAR ============ -->
+                <section class="loja-painel" data-painel="gerenciar"{% if aba == 'loja' %} hidden{% endif %}>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Produtos da loja</h2>
+                        <a href="{% url 'core:loja_produto_novo' %}" class="btn-acao">
+                            <span aria-hidden="true">➕</span> Cadastrar produto
+                        </a>
+                    </div>
+
+                    {% if produtos %}
+                    <section class="loja-admin-lista">
+                        {% for p in produtos %}
+                        <article class="card loja-admin-card{% if not p.ativo %} inativo{% endif %}">
+                            <div class="loja-admin-foto">
+                                {% if p.foto %}
+                                <img src="{{ p.foto.url }}" alt="" onerror="this.style.display='none'">
+                                {% else %}
+                                <span class="loja-admin-foto-vazia" aria-hidden="true">🛍️</span>
+                                {% endif %}
+                            </div>
+                            <div class="loja-admin-info">
+                                <h3 class="loja-admin-nome">{{ p.nome }}</h3>
+                                <div class="loja-admin-badges">
+                                    {% if p.composto %}<span class="loja-badge loja-badge-composto">Composto</span>{% endif %}
+                                    {% if p.controla_estoque %}<span class="loja-badge">Estoque</span>{% endif %}
+                                    {% if not p.ativo %}<span class="loja-badge loja-badge-inativo">Inativo</span>{% endif %}
+                                </div>
+                                {% if p.preco_base %}<p class="loja-admin-preco">a partir de <strong>R$ {{ p.preco_base|moeda }}</strong></p>{% endif %}
+                            </div>
+                            <div class="loja-admin-acoes">
+                                <a href="{% url 'core:loja_produto_editar' p.id %}" class="btn-secundario btn-acao-pequeno">✏️ Editar</a>
+                                <form method="post" action="{% url 'core:loja_produto_excluir' p.id %}" class="form-excluir-loja"
+                                      data-confirmar="Excluir o produto “{{ p.nome }}”? Esta ação não pode ser desfeita.">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-excluir-evento">🗑️ Excluir</button>
+                                </form>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </section>
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">🛍️</span>
+                        <h2 class="card-titulo">Nenhum produto cadastrado</h2>
+                        <p class="card-texto">Cadastre o primeiro produto da loja do clube.</p>
+                        <a href="{% url 'core:loja_produto_novo' %}" class="btn-acao"><span aria-hidden="true">➕</span> Cadastrar produto</a>
+                    </section>
+                    {% endif %}
+
+                    <div class="secao-cabecalho loja-compras-cab">
+                        <h2 class="secao-titulo">Compras recentes</h2>
+                    </div>
+                    {% if compras %}
+                    <div class="loja-compras">
+                        {% for c in compras %}
+                        <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}">
+                            <summary class="loja-compra-topo">
+                                <span class="loja-compra-codigo">{{ c.codigo }}</span>
+                                <span class="loja-compra-nome">{{ c.comprador_nome }}</span>
+                                <span class="loja-compra-data">{{ c.criado_em|date:"d/m/Y H:i" }}</span>
+                                <span class="loja-compra-total">R$ {{ c.valor_total|moeda }}</span>
+                                {% if c.status == 'cancelado' %}<span class="loja-badge loja-badge-inativo">Cancelada</span>{% endif %}
+                            </summary>
+                            <div class="loja-compra-corpo">
+                                <ul class="pedido-lista">
+                                    {% for item in c.itens.all %}
+                                    <li class="pedido-item">
+                                        <span class="pedido-item-qtd">{{ item.quantidade }}×</span>
+                                        <span class="pedido-item-nome">{{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}{% if item.aventureiro_nome %} <small class="loja-para">→ {{ item.aventureiro_nome }}</small>{% endif %}</span>
+                                        <span class="pedido-item-valor">R$ {{ item.valor_total|moeda }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                <div class="loja-compra-rodape">
+                                    <span class="loja-compra-forma">{{ c.get_forma_pagamento_display }}</span>
+                                    {% if c.status != 'cancelado' %}
+                                    <form method="post" action="{% url 'core:loja_compra_cancelar' c.id %}" class="form-excluir-loja"
+                                          data-confirmar="Cancelar a compra {{ c.codigo }}? O estoque será devolvido.">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-excluir-evento">Cancelar compra</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="painel-nota">Nenhuma compra registrada ainda.</p>
+                    {% endif %}
+                </section>
+
+                <!-- ============ ABA: LOJA (vitrine) ============ -->
+                <section class="loja-painel" data-painel="loja"{% if aba != 'loja' %} hidden{% endif %}>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Vitrine</h2>
+                        {% if cart_kits %}<a href="#carrinho" class="btn-secundario btn-acao-pequeno">🛒 Ver carrinho ({{ cart_kits|length }})</a>{% endif %}
+                    </div>
+
+                    {% if produtos_ativos %}
+                    <section class="loja-vitrine">
+                        {% for p in produtos_ativos %}
+                        <a class="card loja-vitrine-card" href="{% url 'core:loja_produto' p.id %}">
+                            <div class="loja-vitrine-foto">
+                                {% if p.foto %}
+                                <img src="{{ p.foto.url }}" alt="" onerror="this.style.display='none'">
+                                {% else %}
+                                <span class="loja-vitrine-foto-vazia" aria-hidden="true">🛍️</span>
+                                {% endif %}
+                            </div>
+                            <div class="loja-vitrine-info">
+                                <h3 class="loja-vitrine-nome">{{ p.nome }}</h3>
+                                {% if p.descricao %}<p class="loja-vitrine-desc">{{ p.descricao }}</p>{% endif %}
+                                <span class="loja-vitrine-preco">a partir de <strong>R$ {{ p.preco_base|moeda }}</strong></span>
+                            </div>
+                            <span class="loja-vitrine-cta">Escolher <span aria-hidden="true">→</span></span>
+                        </a>
+                        {% endfor %}
+                    </section>
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">🛍️</span>
+                        <h2 class="card-titulo">A loja ainda não tem produtos à venda</h2>
+                        <p class="card-texto">Cadastre produtos na aba <strong>Gerenciar</strong> para eles aparecerem aqui.</p>
+                    </section>
+                    {% endif %}
+
+                    <!-- Carrinho -->
+                    <div id="carrinho" class="loja-carrinho-secao">
+                        <h2 class="secao-titulo">🛒 Seu carrinho</h2>
+                        {% if cart_kits %}
+                        <div class="card loja-carrinho">
+                            {% for kit in cart_kits %}
+                            <div class="loja-kit">
+                                <div class="loja-kit-topo">
+                                    <strong class="loja-kit-nome">{{ kit.produto.nome }}</strong>
+                                    {% if kit.aventureiro %}<span class="loja-para">→ {{ kit.aventureiro.nome_completo }}</span>{% endif %}
+                                    <form method="post" action="{% url 'core:loja_carrinho_remover' %}" class="loja-kit-remover-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="idx" value="{{ kit.index }}">
+                                        <button type="submit" class="loja-kit-remover" aria-label="Remover do carrinho">✕</button>
+                                    </form>
+                                </div>
+                                <ul class="loja-kit-itens">
+                                    {% for it in kit.itens %}
+                                    <li>
+                                        <span class="loja-kit-qtd">{{ it.qtd }}×</span>
+                                        <span class="loja-kit-item-nome">{% if it.grupo.nome %}{{ it.grupo.nome }}: {% endif %}{{ it.variacao.rotulo }}</span>
+                                        <span class="loja-kit-item-valor">R$ {{ it.subtotal|moeda }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                <div class="loja-kit-subtotal">Subtotal: <strong>R$ {{ kit.subtotal|moeda }}</strong></div>
+                            </div>
+                            {% endfor %}
+
+                            <form method="post" action="{% url 'core:loja_finalizar' %}" class="loja-checkout" id="lojaCheckout">
+                                {% csrf_token %}
+                                <div class="loja-total-linha">Total: <strong>R$ {{ cart_total|moeda }}</strong></div>
+
+                                <h3 class="bloco-rotulo">Dados do comprador</h3>
+                                <div class="campo">
+                                    <label for="comprador_nome">Nome <span class="obrigatorio">*</span></label>
+                                    <input type="text" id="comprador_nome" name="comprador_nome" class="campo-input" value="{{ comprador.nome }}">
+                                </div>
+                                <div class="form-linha">
+                                    <div class="campo">
+                                        <label for="comprador_whatsapp">WhatsApp <span class="obrigatorio">*</span></label>
+                                        <input type="text" id="comprador_whatsapp" name="comprador_whatsapp" class="campo-input" value="{{ comprador.whatsapp }}" inputmode="tel" placeholder="(00) 90000-0000">
+                                    </div>
+                                    <div class="campo">
+                                        <label for="comprador_email">E-mail <small class="ajuda">(opcional)</small></label>
+                                        <input type="email" id="comprador_email" name="comprador_email" class="campo-input" value="{{ comprador.email }}">
+                                    </div>
+                                </div>
+
+                                <h3 class="bloco-rotulo">Forma de pagamento</h3>
+                                <div class="pagamento-metodos">
+                                    {% for f in formas_pagamento %}
+                                    <label class="pagamento-metodo">
+                                        <input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forloop.first %} checked{% endif %}>
+                                        <span class="pagamento-metodo-icone" aria-hidden="true">{% if f.0 == 'pix' %}⚡{% else %}💳{% endif %}</span>
+                                        <span class="pagamento-metodo-nome">{{ f.1 }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+
+                                <button type="submit" class="btn-acao loja-finalizar-btn">
+                                    Ir para o pagamento <span aria-hidden="true">→</span>
+                                </button>
+                                <p class="painel-nota" style="text-align:center;">Você paga por Pix ou cartão na próxima etapa. A compra fica vinculada ao seu login.</p>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="card loja-carrinho-vazio">
+                            <span aria-hidden="true">🛒</span>
+                            <p>Seu carrinho está vazio. Escolha um produto na vitrine acima.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/loja.js' %}"></script>
+</body>
+</html>

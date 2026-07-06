@@ -38,14 +38,18 @@ from .forms import (
     FichaMedicaForm,
     InscricaoForm,
     ProdutoEventoForm,
+    ProdutoLojaForm,
     ResponsavelLegalForm,
 )
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
     Aventureiro,
+    CompraLoja,
     CupomDesconto,
     Evento,
+    GrupoLoja,
     Inscricao,
+    ItemCompraLoja,
     ItemPedidoLoja,
     OperadorEvento,
     ParticipanteInscricao,
@@ -53,7 +57,9 @@ from .models import (
     PerfilUsuario,
     PresencaEvento,
     ProdutoEvento,
+    ProdutoLoja,
     RespostaInscricao,
+    VariacaoLoja,
     VariacaoProduto,
     WhatsappConfig,
 )
@@ -3184,4 +3190,545 @@ def usuario_principal_view(request, conta_id):
     perfil.save(update_fields=["whatsapp_principal_origem"])
     messages.success(request, "WhatsApp principal atualizado.")
     return redirect("core:usuarios")
+
+
+# ===========================================================================
+# Loja do Clube (loja oficial: uniformes, lenços etc.) — independente da
+# lojinha de evento. Cadastro (Diretor) + vitrine com carrinho na sessão +
+# pagamento simulado (Pix/cartão), igual à lojinha do evento.
+# ===========================================================================
+
+# --- Cadastro de produtos (grupos + variações) -----------------------------
+def _variacao_loja_vazia(vidx):
+    return {"idx": str(vidx), "id": "", "nome": "", "valor_raw": "",
+            "estoque_raw": "", "obrig": False}
+
+
+def _grupo_loja_vazio(gidx):
+    return {"idx": str(gidx), "id": "", "nome": "", "modo": "itens",
+            "obrig": False, "orient": "", "linhas": [_variacao_loja_vazia(0)]}
+
+
+def _parse_grupos_loja(request, composto, controla):
+    """Lê os grupos e suas variações do POST → (grupos_data, erros). Não salva.
+
+    Para produto simples (não composto), consolida tudo num único grupo padrão.
+    """
+    grupos = []
+    erros = []
+    total_vars = 0
+    for gidx in request.POST.getlist("grupo_idx"):
+        gnome = (request.POST.get(f"grupo_nome_{gidx}") or "").strip()
+        gmodo = request.POST.get(f"grupo_modo_{gidx}") or "itens"
+        if gmodo not in ("unica", "itens"):
+            gmodo = "itens"
+        gobrig = bool(request.POST.get(f"grupo_obrig_{gidx}"))
+        gorient = (request.POST.get(f"grupo_orient_{gidx}") or "").strip()
+        gid = request.POST.get(f"grupo_id_{gidx}") or ""
+        linhas = []
+        for vidx in request.POST.getlist(f"var_idx_{gidx}"):
+            nome = (request.POST.get(f"var_nome_{gidx}_{vidx}") or "").strip()
+            valor_raw = (request.POST.get(f"var_valor_{gidx}_{vidx}") or "").strip()
+            estoque_raw = (request.POST.get(f"var_estoque_{gidx}_{vidx}") or "").strip()
+            vobrig = bool(request.POST.get(f"var_obrig_{gidx}_{vidx}"))
+            vid = request.POST.get(f"var_id_{gidx}_{vidx}") or ""
+            if not nome and not valor_raw:
+                continue  # linha em branco
+            valor = None
+            try:
+                valor = Decimal(valor_raw.replace(",", "."))
+                if valor < 0:
+                    raise InvalidOperation
+            except (InvalidOperation, ValueError):
+                erros.append(f"Preço inválido na variação “{nome or 'sem nome'}”.")
+            try:
+                estoque = int(estoque_raw) if (controla and estoque_raw) else 0
+                estoque = max(estoque, 0)
+            except ValueError:
+                estoque = 0
+            linhas.append({
+                "idx": str(vidx), "id": vid, "nome": nome, "valor": valor,
+                "valor_raw": valor_raw, "estoque": estoque,
+                "estoque_raw": estoque_raw, "obrig": vobrig,
+            })
+        if not linhas:
+            continue  # grupo sem variações é ignorado
+        grupos.append({
+            "idx": str(gidx), "id": gid, "nome": gnome, "modo": gmodo,
+            "obrig": gobrig, "orient": gorient, "linhas": linhas,
+        })
+        total_vars += len(linhas)
+    if not composto and grupos:
+        # Produto simples: um único grupo, sem nome/obrigatoriedade de grupo.
+        grupos = grupos[:1]
+        grupos[0]["nome"] = ""
+        grupos[0]["obrig"] = False
+        grupos[0]["orient"] = ""
+    if total_vars == 0:
+        erros.append("Adicione ao menos uma variação (com preço).")
+    return grupos, erros
+
+
+def _salvar_grupos_loja(produto, grupos_data):
+    """Cria/atualiza grupos e variações; remove os que não vieram."""
+    grupos_vistos = []
+    for gi, g in enumerate(grupos_data):
+        grp = None
+        if g["id"]:
+            grp = produto.grupos.filter(pk=g["id"]).first()
+        if grp is None:
+            grp = GrupoLoja(produto=produto)
+        grp.nome = g["nome"]
+        grp.modo = g["modo"]
+        grp.obrigatorio = g["obrig"]
+        grp.orientacao = g["orient"]
+        grp.ordem = gi
+        grp.save()
+        grupos_vistos.append(grp.id)
+        vars_vistos = []
+        for vi, ln in enumerate(g["linhas"]):
+            var = None
+            if ln["id"]:
+                var = grp.variacoes.filter(pk=ln["id"]).first()
+            if var is None:
+                var = VariacaoLoja(grupo=grp)
+            var.nome = ln["nome"]
+            var.valor = ln["valor"] or Decimal("0")
+            var.estoque = ln["estoque"]
+            var.obrigatorio = ln["obrig"]
+            var.ativo = True
+            var.ordem = vi
+            var.save()
+            vars_vistos.append(var.id)
+        grp.variacoes.exclude(id__in=vars_vistos).delete()
+    produto.grupos.exclude(id__in=grupos_vistos).delete()
+
+
+def _grupos_iniciais_loja(produto):
+    """Grupos no formato do template a partir do produto (edição/novo)."""
+    if produto is None:
+        return [_grupo_loja_vazio(0)]
+    grupos = []
+    for gi, g in enumerate(produto.grupos.all()):
+        linhas = [
+            {"idx": str(vi), "id": v.id, "nome": v.nome, "valor_raw": str(v.valor),
+             "estoque_raw": str(v.estoque), "obrig": v.obrigatorio}
+            for vi, v in enumerate(g.variacoes.all())
+        ] or [_variacao_loja_vazia(0)]
+        grupos.append({
+            "idx": str(gi), "id": g.id, "nome": g.nome, "modo": g.modo,
+            "obrig": g.obrigatorio, "orient": g.orientacao, "linhas": linhas,
+        })
+    return grupos or [_grupo_loja_vazio(0)]
+
+
+def _grupos_do_post_loja(grupos_data):
+    """Grupos no formato do template a partir do POST (re-render com erro)."""
+    out = []
+    for gi, g in enumerate(grupos_data):
+        linhas = [
+            {"idx": str(vi), "id": ln["id"], "nome": ln["nome"],
+             "valor_raw": ln["valor_raw"], "estoque_raw": ln["estoque_raw"],
+             "obrig": ln["obrig"]}
+            for vi, ln in enumerate(g["linhas"])
+        ] or [_variacao_loja_vazia(0)]
+        out.append({
+            "idx": str(gi), "id": g["id"], "nome": g["nome"], "modo": g["modo"],
+            "obrig": g["obrig"], "orient": g["orient"], "linhas": linhas,
+        })
+    return out or [_grupo_loja_vazio(0)]
+
+
+def _produto_loja_form(request, produto):
+    """Cria ou edita um produto da loja (com grupos e variações)."""
+    if request.method == "POST":
+        form = ProdutoLojaForm(request.POST, request.FILES, instance=produto)
+        composto = bool(request.POST.get("composto"))
+        controla = bool(request.POST.get("controla_estoque"))
+        grupos_data, erros_var = _parse_grupos_loja(request, composto, controla)
+        if form.is_valid() and not erros_var:
+            with transaction.atomic():
+                prod = form.save(commit=False)
+                if produto is None:
+                    ultimo = ProdutoLoja.objects.order_by("-ordem").first()
+                    prod.ordem = (ultimo.ordem + 1) if ultimo else 0
+                prod.save()
+                _salvar_grupos_loja(prod, grupos_data)
+            messages.success(request, "Produto salvo.")
+            return redirect(reverse("core:loja") + "?aba=gerenciar")
+        messages.error(request, "Verifique os dados do produto e as variações.")
+        grupos = _grupos_do_post_loja(grupos_data)
+    else:
+        form = ProdutoLojaForm(instance=produto)
+        grupos = _grupos_iniciais_loja(produto)
+        erros_var = []
+
+    contexto = {
+        "form": form,
+        "produto": produto,
+        "grupos": grupos,
+        "grupo_modelo": _grupo_loja_vazio("__G__"),
+        "linha_modelo": _variacao_loja_vazia("__V__"),
+        "erros_var": erros_var,
+    }
+    return render(request, "core/loja_produto_form.html", contexto)
+
+
+@diretor_required
+def loja_produto_novo_view(request):
+    return _produto_loja_form(request, None)
+
+
+@diretor_required
+def loja_produto_editar_view(request, pk):
+    produto = get_object_or_404(ProdutoLoja, pk=pk)
+    return _produto_loja_form(request, produto)
+
+
+@diretor_required
+@require_POST
+def loja_produto_excluir_view(request, pk):
+    produto = ProdutoLoja.objects.filter(pk=pk).first()
+    if produto is not None:
+        produto.delete()
+        messages.success(request, "Produto removido.")
+    return redirect(reverse("core:loja") + "?aba=gerenciar")
+
+
+# --- Carrinho (sessão) e comprador -----------------------------------------
+def _aventureiros_do_usuario(user):
+    """Aventureiros ativos vinculados ao login (para 'para quem é a compra')."""
+    if not getattr(user, "is_authenticated", False):
+        return Aventureiro.objects.none()
+    return Aventureiro.objects.filter(usuario=user, ativo=True).order_by("nome_completo")
+
+
+def _comprador_padrao(user):
+    """Dados do comprador pré-preenchidos a partir do login."""
+    dados = {
+        "nome": (user.get_full_name() or user.username) if getattr(user, "is_authenticated", False) else "",
+        "whatsapp": "",
+        "email": (user.email or "") if getattr(user, "is_authenticated", False) else "",
+    }
+    if getattr(user, "is_authenticated", False):
+        av = Aventureiro.objects.filter(usuario=user).order_by("-criado_em").first()
+        if av:
+            dados["nome"] = av.resp_nome or dados["nome"]
+            dados["whatsapp"] = av.resp_whatsapp or ""
+    return dados
+
+
+def _loja_cart(request):
+    return request.session.get("loja_carrinho", [])
+
+
+def _loja_cart_save(request, cart):
+    request.session["loja_carrinho"] = cart
+    request.session.modified = True
+
+
+def _loja_cart_detalhado(request):
+    """Resolve o carrinho da sessão em kits (produto + itens) e o total.
+
+    Descarta silenciosamente itens/produtos que ficaram indisponíveis, reescrevendo
+    o carrinho — assim a seleção da pessoa é preservada enquanto for válida."""
+    cart = _loja_cart(request)
+    kits = []
+    total = Decimal("0")
+    novo = []
+    mudou = False
+    for entry in cart:
+        prod = (
+            ProdutoLoja.objects.filter(pk=entry.get("produto_id"), ativo=True)
+            .prefetch_related("grupos__variacoes").first()
+        )
+        if prod is None:
+            mudou = True
+            continue
+        aventureiro = None
+        if entry.get("aventureiro_id"):
+            aventureiro = Aventureiro.objects.filter(pk=entry["aventureiro_id"]).first()
+        variacoes = {v.id: v for g in prod.grupos.all() for v in g.variacoes.all() if v.ativo}
+        itens = []
+        itens_ok = []
+        subtotal = Decimal("0")
+        for it in entry.get("itens", []):
+            v = variacoes.get(it.get("variacao_id"))
+            try:
+                qtd = int(it.get("qtd") or 0)
+            except (TypeError, ValueError):
+                qtd = 0
+            if v is None or qtd <= 0:
+                mudou = True
+                continue
+            st = v.valor * qtd
+            subtotal += st
+            itens.append({"variacao": v, "grupo": v.grupo, "qtd": qtd, "subtotal": st})
+            itens_ok.append({"variacao_id": v.id, "qtd": qtd})
+        if not itens:
+            mudou = True
+            continue
+        total += subtotal
+        kits.append({
+            "index": len(kits), "produto": prod, "aventureiro": aventureiro,
+            "itens": itens, "subtotal": subtotal,
+        })
+        novo.append({
+            "produto_id": prod.id,
+            "aventureiro_id": aventureiro.id if aventureiro else None,
+            "itens": itens_ok,
+        })
+    if mudou:
+        _loja_cart_save(request, novo)
+    return kits, total
+
+
+# --- Telas da loja ---------------------------------------------------------
+@diretor_required
+def loja_view(request):
+    """Tela "Loja" (Diretor): abas Gerenciar (cadastro + compras) e Loja (vitrine
+    com carrinho). Por ora, só o Diretor vê o menu; a vitrine já é @login_required
+    para quando abrirmos aos responsáveis."""
+    produtos = list(
+        ProdutoLoja.objects.prefetch_related("grupos__variacoes").all()
+    )
+    compras = list(CompraLoja.objects.prefetch_related("itens").all()[:100])
+    kits, total = _loja_cart_detalhado(request)
+    contexto = {
+        "produtos": produtos,
+        "produtos_ativos": [p for p in produtos if p.ativo],
+        "compras": compras,
+        "cart_kits": kits,
+        "cart_total": total,
+        "comprador": _comprador_padrao(request.user),
+        "formas_pagamento": FORMAS_PAGAMENTO_ONLINE,
+        "aba": request.GET.get("aba", "gerenciar"),
+    }
+    return render(request, "core/loja.html", contexto)
+
+
+@login_required
+def loja_produto_view(request, pk):
+    """Página de um produto na vitrine: configurar (tamanhos/itens) e adicionar ao
+    carrinho. Mostra o seletor de aventureiro quando o login tem mais de um."""
+    produto = get_object_or_404(
+        ProdutoLoja.objects.prefetch_related("grupos__variacoes"), pk=pk, ativo=True
+    )
+    aventureiros = list(_aventureiros_do_usuario(request.user))
+    contexto = {
+        "produto": produto,
+        "grupos": list(produto.grupos.all()),
+        "aventureiros": aventureiros,
+    }
+    return render(request, "core/loja_produto.html", contexto)
+
+
+@login_required
+@require_POST
+def loja_carrinho_add_view(request):
+    """Adiciona um produto configurado ao carrinho (sessão)."""
+    produto = get_object_or_404(
+        ProdutoLoja.objects.prefetch_related("grupos__variacoes"),
+        pk=request.POST.get("produto_id"), ativo=True,
+    )
+    aventureiro = None
+    av_id = request.POST.get("aventureiro_id") or ""
+    if av_id:
+        aventureiro = _aventureiros_do_usuario(request.user).filter(pk=av_id).first()
+
+    itens = []
+    for g in produto.grupos.all():
+        ativos = [v for v in g.variacoes.all() if v.ativo]
+        if g.modo == "unica":
+            sel = request.POST.get(f"grupo_{g.id}") or ""
+            v = next((x for x in ativos if str(x.id) == sel), None)
+            if v is not None:
+                itens.append((v, 1))
+        else:
+            for v in ativos:
+                try:
+                    qtd = int(request.POST.get(f"item_{v.id}") or 0)
+                except (TypeError, ValueError):
+                    qtd = 0
+                if qtd > 0:
+                    itens.append((v, qtd))
+
+    if not itens:
+        messages.error(request, "Escolha ao menos uma opção para adicionar.")
+        return redirect("core:loja_produto", pk=produto.id)
+
+    erros = []
+    for v, qtd in itens:
+        if produto.controla_estoque and qtd > v.estoque:
+            erros.append(f"Estoque insuficiente para {v.rotulo} ({v.estoque} disponível).")
+    if erros:
+        for e in erros:
+            messages.error(request, e)
+        return redirect("core:loja_produto", pk=produto.id)
+
+    cart = _loja_cart(request)
+    cart.append({
+        "produto_id": produto.id,
+        "aventureiro_id": aventureiro.id if aventureiro else None,
+        "itens": [{"variacao_id": v.id, "qtd": qtd} for v, qtd in itens],
+    })
+    _loja_cart_save(request, cart)
+    messages.success(request, f"“{produto.nome}” foi adicionado ao carrinho.")
+    return redirect(reverse("core:loja") + "?aba=loja#carrinho")
+
+
+@login_required
+@require_POST
+def loja_carrinho_remover_view(request):
+    """Remove um kit do carrinho pelo índice."""
+    try:
+        idx = int(request.POST.get("idx"))
+    except (TypeError, ValueError):
+        idx = -1
+    cart = _loja_cart(request)
+    if 0 <= idx < len(cart):
+        cart.pop(idx)
+        _loja_cart_save(request, cart)
+        messages.success(request, "Item removido do carrinho.")
+    return redirect(reverse("core:loja") + "?aba=loja#carrinho")
+
+
+@login_required
+@require_POST
+def loja_finalizar_view(request):
+    """Valida carrinho + dados do comprador + forma e leva ao pagamento."""
+    kits, total = _loja_cart_detalhado(request)
+    comprador = {
+        "nome": (request.POST.get("comprador_nome") or "").strip(),
+        "whatsapp": (request.POST.get("comprador_whatsapp") or "").strip(),
+        "email": (request.POST.get("comprador_email") or "").strip(),
+    }
+    forma = request.POST.get("forma_pagamento") or ""
+    erros = []
+    if not kits:
+        erros.append("Seu carrinho está vazio.")
+    if not comprador["nome"]:
+        erros.append("Informe o nome do comprador.")
+    if not comprador["whatsapp"]:
+        erros.append("Informe o WhatsApp para contato.")
+    if forma not in dict(FORMAS_PAGAMENTO_ONLINE):
+        erros.append("Escolha a forma de pagamento (Pix ou cartão de crédito).")
+    if erros:
+        for e in erros:
+            messages.error(request, e)
+        return redirect(reverse("core:loja") + "?aba=loja#carrinho")
+    request.session["loja_clube_checkout"] = {"comprador": comprador, "forma": forma}
+    return redirect("core:loja_pagamento")
+
+
+def _criar_compra_loja(usuario, kits, comprador, forma):
+    """Cria a CompraLoja + itens e baixa o estoque. Retorna a compra."""
+    compra = CompraLoja(
+        usuario=usuario if getattr(usuario, "is_authenticated", False) else None,
+        comprador_nome=comprador.get("nome", ""),
+        comprador_whatsapp=comprador.get("whatsapp", ""),
+        comprador_email=comprador.get("email", ""),
+        codigo=CompraLoja.gerar_codigo_unico(),
+        status="confirmado",
+        forma_pagamento=forma,
+    )
+    total = Decimal("0")
+    itens_obj = []
+    for ki, kit in enumerate(kits):
+        prod = kit["produto"]
+        av = kit["aventureiro"]
+        for it in kit["itens"]:
+            v = it["variacao"]
+            qtd = it["qtd"]
+            st = it["subtotal"]
+            total += st
+            itens_obj.append(ItemCompraLoja(
+                produto=prod, variacao=v, aventureiro=av,
+                produto_nome=prod.nome, grupo_nome=v.grupo.nome,
+                variacao_nome=v.nome,
+                aventureiro_nome=av.nome_completo if av else "",
+                quantidade=qtd, valor_unitario=v.valor, valor_total=st, kit=ki,
+            ))
+            if prod.controla_estoque:
+                VariacaoLoja.objects.filter(pk=v.id).update(estoque=F("estoque") - qtd)
+    compra.valor_total = total
+    compra.save()
+    for item in itens_obj:
+        item.compra = compra
+        item.save()
+    return compra
+
+
+@login_required
+def loja_pagamento_view(request):
+    """Tela de pagamento (SIMULADA) da compra da loja. Cria a compra só após a
+    aprovação (o carrinho fica na sessão até lá). Espelha a lojinha do evento."""
+    kits, total = _loja_cart_detalhado(request)
+    dados = request.session.get("loja_clube_checkout")
+    if not kits or not dados:
+        return redirect(reverse("core:loja") + "?aba=loja")
+    comprador = dados["comprador"]
+    forma = dados["forma"]
+
+    if request.method == "POST":
+        erros = []
+        for kit in kits:
+            for it in kit["itens"]:
+                v = it["variacao"]
+                if v.grupo.produto.controla_estoque and it["qtd"] > v.estoque:
+                    erros.append(f"Estoque insuficiente para {v.rotulo}.")
+        if erros:
+            request.session.pop("loja_clube_checkout", None)
+            for e in erros:
+                messages.error(request, e)
+            messages.error(request, "Refaça a compra, por favor.")
+            return redirect(reverse("core:loja") + "?aba=loja")
+        with transaction.atomic():
+            compra = _criar_compra_loja(request.user, kits, comprador, forma)
+        request.session.pop("loja_clube_checkout", None)
+        _loja_cart_save(request, [])
+        request.session["loja_compra_codigo"] = compra.codigo
+        messages.success(request, "Pagamento aprovado! Compra confirmada.")
+        return redirect("core:loja_sucesso")
+
+    forma_nome = dict(FORMAS_PAGAMENTO_ONLINE).get(forma, forma)
+    contexto = {
+        "kits": kits, "total": total, "comprador": comprador,
+        "forma": forma, "forma_nome": forma_nome,
+    }
+    if forma == "pix":
+        contexto["qr_svg"] = _qr_svg(f"LOJA-{total}")
+        contexto["pix_codigo"] = _pix_copia_cola(total, "LC000")
+    return render(request, "core/loja_pagamento.html", contexto)
+
+
+@login_required
+def loja_sucesso_view(request):
+    """Confirmação da compra (código + itens). Pagamento simulado."""
+    codigo = request.session.get("loja_compra_codigo")
+    compra = (
+        CompraLoja.objects.prefetch_related("itens").filter(codigo=codigo).first()
+        if codigo else None
+    )
+    if compra is None:
+        return redirect("core:loja")
+    return render(request, "core/loja_sucesso.html", {"compra": compra})
+
+
+@diretor_required
+@require_POST
+def loja_compra_cancelar_view(request, compra_id):
+    """Cancela uma compra (Diretor) e devolve os itens ao estoque."""
+    compra = get_object_or_404(CompraLoja, pk=compra_id)
+    if compra.status != "cancelado":
+        with transaction.atomic():
+            for item in compra.itens.all():
+                if item.variacao_id and item.variacao.grupo.produto.controla_estoque:
+                    VariacaoLoja.objects.filter(pk=item.variacao_id).update(
+                        estoque=F("estoque") + item.quantidade
+                    )
+            compra.status = "cancelado"
+            compra.save(update_fields=["status"])
+        messages.success(request, "Compra cancelada.")
+    return redirect(reverse("core:loja") + "?aba=gerenciar")
 

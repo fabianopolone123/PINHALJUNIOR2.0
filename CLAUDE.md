@@ -9,9 +9,12 @@ Sistema web do **Clube de Aventureiros Pinhal Júnior** (Django). Já possui aut
 cadastro de conta e de aventureiros (com ficha médica e autorização de imagem), área interna
 "Meus Dados", a tela "Usuários" (vínculos familiares) e um **módulo de Eventos** completo: evento
 simples e **evento complexo** com inscrições (Fase 2), lojinha e **PDV/balcão** com operadores
-(Fase 4). Também há o módulo **Presença** e o módulo **WhatsApp** (integração com a API da W-API —
-configurar a instância e enviar mensagens; só Diretor). **Próximo passo: Fase 5 (Financeiro/gráficos)**
-— ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
+(Fase 4). Também há o módulo **Presença**, o módulo **WhatsApp** (integração com a API da W-API —
+configurar a instância e enviar mensagens; só Diretor) e a **Loja do Clube** (loja oficial de uniformes/
+lenços, independente da lojinha de evento; cadastro de produtos com **grupos/variações** + vitrine com
+**carrinho** e pagamento simulado; só Diretor por ora). O clube tem **3 áreas financeiras**: eventos (feito),
+**mensalidades** (a fazer) e **loja** (base feita). **Próximos:** mensalidades e um Financeiro geral
+consolidando as três — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
 
 ## Stack
 - Django 5.2 / Python 3.10+ · SQLite · Pillow (foto 3x4)
@@ -41,6 +44,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** (Diretor): `/presenca/`, `/presenca/<id>/`, `/presenca/<id>/marcar/`
 - **WhatsApp** (Diretor): `/whatsapp/` (config W-API + envio), `/whatsapp/config/`, `/whatsapp/enviar/`
+- **Loja do Clube** (Diretor no menu; vitrine/carrinho `@login_required`): `/loja/` (abas Gerenciar/Loja),
+  `/loja/produto/novo|<id>/editar|<id>/excluir/`, `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`,
+  `/loja/finalizar|pagamento|sucesso/`, `/loja/compra/<id>/cancelar/`
 - `/admin/`
 
 ## Models (`core/models.py`)
@@ -50,9 +56,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
   `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`.
 - **WhatsApp**: `WhatsappConfig` (singleton; ID/token/URL base da W-API) — módulo WhatsApp (só Diretor).
+- **Loja do Clube**: `ProdutoLoja` → `GrupoLoja` → `VariacaoLoja` (produto composto: grupos "escolha única"/
+  "itens", com obrigatório + orientação) e `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc.,
+  a um aventureiro; `kit` agrupa itens de um mesmo uniforme). Pagamento simulado.
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0020`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0021`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

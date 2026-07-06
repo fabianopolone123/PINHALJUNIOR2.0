@@ -1,0 +1,25 @@
+{% comment %}
+Um grupo de variações de um produto da loja. Recebe `g` (idx, id, nome, modo,
+obrig, orient, linhas). O cabeçalho do grupo (nome/modo/obrigatório/orientação)
+só aparece em produto composto (classe `grupos-only`, escondida quando simples).
+{% endcomment %}
+<div class="loja-grupo" data-gidx="{{ g.idx }}" data-modo="{{ g.modo }}">
+    <input type="hidden" name="grupo_idx" value="{{ g.idx }}">
+    <input type="hidden" name="grupo_id_{{ g.idx }}" value="{{ g.id }}">
+
+    <div class="loja-grupo-cab grupos-only">
+        <input type="text" name="grupo_nome_{{ g.idx }}" class="campo-input loja-grupo-nome" placeholder="Nome do grupo (ex.: Camiseta, Acessórios)" value="{{ g.nome }}">
+        <select name="grupo_modo_{{ g.idx }}" class="campo-select loja-grupo-modo">
+            <option value="unica"{% if g.modo == 'unica' %} selected{% endif %}>Escolha única (1 opção da lista)</option>
+            <option value="itens"{% if g.modo == 'itens' %} selected{% endif %}>Itens (vários, cada um com quantidade)</option>
+        </select>
+        <label class="loja-grupo-obrig"><input type="checkbox" name="grupo_obrig_{{ g.idx }}"{% if g.obrig %} checked{% endif %}> Obrigatório</label>
+        <button type="button" class="part-remover loja-grupo-remover" aria-label="Remover grupo">🗑️</button>
+    </div>
+    <textarea name="grupo_orient_{{ g.idx }}" class="campo-input campo-textarea loja-grupo-orient grupos-only" rows="2" placeholder="Orientação para quem compra (opcional). Ex.: escolha 1 tamanho de camiseta.">{{ g.orient }}</textarea>
+
+    <div class="loja-grupo-vars">
+        {% for ln in g.linhas %}{% include "core/_loja_var_linha.html" with g_idx=g.idx ln=ln %}{% endfor %}
+    </div>
+    <button type="button" class="btn-secundario btn-acao-pequeno loja-add-var" data-gidx="{{ g.idx }}">➕ Adicionar opção</button>
+</div>

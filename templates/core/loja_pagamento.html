@@ -1,0 +1,111 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Pagamento - Loja</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/loja.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Pagamento</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <a href="{% url 'core:loja' %}?aba=loja#carrinho" class="voltar-link">← Voltar e ajustar o carrinho</a>
+
+                <section class="card evento-publico-card loja-pagamento-card">
+                    <h1 class="evento-publico-titulo">Pagamento</h1>
+                    <p class="evento-publico-desc">Loja do Clube — Pinhal Júnior</p>
+
+                    <div class="pagamento-resumo">
+                        <ul class="pagamento-itens">
+                            {% for kit in kits %}
+                            {% for it in kit.itens %}
+                            <li>
+                                <span class="pag-item-qtd">{{ it.qtd }}×</span>
+                                <span class="pag-item-nome">{{ kit.produto.nome }} <small>({% if it.grupo.nome %}{{ it.grupo.nome }}: {% endif %}{{ it.variacao.rotulo }})</small>{% if kit.aventureiro %} <small class="loja-para">→ {{ kit.aventureiro.nome_completo }}</small>{% endif %}</span>
+                                <span class="pag-item-valor">R$ {{ it.subtotal|moeda }}</span>
+                            </li>
+                            {% endfor %}
+                            {% endfor %}
+                        </ul>
+                        <p class="pagamento-total">Total a pagar: <strong>R$ {{ total|moeda }}</strong></p>
+                    </div>
+
+                    {% if forma == "pix" %}
+                    <section class="pagamento-pix">
+                        <h2 class="evento-publico-h2">Pague com Pix</h2>
+                        <p class="pagamento-instrucao">Abra o app do seu banco, escolha <strong>Pix &gt; Ler QR Code</strong> e aponte a câmera. Ou use o código <em>copia e cola</em>.</p>
+                        <div class="pix-qr">{{ qr_svg }}</div>
+                        <label class="pix-copia-rotulo" for="pixCodigo">Pix copia e cola</label>
+                        <div class="pix-copia">
+                            <input type="text" id="pixCodigo" class="pix-copia-input selecionavel" value="{{ pix_codigo }}" readonly>
+                            <button type="button" class="btn-secundario" id="btnCopiarPix" data-target="pixCodigo">Copiar</button>
+                        </div>
+                    </section>
+                    {% else %}
+                    <section class="pagamento-cartao">
+                        <h2 class="evento-publico-h2">Pague com cartão de crédito</h2>
+                        <div class="cartao-mock" aria-hidden="true">
+                            <span class="cartao-chip"></span>
+                            <span class="cartao-numero">•••• •••• •••• ••••</span>
+                            <span class="cartao-bandeira">💳</span>
+                        </div>
+                        <p class="pagamento-instrucao">Em produção, você será redirecionado com segurança ao <strong>Mercado Pago</strong> para concluir o pagamento com cartão. (Integração a implementar.)</p>
+                    </section>
+                    {% endif %}
+
+                    <p class="painel-nota pagamento-simulado">🔒 Ambiente de demonstração: o pagamento é <strong>simulado</strong>. Clique abaixo para simular a aprovação.</p>
+
+                    <form method="post" action="{% url 'core:loja_pagamento' %}" class="pagamento-form">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-acao pagamento-confirmar">
+                            <span aria-hidden="true">✅</span> Simular pagamento aprovado
+                        </button>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/evento_pagamento.js' %}"></script>
+</body>
+</html>

@@ -4,19 +4,24 @@ from .models import (
     Aventureiro,
     AutorizacaoImagem,
     CampoInscricao,
+    CompraLoja,
     CupomDesconto,
     CustoEvento,
     Evento,
     FaixaEtariaPreco,
     FichaMedica,
+    GrupoLoja,
     Inscricao,
+    ItemCompraLoja,
     ItemPedidoLoja,
     OperadorEvento,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
     ProdutoEvento,
+    ProdutoLoja,
     RespostaInscricao,
+    VariacaoLoja,
     VariacaoProduto,
 )
 
@@ -130,3 +135,43 @@ class PedidoLojaAdmin(admin.ModelAdmin):
     search_fields = ("codigo", "comprador_nome", "evento__nome")
     list_filter = ("evento", "status", "origem", "forma_pagamento")
     inlines = [ItemPedidoLojaInline]
+
+
+# --- Loja do Clube (loja oficial) ---
+class VariacaoLojaInline(admin.TabularInline):
+    model = VariacaoLoja
+    extra = 1
+
+
+@admin.register(GrupoLoja)
+class GrupoLojaAdmin(admin.ModelAdmin):
+    list_display = ("nome", "produto", "modo", "obrigatorio", "ordem")
+    search_fields = ("nome", "produto__nome")
+    list_filter = ("modo", "obrigatorio")
+    inlines = [VariacaoLojaInline]
+
+
+class GrupoLojaInline(admin.TabularInline):
+    model = GrupoLoja
+    extra = 1
+
+
+@admin.register(ProdutoLoja)
+class ProdutoLojaAdmin(admin.ModelAdmin):
+    list_display = ("nome", "composto", "controla_estoque", "ativo", "ordem")
+    search_fields = ("nome",)
+    list_filter = ("composto", "ativo")
+    inlines = [GrupoLojaInline]
+
+
+class ItemCompraLojaInline(admin.TabularInline):
+    model = ItemCompraLoja
+    extra = 0
+
+
+@admin.register(CompraLoja)
+class CompraLojaAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "comprador_nome", "forma_pagamento", "status", "valor_total", "criado_em")
+    search_fields = ("codigo", "comprador_nome")
+    list_filter = ("status", "forma_pagamento")
+    inlines = [ItemCompraLojaInline]

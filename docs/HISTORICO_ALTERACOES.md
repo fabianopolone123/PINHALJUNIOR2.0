@@ -22,6 +22,57 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Loja do Clube (loja oficial): cadastro, vitrine com carrinho e pagamento simulado
+
+### Resumo
+Novo módulo **Loja do Clube** (loja oficial — uniformes, lenços etc.), **independente** da lojinha de
+evento e primeira das 3 áreas financeiras do clube (eventos ✅, mensalidades ⏳, loja ▶). Item novo
+**"Loja"** (🛍️) no menu, **só Diretor** por ora. Tela com **2 abas**: **Gerenciar** (cadastro de produtos +
+compras recentes) e **Loja** (vitrine com carrinho). Estrutura de produto em 3 níveis **Produto → Grupos →
+Variações**: produto **simples** (uma lista de opções, como no evento) ou **composto** (vários grupos —
+ex.: Uniforme de Gala = Camiseta [escolha única] + Calça/Saia [escolha única] + Acessórios [itens]). Cada
+grupo é "escolha única" ou "itens", com **obrigatório** sim/não e **orientação**; itens podem ser
+**obrigatórios** (aviso **soft** na vitrine — avisa o que falta e pergunta se já tem, mas **não bloqueia**).
+**Carrinho na sessão** (não perde a seleção ao recarregar; o configurador ainda salva rascunho em
+localStorage). A compra fica **vinculada ao login** e, opcional, a um **aventureiro** (1 = automático; 2+ =
+escolher — útil pro bordado do Kit Nome). **Pagamento simulado** (Pix com QR/copia-e-cola + cartão com aviso
+de Mercado Pago), reaproveitando os helpers da lojinha de evento; a `CompraLoja` só é criada após a
+aprovação. Diretor pode **cancelar** compra (devolve estoque). Referência: produto 7 ("Uniforme de Gala")
+do sistema antigo (flag `permite_multiplas_variacoes` + `obrigatoria_compra`).
+
+### Arquivos criados/alterados
+- `core/models.py`: novos modelos `ProdutoLoja`, `GrupoLoja`, `VariacaoLoja`, `CompraLoja`, `ItemCompraLoja`
+  + `MODO_GRUPO_CHOICES`. Migration **0021**.
+- `core/forms.py`: `ProdutoLojaForm`.
+- `core/views.py`: bloco da Loja (cadastro de grupos/variações, vitrine, carrinho na sessão, finalizar,
+  pagamento simulado, sucesso, cancelar) + helpers (`_parse_grupos_loja`, `_salvar_grupos_loja`,
+  `_loja_cart_detalhado`, `_criar_compra_loja`, `_aventureiros_do_usuario`, `_comprador_padrao` etc.).
+  Reaproveita `_qr_svg`/`_pix_copia_cola`/`FORMAS_PAGAMENTO_ONLINE`.
+- `core/urls.py`: rotas `loja`, `loja_produto`, `loja_produto_novo/editar/excluir`, `loja_carrinho_add`,
+  `loja_carrinho_remover`, `loja_finalizar`, `loja_pagamento`, `loja_sucesso`, `loja_compra_cancelar`.
+- `core/admin.py`: `ProdutoLoja`/`GrupoLoja`/`CompraLoja` (com inlines).
+- `templates/core/_menu.html`: item "Loja" (🛍️, só Diretor).
+- Templates novos: `loja.html`, `loja_produto_form.html`, `loja_produto.html`, `loja_pagamento.html`,
+  `loja_sucesso.html`, `_loja_grupo.html`, `_loja_var_linha.html`.
+- Estáticos novos: `static/css/loja.css`; `static/js/loja.js`, `loja_produto_form.js`, `loja_produto.js`.
+
+### Decisões tomadas
+- Modelos **novos e independentes** dos da lojinha de evento (sem PDV/balcão/check-in nem FK de evento);
+  nomes distintos (`CompraLoja`/`ItemCompraLoja`) para não colidir com `PedidoLoja`/`ItemPedidoLoja`.
+- Item obrigatório é **aviso soft** (client-side, modal de confirmação) — a pessoa pode já ter o item.
+- **Carrinho na sessão** (chave `loja_carrinho`); checkout na sessão (chave `loja_clube_checkout`, distinta
+  da `loja_checkout` do evento). `CompraLoja` só nasce após a aprovação (sem "pendente" no banco).
+- Menu **só para Diretor** por ora; as views da vitrine já são `@login_required` para abrir a responsáveis
+  depois sem retrabalho.
+
+### Pendências
+- Abrir a loja aos **responsáveis** (mostrar o item no menu para eles) — hoje só Diretor.
+- Pagamento **real** (gateway) — base pronta e simulada.
+- Migrar o **Uniforme de Gala** e demais produtos reais do sistema antigo.
+- **Financeiro geral** consolidando eventos + mensalidades + loja (futuro); **mensalidades** (a fazer).
+
+---
+
 ## 2026-07-05 - Login por AJAX (senha errada só repete o toast) + componente genérico ajax_form.js
 
 ### Resumo

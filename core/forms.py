@@ -20,6 +20,7 @@ from .models import (
     FaixaEtariaPreco,
     FichaMedica,
     ProdutoEvento,
+    ProdutoLoja,
 )
 
 
@@ -379,6 +380,24 @@ class ProdutoEventoForm(EstiloFormMixin, forms.ModelForm):
     class Meta:
         model = ProdutoEvento
         fields = ["nome", "descricao", "foto", "controla_estoque", "ativo"]
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 2}),
+            "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nome"].required = True
+        self._aplicar_estilo()
+
+
+class ProdutoLojaForm(EstiloFormMixin, forms.ModelForm):
+    """Dados básicos de um produto da loja do clube. Os grupos e variações são
+    tratados na view (linhas repetíveis, como na lojinha do evento)."""
+
+    class Meta:
+        model = ProdutoLoja
+        fields = ["nome", "descricao", "foto", "composto", "controla_estoque", "ativo"]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 2}),
             "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
