@@ -22,6 +22,34 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Financeiro: ajustes (custos importados, KPI, cards, custo em modal, máscara R$, extrato)
+
+### Resumo
+Vários ajustes no Financeiro: (1) KPI "Resultado" → **"Resultado líquido"**. (2) **Importados os custos do
+clube** do sistema antigo (`financeirocomprovante`: 14 lançamentos, R$ 5.066,60, com comprovantes) — antes
+estava zerado. (3) **Donut** de entradas por fonte **centralizado** no card e os dois cards de gráfico com a
+**mesma altura**; nos cards de resumo por fonte, os botões "Ver …" ficam **fixos no rodapé**. (4) **Custos do
+clube**: a aba agora tem só o botão **"➕ Lançar custo"** que abre um **modal**; sem campo de data (usa a data
+do lançamento); permite **vários comprovantes** por custo (novo modelo `ComprovanteCustoClube`). (5) **Máscara
+de moeda pt-BR** (`moeda_br.js`): campos de valor formatam `1.234,56` ao digitar e enviam o valor limpo —
+aplicada ao custo do clube e aos valores de mensalidade (padrão documentado no CLAUDE.md). (6) **Corrigido o
+extrato**: os **filtros por fonte** (chips) e a **busca** não escondiam nada — `.fin-lanc` tinha `display:flex`
+sobrepondo o atributo `hidden`; corrigido com `.fin-lanc[hidden]{display:none}`.
+
+### Arquivos criados/alterados
+- `core/models.py`: `ComprovanteCustoClube` (mig. **0026**). `core/forms.py`: `CustoClubeForm` sem data/
+  comprovante único. `core/admin.py`: inline de comprovantes.
+- `core/views.py`: `custo_clube_novo_view` (data automática + múltiplos comprovantes); extrato usa 1º
+  comprovante.
+- `templates/core/financeiro.html`: KPI, custos via modal, comprovantes múltiplos; `mensalidades.html`: valores
+  com máscara. `static/js/moeda_br.js` (novo); `financeiro.js` (abre modal); `financeiro.css` (donut/alturas/
+  rodapé/`[hidden]`).
+
+### Pendências
+- Aplicar a máscara pt-BR também aos **preços de produto da loja** e **custos de evento** (ainda `type=number`).
+
+---
+
 ## 2026-07-05 - Módulo Financeiro geral (mensalidades + loja + eventos + custos do clube)
 
 ### Resumo

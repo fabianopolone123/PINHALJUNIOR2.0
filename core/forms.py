@@ -431,22 +431,18 @@ class CustoEventoForm(EstiloFormMixin, forms.ModelForm):
 
 
 class CustoClubeForm(EstiloFormMixin, forms.ModelForm):
-    """Custo/despesa geral do clube (com data e comprovante)."""
+    """Custo/despesa geral do clube. A data é a do lançamento (automática) e os
+    comprovantes (vários) são tratados na view."""
 
     class Meta:
         model = CustoClube
-        fields = ["nome", "descricao", "valor", "data", "comprovante"]
+        fields = ["nome", "descricao", "valor"]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 2}),
             "valor": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
-            "data": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "comprovante": forms.ClearableFileInput(
-                attrs={"accept": "image/*,application/pdf"}
-            ),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["nome"].required = True
-        self.fields["data"].input_formats = ["%Y-%m-%d"]
         self._aplicar_estilo()

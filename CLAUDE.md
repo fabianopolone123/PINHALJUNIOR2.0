@@ -68,11 +68,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão) e `Mensalidade` (aventureiro, ano, mês,
   tipo inscrição/mensalidade, valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/
   `mensalidade_desconto_pct`. Geração automática no cadastro.
-- **Financeiro**: `CustoClube` (nome, valor, data, comprovante) — gastos gerais do clube; o resto do
-  Financeiro é **consolidação** (lê mensalidades/loja/eventos, não cria modelo próprio).
+- **Financeiro**: `CustoClube` (nome, valor, data) + `ComprovanteCustoClube` (vários anexos por custo) —
+  gastos gerais do clube; o resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos, sem model
+  próprio).
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele).
-  (migrations até `0025`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0026`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`
@@ -90,6 +91,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - Parciais de template reutilizáveis: `_campo.html`, `_campo_check.html` (formulários) e `_dado.html`
   (rótulo+valor em "Meus Dados").
 - Painéis expansíveis usam `<details>/<summary>` nativos; fechar-ao-clicar-fora em `static/js/inicio.js`.
+- **Campos de valor (R$) usam máscara pt-BR** (`static/js/moeda_br.js`): input **texto** com
+  `data-moeda data-moeda-alvo="idOculto"` + um `<input type="hidden" id="idOculto" name="...">`. Enquanto
+  digita, mostra `1.234,56` e grava o valor limpo (`1234.56`) no oculto (enviado ao servidor — back-end não
+  muda). Aplicar isso a **todo** campo de valor novo. (Já aplicado no custo do clube e nos valores de
+  mensalidade; falta migrar preços de produto da loja e custos de evento, que ainda usam `type=number`.)
+- **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless
   (`--force-device-scale-factor=1`; o viewport mínimo do headless é ~484px).

@@ -74,7 +74,7 @@
                     <div class="card fin-kpi fin-kpi-resultado {% if resultado >= 0 %}pos{% else %}neg{% endif %}">
                         <span class="fin-kpi-icone" aria-hidden="true">{% if resultado >= 0 %}✅{% else %}⚠️{% endif %}</span>
                         <span class="fin-kpi-valor">R$ {{ resultado|moeda }}</span>
-                        <span class="fin-kpi-rotulo">Resultado · {% if resultado >= 0 %}Saldo positivo{% else %}Negativo{% endif %}</span>
+                        <span class="fin-kpi-rotulo">Resultado líquido{% if resultado < 0 %} (negativo){% endif %}</span>
                     </div>
                 </div>
 
@@ -196,25 +196,10 @@
 
                 <!-- ================= CUSTOS ================= -->
                 <section class="fin-painel" data-painel="custos"{% if aba != 'custos' %} hidden{% endif %}>
-                    <section class="card fin-custo-form-card">
-                        <h2 class="secao-titulo">Lançar custo do clube</h2>
-                        <p class="ajuda">Gastos do clube (compras, materiais, taxas…). Anexe o comprovante.</p>
-                        <form method="post" action="{% url 'core:custo_clube_novo' %}" enctype="multipart/form-data" class="evento-form fin-custo-form">
-                            {% csrf_token %}
-                            {% include "core/_campo.html" with campo=custo_form.nome %}
-                            <div class="form-linha">
-                                {% include "core/_campo.html" with campo=custo_form.valor %}
-                                {% include "core/_campo.html" with campo=custo_form.data %}
-                            </div>
-                            {% include "core/_campo.html" with campo=custo_form.descricao %}
-                            {% include "core/_campo.html" with campo=custo_form.comprovante %}
-                            <div class="form-acoes">
-                                <button type="submit" class="btn-acao"><span aria-hidden="true">➕</span> Lançar custo</button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <div class="secao-cabecalho"><h2 class="secao-titulo">Custos lançados</h2></div>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Custos do clube</h2>
+                        <button type="button" class="btn-acao" id="btnLancarCusto"><span aria-hidden="true">➕</span> Lançar custo</button>
+                    </div>
                     {% if custos_clube %}
                     <div class="fin-custos-lista">
                         {% for c in custos_clube %}
@@ -223,10 +208,14 @@
                                 <strong class="fin-custo-nome">{{ c.nome }}</strong>
                                 <span class="fin-custo-data">{{ c.data|date:"d/m/Y" }}</span>
                                 {% if c.descricao %}<p class="fin-custo-desc">{{ c.descricao }}</p>{% endif %}
+                                {% if c.comprovantes.all %}
+                                <div class="fin-custo-anexos">
+                                    {% for p in c.comprovantes.all %}<a href="{{ p.arquivo.url }}" target="_blank" class="fin-anexo-link">📎 Comprovante {{ forloop.counter }}</a>{% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             <span class="fin-custo-valor saida">− R$ {{ c.valor|moeda }}</span>
                             <div class="fin-custo-acoes">
-                                {% if c.comprovante %}<a href="{{ c.comprovante.url }}" target="_blank" class="btn-secundario btn-acao-pequeno">📎 Comprovante</a>{% endif %}
                                 <form method="post" action="{% url 'core:custo_clube_excluir' c.id %}" class="fin-form-excluir" data-confirmar="Remover o custo “{{ c.nome }}”?">
                                     {% csrf_token %}
                                     <button type="submit" class="btn-excluir-evento">🗑️</button>
@@ -236,14 +225,57 @@
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="painel-nota">Nenhum custo do clube lançado ainda.</p>
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">🧰</span>
+                        <h2 class="card-titulo">Nenhum custo do clube lançado</h2>
+                        <p class="card-texto">Lance os gastos do clube (materiais, taxas, locações…) com o comprovante.</p>
+                        <button type="button" class="btn-acao" id="btnLancarCustoVazio"><span aria-hidden="true">➕</span> Lançar custo</button>
+                    </section>
                     {% endif %}
                 </section>
             </div>
         </main>
+
+        <!-- Modal: lançar custo do clube -->
+        <div class="modal-overlay" id="modalCusto" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalCustoTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalCustoTitulo">➕ Lançar custo do clube</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <form method="post" action="{% url 'core:custo_clube_novo' %}" enctype="multipart/form-data" class="evento-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="custoNome">Descrição do gasto <span class="obrigatorio">*</span></label>
+                            <input type="text" id="custoNome" name="nome" class="campo-input" placeholder="Ex.: Locação da chácara">
+                        </div>
+                        <div class="campo">
+                            <label for="custoValorVis">Valor (R$) <span class="obrigatorio">*</span></label>
+                            <input type="text" id="custoValorVis" class="campo-input" inputmode="decimal" placeholder="0,00" data-moeda data-moeda-alvo="custoValor">
+                            <input type="hidden" name="valor" id="custoValor">
+                        </div>
+                        <div class="campo">
+                            <label for="custoDesc">Observação <small class="ajuda">(opcional)</small></label>
+                            <textarea id="custoDesc" name="descricao" rows="2" class="campo-input campo-textarea"></textarea>
+                        </div>
+                        <div class="campo">
+                            <label for="custoComprovantes">Comprovantes <small class="ajuda">(pode anexar mais de um)</small></label>
+                            <input type="file" id="custoComprovantes" name="comprovantes" class="campo-file" accept="image/*,application/pdf" multiple>
+                        </div>
+                        <p class="ajuda">A data é a de hoje (lançamento).</p>
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Lançar custo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/moeda_br.js' %}"></script>
     <script src="{% static 'js/financeiro.js' %}"></script>
 </body>
 </html>

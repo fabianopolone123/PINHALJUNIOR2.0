@@ -48,6 +48,7 @@ from .models import (
     MESES_PT,
     Aventureiro,
     CompraLoja,
+    ComprovanteCustoClube,
     ConfigMensalidade,
     CupomDesconto,
     CustoClube,
@@ -4215,7 +4216,7 @@ def financeiro_view(request):
     inscricoes = list(Inscricao.objects.exclude(status="cancelada").select_related("evento"))
     pedidos_ev = list(PedidoLoja.objects.filter(status="confirmado").select_related("evento"))
     custos_ev = list(CustoEvento.objects.select_related("evento"))
-    custos_clube = list(CustoClube.objects.all())
+    custos_clube = list(CustoClube.objects.prefetch_related("comprovantes"))
 
     mens_recebido = sum((m.valor_pago or Decimal("0") for m in mens_pagas), Decimal("0"))
     mens_aberto = sum(
@@ -4267,9 +4268,10 @@ def financeiro_view(request):
                         "desc": f"{cu.evento.nome} — {cu.nome}", "valor": cu.valor,
                         "saida": True, "comprovante": (cu.comprovante.url if cu.comprovante else None)})
     for cc in custos_clube:
+        _prov = cc.comprovantes.all()
         extrato.append({"data": cc.data, "fonte": "custos", "tipo": "Custo do clube",
                         "desc": cc.nome, "valor": cc.valor, "saida": True,
-                        "comprovante": (cc.comprovante.url if cc.comprovante else None)})
+                        "comprovante": (_prov[0].arquivo.url if _prov else None)})
     extrato.sort(key=lambda e: (e["data"] or datetime.date.min), reverse=True)
 
     # Fluxo mensal do ano atual (entradas x saídas por mês)
@@ -4312,14 +4314,17 @@ def financeiro_view(request):
 @require_POST
 def custo_clube_novo_view(request):
     """Lança um custo/gasto do clube (com comprovante)."""
-    form = CustoClubeForm(request.POST, request.FILES)
+    form = CustoClubeForm(request.POST)
     if form.is_valid():
         custo = form.save(commit=False)
         custo.criado_por = request.user
+        custo.data = timezone.localdate()  # data do lançamento
         custo.save()
+        for arquivo in request.FILES.getlist("comprovantes"):
+            ComprovanteCustoClube.objects.create(custo=custo, arquivo=arquivo)
         messages.success(request, "Custo lançado.")
     else:
-        messages.error(request, "Verifique os dados do custo.")
+        messages.error(request, "Informe a descrição e um valor válido.")
     return redirect(reverse("core:financeiro") + "?aba=custos")
 
 

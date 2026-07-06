@@ -8,7 +8,11 @@ que **consolida mensalidades + loja + eventos** num só lugar. KPIs (Entradas/Sa
 (extrato consolidado único, cronológico, com **filtro por fonte** + busca, +verde/−vermelho e comprovantes) e
 **Custos do clube** (lançar gastos gerais com valor/data/**comprovante**, listar/remover). Modelo `CustoClube`
 (mig. **0025**); rotas `/financeiro/…`. Entradas = mensalidades pagas + loja + (inscrições + lojinha de
-eventos); Saídas = custos de evento + custos do clube. Antes: Mensalidades (dashboard mês a mês).
+eventos); Saídas = custos de evento + custos do clube. **Ajustes (2026-07-06):** KPI "Resultado líquido";
+**custos do clube importados** do antigo (14, R$ 5.066,60, com comprovantes); custo agora é lançado por
+**modal** (sem data, vários **comprovantes** — `ComprovanteCustoClube`, mig. **0026**); donut centralizado +
+cards de mesma altura + botões no rodapé; **máscara de moeda pt-BR** (`moeda_br.js`) nos valores; extrato com
+filtros/busca corrigidos. Antes: Mensalidades (dashboard mês a mês).
 
 **Anterior:** (**Mensalidades: dashboard mês a mês**): a tela de Mensalidades ganhou
 **abas** — **Resumo** (dashboard: **donut de taxa de pagamento**, **gráfico de barras mês a mês** recebido ×

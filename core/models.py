@@ -1651,3 +1651,22 @@ class CustoClube(models.Model):
 
     def __str__(self):
         return f"{self.nome} — R$ {self.valor}"
+
+
+class ComprovanteCustoClube(models.Model):
+    """Comprovante (anexo) de um custo do clube. Um custo pode ter vários."""
+
+    custo = models.ForeignKey(
+        CustoClube, on_delete=models.CASCADE, related_name="comprovantes",
+        verbose_name="Custo",
+    )
+    arquivo = models.FileField("Arquivo", upload_to="clube/custos/")
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Comprovante do custo"
+        verbose_name_plural = "Comprovantes do custo"
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"Comprovante de {self.custo.nome}"

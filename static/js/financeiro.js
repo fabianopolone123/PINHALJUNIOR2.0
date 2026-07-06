@@ -67,4 +67,26 @@
             e.preventDefault();
         }
     });
+
+    // Modal: lançar custo do clube (abre pelos botões; fechamento seguro).
+    var modal = document.getElementById("modalCusto");
+    if (modal) {
+        function abrir() { modal.hidden = false; }
+        function fechar() { modal.hidden = true; }
+        Array.prototype.forEach.call(document.querySelectorAll("#btnLancarCusto, #btnLancarCustoVazio"), function (b) {
+            b.addEventListener("click", abrir);
+        });
+        Array.prototype.forEach.call(modal.querySelectorAll("[data-fechar]"), function (el) {
+            el.addEventListener("click", fechar);
+        });
+        var fundoDown = false;
+        modal.addEventListener("mousedown", function (e) { fundoDown = e.target === modal; });
+        modal.addEventListener("click", function (e) {
+            if (e.target === modal && fundoDown) fechar();
+            fundoDown = false;
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && !modal.hidden) fechar();
+        });
+    }
 })();

@@ -5,6 +5,7 @@ from .models import (
     AutorizacaoImagem,
     CampoInscricao,
     CompraLoja,
+    ComprovanteCustoClube,
     ConfigMensalidade,
     CupomDesconto,
     CustoClube,
@@ -198,8 +199,14 @@ class ConfigMensalidadeAdmin(admin.ModelAdmin):
     list_display = ("valor_inscricao", "valor_mensalidade", "atualizado_em")
 
 
+class ComprovanteCustoClubeInline(admin.TabularInline):
+    model = ComprovanteCustoClube
+    extra = 1
+
+
 @admin.register(CustoClube)
 class CustoClubeAdmin(admin.ModelAdmin):
     list_display = ("nome", "valor", "data", "criado_por", "criado_em")
     search_fields = ("nome",)
     list_filter = ("data",)
+    inlines = [ComprovanteCustoClubeInline]

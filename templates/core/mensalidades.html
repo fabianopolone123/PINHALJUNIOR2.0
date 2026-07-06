@@ -279,10 +279,12 @@
                     <form method="post" action="{% url 'core:mensalidade_config' %}" class="mens-modal-form">
                         {% csrf_token %}
                         <label class="mens-editar-campo">Valor da inscrição (R$)
-                            <input type="number" step="0.01" min="0" name="valor_inscricao" value="{{ config.valor_inscricao|stringformat:'.2f' }}" class="mens-input-valor">
+                            <input type="text" inputmode="decimal" class="mens-input-valor" data-moeda data-moeda-alvo="mensInscricao" value="{{ config.valor_inscricao|stringformat:'.2f' }}">
+                            <input type="hidden" name="valor_inscricao" id="mensInscricao" value="{{ config.valor_inscricao|stringformat:'.2f' }}">
                         </label>
                         <label class="mens-editar-campo">Valor da mensalidade (R$)
-                            <input type="number" step="0.01" min="0" name="valor_mensalidade" value="{{ config.valor_mensalidade|stringformat:'.2f' }}" class="mens-input-valor">
+                            <input type="text" inputmode="decimal" class="mens-input-valor" data-moeda data-moeda-alvo="mensMensalidade" value="{{ config.valor_mensalidade|stringformat:'.2f' }}">
+                            <input type="hidden" name="valor_mensalidade" id="mensMensalidade" value="{{ config.valor_mensalidade|stringformat:'.2f' }}">
                         </label>
                         <small class="ajuda">Isso não altera cobranças já criadas. Para aplicar às cobranças em aberto, use “Reajustar mensalidades”.</small>
                         <div class="form-acoes">
@@ -351,6 +353,7 @@
     </div>
 
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/moeda_br.js' %}"></script>
     <script src="{% static 'js/mensalidades.js' %}"></script>
 </body>
 </html>
