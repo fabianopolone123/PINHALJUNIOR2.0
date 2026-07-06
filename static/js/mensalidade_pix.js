@@ -57,6 +57,16 @@
 
     function fechar() { modal.hidden = true; }
 
+    // Evita clique múltiplo em "Gerar cobrança" (cada clique geraria uma cobrança
+    // nova / chamada ao Mercado Pago). Desabilita o botão no primeiro submit.
+    var form = document.getElementById("cobrarForm");
+    if (form) {
+        form.addEventListener("submit", function () {
+            submit.disabled = true;
+            submit.textContent = "Gerando…";
+        });
+    }
+
     document.addEventListener("click", function (e) {
         var btn = e.target.closest(".mens-cobrar-btn");
         if (btn) abrir(btn);
