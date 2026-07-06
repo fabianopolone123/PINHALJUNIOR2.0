@@ -1648,47 +1648,73 @@ def evento_inscrever_view(request, pk):
         erros_part.extend(erros_cupom)
 
         if form.is_valid() and not erros_part and not erros_loja:
-            with transaction.atomic():
-                inscricao = Inscricao(
-                    evento=evento,
-                    usuario=request.user if request.user.is_authenticated else None,
-                    responsavel_nome=form.cleaned_data["responsavel_nome"],
-                    responsavel_whatsapp=form.cleaned_data["responsavel_whatsapp"],
-                    responsavel_email=form.cleaned_data["responsavel_email"],
-                    responsavel_cpf=form.cleaned_data["responsavel_cpf"],
-                    codigo=Inscricao.gerar_codigo_unico(),
-                    status="confirmada",
+            # Serializa tudo o que foi validado (responsável + participantes com
+            # preço já calculado/descontado + respostas + cupons + lojinha) para
+            # criar a inscrição agora (grátis/sem MP) ou na aprovação do Pix.
+            desc_por_p = {id(p): (c.codigo, d) for c, p, d in aplicados}
+            participantes_payload = []
+            for p, linha in dados:
+                cod, desc = desc_por_p.get(id(p), ("", Decimal("0")))
+                participantes_payload.append({
+                    "nome": p.nome, "idade": p.idade, "diretoria": p.eh_diretoria,
+                    "faixa_id": p.faixa_id, "valor": str(p.valor),
+                    "campos": [
+                        {"campo_id": c["campo"].id, "texto": c["texto"]}
+                        for c in linha["campos"]
+                    ],
+                    "cupom_codigo": cod, "cupom_desconto": str(desc),
+                })
+            payload = {
+                "evento_id": evento.id,
+                "responsavel": {
+                    "nome": form.cleaned_data["responsavel_nome"],
+                    "whatsapp": form.cleaned_data["responsavel_whatsapp"],
+                    "email": form.cleaned_data["responsavel_email"],
+                    "cpf": form.cleaned_data["responsavel_cpf"],
+                },
+                "participantes": participantes_payload,
+                "campos_extra": [
+                    {"campo_id": campo.id, "texto": form.resposta_texto(campo, nome)}
+                    for campo, nome in form.campos_extra
+                ],
+                "loja_itens": [[v.id, qtd] for v, qtd in desejados_loja],
+            }
+            inscr_total = sum((p.valor for p, _ in dados), Decimal("0"))
+            loja_total = sum((v.valor * qtd for v, qtd in desejados_loja), Decimal("0"))
+            grand_total = inscr_total + loja_total
+
+            config = _mp_config()
+            if config.configurado and grand_total > 0:
+                itens_disp = [
+                    {"nome": p.nome or "Participante", "valor": str(p.valor)}
+                    for p, _ in dados
+                ]
+                itens_disp += [
+                    {"nome": f"{qtd}× {v.produto.nome}"
+                             + (f" ({v.nome})" if v.nome else ""),
+                     "valor": str(v.valor * qtd)}
+                    for v, qtd in desejados_loja
+                ]
+                payload["titulo"] = f"Inscrição — {evento.nome}"
+                payload["itens"] = itens_disp
+                pagamento, erro = _criar_pagamento_pix(
+                    request, tipo="inscricao", valor=grand_total,
+                    descricao=f"Inscrição — {evento.nome}", payload=payload,
+                    comprador={"nome": form.cleaned_data["responsavel_nome"],
+                               "email": form.cleaned_data["responsavel_email"]},
+                    usuario=request.user,
                 )
-                inscricao.valor_total = sum((p.valor for p, _ in dados), Decimal("0"))
-                inscricao.save()
-                for p, linha in dados:
-                    p.inscricao = inscricao
-                    p.save()
-                    for c in linha["campos"]:
-                        RespostaInscricao.objects.create(
-                            inscricao=inscricao, participante=p, campo=c["campo"],
-                            campo_rotulo=c["campo"].rotulo, valor=c["texto"],
-                        )
-                for campo, nome in form.campos_extra:
-                    RespostaInscricao.objects.create(
-                        inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
-                        valor=form.resposta_texto(campo, nome),
-                    )
-                # Itens da lojinha escolhidos junto da inscrição (opcional).
-                _criar_pedido(
-                    evento, desejados_loja,
-                    {
-                        "nome": inscricao.responsavel_nome,
-                        "whatsapp": inscricao.responsavel_whatsapp,
-                        "email": inscricao.responsavel_email,
-                    },
-                    usuario=request.user if request.user.is_authenticated else None,
-                    inscricao=inscricao,
-                )
-                _marcar_cupons_usados(aplicados, inscricao)
-            request.session["inscricao_codigo"] = inscricao.codigo
-            return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
-        messages.error(request, "Verifique os campos destacados e os participantes.")
+                if erro:
+                    messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+                else:
+                    return redirect("core:pagamento", ref=pagamento.referencia)
+            else:
+                with transaction.atomic():
+                    inscricao = _criar_inscricao_de_payload(evento, payload, request.user)
+                request.session["inscricao_codigo"] = inscricao.codigo
+                return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
+        else:
+            messages.error(request, "Verifique os campos destacados e os participantes.")
     else:
         inicial = {}
         if request.user.is_authenticated and request.user.email:
@@ -3133,7 +3159,105 @@ def _finalizar_pagamento(pagamento):
         _finalizar_mensalidade(pagamento)
     elif pagamento.tipo == "loja_clube":
         _finalizar_loja_clube(pagamento)
-    # inscricao entra na próxima etapa.
+    elif pagamento.tipo == "inscricao":
+        _finalizar_inscricao(pagamento)
+
+
+def _finalizar_inscricao(pagamento):
+    """Cria a Inscrição confirmada (+ participantes/respostas/lojinha/cupons) a
+    partir do payload salvo, no momento da aprovação do Pix."""
+    dados = pagamento.payload or {}
+    evento = Evento.objects.filter(pk=dados.get("evento_id")).first()
+    if evento is None:
+        pagamento.detalhe = "Evento não encontrado ao finalizar o pagamento."
+        return
+    inscricao = _criar_inscricao_de_payload(evento, dados, pagamento.usuario, pagamento=pagamento)
+    dados["inscricao_codigo"] = inscricao.codigo
+    pagamento.payload = dados
+
+
+def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
+    """Cria a Inscrição (+ participantes, respostas, pedido de lojinha e marca os
+    cupons) a partir do payload serializado. Usado na criação imediata (grátis / sem
+    MP) e na finalização do Pix. Os preços já vêm no payload (com desconto de cupom
+    aplicado no ato); os cupons são marcados aqui (uso único revalidado)."""
+    resp = payload.get("responsavel", {})
+    logado = usuario if (usuario and getattr(usuario, "is_authenticated", False)) else None
+    inscricao = Inscricao(
+        evento=evento,
+        usuario=logado,
+        responsavel_nome=resp.get("nome", ""),
+        responsavel_whatsapp=resp.get("whatsapp", ""),
+        responsavel_email=resp.get("email", ""),
+        responsavel_cpf=resp.get("cpf", ""),
+        codigo=Inscricao.gerar_codigo_unico(),
+        status="confirmada",
+        forma_pagamento="pix" if pagamento else "online",
+        pagamento=pagamento,
+    )
+    inscricao.valor_total = sum(
+        (Decimal(str(pl.get("valor") or "0")) for pl in payload.get("participantes", [])),
+        Decimal("0"),
+    )
+    inscricao.save()
+    for pl in payload.get("participantes", []):
+        faixa = evento.faixas_preco.filter(pk=pl["faixa_id"]).first() if pl.get("faixa_id") else None
+        p = ParticipanteInscricao(
+            inscricao=inscricao, nome=pl.get("nome", ""), idade=pl.get("idade"),
+            eh_diretoria=bool(pl.get("diretoria")), faixa=faixa,
+            valor=Decimal(str(pl.get("valor") or "0")),
+        )
+        p.save()
+        for c in pl.get("campos", []):
+            campo = evento.campos_inscricao.filter(pk=c.get("campo_id")).first()
+            if campo:
+                RespostaInscricao.objects.create(
+                    inscricao=inscricao, participante=p, campo=campo,
+                    campo_rotulo=campo.rotulo, valor=c.get("texto", ""),
+                )
+        cod = pl.get("cupom_codigo")
+        if cod:
+            cupom = _buscar_cupom_valido(evento, cod)
+            if cupom is not None:
+                cupom.usado_em = timezone.now()
+                cupom.inscricao = inscricao
+                cupom.participante = p
+                cupom.usado_por = p.nome or inscricao.responsavel_nome
+                cupom.valor_desconto = Decimal(str(pl.get("cupom_desconto") or "0"))
+                cupom.save(update_fields=[
+                    "usado_em", "inscricao", "participante", "usado_por", "valor_desconto"
+                ])
+    for c in payload.get("campos_extra", []):
+        campo = evento.campos_inscricao.filter(pk=c.get("campo_id")).first()
+        if campo:
+            RespostaInscricao.objects.create(
+                inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
+                valor=c.get("texto", ""),
+            )
+    # Itens da lojinha comprados junto (opcional).
+    itens = payload.get("loja_itens", [])
+    if itens:
+        variacoes = {
+            v.id: v for v in VariacaoProduto.objects.filter(
+                produto__evento=evento
+            ).select_related("produto")
+        }
+        desejados = [
+            (variacoes[vid], qtd) for vid, qtd in itens
+            if variacoes.get(vid) and qtd > 0
+        ]
+        if desejados:
+            pedido = _criar_pedido(
+                evento, desejados,
+                {"nome": inscricao.responsavel_nome, "whatsapp": inscricao.responsavel_whatsapp,
+                 "email": inscricao.responsavel_email},
+                usuario=logado, inscricao=inscricao,
+                forma_pagamento="pix" if pagamento else "online",
+            )
+            if pagamento and pedido is not None:
+                pedido.pagamento = pagamento
+                pedido.save(update_fields=["pagamento"])
+    return inscricao
 
 
 def _finalizar_loja_clube(pagamento):
@@ -3217,6 +3341,11 @@ def _sucesso_url_e_sessao(request, pagamento):
         request.session.pop("loja_clube_checkout", None)
         _loja_cart_save(request, [])
         return reverse("core:loja_sucesso")
+    if pagamento.tipo == "inscricao":
+        codigo = dados.get("inscricao_codigo")
+        if codigo:
+            request.session["inscricao_codigo"] = codigo
+        return reverse("core:evento_inscricao_sucesso", args=[dados.get("evento_id")])
     # Demais tipos usam a tela de sucesso genérica (por referência do pagamento).
     return reverse("core:pagamento_sucesso", args=[pagamento.referencia])
 

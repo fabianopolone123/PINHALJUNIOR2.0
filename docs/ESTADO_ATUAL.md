@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 3: Loja do Clube via Pix**): a **Loja do
+**Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 4: Inscrição de evento via Pix**): a
+**inscrição online** passou a cobrar **Pix real** quando há valor a pagar (antes nascia confirmada sem pagar).
+Com MP configurado e total &gt; 0, `evento_inscrever_view` valida e **serializa** os dados (responsável;
+participantes com `valor`/`faixa_id`/respostas/cupom; campos extra; itens da lojinha) num `Pagamento`
+(`tipo="inscricao"`) e vai à página de pagamento genérica; a inscrição só é criada **na aprovação** por
+`_finalizar_inscricao` → `_criar_inscricao_de_payload` (helper compartilhado com a criação imediata). Inscrição
+**gratuita** (total 0) ou **sem MP** cria na hora; **balcão/PDV** inalterado. Preço fixado na cobrança e cupom
+marcado só no pagamento (uso único; se o cupom for usado por outro no meio, a pessoa mantém o preço pago). FK
+`Inscricao.pagamento`, `forma_pagamento="pix"` (migration **0034**). Testes em `core.tests.InscricaoPixTests`.
+**Pendências:** taxa/líquido nos relatórios (Etapa 5), cartão (Etapa 6). Antes: Etapa 3 (Loja do Clube).
+
+**Anterior (Pagamentos Mercado Pago — Etapa 3: Loja do Clube via Pix):** a **Loja do
 Clube** passou a cobrar **Pix real** (MP), reaproveitando a engine e a **página de pagamento genérica**.
 `loja_pagamento_view`, com MP configurado + Pix, cria um `Pagamento` (`tipo="loja_clube"`, `payload` com o
 carrinho serializado + comprador) e redireciona para `/pagamento/<ref>/`; na aprovação, `_finalizar_loja_clube`

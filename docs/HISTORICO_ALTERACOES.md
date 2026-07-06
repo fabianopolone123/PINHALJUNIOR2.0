@@ -22,6 +22,41 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Pagamentos Mercado Pago (Etapa 4): Inscrição de evento via Pix
+
+### Resumo
+Quarta etapa: a **inscrição online** de evento passou a cobrar por **Pix real** quando há valor a pagar. Antes a
+inscrição nascia **confirmada sem pagar**; agora, com MP configurado e total &gt; 0, os dados validados são
+**serializados** e a inscrição só é criada **na aprovação** do Pix (webhook/simular). Inscrição **gratuita**
+(total 0 — diretoria/faixa sem valor) ou **sem MP** continua criando na hora. O **balcão/PDV** não muda.
+
+### Como funciona
+- `evento_inscrever_view`: valida como antes (responsável + participantes com preço/cupom + campos + lojinha) e
+  monta um **payload serializável** (responsável; participantes com `valor` já calculado/descontado, `faixa_id`,
+  respostas e cupom; campos extra; itens da lojinha). Se MP configurado e total &gt; 0 → cria `Pagamento`
+  (`tipo="inscricao"`) e vai à página de pagamento genérica; senão → cria na hora.
+- `_criar_inscricao_de_payload` (usado pela criação imediata **e** pela finalização): cria a Inscrição
+  confirmada + participantes + respostas + pedido de lojinha vinculado; **marca os cupons** (uso único revalidado
+  no ato — no Pix, isso acontece só no pagamento). Preços vêm prontos do payload (o desconto do cupom foi fixado
+  na cobrança), evitando divergência de valor após pagar. `_finalizar_inscricao` chama esse helper na aprovação.
+- Inscrição paga por Pix fica `forma_pagamento="pix"` e com FK `pagamento` (idem o pedido de lojinha junto).
+
+### Arquivos alterados
+- `core/models.py`: FK `Inscricao.pagamento`. Migration **0034**.
+- `core/views.py`: `_criar_inscricao_de_payload` + `_finalizar_inscricao` + dispatch; `_sucesso_url_e_sessao`
+  trata `inscricao`; bloco de criação da `evento_inscrever_view` reescrito (payload + branch Pix/imediato).
+- `core/tests.py`: `InscricaoPixTests` (paga → Pix → simular → inscrição confirmada + taxa + FK; grátis cria na hora).
+
+### Decisões tomadas
+- Preço fixado na cobrança (payload) e cupom marcado só na aprovação (best-effort): se o cupom for usado por
+  outro entre a geração do Pix e o pagamento, a pessoa mantém o preço que pagou (não falha após o pagamento).
+- Balcão/PDV de inscrição inalterado (pagamento presencial).
+
+### Pendências
+- Próximas: **taxa/líquido nos relatórios** (Etapa 5) e **cartão** (Etapa 6).
+
+---
+
 ## 2026-07-06 - Pagamentos Mercado Pago (Etapa 3): Loja do Clube via Pix
 
 ### Resumo

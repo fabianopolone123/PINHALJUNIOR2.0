@@ -16,7 +16,9 @@ from .models import (
     Aventureiro,
     CompraLoja,
     Evento,
+    FaixaEtariaPreco,
     GrupoLoja,
+    Inscricao,
     Mensalidade,
     MercadoPagoConfig,
     Pagamento,
@@ -399,3 +401,72 @@ class LojaClubePixTests(TestCase):
         self.assertEqual(compra.forma_pagamento, "pix")
         self.assertEqual(compra.valor_total, Decimal("40.00"))
         self.assertEqual(compra.pagamento_id, pag.id)
+
+
+class InscricaoPixTests(TestCase):
+    """Etapa 4: inscricao online via Pix (paga) e criacao imediata (gratis)."""
+
+    def _evento(self, com_faixa=True):
+        ev = Evento.objects.create(
+            tipo="inscricao", nome="Acampamento",
+            data=timezone.localdate() + datetime.timedelta(days=10),
+            inscricao_aberta_publico=True,
+        )
+        if com_faixa:
+            FaixaEtariaPreco.objects.create(
+                evento=ev, idade_min=1, idade_max=99, valor=Decimal("50.00")
+            )
+        return ev
+
+    def _config_mp(self):
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"
+        cfg.access_token_teste = "TEST-abc"
+        cfg.webhook_secret_teste = "s"
+        cfg.save()
+
+    def _post_inscricao(self, ev):
+        return {
+            "responsavel_nome": "Mae", "responsavel_whatsapp": "4799",
+            "responsavel_email": "m@x.com", "responsavel_cpf": "111",
+            "part_idx": ["0"], "part_nome_0": "Crianca", "part_idade_0": "10",
+        }
+
+    def test_inscricao_paga_gera_pix_e_confirma_na_aprovacao(self):
+        self._config_mp()
+        ev = self._evento(com_faixa=True)
+        url = reverse("core:evento_inscrever", args=[ev.id])
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-I", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            resp = self.client.post(url, self._post_inscricao(ev))
+        self.assertEqual(resp.status_code, 302)
+        pag = Pagamento.objects.get(tipo="inscricao")
+        self.assertEqual(pag.valor_bruto, Decimal("50.00"))
+        self.assertEqual(Inscricao.objects.count(), 0)  # nao cria antes de pagar
+
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+        pag.refresh_from_db()
+        self.assertEqual(pag.status, "aprovado")
+        self.assertTrue(pag.finalizado)
+        self.assertEqual(pag.taxa, Decimal("0.50"))
+
+        insc = Inscricao.objects.get()
+        self.assertEqual(insc.status, "confirmada")
+        self.assertEqual(insc.forma_pagamento, "pix")
+        self.assertEqual(insc.valor_total, Decimal("50.00"))
+        self.assertEqual(insc.pagamento_id, pag.id)
+        self.assertEqual(insc.participantes.count(), 1)
+
+    def test_inscricao_gratis_cria_na_hora_sem_pix(self):
+        self._config_mp()
+        ev = self._evento(com_faixa=False)  # sem faixa -> valor 0
+        url = reverse("core:evento_inscrever", args=[ev.id])
+        resp = self.client.post(url, self._post_inscricao(ev))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Pagamento.objects.count(), 0)  # gratis nao gera Pix
+        insc = Inscricao.objects.get()
+        self.assertEqual(insc.status, "confirmada")
+        self.assertEqual(insc.valor_total, Decimal("0.00"))

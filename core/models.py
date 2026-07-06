@@ -628,6 +628,16 @@ class Inscricao(models.Model):
     valor_total = models.DecimalField(
         "Valor total", max_digits=10, decimal_places=2, default=0
     )
+    # Cobrança online (Pix/cartão via Mercado Pago) que confirmou esta inscrição.
+    # Nulo em inscrição de balcão/gratuita/importada (taxa de gateway = zero).
+    pagamento = models.ForeignKey(
+        "Pagamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inscricoes",
+        verbose_name="Pagamento (gateway)",
+    )
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:
