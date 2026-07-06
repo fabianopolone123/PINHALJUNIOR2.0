@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: aventureiro inativo não interfere nos totais (mantém só dados anteriores)
+
+### Resumo
+Aventureiro **inativo** deixou de interferir no resumo/relatório de mensalidades — ficam só os **dados de
+antes** de ele ficar inativo. Regra: **Recebido** conta **todas as cobranças pagas** (histórico, mesmo de
+quem depois saiu); **Em aberto/Previsto** contam **só de aventureiros ativos**. Antes, os totais ignoravam os
+pagamentos de inativos (some da lista) e o dashboard ainda somava as cobranças em aberto deles — agora está
+consistente. O **reajuste em massa** também **pula inativos**. (Loja e eventos já respeitavam: a loja usa
+registros históricos das compras; a cobertura/presença de eventos contam só ativos.) Os aventureiros da conta
+de **teste** foram marcados **inativos** (a conta `teste_responsavel` segue ativa para os testes).
+
+### Arquivos alterados
+- `core/views.py`: `mensalidades_view` (totais: recebido = todos os pagos; em aberto = só ativos),
+  `_mensalidades_dashboard` (idem por mês) e `mensalidade_reajustar_view` (só `aventureiro__ativo=True`).
+
+---
+
 ## 2026-07-05 - Mensalidades: valores/reajuste viram botões+modais; oculta meses sem cobrança
 
 ### Resumo

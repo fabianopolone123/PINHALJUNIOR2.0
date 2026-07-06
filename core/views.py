@@ -3942,24 +3942,30 @@ def mensalidades_view(request):
         ano = anos[0]
 
     aventureiros = list(Aventureiro.objects.filter(ativo=True).order_by("nome_completo"))
-    mens = Mensalidade.objects.filter(ano=ano).select_related("aventureiro")
+    mens = list(Mensalidade.objects.filter(ano=ano).select_related("aventureiro"))
     por_av = defaultdict(list)
     for m in mens:
         por_av[m.aventureiro_id].append(m)
 
+    # A lista mostra só aventureiros ativos (cada um com seus meses).
     linhas = []
-    tot = {"previsto": Decimal("0"), "recebido": Decimal("0"),
-           "aberto": Decimal("0"), "isentos": 0}
     for av in aventureiros:
         meses = sorted(por_av.get(av.id, []), key=lambda x: x.mes)
-        resumo = _resumo_mensalidades(meses)
-        linhas.append({"av": av, "meses": meses, "resumo": resumo,
-                       "tem": bool(meses)})
-        tot["previsto"] += resumo["previsto"]
-        tot["recebido"] += resumo["recebido"]
-        tot["aberto"] += resumo["aberto_valor"]
-        if av.mensalidade_isento:
-            tot["isentos"] += 1
+        linhas.append({"av": av, "meses": meses,
+                       "resumo": _resumo_mensalidades(meses), "tem": bool(meses)})
+
+    # Totais/relatório: aventureiro INATIVO não interfere — só entram os dados de
+    # antes de ficar inativo (as cobranças PAGAS contam sempre; as em aberto de
+    # inativos não). Recebido = todos os pagos; em aberto = só de ativos.
+    tot = {"previsto": Decimal("0"), "recebido": Decimal("0"),
+           "aberto": Decimal("0"), "isentos": 0}
+    for m in mens:
+        if m.status == "paga":
+            tot["recebido"] += (m.valor_pago or Decimal("0"))
+        elif m.em_aberto and m.aventureiro.ativo:
+            tot["aberto"] += m.valor
+    tot["previsto"] = tot["recebido"] + tot["aberto"]
+    tot["isentos"] = sum(1 for av in aventureiros if av.mensalidade_isento)
 
     taxa = (tot["recebido"] / (tot["recebido"] + tot["aberto"]) * 100) \
         if (tot["recebido"] + tot["aberto"]) else Decimal("0")
@@ -3992,11 +3998,13 @@ def _mensalidades_dashboard(mens):
     maxv = Decimal("0")
     for mes in range(1, 13):
         ms = por_mes[mes]
+        # Recebido (pago) conta sempre — é dado histórico, mesmo de quem depois
+        # ficou inativo. Em aberto só conta de aventureiros ATIVOS.
         recebido = sum((x.valor_pago or Decimal("0") for x in ms if x.status == "paga"), Decimal("0"))
-        aberto = sum((x.valor for x in ms if x.em_aberto), Decimal("0"))
+        aberto = sum((x.valor for x in ms if x.em_aberto and x.aventureiro.ativo), Decimal("0"))
         pagas = sum(1 for x in ms if x.status == "paga")
-        abertas = sum(1 for x in ms if x.em_aberto)
-        isentas = sum(1 for x in ms if x.isento and x.status != "cancelada")
+        abertas = sum(1 for x in ms if x.em_aberto and x.aventureiro.ativo)
+        isentas = sum(1 for x in ms if x.isento and x.status != "cancelada" and x.aventureiro.ativo)
         total_valor = recebido + aberto
         if total_valor > maxv:
             maxv = total_valor
@@ -4050,7 +4058,7 @@ def mensalidade_reajustar_view(request):
     config = ConfigMensalidade.get_solo()
     afetadas = 0
     for m in Mensalidade.objects.filter(
-        ano=ano, mes__gte=mes_ini, status="aberta"
+        ano=ano, mes__gte=mes_ini, status="aberta", aventureiro__ativo=True
     ).select_related("aventureiro"):
         valor, isento = _valor_mensalidade(config, m.aventureiro, m.tipo)
         m.valor, m.isento = valor, isento

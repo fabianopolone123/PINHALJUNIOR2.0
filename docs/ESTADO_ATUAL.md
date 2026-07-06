@@ -19,7 +19,9 @@ aquele mês, rota `mensalidades/editar/`); busca e filtro **"Só quem deve"**. N
 cobranças automaticamente no cadastro (não há botão de gerar em massa). A barra tem **2 botões** que abrem
 modais: **"Valores da mensalidade"** (config, rota `mensalidades/config/`) e **"Reajustar mensalidades"**
 (aplica os valores atuais às cobranças em aberto a partir de um mês, rota `mensalidades/reajustar/`). No
-dashboard, os cards mês a mês mostram só os meses **com** cobrança. Modelos `ConfigMensalidade`/`Mensalidade` +
+dashboard, os cards mês a mês mostram só os meses **com** cobrança. **Aventureiro inativo não interfere** nos
+totais: **Recebido** conta todos os pagos (histórico), mas **Em aberto/Previsto** contam só de **ativos** (e o
+reajuste pula inativos) — mantém só os dados de antes de ficar inativo. Modelos `ConfigMensalidade`/`Mensalidade` +
 campos no Aventureiro (mig. **0024**); rotas `/mensalidades/…`. O **histórico de 2026** do sistema antigo foi
 **importado** (352 cobranças, 104 pagas; dados locais). Antes: Loja (aba Vendas + import de pedidos).
 
