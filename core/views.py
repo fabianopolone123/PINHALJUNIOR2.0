@@ -4001,11 +4001,12 @@ def _mensalidades_dashboard(mens):
         if total_valor > maxv:
             maxv = total_valor
         pct = (recebido / total_valor * 100) if total_valor else (100 if pagas else 0)
+        cor = "alto" if pct >= 80 else ("medio" if pct >= 40 else "baixo")
         linhas.append({
             "mes": mes, "nome": MESES_PT[mes], "abrev": MESES_PT[mes][:3],
             "recebido": recebido, "aberto": aberto, "total_valor": total_valor,
             "pagas": pagas, "abertas": abertas, "isentas": isentas,
-            "cobrancas": pagas + abertas + isentas, "pct": pct,
+            "cobrancas": pagas + abertas + isentas, "pct": pct, "cor": cor,
         })
     # Percentuais de altura das barras (0-100) para o gráfico em CSS.
     maxv = maxv or Decimal("1")

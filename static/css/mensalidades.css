@@ -77,9 +77,34 @@
 .mens-barra.cor-aberto { opacity: 0.9; }
 .mens-col-rot { font-size: 0.78rem; color: #666; }
 
-.mens-tabela-card { padding: 14px 16px; }
-.mens-tabela-scroll { overflow-x: auto; }
-.mens-tabela tfoot td { font-weight: 800; border-top: 2px solid rgba(15, 76, 129, 0.2); }
+/* Cards mês a mês (detalhe) */
+.mens-detalhe-nota { font-size: 0.82rem; color: #888; }
+.mens-meses-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.mens-mes-card { padding: 14px 16px; }
+.mens-mes-card.vazio { opacity: 0.5; }
+.mmc-topo { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.mmc-nome { font-weight: 700; color: var(--azul-escuro, #0f4c81); font-size: 1.05rem; }
+.mmc-pct { font-weight: 800; font-size: 1.15rem; }
+.mmc-barra { height: 8px; border-radius: 999px; background: rgba(15, 76, 129, 0.1); overflow: hidden; margin-bottom: 10px; }
+.mmc-barra-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
+.mmc-contagem { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.88rem; margin-bottom: 10px; }
+.mmc-pagas { color: #1f6b1f; font-weight: 600; }
+.mmc-aberto { color: #8a6d00; font-weight: 600; }
+.mmc-isento { color: var(--azul-escuro, #0f4c81); }
+.mmc-valores { display: flex; gap: 20px; font-size: 0.8rem; color: #777; }
+.mmc-valores span { display: flex; flex-direction: column; gap: 1px; }
+.mmc-valores strong { color: var(--texto, #333); font-size: 1.02rem; }
+.mmc-vazio-txt { color: #999; font-size: 0.9rem; margin: 4px 0 0; }
+
+.mens-mes-card.cor-alto .mmc-pct { color: var(--verde, #3a9d3a); }
+.mens-mes-card.cor-alto .mmc-barra-fill { background: var(--verde, #3a9d3a); }
+.mens-mes-card.cor-medio .mmc-pct { color: #b8860b; }
+.mens-mes-card.cor-medio .mmc-barra-fill { background: #e0a800; }
+.mens-mes-card.cor-baixo .mmc-pct { color: #c0392b; }
+.mens-mes-card.cor-baixo .mmc-barra-fill { background: #c0392b; }
+
+@media (min-width: 560px) { .mens-meses-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 960px) { .mens-meses-cards { grid-template-columns: repeat(3, 1fr); } }
 
 /* KPIs */
 .mens-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }

@@ -22,6 +22,22 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-05 - Mensalidades: "Detalhe por mês" vira cards didáticos (corrige tabela sem estilo)
+
+### Resumo
+No dashboard, o "Detalhe por mês" era uma **tabela sem estilo** (usava classe da loja não carregada aqui).
+Trocado por **cards mês a mês** mais didáticos: cada mês mostra a **% paga** com **barra de progresso
+colorida** (verde ≥80%, amarelo ≥40%, vermelho abaixo), **nº de pagas / em aberto / isentos** e os valores
+**recebido / a receber**. Meses sem cobrança aparecem esmaecidos ("Sem cobranças"). Nota deixando claro que o
+resumo **conta inscrições + mensalidades**.
+
+### Arquivos alterados
+- `core/views.py`: `_mensalidades_dashboard` inclui `cor` (faixa de desempenho) por mês.
+- `templates/core/mensalidades.html`: tabela → grade de cards mês a mês.
+- `static/css/mensalidades.css`: estilos dos cards (barra de progresso colorida, contagens, valores).
+
+---
+
 ## 2026-07-05 - Mensalidades: reajuste em massa a partir de um mês + modais não fecham ao arrastar
 
 ### Resumo

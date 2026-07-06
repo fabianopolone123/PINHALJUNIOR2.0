@@ -161,38 +161,34 @@
                         </div>
                     </div>
 
-                    <section class="card mens-tabela-card">
+                    <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Detalhe por mês</h2>
-                        <div class="mens-tabela-scroll">
-                            <table class="loja-tabela mens-tabela">
-                                <thead>
-                                    <tr><th>Mês</th><th>Pagas</th><th>Em aberto</th><th>Recebido</th><th>A receber</th><th>% pago</th></tr>
-                                </thead>
-                                <tbody>
-                                    {% for d in dashboard %}
-                                    <tr>
-                                        <td>{{ d.nome }}</td>
-                                        <td class="num">{{ d.pagas }}</td>
-                                        <td class="num">{{ d.abertas }}</td>
-                                        <td class="num">R$ {{ d.recebido|moeda }}</td>
-                                        <td class="num">R$ {{ d.aberto|moeda }}</td>
-                                        <td class="num">{{ d.pct|floatformat:0 }}%</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td>Total</td>
-                                        <td class="num">—</td>
-                                        <td class="num">—</td>
-                                        <td class="num">R$ {{ totais.recebido|moeda }}</td>
-                                        <td class="num">R$ {{ totais.aberto|moeda }}</td>
-                                        <td class="num">{{ taxa|floatformat:0 }}%</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        <span class="mens-detalhe-nota">Conta inscrições + mensalidades</span>
+                    </div>
+                    <div class="mens-meses-cards">
+                        {% for d in dashboard %}
+                        <div class="card mens-mes-card cor-{{ d.cor }}{% if not d.cobrancas %} vazio{% endif %}">
+                            <div class="mmc-topo">
+                                <span class="mmc-nome">{{ d.nome }}</span>
+                                {% if d.cobrancas %}<span class="mmc-pct">{{ d.pct|floatformat:0 }}%</span>{% endif %}
+                            </div>
+                            {% if d.cobrancas %}
+                            <div class="mmc-barra"><div class="mmc-barra-fill" style="width: {{ d.pct|floatformat:0 }}%"></div></div>
+                            <div class="mmc-contagem">
+                                <span class="mmc-pagas">✅ {{ d.pagas }} paga{{ d.pagas|pluralize }}</span>
+                                {% if d.abertas %}<span class="mmc-aberto">⏳ {{ d.abertas }} em aberto</span>{% endif %}
+                                {% if d.isentas %}<span class="mmc-isento">🎫 {{ d.isentas }} isento{{ d.isentas|pluralize }}</span>{% endif %}
+                            </div>
+                            <div class="mmc-valores">
+                                <span>Recebido<strong>R$ {{ d.recebido|moeda }}</strong></span>
+                                <span>A receber<strong>R$ {{ d.aberto|moeda }}</strong></span>
+                            </div>
+                            {% else %}
+                            <p class="mmc-vazio-txt">Sem cobranças</p>
+                            {% endif %}
                         </div>
-                    </section>
+                        {% endfor %}
+                    </div>
                 </section>
 
                 <!-- ===== ABA: AVENTUREIROS (lista operacional) ===== -->

@@ -4,7 +4,8 @@
 
 **Última atualização:** 2026-07-05 (**Mensalidades: dashboard mês a mês**): a tela de Mensalidades ganhou
 **abas** — **Resumo** (dashboard: **donut de taxa de pagamento**, **gráfico de barras mês a mês** recebido ×
-em aberto em CSS puro, e **tabela "Detalhe por mês"** com total) e **Aventureiros** (a lista operacional).
+em aberto em CSS puro, e **cards "Detalhe por mês"** — % paga com barra colorida, pagas/em aberto/isentos e
+recebido/a receber por mês) e **Aventureiros** (a lista operacional). O resumo conta inscrições + mensalidades.
 Tudo por **ano**. Antes: módulo Mensalidades (base).
 
 **Anterior:** (**Módulo Mensalidades**): novo item **"Mensalidades"** (💰, só Diretor),
