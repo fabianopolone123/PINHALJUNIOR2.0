@@ -296,7 +296,7 @@
                         <button type="button" class="btn-acao" id="cobrancaEnviarTodos">📤 Enviar a todos</button>
                     </div>
 
-                    <input type="search" id="cobrancaBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar responsável…" aria-label="Buscar responsável">
+                    <input type="search" id="cobrancaBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar por responsável ou aventureiro…" aria-label="Buscar responsável ou aventureiro">
 
                     <!-- Progresso do envio em lote (10s entre cada) -->
                     <div class="card mens-cobranca-progresso" id="cobrancaProgresso" hidden>
@@ -308,7 +308,7 @@
                     <ul class="mens-cobranca-lista">
                         {% for f in cobrancas %}
                         <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}"
-                            data-busca="{{ f.resp_nome|lower }}" data-cobrado="{{ f.cobrado_mes }}"
+                            data-busca="{{ f.resp_nome|lower }}{% for c in f.criancas %} {{ c.nome|lower }}{% endfor %}" data-cobrado="{{ f.cobrado_mes }}"
                             data-tem-numero="{% if f.tem_numero %}1{% else %}0{% endif %}">
                             <div class="mens-cobranca-linha">
                                 <span class="mens-cobranca-nome">{{ f.resp_nome }}</span>

@@ -22,6 +22,19 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Cobranças: busca também por aventureiro
+
+### Resumo
+A busca da aba Cobranças (que só achava por responsável) agora acha **também pelo nome do aventureiro**: o
+`data-busca` de cada família passou a incluir o nome do responsável **e** os nomes das crianças. Placeholder
+atualizado para "Buscar por responsável ou aventureiro…".
+
+### Arquivos alterados
+- `templates/core/mensalidades.html`: `data-busca` inclui `{{ f.resp_nome }}` + os `c.nome` das crianças;
+  placeholder do campo de busca.
+
+---
+
 ## 2026-07-07 - Cobranças: detalhe por criança + só cobra meses já vencidos
 
 ### Resumo
