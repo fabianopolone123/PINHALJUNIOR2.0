@@ -446,6 +446,29 @@ class LojaClubePixTests(TestCase):
         self.assertEqual(compra.valor_total, Decimal("40.00"))
         self.assertEqual(compra.pagamento_id, pag.id)
 
+    def test_vendas_loja_resultado_reflete_taxa(self):
+        # Compra paga via Pix e, na aba Vendas, o resultado desconta a taxa.
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-v", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        self._por_no_carrinho()
+        self.client.post(reverse("core:loja_finalizar"), {
+            "comprador_nome": "Fulano", "comprador_whatsapp": "4799", "forma_pagamento": "pix",
+        })
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            self.client.get(reverse("core:loja_pagamento"))
+        pag = Pagamento.objects.get(tipo="loja_clube")
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+
+        diretor = User.objects.create_user("dir_loja", password="x")
+        diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.client.force_login(diretor)
+        resp = self.client.get(reverse("core:loja") + "?aba=vendas")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["taxa_loja"], Decimal("0.40"))       # 1% de 40
+        self.assertEqual(resp.context["loja_resultado"], Decimal("39.60"))  # 40 - 0,40
+
 
 class InscricaoPixTests(TestCase):
     """Etapa 4: inscricao online via Pix (paga) e criacao imediata (gratis)."""

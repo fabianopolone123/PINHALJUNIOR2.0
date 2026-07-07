@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Taxa sempre visível na Loja/Vendas + nota na lojinha do evento
+
+### Resumo
+Ajuste de visibilidade da taxa (o cálculo já estava certo desde a Etapa 5). Na **Loja → Vendas**, a linha da
+**taxa do Mercado Pago** só aparecia quando havia taxa > 0, dando a impressão de que o resultado "não refletia" a
+taxa. Agora a linha **aparece sempre** (mesmo R$ 0,00) e há uma nota explicando que o Resultado já é líquido
+(sem custos e sem taxa). Na **aba Lojinha do painel do evento**, uma nota esclarece que os valores dos pedidos
+são brutos e que a taxa/resultado líquido ficam na aba **Financeiro**.
+
+### Arquivos alterados
+- `templates/core/loja.html`: linha de taxa sempre visível no resultado da aba Vendas + nota.
+- `templates/core/evento_painel.html`: nota na sub-aba Pedidos da Lojinha.
+- `core/tests.py`: `test_vendas_loja_resultado_reflete_taxa` (resultado da loja desconta a taxa).
+
+### Pendências
+- **Adiado (a pedido)**: dividir a aba **Vendas** da Loja em sub-abas (Custos / Pedido ao fornecedor / Todas as
+  compras) para facilitar a visualização.
+
+---
+
 ## 2026-07-06 - Correção: 500 no Financeiro (extrato com data+hora × custo do clube)
 
 ### Resumo
