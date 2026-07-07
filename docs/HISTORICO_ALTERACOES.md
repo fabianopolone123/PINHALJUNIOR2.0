@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Cobranças: busca, envio em lote com delay/progresso/cancelar, aviso como toast
+
+### Resumo
+Refinos na aba Cobranças, a pedido: **(1)** campo de **busca** por responsável (filtra ao digitar); **(2)**
+**"Enviar a todos"** agora é **sequencial pelo navegador**, com **10s entre cada envio**, **barra de progresso**
+e **botão cancelar** (evita bloqueio por spam do WhatsApp); **(3)** o aviso "configure o WhatsApp" **deixou de
+ser um banner fixo** e passa a aparecer como **toast** (notificação lateral) só **quando se tenta enviar** (vem
+da resposta do endpoint).
+
+### Detalhes
+- O lote envia **uma família por vez** (POST individual), atualiza a barra e o status inline, e respeita o filtro
+  "só quem não recebeu este mês". Cancelar interrompe entre um envio e outro; se o WhatsApp não estiver
+  configurado, o lote aborta no 1º retorno com o toast.
+- Botões não ficam mais desabilitados por "WhatsApp não configurado" (só por família sem número) — o toast
+  orienta ao tentar.
+
+### Arquivos alterados
+- `templates/core/mensalidades.html`: campo de busca, bloco de progresso (barra + cancelar), `data-*` nos itens
+  (busca/cobrado/tem-numero); removido o banner fixo.
+- `static/js/mensalidade_cobranca.js`: busca ao vivo; envio individual (atualiza inline); **lote com 10s +
+  progresso + cancelar** (estado compartilhado, sem duplo encerramento).
+- `static/css/mensalidades.css`: estilos da busca e da barra de progresso.
+
+---
+
 ## 2026-07-07 - Cobrança de mensalidades (parte 2): aba "Cobranças" (WhatsApp)
 
 ### Resumo

@@ -278,9 +278,6 @@
                 <!-- ===== ABA: COBRANÇAS ===== -->
                 <section class="mens-painel" data-painel="cobrancas"{% if aba != 'cobrancas' %} hidden{% endif %}
                          data-enviar-url="{% url 'core:mensalidade_cobranca_enviar' %}" data-csrf="{{ csrf_token }}">
-                    {% if not wa_configurado %}
-                    <p class="painel-nota mens-cobranca-aviso">⚠️ Configure o <strong>WhatsApp</strong> (menu 💬 WhatsApp) para conseguir enviar as cobranças.</p>
-                    {% endif %}
 
                     <details class="card mens-cobranca-msg">
                         <summary>✏️ Mensagem de cobrança (personalizar)</summary>
@@ -296,28 +293,42 @@
                     <div class="card mens-cobranca-barra">
                         <span><strong>{{ cobrancas|length }}</strong> família(s) com mensalidade em aberto.</span>
                         <label class="mens-chk"><input type="checkbox" id="cobrancaSoNaoEnviados" checked> Só quem não recebeu este mês</label>
-                        <button type="button" class="btn-acao" id="cobrancaEnviarTodos"{% if not wa_configurado %} disabled{% endif %}>📤 Enviar a todos</button>
+                        <button type="button" class="btn-acao" id="cobrancaEnviarTodos">📤 Enviar a todos</button>
+                    </div>
+
+                    <input type="search" id="cobrancaBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar responsável…" aria-label="Buscar responsável">
+
+                    <!-- Progresso do envio em lote (10s entre cada) -->
+                    <div class="card mens-cobranca-progresso" id="cobrancaProgresso" hidden>
+                        <div class="mens-prog-barra"><div class="mens-prog-fill" id="cobrancaProgFill"></div></div>
+                        <p class="mens-prog-txt" id="cobrancaProgTxt">Enviando…</p>
+                        <button type="button" class="btn-secundario" id="cobrancaCancelar">Cancelar</button>
                     </div>
 
                     <ul class="mens-cobranca-lista">
                         {% for f in cobrancas %}
-                        <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}">
+                        <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}"
+                            data-busca="{{ f.resp_nome|lower }}" data-cobrado="{{ f.cobrado_mes }}"
+                            data-tem-numero="{% if f.tem_numero %}1{% else %}0{% endif %}">
                             <div class="mens-cobranca-linha">
                                 <span class="mens-cobranca-nome">{{ f.resp_nome }}</span>
+                                <span class="mens-cobranca-status">
                                 {% if f.cobrado_mes %}<span class="mens-badge mens-badge-isento">📤 Cobrado este mês ({{ f.cobrado_mes }})</span>
                                 {% else %}<span class="mens-badge mens-badge-desc">⏳ Não cobrado este mês</span>{% endif %}
+                                </span>
                             </div>
                             <div class="mens-cobranca-det">
                                 <span>Em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_mens }} mês(es)</span>
                                 {% if f.tem_numero %}<span>📱 {{ f.numero }}</span>{% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
                             </div>
                             <button type="button" class="btn-secundario btn-acao-pequeno mens-cobranca-enviar"
-                                    data-usuario="{{ f.usuario_id }}"{% if not wa_configurado or not f.tem_numero %} disabled{% endif %}>
+                                    data-usuario="{{ f.usuario_id }}"{% if not f.tem_numero %} disabled{% endif %}>
                                 📤 Enviar cobrança
                             </button>
                         </li>
                         {% endfor %}
                     </ul>
+                    <p class="painel-nota mens-cobranca-vazio-busca" hidden>Nenhum responsável encontrado.</p>
                     {% else %}
                     <section class="card vazio-card">
                         <span class="vazio-icone" aria-hidden="true">✅</span>

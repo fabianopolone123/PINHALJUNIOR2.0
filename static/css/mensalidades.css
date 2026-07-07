@@ -237,3 +237,8 @@
 .mens-cobranca-nome { font-weight:700; }
 .mens-cobranca-det { display:flex; gap:16px; flex-wrap:wrap; color:#475569; font-size:0.92rem; margin:6px 0 10px; }
 .mens-cobranca-semzap { color:#a12a1e; }
+.mens-cobranca-busca { width:100%; margin-bottom:12px; }
+.mens-cobranca-progresso { padding:12px 16px; margin-bottom:12px; }
+.mens-prog-barra { height:10px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-bottom:8px; }
+.mens-prog-fill { height:100%; width:0; background:linear-gradient(90deg,#1f6fb2,#3a9d3a); transition:width .3s; }
+.mens-prog-txt { margin:0 0 8px; font-size:0.92rem; color:#475569; }
