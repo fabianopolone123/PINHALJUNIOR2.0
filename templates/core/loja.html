@@ -269,6 +269,17 @@
                         </div>
                     </div>
 
+                    <section class="card loja-rel-bloco">
+                        <h2 class="secao-titulo">💰 Resultado da loja</h2>
+                        <div class="loja-resultado-linha">
+                            <span>Vendas <strong>R$ {{ relatorio.arrecadado|moeda }}</strong></span>
+                            <span>Custos <strong class="saida">− R$ {{ custos_loja_total|moeda }}</strong></span>
+                            <span>Taxa Mercado Pago <strong class="saida">− R$ {{ taxa_loja|moeda }}</strong></span>
+                            <span>Resultado <strong class="{% if loja_resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ loja_resultado|moeda }}</strong></span>
+                        </div>
+                        <p class="painel-nota" style="margin-bottom:0;">O <strong>Resultado</strong> já desconta os custos e a <strong>taxa do Mercado Pago</strong> (só das vendas por Pix/cartão) — é o que de fato ficou no banco.</p>
+                    </section>
+
                     <div class="loja-relatorio-grade">
                         <section class="card loja-rel-bloco">
                             <h2 class="secao-titulo">🏆 Mais vendidos</h2>
@@ -315,16 +326,10 @@
                     <div class="loja-subsecao" data-subsecao="custos" hidden>
                     <section class="card loja-rel-bloco loja-custos-bloco">
                         <div class="secao-cabecalho" style="margin-top:0;">
-                            <h2 class="secao-titulo">🧾 Custos / pagamentos da loja</h2>
+                            <h2 class="secao-titulo">🧾 Custos da loja</h2>
                             <button type="button" class="btn-secundario btn-acao-pequeno" id="btnCustoLoja">➕ Lançar custo da loja</button>
                         </div>
-                        <div class="loja-resultado-linha">
-                            <span>Vendas <strong>R$ {{ relatorio.arrecadado|moeda }}</strong></span>
-                            <span>Custos <strong class="saida">− R$ {{ custos_loja_total|moeda }}</strong></span>
-                            <span>Taxa Mercado Pago <strong class="saida">− R$ {{ taxa_loja|moeda }}</strong></span>
-                            <span>Resultado <strong class="{% if loja_resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ loja_resultado|moeda }}</strong></span>
-                        </div>
-                        <p class="painel-nota">O <strong>Resultado</strong> já desconta os custos e a <strong>taxa do Mercado Pago</strong> (só das vendas pagas por Pix/cartão) — é o que de fato ficou no banco.</p>
+                        <p class="painel-nota" style="margin-top:0;">Pagamentos de fornecedores da loja (uniformes, laços…). Abatem no resultado (aba <strong>Resumo</strong>).</p>
                         {% if custos_loja %}
                         <ul class="loja-custos-lista">
                             {% for c in custos_loja %}
@@ -340,6 +345,7 @@
                             </li>
                             {% endfor %}
                         </ul>
+                        <p class="loja-custos-total">Total de custos: <strong class="saida">− R$ {{ custos_loja_total|moeda }}</strong></p>
                         {% else %}
                         <p class="painel-nota">Nenhum custo da loja lançado. Ex.: pagamento dos uniformes ao fornecedor.</p>
                         {% endif %}

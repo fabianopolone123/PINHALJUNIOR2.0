@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Loja/Vendas: resumo financeiro no Resumo; Custos só com a lista
+
+### Resumo
+Ajuste de organização: o resumo financeiro (Vendas − Custos − Taxa MP = Resultado) saiu da sub-aba **Custos** e
+virou um card **"💰 Resultado da loja"** na sub-aba **Resumo** (junto do Arrecadado) — é onde a taxa e o
+resultado líquido fazem sentido. A sub-aba **Custos** ficou só com a **lista de custos** ("Custos da loja") +
+um **Total de custos**.
+
+### Arquivos alterados
+- `templates/core/loja.html`: card "Resultado da loja" no Resumo; Custos retitulada ("Custos da loja"), sem a
+  linha de resultado, com total ao final.
+- `static/css/loja.css`: `.loja-custos-total`.
+
+---
+
 ## 2026-07-06 - Loja/Vendas dividida em sub-abas
 
 ### Resumo
