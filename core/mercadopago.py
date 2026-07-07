@@ -138,10 +138,10 @@ def criar_preferencia(config, *, referencia, valor, descricao, payer_email="",
         "external_reference": referencia,
         "payment_methods": {
             "installments": int(max_parcelas),
-            # Só cartão: Pix/boleto/saldo o clube trata por outros caminhos.
+            # Exclui boleto (ticket) e Pix (bank_transfer) para focar no cartão.
+            # NÃO excluir "account_money" (o MP retorna 400: não pode ser excluído).
             "excluded_payment_types": [
                 {"id": "ticket"}, {"id": "bank_transfer"},
-                {"id": "atm"}, {"id": "account_money"},
             ],
         },
     }
