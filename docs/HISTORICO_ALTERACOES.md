@@ -76,7 +76,41 @@ migration **0038**), exibida ao responsável na tela de Mensalidades dele.
 
 ---
 
-## 2026-07-07 - Preview do Diretor: "Ver como responsável"
+## 2026-07-07 - Seletor de perfil ("Ver como") + dados fictícios (demo) do Fabiano
+
+### Resumo
+Generaliza o preview do Diretor para um **seletor de perfil** de verdade e permite o Fabiano testar o perfil
+Responsável **com dados**, sem poluir o clube.
+- **Seletor "Ver como"** no menu: lista os perfis que o usuário **possui de fato** (grupos nativos) e troca a
+  visão (menu + telas) ao clicar. Só aparece com 2+ perfis. Substitui o botão binário "Ver como responsável".
+- **Fabiano ganha os 5 perfis** (Diretor, Responsável, Professor, Tesoureiro, Secretário). Professor/Tesoureiro/
+  Secretário ainda **sem telas** → por ora só "Meus Dados" (placeholder no `ACESSO_PADRAO`).
+- **Dados fictícios isolados:** flag **`demo`** em `Aventureiro` e `Evento` (migration **0039**). Tudo `demo=True`
+  fica **fora de todas as contagens do clube** (Usuários, Mensalidades e Presença do Diretor, Financeiro, menu de
+  eventos). A presença do responsável **casa a demo-ness** (família fictícia só enxerga eventos fictícios; a real,
+  só reais — os demos não viram "falta" para ninguém).
+- **Comando `dados_demo_fabiano`** (idempotente): dá os perfis ao Fabiano e cria **2 aventureiros fictícios**
+  (foto/ficha/autorização), suas **mensalidades** (2 pagas + o resto em aberto/atrasado) e **2 eventos fictícios**
+  com **presença** — para as telas do responsável aparecerem cheias.
+
+### Arquivos alterados
+- `core/menus.py`: perfis Professor/Tesoureiro/Secretário + `ORDEM_PERFIS`/`ICONE_PERFIL`; `PERFIL_ATIVO_KEY`,
+  `perfis_do_usuario`, `perfil_efetivo` (via seletor), `pode_trocar_perfil`.
+- `core/context_processors.py`: `perfis_disponiveis` (seletor) + menu do perfil efetivo; `_eventos_menu` exclui demo.
+- `core/views.py`: `preview_responsavel_view` → `trocar_perfil_view`; **exclusão de `demo`** em usuarios,
+  mensalidades (lista/totais/taxa), reajustar, gerar, cobranças, financeiro, presença (marcar/selecionar),
+  recuperação por CPF, eventos e `_presenca_responsavel` (casa demo-ness).
+- `core/models.py`: `Aventureiro.demo`, `Evento.demo`. `core/migrations/0039_*`.
+- `core/urls.py`: `trocar-perfil/` (era `preview-responsavel/`). `templates/core/_menu.html`: seletor.
+- `static/css/inicio.css`: estilo `.menu-perfil`. `core/management/commands/dados_demo_fabiano.py` (novo).
+- `core/tests.py`: `DemoIsolamentoTests` + testes do seletor (substituem os de preview).
+
+### Como usar
+`python manage.py dados_demo_fabiano` → entrar como Fabiano → menu **"Ver como" → Responsável**.
+
+---
+
+## 2026-07-07 - Preview do Diretor: "Ver como responsável" (substituído pelo seletor de perfil)
 
 ### Resumo
 Para o Diretor testar/conferir a visão do responsável sem outra conta, o menu do Diretor ganhou o botão

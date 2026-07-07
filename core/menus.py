@@ -17,6 +17,20 @@ from .permissoes import eh_diretor
 
 PERFIL_DIRETOR = "Diretor"
 PERFIL_RESPONSAVEL = "Responsável"
+PERFIL_PROFESSOR = "Professor"
+PERFIL_TESOUREIRO = "Tesoureiro"
+PERFIL_SECRETARIO = "Secretário"
+
+# Ordem de exibição dos perfis (no seletor do menu).
+ORDEM_PERFIS = [
+    PERFIL_DIRETOR, PERFIL_RESPONSAVEL, PERFIL_PROFESSOR,
+    PERFIL_TESOUREIRO, PERFIL_SECRETARIO,
+]
+# Ícone de cada perfil (para o seletor).
+ICONE_PERFIL = {
+    PERFIL_DIRETOR: "🧭", PERFIL_RESPONSAVEL: "👨‍👩‍👧", PERFIL_PROFESSOR: "🎓",
+    PERFIL_TESOUREIRO: "💵", PERFIL_SECRETARIO: "🗂️",
+}
 
 # Cada item: `id` estável, `rotulo`, `icone`, `url` (name completo) e `ativas`
 # (url_names que deixam o item "ativo" no menu).
@@ -51,16 +65,22 @@ ITENS_MENU = [
 ACESSO_PADRAO = {
     PERFIL_DIRETOR: [i["id"] for i in ITENS_MENU],           # Diretor vê tudo
     PERFIL_RESPONSAVEL: ["inicio", "mensalidades", "loja", "presenca"],
+    # Perfis ainda sem telas próprias: por ora só "Meus Dados" (serão liberados
+    # à medida que forem construídos — ver o encaixe em `_ids_liberados`).
+    PERFIL_PROFESSOR: ["inicio"],
+    PERFIL_TESOUREIRO: ["inicio"],
+    PERFIL_SECRETARIO: ["inicio"],
 }
 
 
-# Chave de sessão do modo "Ver como responsável" (preview do Diretor).
-PREVIEW_KEY = "preview_responsavel"
+# Chave de sessão do perfil ATIVO (seletor de perfil no menu). Vazio/ausente =
+# perfil padrão do usuário.
+PERFIL_ATIVO_KEY = "perfil_ativo"
 
 
 def perfil_do_usuario(user):
-    """Perfil principal (real) do usuário. Diretor pelo grupo nativo; qualquer
-    outro membro logado é tratado como Responsável. Anônimo → None."""
+    """Perfil PADRÃO (real) do usuário. Diretor pelo grupo nativo; qualquer outro
+    membro logado é tratado como Responsável. Anônimo → None."""
     if not getattr(user, "is_authenticated", False):
         return None
     if eh_diretor(user):
@@ -68,18 +88,33 @@ def perfil_do_usuario(user):
     return PERFIL_RESPONSAVEL
 
 
+def perfis_do_usuario(user):
+    """Perfis que o usuário PODE assumir (grupos nativos ∩ perfis conhecidos), na
+    ordem de `ORDEM_PERFIS`. Sem grupo → só o perfil padrão."""
+    if not getattr(user, "is_authenticated", False):
+        return []
+    nomes = set(user.groups.values_list("name", flat=True))
+    perfis = [p for p in ORDEM_PERFIS if p in nomes]
+    return perfis or [perfil_do_usuario(user)]
+
+
 def perfil_efetivo(request):
-    """Perfil considerando o modo preview: um Diretor com "Ver como responsável"
-    ligado passa a ser tratado como Responsável (menu e telas)."""
-    perfil = perfil_do_usuario(request.user)
-    if perfil == PERFIL_DIRETOR and request.session.get(PREVIEW_KEY):
-        return PERFIL_RESPONSAVEL
-    return perfil
+    """Perfil em uso: o do seletor (sessão) se o usuário pode assumi-lo; senão, o
+    perfil padrão. É o que decide o menu e a ramificação das telas."""
+    padrao = perfil_do_usuario(request.user)
+    escolhido = request.session.get(PERFIL_ATIVO_KEY)
+    if escolhido and escolhido in perfis_do_usuario(request.user):
+        return escolhido
+    return padrao
+
+
+def pode_trocar_perfil(user):
+    """True se o usuário tem mais de um perfil (mostra o seletor no menu)."""
+    return len(perfis_do_usuario(user)) > 1
 
 
 def atua_como_responsavel(request):
-    """True se a tela deve se comportar como Responsável — responsável real OU
-    Diretor em modo preview."""
+    """True se a tela deve se comportar como Responsável (perfil efetivo)."""
     return perfil_efetivo(request) == PERFIL_RESPONSAVEL
 
 

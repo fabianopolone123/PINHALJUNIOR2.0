@@ -15,11 +15,16 @@ atrasados) para **selecionar e pagar** (Pix/cartão, `minhas_mensalidades_pagar`
 **"adiantar meses"** (`?frente=1`) + **texto de apelo**; **Presença** = **relatório só-leitura** dos próprios
 filhos (esteve/faltou por evento; não marca). O Diretor ganhou na aba **Cobranças** a **mensagem de apelo**
 (`ConfigMensalidade.mensagem_apelo`, migration **0038**). Templates novos: `_loja_vitrine.html`,
-`loja_responsavel.html`, `mensalidades_responsavel.html`, `presenca_responsavel.html`. **Preview do Diretor:**
-botão **"Ver como responsável"** no menu (rota `preview_responsavel`, flag `PREVIEW_KEY` na sessão) — o
-Diretor alterna para a visão de responsável (menu + Loja/Mensalidades/Presença) e volta com "Voltar ao
-Diretor"; `perfil_efetivo`/`atua_como_responsavel` em `core/menus.py`. Testes em
-`core.tests.PerfilResponsavelTests`. Antes: Cobrança de mensalidades por WhatsApp + página pública de acerto.
+`loja_responsavel.html`, `mensalidades_responsavel.html`, `presenca_responsavel.html`. **Seletor de perfil:**
+o menu tem **"Ver como"** (rota `trocar_perfil`, chave `PERFIL_ATIVO_KEY` na sessão) listando os perfis que o
+usuário **realmente possui** (grupos) — trocar muda menu + telas (`perfil_efetivo`/`perfis_do_usuario`/
+`pode_trocar_perfil` em `core/menus.py`); só aparece com 2+ perfis. **Dados fictícios (demo):** flag
+**`Aventureiro.demo`/`Evento.demo`** (migration **0039**) marca dados de teste que **NUNCA** entram nas
+contagens do clube (Usuários, Mensalidades/Presença do Diretor, Financeiro, menu de eventos) — a presença do
+responsável casa a "demo-ness" (família demo só vê eventos demo). Comando **`dados_demo_fabiano`** dá **todos
+os 5 perfis** ao Fabiano + cria **2 aventureiros fictícios** (com mensalidades pagas/em aberto e presença) para
+ele testar o perfil Responsável. Testes em `core.tests` (`PerfilResponsavelTests`, `DemoIsolamentoTests`).
+Antes: Cobrança de mensalidades por WhatsApp + página pública de acerto.
 
 **Anterior (Cobrança de mensalidades por WhatsApp + página pública de acerto):** novo
 sistema de cobrança das mensalidades. **(1) Página pública de acerto** (`/acerto/<token>/`, sem login): um

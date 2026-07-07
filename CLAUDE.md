@@ -107,11 +107,18 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 
 ## Convenções úteis
 - **Menu/acesso por perfil**: fonte única em `core/menus.py` (`ITENS_MENU` + `ACESSO_PADRAO` por perfil +
-  `itens_menu_para`/`pode_acessar`/`perfil_do_usuario`). O `_menu.html` **itera `menu_itens`** (via context
-  processor `perfis`) — **não** chumbar itens com `{% if is_diretor %}`. Telas compartilhadas (Loja,
-  Mensalidades, Presença) usam a **mesma URL** e a view **ramifica por perfil** (Diretor vê o painel; o
-  **Responsável** tem tela própria: `*_responsavel.html`). O futuro **módulo de permissões** encaixa em
-  `_ids_liberados` sem mexer em menu/views.
+  `itens_menu_do_perfil`/`perfil_efetivo`/`perfis_do_usuario`/`pode_trocar_perfil`). O `_menu.html` **itera
+  `menu_itens`** (via context processor `perfis`) — **não** chumbar itens com `{% if is_diretor %}`. O menu
+  tem o seletor **"Ver como"** (`trocar_perfil`, chave `PERFIL_ATIVO_KEY` na sessão): troca a visão entre os
+  perfis que o usuário **possui**. Telas compartilhadas (Loja, Mensalidades, Presença) usam a **mesma URL** e a
+  view **ramifica por perfil** (`atua_como_responsavel`; Diretor vê o painel, o **Responsável** tem a sua:
+  `*_responsavel.html`). O futuro **módulo de permissões** encaixa em `perfil_efetivo`/`ACESSO_PADRAO` sem mexer
+  em menu/views.
+- **Dados fictícios (`demo`)**: `Aventureiro.demo`/`Evento.demo` marcam dados de teste (ex.: perfil de
+  responsável do Diretor via `dados_demo_fabiano`). **Toda** query de contagem/relatório do clube (Usuários,
+  Mensalidades/Presença do Diretor, Financeiro, menu de eventos) **deve excluir `demo`** (`demo=False` /
+  `.exclude(aventureiro__demo=True)`). Telas do próprio responsável (escopo `usuario=request.user`) incluem os
+  demos de propósito. Ao criar nova estatística do clube, **lembre de excluir `demo`**.
 - Parciais de template reutilizáveis: `_campo.html`, `_campo_check.html` (formulários) e `_dado.html`
   (rótulo+valor em "Meus Dados").
 - Painéis expansíveis usam `<details>/<summary>` nativos; fechar-ao-clicar-fora em `static/js/inicio.js`.

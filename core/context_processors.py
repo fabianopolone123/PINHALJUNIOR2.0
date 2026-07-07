@@ -3,7 +3,13 @@
 from django.db.models import Q
 from django.utils import timezone
 
-from .menus import PREVIEW_KEY, itens_menu_do_perfil, perfil_efetivo
+from .menus import (
+    ICONE_PERFIL,
+    itens_menu_do_perfil,
+    perfil_efetivo,
+    perfis_do_usuario,
+    pode_trocar_perfil,
+)
 from .models import Evento, OperadorEvento
 from .permissoes import eh_diretor
 
@@ -16,7 +22,7 @@ def _eventos_menu(user):
         return []
     hoje = timezone.localdate()
     return list(
-        Evento.objects.filter(tipo="inscricao")
+        Evento.objects.filter(tipo="inscricao", demo=False)
         .filter(Q(data_fim__gte=hoje) | Q(data_fim__isnull=True, data__gte=hoje))
         .order_by("data", "horario_inicio")
     )
@@ -27,11 +33,17 @@ def perfis(request):
     e as informações de operador (`operador_eventos`, `eh_operador_externo`)."""
     user = request.user
     perfil_ef = perfil_efetivo(request)
+    perfis_sel = []
+    if pode_trocar_perfil(user):
+        perfis_sel = [
+            {"nome": p, "icone": ICONE_PERFIL.get(p, "👤"), "ativo": p == perfil_ef}
+            for p in perfis_do_usuario(user)
+        ]
     contexto = {
         "is_diretor": eh_diretor(user),
         "perfil_atual": perfil_ef,
         "menu_itens": itens_menu_do_perfil(perfil_ef),
-        "preview_responsavel": eh_diretor(user) and bool(request.session.get(PREVIEW_KEY)),
+        "perfis_disponiveis": perfis_sel,   # vazio quando só há 1 perfil
         "eventos_menu": _eventos_menu(user),
         "operador_eventos": [],
         "eh_operador_externo": False,

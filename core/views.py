@@ -87,7 +87,7 @@ from .models import (
     VariacaoProduto,
     WhatsappConfig,
 )
-from .menus import PREVIEW_KEY, atua_como_responsavel
+from .menus import PERFIL_ATIVO_KEY, atua_como_responsavel, perfis_do_usuario
 from .permissoes import diretor_required, eh_diretor, operador_required, pode_operar_evento
 
 # ---------------------------------------------------------------------------
@@ -647,7 +647,7 @@ def usuarios_view(request):
         Aventureiro.objects
         .select_related("ficha_medica", "autorizacao_imagem", "usuario")
         .prefetch_related("assinaturas")
-        .all()
+        .filter(demo=False)   # aventureiros fictícios (demo) não entram na tela Usuários
     )
 
     responsaveis = {}   # chave -> {nome, papeis, contato..., vinculos: {av_id: {...}}}
@@ -809,7 +809,7 @@ def aventureiro_termos_view(request, pk):
 @diretor_required
 def eventos_view(request):
     """Lista os eventos do clube. Restrito ao perfil Diretor."""
-    eventos = list(Evento.objects.all())
+    eventos = list(Evento.objects.filter(demo=False))   # eventos fictícios (demo) ficam de fora
     # Um evento só pode ser excluído se estiver "vazio" (sem inscrições, pedidos
     # nem presença marcada) — protege dados de pessoas/vendas/presença. Ver
     # `evento_excluir_view`.
@@ -1014,7 +1014,7 @@ def _montar_dashboard(confirmadas, pedidos_confirmados, custos, faixas, receitas
     # --- Cobertura: quais aventureiros do clube estão neste evento ---
     # Só aventureiros ATIVOS (os inativos/desligados não contam no total do clube).
     aventureiros = list(
-        Aventureiro.objects.filter(ativo=True).order_by("nome_completo")
+        Aventureiro.objects.filter(ativo=True, demo=False).order_by("nome_completo")
     )
     av_tokens = [(av, _tokens_lista(av.nome_completo)) for av in aventureiros]
     # Para cada participante, quais aventureiros seus nomes poderiam ser (casa por
@@ -2934,7 +2934,7 @@ def presenca_view(request):
     próprios filhos (`_presenca_responsavel`)."""
     if atua_como_responsavel(request):
         return _presenca_responsavel(request)
-    eventos = list(Evento.objects.all())
+    eventos = list(Evento.objects.filter(demo=False))   # eventos fictícios (demo) ficam de fora
     for e in eventos:
         e.qtd_presentes = e.presencas.count()
     return render(request, "core/presenca_selecionar.html", {"eventos": eventos})
@@ -2947,9 +2947,12 @@ def _presenca_responsavel(request):
     aventureiros = list(
         Aventureiro.objects.filter(usuario=request.user, ativo=True).order_by("nome_completo")
     )
-    # Eventos que tiveram chamada (pelo menos 1 presença marcada), recentes 1º.
+    # Casa a "demo-ness": família fictícia (demo) só considera eventos fictícios;
+    # família real só considera eventos reais — assim os dados de teste não se
+    # misturam com os do clube (nem aparecem como "falta" para responsáveis reais).
+    sao_demo = any(av.demo for av in aventureiros)
     eventos_chamada = list(
-        Evento.objects.filter(presencas__isnull=False).distinct()
+        Evento.objects.filter(presencas__isnull=False, demo=sao_demo).distinct()
         .order_by("-data", "-horario_inicio")
     )
     presentes = set(
@@ -2983,17 +2986,15 @@ def _presenca_responsavel(request):
     return render(request, "core/presenca_responsavel.html", contexto)
 
 
-@diretor_required
+@login_required
 @require_POST
-def preview_responsavel_view(request):
-    """Liga/desliga o modo "Ver como responsável" do Diretor (preview): alterna a
-    flag na sessão e volta para "Meus Dados". Só o Diretor tem acesso."""
-    ligado = not request.session.get(PREVIEW_KEY)
-    request.session[PREVIEW_KEY] = ligado
-    if ligado:
-        messages.info(request, "Modo preview: você está vendo como um responsável veria.")
-    else:
-        messages.info(request, "Você voltou à visão de Diretor.")
+def trocar_perfil_view(request):
+    """Troca o perfil ATIVO do usuário (seletor no menu). Só aceita perfis que o
+    usuário realmente possui — muda o menu e as telas. Volta para "Meus Dados"."""
+    perfil = (request.POST.get("perfil") or "").strip()
+    if perfil in perfis_do_usuario(request.user):
+        request.session[PERFIL_ATIVO_KEY] = perfil
+        messages.info(request, f"Você está usando o sistema como {perfil}.")
     return redirect("core:inicio")
 
 
@@ -3007,7 +3008,7 @@ def presenca_evento_view(request, pk):
         return redirect("core:presenca")
     # Só aventureiros ativos (os inativos/desligados não frequentam mais).
     aventureiros = list(
-        Aventureiro.objects.filter(ativo=True).order_by("nome_completo")
+        Aventureiro.objects.filter(ativo=True, demo=False).order_by("nome_completo")
     )
     presentes_ids = set(
         evento.presencas.values_list("aventureiro_id", flat=True)
@@ -3768,7 +3769,8 @@ def _cobrancas_familias():
     (responsável, total, WhatsApp, token do link e nº de cobranças enviadas no mês)."""
     hoje = timezone.localdate()
     abertas = (
-        Mensalidade.objects.filter(status="aberta", isento=False, aventureiro__ativo=True)
+        Mensalidade.objects.filter(
+            status="aberta", isento=False, aventureiro__ativo=True, aventureiro__demo=False)
         .filter(_q_mens_vencidas())
         .select_related("aventureiro")
     )
@@ -4064,7 +4066,7 @@ def _conta_por_cpf_resp(cpf):
     if len(alvo) != 11:
         return None
     achados = []
-    for av in Aventureiro.objects.filter(usuario__isnull=False).select_related("usuario"):
+    for av in Aventureiro.objects.filter(usuario__isnull=False, demo=False).select_related("usuario"):
         if _so_digitos(av.resp_cpf) == alvo:
             achados.append(av.usuario)
     if not achados:
@@ -5163,8 +5165,14 @@ def mensalidades_view(request):
     except (TypeError, ValueError):
         ano = anos[0]
 
-    aventureiros = list(Aventureiro.objects.filter(ativo=True).order_by("nome_completo"))
-    mens = list(Mensalidade.objects.filter(ano=ano).select_related("aventureiro"))
+    # Aventureiros/mensalidades FICTÍCIOS (demo) não entram no painel do Diretor.
+    aventureiros = list(
+        Aventureiro.objects.filter(ativo=True, demo=False).order_by("nome_completo")
+    )
+    mens = list(
+        Mensalidade.objects.filter(ano=ano).exclude(aventureiro__demo=True)
+        .select_related("aventureiro")
+    )
     por_av = defaultdict(list)
     for m in mens:
         por_av[m.aventureiro_id].append(m)
@@ -5192,6 +5200,7 @@ def mensalidades_view(request):
     # Taxa do gateway (Mercado Pago) nas mensalidades do ano pagas via Pix/cartão.
     pag_ids = set(
         Mensalidade.objects.filter(ano=ano, pagamento__isnull=False)
+        .exclude(aventureiro__demo=True)
         .values_list("pagamento_id", flat=True)
     )
     tot["taxa_gateway"] = (
@@ -5296,7 +5305,8 @@ def mensalidade_reajustar_view(request):
     config = ConfigMensalidade.get_solo()
     afetadas = 0
     for m in Mensalidade.objects.filter(
-        ano=ano, mes__gte=mes_ini, status="aberta", aventureiro__ativo=True
+        ano=ano, mes__gte=mes_ini, status="aberta",
+        aventureiro__ativo=True, aventureiro__demo=False,
     ).select_related("aventureiro"):
         valor, isento = _valor_mensalidade(config, m.aventureiro, m.tipo)
         m.valor, m.isento = valor, isento
@@ -5320,9 +5330,9 @@ def mensalidades_gerar_view(request):
         ano = timezone.localdate().year
     av_id = request.POST.get("aventureiro_id") or ""
     if av_id:
-        alvos = Aventureiro.objects.filter(pk=av_id, ativo=True)
+        alvos = Aventureiro.objects.filter(pk=av_id, ativo=True, demo=False)
     else:
-        alvos = Aventureiro.objects.filter(ativo=True)
+        alvos = Aventureiro.objects.filter(ativo=True, demo=False)
     total = 0
     for av in alvos:
         total += _gerar_mensalidades(av, ano)
@@ -5582,7 +5592,10 @@ def financeiro_view(request):
     clube e extrato consolidado (mensalidades + loja + eventos)."""
     hoje = timezone.localdate()
 
-    mens_pagas = list(Mensalidade.objects.filter(status="paga").select_related("aventureiro"))
+    mens_pagas = list(
+        Mensalidade.objects.filter(status="paga").exclude(aventureiro__demo=True)
+        .select_related("aventureiro")
+    )
     compras = list(CompraLoja.objects.filter(status="confirmado"))
     inscricoes = list(Inscricao.objects.exclude(status="cancelada").select_related("evento"))
     pedidos_ev = list(PedidoLoja.objects.filter(status="confirmado").select_related("evento"))
@@ -5591,7 +5604,8 @@ def financeiro_view(request):
 
     mens_recebido = sum((m.valor_pago or Decimal("0") for m in mens_pagas), Decimal("0"))
     mens_aberto = sum(
-        (m.valor for m in Mensalidade.objects.filter(status="aberta", aventureiro__ativo=True)),
+        (m.valor for m in Mensalidade.objects.filter(
+            status="aberta", aventureiro__ativo=True, aventureiro__demo=False)),
         Decimal("0"),
     )
     loja_total = sum((c.valor_total for c in compras), Decimal("0"))

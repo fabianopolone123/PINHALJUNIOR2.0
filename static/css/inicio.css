@@ -160,21 +160,30 @@ body {
     line-height: 1;
 }
 
-/* Botão "Ver como responsável" (preview do Diretor) — parece um item de menu */
-.menu-preview-form { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.16); }
-.menu-preview {
+/* Seletor de perfil ("Ver como") — troca a visão do sistema */
+.menu-perfil {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.menu-perfil-form { margin: 0; }
+.menu-perfil-item {
     width: 100%;
     background: transparent;
-    border: 1px dashed rgba(255, 255, 255, 0.35);
+    border: 1px dashed rgba(255, 255, 255, 0.28);
     cursor: pointer;
     text-align: left;
     font-family: inherit;
 }
-.menu-preview.ativo {
+.menu-perfil-item.ativo {
     background: linear-gradient(135deg, var(--verde) 0%, var(--verde-claro) 100%);
     border-style: solid;
     box-shadow: 0 8px 18px rgba(58, 157, 58, 0.35);
 }
+.menu-perfil-check { margin-left: auto; font-weight: 700; }
 
 /* Seção "Eventos ativos" no menu (visível a todos os perfis) */
 .menu-eventos {

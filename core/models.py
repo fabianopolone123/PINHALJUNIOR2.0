@@ -139,6 +139,10 @@ class Aventureiro(models.Model):
     # se o responsável (usuario) não tiver mais nenhum aventureiro ativo, a conta
     # dele também é desativada (ver views/usuarios).
     ativo = models.BooleanField("Ativo (frequenta o clube)", default=True)
+    # Aventureiro FICTÍCIO (dados de teste/demo, ex.: perfil de responsável do
+    # Diretor). NUNCA entra nas contagens/relatórios do clube (usuários,
+    # mensalidades, presença, financeiro). Ver `core/menus.py` e as views.
+    demo = models.BooleanField("Fictício (dados de teste)", default=False)
 
     # Mensalidades: isenção total ou desconto percentual (0-100) aplicados ao
     # valor das mensalidades/inscrição deste aventureiro.
@@ -327,6 +331,10 @@ class Evento(models.Model):
     data_fim = models.DateField("Data de término", null=True, blank=True)
     horario_inicio = models.TimeField("Horário de início", null=True, blank=True)
     horario_fim = models.TimeField("Horário de término", null=True, blank=True)
+    # Evento FICTÍCIO (dados de teste/demo, ex.: presença do perfil de
+    # responsável do Diretor). NUNCA entra na lista de eventos, no menu, na
+    # presença do Diretor nem no financeiro do clube.
+    demo = models.BooleanField("Fictício (dados de teste)", default=False)
 
     # --- Configuração de inscrição (só usada em eventos "com inscrição") ---
     # Se True, qualquer pessoa pode se inscrever; se False, apenas membros do

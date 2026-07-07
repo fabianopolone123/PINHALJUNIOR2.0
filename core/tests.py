@@ -741,8 +741,9 @@ class PerfilResponsavelTests(TestCase):
 
     def setUp(self):
         self.grupo_dir = Group.objects.create(name="Diretor")
+        self.grupo_resp = Group.objects.create(name="Responsável")
         self.diretor = User.objects.create_user("dir", password="x")
-        self.diretor.groups.add(self.grupo_dir)
+        self.diretor.groups.add(self.grupo_dir, self.grupo_resp)   # pode trocar de perfil
 
         self.resp = User.objects.create_user("resp", password="x")
         self.av = Aventureiro.objects.create(
@@ -854,13 +855,13 @@ class PerfilResponsavelTests(TestCase):
         from .models import PresencaEvento
         self.assertFalse(PresencaEvento.objects.filter(evento=ev, aventureiro=self.av).exists())
 
-    # --- Preview "Ver como responsável" (Diretor) ---
-    def test_preview_diretor_ve_telas_de_responsavel(self):
+    # --- Seletor de perfil ("Ver como") ---
+    def test_switcher_troca_para_responsavel_e_volta(self):
         self.client.force_login(self.diretor)
-        # Sem preview: Diretor vê o painel.
+        # Sem trocar: Diretor vê o painel.
         self.assertTemplateUsed(self.client.get(reverse("core:loja")), "core/loja.html")
-        # Liga o preview.
-        self.client.post(reverse("core:preview_responsavel"))
+        # Troca para Responsável.
+        self.client.post(reverse("core:trocar_perfil"), {"perfil": "Responsável"})
         self.assertTemplateUsed(self.client.get(reverse("core:loja")), "core/loja_responsavel.html")
         self.assertTemplateUsed(
             self.client.get(reverse("core:mensalidades")), "core/mensalidades_responsavel.html"
@@ -868,11 +869,67 @@ class PerfilResponsavelTests(TestCase):
         self.assertTemplateUsed(
             self.client.get(reverse("core:presenca")), "core/presenca_responsavel.html"
         )
-        # Desliga: volta ao painel do Diretor.
-        self.client.post(reverse("core:preview_responsavel"))
+        # Volta ao Diretor.
+        self.client.post(reverse("core:trocar_perfil"), {"perfil": "Diretor"})
         self.assertTemplateUsed(self.client.get(reverse("core:loja")), "core/loja.html")
 
-    def test_preview_so_diretor(self):
-        self.client.force_login(self.resp)   # responsável não tem esse botão/rota
-        r = self.client.post(reverse("core:preview_responsavel"))
-        self.assertEqual(r.status_code, 302)   # diretor_required redireciona
+    def test_switcher_recusa_perfil_que_o_usuario_nao_tem(self):
+        self.client.force_login(self.resp)   # só Responsável (sem grupo)
+        self.client.post(reverse("core:trocar_perfil"), {"perfil": "Diretor"})
+        # Não virou Diretor: continua na visão de responsável.
+        self.assertNotEqual(self.client.session.get("perfil_ativo"), "Diretor")
+        self.assertTemplateUsed(
+            self.client.get(reverse("core:mensalidades")), "core/mensalidades_responsavel.html"
+        )
+
+
+class DemoIsolamentoTests(TestCase):
+    """Aventureiros/eventos FICTÍCIOS (demo) não entram nas contagens do clube."""
+
+    def setUp(self):
+        self.grupo_dir = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir3", password="x")
+        self.diretor.groups.add(self.grupo_dir)
+        hoje = timezone.localdate()
+        # Aventureiro REAL (de uma família real) com 1 mensalidade em aberto.
+        self.real_user = User.objects.create_user("familia_real", password="x")
+        self.real = Aventureiro.objects.create(
+            usuario=self.real_user, nome_completo="Joao Real", sexo="M",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="R1",
+            resp_nome="Mae Real", resp_cpf="R2", resp_whatsapp="47", resp_email="r@x.com",
+        )
+        Mensalidade.objects.create(
+            aventureiro=self.real, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("30.00"), status="aberta",
+        )
+        # Aventureiro FICTÍCIO (demo) com 1 mensalidade PAGA (não pode contar).
+        self.demo = Aventureiro.objects.create(
+            usuario=self.diretor, nome_completo="Fantasma Demo", sexo="M",
+            data_nascimento=datetime.date(2016, 1, 1), cpf="D1", demo=True,
+            resp_nome="Fabiano Demo", resp_cpf="D2", resp_whatsapp="47", resp_email="d@x.com",
+        )
+        Mensalidade.objects.create(
+            aventureiro=self.demo, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("30.00"), status="paga", valor_pago=Decimal("30.00"),
+        )
+        self.client.force_login(self.diretor)
+
+    def test_demo_fora_de_usuarios(self):
+        r = self.client.get(reverse("core:usuarios"))
+        self.assertContains(r, "Joao Real")
+        self.assertNotContains(r, "Fantasma Demo")
+
+    def test_demo_fora_de_mensalidades_do_diretor(self):
+        r = self.client.get(reverse("core:mensalidades") + "?aba=aventureiros")
+        self.assertContains(r, "Joao Real")
+        self.assertNotContains(r, "Fantasma Demo")
+        # Totais: recebido ignora a paga fictícia; aberto conta só a real.
+        self.assertEqual(r.context["totais"]["recebido"], Decimal("0"))
+        self.assertEqual(r.context["totais"]["aberto"], Decimal("30.00"))
+
+    def test_demo_fora_da_presenca_do_diretor(self):
+        ev = Evento.objects.create(nome="Reunião", tipo="simples", data=datetime.date(2026, 1, 10))
+        r = self.client.get(reverse("core:presenca_evento", args=[ev.id]))
+        nomes = [a.nome_completo for a in r.context["aventureiros"]]
+        self.assertIn("Joao Real", nomes)
+        self.assertNotIn("Fantasma Demo", nomes)
