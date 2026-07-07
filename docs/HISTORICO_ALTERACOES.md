@@ -22,6 +22,42 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Pagamentos Mercado Pago (Etapa 6, parte 1): cartão via Checkout Pro (lojinha de evento)
+
+### Resumo
+Início do **cartão de crédito**, reusando a engine. Modelo: **Checkout Pro** (redireciona ao MP; sem SDK, sem
+dado de cartão no servidor, sem dependência nova). **Todas as taxas vão pro cliente**: o **juro do parcelamento**
+é do comprador (config "Parcelado comprador" na conta MP, até 12x) e a **taxa de intermediação** (fixa) é
+**embutida no preço** do cartão via *gross-up* (`cobrado = venda ÷ (1 − taxa%)`). Ligado 1º na **lojinha de
+evento** para validar; os outros pontos vêm em seguida.
+
+### Como funciona
+- Config nova: **`MercadoPagoConfig.taxa_cartao_pct`** (padrão 4,98% = crédito na hora) + **termômetro** na tela
+  (mostra a taxa residual média que o clube arcou nas vendas de cartão; ideal ≈ 0, senão aumentar o %).
+- `mercadopago.criar_preferencia` (Checkout Pro, via `urllib`): cria a preferência (só cartão, `installments=12`,
+  `back_urls`, `notification_url`) e devolve o `init_point` para redirecionar.
+- `_criar_pagamento_cartao`: gross-up + cria `Pagamento(forma="cartao", valor_bruto=venda)` + preferência.
+- **Taxa unificada**: `_aprovar_pagamento` calcula `taxa = valor_bruto − líquido` (o que o clube arcou). No Pix o
+  clube absorve → taxa ≈ 1%; no cartão o repasse cobre → **líquido volta a bater com a venda → taxa ≈ 0**.
+- Webhook e finalização já existentes servem; a forma (pix/cartão) do pedido/compra/mensalidade/inscrição passou
+  a vir do `pagamento.forma` (antes fixava "pix").
+- Página de pagamento genérica trata cartão (tela "confirmando pagamento" + polling, sem QR).
+
+### Arquivos alterados
+- `core/models.py`: `taxa_cartao_pct` (migration **0035**).
+- `core/mercadopago.py`: `criar_preferencia`.
+- `core/views.py`: `_grossar_cartao`, `_criar_pagamento_cartao`, `_aprovar_pagamento` (taxa = bruto − líquido),
+  ramo de cartão na `evento_pagamento_view`, termômetro na `mercadopago_view`, `taxa_cartao_pct` no salvar, e as
+  finalizações usando `pagamento.forma`.
+- `templates/core/mercadopago.html` (config do cartão + termômetro), `pagamento.html` (modo cartão).
+- `core/tests.py`: cartão gera preferência + webhook confirma com taxa repassada (≈ 0); teste do gross-up.
+
+### Pendências
+- Replicar o cartão em **Loja do Clube**, **Inscrição** e **Mensalidades**.
+- No painel do MP, deixar o parcelamento como **"Parcelado comprador"** (config da conta, não do sistema).
+
+---
+
 ## 2026-07-07 - Loja/Vendas: Custos, Taxa e Resultado como cards no Resumo
 
 ### Resumo

@@ -2199,6 +2199,20 @@ def evento_pagamento_view(request, pk):
             request, evento, dados, comprador, itens_resumo, total, config
         )
 
+    # Cartão com Mercado Pago configurado → Checkout Pro (redireciona ao MP).
+    if forma == "cartao" and config.configurado:
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="loja_evento", valor=total,
+            descricao=f"Lojinha — {evento.nome}",
+            payload={"evento_id": evento.id, "itens": dados["itens"], "comprador": comprador},
+            comprador=comprador, usuario=request.user,
+        )
+        if erro:
+            messages.error(request, f"Não foi possível iniciar o pagamento no cartão: {erro}")
+            return redirect("core:evento_loja", pk=evento.pk)
+        request.session.pop("loja_checkout", None)
+        return redirect(init_point)
+
     # Fluxo SIMULADO (sem MP configurado, ou cartão): comportamento anterior.
     if request.method == "POST":
         erros = _erros_estoque(desejados)
@@ -3150,18 +3164,79 @@ def _criar_pagamento_pix(request, *, tipo, valor, descricao, payload,
     return pagamento, ""
 
 
-def _aprovar_pagamento(pagamento, *, taxa=None, liquido=None):
-    """Marca o Pagamento como aprovado (com taxa/líquido) e dispara a finalização.
-    Idempotente: se já finalizou, não faz nada (o webhook pode chegar repetido)."""
+def _grossar_cartao(config, valor):
+    """Total a cobrar no cartão para o clube RECEBER `valor` líquido, repassando a
+    taxa de intermediação ao cliente: cobrado = valor ÷ (1 − taxa%)."""
+    taxa = (config.taxa_cartao_pct or Decimal("0")) / Decimal("100")
+    if taxa <= 0 or taxa >= 1:
+        return Decimal(valor).quantize(Decimal("0.01"))
+    return (Decimal(valor) / (Decimal("1") - taxa)).quantize(Decimal("0.01"))
+
+
+def _criar_pagamento_cartao(request, *, tipo, valor, descricao, payload,
+                            comprador=None, usuario=None):
+    """Cria um Pagamento (cartão) + a preferência do Checkout Pro e devolve
+    (pagamento, init_point, erro). `valor` é o valor da VENDA (o clube recebe isso
+    líquido); o cliente paga o valor "grossado" (venda ÷ (1 − taxa)) + juros de
+    parcela (por conta dele, no MP). `valor_bruto` guarda a venda, então nos
+    relatórios a taxa do clube fica ≈ 0 (repassada)."""
+    config = _mp_config()
+    comprador = comprador or {}
+    cobrado = _grossar_cartao(config, valor)
+    dados = dict(payload or {})
+    dados["valor_cobrado"] = str(cobrado)
+    pagamento = Pagamento.objects.create(
+        tipo=tipo,
+        forma="cartao",
+        referencia=Pagamento.gerar_referencia(),
+        modo=config.modo,
+        valor_bruto=valor,
+        payload=dados,
+        usuario=usuario if (usuario and usuario.is_authenticated) else None,
+    )
+    # Volta para a nossa tela de acompanhamento (que confirma pelo webhook).
+    retorno = request.build_absolute_uri(
+        reverse("core:pagamento", args=[pagamento.referencia])
+    )
+    resp = mp.criar_preferencia(
+        config,
+        referencia=pagamento.referencia,
+        valor=cobrado,
+        descricao=descricao,
+        payer_email=comprador.get("email", ""),
+        payer_nome=comprador.get("nome", ""),
+        notification_url=_webhook_url(request),
+        back_sucesso=retorno,
+        back_falha=retorno,
+        max_parcelas=12,
+    )
+    if not resp.get("ok"):
+        pagamento.status = "rejeitado"
+        pagamento.detalhe = resp.get("erro", "")
+        pagamento.save(update_fields=["status", "detalhe"])
+        return pagamento, "", resp.get("erro", "Falha ao gerar a cobrança de cartão.")
+    return pagamento, resp["init_point"], ""
+
+
+def _aprovar_pagamento(pagamento, *, liquido=None):
+    """Marca o Pagamento como aprovado e dispara a finalização. Idempotente.
+
+    `taxa` (custo do clube) = valor_bruto − líquido que caiu no banco. No Pix, o
+    clube absorve → taxa ≈ 1% (o bruto não muda). No cartão, o total é "grossado"
+    para o cliente cobrir a taxa → o líquido volta a bater com o bruto → taxa ≈ 0.
+    Assim o mesmo cálculo serve para os dois e reflete quem de fato pagou a taxa.
+    `liquido=None` (simulação de teste, sem net real) → estima 1%."""
     if pagamento.finalizado:
         return
-    if taxa is None:  # fallback: estimativa de 1% (Pix) quando não veio do MP
-        taxa = (pagamento.valor_bruto * Decimal("0.01")).quantize(Decimal("0.01"))
     if liquido is None:
-        liquido = pagamento.valor_bruto - taxa
+        taxa = (pagamento.valor_bruto * Decimal("0.01")).quantize(Decimal("0.01"))
+        liq = pagamento.valor_bruto - taxa
+    else:
+        liq = min(Decimal(str(liquido)), pagamento.valor_bruto)
+        taxa = pagamento.valor_bruto - liq
     pagamento.status = "aprovado"
     pagamento.taxa = taxa
-    pagamento.valor_liquido = liquido
+    pagamento.valor_liquido = liq
     pagamento.pago_em = timezone.now()
     with transaction.atomic():
         _finalizar_pagamento(pagamento)
@@ -3210,7 +3285,7 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
         responsavel_cpf=resp.get("cpf", ""),
         codigo=Inscricao.gerar_codigo_unico(),
         status="confirmada",
-        forma_pagamento="pix" if pagamento else "online",
+        forma_pagamento=(pagamento.forma if pagamento else "online"),
         pagamento=pagamento,
     )
     inscricao.valor_total = sum(
@@ -3270,7 +3345,7 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
                 {"nome": inscricao.responsavel_nome, "whatsapp": inscricao.responsavel_whatsapp,
                  "email": inscricao.responsavel_email},
                 usuario=logado, inscricao=inscricao,
-                forma_pagamento="pix" if pagamento else "online",
+                forma_pagamento=(pagamento.forma if pagamento else "online"),
             )
             if pagamento and pedido is not None:
                 pedido.pagamento = pagamento
@@ -3285,7 +3360,7 @@ def _finalizar_loja_clube(pagamento):
     if not kits:
         pagamento.detalhe = "Carrinho indisponível ao finalizar o pagamento."
         return
-    compra = _criar_compra_loja(pagamento.usuario, kits, dados.get("comprador", {}), "pix")
+    compra = _criar_compra_loja(pagamento.usuario, kits, dados.get("comprador", {}), pagamento.forma)
     compra.pagamento = pagamento
     compra.save(update_fields=["pagamento"])
     dados["compra_codigo"] = compra.codigo
@@ -3300,7 +3375,7 @@ def _finalizar_mensalidade(pagamento):
     qtd = 0
     for m in Mensalidade.objects.filter(pk__in=ids, status="aberta"):
         m.status = "paga"
-        m.forma_pagamento = "pix"
+        m.forma_pagamento = pagamento.forma
         m.valor_pago = m.valor
         m.pago_em = timezone.now()
         m.registrado_por = pagamento.usuario
@@ -3336,7 +3411,7 @@ def _finalizar_loja_evento(pagamento):
         return
     pedido = _criar_pedido(
         evento, desejados, dados.get("comprador", {}),
-        usuario=pagamento.usuario, forma_pagamento="pix", origem="online",
+        usuario=pagamento.usuario, forma_pagamento=pagamento.forma, origem="online",
     )
     pedido.pagamento = pagamento
     pedido.save(update_fields=["pagamento"])
@@ -3374,9 +3449,20 @@ def mercadopago_view(request):
     """Tela de configuração do Mercado Pago (só Diretor): credenciais de teste e
     de produção, modo ativo e a URL do webhook para cadastrar no painel do MP."""
     config = MercadoPagoConfig.get_solo()
+    # Termômetro do cartão: nas vendas de cartão, quanto o clube ACABOU arcando de
+    # taxa (residual = bruto − líquido). Se o repasse estiver certo, fica ≈ 0. Se
+    # > 0, a `taxa_cartao_pct` está baixa e vale aumentar.
+    cartoes = Pagamento.objects.filter(forma="cartao", status="aprovado")
+    n_cartao = cartoes.count()
+    residual = cartoes.aggregate(t=Sum("taxa"))["t"] or Decimal("0")
+    bruto_cartao = cartoes.aggregate(b=Sum("valor_bruto"))["b"] or Decimal("0")
+    residual_pct = (residual / bruto_cartao * 100) if bruto_cartao else Decimal("0")
     return render(request, "core/mercadopago.html", {
         "config": config,
         "webhook_url": _webhook_url(request),
+        "cartao_stats": {
+            "n": n_cartao, "residual": residual, "residual_pct": residual_pct,
+        },
     })
 
 
@@ -3394,6 +3480,12 @@ def mercadopago_config_view(request):
         novo = (request.POST.get(campo) or "").strip()
         if novo:
             setattr(config, campo, novo)
+    taxa = (request.POST.get("taxa_cartao_pct") or "").strip().replace(",", ".")
+    if taxa:
+        try:
+            config.taxa_cartao_pct = max(Decimal("0"), min(Decimal(taxa), Decimal("99")))
+        except (InvalidOperation, ValueError):
+            pass
     config.atualizado_por = request.user
     config.save()
     messages.success(request, "Configuração do Mercado Pago salva.")
@@ -3450,7 +3542,7 @@ def mercadopago_webhook(request):
 
     pagamento.mp_payment_id = str(data_id)
     if info["status"] == "aprovado":
-        _aprovar_pagamento(pagamento, taxa=info["taxa"], liquido=info["liquido"])
+        _aprovar_pagamento(pagamento, liquido=info["liquido"])
     else:
         pagamento.status = info["status"]
         pagamento.save(update_fields=["status", "mp_payment_id"])

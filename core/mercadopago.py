@@ -120,6 +120,61 @@ def criar_pix(config, *, referencia, valor, descricao, payer_email="",
     }
 
 
+def criar_preferencia(config, *, referencia, valor, descricao, payer_email="",
+                      payer_nome="", notification_url="", back_sucesso="",
+                      back_falha="", max_parcelas=12):
+    """Cria uma preferência do **Checkout Pro** (cartão via redirecionamento). O
+    cliente escolhe as parcelas na página do MP; com a conta em "parcelado
+    comprador", os juros vão para ele. Retorna {ok, preference_id, init_point, erro}.
+
+    `valor` é o total JÁ com o repasse da taxa de cartão (o "grossado")."""
+    corpo = {
+        "items": [{
+            "title": (descricao or "Pagamento")[:250],
+            "quantity": 1,
+            "unit_price": round(float(valor), 2),
+            "currency_id": "BRL",
+        }],
+        "external_reference": referencia,
+        "payment_methods": {
+            "installments": int(max_parcelas),
+            # Só cartão: Pix/boleto/saldo o clube trata por outros caminhos.
+            "excluded_payment_types": [
+                {"id": "ticket"}, {"id": "bank_transfer"},
+                {"id": "atm"}, {"id": "account_money"},
+            ],
+        },
+    }
+    if payer_email:
+        corpo["payer"] = {"email": payer_email}
+        if payer_nome:
+            corpo["payer"]["name"] = payer_nome
+    if notification_url:
+        corpo["notification_url"] = notification_url
+    back = {}
+    if back_sucesso:
+        back["success"] = back_sucesso
+    if back_falha:
+        back["failure"] = back_falha
+        back["pending"] = back_falha
+    if back:
+        corpo["back_urls"] = back
+        if back.get("success"):
+            corpo["auto_return"] = "approved"
+
+    ok, dados = _request(config, "POST", "/checkout/preferences", corpo,
+                         idempotency_key=referencia)
+    if not ok:
+        return {"ok": False, "erro": dados}
+    # No modo teste, o link de sandbox é o que funciona com usuários de teste.
+    init = ""
+    if config.is_teste:
+        init = dados.get("sandbox_init_point") or dados.get("init_point") or ""
+    else:
+        init = dados.get("init_point") or dados.get("sandbox_init_point") or ""
+    return {"ok": True, "preference_id": str(dados.get("id") or ""), "init_point": init}
+
+
 def consultar_pagamento(config, payment_id):
     """Lê um pagamento no MP. Retorna dict com status + **taxa real** + líquido:
     {ok, status, valor, taxa, liquido, external_reference, forma, erro, raw}.

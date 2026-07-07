@@ -1,4 +1,4 @@
-{% load static %}
+{% load static formato %}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -134,11 +134,39 @@
                             <input type="password" id="webhook_secret_prod" name="webhook_secret_prod" autocomplete="off"
                                    placeholder="{% if config.webhook_secret_prod %}Digite uma nova para trocar{% else %}Do painel de Webhooks (aba Produção){% endif %}">
                         </div>
-
-                        <div class="wa-acoes">
-                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
-                        </div>
                     </section>
+
+                    <!-- ===================== Cartão de crédito ===================== -->
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">💳 Cartão de crédito</h2>
+                        </div>
+                        <p class="wa-ajuda">
+                            No cartão, o cliente paga as taxas (o parcelamento vai por conta dele — configure
+                            <strong>"Parcelado comprador"</strong> na sua conta MP). A <strong>taxa de intermediação</strong>
+                            (fixa, que o MP desconta por venda) é <strong>embutida no preço do cartão</strong>. Coloque a
+                            taxa da sua tabela do MP (crédito, no prazo que você recebe — ex.: <strong>na hora ≈ 4,98%</strong>).
+                        </p>
+                        <div class="campo">
+                            <label for="taxa_cartao_pct">Taxa de intermediação do cartão (%)</label>
+                            <input type="text" id="taxa_cartao_pct" name="taxa_cartao_pct" inputmode="decimal"
+                                   value="{{ config.taxa_cartao_pct|stringformat:'.2f' }}" autocomplete="off" placeholder="4,98">
+                        </div>
+                        {% if cartao_stats.n %}
+                        <p class="wa-ajuda" style="margin-bottom:0;">
+                            🌡️ <strong>Termômetro</strong> ({{ cartao_stats.n }} venda(s) no cartão): o clube arcou em média com
+                            <strong>{{ cartao_stats.residual_pct|floatformat:2 }}%</strong>
+                            (R$ {{ cartao_stats.residual|moeda }}) de taxa residual.
+                            {% if cartao_stats.residual_pct > 0.3 %}Está acima de zero — <strong>aumente</strong> um pouco a taxa acima para repassar tudo.{% else %}Ótimo: o repasse está cobrindo a taxa (≈ 0).{% endif %}
+                        </p>
+                        {% else %}
+                        <p class="wa-ajuda" style="margin-bottom:0;">🌡️ Depois das primeiras vendas no cartão, aparece aqui a taxa real média observada, para você calibrar o % com precisão.</p>
+                        {% endif %}
+                    </section>
+
+                    <div class="wa-acoes">
+                        <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
+                    </div>
                 </form>
 
                 <!-- ===================== URL do webhook ===================== -->

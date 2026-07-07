@@ -227,6 +227,51 @@ class PagamentoLojinhaTests(TestCase):
         self.assertEqual(pagamento.valor_liquido, Decimal("98.50"))
         self.assertEqual(PedidoLoja.objects.count(), 1)
 
+    def test_cartao_gera_preferencia_e_confirma_com_taxa_repassada(self):
+        self._config_mp()
+        loja_url = reverse("core:evento_loja", args=[self.evento.id])
+        self.client.post(loja_url, {
+            "comprador_nome": "Fulano", "comprador_whatsapp": "47999990000",
+            "comprador_email": "f@x.com", "forma_pagamento": "cartao",
+            f"qtd_{self.var.id}": "1",
+        })
+        fake_pref = {"ok": True, "preference_id": "PREF1",
+                     "init_point": "https://mp/checkout/PREF1"}
+        with mock.patch.object(mp, "criar_preferencia", return_value=fake_pref):
+            resp = self.client.get(reverse("core:evento_pagamento", args=[self.evento.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "https://mp/checkout/PREF1")
+        pag = Pagamento.objects.get(tipo="loja_evento", forma="cartao")
+        self.assertEqual(pag.valor_bruto, Decimal("100.00"))
+        self.assertEqual(PedidoLoja.objects.count(), 0)  # nada antes de aprovar
+
+        # Webhook aprova: líquido = bruto (o repasse cobriu a taxa) → clube arca 0.
+        info = {
+            "ok": True, "status": "aprovado", "valor": Decimal("105.24"),
+            "taxa": Decimal("5.24"), "liquido": Decimal("100.00"),
+            "external_reference": pag.referencia, "forma": "credit_card", "raw": {},
+        }
+        data_id, request_id, ts = "555777", "req-c", "1700000000"
+        manifest = f"id:{data_id};request-id:{request_id};ts:{ts};"
+        v1 = hmac.new(b"segredo", manifest.encode(), hashlib.sha256).hexdigest()
+        url = reverse("core:mercadopago_webhook") + f"?data.id={data_id}&type=payment"
+        with mock.patch.object(mp, "consultar_pagamento", return_value=info):
+            self.client.post(url, data="{}", content_type="application/json",
+                             HTTP_X_SIGNATURE=f"ts={ts},v1={v1}", HTTP_X_REQUEST_ID=request_id)
+        pag.refresh_from_db()
+        self.assertEqual(pag.status, "aprovado")
+        self.assertEqual(pag.taxa, Decimal("0.00"))          # repasse cobriu a taxa
+        self.assertEqual(pag.valor_liquido, Decimal("100.00"))
+        pedido = PedidoLoja.objects.get()
+        self.assertEqual(pedido.forma_pagamento, "cartao")
+
+    def test_grossar_cartao(self):
+        from .views import _grossar_cartao
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.taxa_cartao_pct = Decimal("4.98")
+        # 100 / (1 - 0,0498) = 105,24
+        self.assertEqual(_grossar_cartao(cfg, Decimal("100")), Decimal("105.24"))
+
     def test_painel_evento_desconta_taxa_no_resultado(self):
         self._config_mp()
         pagamento = self._iniciar_checkout()

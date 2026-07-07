@@ -91,7 +91,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0034`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0035`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

@@ -1253,6 +1253,15 @@ class MercadoPagoConfig(models.Model):
         "Assinatura secreta do webhook (produção)", max_length=255, blank=True
     )
 
+    # Taxa de intermediação do CARTÃO a repassar ao cliente (a que o MP desconta do
+    # clube por venda; fixa por prazo de recebimento, NÃO varia com a parcela no
+    # "parcelado comprador"). O total do cartão é "grossado" por ela. Padrão: 4,98%
+    # (crédito recebendo na hora). O termômetro na tela mostra a taxa REAL média
+    # observada para calibrar.
+    taxa_cartao_pct = models.DecimalField(
+        "Taxa de intermediação do cartão (%)", max_digits=5, decimal_places=2, default=Decimal("4.98")
+    )
+
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

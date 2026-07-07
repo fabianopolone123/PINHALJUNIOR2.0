@@ -42,6 +42,26 @@
                          data-status-url="{{ status_url }}"
                          data-simular-url="{{ simular_url }}"
                          data-csrf="{{ csrf_token }}">
+                    {% if pagamento.forma == "cartao" %}
+                    <h2 class="evento-publico-h2">Pagamento no cartão</h2>
+                    {% if erro_pix %}
+                    <p class="pagamento-erro">Não foi possível iniciar o pagamento: {{ erro_pix }}.</p>
+                    {% else %}
+                    <p class="pagamento-instrucao">Estamos <strong>confirmando o seu pagamento</strong> com o Mercado Pago. Esta tela atualiza sozinha — pode levar alguns segundos.</p>
+                    <p class="pagamento-aguardando" id="pixAguardando">
+                        <span class="pix-spinner" aria-hidden="true"></span>
+                        Aguardando a confirmação do pagamento…
+                    </p>
+                    {% if is_teste %}
+                    <div class="pagamento-teste">
+                        <p class="painel-nota">🧪 <strong>Modo teste</strong>: use o botão para simular a aprovação (mesmo caminho do webhook real), sem precisar de cartão de teste.</p>
+                        <button type="button" class="btn-acao" id="btnSimularPix">
+                            <span aria-hidden="true">✅</span> Simular pagamento aprovado (teste)
+                        </button>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% else %}
                     <h2 class="evento-publico-h2">Pague com Pix</h2>
                     {% if erro_pix %}
                     <p class="pagamento-erro">Não foi possível gerar o Pix agora: {{ erro_pix }}.</p>
@@ -66,6 +86,7 @@
                             <span aria-hidden="true">✅</span> Simular pagamento aprovado (teste)
                         </button>
                     </div>
+                    {% endif %}
                     {% endif %}
                     {% endif %}
                 </section>
