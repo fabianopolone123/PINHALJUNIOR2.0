@@ -22,6 +22,22 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Correção: 500 no Financeiro (extrato com data+hora × custo do clube)
+
+### Resumo
+Após passar o extrato a exibir **data+hora** (`|date:"d/m/y H:i"`), a página `/financeiro/` dava **erro 500** em
+produção: o lançamento de **custo do clube** usava `cc.data` (um `date`, sem hora) e o filtro `|date` com `H`
+**quebra em objetos `date`** (`TypeError: ...may not contain time-related format specifiers`). Os testes não
+tinham custo do clube, por isso não pegou.
+
+### Correção
+- `core/views.py`: o lançamento de custo do clube no extrato agora carrega um **datetime** (`cc.data` combinado
+  com meia-noite) em vez de um `date`. Todos os itens do extrato passam a ser datetime → o `H:i` não quebra.
+- `core/tests.py`: `test_financeiro_desconta_taxa_do_liquido` cria um `CustoClube` (exercita o render do extrato)
+  — regressão coberta.
+
+---
+
 ## 2026-07-06 - Financeiro: extrato ordenado por data E hora (com hora na tela)
 
 ### Resumo

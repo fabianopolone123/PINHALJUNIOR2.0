@@ -15,6 +15,7 @@ from . import mercadopago as mp
 from .models import (
     Aventureiro,
     CompraLoja,
+    CustoClube,
     Evento,
     FaixaEtariaPreco,
     GrupoLoja,
@@ -338,6 +339,11 @@ class MensalidadePixTests(TestCase):
         self.assertEqual(self.m1.valor_pago, Decimal("30.00"))
 
     def test_financeiro_desconta_taxa_do_liquido(self):
+        # Um custo do clube (data = date) exercita o render do extrato com data+hora.
+        CustoClube.objects.create(
+            nome="Hospedagem", valor=Decimal("100"),
+            data=datetime.date(2026, 3, 1), destino="geral",
+        )
         fake_pix = {
             "ok": True, "mp_payment_id": "MP-f", "status": "pendente",
             "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",

@@ -5073,7 +5073,11 @@ def financeiro_view(request):
     for cc in custos_clube:
         _prov = cc.comprovantes.all()
         _loja = cc.destino == "loja"
-        extrato.append({"data": cc.data, "fonte": ("loja" if _loja else "custos"),
+        # `cc.data` é um date (sem hora); vira datetime (meia-noite) para o extrato
+        # exibir/ordenar por data+hora sem quebrar o filtro |date com H:i.
+        _dtcc = (datetime.datetime.combine(cc.data, datetime.time.min)
+                 if cc.data else cc.criado_em)
+        extrato.append({"data": _dtcc, "fonte": ("loja" if _loja else "custos"),
                         "tipo": ("Custo da loja" if _loja else "Custo do clube"),
                         "desc": cc.nome, "valor": cc.valor, "saida": True,
                         "comprovante": (_prov[0].arquivo.url if _prov else None)})
