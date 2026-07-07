@@ -106,6 +106,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - Fazer só o que foi pedido; não quebrar login, cadastro nem o cadastro de múltiplos aventureiros.
 
 ## Convenções úteis
+- **Menu/acesso por perfil**: fonte única em `core/menus.py` (`ITENS_MENU` + `ACESSO_PADRAO` por perfil +
+  `itens_menu_para`/`pode_acessar`/`perfil_do_usuario`). O `_menu.html` **itera `menu_itens`** (via context
+  processor `perfis`) — **não** chumbar itens com `{% if is_diretor %}`. Telas compartilhadas (Loja,
+  Mensalidades, Presença) usam a **mesma URL** e a view **ramifica por perfil** (Diretor vê o painel; o
+  **Responsável** tem tela própria: `*_responsavel.html`). O futuro **módulo de permissões** encaixa em
+  `_ids_liberados` sem mexer em menu/views.
 - Parciais de template reutilizáveis: `_campo.html`, `_campo_check.html` (formulários) e `_dado.html`
   (rótulo+valor em "Meus Dados").
 - Painéis expansíveis usam `<details>/<summary>` nativos; fechar-ao-clicar-fora em `static/js/inicio.js`.

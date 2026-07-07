@@ -1,0 +1,123 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Presença - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/presenca.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Presença</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Presença ✅</h1>
+                    <p class="cabecalho-sub">A frequência dos seus aventureiros nos eventos do clube.</p>
+                </header>
+
+                {% if not tem_aventureiros %}
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">🧒</span>
+                    <h2 class="card-titulo">Nenhum aventureiro ativo</h2>
+                    <p class="card-texto">Não há aventureiros vinculados à sua conta para mostrar a presença.</p>
+                </section>
+                {% elif not tem_chamada %}
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">🗓️</span>
+                    <h2 class="card-titulo">Ainda não há registros de presença</h2>
+                    <p class="card-texto">Assim que o clube registrar a presença em algum evento, o histórico aparece aqui.</p>
+                </section>
+                {% else %}
+                <p class="painel-nota">Considerando <strong>{{ n_eventos }}</strong> evento{{ n_eventos|pluralize }} com chamada registrada.</p>
+
+                <section class="presr-lista">
+                    {% for r in relatorio %}
+                    <details class="card presr-card">
+                        <summary class="presr-topo">
+                            <span class="presr-foto">
+                                {% if r.foto_ok %}
+                                <img src="{{ r.aventureiro.foto.url }}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="presr-foto-iniciais" style="display:none;">{{ r.iniciais }}</span>
+                                {% else %}
+                                <span class="presr-foto-iniciais">{{ r.iniciais }}</span>
+                                {% endif %}
+                            </span>
+                            <span class="presr-info">
+                                <strong class="presr-nome">{{ r.aventureiro.nome_completo }}</strong>
+                                <span class="presr-resumo">
+                                    <span class="presr-badge presr-foi">✅ {{ r.n_foi }} presença{{ r.n_foi|pluralize:"s" }}</span>
+                                    <span class="presr-badge presr-faltou">⚠️ {{ r.n_faltou }} falta{{ r.n_faltou|pluralize:"s" }}</span>
+                                </span>
+                            </span>
+                            <span class="presr-pct" title="Frequência">{{ r.pct }}%</span>
+                        </summary>
+                        <div class="presr-corpo">
+                            <div class="presr-barra"><div class="presr-barra-fill" style="width:{{ r.pct }}%;"></div></div>
+
+                            {% if r.foi %}
+                            <h3 class="presr-secao-tit">✅ Esteve presente</h3>
+                            <ul class="presr-eventos">
+                                {% for e in r.foi %}
+                                <li><span class="presr-ev-nome">{{ e.nome }}</span><span class="presr-ev-data">{{ e.data|date:"d/m/Y" }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+
+                            {% if r.faltou %}
+                            <h3 class="presr-secao-tit">⚠️ Faltou</h3>
+                            <ul class="presr-eventos presr-eventos-faltou">
+                                {% for e in r.faltou %}
+                                <li><span class="presr-ev-nome">{{ e.nome }}</span><span class="presr-ev-data">{{ e.data|date:"d/m/Y" }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </section>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+</body>
+</html>

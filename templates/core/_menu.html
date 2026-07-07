@@ -1,9 +1,10 @@
 {% comment %}
-Menu lateral central (Fase 4.4c). Trata três casos, via context processor `perfis`:
+Menu lateral central. Trata três casos, via context processor `perfis`:
 - Ajudante externo (`eh_operador_externo`): vê SÓ os eventos que opera.
-- Diretor / membro: menu normal (Meus Dados + itens do diretor + "Eventos ativos").
+- Diretor / Responsável: itera `menu_itens` (definido em core/menus.py por perfil).
 - Operador não-externo: menu normal + seção "Operar (PDV)" com seus eventos.
-Estado "ativo" pelo nome da URL atual.
+Estado "ativo" pelo nome da URL atual. Os itens visíveis por perfil vêm de
+`core/menus.py` (registro central) — o futuro módulo de permissões encaixa lá.
 {% endcomment %}
 {% with un=request.resolver_match.url_name %}
 <nav class="menu">
@@ -16,44 +17,12 @@ Estado "ativo" pelo nome da URL atual.
         </a>
         {% endfor %}
     {% else %}
-        <a href="{% url 'core:inicio' %}" class="menu-item{% if un == 'inicio' or un == 'editar_responsavel' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">👤</span>
-            <span class="menu-texto">Meus Dados</span>
+        {% for it in menu_itens %}
+        <a href="{% url it.url %}" class="menu-item{% if un in it.ativas %} ativo{% endif %}">
+            <span class="menu-icone" aria-hidden="true">{{ it.icone }}</span>
+            <span class="menu-texto">{{ it.rotulo }}</span>
         </a>
-        {% if is_diretor %}
-        <a href="{% url 'core:usuarios' %}" class="menu-item{% if un == 'usuarios' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">👥</span>
-            <span class="menu-texto">Usuários</span>
-        </a>
-        <a href="{% url 'core:eventos' %}" class="menu-item{% if un == 'eventos' or un == 'evento_novo' or un == 'evento_complexo_novo' or un == 'evento_painel' or un == 'evento_produto_novo' or un == 'evento_produto_editar' or un == 'evento_pdv' or un == 'evento_pdv_inscricao' or un == 'evento_operadores' or un == 'evento_dia' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">📅</span>
-            <span class="menu-texto">Eventos</span>
-        </a>
-        <a href="{% url 'core:loja' %}" class="menu-item{% if un == 'loja' or un == 'loja_produto' or un == 'loja_produto_novo' or un == 'loja_produto_editar' or un == 'loja_pagamento' or un == 'loja_sucesso' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">🛍️</span>
-            <span class="menu-texto">Loja</span>
-        </a>
-        <a href="{% url 'core:mensalidades' %}" class="menu-item{% if un == 'mensalidades' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">💰</span>
-            <span class="menu-texto">Mensalidades</span>
-        </a>
-        <a href="{% url 'core:financeiro' %}" class="menu-item{% if un == 'financeiro' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">📈</span>
-            <span class="menu-texto">Financeiro</span>
-        </a>
-        <a href="{% url 'core:presenca' %}" class="menu-item{% if un == 'presenca' or un == 'presenca_evento' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">✅</span>
-            <span class="menu-texto">Presença</span>
-        </a>
-        <a href="{% url 'core:whatsapp' %}" class="menu-item{% if un == 'whatsapp' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">💬</span>
-            <span class="menu-texto">WhatsApp</span>
-        </a>
-        <a href="{% url 'core:mercadopago' %}" class="menu-item{% if un == 'mercadopago' %} ativo{% endif %}">
-            <span class="menu-icone" aria-hidden="true">💳</span>
-            <span class="menu-texto">Mercado Pago</span>
-        </a>
-        {% endif %}
+        {% endfor %}
         {% include "core/_menu_eventos.html" %}
         {% if operador_eventos and not is_diretor %}
         <span class="menu-secao-rotulo">Operar (PDV)</span>

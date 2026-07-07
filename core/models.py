@@ -1785,6 +1785,15 @@ MENSAGEM_COBRANCA_PADRAO = (
     "Qualquer dúvida, estamos à disposição. Obrigado! 💚"
 )
 
+# Texto de "apelo" exibido ao responsável na área de mensalidades dele (dentro do
+# sistema), incentivando a contribuir. Editável pelo Diretor na aba "Cobranças".
+MENSAGEM_APELO_PADRAO = (
+    "Sua contribuição mantém o Clube de Aventureiros Pinhal Júnior de pé 💚 "
+    "É com as mensalidades que realizamos os encontros, os eventos e as atividades "
+    "que fazem a criançada crescer e viver grandes aventuras. Manter a mensalidade "
+    "em dia ajuda o clube a fazer cada vez mais. Obrigado por caminhar com a gente!"
+)
+
 
 class ConfigMensalidade(models.Model):
     """Valores padrão das cobranças (linha única/singleton)."""
@@ -1800,6 +1809,10 @@ class ConfigMensalidade(models.Model):
     # de acerto). Editável na aba "Cobranças".
     mensagem_cobranca = models.TextField(
         "Mensagem de cobrança (WhatsApp)", blank=True, default=MENSAGEM_COBRANCA_PADRAO
+    )
+    # Texto de apelo mostrado ao responsável na área de mensalidades dele.
+    mensagem_apelo = models.TextField(
+        "Mensagem de apelo (área do responsável)", blank=True, default=MENSAGEM_APELO_PADRAO
     )
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,

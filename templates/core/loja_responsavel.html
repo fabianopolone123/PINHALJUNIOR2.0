@@ -1,0 +1,133 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Loja - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/loja.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Loja</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Loja do Clube 🛍️</h1>
+                    <p class="cabecalho-sub">Uniformes, lenços e itens oficiais do Pinhal Júnior.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="loja-abas" role="tablist">
+                    <button type="button" class="loja-aba{% if aba != 'pedidos' %} ativa{% endif %}" data-aba="loja" role="tab">
+                        <span aria-hidden="true">🛒</span> Loja
+                        {% if cart_kits %}<span class="loja-aba-badge">{{ cart_kits|length }}</span>{% endif %}
+                    </button>
+                    <button type="button" class="loja-aba{% if aba == 'pedidos' %} ativa{% endif %}" data-aba="pedidos" role="tab">
+                        <span aria-hidden="true">📦</span> Meus pedidos
+                        {% if meus_pedidos %}<span class="loja-aba-badge">{{ meus_pedidos|length }}</span>{% endif %}
+                    </button>
+                </div>
+
+                <!-- ============ ABA: LOJA (vitrine) ============ -->
+                {% include "core/_loja_vitrine.html" %}
+
+                <!-- ============ ABA: MEUS PEDIDOS ============ -->
+                <section class="loja-painel" data-painel="pedidos"{% if aba != 'pedidos' %} hidden{% endif %}>
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">📦 Meus pedidos</h2>
+                    </div>
+                    {% if meus_pedidos %}
+                    <div class="loja-compras">
+                        {% for c in meus_pedidos %}
+                        <details class="card loja-compra{% if c.status == 'cancelado' %} cancelada{% endif %}">
+                            <summary class="loja-compra-topo">
+                                <span class="loja-compra-codigo">{{ c.codigo }}</span>
+                                <span class="loja-compra-data">{{ c.criado_em|date:"d/m/Y" }}</span>
+                                <span class="loja-compra-total">R$ {{ c.valor_total|moeda }}</span>
+                                {% if c.status == 'cancelado' %}
+                                <span class="loja-badge loja-badge-inativo">Cancelada</span>
+                                {% else %}
+                                <span class="loja-entrega-selo loja-entrega-{{ c.status_entrega }}">{% if c.status_entrega == 'entregue' %}✅ Entregue{% elif c.status_entrega == 'parcial' %}◑ Parcial{% else %}⏳ A entregar{% endif %}</span>
+                                {% endif %}
+                            </summary>
+                            <div class="loja-compra-corpo">
+                                <div class="loja-compra-dados">
+                                    <span>💳 {{ c.get_forma_pagamento_display }}</span>
+                                    <span>🕒 {{ c.criado_em|date:"d/m/Y H:i" }}</span>
+                                </div>
+                                <ul class="pedido-lista">
+                                    {% for item in c.itens.all %}
+                                    <li class="pedido-item">
+                                        <span class="pedido-item-qtd">{{ item.quantidade }}×</span>
+                                        <span class="pedido-item-nome">{{ item.produto_nome }}{% if item.variacao_nome %} <small>({{ item.variacao_nome }})</small>{% endif %}{% if item.aventureiro_nome %} <small class="loja-para">→ {{ item.aventureiro_nome }}</small>{% endif %}</span>
+                                        <span class="pedido-item-valor">R$ {{ item.valor_total|moeda }}</span>
+                                        {% if c.status != 'cancelado' %}
+                                        <span class="loja-entrega-selo loja-entrega-{{ item.status_entrega }}">{% if item.entregue %}✅ Entregue{% else %}⏳ A entregar{% endif %}</span>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">📦</span>
+                        <h2 class="card-titulo">Você ainda não fez pedidos</h2>
+                        <p class="card-texto">Escolha um produto na aba <strong>Loja</strong> para fazer seu primeiro pedido.</p>
+                    </section>
+                    {% endif %}
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/loja.js' %}"></script>
+</body>
+</html>

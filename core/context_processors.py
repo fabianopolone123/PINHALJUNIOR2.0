@@ -3,6 +3,7 @@
 from django.db.models import Q
 from django.utils import timezone
 
+from .menus import itens_menu_para, perfil_do_usuario
 from .models import Evento, OperadorEvento
 from .permissoes import eh_diretor
 
@@ -27,6 +28,8 @@ def perfis(request):
     user = request.user
     contexto = {
         "is_diretor": eh_diretor(user),
+        "perfil_atual": perfil_do_usuario(user),
+        "menu_itens": itens_menu_para(user),
         "eventos_menu": _eventos_menu(user),
         "operador_eventos": [],
         "eh_operador_externo": False,

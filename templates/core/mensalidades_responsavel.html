@@ -1,0 +1,179 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Mensalidades - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mensalidades.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <div class="barra-usuario">
+                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
+                    <span class="barra-usuario-nome">{{ user.username }}</span>
+                </div>
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Mensalidades</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Mensalidades 💰</h1>
+                    <p class="cabecalho-sub">Acompanhe e pague as mensalidades da sua família.</p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if mensagem_apelo %}
+                <section class="card mens-apelo">
+                    <span class="mens-apelo-icone" aria-hidden="true">💚</span>
+                    <p class="mens-apelo-txt">{{ mensagem_apelo|linebreaksbr }}</p>
+                </section>
+                {% endif %}
+
+                <div class="mens-resp-kpis">
+                    <div class="card mens-resp-kpi{% if total_aberto %} alerta{% endif %}">
+                        <span class="mens-resp-kpi-icone" aria-hidden="true">🧾</span>
+                        <span class="mens-resp-kpi-valor">R$ {{ total_aberto|moeda }}</span>
+                        <span class="mens-resp-kpi-rotulo">Em aberto ({{ n_abertas }} mês{{ n_abertas|pluralize:"es" }})</span>
+                    </div>
+                    <div class="card mens-resp-kpi">
+                        <span class="mens-resp-kpi-icone" aria-hidden="true">✅</span>
+                        <span class="mens-resp-kpi-valor entrada">R$ {{ pago_ano|moeda }}</span>
+                        <span class="mens-resp-kpi-rotulo">Pago em {{ ano }} ({{ n_pagas_ano }})</span>
+                    </div>
+                </div>
+
+                {% if criancas %}
+                <form method="post" action="{% url 'core:minhas_mensalidades_pagar' %}" class="evento-form mens-resp-form" id="mensRespForm">
+                    {% csrf_token %}
+                    <h2 class="secao-titulo">{% if incluir_futuras %}Mensalidades em aberto (com meses à frente){% else %}Em aberto (mês atual e atrasados){% endif %}</h2>
+
+                    {% for c in criancas %}
+                    <div class="card mens-resp-crianca">
+                        <div class="mens-resp-crianca-topo">
+                            <strong>🧒 {{ c.aventureiro.nome_completo }}</strong>
+                            <span class="mens-resp-crianca-total">R$ {{ c.total|moeda }}</span>
+                        </div>
+                        <ul class="mens-resp-itens">
+                            {% for m in c.itens %}
+                            <li>
+                                <label class="mens-resp-item">
+                                    <input type="checkbox" name="mensalidade_ids" value="{{ m.id }}" data-valor="{{ m.valor }}" checked>
+                                    <span class="mens-resp-item-mes">{{ m.mes_nome }}/{{ m.ano }}{% if m.tipo == 'inscricao' %} <small>(inscrição)</small>{% endif %}</span>
+                                    <span class="mens-resp-item-valor">R$ {{ m.valor|moeda }}</span>
+                                </label>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+
+                    <div class="card mens-resp-pagar">
+                        <div class="mens-resp-total">Selecionado: <strong id="mensRespTotal">R$ {{ total_aberto|moeda }}</strong></div>
+                        {% if mp_configurado %}
+                        <h3 class="bloco-rotulo">Forma de pagamento</h3>
+                        <div class="pagamento-metodos">
+                            {% for f in formas_pagamento %}
+                            <label class="pagamento-metodo">
+                                <input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forloop.first %} checked{% endif %}>
+                                <span class="pagamento-metodo-icone" aria-hidden="true">{% if f.0 == 'pix' %}⚡{% else %}💳{% endif %}</span>
+                                <span class="pagamento-metodo-nome">{{ f.1 }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <button type="submit" class="btn-acao mens-resp-btn" id="mensRespBtn">Pagar selecionadas <span aria-hidden="true">→</span></button>
+                        <p class="painel-nota" style="text-align:center;">Você paga por Pix ou cartão na próxima etapa.</p>
+                        {% else %}
+                        <p class="painel-nota">O pagamento online está indisponível no momento. Procure a diretoria para acertar as mensalidades.</p>
+                        {% endif %}
+                    </div>
+                </form>
+
+                <div class="mens-resp-adiantar">
+                    {% if incluir_futuras %}
+                    <a href="{% url 'core:mensalidades' %}" class="btn-secundario btn-acao-pequeno">Mostrar só os vencidos</a>
+                    {% elif tem_futuras %}
+                    <a href="?frente=1" class="btn-secundario btn-acao-pequeno">📅 Quero adiantar meses (pagar à frente)</a>
+                    {% endif %}
+                </div>
+
+                {% else %}
+                <section class="card vazio-card">
+                    <span class="vazio-icone" aria-hidden="true">🎉</span>
+                    <h2 class="card-titulo">Tudo em dia!</h2>
+                    <p class="card-texto">Você não tem mensalidades {% if not incluir_futuras %}vencidas {% endif %}em aberto. Obrigado por manter a contribuição em dia! 💚</p>
+                    {% if incluir_futuras %}
+                    <a href="{% url 'core:mensalidades' %}" class="btn-secundario btn-acao-pequeno">Voltar</a>
+                    {% elif tem_futuras %}
+                    <a href="?frente=1" class="btn-secundario btn-acao-pequeno">📅 Adiantar meses futuros</a>
+                    {% endif %}
+                </section>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script>
+    // Total ao vivo das mensalidades selecionadas + trava o envio sem seleção.
+    (function () {
+        var form = document.getElementById("mensRespForm");
+        if (!form) return;
+        var alvo = document.getElementById("mensRespTotal");
+        var btn = document.getElementById("mensRespBtn");
+        var checks = form.querySelectorAll('input[name="mensalidade_ids"]');
+        function fmt(v) {
+            return "R$ " + v.toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+        function recalc() {
+            var total = 0, n = 0;
+            checks.forEach(function (c) {
+                if (c.checked) { total += parseFloat(c.dataset.valor || "0"); n++; }
+            });
+            if (alvo) alvo.textContent = fmt(total);
+            if (btn) btn.disabled = (n === 0);
+        }
+        checks.forEach(function (c) { c.addEventListener("change", recalc); });
+        recalc();
+    })();
+    </script>
+</body>
+</html>

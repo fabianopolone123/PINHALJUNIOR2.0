@@ -22,6 +22,60 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Perfil Responsável: Loja, Mensalidades e Presença próprias + registro central de menu
+
+### Resumo
+Início do trabalho nos **perfis**. Criado o **registro central de menu/acesso por perfil**
+(`core/menus.py`) — fonte única da verdade de "quem vê/acessa o quê", pronta para o futuro módulo de
+permissões encaixar sem reescrever menu nem views. O menu (`_menu.html`) deixou de ser chumbado
+(`{% if is_diretor %}`) e passa a **iterar `menu_itens`** (vindo do context processor). O **perfil
+Responsável** ganhou telas próprias, separadas das do Diretor, na **mesma URL** (a view ramifica por
+perfil):
+- **Loja** (`loja_view`): só a **vitrine** (comprar) + aba **"Meus pedidos"** (acompanhar). Sem
+  Gerenciar/Vendas. Vitrine extraída para o parcial `_loja_vitrine.html` (reusado pelo Diretor e pelo
+  responsável). Pagamento igual (Pix/cartão).
+- **Mensalidades** (`mensalidades_view`): **resumo** (pago no ano × em aberto), lista das **em aberto
+  vencidas** (mês atual + atrasados) para **selecionar e pagar** (uma cobrança Pix/cartão via
+  `minhas_mensalidades_pagar`), botão **"adiantar meses"** (`?frente=1` mostra os futuros) e **texto de
+  apelo** configurável pelo Diretor.
+- **Presença** (`presenca_view`): **relatório só-leitura** dos próprios filhos — por criança, em quantos
+  eventos com chamada esteve/faltou e em quais (o responsável **não marca** presença).
+
+O Diretor ganhou, na aba **Cobranças**, um 2º campo: a **mensagem de apelo** (`ConfigMensalidade.mensagem_apelo`,
+migration **0038**), exibida ao responsável na tela de Mensalidades dele.
+
+### Arquivos criados/alterados
+- `core/menus.py` (novo): `ITENS_MENU`, `ACESSO_PADRAO`, `perfil_do_usuario`, `itens_menu_para`,
+  `pode_acessar`. Comentário marca o "encaixe" do futuro módulo de permissões (`_ids_liberados`).
+- `core/context_processors.py`: expõe `menu_itens` e `perfil_atual`.
+- `templates/core/_menu.html`: itera `menu_itens` (mantém o caso do operador externo e "Operar (PDV)").
+- `core/models.py`: `ConfigMensalidade.mensagem_apelo` + `MENSAGEM_APELO_PADRAO`.
+- `core/migrations/0038_configmensalidade_mensagem_apelo.py` (novo).
+- `core/views.py`: `loja_view`/`mensalidades_view`/`presenca_view` passam a `@login_required` e ramificam
+  por perfil; helpers `_loja_responsavel`, `_mensalidades_responsavel`, `_mensalidades_familia_abertas`,
+  `_presenca_responsavel`; view `minhas_mensalidades_pagar_view`; `mensalidade_cobranca_config_view`
+  salva também a mensagem de apelo.
+- `core/urls.py`: rota `mensalidades/pagar-selecionadas/` (`minhas_mensalidades_pagar`).
+- Templates novos: `_loja_vitrine.html`, `loja_responsavel.html`, `mensalidades_responsavel.html`,
+  `presenca_responsavel.html`. `mensalidades.html`: 2ª textarea (apelo) na aba Cobranças.
+- CSS: blocos do responsável em `static/css/mensalidades.css` e `static/css/presenca.css`.
+- `core/tests.py`: `PerfilResponsavelTests` (menu por perfil, loja/mensalidades/presença do responsável,
+  pagamento escopo-família e bloqueio de família alheia, responsável não marca presença) + apelo salvo.
+
+### Decisões tomadas
+- **Mesma URL, view ramifica por perfil** (uma entrada de menu por item), em vez de URLs separadas —
+  menu simples e consistente.
+- Gating por perfil resolvido em **um único lugar** (`core/menus.py`); o Diretor continua vendo tudo.
+- Segurança do pagamento: `minhas_mensalidades_pagar` filtra por `aventureiro__usuario=request.user` —
+  ninguém paga mensalidade de outra família.
+- Presença do responsável é **só-leitura** (a tela do Diretor, que marca qualquer criança, segue só dele).
+
+### Pendências
+- Módulo de permissões (liga/desliga por perfil/usuário) — encaixa em `core/menus.py` sem reescrever.
+- Demais perfis (Professor, Tesoureiro, Secretário) ainda sem telas.
+
+---
+
 ## 2026-07-07 - Cobranças: busca também por aventureiro
 
 ### Resumo

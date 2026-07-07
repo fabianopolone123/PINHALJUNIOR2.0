@@ -61,6 +61,7 @@ from .models import (
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
+    MENSAGEM_APELO_PADRAO,
     MENSAGEM_COBRANCA_PADRAO,
     CupomDesconto,
     CustoClube,
@@ -2925,13 +2926,60 @@ def evento_custo_excluir_view(request, pk, custo_id):
 # Presença do clube: marca quais aventureiros estiveram num evento. Restrito ao
 # Diretor. Independente do check-in de inscrição do evento complexo.
 # ---------------------------------------------------------------------------
-@diretor_required
+@login_required
 def presenca_view(request):
-    """Passo 1: escolher o evento para marcar presença (lista de eventos)."""
+    """Tela "Presença". O Diretor escolhe o evento para marcar presença; o
+    Responsável vê o relatório só-leitura dos próprios filhos
+    (`_presenca_responsavel`)."""
+    if not eh_diretor(request.user):
+        return _presenca_responsavel(request)
     eventos = list(Evento.objects.all())
     for e in eventos:
         e.qtd_presentes = e.presencas.count()
     return render(request, "core/presenca_selecionar.html", {"eventos": eventos})
+
+
+def _presenca_responsavel(request):
+    """Relatório de presença (só-leitura) dos aventureiros do RESPONSÁVEL: por
+    filho, em quantos eventos com chamada esteve/faltou e em quais. Considera
+    só eventos que tiveram chamada (≥1 presença marcada)."""
+    aventureiros = list(
+        Aventureiro.objects.filter(usuario=request.user, ativo=True).order_by("nome_completo")
+    )
+    # Eventos que tiveram chamada (pelo menos 1 presença marcada), recentes 1º.
+    eventos_chamada = list(
+        Evento.objects.filter(presencas__isnull=False).distinct()
+        .order_by("-data", "-horario_inicio")
+    )
+    presentes = set(
+        PresencaEvento.objects.filter(
+            aventureiro__in=aventureiros, evento__in=eventos_chamada
+        ).values_list("aventureiro_id", "evento_id")
+    )
+    total = len(eventos_chamada)
+    relatorio = []
+    for av in aventureiros:
+        foi, faltou = [], []
+        for e in eventos_chamada:
+            (foi if (av.id, e.id) in presentes else faltou).append(e)
+        relatorio.append({
+            "aventureiro": av,
+            "foto_ok": _foto_valida(av),
+            "iniciais": _iniciais(av.nome_completo),
+            "total": total,
+            "n_foi": len(foi),
+            "n_faltou": len(faltou),
+            "pct": int(round(len(foi) / total * 100)) if total else 0,
+            "foi": foi,
+            "faltou": faltou,
+        })
+    contexto = {
+        "relatorio": relatorio,
+        "tem_aventureiros": bool(aventureiros),
+        "tem_chamada": total > 0,
+        "n_eventos": total,
+    }
+    return render(request, "core/presenca_responsavel.html", contexto)
 
 
 @diretor_required
@@ -3778,12 +3826,14 @@ def _montar_mensagem_cobranca(template, familia, request):
 @diretor_required
 @require_POST
 def mensalidade_cobranca_config_view(request):
-    """Salva o template da mensagem de cobrança."""
+    """Salva o template da mensagem de cobrança (WhatsApp) e a mensagem de apelo
+    (exibida ao responsável na área de mensalidades dele)."""
     c = ConfigMensalidade.get_solo()
     c.mensagem_cobranca = (request.POST.get("mensagem_cobranca") or "").strip() or MENSAGEM_COBRANCA_PADRAO
+    c.mensagem_apelo = (request.POST.get("mensagem_apelo") or "").strip() or MENSAGEM_APELO_PADRAO
     c.atualizado_por = request.user
     c.save()
-    messages.success(request, "Mensagem de cobrança salva.")
+    messages.success(request, "Mensagens salvas.")
     return redirect(reverse("core:mensalidades") + "?aba=cobrancas")
 
 
@@ -4551,11 +4601,36 @@ def _loja_cart_detalhado(request):
 
 
 # --- Telas da loja ---------------------------------------------------------
-@diretor_required
+def _loja_responsavel(request):
+    """Tela da Loja para o RESPONSÁVEL: só a vitrine (comprar) + "Meus pedidos"
+    (acompanhar). Sem Gerenciar/Vendas. Reaproveita o carrinho e o pagamento."""
+    produtos_ativos = list(
+        ProdutoLoja.objects.filter(ativo=True)
+        .prefetch_related("grupos__variacoes", "fotos")
+    )
+    kits, total = _loja_cart_detalhado(request)
+    meus_pedidos = list(
+        CompraLoja.objects.filter(usuario=request.user)
+        .prefetch_related("itens").order_by("-criado_em")
+    )
+    contexto = {
+        "produtos_ativos": produtos_ativos,
+        "meus_pedidos": meus_pedidos,
+        "cart_kits": kits,
+        "cart_total": total,
+        "comprador": _comprador_padrao(request.user),
+        "formas_pagamento": FORMAS_PAGAMENTO_ONLINE,
+        "aba": request.GET.get("aba", "loja"),
+    }
+    return render(request, "core/loja_responsavel.html", contexto)
+
+
+@login_required
 def loja_view(request):
-    """Tela "Loja" (Diretor): abas Gerenciar (cadastro + compras) e Loja (vitrine
-    com carrinho). Por ora, só o Diretor vê o menu; a vitrine já é @login_required
-    para quando abrirmos aos responsáveis."""
+    """Tela "Loja". O Diretor vê o painel completo (Gerenciar/Loja/Vendas); o
+    Responsável vê só a vitrine + "Meus pedidos" (`_loja_responsavel`)."""
+    if not eh_diretor(request.user):
+        return _loja_responsavel(request)
     produtos = list(
         ProdutoLoja.objects.prefetch_related("grupos__variacoes", "fotos").all()
     )
@@ -5057,10 +5132,13 @@ def _resumo_mensalidades(meses):
     }
 
 
-@diretor_required
+@login_required
 def mensalidades_view(request):
-    """Painel de mensalidades (Diretor): por aventureiro, os meses do ano com o
-    controle de pago/em aberto, isenção/desconto e geração das cobranças."""
+    """Tela "Mensalidades". O Diretor vê o painel completo; o Responsável vê a
+    própria visão (`_mensalidades_responsavel`): o que pagou, o que está em
+    aberto e a opção de pagar."""
+    if not eh_diretor(request.user):
+        return _mensalidades_responsavel(request)
     anos = sorted(
         set(Mensalidade.objects.values_list("ano", flat=True)) | {timezone.localdate().year},
         reverse=True,
@@ -5127,6 +5205,7 @@ def mensalidades_view(request):
         # Aba Cobranças
         "cobrancas": _cobrancas_familias(),
         "mensagem_cobranca": ConfigMensalidade.get_solo().mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO,
+        "mensagem_apelo": ConfigMensalidade.get_solo().mensagem_apelo or MENSAGEM_APELO_PADRAO,
         "wa_configurado": WhatsappConfig.get_solo().configurado,
     }
     return render(request, "core/mensalidades.html", contexto)
@@ -5333,6 +5412,134 @@ def _fmt_moeda(valor):
     s = f"{valor:,.2f}"
     return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
 
+
+# ---------------------------------------------------------------------------
+# Mensalidades — visão do RESPONSÁVEL (dentro do sistema, logado).
+# ---------------------------------------------------------------------------
+def _mensalidades_familia_abertas(usuario, incluir_futuras=False):
+    """Mensalidades em aberto (não isentas) dos aventureiros ATIVOS da família.
+    Por padrão só as VENCIDAS (mês atual + atrasadas); com `incluir_futuras`,
+    inclui também as em aberto dos meses à frente (para adiantar)."""
+    qs = Mensalidade.objects.filter(
+        aventureiro__usuario=usuario, aventureiro__ativo=True,
+        status="aberta", isento=False,
+    ).select_related("aventureiro")
+    if not incluir_futuras:
+        qs = qs.filter(_q_mens_vencidas())
+    return list(qs.order_by("aventureiro__nome_completo", "ano", "mes"))
+
+
+def _mensalidades_responsavel(request):
+    """Visão do RESPONSÁVEL: resumo (pago no ano × em aberto), lista das
+    mensalidades em aberto (vencidas por padrão; futuras sob demanda) para
+    selecionar e pagar, e o texto de apelo configurado pelo Diretor."""
+    usuario = request.user
+    ano = timezone.localdate().year
+    incluir_futuras = request.GET.get("frente") == "1"
+
+    abertas = _mensalidades_familia_abertas(usuario, incluir_futuras=incluir_futuras)
+    # Agrupa por criança (aventureiro) para exibição.
+    por_av = {}
+    for m in abertas:
+        a = m.aventureiro
+        c = por_av.setdefault(
+            a.id, {"aventureiro": a, "itens": [], "total": Decimal("0")}
+        )
+        c["itens"].append(m)
+        c["total"] += m.valor
+    criancas = sorted(por_av.values(), key=lambda c: c["aventureiro"].nome_completo)
+    total_aberto = sum((m.valor for m in abertas), Decimal("0"))
+
+    # Quanto já pagou no ano (histórico dos aventureiros da família).
+    pagas_ano = list(
+        Mensalidade.objects.filter(
+            aventureiro__usuario=usuario, ano=ano, status="paga"
+        )
+    )
+    pago_ano = sum((m.valor_pago or Decimal("0") for m in pagas_ano), Decimal("0"))
+
+    # Há algo em aberto no futuro? (para oferecer o botão "adiantar meses").
+    tem_futuras = (
+        Mensalidade.objects.filter(
+            aventureiro__usuario=usuario, aventureiro__ativo=True,
+            status="aberta", isento=False,
+        ).exclude(_q_mens_vencidas()).exists()
+    )
+
+    resp_nome, _ = _responsavel_da_familia(usuario)
+    contexto = {
+        "criancas": criancas,
+        "total_aberto": total_aberto,
+        "n_abertas": len(abertas),
+        "pago_ano": pago_ano,
+        "n_pagas_ano": len(pagas_ano),
+        "ano": ano,
+        "incluir_futuras": incluir_futuras,
+        "tem_futuras": tem_futuras,
+        "mensagem_apelo": ConfigMensalidade.get_solo().mensagem_apelo or MENSAGEM_APELO_PADRAO,
+        "mp_configurado": _mp_config().configurado,
+        "primeiro_nome": (resp_nome or "").split(" ")[0],
+        "formas_pagamento": FORMAS_PAGAMENTO_ONLINE,
+    }
+    return render(request, "core/mensalidades_responsavel.html", contexto)
+
+
+@login_required
+@require_POST
+def minhas_mensalidades_pagar_view(request):
+    """Responsável paga as mensalidades selecionadas: gera UMA cobrança (Pix ou
+    cartão) das mensalidades em aberto escolhidas — todas da própria família (o
+    filtro por `aventureiro__usuario` garante que ninguém pague de outra conta).
+    A baixa das mensalidades é feita na aprovação por `_finalizar_mensalidade`."""
+    ids = request.POST.getlist("mensalidade_ids")
+    mens = list(
+        Mensalidade.objects.filter(
+            pk__in=ids, status="aberta", isento=False,
+            aventureiro__usuario=request.user,
+        ).select_related("aventureiro").order_by(
+            "aventureiro__nome_completo", "ano", "mes"
+        )
+    )
+    if not mens:
+        messages.error(request, "Selecione ao menos uma mensalidade em aberto.")
+        return redirect("core:mensalidades")
+    if not _mp_config().configurado:
+        messages.error(
+            request,
+            "O pagamento online está indisponível no momento. Procure a diretoria.",
+        )
+        return redirect("core:mensalidades")
+    total = sum((m.valor for m in mens), Decimal("0"))
+    resp_nome, resp_email = _responsavel_da_familia(request.user)
+    payload = {
+        "mensalidade_ids": [m.id for m in mens],
+        "titulo": f"Mensalidades — {resp_nome}",
+        "itens": [
+            {"nome": f"{m.aventureiro.nome_completo} · {m.mes_nome}/{m.ano}"
+                     + (" (inscrição)" if m.tipo == "inscricao" else ""),
+             "valor": f"{m.valor:.2f}"}
+            for m in mens
+        ],
+    }
+    comprador = {"nome": resp_nome, "email": resp_email}
+    descricao = f"Mensalidades — {resp_nome}"
+    if (request.POST.get("forma_pagamento") or "pix") == "cartao":
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="mensalidade", valor=total, descricao=descricao,
+            payload=payload, comprador=comprador, usuario=request.user,
+        )
+        if erro:
+            messages.error(request, f"Não foi possível iniciar o cartão: {erro}")
+            return redirect("core:mensalidades")
+        return redirect(init_point)
+    pagamento, erro = _criar_pagamento_pix(
+        request, tipo="mensalidade", valor=total, descricao=descricao,
+        payload=payload, comprador=comprador, usuario=request.user,
+    )
+    if erro:
+        messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+        return redirect("core:mensalidades")
+    return redirect("core:pagamento", ref=pagamento.referencia)
 
 
 # ===========================================================================

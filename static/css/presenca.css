@@ -81,3 +81,28 @@ button.pres-foto-btn:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba
     .pres-marcar { min-width: 92px; padding: 9px 12px; }
     .pres-foto { width: 64px; height: 84px; }
 }
+
+/* ===== Presença — relatório do RESPONSÁVEL (só-leitura) ===== */
+.presr-lista { display:flex; flex-direction:column; gap:12px; }
+.presr-card { padding:0; overflow:hidden; }
+.presr-topo { display:flex; align-items:center; gap:12px; padding:14px 16px; cursor:pointer; list-style:none; }
+.presr-topo::-webkit-details-marker { display:none; }
+.presr-foto { flex:0 0 auto; width:52px; height:52px; border-radius:50%; overflow:hidden; background:var(--azul-escuro,#0f4c81); display:flex; align-items:center; justify-content:center; }
+.presr-foto img { width:100%; height:100%; object-fit:cover; }
+.presr-foto-iniciais { color:#fff; font-weight:700; font-size:1.1rem; align-items:center; justify-content:center; width:100%; height:100%; display:flex; }
+.presr-info { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.presr-nome { color:var(--azul-escuro,#0f4c81); }
+.presr-resumo { display:flex; flex-wrap:wrap; gap:6px; }
+.presr-badge { font-size:.8rem; font-weight:600; padding:2px 8px; border-radius:999px; }
+.presr-foi { background:rgba(34,139,87,0.12); color:#15703f; }
+.presr-faltou { background:rgba(220,38,38,0.10); color:#b91c1c; }
+.presr-pct { flex:0 0 auto; font-size:1.25rem; font-weight:800; color:var(--azul-escuro,#0f4c81); }
+.presr-corpo { padding:0 16px 16px; }
+.presr-barra { height:8px; border-radius:999px; background:rgba(15,76,129,0.10); overflow:hidden; margin-bottom:12px; }
+.presr-barra-fill { height:100%; background:var(--verde,#228b57); border-radius:999px; }
+.presr-secao-tit { font-size:.9rem; margin:10px 0 6px; color:#334155; }
+.presr-eventos { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+.presr-eventos li { display:flex; justify-content:space-between; gap:10px; padding:6px 10px; border-radius:8px; background:rgba(34,139,87,0.05); }
+.presr-eventos-faltou li { background:rgba(220,38,38,0.05); }
+.presr-ev-nome { font-weight:600; }
+.presr-ev-data { color:#64748b; white-space:nowrap; }

@@ -2,7 +2,23 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-07 (**Cobrança de mensalidades por WhatsApp + página pública de acerto**): novo
+**Última atualização:** 2026-07-07 (**Perfil Responsável: Loja, Mensalidades e Presença próprias + registro
+central de menu**): início do trabalho nos **perfis**. Criado **`core/menus.py`** — o **registro central** de
+itens de menu + acesso por perfil (`ITENS_MENU`, `ACESSO_PADRAO`, `perfil_do_usuario`, `itens_menu_para`,
+`pode_acessar`): **fonte única da verdade** de "quem vê/acessa o quê", desenhada para o **futuro módulo de
+permissões** encaixar (em `_ids_liberados`) **sem reescrever** menu nem views. O `_menu.html` deixou de ser
+chumbado (`{% if is_diretor %}`) e **itera `menu_itens`** (do context processor `perfis`). O **perfil
+Responsável** ganhou **telas próprias** (mesma URL do Diretor; a view **ramifica por perfil**): **Loja** = só a
+**vitrine** + aba **"Meus pedidos"** (sem Gerenciar/Vendas; vitrine no parcial `_loja_vitrine.html`);
+**Mensalidades** = **resumo** (pago no ano × em aberto) + lista das **vencidas em aberto** (mês atual +
+atrasados) para **selecionar e pagar** (Pix/cartão, `minhas_mensalidades_pagar`, escopo família) + botão
+**"adiantar meses"** (`?frente=1`) + **texto de apelo**; **Presença** = **relatório só-leitura** dos próprios
+filhos (esteve/faltou por evento; não marca). O Diretor ganhou na aba **Cobranças** a **mensagem de apelo**
+(`ConfigMensalidade.mensagem_apelo`, migration **0038**). Templates novos: `_loja_vitrine.html`,
+`loja_responsavel.html`, `mensalidades_responsavel.html`, `presenca_responsavel.html`. Testes em
+`core.tests.PerfilResponsavelTests`. Antes: Cobrança de mensalidades por WhatsApp + página pública de acerto.
+
+**Anterior (Cobrança de mensalidades por WhatsApp + página pública de acerto):** novo
 sistema de cobrança das mensalidades. **(1) Página pública de acerto** (`/acerto/<token>/`, sem login): um
 **token fixo por família** (`PerfilUsuario.token_acerto`) abre uma página que mostra as mensalidades em aberto de
 todos os aventureiros da família e permite **pagar na hora** (Pix/cartão) — o Pix é gerado só no clique, nada

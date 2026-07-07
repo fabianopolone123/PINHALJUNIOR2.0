@@ -726,3 +726,130 @@ class CobrancaWhatsappTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Mae Ana")
         self.assertContains(r, "Enviar a todos")
+
+    def test_salva_mensagem_apelo(self):
+        from .models import ConfigMensalidade
+        self.client.post(reverse("core:mensalidade_cobranca_config"), {
+            "mensagem_cobranca": "Oi {nome}", "mensagem_apelo": "Contribua! 💚",
+        })
+        self.assertEqual(ConfigMensalidade.get_solo().mensagem_apelo, "Contribua! 💚")
+
+
+class PerfilResponsavelTests(TestCase):
+    """Perfil Responsável: menu por perfil + telas próprias de Loja, Mensalidades
+    e Presença (só-leitura), separadas das do Diretor."""
+
+    def setUp(self):
+        self.grupo_dir = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir", password="x")
+        self.diretor.groups.add(self.grupo_dir)
+
+        self.resp = User.objects.create_user("resp", password="x")
+        self.av = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Ana Souza", sexo="F",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="1",
+            resp_nome="Mae Souza", resp_cpf="2", resp_whatsapp="4799", resp_email="m@x.com",
+        )
+        hoje = timezone.localdate()
+        self.m_atual = Mensalidade.objects.create(
+            aventureiro=self.av, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("30.00"), status="aberta",
+        )
+        self.m_futura = Mensalidade.objects.create(
+            aventureiro=self.av, ano=hoje.year + 1, mes=1,
+            valor=Decimal("30.00"), status="aberta",
+        )
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"; cfg.access_token_teste = "T"; cfg.webhook_secret_teste = "s"
+        cfg.save()
+
+    # --- Menu por perfil (registro central) ---
+    def test_menu_por_perfil(self):
+        from .menus import itens_menu_para
+        ids_dir = {i["id"] for i in itens_menu_para(self.diretor)}
+        ids_resp = {i["id"] for i in itens_menu_para(self.resp)}
+        self.assertIn("financeiro", ids_dir)
+        self.assertIn("usuarios", ids_dir)
+        self.assertEqual(ids_resp, {"inicio", "mensalidades", "loja", "presenca"})
+        self.assertNotIn("financeiro", ids_resp)
+        self.assertNotIn("usuarios", ids_resp)
+
+    # --- Loja ---
+    def test_loja_responsavel_sem_gerenciar_nem_vendas(self):
+        self.client.force_login(self.resp)
+        r = self.client.get(reverse("core:loja"))
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, "core/loja_responsavel.html")
+        self.assertContains(r, "Meus pedidos")
+        self.assertNotContains(r, "Cadastrar produto")   # Gerenciar é do Diretor
+
+    def test_loja_diretor_mantem_painel(self):
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:loja"))
+        self.assertTemplateUsed(r, "core/loja.html")
+
+    # --- Mensalidades ---
+    def test_mensalidades_responsavel_mostra_apelo_e_ignora_futuro(self):
+        self.client.force_login(self.resp)
+        r = self.client.get(reverse("core:mensalidades"))
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, "core/mensalidades_responsavel.html")
+        self.assertContains(r, "Ana Souza")
+        # Só o vencido entra por padrão; o futuro fica de fora.
+        self.assertEqual(r.context["n_abertas"], 1)
+        self.assertTrue(r.context["tem_futuras"])
+        self.assertTrue(r.context["mensagem_apelo"])
+
+    def test_mensalidades_responsavel_adiantar_inclui_futuro(self):
+        self.client.force_login(self.resp)
+        r = self.client.get(reverse("core:mensalidades") + "?frente=1")
+        self.assertEqual(r.context["n_abertas"], 2)
+
+    def test_pagar_selecionadas_gera_um_pagamento_da_familia(self):
+        self.client.force_login(self.resp)
+        fake = {"ok": True, "mp_payment_id": "MP", "status": "pendente",
+                "qr_code": "P", "qr_code_base64": "B", "ticket_url": "http://t"}
+        with mock.patch.object(mp, "criar_pix", return_value=fake):
+            r = self.client.post(reverse("core:minhas_mensalidades_pagar"),
+                                 {"mensalidade_ids": [self.m_atual.id], "forma_pagamento": "pix"})
+        self.assertEqual(r.status_code, 302)
+        pag = Pagamento.objects.get(tipo="mensalidade")
+        self.assertEqual(pag.valor_bruto, Decimal("30.00"))
+        self.assertEqual(pag.usuario_id, self.resp.id)
+
+    def test_nao_paga_mensalidade_de_outra_familia(self):
+        outro = User.objects.create_user("outro", password="x")
+        av2 = Aventureiro.objects.create(
+            usuario=outro, nome_completo="Beto", sexo="M",
+            data_nascimento=datetime.date(2014, 1, 1), cpf="9",
+            resp_nome="Pai Beto", resp_cpf="8", resp_whatsapp="47", resp_email="p@x.com",
+        )
+        m_outro = Mensalidade.objects.create(
+            aventureiro=av2, ano=timezone.localdate().year, mes=timezone.localdate().month,
+            valor=Decimal("30.00"), status="aberta",
+        )
+        self.client.force_login(self.resp)
+        r = self.client.post(reverse("core:minhas_mensalidades_pagar"),
+                             {"mensalidade_ids": [m_outro.id], "forma_pagamento": "pix"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Pagamento.objects.count(), 0)   # nada foi cobrado
+
+    # --- Presença ---
+    def test_presenca_responsavel_relatorio(self):
+        ev = Evento.objects.create(nome="Reunião", tipo="simples", data=datetime.date(2026, 1, 10))
+        from .models import PresencaEvento
+        PresencaEvento.objects.create(evento=ev, aventureiro=self.av)
+        self.client.force_login(self.resp)
+        r = self.client.get(reverse("core:presenca"))
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, "core/presenca_responsavel.html")
+        self.assertEqual(r.context["relatorio"][0]["n_foi"], 1)
+
+    def test_responsavel_nao_marca_presenca(self):
+        ev = Evento.objects.create(nome="Reunião", tipo="simples", data=datetime.date(2026, 1, 10))
+        self.client.force_login(self.resp)
+        r = self.client.post(reverse("core:presenca_marcar", args=[ev.id]),
+                             {"aventureiro": self.av.id, "presente": "1"})
+        self.assertEqual(r.status_code, 302)   # bloqueado (diretor_required → redireciona)
+        from .models import PresencaEvento
+        self.assertFalse(PresencaEvento.objects.filter(evento=ev, aventureiro=self.av).exists())
