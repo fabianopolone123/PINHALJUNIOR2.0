@@ -265,6 +265,18 @@ class PagamentoLojinhaTests(TestCase):
         pedido = PedidoLoja.objects.get()
         self.assertEqual(pedido.forma_pagamento, "cartao")
 
+    def test_simular_cartao_nao_cobra_taxa_do_clube(self):
+        from .views import _aprovar_pagamento
+        self._config_mp()
+        p = Pagamento.objects.create(
+            tipo="loja_clube", forma="cartao", referencia="cartsim1",
+            valor_bruto=Decimal("50.00"),
+        )
+        _aprovar_pagamento(p)  # sem líquido = simulação de teste
+        p.refresh_from_db()
+        self.assertEqual(p.taxa, Decimal("0.00"))          # cartão: repassado ao cliente
+        self.assertEqual(p.valor_liquido, Decimal("50.00"))
+
     def test_grossar_cartao(self):
         from .views import _grossar_cartao
         cfg = MercadoPagoConfig.get_solo()

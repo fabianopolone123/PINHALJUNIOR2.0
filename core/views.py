@@ -3242,7 +3242,12 @@ def _aprovar_pagamento(pagamento, *, liquido=None):
     if pagamento.finalizado:
         return
     if liquido is None:
-        taxa = (pagamento.valor_bruto * Decimal("0.01")).quantize(Decimal("0.01"))
+        # Simulação de teste (sem net real do MP): estima o que o CLUBE arcaria.
+        # Cartão → taxa repassada ao cliente → clube arca ≈ 0. Pix → clube absorve ~1%.
+        if pagamento.forma == "cartao":
+            taxa = Decimal("0.00")
+        else:
+            taxa = (pagamento.valor_bruto * Decimal("0.01")).quantize(Decimal("0.01"))
         liq = pagamento.valor_bruto - taxa
     else:
         liq = min(Decimal(str(liquido)), pagamento.valor_bruto)
