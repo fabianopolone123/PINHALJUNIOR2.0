@@ -24,6 +24,7 @@ from .models import (
     MercadoPagoConfig,
     Pagamento,
     PedidoLoja,
+    PerfilUsuario,
     ProdutoEvento,
     ProdutoLoja,
     VariacaoLoja,
@@ -622,3 +623,47 @@ class InscricaoPixTests(TestCase):
         insc = Inscricao.objects.get()
         self.assertEqual(insc.status, "confirmada")
         self.assertEqual(insc.valor_total, Decimal("0.00"))
+
+
+class AcertoPublicoTests(TestCase):
+    """Página pública de acerto (link do WhatsApp): ver o que deve e pagar."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("resp1", password="x")
+        self.av = Aventureiro.objects.create(
+            usuario=self.user, nome_completo="Ana Teste", sexo="F",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="1",
+            resp_nome="Mae Teste", resp_cpf="2", resp_whatsapp="4799", resp_email="m@x.com",
+        )
+        self.m1 = Mensalidade.objects.create(
+            aventureiro=self.av, ano=2026, mes=3, valor=Decimal("30.00"), status="aberta",
+        )
+        self.perfil = PerfilUsuario.objects.create(usuario=self.user)
+        self.token = self.perfil.get_token_acerto()
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"; cfg.access_token_teste = "T"; cfg.webhook_secret_teste = "s"
+        cfg.save()
+
+    def test_pagina_mostra_em_aberto(self):
+        r = self.client.get(reverse("core:acerto", args=[self.token]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Ana Teste")
+        self.assertContains(r, "Acerto de mensalidades")
+
+    def test_token_invalido(self):
+        r = self.client.get(reverse("core:acerto", args=["naoexiste"]))
+        self.assertContains(r, "Link inválido")
+
+    def test_cobrar_pix_e_simular_quita_familia(self):
+        fake = {"ok": True, "mp_payment_id": "MP", "status": "pendente",
+                "qr_code": "P", "qr_code_base64": "B", "ticket_url": "http://t"}
+        with mock.patch.object(mp, "criar_pix", return_value=fake):
+            r = self.client.post(reverse("core:acerto_cobrar", args=[self.token]),
+                                 {"forma_pagamento": "pix"})
+        self.assertEqual(r.status_code, 302)
+        pag = Pagamento.objects.get(tipo="mensalidade")
+        self.assertEqual(pag.valor_bruto, Decimal("30.00"))
+        self.assertEqual(pag.usuario_id, self.user.id)   # ligado à família
+        self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
+        self.m1.refresh_from_db()
+        self.assertEqual(self.m1.status, "paga")

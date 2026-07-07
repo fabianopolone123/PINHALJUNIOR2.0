@@ -1,0 +1,68 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Acerto de mensalidades — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <article class="card evento-publico-card">
+                {% if invalido %}
+                <h1 class="evento-publico-titulo">Link inválido</h1>
+                <p class="evento-publico-desc">Este link de acerto não é válido ou expirou. Fale com a diretoria do clube.</p>
+                {% elif not mensalidades %}
+                <div class="sucesso-check" aria-hidden="true">✅</div>
+                <h1 class="evento-publico-titulo">Tudo em dia!</h1>
+                <p class="evento-publico-desc">{% if primeiro_nome %}{{ primeiro_nome }}, n{% else %}N{% endif %}ão há mensalidades em aberto no momento. Obrigado! 💚</p>
+                {% else %}
+                <h1 class="evento-publico-titulo">Acerto de mensalidades</h1>
+                <p class="evento-publico-desc">{% if primeiro_nome %}Olá, <strong>{{ primeiro_nome }}</strong>! {% endif %}Estas são as mensalidades em aberto:</p>
+
+                <div class="pagamento-resumo">
+                    <ul class="pagamento-itens">
+                        {% for m in mensalidades %}
+                        <li>
+                            <span class="pag-item-nome">{{ m.aventureiro.nome_completo }} <small>· {{ m.mes_nome }}/{{ m.ano }}{% if m.tipo == 'inscricao' %} (inscrição){% endif %}</small></span>
+                            <span class="pag-item-valor">R$ {{ m.valor|moeda }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="pagamento-total">Total em aberto: <strong>R$ {{ total|moeda }}</strong></p>
+                </div>
+
+                {% if mp_configurado %}
+                <form method="post" action="{% url 'core:acerto_cobrar' token %}" class="pagamento-form">
+                    {% csrf_token %}
+                    <div class="insc-forma-pagamento">
+                        <span class="insc-forma-titulo">Como você quer pagar?</span>
+                        <label class="insc-forma-opt"><input type="radio" name="forma_pagamento" value="pix" checked> 💠 Pix</label>
+                        <label class="insc-forma-opt"><input type="radio" name="forma_pagamento" value="cartao"> 💳 Cartão de crédito <small>(até 12x, juros do titular)</small></label>
+                    </div>
+                    <button type="submit" class="btn-acao pagamento-confirmar">
+                        <span aria-hidden="true">💳</span> Pagar R$ {{ total|moeda }}
+                    </button>
+                </form>
+                <p class="painel-nota" style="text-align:center;">O valor é gerado na hora — se você pagar em outro dia, é só abrir este link de novo.</p>
+                {% else %}
+                <p class="painel-nota" style="text-align:center;">Pagamento online indisponível no momento. Fale com a diretoria para acertar.</p>
+                {% endif %}
+                {% endif %}
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+</body>
+</html>

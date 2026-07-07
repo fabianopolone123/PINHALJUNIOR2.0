@@ -1009,9 +1009,22 @@ class PerfilUsuario(models.Model):
         choices=[("pai", "Pai"), ("mae", "Mãe"), ("resp", "Responsável legal")],
         blank=True,
     )
+    # Token secreto e FIXO do link de acerto/pagamento da família (mandado no
+    # WhatsApp de cobrança). Não expira; a página que ele abre mostra o que está em
+    # aberto no momento e gera o Pix/cartão só quando a pessoa clica em pagar.
+    token_acerto = models.CharField(
+        "Token de acerto", max_length=40, blank=True, db_index=True
+    )
 
     def __str__(self):
         return f"Perfil de {self.usuario.username}"
+
+    def get_token_acerto(self):
+        """Retorna o token de acerto, criando um (uuid) na primeira vez."""
+        if not self.token_acerto:
+            self.token_acerto = uuid.uuid4().hex
+            self.save(update_fields=["token_acerto"])
+        return self.token_acerto
 
 
 class OperadorEvento(models.Model):

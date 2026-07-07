@@ -142,6 +142,9 @@ urlpatterns = [
     path("pagamento/<str:ref>/simular/", views.pagamento_simular_view, name="pagamento_simular"),
     path("pagamento/<str:ref>/sucesso/", views.pagamento_sucesso_view, name="pagamento_sucesso"),
     path("pagamento/<str:ref>/", views.pagamento_view, name="pagamento"),
+    # --- Acerto de mensalidades (link público do WhatsApp de cobrança) ---
+    path("acerto/<str:token>/", views.acerto_view, name="acerto"),
+    path("acerto/<str:token>/cobrar/", views.acerto_cobrar_view, name="acerto_cobrar"),
     path("presenca/", views.presenca_view, name="presenca"),
     path("presenca/<int:pk>/", views.presenca_evento_view, name="presenca_evento"),
     path("presenca/<int:pk>/marcar/", views.presenca_marcar_view, name="presenca_marcar"),

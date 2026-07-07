@@ -3690,6 +3690,97 @@ def mensalidade_cobrar_view(request):
 
 
 # ---------------------------------------------------------------------------
+# Página pública de ACERTO (link do WhatsApp de cobrança). Sem login: o token
+# identifica a família; a página mostra o que está em aberto AGORA e a pessoa
+# paga (Pix/cartão) — o Pix é gerado só no clique, então nada "vence" se ela
+# demorar a abrir o link.
+# ---------------------------------------------------------------------------
+def _mensalidades_abertas_familia(usuario):
+    """Mensalidades em aberto (não isentas) de todos os aventureiros da conta."""
+    return list(
+        Mensalidade.objects.filter(
+            aventureiro__usuario=usuario, status="aberta", isento=False
+        ).select_related("aventureiro").order_by(
+            "aventureiro__nome_completo", "ano", "mes"
+        )
+    )
+
+
+def _responsavel_da_familia(usuario):
+    """(nome, email) do responsável da conta, a partir do 1º aventureiro."""
+    av = Aventureiro.objects.filter(usuario=usuario).first()
+    if av is None:
+        return usuario.get_full_name() or usuario.username, ""
+    return (av.resp_nome or av.nome_completo), (av.resp_email or "")
+
+
+def acerto_view(request, token):
+    """Página pública de acerto: mostra o que a família deve e permite pagar."""
+    perfil = (
+        PerfilUsuario.objects.filter(token_acerto=token).select_related("usuario").first()
+        if token else None
+    )
+    if perfil is None:
+        return render(request, "core/acerto.html", {"invalido": True})
+    usuario = perfil.usuario
+    mens = _mensalidades_abertas_familia(usuario)
+    total = sum((m.valor for m in mens), Decimal("0"))
+    resp_nome, _ = _responsavel_da_familia(usuario)
+    return render(request, "core/acerto.html", {
+        "token": token,
+        "mensalidades": mens,
+        "total": total,
+        "resp_nome": resp_nome,
+        "primeiro_nome": (resp_nome or "").split(" ")[0],
+        "mp_configurado": _mp_config().configurado,
+    })
+
+
+@require_POST
+def acerto_cobrar_view(request, token):
+    """Gera a cobrança (Pix/cartão) de TODAS as mensalidades em aberto da família."""
+    perfil = (
+        PerfilUsuario.objects.filter(token_acerto=token).select_related("usuario").first()
+        if token else None
+    )
+    if perfil is None:
+        return redirect("core:login")
+    usuario = perfil.usuario
+    mens = _mensalidades_abertas_familia(usuario)
+    if not mens:
+        return redirect("core:acerto", token=token)
+    total = sum((m.valor for m in mens), Decimal("0"))
+    resp_nome, resp_email = _responsavel_da_familia(usuario)
+    payload = {
+        "mensalidade_ids": [m.id for m in mens],
+        "titulo": f"Mensalidades — {resp_nome}",
+        "itens": [
+            {"nome": f"{m.aventureiro.nome_completo} · {m.mes_nome}/{m.ano}"
+                     + (" (inscrição)" if m.tipo == "inscricao" else ""),
+             "valor": f"{m.valor:.2f}"}
+            for m in mens
+        ],
+    }
+    comprador = {"nome": resp_nome, "email": resp_email}
+    descricao = f"Mensalidades — {resp_nome}"
+    if (request.POST.get("forma_pagamento") or "pix") == "cartao":
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="mensalidade", valor=total, descricao=descricao,
+            payload=payload, comprador=comprador, usuario=usuario,
+        )
+        if erro:
+            return redirect("core:acerto", token=token)
+        return redirect(init_point)
+    pagamento, erro = _criar_pagamento_pix(
+        request, tipo="mensalidade", valor=total, descricao=descricao,
+        payload=payload, comprador=comprador, usuario=usuario,
+    )
+    if erro:
+        return redirect("core:acerto", token=token)
+    return redirect("core:pagamento", ref=pagamento.referencia)
+
+
+# ---------------------------------------------------------------------------
 # Recuperação de senha pelo WhatsApp (público, sem login)
 #
 # Fluxo em 3 etapas guardadas na sessão (`request.session["recup"]`):

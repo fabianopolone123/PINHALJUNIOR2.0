@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Cobrança de mensalidades (parte 1): página pública de acerto (link do WhatsApp)
+
+### Resumo
+Primeira parte do sistema de cobrança de mensalidades: a **página pública de acerto** — o destino do link que
+vai na mensagem de cobrança. Sem login: um **token fixo e secreto por família** (conta) abre uma página que
+mostra as **mensalidades em aberto de todos os aventureiros da família** e permite **pagar na hora** (Pix ou
+cartão), reusando a engine. O **Pix é gerado só no clique** (nada "vence" se a pessoa demorar a abrir o link) e a
+página sempre reflete o que está em aberto **no momento**. É, na prática, a "visualização do responsável" numa
+versão enxuta e pública.
+
+### Arquivos criados/alterados
+- `core/models.py`: `PerfilUsuario.token_acerto` (+ `get_token_acerto()`; uuid fixo). Migration **0036**.
+- `core/views.py`: `acerto_view` (pública, por token) e `acerto_cobrar_view` (pública; cobra TODAS as
+  mensalidades em aberto da família, Pix/cartão) + helpers `_mensalidades_abertas_familia`/`_responsavel_da_familia`.
+- `core/urls.py`: `/acerto/<token>/` e `/acerto/<token>/cobrar/`.
+- `templates/core/acerto.html`: **nova** página pública (em aberto + total + pagar; "tudo em dia"/"link inválido").
+- `core/tests.py`: `AcertoPublicoTests` (mostra em aberto, token inválido, cobrar Pix → simular → quita a família).
+
+### Próximo (parte 2)
+- Aba **"Cobranças"** no Mensalidades: template de mensagem configurável (com `{nome}`/`{itens}`/`{total}`/`{link}`),
+  envio pelo WhatsApp (todos/um a um), **histórico por mês** de quem já recebeu e **filtro** "só quem não recebeu".
+
+---
+
 ## 2026-07-07 - Pagamentos Mercado Pago (Etapa 6, parte 2): cartão nos 4 pontos
 
 ### Resumo
