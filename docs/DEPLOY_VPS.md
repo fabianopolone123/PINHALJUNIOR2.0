@@ -72,12 +72,19 @@ Não versionar esse arquivo.
 
 Em 2026-07-06, o `db.sqlite3` local e a pasta `media/` local foram importados uma vez para a instalação nova.
 
+Em 2026-07-07, após testes que sujaram o banco online, o banco do VPS foi restaurado novamente a partir do
+`db.sqlite3` local. O banco online anterior foi salvo em:
+
+```text
+/var/www/pinhaljunior2/backup/db_before_local_restore_20260707_002006.sqlite3
+```
+
 Validação após importação:
 
 - 37 usuários;
 - 39 aventureiros;
 - 36 aventureiros ativos;
-- 86 arquivos em `media/`;
+- 87 arquivos em `media/`;
 - mídia servindo com HTTP 200 via `/sistema-novo/media/`.
 
 Pacotes temporários com dados sensíveis foram removidos após a importação.

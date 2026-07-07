@@ -90,6 +90,12 @@ VPS novo. O serviço `pinhaljunior2` foi parado durante a troca, o banco/media a
 backup com timestamp, permissões foram ajustadas e a aplicação voltou ativa. Validação: 37 usuários, 39
 aventureiros, 36 ativos e mídia servindo via `/sistema-novo/media/`.
 
+**Restauração do banco no VPS:** em 2026-07-07, após testes manuais no ambiente online, o banco do VPS foi
+substituído novamente pelo `db.sqlite3` local. Backup do banco online anterior:
+`/var/www/pinhaljunior2/backup/db_before_local_restore_20260707_002006.sqlite3`. Validação: `check` OK,
+`migrate` sem pendências, 37 usuários, 39 aventureiros, 36 ativos, 0 pagamentos, 87 arquivos de mídia e
+`/sistema-novo/` respondendo 200.
+
 **WhatsApp:** a configuração da W-API (`WhatsappConfig`) é persistida no banco, não na sessão/navegador. Em
 2026-07-06 foi reforçada a proteção contra apagamento acidental: ID da instância e token só são substituídos
 quando um novo valor é digitado; envio com campos vazios preserva os valores salvos. Há teste automatizado para

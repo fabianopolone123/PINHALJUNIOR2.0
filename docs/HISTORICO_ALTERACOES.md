@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Restaura banco local no VPS
+
+### Resumo
+Após testes manuais no ambiente online sujarem o banco do VPS, o banco da instalação nova (`pinhaljunior2`) foi
+restaurado a partir do `db.sqlite3` local. A mídia do VPS foi mantida, pois a solicitação era restaurar o banco.
+O sistema antigo (`sitepinhal`) não foi alterado.
+
+### Arquivos/configurações envolvidos
+- Local: `db.sqlite3` enviado temporariamente para `/tmp/pinhaljunior2-db-local.sqlite3`.
+- VPS: `/var/www/pinhaljunior2/data/db.sqlite3` substituído pelo banco local.
+- Backup criado antes da troca: `/var/www/pinhaljunior2/backup/db_before_local_restore_20260707_002006.sqlite3`.
+- `docs/DEPLOY_VPS.md`, `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`: documentação atualizada.
+
+### Validação
+- `manage.py check` OK no VPS.
+- `migrate --noinput` sem pendências.
+- Serviço `pinhaljunior2.service` ativo.
+- `https://pinhaljunior.com.br/sistema-novo/` respondeu `200`.
+- Contagem do banco restaurado: 37 usuários, 39 aventureiros, 36 ativos e 0 pagamentos.
+- Serviços `pinhaljunior2.service`, `nginx` e `sitepinhal.service` ativos.
+
+### Decisões tomadas
+- Parar apenas `pinhaljunior2.service` durante a troca.
+- Remover o arquivo temporário `/tmp/pinhaljunior2-db-local.sqlite3` após restaurar.
+- Manter a pasta `media/` do VPS, que já continha os uploads.
+
+### Pendências
+- Sem novas pendências.
+
+---
+
 ## 2026-07-06 - Loja/Vendas: resumo financeiro no Resumo; Custos só com a lista
 
 ### Resumo
