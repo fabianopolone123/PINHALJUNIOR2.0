@@ -636,8 +636,10 @@ class AcertoPublicoTests(TestCase):
             data_nascimento=datetime.date(2015, 1, 1), cpf="1",
             resp_nome="Mae Teste", resp_cpf="2", resp_whatsapp="4799", resp_email="m@x.com",
         )
+        hoje = timezone.localdate()
         self.m1 = Mensalidade.objects.create(
-            aventureiro=self.av, ano=2026, mes=3, valor=Decimal("30.00"), status="aberta",
+            aventureiro=self.av, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("30.00"), status="aberta",
         )
         self.perfil = PerfilUsuario.objects.create(usuario=self.user)
         self.token = self.perfil.get_token_acerto()
@@ -654,6 +656,17 @@ class AcertoPublicoTests(TestCase):
     def test_token_invalido(self):
         r = self.client.get(reverse("core:acerto", args=["naoexiste"]))
         self.assertContains(r, "Link inválido")
+
+    def test_acerto_ignora_meses_futuros(self):
+        # Mês do ano que vem = ainda não venceu → não deve entrar no acerto.
+        futura = Mensalidade.objects.create(
+            aventureiro=self.av, ano=timezone.localdate().year + 1, mes=1,
+            valor=Decimal("30.00"), status="aberta",
+        )
+        from .views import _mensalidades_abertas_familia
+        abertas = _mensalidades_abertas_familia(self.user)
+        self.assertIn(self.m1, abertas)          # mês atual (vencido) entra
+        self.assertNotIn(futura, abertas)         # mês futuro NÃO entra
 
     def test_cobrar_pix_e_simular_quita_familia(self):
         fake = {"ok": True, "mp_payment_id": "MP", "status": "pendente",
@@ -683,8 +696,10 @@ class CobrancaWhatsappTests(TestCase):
             data_nascimento=datetime.date(2015, 1, 1), cpf="1",
             resp_nome="Mae Ana", resp_cpf="2", resp_whatsapp="47999990000", resp_email="m@x.com",
         )
+        hoje = timezone.localdate()
         Mensalidade.objects.create(
-            aventureiro=self.av, ano=2026, mes=3, valor=Decimal("30.00"), status="aberta",
+            aventureiro=self.av, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("30.00"), status="aberta",
         )
         wa = WhatsappConfig.get_solo()
         wa.instance_id = "I"; wa.token = "T"; wa.save()

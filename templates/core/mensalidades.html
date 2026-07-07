@@ -318,9 +318,18 @@
                                 </span>
                             </div>
                             <div class="mens-cobranca-det">
-                                <span>Em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_mens }} mês(es)</span>
+                                <span>Total em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_mens }} mês(es)</span>
                                 {% if f.tem_numero %}<span>📱 {{ f.numero }}</span>{% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
                             </div>
+                            <ul class="mens-cobranca-criancas">
+                                {% for c in f.criancas %}
+                                <li>
+                                    <span class="crianca-nome">🧒 {{ c.nome }}</span>
+                                    <span class="crianca-valor">R$ {{ c.total|moeda }}</span>
+                                    <small class="crianca-meses">{{ c.meses|join:", " }}</small>
+                                </li>
+                                {% endfor %}
+                            </ul>
                             <button type="button" class="btn-secundario btn-acao-pequeno mens-cobranca-enviar"
                                     data-usuario="{{ f.usuario_id }}"{% if not f.tem_numero %} disabled{% endif %}>
                                 📤 Enviar cobrança

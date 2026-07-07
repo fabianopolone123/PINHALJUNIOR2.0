@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Cobranças: detalhe por criança + só cobra meses já vencidos
+
+### Resumo
+Dois ajustes: **(1)** cada família na aba Cobranças (e no cálculo) agora mostra o **detalhe por criança** —
+nome do aventureiro, **valor em aberto dele** e os **meses**; **(2)** a cobrança e a página de acerto passam a
+considerar **apenas meses já vencidos** (competência ≤ mês atual): cobra o **mês atual e os anteriores** em
+aberto, **nunca meses à frente** (as mensalidades do ano inteiro já nascem geradas).
+
+### Arquivos alterados
+- `core/views.py`: `_cobrancas_familias` monta `criancas` (nome/total/meses por aventureiro); novo
+  `_q_mens_vencidas()` (competência ≤ hoje) aplicado em `_mensalidades_abertas_familia` (acerto) e em
+  `_cobrancas_familias` (aba Cobranças). A cobrança por aventureiro do Diretor (modal) segue manual (ele escolhe).
+- `templates/core/mensalidades.html`: bloco por criança em cada família. `static/css/mensalidades.css`: estilos.
+- `core/tests.py`: render com 2 crianças; `test_acerto_ignora_meses_futuros`; setups usam o mês atual.
+
+---
+
 ## 2026-07-07 - Cobranças: busca, envio em lote com delay/progresso/cancelar, aviso como toast
 
 ### Resumo

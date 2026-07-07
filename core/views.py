@@ -3706,6 +3706,7 @@ def _cobrancas_familias():
     hoje = timezone.localdate()
     abertas = (
         Mensalidade.objects.filter(status="aberta", isento=False, aventureiro__ativo=True)
+        .filter(_q_mens_vencidas())
         .select_related("aventureiro")
     )
     por_conta = defaultdict(list)
@@ -3727,12 +3728,23 @@ def _cobrancas_familias():
         resp_nome, _ = _responsavel_da_familia(u)
         perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
         numero = _whatsapp_principal(u)
+        # Detalhe por criança (aventureiro): nome, total em aberto e meses.
+        por_av = {}
+        for m in mens:
+            a = m.aventureiro
+            c = por_av.setdefault(a.id, {"nome": a.nome_completo, "total": Decimal("0"), "meses": []})
+            c["total"] += m.valor
+            c["meses"].append(
+                f"{m.mes_nome}/{m.ano}" + (" (inscrição)" if m.tipo == "inscricao" else "")
+            )
+        criancas = sorted(por_av.values(), key=lambda c: c["nome"])
         familias.append({
             "usuario_id": uid,
             "resp_nome": resp_nome,
             "primeiro_nome": (resp_nome or "").split(" ")[0],
             "total": sum((m.valor for m in mens), Decimal("0")),
             "n_mens": len(mens),
+            "criancas": criancas,
             "numero": numero,
             "tem_numero": bool(numero),
             "cobrado_mes": cont_mes.get(uid, 0),
@@ -3821,12 +3833,20 @@ def mensalidade_cobranca_enviar_view(request):
 # paga (Pix/cartão) — o Pix é gerado só no clique, então nada "vence" se ela
 # demorar a abrir o link.
 # ---------------------------------------------------------------------------
+def _q_mens_vencidas():
+    """Q das mensalidades já VENCIDAS (competência ≤ mês atual): cobra o mês atual e
+    os meses anteriores em aberto, NUNCA meses à frente (o ano nasce todo gerado)."""
+    hoje = timezone.localdate()
+    return Q(ano__lt=hoje.year) | Q(ano=hoje.year, mes__lte=hoje.month)
+
+
 def _mensalidades_abertas_familia(usuario):
-    """Mensalidades em aberto (não isentas) de todos os aventureiros da conta."""
+    """Mensalidades VENCIDAS em aberto (não isentas) de todos os aventureiros da conta.
+    Não inclui meses futuros (que ainda não venceram)."""
     return list(
         Mensalidade.objects.filter(
             aventureiro__usuario=usuario, status="aberta", isento=False
-        ).select_related("aventureiro").order_by(
+        ).filter(_q_mens_vencidas()).select_related("aventureiro").order_by(
             "aventureiro__nome_completo", "ano", "mes"
         )
     )
