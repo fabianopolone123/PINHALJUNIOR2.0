@@ -22,6 +22,19 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Loja/Vendas: Custos, Taxa e Resultado como cards no Resumo
+
+### Resumo
+No Resumo da aba Vendas da Loja, **Custos**, **Taxa Mercado Pago** e **Resultado líquido** viraram **KPIs
+próprios** (cards), ao lado de **Arrecadado** (que já era card). Removidos o card "Resultado da loja" (com a
+linha Vendas/Custos/Taxa/Resultado) e a nota explicativa — a informação agora está nos cards. Ordem dos KPIs:
+Arrecadado · Custos · Taxa Mercado Pago · Resultado líquido · Compras · Média por compra · Itens a entregar.
+
+### Arquivos alterados
+- `templates/core/loja.html`: KPIs de Custos/Taxa/Resultado no Resumo; remove o card "Resultado da loja".
+
+---
+
 ## 2026-07-07 - Financeiro: remove "Onde está o dinheiro" e ajusta resultado do caixa
 
 ### Resumo

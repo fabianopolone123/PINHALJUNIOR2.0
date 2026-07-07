@@ -254,6 +254,21 @@
                         </div>
                         <div class="card loja-kpi">
                             <span class="loja-kpi-icone" aria-hidden="true">🧾</span>
+                            <span class="loja-kpi-valor saida">− R$ {{ custos_loja_total|moeda }}</span>
+                            <span class="loja-kpi-rotulo">Custos</span>
+                        </div>
+                        <div class="card loja-kpi">
+                            <span class="loja-kpi-icone" aria-hidden="true">💳</span>
+                            <span class="loja-kpi-valor saida">− R$ {{ taxa_loja|moeda }}</span>
+                            <span class="loja-kpi-rotulo">Taxa Mercado Pago</span>
+                        </div>
+                        <div class="card loja-kpi fin-kpi-resultado {% if loja_resultado >= 0 %}pos{% else %}neg{% endif %}">
+                            <span class="loja-kpi-icone" aria-hidden="true">{% if loja_resultado >= 0 %}✅{% else %}⚠️{% endif %}</span>
+                            <span class="loja-kpi-valor {% if loja_resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ loja_resultado|moeda }}</span>
+                            <span class="loja-kpi-rotulo">Resultado líquido</span>
+                        </div>
+                        <div class="card loja-kpi">
+                            <span class="loja-kpi-icone" aria-hidden="true">🛒</span>
                             <span class="loja-kpi-valor">{{ relatorio.n_compras }}</span>
                             <span class="loja-kpi-rotulo">Compras</span>
                         </div>
@@ -268,17 +283,6 @@
                             <span class="loja-kpi-rotulo">Itens a entregar</span>
                         </div>
                     </div>
-
-                    <section class="card loja-rel-bloco">
-                        <h2 class="secao-titulo">💰 Resultado da loja</h2>
-                        <div class="loja-resultado-linha">
-                            <span>Vendas <strong>R$ {{ relatorio.arrecadado|moeda }}</strong></span>
-                            <span>Custos <strong class="saida">− R$ {{ custos_loja_total|moeda }}</strong></span>
-                            <span>Taxa Mercado Pago <strong class="saida">− R$ {{ taxa_loja|moeda }}</strong></span>
-                            <span>Resultado <strong class="{% if loja_resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ loja_resultado|moeda }}</strong></span>
-                        </div>
-                        <p class="painel-nota" style="margin-bottom:0;">O <strong>Resultado</strong> já desconta os custos e a <strong>taxa do Mercado Pago</strong> (só das vendas por Pix/cartão) — é o que de fato ficou no banco.</p>
-                    </section>
 
                     <div class="loja-relatorio-grade">
                         <section class="card loja-rel-bloco">
