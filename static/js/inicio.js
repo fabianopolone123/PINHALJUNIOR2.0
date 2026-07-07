@@ -55,10 +55,19 @@
         );
     }
 
-    // Fecha todo painel aberto que NÃO contém o elemento clicado.
+    // Guarda onde o clique COMEÇOU: se começou dentro de um painel (ex.: arrastar
+    // uma seleção de texto de dentro pra fora), não deve fechar esse painel.
+    var mousedownAlvo = null;
+    document.addEventListener("mousedown", function (evento) {
+        mousedownAlvo = evento.target;
+    }, true);
+
+    // Fecha todo painel aberto que NÃO contém o clique — mas só se o clique também
+    // COMEÇOU fora dele (arrastar seleção de dentro pra fora não fecha).
     document.addEventListener("click", function (evento) {
         detalhesAbertos().forEach(function (d) {
-            if (!d.contains(evento.target)) {
+            var comecouDentro = mousedownAlvo && d.contains(mousedownAlvo);
+            if (!d.contains(evento.target) && !comecouDentro) {
                 d.open = false;
             }
         });
