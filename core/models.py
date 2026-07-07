@@ -1775,6 +1775,17 @@ STATUS_MENSALIDADE_CHOICES = [
 ]
 
 
+MENSAGEM_COBRANCA_PADRAO = (
+    "Olá {nome}! 👋 Aqui é do Clube de Aventureiros Pinhal Júnior.\n\n"
+    "Identificamos as seguintes mensalidades em aberto:\n"
+    "{itens}\n"
+    "*Total: R$ {total}*\n\n"
+    "Para acertar rapidinho (Pix ou cartão), é só acessar:\n"
+    "{link}\n\n"
+    "Qualquer dúvida, estamos à disposição. Obrigado! 💚"
+)
+
+
 class ConfigMensalidade(models.Model):
     """Valores padrão das cobranças (linha única/singleton)."""
 
@@ -1783,6 +1794,12 @@ class ConfigMensalidade(models.Model):
     )
     valor_mensalidade = models.DecimalField(
         "Valor da mensalidade", max_digits=10, decimal_places=2, default=30
+    )
+    # Mensagem de cobrança enviada por WhatsApp. Marcadores: {nome} (1º nome do
+    # responsável), {itens} (lista do que está em aberto), {total}, {link} (página
+    # de acerto). Editável na aba "Cobranças".
+    mensagem_cobranca = models.TextField(
+        "Mensagem de cobrança (WhatsApp)", blank=True, default=MENSAGEM_COBRANCA_PADRAO
     )
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -1804,6 +1821,33 @@ class ConfigMensalidade(models.Model):
 
     def valor_base(self, tipo):
         return self.valor_inscricao if tipo == "inscricao" else self.valor_mensalidade
+
+
+class CobrancaEnviada(models.Model):
+    """Registro de uma mensagem de cobrança enviada (por WhatsApp) a uma família.
+    Guarda o mês/ano do ENVIO para o histórico e o filtro "quem já recebeu este mês"."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cobrancas_enviadas",
+        verbose_name="Família (conta)",
+    )
+    ano = models.PositiveIntegerField("Ano do envio")
+    mes = models.PositiveSmallIntegerField("Mês do envio")
+    enviada_em = models.DateTimeField("Enviada em", auto_now_add=True)
+    enviada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="cobrancas_disparadas", verbose_name="Enviada por",
+    )
+
+    class Meta:
+        verbose_name = "Cobrança enviada"
+        verbose_name_plural = "Cobranças enviadas"
+        ordering = ["-enviada_em"]
+
+    def __str__(self):
+        return f"Cobrança {self.mes:02d}/{self.ano} — {self.usuario}"
 
 
 class Mensalidade(models.Model):

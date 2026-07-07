@@ -2,8 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-07 (**Pagamentos Mercado Pago — Etapa 6: cartão de crédito (Checkout Pro)**):
-os **4 pontos** (lojinha de evento, Loja do Clube, inscrição e mensalidades) agora aceitam **Pix e cartão**. O
+**Última atualização:** 2026-07-07 (**Cobrança de mensalidades por WhatsApp + página pública de acerto**): novo
+sistema de cobrança das mensalidades. **(1) Página pública de acerto** (`/acerto/<token>/`, sem login): um
+**token fixo por família** (`PerfilUsuario.token_acerto`) abre uma página que mostra as mensalidades em aberto de
+todos os aventureiros da família e permite **pagar na hora** (Pix/cartão) — o Pix é gerado só no clique, nada
+"vence" se demorar. **(2) Aba "Cobranças"** no Mensalidades: **mensagem configurável**
+(`ConfigMensalidade.mensagem_cobranca`, marcadores `{nome}/{itens}/{total}/{link}`), **envio por WhatsApp**
+(W-API) **a um ou a todos**, **filtro "só quem não recebeu este mês"** e **histórico** (`CobrancaEnviada`,
+mês/ano). Agrupada por família; usa o WhatsApp principal e o link de acerto. Migrations **0036** (token) e
+**0037** (mensagem + CobrancaEnviada). Testes em `core.tests` (`AcertoPublicoTests`, `CobrancaWhatsappTests`).
+Antes: Pagamentos Mercado Pago — Etapa 6 (cartão).
+
+**Anterior (Pagamentos Mercado Pago — Etapa 6: cartão de crédito, Checkout Pro):**
+os **4 pontos** (lojinha de evento, Loja do Clube, inscrição e mensalidades) aceitam **Pix e cartão**. O
 cartão usa **Checkout Pro** (redireciona ao MP; sem SDK, sem dado de cartão no servidor, sem dependência nova).
 **Todas as taxas vão pro cliente**: o **juro do parcelamento** é do comprador (config **"Parcelado comprador"**
 na conta MP, até 12x) e a **taxa de intermediação** (fixa) é **embutida no preço** via *gross-up*

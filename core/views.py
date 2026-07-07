@@ -57,9 +57,11 @@ from .models import (
     AssinaturaDocumento,
     Aventureiro,
     CaixaClube,
+    CobrancaEnviada,
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
+    MENSAGEM_COBRANCA_PADRAO,
     CupomDesconto,
     CustoClube,
     CustoEvento,
@@ -3690,6 +3692,130 @@ def mensalidade_cobrar_view(request):
 
 
 # ---------------------------------------------------------------------------
+# Cobranças de mensalidades por WhatsApp (aba "Cobranças" do Diretor).
+# ---------------------------------------------------------------------------
+def _moeda_txt(v):
+    """Formata um Decimal como pt-BR (1.234,56) para a mensagem de texto."""
+    s = f"{v:,.2f}"                       # 1,234.56
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _cobrancas_familias():
+    """Famílias (contas) com mensalidades em aberto: dados para a aba Cobranças
+    (responsável, total, WhatsApp, token do link e nº de cobranças enviadas no mês)."""
+    hoje = timezone.localdate()
+    abertas = (
+        Mensalidade.objects.filter(status="aberta", isento=False, aventureiro__ativo=True)
+        .select_related("aventureiro")
+    )
+    por_conta = defaultdict(list)
+    for m in abertas:
+        if m.aventureiro.usuario_id:
+            por_conta[m.aventureiro.usuario_id].append(m)
+
+    cont_mes = {
+        e["usuario"]: e["n"]
+        for e in CobrancaEnviada.objects.filter(ano=hoje.year, mes=hoje.month)
+        .values("usuario").annotate(n=Count("id"))
+    }
+    users = {u.id: u for u in User.objects.filter(id__in=por_conta.keys())}
+    familias = []
+    for uid, mens in por_conta.items():
+        u = users.get(uid)
+        if u is None:
+            continue
+        resp_nome, _ = _responsavel_da_familia(u)
+        perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
+        numero = _whatsapp_principal(u)
+        familias.append({
+            "usuario_id": uid,
+            "resp_nome": resp_nome,
+            "primeiro_nome": (resp_nome or "").split(" ")[0],
+            "total": sum((m.valor for m in mens), Decimal("0")),
+            "n_mens": len(mens),
+            "numero": numero,
+            "tem_numero": bool(numero),
+            "cobrado_mes": cont_mes.get(uid, 0),
+            "token": perfil.get_token_acerto(),
+            "mensalidades": sorted(
+                mens, key=lambda x: (x.aventureiro.nome_completo, x.ano, x.mes)
+            ),
+        })
+    familias.sort(key=lambda f: (f["resp_nome"] or "").lower())
+    return familias
+
+
+def _montar_mensagem_cobranca(template, familia, request):
+    """Interpola o template com os dados da família ({nome}/{itens}/{total}/{link})."""
+    itens = "\n".join(
+        f"• {m.aventureiro.nome_completo} — {m.mes_nome}/{m.ano}"
+        + (" (inscrição)" if m.tipo == "inscricao" else "")
+        + f": R$ {_moeda_txt(m.valor)}"
+        for m in familia["mensalidades"]
+    )
+    link = request.build_absolute_uri(reverse("core:acerto", args=[familia["token"]]))
+    return (
+        (template or MENSAGEM_COBRANCA_PADRAO)
+        .replace("{nome}", familia["primeiro_nome"] or "")
+        .replace("{itens}", itens)
+        .replace("{total}", _moeda_txt(familia["total"]))
+        .replace("{link}", link)
+    )
+
+
+@diretor_required
+@require_POST
+def mensalidade_cobranca_config_view(request):
+    """Salva o template da mensagem de cobrança."""
+    c = ConfigMensalidade.get_solo()
+    c.mensagem_cobranca = (request.POST.get("mensagem_cobranca") or "").strip() or MENSAGEM_COBRANCA_PADRAO
+    c.atualizado_por = request.user
+    c.save()
+    messages.success(request, "Mensagem de cobrança salva.")
+    return redirect(reverse("core:mensalidades") + "?aba=cobrancas")
+
+
+@diretor_required
+@require_POST
+def mensalidade_cobranca_enviar_view(request):
+    """Envia a cobrança por WhatsApp (uma família ou todas) e registra o histórico.
+    Filtro opcional: só quem ainda não recebeu neste mês."""
+    wa = WhatsappConfig.get_solo()
+    if not wa.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure o WhatsApp antes de enviar cobranças."}, status=400
+        )
+    template = ConfigMensalidade.get_solo().mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO
+    alvo = request.POST.get("usuario_id")
+    so_nao_enviados = request.POST.get("so_nao_enviados") == "1"
+    hoje = timezone.localdate()
+
+    familias = _cobrancas_familias()
+    if alvo:
+        familias = [f for f in familias if str(f["usuario_id"]) == str(alvo)]
+    if so_nao_enviados:
+        familias = [f for f in familias if not f["cobrado_mes"]]
+
+    enviados = 0
+    falhas = []
+    for f in familias:
+        if not f["tem_numero"]:
+            falhas.append(f"{f['resp_nome']}: sem WhatsApp cadastrado")
+            continue
+        msg = _montar_mensagem_cobranca(template, f, request)
+        ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
+        if ok:
+            CobrancaEnviada.objects.create(
+                usuario_id=f["usuario_id"], ano=hoje.year, mes=hoje.month,
+                enviada_por=request.user,
+            )
+            enviados += 1
+        else:
+            falhas.append(f"{f['resp_nome']}: {detalhe}")
+    return JsonResponse({"ok": True, "enviados": enviados, "falhas": falhas})
+
+
+# ---------------------------------------------------------------------------
 # Página pública de ACERTO (link do WhatsApp de cobrança). Sem login: o token
 # identifica a família; a página mostra o que está em aberto AGORA e a pessoa
 # paga (Pix/cartão) — o Pix é gerado só no clique, então nada "vence" se ela
@@ -4978,6 +5104,10 @@ def mensalidades_view(request):
             ("dinheiro", "Dinheiro"), ("pix", "Pix"),
             ("cartao", "Cartão"), ("online", "Online"),
         ],
+        # Aba Cobranças
+        "cobrancas": _cobrancas_familias(),
+        "mensagem_cobranca": ConfigMensalidade.get_solo().mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO,
+        "wa_configurado": WhatsappConfig.get_solo().configurado,
     }
     return render(request, "core/mensalidades.html", contexto)
 

@@ -100,16 +100,19 @@
                 </section>
 
                 <div class="mens-abas" role="tablist">
-                    <button type="button" class="mens-aba{% if aba != 'aventureiros' %} ativa{% endif %}" data-aba="resumo" role="tab">
+                    <button type="button" class="mens-aba{% if aba != 'aventureiros' and aba != 'cobrancas' %} ativa{% endif %}" data-aba="resumo" role="tab">
                         <span aria-hidden="true">📊</span> Resumo
                     </button>
                     <button type="button" class="mens-aba{% if aba == 'aventureiros' %} ativa{% endif %}" data-aba="aventureiros" role="tab">
                         <span aria-hidden="true">👥</span> Aventureiros
                     </button>
+                    <button type="button" class="mens-aba{% if aba == 'cobrancas' %} ativa{% endif %}" data-aba="cobrancas" role="tab">
+                        <span aria-hidden="true">📣</span> Cobranças
+                    </button>
                 </div>
 
                 <!-- ===== ABA: RESUMO (dashboard) ===== -->
-                <section class="mens-painel" data-painel="resumo"{% if aba == 'aventureiros' %} hidden{% endif %}>
+                <section class="mens-painel" data-painel="resumo"{% if aba == 'aventureiros' or aba == 'cobrancas' %} hidden{% endif %}>
                     <div class="mens-resumo-topo">
                         <div class="card mens-donut-card">
                             <div class="mens-donut" style="--pct: {{ taxa|floatformat:0 }}">
@@ -271,6 +274,58 @@
                 </section>
                 {% endif %}
                 </section>
+
+                <!-- ===== ABA: COBRANÇAS ===== -->
+                <section class="mens-painel" data-painel="cobrancas"{% if aba != 'cobrancas' %} hidden{% endif %}
+                         data-enviar-url="{% url 'core:mensalidade_cobranca_enviar' %}" data-csrf="{{ csrf_token }}">
+                    {% if not wa_configurado %}
+                    <p class="painel-nota mens-cobranca-aviso">⚠️ Configure o <strong>WhatsApp</strong> (menu 💬 WhatsApp) para conseguir enviar as cobranças.</p>
+                    {% endif %}
+
+                    <details class="card mens-cobranca-msg">
+                        <summary>✏️ Mensagem de cobrança (personalizar)</summary>
+                        <form method="post" action="{% url 'core:mensalidade_cobranca_config' %}" class="mens-cobranca-form">
+                            {% csrf_token %}
+                            <textarea name="mensagem_cobranca" rows="10" class="mens-cobranca-textarea">{{ mensagem_cobranca }}</textarea>
+                            <p class="ajuda">Marcadores que serão trocados por família: <code>{nome}</code> (1º nome), <code>{itens}</code> (lista do que deve), <code>{total}</code>, <code>{link}</code> (página de acerto).</p>
+                            <div class="form-acoes"><button type="submit" class="btn-acao">💾 Salvar mensagem</button></div>
+                        </form>
+                    </details>
+
+                    {% if cobrancas %}
+                    <div class="card mens-cobranca-barra">
+                        <span><strong>{{ cobrancas|length }}</strong> família(s) com mensalidade em aberto.</span>
+                        <label class="mens-chk"><input type="checkbox" id="cobrancaSoNaoEnviados" checked> Só quem não recebeu este mês</label>
+                        <button type="button" class="btn-acao" id="cobrancaEnviarTodos"{% if not wa_configurado %} disabled{% endif %}>📤 Enviar a todos</button>
+                    </div>
+
+                    <ul class="mens-cobranca-lista">
+                        {% for f in cobrancas %}
+                        <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}">
+                            <div class="mens-cobranca-linha">
+                                <span class="mens-cobranca-nome">{{ f.resp_nome }}</span>
+                                {% if f.cobrado_mes %}<span class="mens-badge mens-badge-isento">📤 Cobrado este mês ({{ f.cobrado_mes }})</span>
+                                {% else %}<span class="mens-badge mens-badge-desc">⏳ Não cobrado este mês</span>{% endif %}
+                            </div>
+                            <div class="mens-cobranca-det">
+                                <span>Em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_mens }} mês(es)</span>
+                                {% if f.tem_numero %}<span>📱 {{ f.numero }}</span>{% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
+                            </div>
+                            <button type="button" class="btn-secundario btn-acao-pequeno mens-cobranca-enviar"
+                                    data-usuario="{{ f.usuario_id }}"{% if not wa_configurado or not f.tem_numero %} disabled{% endif %}>
+                                📤 Enviar cobrança
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">✅</span>
+                        <h2 class="card-titulo">Ninguém em aberto</h2>
+                        <p class="card-texto">Não há mensalidades em aberto para cobrar agora.</p>
+                    </section>
+                    {% endif %}
+                </section>
             </div>
         </main>
 
@@ -390,5 +445,6 @@
     <script src="{% static 'js/moeda_br.js' %}"></script>
     <script src="{% static 'js/mensalidades.js' %}"></script>
     <script src="{% static 'js/mensalidade_pix.js' %}"></script>
+    <script src="{% static 'js/mensalidade_cobranca.js' %}"></script>
 </body>
 </html>

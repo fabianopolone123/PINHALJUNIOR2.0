@@ -14,6 +14,7 @@ from django.utils import timezone
 from . import mercadopago as mp
 from .models import (
     Aventureiro,
+    CobrancaEnviada,
     CompraLoja,
     CustoClube,
     Evento,
@@ -667,3 +668,46 @@ class AcertoPublicoTests(TestCase):
         self.client.post(reverse("core:pagamento_simular", args=[pag.referencia]))
         self.m1.refresh_from_db()
         self.assertEqual(self.m1.status, "paga")
+
+
+class CobrancaWhatsappTests(TestCase):
+    """Aba Cobranças: envio por WhatsApp registra o histórico do mês."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_cob", password="x")
+        self.diretor.groups.add(grupo)
+        self.user = User.objects.create_user("fam1", password="x")
+        self.av = Aventureiro.objects.create(
+            usuario=self.user, nome_completo="Ana", sexo="F",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="1",
+            resp_nome="Mae Ana", resp_cpf="2", resp_whatsapp="47999990000", resp_email="m@x.com",
+        )
+        Mensalidade.objects.create(
+            aventureiro=self.av, ano=2026, mes=3, valor=Decimal("30.00"), status="aberta",
+        )
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "I"; wa.token = "T"; wa.save()
+        self.client.force_login(self.diretor)
+
+    def test_enviar_cobranca_registra_historico(self):
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "msgid")):
+            r = self.client.post(reverse("core:mensalidade_cobranca_enviar"),
+                                 {"usuario_id": self.user.id, "so_nao_enviados": "0"})
+        self.assertEqual(r.status_code, 200)
+        d = r.json()
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["enviados"], 1)
+        hoje = timezone.localdate()
+        self.assertEqual(
+            CobrancaEnviada.objects.filter(
+                usuario=self.user, ano=hoje.year, mes=hoje.month
+            ).count(),
+            1,
+        )
+
+    def test_tela_cobrancas_renderiza(self):
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrancas")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Mae Ana")
+        self.assertContains(r, "Enviar a todos")

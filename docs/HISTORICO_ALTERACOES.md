@@ -22,6 +22,38 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Cobrança de mensalidades (parte 2): aba "Cobranças" (WhatsApp)
+
+### Resumo
+Nova aba **"Cobranças"** no módulo Mensalidades (ao lado de Resumo/Aventureiros): dispara a **cobrança das
+mensalidades por WhatsApp** (reusa a W-API), com **mensagem personalizável**, **envio a um ou a todos**,
+**histórico do mês** e **filtro "só quem não recebeu este mês"**. A mensagem leva o **link de acerto** (parte 1).
+
+### Como funciona
+- **Mensagem configurável** (`ConfigMensalidade.mensagem_cobranca`) com marcadores `{nome}`, `{itens}`, `{total}`,
+  `{link}` — interpolados por família no envio. Padrão em `MENSAGEM_COBRANCA_PADRAO`.
+- **Agrupada por família** (conta): lista as famílias com mensalidade em aberto, com responsável, total, WhatsApp
+  principal (reusa `_whatsapp_principal`), status do mês (📤 cobrado Nx / ⏳ não) e o link (`token_acerto`).
+- **Envio**: `mensalidade_cobranca_enviar_view` (JSON) manda a um (`usuario_id`) ou a todos, com filtro
+  `so_nao_enviados`; cada envio grava um `CobrancaEnviada` (mês/ano/quem) para o histórico e o filtro.
+- Sem WhatsApp configurado (W-API) ou sem número da família → o envio avisa/pula.
+
+### Arquivos criados/alterados
+- `core/models.py`: `ConfigMensalidade.mensagem_cobranca` + `MENSAGEM_COBRANCA_PADRAO`; model `CobrancaEnviada`
+  (histórico do mês). Migration **0037**.
+- `core/views.py`: `_cobrancas_familias`, `_montar_mensagem_cobranca`, `_moeda_txt`,
+  `mensalidade_cobranca_config_view` e `mensalidade_cobranca_enviar_view`; contexto da aba em `mensalidades_view`.
+- `core/urls.py`: `mensalidades/cobrancas/config/` e `.../enviar/`.
+- `templates/core/mensalidades.html`: aba/painel **Cobranças** (editor da mensagem + lista + enviar a um/todos +
+  filtro). `static/js/mensalidade_cobranca.js` (envio AJAX). `static/css/mensalidades.css` (estilos).
+- `core/tests.py`: `CobrancaWhatsappTests` (envio registra histórico; render da aba).
+
+### Observações
+- Envio "a todos" é síncrono (um POST por família na W-API); para o porte do clube, ok.
+- Fecha a feature de cobrança (parte 1 = página de acerto; parte 2 = aba Cobranças).
+
+---
+
 ## 2026-07-07 - Cobrança de mensalidades (parte 1): página pública de acerto (link do WhatsApp)
 
 ### Resumo

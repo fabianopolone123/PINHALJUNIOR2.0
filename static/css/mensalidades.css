@@ -223,3 +223,17 @@
 }
 .mens-cobrar-item .mens-cobrar-nome { flex: 1; }
 .mens-cobrar-item .mens-cobrar-valor { font-weight: 600; }
+
+/* ===== Aba Cobranças ===== */
+.mens-cobranca-aviso { background:#fff3cd; border:1px solid #ffe08a; }
+.mens-cobranca-msg { padding: 14px 16px; margin-bottom: 14px; }
+.mens-cobranca-msg > summary { cursor: pointer; font-weight: 700; color: var(--azul-escuro,#0f4c81); }
+.mens-cobranca-textarea { width:100%; margin-top:10px; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; font-size:0.95rem; }
+.mens-cobranca-barra { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 16px; margin-bottom:12px; }
+.mens-cobranca-barra .btn-acao { margin-left:auto; }
+.mens-cobranca-lista { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.mens-cobranca-item { padding:12px 16px; }
+.mens-cobranca-linha { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.mens-cobranca-nome { font-weight:700; }
+.mens-cobranca-det { display:flex; gap:16px; flex-wrap:wrap; color:#475569; font-size:0.92rem; margin:6px 0 10px; }
+.mens-cobranca-semzap { color:#a12a1e; }

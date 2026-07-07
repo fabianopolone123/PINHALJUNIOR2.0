@@ -193,6 +193,8 @@ urlpatterns = [
     path("mensalidades/gerar/", views.mensalidades_gerar_view, name="mensalidades_gerar"),
     path("mensalidades/pagar/", views.mensalidade_pagar_view, name="mensalidade_pagar"),
     path("mensalidades/cobrar/", views.mensalidade_cobrar_view, name="mensalidade_cobrar"),
+    path("mensalidades/cobrancas/config/", views.mensalidade_cobranca_config_view, name="mensalidade_cobranca_config"),
+    path("mensalidades/cobrancas/enviar/", views.mensalidade_cobranca_enviar_view, name="mensalidade_cobranca_enviar"),
     path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),
     path("mensalidades/editar/", views.mensalidade_editar_view, name="mensalidade_editar"),
     # --- Financeiro geral ---
