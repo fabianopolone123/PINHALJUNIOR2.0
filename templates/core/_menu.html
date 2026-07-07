@@ -5,8 +5,51 @@ Menu lateral central. Trata três casos, via context processor `perfis`:
 - Operador não-externo: menu normal + seção "Operar (PDV)" com seus eventos.
 Estado "ativo" pelo nome da URL atual. Os itens visíveis por perfil vêm de
 `core/menus.py` (registro central) — o futuro módulo de permissões encaixa lá.
+
+No topo fica o cartão do usuário (nome + perfil selecionado). Quando o usuário
+tem mais de um perfil, o cartão vira um <details> (dropdown) para trocar de
+perfil (rota `trocar_perfil`).
 {% endcomment %}
 {% with un=request.resolver_match.url_name %}
+
+{# Cartão do usuário: nome + perfil atual; dropdown para trocar (se tiver 2+). #}
+{% if perfis_disponiveis %}
+<details class="perfil-box">
+    <summary class="perfil-atual" title="Trocar de perfil">
+        <span class="perfil-avatar" aria-hidden="true">🙂</span>
+        <span class="perfil-textos">
+            <span class="perfil-usuario">{{ user.username }}</span>
+            <span class="perfil-selecionado">{{ perfil_atual }}</span>
+        </span>
+        <span class="perfil-caret" aria-hidden="true">▾</span>
+    </summary>
+    <div class="perfil-lista">
+        <span class="perfil-lista-rotulo">Trocar de perfil</span>
+        {% for p in perfis_disponiveis %}
+        <form method="post" action="{% url 'core:trocar_perfil' %}" class="perfil-form">
+            {% csrf_token %}
+            <input type="hidden" name="perfil" value="{{ p.nome }}">
+            <button type="submit" class="perfil-opcao{% if p.ativo %} ativo{% endif %}">
+                <span class="perfil-opcao-icone" aria-hidden="true">{{ p.icone }}</span>
+                <span class="perfil-opcao-nome">{{ p.nome }}</span>
+                {% if p.ativo %}<span class="perfil-opcao-check" aria-hidden="true">✓</span>{% endif %}
+            </button>
+        </form>
+        {% endfor %}
+    </div>
+</details>
+{% else %}
+<div class="perfil-box">
+    <div class="perfil-atual perfil-atual-estatico">
+        <span class="perfil-avatar" aria-hidden="true">🙂</span>
+        <span class="perfil-textos">
+            <span class="perfil-usuario">{{ user.username }}</span>
+            {% if perfil_atual %}<span class="perfil-selecionado">{{ perfil_atual }}</span>{% endif %}
+        </span>
+    </div>
+</div>
+{% endif %}
+
 <nav class="menu">
     {% if eh_operador_externo %}
         <span class="menu-secao-rotulo">Meus eventos</span>
@@ -23,23 +66,6 @@ Estado "ativo" pelo nome da URL atual. Os itens visíveis por perfil vêm de
             <span class="menu-texto">{{ it.rotulo }}</span>
         </a>
         {% endfor %}
-        {% if perfis_disponiveis %}
-        {# Seletor de perfil: troca a visão do sistema (perfis que o usuário tem). #}
-        <div class="menu-perfil">
-            <span class="menu-secao-rotulo">Ver como</span>
-            {% for p in perfis_disponiveis %}
-            <form method="post" action="{% url 'core:trocar_perfil' %}" class="menu-perfil-form">
-                {% csrf_token %}
-                <input type="hidden" name="perfil" value="{{ p.nome }}">
-                <button type="submit" class="menu-item menu-perfil-item{% if p.ativo %} ativo{% endif %}">
-                    <span class="menu-icone" aria-hidden="true">{{ p.icone }}</span>
-                    <span class="menu-texto">{{ p.nome }}</span>
-                    {% if p.ativo %}<span class="menu-perfil-check" aria-hidden="true">✓</span>{% endif %}
-                </button>
-            </form>
-            {% endfor %}
-        </div>
-        {% endif %}
         {% include "core/_menu_eventos.html" %}
         {% if operador_eventos and not is_diretor %}
         <span class="menu-secao-rotulo">Operar (PDV)</span>

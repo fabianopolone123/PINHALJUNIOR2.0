@@ -16,9 +16,10 @@ atrasados) para **selecionar e pagar** (Pix/cartão, `minhas_mensalidades_pagar`
 filhos (esteve/faltou por evento; não marca). O Diretor ganhou na aba **Cobranças** a **mensagem de apelo**
 (`ConfigMensalidade.mensagem_apelo`, migration **0038**). Templates novos: `_loja_vitrine.html`,
 `loja_responsavel.html`, `mensalidades_responsavel.html`, `presenca_responsavel.html`. **Seletor de perfil:**
-o menu tem **"Ver como"** (rota `trocar_perfil`, chave `PERFIL_ATIVO_KEY` na sessão) listando os perfis que o
-usuário **realmente possui** (grupos) — trocar muda menu + telas (`perfil_efetivo`/`perfis_do_usuario`/
-`pode_trocar_perfil` em `core/menus.py`); só aparece com 2+ perfis. **Dados fictícios (demo):** flag
+no **topo** do menu (logo abaixo do título) há o **cartão do usuário** — nome + **perfil selecionado** (chip); com
+2+ perfis vira um **dropdown** (`<details>`) que lista os perfis que o usuário **possui** (grupos) e troca a
+visão ao clicar (rota `trocar_perfil`, chave `PERFIL_ATIVO_KEY`; `perfil_efetivo`/`perfis_do_usuario`/
+`pode_trocar_perfil` em `core/menus.py`). O nome do usuário saiu do rodapé (só sobrou Sair + copyright). **Dados fictícios (demo):** flag
 **`Aventureiro.demo`/`Evento.demo`** (migration **0039**) marca dados de teste que **NUNCA** entram nas
 contagens do clube (Usuários, Mensalidades/Presença do Diretor, Financeiro, menu de eventos) — a presença do
 responsável casa a "demo-ness" (família demo só vê eventos demo). Comando **`dados_demo_fabiano`** dá **todos

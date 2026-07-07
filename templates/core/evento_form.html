@@ -25,10 +25,6 @@
             {% include "core/_menu.html" %}
 
             <div class="barra-rodape">
-                <div class="barra-usuario">
-                    <span class="barra-usuario-icone" aria-hidden="true">🙂</span>
-                    <span class="barra-usuario-nome">{{ user.username }}</span>
-                </div>
                 <form method="post" action="{% url 'core:sair' %}" class="form-sair">
                     {% csrf_token %}
                     <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>

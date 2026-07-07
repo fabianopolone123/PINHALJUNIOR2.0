@@ -76,6 +76,28 @@ migration **0038**), exibida ao responsável na tela de Mensalidades dele.
 
 ---
 
+## 2026-07-07 - Seletor de perfil vira cartão do usuário no topo do menu
+
+### Resumo
+A pedido, o seletor de perfil saiu da lista do menu e virou o **cartão do usuário no topo** (logo abaixo do
+título "Clube de Aventureiros Pinhal Júnior"): mostra o **nome** + o **perfil selecionado** (chip verde) e,
+quando o usuário tem 2+ perfis, é um **dropdown** (`<details>` nativo) que abre a lista para trocar de perfil.
+O **nome do usuário foi removido do rodapé** (lá ficou só o botão Sair + copyright). Ocupa menos espaço no menu
+e deixa claro "em que perfil estou".
+
+### Arquivos alterados
+- `templates/core/_menu.html`: cartão `perfil-box` (dropdown `<details>` quando `perfis_disponiveis`, senão
+  estático) no topo; removida a seção "Ver como" que ficava no fim.
+- `templates/core/*.html` (26 arquivos): removido o bloco `barra-usuario` do rodapé (nome subiu para o menu).
+- `static/css/inicio.css`: estilos `.perfil-box`/`.perfil-atual`/`.perfil-lista`/`.perfil-opcao` (substituem
+  os antigos `.menu-perfil*`).
+
+### Decisões
+- Dropdown com `<details>` nativo (sem JS): o auto-fechar do `inicio.js` é escopado a `.conteudo-interno`, então
+  não interfere no menu; clicar num perfil já navega (fecha sozinho).
+
+---
+
 ## 2026-07-07 - Seletor de perfil ("Ver como") + dados fictícios (demo) do Fabiano
 
 ### Resumo

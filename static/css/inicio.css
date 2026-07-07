@@ -160,30 +160,87 @@ body {
     line-height: 1;
 }
 
-/* Seletor de perfil ("Ver como") — troca a visão do sistema */
-.menu-perfil {
+/* Cartão do usuário (topo do menu): nome + perfil selecionado; dropdown p/ trocar */
+.perfil-box { margin-bottom: 12px; }
+.perfil-atual {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--raio-item);
+    background: rgba(255, 255, 255, 0.10);
+    cursor: pointer;
+    list-style: none;
+    transition: background var(--transicao);
+}
+.perfil-atual::-webkit-details-marker { display: none; }
+.perfil-atual:hover { background: rgba(255, 255, 255, 0.16); }
+.perfil-atual-estatico { cursor: default; }
+.perfil-avatar { font-size: 1.3rem; line-height: 1; }
+.perfil-textos { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.perfil-usuario {
+    color: var(--branco);
+    font-weight: 700;
+    font-size: 0.98rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.perfil-selecionado {
+    align-self: flex-start;
+    margin-top: 3px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--verde) 0%, var(--verde-claro) 100%);
+    color: var(--branco);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.perfil-caret { color: rgba(255, 255, 255, 0.75); transition: transform var(--transicao); }
+.perfil-box[open] .perfil-caret { transform: rotate(180deg); }
+
+/* Dropdown de perfis */
+.perfil-lista {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-top: 10px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    gap: 4px;
+    margin-top: 6px;
+    padding: 8px;
+    border-radius: var(--raio-item);
+    background: rgba(0, 0, 0, 0.18);
 }
-.menu-perfil-form { margin: 0; }
-.menu-perfil-item {
+.perfil-lista-rotulo {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 2px 6px 4px;
+}
+.perfil-form { margin: 0; }
+.perfil-opcao {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 8px;
     background: transparent;
-    border: 1px dashed rgba(255, 255, 255, 0.28);
+    color: rgba(255, 255, 255, 0.9);
+    font: inherit;
+    font-weight: 600;
     cursor: pointer;
     text-align: left;
-    font-family: inherit;
+    transition: background var(--transicao);
 }
-.menu-perfil-item.ativo {
+.perfil-opcao:hover { background: rgba(255, 255, 255, 0.12); }
+.perfil-opcao.ativo {
     background: linear-gradient(135deg, var(--verde) 0%, var(--verde-claro) 100%);
-    border-style: solid;
-    box-shadow: 0 8px 18px rgba(58, 157, 58, 0.35);
+    color: var(--branco);
 }
-.menu-perfil-check { margin-left: auto; font-weight: 700; }
+.perfil-opcao-nome { flex: 1 1 auto; }
+.perfil-opcao-check { font-weight: 700; }
 
 /* Seção "Eventos ativos" no menu (visível a todos os perfis) */
 .menu-eventos {
