@@ -2,6 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
+**Última atualização:** 2026-07-07 (**Financeiro: remove "Onde está o dinheiro" e ajusta caixa**): a aba
+Financeiro não exibe mais o card/modal **"Onde está o dinheiro"** (banco/espécie/caixa físico). Para o resultado
+do caixa bater com o valor informado da conta do clube (**R$ 3.353,00**), o banco local foi ajustado nas
+mensalidades: 5 cobranças de R$ 30,00 e 1 cobrança de R$ 27,00 foram reabertas, e 1 mensalidade paga teve
+`valor_pago` ajustado para R$ 28,00. Validação local: resultado financeiro R$ 3.353,00, `check` OK. Antes:
+Pagamentos Mercado Pago — Etapa 5.
+
 **Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 5: taxa/líquido nos relatórios**): os
 relatórios financeiros agora mostram o **líquido que caiu no banco** (bruto − custos − **taxa do Mercado Pago**).
 O clube absorve a taxa (não repassa), mas ela aparece descontada no **Financeiro geral** (taxa por fonte +

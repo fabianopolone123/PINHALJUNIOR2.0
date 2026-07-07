@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Financeiro: remove "Onde está o dinheiro" e ajusta resultado do caixa
+
+### Resumo
+Removido da tela Financeiro o card/modal **"Onde está o dinheiro"** (banco + espécie), a pedido do usuário.
+Também foi ajustado o banco local para o resultado líquido do Financeiro bater com o valor informado da conta do
+clube: **R$ 3.353,00**.
+
+### Arquivos alterados
+- `templates/core/financeiro.html`: remove o card "Onde está o dinheiro" e o modal de edição do caixa.
+- `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`: documentação atualizada.
+
+### Dados ajustados
+- Mensalidades reabertas: IDs `744`, `675`, `611`, `610`, `695` (R$ 30,00 cada) e `482` (R$ 27,00).
+- Mensalidade mantida paga com ajuste fino: ID `581`, `valor_pago` de R$ 30,00 para R$ 28,00.
+- Resultado financeiro recalculado: **R$ 3.353,00**.
+
+### Validação
+- `python manage.py check` OK.
+- Busca no template confirma que `Onde está o dinheiro`, `modalCaixa`, `btnEditarCaixa`, `caixa.saldo_banco` e
+  `caixa_especie` não aparecem mais em `templates/core/financeiro.html`.
+- Recalculo local do Financeiro: mensalidades recebidas R$ 2.995,00 e resultado R$ 3.353,00.
+
+### Pendências
+- Enviar o `db.sqlite3` local ajustado para o VPS após o deploy do código.
+
+---
+
 ## 2026-07-07 - Restaura banco local no VPS
 
 ### Resumo
