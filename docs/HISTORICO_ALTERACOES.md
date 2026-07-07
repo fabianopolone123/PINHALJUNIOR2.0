@@ -43,9 +43,14 @@ clube: **R$ 3.353,00**.
 - Busca no template confirma que `Onde está o dinheiro`, `modalCaixa`, `btnEditarCaixa`, `caixa.saldo_banco` e
   `caixa_especie` não aparecem mais em `templates/core/financeiro.html`.
 - Recalculo local do Financeiro: mensalidades recebidas R$ 2.995,00 e resultado R$ 3.353,00.
+- Deploy no VPS com `pinhaljunior2-deploy` OK; banco online substituído pelo `db.sqlite3` local ajustado.
+- Backup do banco online anterior: `/var/www/pinhaljunior2/backup/db_before_caixa_mensalidades_20260707_003251.sqlite3`.
+- Recalculo no VPS: mensalidades recebidas R$ 2.995,00, resultado R$ 3.353,00, 100 pagas e 288 abertas.
+- `https://pinhaljunior.com.br/sistema-novo/` respondeu `200`; serviços `pinhaljunior2`, `nginx` e `sitepinhal`
+  ativos.
 
 ### Pendências
-- Enviar o `db.sqlite3` local ajustado para o VPS após o deploy do código.
+- Sem novas pendências.
 
 ---
 

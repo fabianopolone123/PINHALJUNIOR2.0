@@ -6,8 +6,10 @@
 Financeiro não exibe mais o card/modal **"Onde está o dinheiro"** (banco/espécie/caixa físico). Para o resultado
 do caixa bater com o valor informado da conta do clube (**R$ 3.353,00**), o banco local foi ajustado nas
 mensalidades: 5 cobranças de R$ 30,00 e 1 cobrança de R$ 27,00 foram reabertas, e 1 mensalidade paga teve
-`valor_pago` ajustado para R$ 28,00. Validação local: resultado financeiro R$ 3.353,00, `check` OK. Antes:
-Pagamentos Mercado Pago — Etapa 5.
+`valor_pago` ajustado para R$ 28,00. Validação local e no VPS: resultado financeiro R$ 3.353,00, `check` OK,
+`migrate` sem pendências e `/sistema-novo/` 200. Backup do banco online anterior:
+`/var/www/pinhaljunior2/backup/db_before_caixa_mensalidades_20260707_003251.sqlite3`. Antes: Pagamentos
+Mercado Pago — Etapa 5.
 
 **Última atualização:** 2026-07-06 (**Pagamentos Mercado Pago — Etapa 5: taxa/líquido nos relatórios**): os
 relatórios financeiros agora mostram o **líquido que caiu no banco** (bruto − custos − **taxa do Mercado Pago**).
