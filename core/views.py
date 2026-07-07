@@ -87,6 +87,7 @@ from .models import (
     VariacaoProduto,
     WhatsappConfig,
 )
+from .menus import PREVIEW_KEY, atua_como_responsavel
 from .permissoes import diretor_required, eh_diretor, operador_required, pode_operar_evento
 
 # ---------------------------------------------------------------------------
@@ -2929,9 +2930,9 @@ def evento_custo_excluir_view(request, pk, custo_id):
 @login_required
 def presenca_view(request):
     """Tela "Presença". O Diretor escolhe o evento para marcar presença; o
-    Responsável vê o relatório só-leitura dos próprios filhos
-    (`_presenca_responsavel`)."""
-    if not eh_diretor(request.user):
+    Responsável (ou o Diretor em modo preview) vê o relatório só-leitura dos
+    próprios filhos (`_presenca_responsavel`)."""
+    if atua_como_responsavel(request):
         return _presenca_responsavel(request)
     eventos = list(Evento.objects.all())
     for e in eventos:
@@ -2980,6 +2981,20 @@ def _presenca_responsavel(request):
         "n_eventos": total,
     }
     return render(request, "core/presenca_responsavel.html", contexto)
+
+
+@diretor_required
+@require_POST
+def preview_responsavel_view(request):
+    """Liga/desliga o modo "Ver como responsável" do Diretor (preview): alterna a
+    flag na sessão e volta para "Meus Dados". Só o Diretor tem acesso."""
+    ligado = not request.session.get(PREVIEW_KEY)
+    request.session[PREVIEW_KEY] = ligado
+    if ligado:
+        messages.info(request, "Modo preview: você está vendo como um responsável veria.")
+    else:
+        messages.info(request, "Você voltou à visão de Diretor.")
+    return redirect("core:inicio")
 
 
 @diretor_required
@@ -4628,8 +4643,8 @@ def _loja_responsavel(request):
 @login_required
 def loja_view(request):
     """Tela "Loja". O Diretor vê o painel completo (Gerenciar/Loja/Vendas); o
-    Responsável vê só a vitrine + "Meus pedidos" (`_loja_responsavel`)."""
-    if not eh_diretor(request.user):
+    Responsável (ou o Diretor em modo preview) vê só a vitrine + "Meus pedidos"."""
+    if atua_como_responsavel(request):
         return _loja_responsavel(request)
     produtos = list(
         ProdutoLoja.objects.prefetch_related("grupos__variacoes", "fotos").all()
@@ -5134,10 +5149,10 @@ def _resumo_mensalidades(meses):
 
 @login_required
 def mensalidades_view(request):
-    """Tela "Mensalidades". O Diretor vê o painel completo; o Responsável vê a
-    própria visão (`_mensalidades_responsavel`): o que pagou, o que está em
+    """Tela "Mensalidades". O Diretor vê o painel completo; o Responsável (ou o
+    Diretor em modo preview) vê a própria visão: o que pagou, o que está em
     aberto e a opção de pagar."""
-    if not eh_diretor(request.user):
+    if atua_como_responsavel(request):
         return _mensalidades_responsavel(request)
     anos = sorted(
         set(Mensalidade.objects.values_list("ano", flat=True)) | {timezone.localdate().year},

@@ -15,7 +15,10 @@ atrasados) para **selecionar e pagar** (Pix/cartão, `minhas_mensalidades_pagar`
 **"adiantar meses"** (`?frente=1`) + **texto de apelo**; **Presença** = **relatório só-leitura** dos próprios
 filhos (esteve/faltou por evento; não marca). O Diretor ganhou na aba **Cobranças** a **mensagem de apelo**
 (`ConfigMensalidade.mensagem_apelo`, migration **0038**). Templates novos: `_loja_vitrine.html`,
-`loja_responsavel.html`, `mensalidades_responsavel.html`, `presenca_responsavel.html`. Testes em
+`loja_responsavel.html`, `mensalidades_responsavel.html`, `presenca_responsavel.html`. **Preview do Diretor:**
+botão **"Ver como responsável"** no menu (rota `preview_responsavel`, flag `PREVIEW_KEY` na sessão) — o
+Diretor alterna para a visão de responsável (menu + Loja/Mensalidades/Presença) e volta com "Voltar ao
+Diretor"; `perfil_efetivo`/`atua_como_responsavel` em `core/menus.py`. Testes em
 `core.tests.PerfilResponsavelTests`. Antes: Cobrança de mensalidades por WhatsApp + página pública de acerto.
 
 **Anterior (Cobrança de mensalidades por WhatsApp + página pública de acerto):** novo

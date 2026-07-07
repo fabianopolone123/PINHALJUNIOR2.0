@@ -54,14 +54,39 @@ ACESSO_PADRAO = {
 }
 
 
+# Chave de sessão do modo "Ver como responsável" (preview do Diretor).
+PREVIEW_KEY = "preview_responsavel"
+
+
 def perfil_do_usuario(user):
-    """Perfil principal do usuário. Diretor pelo grupo nativo; qualquer outro
-    membro logado é tratado como Responsável. Anônimo → None."""
+    """Perfil principal (real) do usuário. Diretor pelo grupo nativo; qualquer
+    outro membro logado é tratado como Responsável. Anônimo → None."""
     if not getattr(user, "is_authenticated", False):
         return None
     if eh_diretor(user):
         return PERFIL_DIRETOR
     return PERFIL_RESPONSAVEL
+
+
+def perfil_efetivo(request):
+    """Perfil considerando o modo preview: um Diretor com "Ver como responsável"
+    ligado passa a ser tratado como Responsável (menu e telas)."""
+    perfil = perfil_do_usuario(request.user)
+    if perfil == PERFIL_DIRETOR and request.session.get(PREVIEW_KEY):
+        return PERFIL_RESPONSAVEL
+    return perfil
+
+
+def atua_como_responsavel(request):
+    """True se a tela deve se comportar como Responsável — responsável real OU
+    Diretor em modo preview."""
+    return perfil_efetivo(request) == PERFIL_RESPONSAVEL
+
+
+def itens_menu_do_perfil(perfil):
+    """Itens de menu de um perfil (nome), na ordem de `ITENS_MENU`."""
+    liberados = set(ACESSO_PADRAO.get(perfil, []))
+    return [i for i in ITENS_MENU if i["id"] in liberados]
 
 
 def _ids_liberados(user):
@@ -78,7 +103,9 @@ def _ids_liberados(user):
 
 
 def itens_menu_para(user):
-    """Itens de menu visíveis para o usuário, na ordem de `ITENS_MENU`."""
+    """Itens de menu visíveis para o usuário (perfil real), na ordem de
+    `ITENS_MENU`. O menu que respeita o modo preview usa `perfil_efetivo` +
+    `itens_menu_do_perfil` (ver context processor)."""
     liberados = set(_ids_liberados(user))
     return [i for i in ITENS_MENU if i["id"] in liberados]
 

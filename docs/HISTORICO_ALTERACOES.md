@@ -76,6 +76,28 @@ migration **0038**), exibida ao responsável na tela de Mensalidades dele.
 
 ---
 
+## 2026-07-07 - Preview do Diretor: "Ver como responsável"
+
+### Resumo
+Para o Diretor testar/conferir a visão do responsável sem outra conta, o menu do Diretor ganhou o botão
+**"Ver como responsável"** (e **"Voltar ao Diretor"**). Liga/desliga uma flag na sessão (`PREVIEW_KEY`);
+enquanto ligada, o menu e as telas Loja/Mensalidades/Presença se comportam como responsável.
+
+### Arquivos alterados
+- `core/menus.py`: `PREVIEW_KEY`, `perfil_efetivo(request)`, `atua_como_responsavel(request)`,
+  `itens_menu_do_perfil(perfil)`.
+- `core/context_processors.py`: menu usa `perfil_efetivo`; expõe `preview_responsavel`.
+- `core/views.py`: `loja_view`/`mensalidades_view`/`presenca_view` passam a ramificar por
+  `atua_como_responsavel`; nova `preview_responsavel_view` (só Diretor, POST).
+- `core/urls.py`: rota `preview-responsavel/`. `templates/core/_menu.html`: botão (form POST).
+- `static/css/inicio.css`: estilo `.menu-preview`. `core/tests.py`: 2 testes de preview.
+
+### Observação
+A conta do Diretor (Fabiano) não tem aventureiros, então em preview as telas aparecem **vazias**. Para ver
+**com dados**, logar como um responsável real (ex.: `teste_responsavel` / `123456`).
+
+---
+
 ## 2026-07-07 - Cobranças: busca também por aventureiro
 
 ### Resumo

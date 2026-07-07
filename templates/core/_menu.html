@@ -23,6 +23,16 @@ Estado "ativo" pelo nome da URL atual. Os itens visíveis por perfil vêm de
             <span class="menu-texto">{{ it.rotulo }}</span>
         </a>
         {% endfor %}
+        {% if is_diretor %}
+        {# Preview do Diretor: alterna entre a visão de Diretor e a de Responsável. #}
+        <form method="post" action="{% url 'core:preview_responsavel' %}" class="menu-preview-form">
+            {% csrf_token %}
+            <button type="submit" class="menu-item menu-preview{% if preview_responsavel %} ativo{% endif %}">
+                <span class="menu-icone" aria-hidden="true">{% if preview_responsavel %}↩️{% else %}👁️{% endif %}</span>
+                <span class="menu-texto">{% if preview_responsavel %}Voltar ao Diretor{% else %}Ver como responsável{% endif %}</span>
+            </button>
+        </form>
+        {% endif %}
         {% include "core/_menu_eventos.html" %}
         {% if operador_eventos and not is_diretor %}
         <span class="menu-secao-rotulo">Operar (PDV)</span>

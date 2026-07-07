@@ -3,7 +3,7 @@
 from django.db.models import Q
 from django.utils import timezone
 
-from .menus import itens_menu_para, perfil_do_usuario
+from .menus import PREVIEW_KEY, itens_menu_do_perfil, perfil_efetivo
 from .models import Evento, OperadorEvento
 from .permissoes import eh_diretor
 
@@ -26,10 +26,12 @@ def perfis(request):
     """Adiciona ao contexto de todos os templates: `is_diretor`, `eventos_menu`,
     e as informações de operador (`operador_eventos`, `eh_operador_externo`)."""
     user = request.user
+    perfil_ef = perfil_efetivo(request)
     contexto = {
         "is_diretor": eh_diretor(user),
-        "perfil_atual": perfil_do_usuario(user),
-        "menu_itens": itens_menu_para(user),
+        "perfil_atual": perfil_ef,
+        "menu_itens": itens_menu_do_perfil(perfil_ef),
+        "preview_responsavel": eh_diretor(user) and bool(request.session.get(PREVIEW_KEY)),
         "eventos_menu": _eventos_menu(user),
         "operador_eventos": [],
         "eh_operador_externo": False,

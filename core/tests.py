@@ -853,3 +853,26 @@ class PerfilResponsavelTests(TestCase):
         self.assertEqual(r.status_code, 302)   # bloqueado (diretor_required → redireciona)
         from .models import PresencaEvento
         self.assertFalse(PresencaEvento.objects.filter(evento=ev, aventureiro=self.av).exists())
+
+    # --- Preview "Ver como responsável" (Diretor) ---
+    def test_preview_diretor_ve_telas_de_responsavel(self):
+        self.client.force_login(self.diretor)
+        # Sem preview: Diretor vê o painel.
+        self.assertTemplateUsed(self.client.get(reverse("core:loja")), "core/loja.html")
+        # Liga o preview.
+        self.client.post(reverse("core:preview_responsavel"))
+        self.assertTemplateUsed(self.client.get(reverse("core:loja")), "core/loja_responsavel.html")
+        self.assertTemplateUsed(
+            self.client.get(reverse("core:mensalidades")), "core/mensalidades_responsavel.html"
+        )
+        self.assertTemplateUsed(
+            self.client.get(reverse("core:presenca")), "core/presenca_responsavel.html"
+        )
+        # Desliga: volta ao painel do Diretor.
+        self.client.post(reverse("core:preview_responsavel"))
+        self.assertTemplateUsed(self.client.get(reverse("core:loja")), "core/loja.html")
+
+    def test_preview_so_diretor(self):
+        self.client.force_login(self.resp)   # responsável não tem esse botão/rota
+        r = self.client.post(reverse("core:preview_responsavel"))
+        self.assertEqual(r.status_code, 302)   # diretor_required redireciona
