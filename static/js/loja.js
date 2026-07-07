@@ -27,6 +27,21 @@
         a.addEventListener("click", function () { ativar(a.dataset.aba); });
     });
 
+    // Sub-abas da aba "Vendas" (Resumo / Custos / Pedido ao fornecedor / Compras).
+    var subAbas = document.querySelectorAll(".loja-subaba");
+    var subSecoes = document.querySelectorAll(".loja-subsecao");
+    Array.prototype.forEach.call(subAbas, function (a) {
+        a.addEventListener("click", function () {
+            var nome = a.dataset.sub;
+            Array.prototype.forEach.call(subAbas, function (x) {
+                x.classList.toggle("ativa", x === a);
+            });
+            Array.prototype.forEach.call(subSecoes, function (s) {
+                s.hidden = s.dataset.subsecao !== nome;
+            });
+        });
+    });
+
     // Links que apontam para o carrinho trocam para a aba "Loja".
     Array.prototype.forEach.call(
         document.querySelectorAll('a[href="#carrinho"]'),

@@ -238,6 +238,14 @@
                 <!-- ============ ABA: VENDAS (relatório) ============ -->
                 <section class="loja-painel" data-painel="vendas"{% if aba != 'vendas' %} hidden{% endif %}>
                     {% if relatorio.n_compras or compras %}
+                    <div class="loja-subabas" role="tablist">
+                        <button type="button" class="loja-subaba ativa" data-sub="resumo" role="tab"><span aria-hidden="true">📊</span> Resumo</button>
+                        <button type="button" class="loja-subaba" data-sub="custos" role="tab"><span aria-hidden="true">🧾</span> Custos</button>
+                        <button type="button" class="loja-subaba" data-sub="fornecedor" role="tab"><span aria-hidden="true">📦</span> Pedido ao fornecedor</button>
+                        <button type="button" class="loja-subaba" data-sub="compras" role="tab"><span aria-hidden="true">🛒</span> Todas as compras</button>
+                    </div>
+
+                    <div class="loja-subsecao" data-subsecao="resumo">
                     <div class="loja-kpis">
                         <div class="card loja-kpi">
                             <span class="loja-kpi-icone" aria-hidden="true">💰</span>
@@ -302,7 +310,9 @@
                             {% endif %}
                         </section>
                     </div>
+                    </div><!-- /subsecao resumo -->
 
+                    <div class="loja-subsecao" data-subsecao="custos" hidden>
                     <section class="card loja-rel-bloco loja-custos-bloco">
                         <div class="secao-cabecalho" style="margin-top:0;">
                             <h2 class="secao-titulo">🧾 Custos / pagamentos da loja</h2>
@@ -334,7 +344,9 @@
                         <p class="painel-nota">Nenhum custo da loja lançado. Ex.: pagamento dos uniformes ao fornecedor.</p>
                         {% endif %}
                     </section>
+                    </div><!-- /subsecao custos -->
 
+                    <div class="loja-subsecao" data-subsecao="fornecedor" hidden>
                     <section class="card loja-rel-bloco loja-forn-bloco">
                         <h2 class="secao-titulo">📦 Pedido para o fornecedor</h2>
                         <p class="painel-nota">O que <strong>falta entregar</strong> — é exatamente o que você precisa pedir ao fornecedor.</p>
@@ -359,7 +371,9 @@
                         <p class="painel-nota">✅ Tudo entregue — nada a pedir ao fornecedor no momento.</p>
                         {% endif %}
                     </section>
+                    </div><!-- /subsecao fornecedor -->
 
+                    <div class="loja-subsecao" data-subsecao="compras" hidden>
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Todas as compras</h2>
                         <div class="loja-compras-filtros">
@@ -428,6 +442,7 @@
                     {% else %}
                     <p class="painel-nota">Nenhuma compra registrada ainda.</p>
                     {% endif %}
+                    </div><!-- /subsecao compras -->
                     {% else %}
                     <section class="card vazio-card">
                         <span class="vazio-icone" aria-hidden="true">📊</span>

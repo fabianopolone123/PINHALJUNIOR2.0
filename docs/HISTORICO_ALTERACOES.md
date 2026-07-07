@@ -22,6 +22,25 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-06 - Loja/Vendas dividida em sub-abas
+
+### Resumo
+A aba **Vendas** da Loja (que estava com tudo empilhado) foi dividida em **4 sub-abas** para facilitar a
+visualização: **Resumo** (KPIs + mais vendidos + por forma de pagamento), **Custos** (resultado líquido +
+custos/pagamentos da loja), **Pedido ao fornecedor** (o que falta entregar) e **Todas as compras** (lista
+buscável com entrega). Mesmo padrão visual das abas principais da Loja.
+
+### Arquivos alterados
+- `templates/core/loja.html`: barra de sub-abas + cada seção envolvida numa `.loja-subsecao` (Resumo visível
+  por padrão; demais `hidden`).
+- `static/js/loja.js`: alterna as sub-abas (`.loja-subaba` → `.loja-subsecao`).
+- `static/css/loja.css`: estilo das sub-abas.
+
+### Nota
+- Fecha a pendência adiada da revisão anterior.
+
+---
+
 ## 2026-07-06 - Taxa sempre visível na Loja/Vendas + nota na lojinha do evento
 
 ### Resumo

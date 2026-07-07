@@ -662,3 +662,36 @@
 .loja-forn-titulo { font-size: 0.95rem; margin: 0 0 6px; color: #0f4c81; }
 .loja-forn-resumo { font-weight: normal; color: #888; font-size: 0.82rem; margin-left: 6px; }
 .loja-forn-tabela td.num strong.saida { color: #c0392b; }
+
+/* ===== Sub-abas da aba Vendas ===== */
+.loja-subabas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 16px;
+    background: rgba(15, 76, 129, 0.04);
+    border: 1px solid rgba(15, 76, 129, 0.10);
+    border-radius: 12px;
+    padding: 5px;
+}
+.loja-subaba {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 9px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--azul-escuro, #0f4c81);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.loja-subaba:hover { background: rgba(15, 76, 129, 0.08); }
+.loja-subaba.ativa {
+    background: var(--azul, #1f6fb2);
+    color: #fff;
+}
