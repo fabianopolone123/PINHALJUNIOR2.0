@@ -81,12 +81,24 @@
                         <span class="insc-total-linha"><span class="insc-total-label">Total:</span> <strong data-insc-total id="inscTotal">R$ 0,00</strong></span>
                     </div>
 
+                    {% if mp_configurado %}
+                    <div class="insc-forma-pagamento" data-insc-forma>
+                        <span class="insc-forma-titulo">Forma de pagamento (quando houver valor)</span>
+                        <label class="insc-forma-opt"><input type="radio" name="forma_pagamento" value="pix" checked> 💠 Pix</label>
+                        <label class="insc-forma-opt"><input type="radio" name="forma_pagamento" value="cartao"> 💳 Cartão de crédito <small>(até 12x, juros por conta do titular)</small></label>
+                    </div>
+                    {% endif %}
+
                     <div class="form-acoes evento-publico-acao">
                         <button type="submit" class="btn-acao">
                             <span aria-hidden="true">🎟️</span> Confirmar inscrição
                         </button>
                     </div>
+                    {% if mp_configurado %}
+                    <p class="painel-nota" style="text-align:center;">Inscrições gratuitas são confirmadas na hora. Havendo valor, você paga por Pix ou cartão para confirmar.</p>
+                    {% else %}
                     <p class="painel-nota" style="text-align:center;">Pagamento simulado nesta etapa — a inscrição é confirmada na hora.</p>
+                    {% endif %}
                 </form>
             </article>
         </main>

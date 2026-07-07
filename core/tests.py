@@ -411,6 +411,20 @@ class MensalidadePixTests(TestCase):
         self.assertEqual(len(taxas_extrato), 1)
         self.assertEqual(taxas_extrato[0]["valor"], Decimal("0.30"))
 
+    def test_cobrar_cartao_gera_preferencia(self):
+        fake_pref = {"ok": True, "preference_id": "P", "init_point": "https://mp/co/P"}
+        with mock.patch.object(mp, "criar_preferencia", return_value=fake_pref):
+            resp = self.client.post(
+                reverse("core:mensalidade_cobrar"),
+                {"mensalidade_ids": [self.m1.id], "forma_pagamento": "cartao"},
+            )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "https://mp/co/P")
+        pag = Pagamento.objects.get(tipo="mensalidade")
+        self.assertEqual(pag.forma, "cartao")
+        self.m1.refresh_from_db()
+        self.assertEqual(self.m1.status, "aberta")  # só quita quando aprovar
+
     def test_desfazer_mensalidade_paga_via_pix(self):
         # Paga via Pix (simular) e depois "Desfazer" — deve voltar para em aberto.
         fake_pix = {
@@ -571,6 +585,20 @@ class InscricaoPixTests(TestCase):
         self.assertEqual(insc.valor_total, Decimal("50.00"))
         self.assertEqual(insc.pagamento_id, pag.id)
         self.assertEqual(insc.participantes.count(), 1)
+
+    def test_inscricao_cartao_gera_preferencia(self):
+        self._config_mp()
+        ev = self._evento(com_faixa=True)
+        fake_pref = {"ok": True, "preference_id": "P", "init_point": "https://mp/co/I"}
+        data = self._post_inscricao(ev)
+        data["forma_pagamento"] = "cartao"
+        with mock.patch.object(mp, "criar_preferencia", return_value=fake_pref):
+            resp = self.client.post(reverse("core:evento_inscrever", args=[ev.id]), data)
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "https://mp/co/I")
+        pag = Pagamento.objects.get(tipo="inscricao")
+        self.assertEqual(pag.forma, "cartao")
+        self.assertEqual(Inscricao.objects.count(), 0)  # só cria ao aprovar
 
     def test_inscricao_gratis_cria_na_hora_sem_pix(self):
         self._config_mp()

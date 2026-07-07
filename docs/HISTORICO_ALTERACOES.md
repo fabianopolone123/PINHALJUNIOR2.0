@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-07 - Pagamentos Mercado Pago (Etapa 6, parte 2): cartão nos 4 pontos
+
+### Resumo
+O cartão (Checkout Pro + gross-up da taxa + parcelado-comprador) foi replicado nos demais pontos: **Loja do
+Clube**, **Inscrição de evento** e **Mensalidades**. Agora os quatro pontos aceitam **Pix e cartão**.
+
+### Como ficou por ponto
+- **Loja do Clube** (`loja_pagamento_view`): ramo de cartão espelhando o do Pix (já tinha o seletor Pix/Cartão).
+- **Inscrição** (`evento_inscrever_view` + `evento_inscrever.html`): novo **seletor Pix/Cartão** no formulário
+  (só quando o MP está configurado); cartão → Checkout Pro. Grátis segue criando na hora.
+- **Mensalidades** (`mensalidade_cobrar_view` + modal em `mensalidades.html`): **seletor Pix/Cartão** no modal de
+  cobrança; cartão → Checkout Pro (baixa múltipla no webhook, igual ao Pix).
+
+### Arquivos alterados
+- `core/views.py`: ramos de cartão em `loja_pagamento_view`, `evento_inscrever_view` e `mensalidade_cobrar_view`
+  (+ `mp_configurado` no contexto da inscrição).
+- `templates/core/`: seletor de forma em `evento_inscrever.html` e no modal de `mensalidades.html`.
+- `core/tests.py`: cartão gera preferência em mensalidade e inscrição (sem criar/quitar antes de aprovar).
+
+### Pendências
+- No painel do MP, deixar o parcelamento como **"Parcelado comprador"** (config da conta).
+- (Opcional) checkout transparente no site, se um dia não quiserem o redirecionamento.
+
+---
+
 ## 2026-07-07 - Pagamentos Mercado Pago (Etapa 6, parte 1): cartão via Checkout Pro (lojinha de evento)
 
 ### Resumo

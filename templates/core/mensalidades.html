@@ -371,10 +371,14 @@
                         {% csrf_token %}
                         <div id="cobrarLista" class="mens-cobrar-lista"></div>
                         <p class="pagamento-total">Total: <strong id="cobrarTotal">R$ 0,00</strong></p>
-                        <small class="ajuda">Marque os meses que quer cobrar. Ao confirmar, geramos o QR Pix; quando for pago, esses meses são quitados sozinhos.</small>
+                        <div class="mens-cobrar-forma">
+                            <label class="mens-chk"><input type="radio" name="forma_pagamento" value="pix" checked> 💠 Pix</label>
+                            <label class="mens-chk"><input type="radio" name="forma_pagamento" value="cartao"> 💳 Cartão de crédito <small>(até 12x, juros do titular)</small></label>
+                        </div>
+                        <small class="ajuda">Marque os meses e a forma. Ao confirmar, geramos a cobrança; quando for paga, esses meses são quitados sozinhos.</small>
                         <div class="form-acoes">
                             <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
-                            <button type="submit" class="btn-acao" id="cobrarSubmit">Gerar cobrança Pix</button>
+                            <button type="submit" class="btn-acao" id="cobrarSubmit">Gerar cobrança</button>
                         </div>
                     </form>
                 </div>

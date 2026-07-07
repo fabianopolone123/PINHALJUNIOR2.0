@@ -2,7 +2,22 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-07 (**Financeiro: remove "Onde está o dinheiro" e ajusta caixa**): a aba
+**Última atualização:** 2026-07-07 (**Pagamentos Mercado Pago — Etapa 6: cartão de crédito (Checkout Pro)**):
+os **4 pontos** (lojinha de evento, Loja do Clube, inscrição e mensalidades) agora aceitam **Pix e cartão**. O
+cartão usa **Checkout Pro** (redireciona ao MP; sem SDK, sem dado de cartão no servidor, sem dependência nova).
+**Todas as taxas vão pro cliente**: o **juro do parcelamento** é do comprador (config **"Parcelado comprador"**
+na conta MP, até 12x) e a **taxa de intermediação** (fixa) é **embutida no preço** via *gross-up*
+(`cobrado = venda ÷ (1 − taxa%)`), com a taxa em `MercadoPagoConfig.taxa_cartao_pct` (padrão **4,98%** = crédito
+na hora) — a tela de config tem um **termômetro** (taxa residual média que o clube arcou; ideal ≈ 0). A taxa do
+clube passou a ser **`valor_bruto − líquido`** (uniforme): no Pix o clube absorve (~1%); no cartão o repasse
+cobre → **líquido bate com a venda → taxa ≈ 0**. `mercadopago.criar_preferencia` (via `urllib`); Pagamento
+`forma="cartao"`; página genérica trata cartão ("confirmando pagamento" + polling); webhook e finalizações
+reusados (a forma do objeto vem de `pagamento.forma`). Migration **0035** (`taxa_cartao_pct`). Testes em
+`core.tests` (preferência + webhook com taxa repassada ≈ 0; gross-up; cartão em mensalidade e inscrição). **Setup
+do lado do usuário:** deixar o parcelamento como **"Parcelado comprador"** no painel do MP. Antes: Financeiro
+remove "Onde está o dinheiro".
+
+**Anterior (Financeiro: remove "Onde está o dinheiro" e ajusta caixa):** a aba
 Financeiro não exibe mais o card/modal **"Onde está o dinheiro"** (banco/espécie/caixa físico). Para o resultado
 do caixa bater com o valor informado da conta do clube (**R$ 3.353,00**), o banco local foi ajustado nas
 mensalidades: 5 cobranças de R$ 30,00 e 1 cobrança de R$ 27,00 foram reabertas, e 1 mensalidade paga teve

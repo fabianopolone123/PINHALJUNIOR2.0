@@ -1715,17 +1715,29 @@ def evento_inscrever_view(request, pk):
                 ]
                 payload["titulo"] = f"Inscrição — {evento.nome}"
                 payload["itens"] = itens_disp
-                pagamento, erro = _criar_pagamento_pix(
-                    request, tipo="inscricao", valor=grand_total,
-                    descricao=f"Inscrição — {evento.nome}", payload=payload,
-                    comprador={"nome": form.cleaned_data["responsavel_nome"],
-                               "email": form.cleaned_data["responsavel_email"]},
-                    usuario=request.user,
-                )
-                if erro:
-                    messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+                comprador_pg = {"nome": form.cleaned_data["responsavel_nome"],
+                                "email": form.cleaned_data["responsavel_email"]}
+                forma_inscr = request.POST.get("forma_pagamento") or "pix"
+                if forma_inscr == "cartao":
+                    pagamento, init_point, erro = _criar_pagamento_cartao(
+                        request, tipo="inscricao", valor=grand_total,
+                        descricao=f"Inscrição — {evento.nome}", payload=payload,
+                        comprador=comprador_pg, usuario=request.user,
+                    )
+                    if erro:
+                        messages.error(request, f"Não foi possível iniciar o cartão: {erro}")
+                    else:
+                        return redirect(init_point)
                 else:
-                    return redirect("core:pagamento", ref=pagamento.referencia)
+                    pagamento, erro = _criar_pagamento_pix(
+                        request, tipo="inscricao", valor=grand_total,
+                        descricao=f"Inscrição — {evento.nome}", payload=payload,
+                        comprador=comprador_pg, usuario=request.user,
+                    )
+                    if erro:
+                        messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+                    else:
+                        return redirect("core:pagamento", ref=pagamento.referencia)
             else:
                 with transaction.atomic():
                     inscricao = _criar_inscricao_de_payload(evento, payload, request.user)
@@ -1759,6 +1771,7 @@ def evento_inscrever_view(request, pk):
         "diretoria_json": (
             str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
         ),
+        "mp_configurado": _mp_config().configurado,
     }
     return render(request, "core/evento_inscrever.html", contexto)
 
@@ -3638,24 +3651,32 @@ def mensalidade_cobrar_view(request):
     av = mens[0].aventureiro
     mens = [m for m in mens if m.aventureiro_id == av.id]
     total = sum((m.valor for m in mens), Decimal("0"))
+    payload = {
+        "mensalidade_ids": [m.id for m in mens],
+        "aventureiro_id": av.id,
+        "titulo": f"Mensalidades — {av.nome_completo}",
+        "itens": [
+            {"nome": f"{m.mes_nome}/{m.ano}"
+                     + (" (inscrição)" if m.tipo == "inscricao" else ""),
+             "valor": f"{m.valor:.2f}"}
+            for m in mens
+        ],
+    }
+    comprador = {"nome": av.resp_nome or av.nome_completo, "email": av.resp_email}
+    if (request.POST.get("forma_pagamento") or "pix") == "cartao":
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="mensalidade", valor=total,
+            descricao=f"Mensalidades — {av.nome_completo}", payload=payload,
+            comprador=comprador, usuario=request.user,
+        )
+        if erro:
+            messages.error(request, f"Não foi possível iniciar o cartão: {erro}")
+            return redirect("core:mensalidades")
+        return redirect(init_point)
     pagamento, erro = _criar_pagamento_pix(
-        request,
-        tipo="mensalidade",
-        valor=total,
-        descricao=f"Mensalidades — {av.nome_completo}",
-        payload={
-            "mensalidade_ids": [m.id for m in mens],
-            "aventureiro_id": av.id,
-            "titulo": f"Mensalidades — {av.nome_completo}",
-            "itens": [
-                {"nome": f"{m.mes_nome}/{m.ano}"
-                         + (" (inscrição)" if m.tipo == "inscricao" else ""),
-                 "valor": f"{m.valor:.2f}"}
-                for m in mens
-            ],
-        },
-        comprador={"nome": av.resp_nome or av.nome_completo, "email": av.resp_email},
-        usuario=request.user,
+        request, tipo="mensalidade", valor=total,
+        descricao=f"Mensalidades — {av.nome_completo}", payload=payload,
+        comprador=comprador, usuario=request.user,
     )
     if erro:
         messages.error(request, f"Não foi possível gerar o Pix: {erro}")
@@ -4656,6 +4677,25 @@ def loja_pagamento_view(request):
             request.session["loja_clube_checkout"] = dados
             request.session.modified = True
         return redirect("core:pagamento", ref=pagamento.referencia)
+
+    # Cartão com Mercado Pago configurado → Checkout Pro (redireciona ao MP).
+    if forma == "cartao" and config.configurado:
+        itens_disp = [
+            {"nome": f'{it["qtd"]}× {kit["produto"].nome}'
+                     + (f' ({it["variacao"].nome})' if it["variacao"].nome else ''),
+             "valor": f'{it["subtotal"]:.2f}'}
+            for kit in kits for it in kit["itens"]
+        ]
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="loja_clube", valor=total, descricao="Loja do Clube",
+            payload={"cart": _loja_cart(request), "comprador": comprador,
+                     "titulo": "Loja do Clube", "itens": itens_disp},
+            comprador=comprador, usuario=request.user,
+        )
+        if erro:
+            messages.error(request, f"Não foi possível iniciar o pagamento no cartão: {erro}")
+            return redirect(reverse("core:loja") + "?aba=loja#carrinho")
+        return redirect(init_point)
 
     if request.method == "POST":
         erros = []
