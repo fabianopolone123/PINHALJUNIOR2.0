@@ -38,28 +38,35 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - Templates em `templates/core/`, estáticos em `static/{css,js,img}`, uploads em `media/` (git-ignored).
 
 ## Rotas (todas as internas exigem `@login_required`)
-- `/` login (auth real) · `/sair/` logout (POST) · `/inicio/` "Meus Dados" · `/trocar-senha/`
+- `/` login (auth real) · `/sair/` logout (POST) · `/inicio/` "Meus Dados" · `/trocar-senha/` ·
+  `/trocar-perfil/` (troca o **perfil ativo** de quem tem 2+ perfis — seletor no topo do menu)
 - `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos ·
   `/usuarios/aventureiro/<id>/termos/` termos assinados (Diretor; página pra imprimir/salvar PDF)
 - `/cadastro/` conta+1º aventureiro · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
 - **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
-- **Presença** (Diretor): `/presenca/`, `/presenca/<id>/`, `/presenca/<id>/marcar/`
+- **Presença** `/presenca/` **ramifica por perfil**: Diretor marca presença (`/presenca/<id>/`,
+  `/presenca/<id>/marcar/`); **Responsável** vê um **relatório só-leitura** da frequência dos próprios filhos.
 - **WhatsApp** (Diretor): `/whatsapp/` (config W-API + envio), `/whatsapp/config/`, `/whatsapp/enviar/`
 - **Pagamentos (Mercado Pago)** (Diretor p/ config): `/mercadopago/` (config credenciais teste/produção + modo),
   `/mercadopago/config/`; **webhook público** `/webhooks/mercadopago/`; página/sucesso de pagamento **genéricos**
   `/pagamento/<ref>/` e `/pagamento/<ref>/sucesso/`; status/simulação `/pagamento/<ref>/status/` (polling) e
   `/pagamento/<ref>/simular/` (só no modo teste). Mensalidades: `/mensalidades/cobrar/` (gera Pix p/ meses em aberto)
-- **Loja do Clube** (Diretor no menu; vitrine/carrinho `@login_required`): `/loja/` (abas Gerenciar/Loja),
-  `/loja/produto/novo|<id>/editar|<id>/excluir/`, `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`,
-  `/loja/finalizar|pagamento|sucesso/`, `/loja/compra/<id>/cancelar/`, `/loja/entrega/…`
-- **Mensalidades** (Diretor): `/mensalidades/`, `/mensalidades/config|gerar|pagar|isencao|reajustar|editar/`
+- **Loja do Clube** `/loja/` **ramifica por perfil**: Diretor vê abas Gerenciar/Loja/Vendas; **Responsável**
+  vê só a vitrine + **"Meus pedidos"**. Rotas: `/loja/produto/novo|<id>/editar|<id>/excluir/`,
+  `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`, `/loja/finalizar|pagamento|sucesso/`,
+  `/loja/compra/<id>/cancelar/`, `/loja/entrega/…`
+- **Mensalidades** `/mensalidades/` **ramifica por perfil**: Diretor vê o painel
+  (`/mensalidades/config|gerar|pagar|isencao|reajustar|editar|cobrar/`, `/mensalidades/cobrancas/…`);
+  **Responsável** vê a própria visão (resumo + em aberto + apelo) e paga o que seleciona em
+  `/mensalidades/pagar-selecionadas/`.
 - **Financeiro** (Diretor): `/financeiro/` (abas Resumo/Extrato/Custos), `/financeiro/custo/novo|<id>/excluir/`, `/financeiro/caixa/` (editar "Onde está o dinheiro"). Mostra o **líquido** (bruto − custos − **taxa do Mercado Pago**) por fonte e no resultado; a taxa vem de `Pagamento.taxa`. Idem no painel do evento, Mensalidades e Loja/Vendas.
 - `/admin/`
 
 ## Models (`core/models.py`)
-- `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal; campo `ativo`). Um usuário → vários.
+- `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal; campos `ativo` e **`demo`**).
+  Um usuário → vários. `demo=True` = dado fictício (NUNCA entra nas contagens do clube — ver Convenções).
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne) · `AssinaturaDocumento` (assinatura desenhada de
   cada documento da inscrição — ficha/médica/imagem; imagem PNG + snapshot do texto do termo; só o Diretor vê).
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
@@ -79,9 +86,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
   um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
   (mais vendidos, a entregar, KPIs) + todas as compras.
-- **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão) e `Mensalidade` (aventureiro, ano, mês,
-  tipo inscrição/mensalidade, valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/
-  `mensalidade_desconto_pct`. Geração automática no cadastro.
+- **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão + `mensagem_cobranca` e **`mensagem_apelo`**,
+  esta exibida ao responsável na tela dele) e `Mensalidade` (aventureiro, ano, mês, tipo inscrição/mensalidade,
+  valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/`mensalidade_desconto_pct`.
+  Geração automática no cadastro.
+- **Perfis/menu**: `Evento` também tem **`demo`** (evento fictício, fora das contagens/menu). O acesso por
+  perfil e o seletor de perfil ficam em `core/menus.py` (ver Convenções); comando `dados_demo_fabiano` popula
+  o perfil de Responsável do Fabiano com dados fictícios.
 - **Financeiro**: `CustoClube` (nome, valor, data, destino) + `ComprovanteCustoClube` (vários anexos por custo) —
   gastos gerais do clube; `CaixaClube` (singleton `get_solo`: `saldo_banco`; espécie = resultado − banco,
   calculada) para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
@@ -91,7 +102,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0035`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0039`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`
