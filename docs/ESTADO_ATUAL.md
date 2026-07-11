@@ -2,7 +2,14 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**"Meus Dados" mostra os dados da diretoria**): quando um integrante da
+**Última atualização:** 2026-07-11 (**Diretor atribui o papel da diretoria**): nova tela do Diretor
+(`/usuarios/diretoria/`, botão "Gerenciar diretoria (papéis)" em Usuários) que lista os integrantes da
+diretoria e permite **atribuir o papel** (Diretor/Secretário/Tesoureiro/Professor ou "Diretoria sem papel").
+A atribuição ajusta os **grupos** do usuário (remove os demais papéis e aplica o escolhido) → o perfil/menu
+reflete o papel. Views `diretoria_equipe_view`/`diretoria_papel_view`. Antes: "Meus Dados" mostra os dados da
+diretoria.
+
+**Anterior ("Meus Dados" mostra os dados da diretoria**): quando um integrante da
 diretoria acessa "Meus Dados", aparece um **card "Diretoria"** (painel expansível) com identificação, contato,
 endereço, escolaridade e resumo da ficha médica, além do **papel** (Diretor/Secretário/Tesoureiro/Professor ou
 "papel a definir"). `inicio_view` carrega o `MembroDiretoria` (`_papel_diretoria`); card em `inicio.html`;

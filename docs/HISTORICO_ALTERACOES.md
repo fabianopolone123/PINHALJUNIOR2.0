@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Diretor atribui o papel dos integrantes da diretoria
+
+### Resumo
+Nova tela (Diretor) para **atribuir o papel** de cada integrante da diretoria: Diretor, Secretário,
+Tesoureiro, Professor ou "Diretoria (sem papel definido)". A atribuição ajusta os **grupos** do usuário
+(remove os demais papéis e aplica o escolhido), então o perfil/menu passa a refletir o papel. Acessível por
+um botão **"Gerenciar diretoria (papéis)"** na tela Usuários.
+
+### Arquivos alterados
+- `core/views.py`: `diretoria_equipe_view` (lista) e `diretoria_papel_view` (POST); constantes
+  `PAPEIS_DIRETORIA_OPCOES`/`GRUPOS_PAPEL_DIRETORIA` e helper `_papel_atual_diretoria`.
+- `core/urls.py`: `usuarios/diretoria/` e `usuarios/diretoria/<id>/papel/`.
+- `templates/core/diretoria_equipe.html`: nova tela (lista + seletor de papel por integrante).
+- `templates/core/usuarios.html`: botão "Gerenciar diretoria (papéis)".
+
+### Decisões tomadas
+- O papel é guardado como **grupo** do Django (fonte da verdade dos perfis). Atribuir um papel específico
+  **remove** o grupo genérico "Diretoria" e os demais papéis, deixando só o escolhido.
+- Atenção: atribuir "Diretor" concede acesso total (é o propósito do controle).
+
+### Pendências
+- Módulo de permissões por botão (fino) segue como futuro; hoje o acesso é por perfil.
+
+---
+
 ## 2026-07-11 - "Meus Dados" mostra os dados do membro da diretoria
 
 ### Resumo

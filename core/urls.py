@@ -166,6 +166,12 @@ urlpatterns = [
         name="cadastro_novo_aventureiro",
     ),
     path("cadastro/sucesso/", views.cadastro_sucesso_view, name="cadastro_sucesso"),
+    path("usuarios/diretoria/", views.diretoria_equipe_view, name="diretoria_equipe"),
+    path(
+        "usuarios/diretoria/<int:pk>/papel/",
+        views.diretoria_papel_view,
+        name="diretoria_papel",
+    ),
     path("trocar-senha/", views.trocar_senha_view, name="trocar_senha"),
     path("recuperar-senha/", views.recuperar_senha_view, name="recuperar_senha"),
     path(

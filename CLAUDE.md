@@ -71,7 +71,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   contato, endereço, escolaridade, aceites; `ativo`/`demo`) e `FichaMedicaDiretoria`. A ficha médica é
   compartilhada com o aventureiro via molde abstrato **`FichaMedicaBase`** (mesmos campos, sem duplicar).
   Cadastro de diretoria cria a conta e entra no perfil **"Diretoria"** (grupo); quem também tem aventureiro
-  fica com **2 perfis** (alternância "Ver como"). Papel específico (Diretor/Secretário/…) o Diretor define depois.
+  fica com **2 perfis** (alternância "Ver como"). O **Diretor atribui o papel específico** (Diretor/Secretário/
+  Tesoureiro/Professor) em `/usuarios/diretoria/` (ajusta os grupos). Os 3 documentos da diretoria (compromisso,
+  declaração médica, imagem do adulto) são **assinados no canvas** (`AssinaturaDocumentoDiretoria`). "Meus Dados"
+  mostra um card "Diretoria" com os dados do próprio integrante.
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne) · `AssinaturaDocumento` (assinatura desenhada de
   cada documento da inscrição — ficha/médica/imagem; imagem PNG + snapshot do texto do termo; só o Diretor vê).
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,

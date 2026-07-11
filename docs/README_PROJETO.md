@@ -262,6 +262,7 @@ PINHALJUNIOR2.0/
 - `/inicio/` — área logada "Meus Dados", protegida por `@login_required` (view `core.views.inicio_view`, nome `core:inicio`).
 - `/meus-dados/responsavel/editar/` — edição dos dados do responsável legal, protegida por login (view `core.views.editar_responsavel_view`, nome `core:editar_responsavel`).
 - `/usuarios/` — responsáveis, aventureiros e vínculos, **restrita ao Diretor** (`@diretor_required`); clicar num card abre modal com todos os dados (view `core.views.usuarios_view`, nome `core:usuarios`).
+- `/usuarios/diretoria/` — Diretor atribui o **papel** de cada integrante da diretoria (Diretor/Secretário/Tesoureiro/Professor); POST em `/usuarios/diretoria/<id>/papel/` (views `diretoria_equipe_view`/`diretoria_papel_view`).
 - `/eventos/` — lista de eventos, **restrita ao Diretor** (view `core.views.eventos_view`, nome `core:eventos`).
 - `/eventos/novo/` — cadastro de evento simples (nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/eventos/complexo/novo/` — cria evento complexo (nome `core:evento_complexo_novo`).

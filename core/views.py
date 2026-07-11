@@ -350,13 +350,68 @@ def inicio_view(request):
     return render(request, "core/inicio.html", contexto)
 
 
-def _papel_diretoria(usuario):
-    """Papel específico do membro da diretoria (pelo grupo), ou genérico."""
+# Papéis da diretoria (grupos). "Diretoria" = genérico (sem papel específico).
+PAPEIS_ESPECIFICOS = ["Diretor", "Secretário", "Tesoureiro", "Professor"]
+GRUPOS_PAPEL_DIRETORIA = ["Diretoria"] + PAPEIS_ESPECIFICOS
+PAPEIS_DIRETORIA_OPCOES = [
+    ("Diretoria", "Diretoria (sem papel definido)"),
+    ("Diretor", "Diretor"),
+    ("Secretário", "Secretário"),
+    ("Tesoureiro", "Tesoureiro"),
+    ("Professor", "Professor"),
+]
+
+
+def _papel_atual_diretoria(usuario):
+    """Grupo de papel específico do usuário (ou 'Diretoria' genérico)."""
     nomes = set(usuario.groups.values_list("name", flat=True))
-    for papel in ("Diretor", "Secretário", "Tesoureiro", "Professor"):
+    for papel in PAPEIS_ESPECIFICOS:
         if papel in nomes:
             return papel
-    return "Diretoria (papel a definir)"
+    return "Diretoria"
+
+
+def _papel_diretoria(usuario):
+    """Papel do membro da diretoria para exibição (ou genérico 'a definir')."""
+    papel = _papel_atual_diretoria(usuario)
+    return papel if papel in PAPEIS_ESPECIFICOS else "Diretoria (papel a definir)"
+
+
+@diretor_required
+def diretoria_equipe_view(request):
+    """Diretor: lista os integrantes da diretoria e permite atribuir o papel."""
+    membros = list(
+        MembroDiretoria.objects.filter(demo=False)
+        .select_related("usuario")
+        .order_by("nome_completo")
+    )
+    for m in membros:
+        m.papel_atual = _papel_atual_diretoria(m.usuario)
+    contexto = {"membros": membros, "papeis": PAPEIS_DIRETORIA_OPCOES}
+    return render(request, "core/diretoria_equipe.html", contexto)
+
+
+@diretor_required
+@require_POST
+def diretoria_papel_view(request, pk):
+    """Diretor: define o papel de um integrante da diretoria (via grupo)."""
+    membro = get_object_or_404(MembroDiretoria, pk=pk)
+    papel = request.POST.get("papel", "")
+    if papel not in {p for p, _ in PAPEIS_DIRETORIA_OPCOES}:
+        messages.error(request, "Papel inválido.")
+        return redirect("core:diretoria_equipe")
+    usuario = membro.usuario
+    # Remove todos os grupos de papel e aplica só o escolhido.
+    for nome in GRUPOS_PAPEL_DIRETORIA:
+        grupo = Group.objects.filter(name=nome).first()
+        if grupo:
+            usuario.groups.remove(grupo)
+    grupo, _ = Group.objects.get_or_create(name=papel)
+    usuario.groups.add(grupo)
+    messages.success(
+        request, f"Papel de {membro.nome_completo} definido como {papel}."
+    )
+    return redirect("core:diretoria_equipe")
 
 
 @login_required

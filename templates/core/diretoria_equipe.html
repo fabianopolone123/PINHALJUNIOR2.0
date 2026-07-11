@@ -1,0 +1,114 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Diretoria - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <style>
+        .equipe-lista { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+        .equipe-linha {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            padding: 14px 16px; justify-content: space-between;
+        }
+        .equipe-info { min-width: 0; }
+        .equipe-nome { font-weight: 700; color: #0f4c81; }
+        .equipe-meta { font-size: 0.86rem; color: #5b6b7b; overflow-wrap: anywhere; }
+        .equipe-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .equipe-form select {
+            padding: 9px 10px; border: 1px solid #dfe6ee; border-radius: 10px;
+            font: inherit; background: #fff; color: #1c2733;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Diretoria</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo">Diretoria</h1>
+                    <p class="cabecalho-sub">
+                        Atribua o papel de cada integrante da diretoria (Diretor, Secretário,
+                        Tesoureiro ou Professor). O papel define o acesso do integrante.
+                    </p>
+                    <a href="{% url 'core:usuarios' %}" class="btn-acao btn-acao-pequeno">
+                        <span aria-hidden="true">←</span> Voltar para Usuários
+                    </a>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if membros %}
+                <section class="equipe-lista">
+                    {% for m in membros %}
+                    <div class="card equipe-linha">
+                        <div class="equipe-info">
+                            <div class="equipe-nome">{{ m.nome_completo }}</div>
+                            <div class="equipe-meta">
+                                {{ m.usuario.username }}
+                                {% if m.whatsapp %}· 📱 {{ m.whatsapp }}{% endif %}
+                                {% if not m.ativo %}· <strong>Inativo</strong>{% endif %}
+                            </div>
+                        </div>
+                        <form class="equipe-form" method="post" action="{% url 'core:diretoria_papel' m.pk %}">
+                            {% csrf_token %}
+                            <label class="selecionavel" for="papel-{{ m.pk }}">Papel:</label>
+                            <select name="papel" id="papel-{{ m.pk }}">
+                                {% for valor, rotulo in papeis %}
+                                <option value="{{ valor }}" {% if valor == m.papel_atual %}selected{% endif %}>{{ rotulo }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn-acao btn-acao-pequeno">Salvar</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </section>
+                {% else %}
+                <p class="card card-texto" style="padding:18px;">
+                    Nenhum integrante da diretoria cadastrado ainda.
+                </p>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/inicio.js' %}"></script>
+</body>
+</html>
