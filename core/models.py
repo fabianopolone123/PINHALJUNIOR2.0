@@ -192,6 +192,12 @@ class FichaMedica(models.Model):
     rubeola = models.BooleanField("Rubéola", default=False)
     sarampo = models.BooleanField("Sarampo", default=False)
     tetano = models.BooleanField("Tétano", default=False)
+    variola = models.BooleanField("Varíola", default=False)
+    coqueluche = models.BooleanField("Coqueluche", default=False)
+    difteria = models.BooleanField("Difteria", default=False)
+    caxumba = models.BooleanField("Caxumba", default=False)
+    rinite = models.BooleanField("Rinite", default=False)
+    bronquite = models.BooleanField("Bronquite", default=False)
 
     # Alergias
     alergia_pele = models.BooleanField("Possui alergia cutânea/de pele", default=False)
@@ -205,6 +211,16 @@ class FichaMedica(models.Model):
     )
     alergia_medicamentos_qual = models.CharField(
         "Qual alergia a medicamentos", max_length=200, blank=True
+    )
+
+    # Deficiência física
+    deficiente_cadeirante = models.BooleanField(
+        "Deficiente físico (cadeirante)", default=False
+    )
+    deficiente_visual = models.BooleanField("Deficiência visual", default=False)
+    deficiente_auditivo = models.BooleanField("Deficiência auditiva", default=False)
+    deficiente_fala = models.BooleanField(
+        "Deficiência de fala (mudez ou dificuldade)", default=False
     )
 
     # Condições de saúde

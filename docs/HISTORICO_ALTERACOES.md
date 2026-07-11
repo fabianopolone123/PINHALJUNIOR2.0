@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Ficha médica: 6 doenças e bloco de deficiência física (alinha ao formulário oficial DSA)
+
+### Resumo
+Completa a **Ficha Médica** para bater com o formulário oficial da DSA (PDF `Fichas-Secretaria-Padrão`).
+Adicionadas as **6 doenças** que faltavam na lista "Já teve ou tem" — **Varíola, Coqueluche, Difteria,
+Caxumba, Rinite e Bronquite** — e um **bloco novo "Deficiência física"** (Cadeirante, Visual, Auditiva e
+Fala/mudez), que não existia. O telefone fixo de pai/mãe do formulário oficial foi deliberadamente deixado
+de fora (decisão do Fabiano).
+
+### Arquivos criados/alterados
+- `core/models.py`: `FichaMedica` ganhou 6 BooleanField de doença (após `tetano`) e 4 BooleanField de
+  deficiência física (`deficiente_cadeirante/_visual/_auditivo/_fala`, após as alergias).
+- `core/migrations/0040_...`: migration dos 10 campos novos (todos `default=False`).
+- `core/views.py` (`_preparar_ficha`): as 6 doenças entram em `doencas_lista`; nova `deficiencias_lista`
+  para exibição.
+- `templates/core/cadastro.html`: 6 checkboxes novos na etapa da ficha médica + bloco "Deficiência física".
+- `templates/core/_aventureiro_detalhe.html`: linha "Deficiência física" na seção Ficha médica
+  (usada em "Meus Dados" e no modal de Usuários).
+
+### Decisões tomadas
+- `FichaMedicaForm` usa `exclude=["aventureiro"]`, então os campos novos entram no form automaticamente
+  (sem alterar o form). Admin idem (só `list_display`).
+- Campos `default=False` → `criar_dados_teste`/`importar_migracao` não precisam mudar.
+- Telefone fixo de pai/mãe **não** foi adicionado (fora do escopo pedido).
+
+### Pendências
+- Próximo passo combinado: iniciar o **cadastro de diretoria** (ficha "Compromisso para Voluntários",
+  pág. 7 do PDF oficial). Especialidades (págs. 8-10) seguem sem módulo.
+
+---
+
 ## 2026-07-07 - Perfil Responsável: Loja, Mensalidades e Presença próprias + registro central de menu
 
 ### Resumo

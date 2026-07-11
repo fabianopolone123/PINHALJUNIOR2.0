@@ -96,6 +96,7 @@ Reaproveitado em "Meus Dados" (core:inicio) e no modal da tela "Usuários".
     <div class="listas">
         <p><span>Doenças que já teve/tem:</span> {{ av.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
         <p><span>Alergias:</span> {{ av.ficha_medica.alergias_lista|join:", "|default:"Nenhuma informada" }}</p>
+        <p><span>Deficiência física:</span> {{ av.ficha_medica.deficiencias_lista|join:", "|default:"Nenhuma informada" }}</p>
         <p><span>Histórico recente (problemas/medicamentos/ferimentos/cirurgia/internação):</span>
             {{ av.ficha_medica.historico_lista|join:", "|default:"Nada informado" }}</p>
         <p><span>Outros problemas/medicamentos:</span> {{ av.ficha_medica.outros_problemas|default:"Não informado" }}</p>

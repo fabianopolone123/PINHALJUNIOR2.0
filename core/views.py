@@ -222,8 +222,19 @@ def _preparar_ficha(fm):
         (fm.febre_amarela, "Febre amarela"), (fm.h1n1, "H1N1"),
         (fm.colera, "Cólera"), (fm.rubeola, "Rubéola"),
         (fm.sarampo, "Sarampo"), (fm.tetano, "Tétano"),
+        (fm.variola, "Varíola"), (fm.coqueluche, "Coqueluche"),
+        (fm.difteria, "Difteria"), (fm.caxumba, "Caxumba"),
+        (fm.rinite, "Rinite"), (fm.bronquite, "Bronquite"),
     ]
     fm.doencas_lista = [r for marcado, r in doencas if marcado]
+
+    deficiencias = [
+        (fm.deficiente_cadeirante, "Cadeirante"),
+        (fm.deficiente_visual, "Visual"),
+        (fm.deficiente_auditivo, "Auditiva"),
+        (fm.deficiente_fala, "Fala (mudez/dificuldade)"),
+    ]
+    fm.deficiencias_lista = [r for marcado, r in deficiencias if marcado]
 
     alergias = []
     if fm.alergia_pele:

@@ -2,7 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-07 (**Perfil Responsável: Loja, Mensalidades e Presença próprias + registro
+**Última atualização:** 2026-07-11 (**Ficha médica alinhada ao formulário oficial DSA**): a **Ficha Médica**
+passou a bater com o formulário oficial da DSA (PDF `Fichas-Secretaria-Padrão`). Foram adicionadas as **6
+doenças** que faltavam na lista "Já teve ou tem" — **Varíola, Coqueluche, Difteria, Caxumba, Rinite e
+Bronquite** — e um **bloco novo "Deficiência física"** (Cadeirante / Visual / Auditiva / Fala-mudez). 10
+BooleanField novos em `FichaMedica` (migration **0040**, todos `default=False`); refletidos no cadastro
+(etapa ficha médica), na exibição de "Meus Dados"/Usuários (`_preparar_ficha` alimenta `doencas_lista` e a
+nova `deficiencias_lista`) e, por tabela, no form (`exclude=aventureiro`) e no admin. O **telefone fixo** de
+pai/mãe do formulário oficial ficou deliberadamente de fora. Próximo passo combinado: **cadastro de diretoria**
+(ficha "Compromisso para Voluntários"). Antes: Perfil Responsável (Loja/Mensalidades/Presença próprias).
+
+**Anterior (Perfil Responsável: Loja, Mensalidades e Presença próprias + registro
 central de menu**): início do trabalho nos **perfis**. Criado **`core/menus.py`** — o **registro central** de
 itens de menu + acesso por perfil (`ITENS_MENU`, `ACESSO_PADRAO`, `perfil_do_usuario`, `itens_menu_para`,
 `pode_acessar`): **fonte única da verdade** de "quem vê/acessa o quê", desenhada para o **futuro módulo de

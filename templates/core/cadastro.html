@@ -241,6 +241,12 @@
                             {% include "core/_campo_check.html" with campo=medica_form.rubeola %}
                             {% include "core/_campo_check.html" with campo=medica_form.sarampo %}
                             {% include "core/_campo_check.html" with campo=medica_form.tetano %}
+                            {% include "core/_campo_check.html" with campo=medica_form.variola %}
+                            {% include "core/_campo_check.html" with campo=medica_form.coqueluche %}
+                            {% include "core/_campo_check.html" with campo=medica_form.difteria %}
+                            {% include "core/_campo_check.html" with campo=medica_form.caxumba %}
+                            {% include "core/_campo_check.html" with campo=medica_form.rinite %}
+                            {% include "core/_campo_check.html" with campo=medica_form.bronquite %}
                         </div>
                     </div>
 
@@ -257,6 +263,16 @@
                         {% include "core/_campo_check.html" with campo=medica_form.alergia_medicamentos %}
                         <div class="condicional" data-depende="{{ medica_form.alergia_medicamentos.id_for_label }}">
                             {% include "core/_campo.html" with campo=medica_form.alergia_medicamentos_qual %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Deficiência física</h3>
+                        <div class="grade-3">
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_cadeirante %}
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_visual %}
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_auditivo %}
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_fala %}
                         </div>
                     </div>
 
