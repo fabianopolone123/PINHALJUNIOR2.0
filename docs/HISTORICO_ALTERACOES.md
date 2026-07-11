@@ -22,33 +22,36 @@ Descrição curta do que foi feito.
 
 ---
 
-## 2026-07-11 - Cobranças: escolher o telefone (pai/mãe/resp) por família
+## 2026-07-11 - Cobranças: escolher o telefone do responsável financeiro por família
 
 ### Resumo
 Na aba **Cobranças**, cada família com **2+ telefones** cadastrados (pai/mãe/responsável legal) agora tem um
-**seletor** de para qual WhatsApp a cobrança vai. A escolha **persiste** (fica como padrão até trocar de novo) e,
-ao trocar, aparece um **aviso** (toast "Telefone de cobrança alterado ✅"). Se a família só tinha número em um
-responsável e nenhum principal definido, escolher aqui **habilita** o envio (individual e em lote).
+**seletor** de para qual WhatsApp a cobrança vai — o do **responsável financeiro**. A escolha **persiste** (fica
+como padrão até trocar de novo) e, ao trocar, aparece um **aviso** (toast "Telefone de cobrança alterado ✅"). Se
+a família só tinha número em um responsável e nenhuma escolha definida, escolher aqui **habilita** o envio
+(individual e em lote).
 
 ### Como funciona
-- Reaproveita o **"WhatsApp principal" da conta** (`PerfilUsuario.whatsapp_principal_origem`), o mesmo que o
-  Diretor já definia em Usuários e que serve ao **código de recuperação de senha** — ou seja, é uma fonte única:
-  trocar aqui muda o número principal da família em todo o sistema.
+- Campo **próprio e independente**: `PerfilUsuario.cobranca_whatsapp_origem` (pai/mãe/resp). É **separado** do
+  `whatsapp_principal_origem` (usado no código de recuperação de senha), porque **quem tem o login pode não ser
+  quem paga** — o responsável financeiro pode ter outro WhatsApp. Sem escolha → cai no responsável legal (padrão
+  antigo preservado).
 - Endpoint AJAX `mensalidades/cobrancas/telefone/` grava a origem; o envio resolve o número no servidor na hora.
 
 ### Arquivos alterados
-- `core/views.py`: helper `_principal_origem_e_numero(usuario, numeros)` (refatora `_whatsapp_principal`, agora
-  devolve também a origem efetiva); `_cobrancas_familias` expõe `numeros`/`origem_atual`; nova view
-  `mensalidade_cobranca_telefone_view`.
+- `core/models.py`: `PerfilUsuario.cobranca_whatsapp_origem` (novo campo).
+- `core/views.py`: helper genérico `_resolver_origem_numero(numeros, escolhido)` (usado pela cobrança e pelo
+  `_whatsapp_principal` da recuperação, cada um com o SEU campo); `_cobrancas_familias` expõe `numeros`/
+  `origem_atual` a partir do campo de cobrança; nova view `mensalidade_cobranca_telefone_view`.
 - `core/urls.py`: rota `mensalidades/cobrancas/telefone/`.
 - `templates/core/mensalidades.html`: seletor de telefone no item da cobrança (quando há 2+ números).
 - `static/js/mensalidade_cobranca.js`: troca via AJAX, toast de "alterado", habilita o envio, desfaz em erro.
 - `static/css/mensalidades.css`: estilo do seletor.
-- Sem migration (reusa `whatsapp_principal_origem`).
+- Migration **0046**.
 
 ### Decisões tomadas
-- Fonte única do "WhatsApp principal" (cobrança + recuperação) em vez de um campo separado só para cobrança —
-  evita divergência e migration. (Se um dia precisar separar, criar campo próprio.)
+- Telefone de cobrança em **campo próprio** (responsável financeiro), independente do WhatsApp principal/
+  recuperação — o login e o pagador podem ser pessoas diferentes.
 
 ---
 

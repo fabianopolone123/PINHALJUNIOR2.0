@@ -4100,7 +4100,7 @@ def _cobrancas_familias():
         resp_nome, _ = _responsavel_da_familia(u)
         perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
         numeros = _numeros_conta(u)
-        origem_atual, numero = _principal_origem_e_numero(u, numeros)
+        origem_atual, numero = _resolver_origem_numero(numeros, perfil.cobranca_whatsapp_origem or "")
         # Detalhe por criança (aventureiro): nome, total em aberto e meses.
         por_av = {}
         for m in mens:
@@ -4179,9 +4179,10 @@ def mensalidade_cobranca_modo_view(request):
 @diretor_required
 @require_POST
 def mensalidade_cobranca_telefone_view(request):
-    """Define qual WhatsApp (pai/mãe/resp legal) recebe a cobrança da família — o
-    "principal" da conta, persistido em PerfilUsuario.whatsapp_principal_origem
-    (o mesmo usado no código de recuperação). Fica salvo até trocar de novo."""
+    """Define qual WhatsApp (pai/mãe/resp legal) recebe a cobrança da família — o do
+    RESPONSÁVEL FINANCEIRO, persistido em PerfilUsuario.cobranca_whatsapp_origem.
+    É independente do WhatsApp principal (recuperação de senha). Fica salvo até
+    trocar de novo."""
     usuario = get_object_or_404(User, pk=request.POST.get("usuario_id"))
     origem = (request.POST.get("origem") or "").strip()
     if origem not in {"pai", "mae", "resp"}:
@@ -4193,8 +4194,8 @@ def mensalidade_cobranca_telefone_view(request):
             {"ok": False, "erro": "Esse responsável não tem WhatsApp cadastrado."}, status=400
         )
     perfil, _ = PerfilUsuario.objects.get_or_create(usuario=usuario)
-    perfil.whatsapp_principal_origem = origem
-    perfil.save(update_fields=["whatsapp_principal_origem"])
+    perfil.cobranca_whatsapp_origem = origem
+    perfil.save(update_fields=["cobranca_whatsapp_origem"])
     return JsonResponse({"ok": True, "origem": origem, "numero": numero})
 
 
@@ -4419,14 +4420,11 @@ def _numeros_conta(usuario):
     return out
 
 
-def _principal_origem_e_numero(usuario, numeros):
-    """(origem_efetiva, número normalizado) do WhatsApp principal da conta, dada a
-    lista `numeros` de `_numeros_conta`. Usa a origem escolhida pelo Diretor
-    (PerfilUsuario.whatsapp_principal_origem) se ela tiver número; senão cai no
-    responsável legal. Origem "" = nenhum número disponível."""
+def _resolver_origem_numero(numeros, escolhido):
+    """(origem_efetiva, número normalizado) dada a lista `numeros` de `_numeros_conta`
+    e a origem `escolhido`. Se a escolhida tiver número usa ela; senão cai no
+    responsável legal; senão "" (nenhum número disponível)."""
     mapa = {n["origem"]: n["numero"] for n in numeros}
-    perfil = getattr(usuario, "perfil", None)
-    escolhido = (perfil.whatsapp_principal_origem or "") if perfil is not None else ""
     if escolhido and mapa.get(escolhido):
         origem = escolhido
     elif mapa.get("resp"):
@@ -4437,9 +4435,11 @@ def _principal_origem_e_numero(usuario, numeros):
 
 
 def _whatsapp_principal(usuario):
-    """Número de WhatsApp principal da conta (para código de recuperação e
-    cobrança), **normalizado** (ou "")."""
-    return _principal_origem_e_numero(usuario, _numeros_conta(usuario))[1]
+    """Número de WhatsApp principal da conta (para o código de recuperação de
+    senha), **normalizado** (ou ""). É independente do WhatsApp de cobrança."""
+    perfil = getattr(usuario, "perfil", None)
+    escolhido = (perfil.whatsapp_principal_origem or "") if perfil is not None else ""
+    return _resolver_origem_numero(_numeros_conta(usuario), escolhido)[1]
 
 
 def _conta_por_cpf_resp(cpf):

@@ -13,12 +13,13 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**Cobranças: escolher o telefone por família**): na aba **Cobranças**, cada
-família com **2+ telefones** (pai/mãe/resp. legal) tem um **seletor** de para qual WhatsApp a cobrança vai; a
-escolha **persiste** (toast "alterado" ao trocar) e habilita o envio se antes não havia número. Reaproveita o
-**WhatsApp principal** da conta (`PerfilUsuario.whatsapp_principal_origem`, o mesmo do código de recuperação):
-fonte única, trocar aqui muda o principal em todo o sistema. Endpoint `mensalidades/cobrancas/telefone/`; helper
-`_principal_origem_e_numero`; sem migration. Antes: cobrança pela IA (prompt com quebras de linha).
+**Última atualização:** 2026-07-11 (**Cobranças: telefone do responsável financeiro por família**): na aba
+**Cobranças**, cada família com **2+ telefones** (pai/mãe/resp. legal) tem um **seletor** de para qual WhatsApp a
+cobrança vai — o do **responsável financeiro**. A escolha **persiste** (toast "alterado" ao trocar) e habilita o
+envio se antes não havia número. Campo **próprio e independente** (`PerfilUsuario.cobranca_whatsapp_origem`),
+separado do WhatsApp principal/recuperação (o login pode não ser quem paga). Endpoint
+`mensalidades/cobrancas/telefone/`; helper `_resolver_origem_numero`; migration **0046**. Antes: cobrança pela IA
+(prompt com quebras de linha).
 
 **Anterior (Cobrança de mensalidades pela IA — 1º uso do GPT):** na aba **Cobranças**
 de Mensalidades, uma **alavanca** (switch, persiste na hora via `mensalidades/cobrancas/modo/`) escolhe se a

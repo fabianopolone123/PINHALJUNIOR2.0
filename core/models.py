@@ -1159,6 +1159,14 @@ class PerfilUsuario(models.Model):
         choices=[("pai", "Pai"), ("mae", "Mãe"), ("resp", "Responsável legal")],
         blank=True,
     )
+    # WhatsApp do RESPONSÁVEL FINANCEIRO (para onde vai a cobrança de mensalidades).
+    # Independente do principal: às vezes quem tem o login é um e quem paga é outro.
+    cobranca_whatsapp_origem = models.CharField(
+        "WhatsApp de cobrança (origem)",
+        max_length=4,
+        choices=[("pai", "Pai"), ("mae", "Mãe"), ("resp", "Responsável legal")],
+        blank=True,
+    )
     # Token secreto e FIXO do link de acerto/pagamento da família (mandado no
     # WhatsApp de cobrança). Não expira; a página que ele abre mostra o que está em
     # aberto no momento e gera o Pix/cartão só quando a pessoa clica em pagar.
