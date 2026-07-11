@@ -4,8 +4,8 @@ Este documento registra como o **PINHALJUNIOR2.0** está publicado no VPS e como
 
 ## Estado atual
 
-- URL temporária: `https://pinhaljunior.com.br/sistema-novo/`
-- Domínio raiz `https://pinhaljunior.com.br/`: continua apontando para o sistema antigo (`sitepinhal`).
+- URL principal: `https://pinhaljunior.com.br/`
+- URL legada temporária: `https://pinhaljunior.com.br/sistema-novo/` (mantida por compatibilidade; reescreve para a raiz no Nginx)
 - VPS: Ubuntu 24.04, Nginx, systemd e Gunicorn.
 - Deploy de código: sempre via GitHub, usando o atalho global `pinhaljunior2-deploy`.
 
@@ -20,7 +20,9 @@ Este documento registra como o **PINHALJUNIOR2.0** está publicado no VPS e como
 - Variáveis de ambiente: `/etc/pinhaljunior2.env`
 - Serviço systemd: `pinhaljunior2.service`
 - Gunicorn interno: `127.0.0.1:8010`
-- Nginx: bloco do site `sitepinhal`, apenas nas rotas `/sistema-novo/`, `/sistema-novo/static/` e `/sistema-novo/media/`.
+- Nginx: bloco do site `sitepinhal`, agora apontando a raiz `/`, `/static/` e `/media/` para o sistema novo.
+- Sistema antigo arquivado: `/srv/sitepinhal-archive/sitepinhal_20260711_221836.tar.gz`
+- Sistema antigo desativado: `sitepinhal.service` parado e desabilitado.
 
 ## Atalho de deploy
 
@@ -54,10 +56,9 @@ O arquivo `/etc/pinhaljunior2.env` define:
 - `DJANGO_ALLOWED_HOSTS`
 - `DJANGO_CSRF_TRUSTED_ORIGINS`
 - `DJANGO_SQLITE_PATH=/var/www/pinhaljunior2/data/db.sqlite3`
-- `DJANGO_FORCE_SCRIPT_NAME=/sistema-novo`
-- `DJANGO_STATIC_URL=/sistema-novo/static/`
+- `DJANGO_STATIC_URL=/static/`
 - `DJANGO_STATIC_ROOT=/var/www/pinhaljunior2/staticfiles`
-- `DJANGO_MEDIA_URL=/sistema-novo/media/`
+- `DJANGO_MEDIA_URL=/media/`
 - `DJANGO_MEDIA_ROOT=/var/www/pinhaljunior2/media`
 
 Opcionais (têm padrão no código; só defina para sobrescrever):
@@ -94,8 +95,11 @@ Pacotes temporários com dados sensíveis foram removidos após a importação.
 ```bash
 systemctl status pinhaljunior2.service
 systemctl is-active pinhaljunior2.service nginx sitepinhal.service
+curl -I https://pinhaljunior.com.br/
+curl -I https://pinhaljunior.com.br/cadastro/
+curl -I https://pinhaljunior.com.br/recuperar-senha/
+curl -I https://pinhaljunior.com.br/static/css/login.css
 curl -I https://pinhaljunior.com.br/sistema-novo/
-curl -I https://pinhaljunior.com.br/sistema-novo/static/css/login.css
 ```
 
 Rodar comandos Django no ambiente do VPS:
@@ -111,14 +115,32 @@ cd /var/www/pinhaljunior2/current
 ## Cuidados
 
 - Não copiar código manualmente para o VPS. Código sempre por GitHub + `pinhaljunior2-deploy`.
-- Não mexer no serviço antigo `sitepinhal.service` sem pedido explícito.
-- Não substituir o domínio raiz ainda; a nova versão fica em `/sistema-novo/`.
+- O deploy padrão (`pinhaljunior2-deploy`) hoje sobe o sistema novo para a **raiz** do domínio.
+- O serviço antigo `sitepinhal.service` está desativado; só reativar em rollback explícito.
 - Não versionar banco, uploads, tokens, `.env` ou backups.
 - Antes de mudanças em Nginx, criar backup do arquivo e rodar `nginx -t` antes de `systemctl reload nginx`.
 - Para mudanças que alterem models, criar migration, commitar e deixar o deploy aplicar `migrate`.
 
-## Quando for virar produção no domínio raiz
+## Virada para o domínio raiz
 
-Ainda não feito. Quando chegar a hora, será necessário planejar a troca do Nginx para apontar `/` para o
-novo serviço, revisar `DJANGO_FORCE_SCRIPT_NAME`, URLs de static/media, integrações de pagamento e eventuais
-webhooks externos.
+Feita em **2026-07-11**:
+
+- backup do Nginx: `/etc/nginx/sites-available/sitepinhal.bak_20260711_221836`
+- backup do env: `/etc/pinhaljunior2.env.bak_20260711_221836`
+- compactação do sistema antigo: `/srv/sitepinhal-archive/sitepinhal_20260711_221836.tar.gz`
+- Nginx alterado para apontar `/` para `127.0.0.1:8010`
+- `DJANGO_FORCE_SCRIPT_NAME` removido do env do novo
+- `DJANGO_STATIC_URL` e `DJANGO_MEDIA_URL` ajustados para `/static/` e `/media/`
+- rota legada `/sistema-novo/` mantida por compatibilidade, com rewrite para a raiz antes do proxy
+- `sitepinhal.service` parado e desabilitado
+
+Validação após a virada:
+
+- `manage.py check` OK
+- `collectstatic --noinput` OK
+- `nginx -t` OK
+- `https://pinhaljunior.com.br/` 200
+- `https://pinhaljunior.com.br/cadastro/` 200
+- `https://pinhaljunior.com.br/recuperar-senha/` 200
+- `https://pinhaljunior.com.br/static/css/login.css` 200
+- `https://pinhaljunior.com.br/sistema-novo/` 200

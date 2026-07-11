@@ -22,6 +22,58 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Cobrança pela IA: prompt padrão pede quebras de linha
+
+### Resumo
+A cobrança gerada pela IA chegava no WhatsApp como um **parágrafo único, sem quebras de linha**. Diagnóstico:
+**não é bug do programa** — o texto do GPT passa só por `.strip()`, vai por JSON (que preserva `\n`) e o WhatsApp
+renderiza `\n`; tanto que a mensagem padrão (com quebras no template) chega formatada. O problema é o **prompt**:
+pedia mensagem "curta e objetiva" sem instruir estrutura, e o `gpt-4.1-nano` devolvia tudo em bloco. O prompt
+padrão (`PROMPT_COBRANCA_IA_PADRAO`) passou a **instruir explicitamente as quebras de linha** (saudação, lista,
+total, link e agradecimento em blocos separados por linha em branco).
+
+### Observação
+Prompts **já salvos** (`ConfigMensalidade.prompt_cobranca_ia`) não mudam com isso — é preciso reescrever/colar o
+prompt atualizado na aba Cobranças para o efeito valer.
+
+### Arquivos alterados
+- `core/models.py`: `PROMPT_COBRANCA_IA_PADRAO` com bloco "FORMATO" pedindo quebras de linha reais.
+
+---
+
+## 2026-07-11 - VPS: sistema novo vira a raiz do domínio
+
+### Resumo
+Foi feita a virada do VPS para que **`https://pinhaljunior.com.br/`** passe a servir o **PINHALJUNIOR2.0**
+(sistema novo). Antes, a raiz do domínio apontava para o sistema antigo (`sitepinhal`, porta 8000) e o novo
+ficava só em **`/sistema-novo/`**. A troca foi feita no Nginx e no env de produção do novo, sem trocar código
+do GitHub nesse passo. O sistema antigo foi **compactado, parado e desabilitado**; a rota legada
+**`/sistema-novo/`** foi mantida temporariamente por compatibilidade.
+
+### Arquivos e infraestrutura alterados
+- `docs/DEPLOY_VPS.md`: atualizado para refletir a publicação na raiz do domínio e o arquivamento do sistema antigo.
+- `docs/ESTADO_ATUAL.md`: registra a virada da raiz, o estado dos serviços e as validações do VPS.
+- VPS `/etc/nginx/sites-available/sitepinhal`: raiz `/`, `/static/` e `/media/` passam a apontar para o sistema novo (`127.0.0.1:8010`).
+- VPS `/etc/pinhaljunior2.env`: removido `DJANGO_FORCE_SCRIPT_NAME`; `DJANGO_STATIC_URL` e `DJANGO_MEDIA_URL` passaram para `/static/` e `/media/`.
+- VPS `/srv/sitepinhal-archive/sitepinhal_20260711_221836.tar.gz`: arquivo compactado do sistema antigo.
+
+### Decisões tomadas
+- Manter `https://pinhaljunior.com.br/sistema-novo/` funcionando por enquanto, com rewrite para a raiz antes do proxy, para reduzir risco de link antigo quebrado.
+- Não subir `origin/main` junto com a virada: a troca de domínio foi feita sobre o build do sistema novo já publicado no VPS, para diminuir risco operacional.
+- Parar e desabilitar `sitepinhal.service` em vez de apagar diretórios, deixando rollback mais simples.
+
+### Validações
+- `manage.py check` no VPS: OK.
+- `collectstatic --noinput`: OK.
+- `nginx -t`: OK.
+- HTTP 200 em `https://pinhaljunior.com.br/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e `/sistema-novo/`.
+- `pinhaljunior2.service`: ativo.
+- `sitepinhal.service`: inativo e desabilitado.
+
+### Pendências
+- Revisar depois se ainda vale manter a rota legada `/sistema-novo/` ou se já pode redirecionar/remover.
+- Mercado Pago no VPS continua em **modo teste**; antes de cobrança real, virar para produção e validar webhook/credenciais.
+
 ## 2026-07-11 - Cobrança de mensalidades pela IA (1º uso do GPT no sistema)
 
 ### Resumo

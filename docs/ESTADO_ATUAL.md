@@ -2,6 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
+**Última atualização:** 2026-07-11 (**Virada do VPS para o domínio raiz**): o **sistema novo** agora atende em
+**`https://pinhaljunior.com.br/`** no VPS. A instalação em `/var/www/pinhaljunior2` continua a mesma
+(`pinhaljunior2.service`, Gunicorn em `127.0.0.1:8010`), mas o Nginx passou a apontar a **raiz `/`**,
+`/static/` e `/media/` para ela; o `DJANGO_FORCE_SCRIPT_NAME=/sistema-novo` foi removido do env de produção e
+as URLs públicas viraram **`/static/`** e **`/media/`**. A rota antiga **`/sistema-novo/`** foi mantida
+temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O sistema antigo
+**`sitepinhal.service`** foi **parado e desabilitado**, e ficou arquivado em
+`/srv/sitepinhal-archive/sitepinhal_20260711_221836.tar.gz`. Validação no VPS: `manage.py check`,
+`collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
+`/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
+
 **Última atualização:** 2026-07-11 (**Cobrança de mensalidades pela IA — 1º uso do GPT**): na aba **Cobranças**
 de Mensalidades, uma **alavanca** (switch, persiste na hora via `mensalidades/cobrancas/modo/`) escolhe se a
 cobrança por WhatsApp usa a **mensagem padrão** ou é redigida **pela IA** (GPT). Prompt editável no form de
