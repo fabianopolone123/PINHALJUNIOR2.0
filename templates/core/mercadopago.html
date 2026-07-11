@@ -86,11 +86,14 @@
                     <section class="card wa-card">
                         <div class="wa-card-topo">
                             <h2 class="wa-titulo">🧪 Credenciais de teste</h2>
+                            <span class="wa-status {% if config.teste_configurado %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                                {% if config.teste_configurado %}✓ Configurado{% else %}Não configurado{% endif %}
+                            </span>
                         </div>
                         <p class="wa-ajuda">Do painel do Mercado Pago (Suas integrações → Credenciais de teste). Digite um novo valor apenas para trocar.</p>
                         <div class="campo">
                             <label for="access_token_teste">Access Token de teste</label>
-                            {% if config.access_token_teste %}<p class="wa-token-atual">Salvo (oculto por segurança).</p>{% endif %}
+                            {% if config.access_token_teste %}<p class="wa-token-atual">Atual: <strong>{{ config.access_token_teste_mascarado }}</strong> <small>(salvo)</small></p>{% endif %}
                             <input type="password" id="access_token_teste" name="access_token_teste" autocomplete="off"
                                    placeholder="{% if config.access_token_teste %}Digite um novo para trocar{% else %}TEST-... ou APP_USR-...{% endif %}">
                         </div>
@@ -111,11 +114,14 @@
                     <section class="card wa-card">
                         <div class="wa-card-topo">
                             <h2 class="wa-titulo">🚀 Credenciais de produção</h2>
+                            <span class="wa-status {% if config.prod_configurado %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                                {% if config.prod_configurado %}✓ Configurado{% else %}Não configurado{% endif %}
+                            </span>
                         </div>
                         <p class="wa-ajuda">Do painel do Mercado Pago (Credenciais de produção). Só use com o modo em Produção.</p>
                         <div class="campo">
                             <label for="access_token_prod">Access Token de produção</label>
-                            {% if config.access_token_prod %}<p class="wa-token-atual">Salvo (oculto por segurança).</p>{% endif %}
+                            {% if config.access_token_prod %}<p class="wa-token-atual">Atual: <strong>{{ config.access_token_prod_mascarado }}</strong> <small>(salvo)</small></p>{% endif %}
                             <input type="password" id="access_token_prod" name="access_token_prod" autocomplete="off"
                                    placeholder="{% if config.access_token_prod %}Digite um novo para trocar{% else %}APP_USR-...{% endif %}">
                         </div>
@@ -126,7 +132,7 @@
                         </div>
                         <div class="campo">
                             <label for="webhook_secret_prod">Assinatura secreta do webhook (produção)</label>
-                            {% if config.webhook_secret_prod %}<p class="wa-token-atual">Salvo (oculto por segurança).</p>{% endif %}
+                            {% if config.webhook_secret_prod %}<p class="wa-token-atual">Atual: <strong>{{ config.webhook_secret_prod_mascarado }}</strong> <small>(salvo)</small></p>{% endif %}
                             <input type="password" id="webhook_secret_prod" name="webhook_secret_prod" autocomplete="off"
                                    placeholder="{% if config.webhook_secret_prod %}Digite uma nova para trocar{% else %}Do painel de Webhooks (aba Produção){% endif %}">
                         </div>

@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Mercado Pago: sinal visível de "credenciais salvas"
+
+### Resumo
+Na tela `/mercadopago/` (só Diretor), cada par de credenciais — **Teste** e **Produção** — ganhou um
+**badge no cabeçalho** ("✓ Configurado" / "Não configurado"), no mesmo padrão do card de Modo. Além disso, os
+campos que guardam segredo (Access Token e Assinatura do webhook, de teste e de produção) agora mostram os
+**últimos 4 dígitos** do valor salvo (ex.: `••••••1234`), como já fazia a assinatura do webhook de teste.
+Assim dá pra confirmar, batendo o olho, que as credenciais estão gravadas — sem precisar colar de novo. Nada
+é exposto por inteiro e nenhum segredo é reenviado ao navegador.
+
+### Arquivos alterados
+- `core/models.py` (`MercadoPagoConfig`): propriedades novas `teste_configurado`/`prod_configurado` (bool pelo
+  access token do par) e mascaradas `access_token_teste_mascarado`/`access_token_prod_mascarado`/
+  `webhook_secret_teste_mascarado`/`webhook_secret_prod_mascarado` (reusam `_mascarar_segredo`).
+- `templates/core/mercadopago.html`: badge de status em cada card (Teste/Produção) e troca do texto "Salvo
+  (oculto por segurança)" por "Atual: **••••••1234** (salvo)" nos campos de segredo.
+
+### Decisões tomadas
+- Sinal de "configurado" = ter o **Access Token** do par (é a credencial obrigatória para cobrar).
+- Sem migration: só propriedades derivadas, nenhum campo novo no banco.
+
+### Pendências
+- Operacionais (inalteradas): cadastrar a URL do webhook + secret no painel do MP e confirmar a taxa real em
+  produção com um pagamento de verdade.
+
+---
+
 ## 2026-07-11 - Revisão geral dos pagamentos (cartão) + fix do pagamento recusado
 
 ### Resumo

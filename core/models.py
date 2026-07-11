@@ -1471,12 +1471,38 @@ class MercadoPagoConfig(models.Model):
         return bool(self.access_token)
 
     @property
+    def teste_configurado(self):
+        """Tem o par de teste salvo? (usa o access token como sinal)."""
+        return bool(self.access_token_teste)
+
+    @property
+    def prod_configurado(self):
+        """Tem o par de produção salvo? (usa o access token como sinal)."""
+        return bool(self.access_token_prod)
+
+    @property
     def access_token_mascarado(self):
         return _mascarar_segredo(self.access_token)
 
     @property
     def webhook_secret_mascarado(self):
         return _mascarar_segredo(self.webhook_secret)
+
+    @property
+    def access_token_teste_mascarado(self):
+        return _mascarar_segredo(self.access_token_teste)
+
+    @property
+    def access_token_prod_mascarado(self):
+        return _mascarar_segredo(self.access_token_prod)
+
+    @property
+    def webhook_secret_teste_mascarado(self):
+        return _mascarar_segredo(self.webhook_secret_teste)
+
+    @property
+    def webhook_secret_prod_mascarado(self):
+        return _mascarar_segredo(self.webhook_secret_prod)
 
 
 STATUS_PAGAMENTO_CHOICES = [

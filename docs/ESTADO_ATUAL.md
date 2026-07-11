@@ -2,7 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Revisão dos pagamentos + fix do recusado**): revisão geral de Pix e
+**Última atualização:** 2026-07-11 (**Mercado Pago: sinal de credenciais salvas**): na tela `/mercadopago/`,
+cada par (Teste/Produção) ganhou um **badge "✓ Configurado / Não configurado"** no cabeçalho e os campos de
+segredo passam a mostrar os **últimos 4 dígitos** do que está salvo (`••••••1234`) — dá pra confirmar que as
+credenciais estão gravadas sem colar de novo. Propriedades novas em `MercadoPagoConfig`
+(`teste_configurado`/`prod_configurado` + mascaradas por par); sem migration. Antes: Revisão dos pagamentos + fix do recusado.
+
+**Anterior (Revisão dos pagamentos + fix do recusado):** revisão geral de Pix e
 **cartão (Checkout Pro)** nas 3 áreas (loja, mensalidades, eventos) — engine consistente (cartão disponível nos
 6 pontos; gross-up da taxa ok; webhook valida assinatura e consulta o MP como fonte da verdade; página genérica
 trata cartão com "confirmando + polling"). **Corrigido:** pagamento **recusado/cancelado** ficava girando para
