@@ -275,6 +275,7 @@
                 <section class="mens-painel" data-painel="cobrancas"{% if aba != 'cobrancas' %} hidden{% endif %}
                          data-enviar-url="{% url 'core:mensalidade_cobranca_enviar' %}"
                          data-modo-url="{% url 'core:mensalidade_cobranca_modo' %}"
+                         data-telefone-url="{% url 'core:mensalidade_cobranca_telefone' %}"
                          data-ia-configurada="{% if ia_configurada %}1{% else %}0{% endif %}"
                          data-csrf="{{ csrf_token }}">
 
@@ -344,7 +345,16 @@
                             </div>
                             <div class="mens-cobranca-det">
                                 <span>Total em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_mens }} mês(es)</span>
-                                {% if f.tem_numero %}<span>📱 {{ f.numero }}</span>{% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
+                                {% if f.numeros|length > 1 %}
+                                <label class="mens-cob-tel">📱 Enviar para:
+                                    <select class="mens-cob-tel-sel" data-usuario="{{ f.usuario_id }}" data-origem-atual="{{ f.origem_atual }}">
+                                        {% for n in f.numeros %}
+                                        <option value="{{ n.origem }}"{% if n.origem == f.origem_atual %} selected{% endif %}>{{ n.rotulo }} — {{ n.numero }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                                {% elif f.tem_numero %}<span>📱 {{ f.numero }}</span>
+                                {% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
                             </div>
                             <ul class="mens-cobranca-criancas">
                                 {% for c in f.criancas %}

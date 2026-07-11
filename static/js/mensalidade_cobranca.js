@@ -68,6 +68,45 @@
         }
     }
 
+    // ---- Trocar o telefone de cobrança da família (persiste no servidor) ----
+    var telUrl = painel.dataset.telefoneUrl;
+    painel.addEventListener("change", function (e) {
+        var sel = e.target.closest(".mens-cob-tel-sel");
+        if (!sel) return;
+        var origem = sel.value;
+        var anterior = sel.dataset.origemAtual || "";
+        sel.disabled = true;
+        fetch(telUrl, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrf,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: "usuario_id=" + encodeURIComponent(sel.dataset.usuario)
+                + "&origem=" + encodeURIComponent(origem),
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) {
+                toast((d && d.erro) || "Não foi possível trocar o telefone.", "error");
+                if (anterior) sel.value = anterior;  // desfaz visualmente
+                return;
+            }
+            sel.dataset.origemAtual = origem;
+            // Passou a ter número válido: habilita o envio individual e o lote.
+            var li = sel.closest(".mens-cobranca-item");
+            if (li) {
+                li.dataset.temNumero = "1";
+                var btn = li.querySelector(".mens-cobranca-enviar");
+                if (btn) btn.disabled = false;
+            }
+            var txtOpc = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : d.numero;
+            toast("Telefone de cobrança alterado ✅ (" + txtOpc + ")", "success");
+        }).catch(function () {
+            toast("Falha de conexão ao trocar o telefone.", "error");
+            if (anterior) sel.value = anterior;
+        }).finally(function () { sel.disabled = false; });
+    });
+
     // ---- Busca ao vivo ----
     function normal(s) {
         return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");

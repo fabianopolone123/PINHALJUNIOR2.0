@@ -4099,7 +4099,8 @@ def _cobrancas_familias():
             continue
         resp_nome, _ = _responsavel_da_familia(u)
         perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
-        numero = _whatsapp_principal(u)
+        numeros = _numeros_conta(u)
+        origem_atual, numero = _principal_origem_e_numero(u, numeros)
         # Detalhe por criança (aventureiro): nome, total em aberto e meses.
         por_av = {}
         for m in mens:
@@ -4119,6 +4120,8 @@ def _cobrancas_familias():
             "criancas": criancas,
             "numero": numero,
             "tem_numero": bool(numero),
+            "numeros": numeros,
+            "origem_atual": origem_atual,
             "cobrado_mes": cont_mes.get(uid, 0),
             "token": perfil.get_token_acerto(),
             "mensalidades": sorted(
@@ -4171,6 +4174,28 @@ def mensalidade_cobranca_modo_view(request):
     c.atualizado_por = request.user
     c.save(update_fields=["cobranca_via_ia", "atualizado_por", "atualizado_em"])
     return JsonResponse({"ok": True, "via_ia": c.cobranca_via_ia})
+
+
+@diretor_required
+@require_POST
+def mensalidade_cobranca_telefone_view(request):
+    """Define qual WhatsApp (pai/mãe/resp legal) recebe a cobrança da família — o
+    "principal" da conta, persistido em PerfilUsuario.whatsapp_principal_origem
+    (o mesmo usado no código de recuperação). Fica salvo até trocar de novo."""
+    usuario = get_object_or_404(User, pk=request.POST.get("usuario_id"))
+    origem = (request.POST.get("origem") or "").strip()
+    if origem not in {"pai", "mae", "resp"}:
+        return JsonResponse({"ok": False, "erro": "Opção de WhatsApp inválida."}, status=400)
+    numeros = {n["origem"]: n["numero"] for n in _numeros_conta(usuario)}
+    numero = numeros.get(origem)
+    if not numero:
+        return JsonResponse(
+            {"ok": False, "erro": "Esse responsável não tem WhatsApp cadastrado."}, status=400
+        )
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=usuario)
+    perfil.whatsapp_principal_origem = origem
+    perfil.save(update_fields=["whatsapp_principal_origem"])
+    return JsonResponse({"ok": True, "origem": origem, "numero": numero})
 
 
 def _gerar_cobranca_ia(prompt_template, familia, request, ia_cfg):
@@ -4394,17 +4419,27 @@ def _numeros_conta(usuario):
     return out
 
 
-def _whatsapp_principal(usuario):
-    """Número de WhatsApp para onde enviar o código: o principal escolhido pelo
-    Diretor (PerfilUsuario.whatsapp_principal_origem) ou, como padrão, o do
-    responsável legal. Devolve o número **normalizado** (ou "")."""
-    numeros = {n["origem"]: n["numero"] for n in _numeros_conta(usuario)}
-    origem = ""
+def _principal_origem_e_numero(usuario, numeros):
+    """(origem_efetiva, número normalizado) do WhatsApp principal da conta, dada a
+    lista `numeros` de `_numeros_conta`. Usa a origem escolhida pelo Diretor
+    (PerfilUsuario.whatsapp_principal_origem) se ela tiver número; senão cai no
+    responsável legal. Origem "" = nenhum número disponível."""
+    mapa = {n["origem"]: n["numero"] for n in numeros}
     perfil = getattr(usuario, "perfil", None)
-    if perfil is not None:
-        origem = perfil.whatsapp_principal_origem or ""
-    bruto = numeros.get(origem) or numeros.get("resp") or ""
-    return normalizar_telefone(bruto)
+    escolhido = (perfil.whatsapp_principal_origem or "") if perfil is not None else ""
+    if escolhido and mapa.get(escolhido):
+        origem = escolhido
+    elif mapa.get("resp"):
+        origem = "resp"
+    else:
+        origem = ""
+    return origem, normalizar_telefone(mapa.get(origem) or "")
+
+
+def _whatsapp_principal(usuario):
+    """Número de WhatsApp principal da conta (para código de recuperação e
+    cobrança), **normalizado** (ou "")."""
+    return _principal_origem_e_numero(usuario, _numeros_conta(usuario))[1]
 
 
 def _conta_por_cpf_resp(cpf):
