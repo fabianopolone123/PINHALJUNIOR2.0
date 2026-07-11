@@ -53,6 +53,17 @@
         if (url) { window.location.href = url; }
     }
 
+    function mostrarRejeitado() {
+        clearInterval(timer);
+        var aguard = document.getElementById("pixAguardando");
+        if (aguard) aguard.hidden = true;
+        var rej = document.getElementById("pixRejeitado");
+        if (rej) rej.hidden = false;
+        if (typeof window.mostrarToast === "function") {
+            window.mostrarToast("Pagamento não aprovado. Tente novamente.", "error");
+        }
+    }
+
     function checar() {
         if (indo) return;
         fetch(statusUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } })
@@ -61,6 +72,9 @@
                 if (j.status === "aprovado" && j.redirect) {
                     indo = true;
                     irPara(j.redirect);
+                } else if (j.status === "rejeitado" || j.status === "cancelado") {
+                    indo = true;
+                    mostrarRejeitado();
                 }
             })
             .catch(function () { /* silencioso; tenta de novo no próximo tick */ });

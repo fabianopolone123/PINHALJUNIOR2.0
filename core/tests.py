@@ -286,6 +286,22 @@ class PagamentoLojinhaTests(TestCase):
         # 100 / (1 - 0,0498) = 105,24
         self.assertEqual(_grossar_cartao(cfg, Decimal("100")), Decimal("105.24"))
 
+    def test_pagamento_rejeitado_mostra_recusa_sem_redirecionar(self):
+        # Cartão recusado: o status não redireciona e a página mostra o aviso de
+        # recusa (em vez de ficar girando para sempre).
+        p = Pagamento.objects.create(
+            tipo="mensalidade", forma="cartao",
+            referencia=Pagamento.gerar_referencia(), modo="teste",
+            valor_bruto=Decimal("30"), status="rejeitado", payload={},
+        )
+        dados = self.client.get(
+            reverse("core:pagamento_status", args=[p.referencia])
+        ).json()
+        self.assertEqual(dados["status"], "rejeitado")
+        self.assertNotIn("redirect", dados)
+        resp = self.client.get(reverse("core:pagamento", args=[p.referencia]))
+        self.assertContains(resp, "pixRejeitado")
+
     def test_painel_evento_desconta_taxa_no_resultado(self):
         self._config_mp()
         pagamento = self._iniciar_checkout()

@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Revisão geral dos pagamentos (cartão) + fix do pagamento recusado
+
+### Resumo
+Revisão dos pagamentos (Pix e **cartão/Checkout Pro**) nas 3 áreas — **loja**, **mensalidades** e **eventos**.
+Conclusão: a engine está consistente (cartão disponível nos 6 pontos: lojinha de evento, inscrição, Loja do
+Clube, mensalidades do Diretor, mensalidades do responsável e acerto público; gross-up da taxa correto;
+webhook valida assinatura e usa o MP como fonte da verdade; página genérica trata cartão com "confirmando +
+polling"). **Corrigido um problema:** quando o cartão (ou Pix) era **recusado/cancelado**, a página de
+pagamento ficava **girando para sempre** — o polling só reagia a "aprovado". Agora, em `rejeitado`/`cancelado`,
+a tela para o spinner, mostra um aviso de **recusa** e um botão **"Voltar e tentar de novo"** (destino por tipo:
+mensalidades/loja/página do evento/início).
+
+### Arquivos alterados
+- `static/js/pagamento_mp.js`: trata `rejeitado`/`cancelado` no polling (mostra recusa, para o spinner, toast).
+- `templates/core/pagamento.html`: bloco `#pixRejeitado` (aviso de recusa + voltar).
+- `core/views.py` (`pagamento_view`): novo `voltar_url` por tipo de pagamento.
+- `core/tests.py`: teste `test_pagamento_rejeitado_mostra_recusa_sem_redirecionar`.
+
+### Pendências (operacionais — do lado do usuário, não código)
+- Cadastrar a **URL do webhook** + a **secret** no painel do Mercado Pago (produção) e confirmar a **taxa real**
+  do cartão com uma venda de produção (ajustar `taxa_cartao_pct` se o "termômetro" na tela do MP ficar > 0).
+- Deixar o parcelamento como **"Parcelado comprador"** no painel do MP (juros por conta do comprador).
+
+---
+
 ## 2026-07-11 - Validação do cadastro usa o toast padrão do sistema
 
 ### Resumo

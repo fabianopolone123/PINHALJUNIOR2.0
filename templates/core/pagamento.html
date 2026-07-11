@@ -89,6 +89,10 @@
                     {% endif %}
                     {% endif %}
                     {% endif %}
+                    <div class="pagamento-rejeitado" id="pixRejeitado" hidden>
+                        <p class="pagamento-erro">❌ O pagamento não foi aprovado (recusado ou cancelado). Você pode tentar novamente.</p>
+                        <a href="{{ voltar_url }}" class="btn-secundario">Voltar e tentar de novo</a>
+                    </div>
                 </section>
             </article>
         </main>

@@ -3894,6 +3894,15 @@ def pagamento_view(request, ref):
         return redirect(_sucesso_url_e_sessao(request, pagamento))
     config = _mp_config()
     dados = pagamento.payload or {}
+    # Para onde voltar se o pagamento for recusado/cancelado (por tipo).
+    if pagamento.tipo == "mensalidade":
+        voltar = reverse("core:mensalidades")
+    elif pagamento.tipo == "loja_clube":
+        voltar = reverse("core:loja")
+    elif pagamento.tipo in ("loja_evento", "inscricao") and dados.get("evento_id"):
+        voltar = reverse("core:evento_pagina", args=[dados["evento_id"]])
+    else:
+        voltar = reverse("core:inicio")
     contexto = {
         "pagamento": pagamento,
         "titulo": dados.get("titulo") or pagamento.get_tipo_display(),
@@ -3905,6 +3914,7 @@ def pagamento_view(request, ref):
         "erro_pix": pagamento.detalhe if pagamento.status == "rejeitado" else "",
         "status_url": reverse("core:pagamento_status", args=[ref]),
         "simular_url": reverse("core:pagamento_simular", args=[ref]),
+        "voltar_url": voltar,
     }
     return render(request, "core/pagamento.html", contexto)
 

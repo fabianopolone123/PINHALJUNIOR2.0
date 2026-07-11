@@ -2,7 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Cadastros: obrigatoriedade + Sim/Não + validação com aviso**): revisão da
+**Última atualização:** 2026-07-11 (**Revisão dos pagamentos + fix do recusado**): revisão geral de Pix e
+**cartão (Checkout Pro)** nas 3 áreas (loja, mensalidades, eventos) — engine consistente (cartão disponível nos
+6 pontos; gross-up da taxa ok; webhook valida assinatura e consulta o MP como fonte da verdade; página genérica
+trata cartão com "confirmando + polling"). **Corrigido:** pagamento **recusado/cancelado** ficava girando para
+sempre; agora mostra aviso de recusa + "Voltar e tentar de novo" (`pagamento_mp.js` trata `rejeitado`/`cancelado`;
+bloco `#pixRejeitado`; `voltar_url` por tipo em `pagamento_view`; teste em `PagamentoLojinhaTests`). Pendências
+**operacionais** (não código): cadastrar webhook URL + secret no painel do MP e confirmar a taxa real do cartão
+em produção. Antes: Cadastros (obrigatoriedade + Sim/Não + validação com aviso).
+
+**Anterior (Cadastros: obrigatoriedade + Sim/Não + validação com aviso**): revisão da
 obrigatoriedade dos campos nos cadastros de **aventureiro** e **diretoria**. Asterisco automático (via
 `_campo.html`); perguntas **Sim/Não obrigatórias** (novo parcial `_campo_simnao.html`); ao avançar/finalizar,
 um **aviso lista os campos obrigatórios que faltam** (`static/js/wizard_validacao.js`, caixa `#avisoValidacao`).
