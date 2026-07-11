@@ -925,6 +925,23 @@ details[open] > summary .ver-mais::after { content: " ▾"; }
     background: linear-gradient(135deg, rgba(74, 144, 217, 0.18), rgba(98, 196, 98, 0.18));
 }
 
+.resp-avatar-img {
+    flex-shrink: 0;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.painel-corpo .bloco-rotulo {
+    margin: 14px 0 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #0f4c81;
+}
+
 .resp-rotulo {
     font-size: 0.74rem;
     font-weight: 700;

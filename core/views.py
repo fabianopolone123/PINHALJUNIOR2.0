@@ -327,12 +327,36 @@ def inicio_view(request):
             "estado": autorizacao.resp_estado if autorizacao else "",
         }
 
+    # Dados da diretoria (se o usuário for voluntário/diretoria).
+    membro = (
+        MembroDiretoria.objects
+        .filter(usuario=usuario)
+        .select_related("ficha_medica")
+        .first()
+    )
+    if membro is not None:
+        membro.idade = _idade(membro.data_nascimento)
+        membro.foto_ok = _foto_valida(membro)
+        membro.iniciais = _iniciais(membro.nome_completo)
+        membro.papel = _papel_diretoria(usuario)
+        _preparar_ficha(getattr(membro, "ficha_medica", None))
+
     contexto = {
         "aventureiros": aventureiros,
         "total_aventureiros": len(aventureiros),
         "responsavel": responsavel,
+        "membro_diretoria": membro,
     }
     return render(request, "core/inicio.html", contexto)
+
+
+def _papel_diretoria(usuario):
+    """Papel específico do membro da diretoria (pelo grupo), ou genérico."""
+    nomes = set(usuario.groups.values_list("name", flat=True))
+    for papel in ("Diretor", "Secretário", "Tesoureiro", "Professor"):
+        if papel in nomes:
+            return papel
+    return "Diretoria (papel a definir)"
 
 
 @login_required

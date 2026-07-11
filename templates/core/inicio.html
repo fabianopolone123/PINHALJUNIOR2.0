@@ -132,6 +132,82 @@
                 </section>
                 {% endif %}
 
+                <!-- ===================== Card: Diretoria ===================== -->
+                {% if membro_diretoria %}
+                <section class="card resp-card card-destaque">
+                    <details class="painel">
+                        <summary class="painel-summary">
+                            <div class="resp-cabecalho">
+                                {% if membro_diretoria.foto_ok %}
+                                    <img class="resp-avatar-img" src="{{ membro_diretoria.foto.url }}" alt="Foto de {{ membro_diretoria.nome_completo }}">
+                                {% else %}
+                                    <span class="resp-avatar" aria-hidden="true">⛺</span>
+                                {% endif %}
+                                <div class="resp-topo-info">
+                                    <span class="resp-rotulo">Diretoria</span>
+                                    <h2 class="resp-nome">{{ membro_diretoria.nome_completo|default:"Não informado" }}</h2>
+                                    <div class="pills">
+                                        <span class="pill pill-verde">{{ membro_diretoria.papel }}</span>
+                                    </div>
+                                    <p class="resp-contato">
+                                        {% if membro_diretoria.email %}<span>✉️ {{ membro_diretoria.email }}</span>{% endif %}
+                                        {% if membro_diretoria.whatsapp %}<span>📱 {{ membro_diretoria.whatsapp }}</span>{% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            <span class="ver-mais">Ver meus dados da diretoria</span>
+                        </summary>
+                        <div class="painel-corpo">
+                            <h4 class="bloco-rotulo">Identificação</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Nome completo" valor=membro_diretoria.nome_completo %}
+                                {% include "core/_dado.html" with rotulo="Nacionalidade" valor=membro_diretoria.nacionalidade %}
+                                {% include "core/_dado.html" with rotulo="CPF" valor=membro_diretoria.cpf %}
+                                {% include "core/_dado.html" with rotulo="RG" valor=membro_diretoria.rg %}
+                                {% include "core/_dado.html" with rotulo="Data de nascimento" valor=membro_diretoria.data_nascimento|date:"d/m/Y" %}
+                                {% include "core/_dado.html" with rotulo="Estado civil" valor=membro_diretoria.get_estado_civil_display %}
+                                {% if membro_diretoria.conjuge_nome %}{% include "core/_dado.html" with rotulo="Cônjuge" valor=membro_diretoria.conjuge_nome %}{% endif %}
+                                {% include "core/_dado.html" with rotulo="Filhos" valor=membro_diretoria.qtd_filhos %}
+                                {% include "core/_dado.html" with rotulo="Igreja" valor=membro_diretoria.igreja %}
+                                {% include "core/_dado.html" with rotulo="Distrito" valor=membro_diretoria.distrito %}
+                                {% include "core/_dado.html" with rotulo="Escolaridade" valor=membro_diretoria.get_escolaridade_display %}
+                            </div>
+                            <h4 class="bloco-rotulo">Contato</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="E-mail" valor=membro_diretoria.email %}
+                                {% include "core/_dado.html" with rotulo="WhatsApp" valor=membro_diretoria.whatsapp %}
+                                {% include "core/_dado.html" with rotulo="Telefone residencial" valor=membro_diretoria.tel_residencial %}
+                                {% include "core/_dado.html" with rotulo="Telefone comercial" valor=membro_diretoria.tel_comercial %}
+                            </div>
+                            <h4 class="bloco-rotulo">Endereço</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Endereço" valor=membro_diretoria.endereco %}
+                                {% include "core/_dado.html" with rotulo="Número" valor=membro_diretoria.numero %}
+                                {% include "core/_dado.html" with rotulo="Bairro" valor=membro_diretoria.bairro %}
+                                {% include "core/_dado.html" with rotulo="Cidade" valor=membro_diretoria.cidade %}
+                                {% include "core/_dado.html" with rotulo="CEP" valor=membro_diretoria.cep %}
+                                {% include "core/_dado.html" with rotulo="Estado" valor=membro_diretoria.estado %}
+                            </div>
+                            {% if membro_diretoria.ficha_medica %}
+                            <h4 class="bloco-rotulo">Ficha médica</h4>
+                            <div class="dados-grade">
+                                {% include "core/_dado.html" with rotulo="Possui plano de saúde" valor=membro_diretoria.ficha_medica.possui_plano_saude|yesno:"Sim,Não" %}
+                                {% include "core/_dado.html" with rotulo="Nome do plano" valor=membro_diretoria.ficha_medica.qual_plano_saude %}
+                                {% include "core/_dado.html" with rotulo="Número do SUS" valor=membro_diretoria.ficha_medica.cartao_sus %}
+                                {% include "core/_dado.html" with rotulo="Tipo sanguíneo" valor=membro_diretoria.ficha_medica.get_tipo_sanguineo_display %}
+                            </div>
+                            <div class="listas">
+                                <p><span>Doenças que já teve/tem:</span> {{ membro_diretoria.ficha_medica.doencas_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                <p><span>Alergias:</span> {{ membro_diretoria.ficha_medica.alergias_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                <p><span>Deficiência física:</span> {{ membro_diretoria.ficha_medica.deficiencias_lista|join:", "|default:"Nenhuma informada" }}</p>
+                                <p><span>Condições de saúde:</span> {{ membro_diretoria.ficha_medica.condicoes_lista|join:", "|default:"Nenhuma informada" }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </details>
+                </section>
+                {% endif %}
+
                 <!-- ===================== Aventureiros ===================== -->
                 <div class="secao-cabecalho">
                     <h2 class="secao-titulo">Aventureiros cadastrados</h2>

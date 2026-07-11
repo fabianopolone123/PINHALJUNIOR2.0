@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - "Meus Dados" mostra os dados do membro da diretoria
+
+### Resumo
+Quando um voluntário/integrante da diretoria (ex.: Secretário) acessa "Meus Dados", agora aparece um
+**card "Diretoria"** com os dados do cadastro dele: identificação (nome, nacionalidade, CPF, RG, nascimento,
+estado civil, cônjuge, filhos, igreja, distrito, escolaridade), contato, endereço e um resumo da ficha
+médica. Mostra também o **papel** (Diretor/Secretário/Tesoureiro/Professor ou "Diretoria (papel a definir)").
+
+### Arquivos alterados
+- `core/views.py`: `inicio_view` carrega o `MembroDiretoria` do usuário (foto/idade/iniciais + `_preparar_ficha`)
+  e o papel via novo helper `_papel_diretoria`; contexto `membro_diretoria`.
+- `templates/core/inicio.html`: card "Diretoria" (painel expansível), entre o card do responsável e a lista
+  de aventureiros.
+- `static/css/inicio.css`: `.resp-avatar-img` (foto redonda) e `.painel-corpo .bloco-rotulo`.
+
+### Pendências
+- Próximo: UI do Diretor para atribuir o papel específico da diretoria.
+
+---
+
 ## 2026-07-11 - Diretoria: assinatura desenhada dos 3 documentos (substitui os checkboxes)
 
 ### Resumo

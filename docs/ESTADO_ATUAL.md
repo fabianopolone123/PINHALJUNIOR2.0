@@ -2,7 +2,14 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Diretoria: assinatura desenhada dos 3 documentos**): no cadastro de
+**Última atualização:** 2026-07-11 (**"Meus Dados" mostra os dados da diretoria**): quando um integrante da
+diretoria acessa "Meus Dados", aparece um **card "Diretoria"** (painel expansível) com identificação, contato,
+endereço, escolaridade e resumo da ficha médica, além do **papel** (Diretor/Secretário/Tesoureiro/Professor ou
+"papel a definir"). `inicio_view` carrega o `MembroDiretoria` (`_papel_diretoria`); card em `inicio.html`;
+estilos `.resp-avatar-img`/`.painel-corpo .bloco-rotulo` em `inicio.css`. Antes: assinatura desenhada dos 3
+documentos da diretoria.
+
+**Anterior (Diretoria: assinatura desenhada dos 3 documentos**): no cadastro de
 diretoria, os aceites por checkbox viraram **assinatura desenhada** (dedo/mouse) — cada documento (compromisso
 de voluntário, declaração médica e autorização de imagem do adulto) tem a sua, gravada como PNG + snapshot do
 texto do termo, no mesmo padrão do aventureiro (reusa `_assinatura_doc.html`, o modal e `assinatura.js`). Model
