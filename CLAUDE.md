@@ -42,7 +42,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/trocar-perfil/` (troca o **perfil ativo** de quem tem 2+ perfis — seletor no topo do menu)
 - `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos ·
   `/usuarios/aventureiro/<id>/termos/` termos assinados (Diretor; página pra imprimir/salvar PDF)
-- `/cadastro/` conta+1º aventureiro · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
+- `/cadastro/` **tela de escolha** (Aventureiro / Diretoria / Diretoria+Aventureiro) · `/cadastro/aventureiro/` conta+1º aventureiro · `/cadastro/diretoria/` cadastro de diretoria (`?com_aventureiro=1` emenda no aventureiro → 2 perfis) · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
 - **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
@@ -67,6 +67,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 ## Models (`core/models.py`)
 - `Aventureiro` (FK `usuario`; ficha de inscrição + pai/mãe/responsável legal; campos `ativo` e **`demo`**).
   Um usuário → vários. `demo=True` = dado fictício (NUNCA entra nas contagens do clube — ver Convenções).
+- **Diretoria**: `MembroDiretoria` (OneToOne `usuario`; ficha "Compromisso para Voluntários" — identificação,
+  contato, endereço, escolaridade, aceites; `ativo`/`demo`) e `FichaMedicaDiretoria`. A ficha médica é
+  compartilhada com o aventureiro via molde abstrato **`FichaMedicaBase`** (mesmos campos, sem duplicar).
+  Cadastro de diretoria cria a conta e entra no perfil **"Diretoria"** (grupo); quem também tem aventureiro
+  fica com **2 perfis** (alternância "Ver como"). Papel específico (Diretor/Secretário/…) o Diretor define depois.
 - `FichaMedica` (OneToOne) · `AutorizacaoImagem` (OneToOne) · `AssinaturaDocumento` (assinatura desenhada de
   cada documento da inscrição — ficha/médica/imagem; imagem PNG + snapshot do texto do termo; só o Diretor vê).
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,

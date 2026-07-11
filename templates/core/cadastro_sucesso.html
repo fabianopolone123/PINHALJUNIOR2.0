@@ -16,7 +16,13 @@
             <div class="sucesso-check" aria-hidden="true">✓</div>
             <h1 class="cadastro-titulo">Cadastro realizado com sucesso!</h1>
             <p class="cadastro-sub">
-                {% if nome_aventureiro %}
+                {% if tipo == "diretoria" %}
+                    {% if nome_aventureiro %}
+                        O cadastro de diretoria de <strong>{{ nome_aventureiro }}</strong> foi registrado.
+                    {% else %}
+                        O cadastro de diretoria foi registrado.
+                    {% endif %}
+                {% elif nome_aventureiro %}
                     O aventureiro <strong>{{ nome_aventureiro }}</strong> foi registrado.
                 {% else %}
                     As informações do aventureiro foram registradas.
@@ -25,7 +31,11 @@
 
             {% if pode_cadastrar_outro %}
             <p class="cadastro-sub sucesso-pergunta">
-                Deseja cadastrar outro aventureiro usando a mesma conta/responsável?
+                {% if tipo == "diretoria" %}
+                    Deseja também cadastrar um aventureiro nesta conta?
+                {% else %}
+                    Deseja cadastrar outro aventureiro usando a mesma conta/responsável?
+                {% endif %}
             </p>
             <div class="sucesso-acoes">
                 <a href="{% url 'core:cadastro_novo_aventureiro' %}" class="btn-primario btn-sucesso">Cadastrar outro aventureiro</a>

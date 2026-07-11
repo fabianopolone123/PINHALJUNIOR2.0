@@ -266,7 +266,9 @@ PINHALJUNIOR2.0/
 - `/eventos/novo/` — cadastro de evento simples (nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/eventos/complexo/novo/` — cria evento complexo (nome `core:evento_complexo_novo`).
 - `/eventos/<id>/` — painel do evento complexo (nome `core:evento_painel`); `/eventos/<id>/custos/...` adiciona/remove custos.
-- `/cadastro/` — cadastro inicial: cria a conta + o primeiro aventureiro (view `core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/` — tela **"Cadastre-se"**: escolha do tipo (Aventureiro / Diretoria / Diretoria + Aventureiro) (view `core.views.cadastro_view`, nome `core:cadastro`).
+- `/cadastro/aventureiro/` — cadastro inicial de aventureiro: cria a conta + o primeiro aventureiro (view `core.views.cadastro_aventureiro_view`, nome `core:cadastro_aventureiro`).
+- `/cadastro/diretoria/` — cadastro de **diretoria** (Compromisso para Voluntários); `?com_aventureiro=1` emenda no cadastro de aventureiro (view `core.views.cadastro_diretoria_view`, nome `core:cadastro_diretoria`).
 - `/cadastro/novo-aventureiro/` — cadastra outro aventureiro na mesma conta, sem etapa de conta (view `core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação, com opções "Cadastrar outro aventureiro" e "Ir para a tela inicial" (view `core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
 - `/admin/` — Django admin (models de cadastro registrados).
@@ -327,10 +329,11 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 - Recuperação de senha ("Esqueci minha senha") — **implementada** pelo WhatsApp (código de 4 dígitos);
   falta o responsável logado poder escolher o próprio WhatsApp principal (hoje só o Diretor).
 - Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
-- Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Professor/
-  Tesoureiro/Secretário existem sem permissões) e a **alternância de perfil** (diretoria ↔ responsável).
-- **Cadastro de diretoria** e o cadastro "diretoria + aventureiro" (planejado em
-  `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md`).
+- Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Diretoria/Professor/
+  Tesoureiro/Secretário existem com acesso mínimo). **Alternância de perfil** (Diretoria ↔ Responsável) já
+  funciona para quem tem os dois. **Falta:** UI do Diretor para atribuir o papel específico da diretoria.
+- **Cadastro de diretoria** e "diretoria + aventureiro": **implementados** (base) em 2026-07-11 — ver
+  `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md` e `docs/ESTADO_ATUAL.md`.
 - **Evento complexo — Fase 5** (em andamento): a parte do **Financeiro** (aba com o **extrato completo**
   do evento — resultado, resumos e lançamentos) já está **concluída**; faltam **dashboard/gráficos** no
   Resumo, **cupons de desconto** e **presença/check-in**. Depois, **pagamentos reais** (gateway) e **loja

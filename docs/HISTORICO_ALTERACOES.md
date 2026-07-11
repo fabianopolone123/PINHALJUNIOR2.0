@@ -22,6 +22,53 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Cadastro de Diretoria (Compromisso para Voluntários) + tela de escolha + 2 perfis
+
+### Resumo
+Implementado o **cadastro de diretoria** (voluntários), o novo ponto de entrada do "Cadastre-se"
+(escolha de tipo) e a **alternância de 2 perfis** (Diretoria + Responsável). Fluxos:
+- **Tela "Cadastre-se"** (`/cadastro/`) agora oferece **3 opções**: Aventureiro, Diretoria,
+  Diretoria + Aventureiro. (Antes ia direto ao cadastro de aventureiro.)
+- **Cadastro de diretoria** (`/cadastro/diretoria/`): wizard com Conta, Identificação (com cônjuge
+  condicional ao estado civil e qtd. de filhos), Contato/Endereço, **ficha médica completa** (igual à do
+  aventureiro), Escolaridade e **3 termos** (compromisso de voluntário, declaração médica e **autorização
+  de imagem do adulto**, adaptada da versão do menor). Cria a conta + `MembroDiretoria` + `FichaMedicaDiretoria`,
+  adiciona ao perfil **Diretoria** e loga.
+- **Diretoria + Aventureiro** (`?com_aventureiro=1`): após a diretoria, emenda no cadastro de aventureiro
+  (pré-preenchendo o responsável com os dados da diretoria) → 1 login com **2 perfis**.
+
+### Arquivos criados/alterados
+- `core/models.py`: `FichaMedicaBase` (abstract, campos médicos compartilhados); `FichaMedica` passa a herdar
+  dela (tabela inalterada); novos `MembroDiretoria` e `FichaMedicaDiretoria`; choices `ESTADO_CIVIL`/`ESCOLARIDADE`.
+- `core/migrations/0041_...`: cria MembroDiretoria e FichaMedicaDiretoria (FichaMedica intacta).
+- `core/menus.py`: novo perfil **Diretoria** (ORDEM/ícone/acesso); `perfil_do_usuario`/`perfis_do_usuario`
+  ajustados — "Responsável" é **implícito** (quem tem aventureiro não-demo) e convive com "Diretoria"
+  (habilita a alternância). `configurar_perfis` cria o grupo "Diretoria".
+- `core/forms.py`: `MembroDiretoriaForm` e `FichaMedicaDiretoriaForm`.
+- `core/views.py`: `cadastro_view` vira a **tela de escolha**; `cadastro_aventureiro_view` (fluxo antigo);
+  `cadastro_diretoria_view` (+ `_validar_aceites_diretoria`); prefill do responsável a partir da diretoria
+  (`_dados_diretoria_para_responsavel`/`_dados_anteriores_ou_diretoria`); `cadastro_sucesso_view` com `tipo`.
+- `core/urls.py`: rotas `cadastro_aventureiro` e `cadastro_diretoria`.
+- `core/admin.py`: registra `MembroDiretoria` e `FichaMedicaDiretoria`.
+- Templates: `cadastro_escolha.html`, `cadastro_diretoria.html`, `_campo_check_livre.html`,
+  `cadastro_sucesso.html` (variante diretoria). Estáticos: `static/js/cadastro_diretoria.js`,
+  estilos `.escolha-*` em `static/css/cadastro.css`.
+
+### Decisões tomadas
+- Ficha médica da diretoria = **completa** (reusa o molde abstrato, sem duplicar campos).
+- Papel específico (Diretor/Secretário/Tesoureiro/Professor) **não** é escolhido no cadastro — a pessoa entra
+  como "Diretoria" genérica e o Diretor define depois (a UI de atribuição fica para o próximo passo).
+- Assinatura desenhada dos termos fica para depois; por ora, **aceite por checkbox** com o texto do termo.
+- Textos dos termos = fiéis ao PDF oficial DSA: o "Compromisso para Voluntários" é o formulário + um aceite
+  curto; a autorização de imagem é a da pág. 5 adaptada para maior de idade.
+
+### Pendências
+- **Próximo passo:** exibir os dados do membro da diretoria em "Meus Dados"/"Usuários" e a **UI do Diretor
+  para atribuir o papel** específico. Assinatura desenhada dos termos da diretoria. Substituir o texto do
+  compromisso pelo oficial, se/quando o clube fornecer um texto de juramento formal.
+
+---
+
 ## 2026-07-11 - Ficha médica: 6 doenças e bloco de deficiência física (alinha ao formulário oficial DSA)
 
 ### Resumo

@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Ficha médica alinhada ao formulário oficial DSA**): a **Ficha Médica**
+**Última atualização:** 2026-07-11 (**Cadastro de Diretoria + tela de escolha + 2 perfis**): o "Cadastre-se"
+(`/cadastro/`) virou uma **tela de escolha** com 3 opções — **Aventureiro**, **Diretoria** e **Diretoria +
+Aventureiro**. Novo **cadastro de diretoria** (`/cadastro/diretoria/`, ficha "Compromisso para Voluntários"):
+wizard com Conta, Identificação (cônjuge condicional ao estado civil; qtd. de filhos), Contato/Endereço,
+**ficha médica completa** (mesma do aventureiro, via molde abstrato `FichaMedicaBase`), Escolaridade e **3 aceites**
+(compromisso de voluntário, declaração médica e **autorização de imagem do adulto** — adaptada da versão do
+menor). Cria conta + `MembroDiretoria` + `FichaMedicaDiretoria`, entra no perfil **Diretoria** e loga. A opção
+**Diretoria + Aventureiro** (`?com_aventureiro=1`) emenda no cadastro de aventureiro (pré-preenchendo o
+responsável com os dados da diretoria) → **1 login com 2 perfis** (Diretoria + Responsável), com a **alternância**
+"Ver como" já existente. No `core/menus.py`, "Responsável" passou a ser **implícito** (quem tem aventureiro
+não-demo) e convive com o novo perfil "Diretoria". Migration **0041**; `configurar_perfis` cria o grupo
+"Diretoria". Papel específico (Diretor/Secretário/Tesoureiro/Professor) e a exibição do membro em "Meus Dados"/
+"Usuários" ficam para o **próximo passo**. Antes: Ficha médica alinhada ao formulário oficial DSA.
+
+**Anterior (Ficha médica alinhada ao formulário oficial DSA**): a **Ficha Médica**
 passou a bater com o formulário oficial da DSA (PDF `Fichas-Secretaria-Padrão`). Foram adicionadas as **6
 doenças** que faltavam na lista "Já teve ou tem" — **Varíola, Coqueluche, Difteria, Caxumba, Rinite e
 Bronquite** — e um **bloco novo "Deficiência física"** (Cadeirante / Visual / Auditiva / Fala-mudez). 10

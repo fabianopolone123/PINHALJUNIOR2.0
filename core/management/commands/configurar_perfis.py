@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 # Nome dos perfis de acesso (grupos).
-PERFIS = ["Diretor", "Responsável", "Professor", "Tesoureiro", "Secretário"]
+PERFIS = ["Diretor", "Diretoria", "Responsável", "Professor", "Tesoureiro", "Secretário"]
 
 # Usuário diretor inicial.
 DIRETOR_USERNAME = "Fabiano"

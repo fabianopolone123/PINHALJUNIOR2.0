@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Cadastre-se - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/cadastro.css' %}">
+</head>
+<body>
+    <main class="tela-cadastro">
+        <section class="cadastro-card">
+            <header class="cadastro-topo">
+                <img src="{% static 'img/logo.png' %}" alt="Logo do clube" class="cadastro-logo">
+                <h1 class="cadastro-titulo">Cadastre-se</h1>
+                <p class="cadastro-sub">O que você deseja cadastrar?</p>
+            </header>
+
+            <div class="escolha-grid">
+                <a href="{% url 'core:cadastro_aventureiro' %}" class="escolha-card">
+                    <span class="escolha-emoji" aria-hidden="true">🧒</span>
+                    <span class="escolha-nome">Aventureiro</span>
+                    <span class="escolha-desc">
+                        Sou responsável e quero inscrever meu(s) filho(s) no clube.
+                    </span>
+                </a>
+
+                <a href="{% url 'core:cadastro_diretoria' %}" class="escolha-card">
+                    <span class="escolha-emoji" aria-hidden="true">⛺</span>
+                    <span class="escolha-nome">Diretoria</span>
+                    <span class="escolha-desc">
+                        Sou voluntário(a) e vou fazer parte da diretoria do clube.
+                    </span>
+                </a>
+
+                <a href="{% url 'core:cadastro_diretoria' %}?com_aventureiro=1" class="escolha-card">
+                    <span class="escolha-emoji" aria-hidden="true">⛺➕🧒</span>
+                    <span class="escolha-nome">Diretoria + Aventureiro</span>
+                    <span class="escolha-desc">
+                        Sou voluntário(a) e também responsável por aventureiro(s).
+                        Faço os dois cadastros na mesma conta.
+                    </span>
+                </a>
+            </div>
+
+            <p class="voltar-login">
+                <a href="{% url 'core:login' %}">Já tenho conta — voltar ao login</a>
+            </p>
+        </section>
+    </main>
+</body>
+</html>

@@ -19,7 +19,7 @@ from django.core.files.base import ContentFile
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
 from django.http import JsonResponse
@@ -44,7 +44,9 @@ from .forms import (
     EventoInscricaoConfigForm,
     FaixaEtariaPrecoForm,
     FichaMedicaForm,
+    FichaMedicaDiretoriaForm,
     InscricaoForm,
+    MembroDiretoriaForm,
     ProdutoEventoForm,
     ProdutoLojaForm,
     ResponsavelLegalForm,
@@ -72,6 +74,7 @@ from .models import (
     Inscricao,
     ItemCompraLoja,
     ItemPedidoLoja,
+    MembroDiretoria,
     MercadoPagoConfig,
     Mensalidade,
     OperadorEvento,
@@ -494,9 +497,36 @@ def _dados_responsaveis_anteriores(usuario):
     return {campo: getattr(ultimo, campo) for campo in campos}
 
 
+def _dados_diretoria_para_responsavel(usuario):
+    """No fluxo mesclado (diretoria + aventureiro), pré-preenche o responsável
+    com os dados já digitados na diretoria. Devolve None se não houver diretoria."""
+    membro = MembroDiretoria.objects.filter(usuario=usuario).first()
+    if membro is None:
+        return None
+    return {
+        "resp_nome": membro.nome_completo,
+        "resp_cpf": membro.cpf,
+        "resp_email": membro.email,
+        "resp_whatsapp": membro.whatsapp,
+    }
+
+
+def _dados_anteriores_ou_diretoria(usuario):
+    """Dados de outro aventureiro (se houver) ou, na falta, os da diretoria."""
+    return _dados_responsaveis_anteriores(usuario) or _dados_diretoria_para_responsavel(usuario)
+
+
 def cadastro_view(request):
+    """Tela "Cadastre-se": escolha do tipo de cadastro.
+
+    Três opções: Aventureiro (fluxo do responsável), Diretoria (só voluntário) e
+    Diretoria + Aventureiro (voluntário que também é responsável — 2 perfis)."""
+    return render(request, "core/cadastro_escolha.html")
+
+
+def cadastro_aventureiro_view(request):
     """
-    Cadastro inicial: cria a conta de acesso + o primeiro aventureiro.
+    Cadastro inicial de aventureiro: cria a conta de acesso + o primeiro aventureiro.
 
     Ao finalizar, o usuário é autenticado automaticamente (login real) e
     redirecionado para a tela de sucesso.
@@ -574,9 +604,91 @@ def cadastro_novo_aventureiro_view(request):
         "imagem_form": imagem,
         "erro_aceites": erro_aceites,
         "modo_novo": True,
-        "dados_anteriores": _dados_responsaveis_anteriores(usuario),
+        "dados_anteriores": _dados_anteriores_ou_diretoria(usuario),
     }
     return render(request, "core/cadastro.html", contexto)
+
+
+# Aceites (checkbox) do cadastro de diretoria — a assinatura desenhada fica p/ depois.
+DIRETORIA_ACEITES = [
+    ("aceite_compromisso", "o compromisso de voluntário"),
+    ("aceite_medica", "a declaração médica"),
+    ("aceite_imagem", "a autorização de uso de imagem"),
+]
+
+
+def _validar_aceites_diretoria(request):
+    """Exige os três aceites (checkbox) do cadastro de diretoria."""
+    erros = []
+    for campo, rotulo in DIRETORIA_ACEITES:
+        if request.POST.get(campo) != "on":
+            erros.append(f"É necessário aceitar {rotulo}.")
+    return erros
+
+
+def cadastro_diretoria_view(request):
+    """Cadastro de diretoria (ficha "Compromisso para Voluntários").
+
+    Cria a conta + o `MembroDiretoria` + a ficha médica, vincula ao perfil
+    "Diretoria" e loga. Com `?com_aventureiro=1`, emenda no cadastro de
+    aventureiro (resultando em 1 login com 2 perfis: Diretoria + Responsável)."""
+    com_aventureiro = (
+        request.GET.get("com_aventureiro") == "1"
+        or request.POST.get("com_aventureiro") == "1"
+    )
+    conta = ContaForm(request.POST or None, prefix="conta")
+    if request.method == "POST":
+        membro = MembroDiretoriaForm(request.POST, request.FILES, prefix="dir")
+        medica = FichaMedicaDiretoriaForm(request.POST, prefix="med")
+    else:
+        membro = MembroDiretoriaForm(prefix="dir")
+        medica = FichaMedicaDiretoriaForm(prefix="med")
+    erro_aceites = []
+
+    if request.method == "POST":
+        formularios_ok = all([conta.is_valid(), membro.is_valid(), medica.is_valid()])
+        erro_aceites = _validar_aceites_diretoria(request)
+
+        if formularios_ok and not erro_aceites:
+            with transaction.atomic():
+                usuario = User.objects.create_user(
+                    username=conta.cleaned_data["username"],
+                    password=conta.cleaned_data["senha"],
+                )
+                grupo, _ = Group.objects.get_or_create(name="Diretoria")
+                usuario.groups.add(grupo)
+
+                membro_obj = membro.save(commit=False)
+                membro_obj.usuario = usuario
+                membro_obj.compromisso_aceito = True
+                membro_obj.declaracao_medica_aceita = True
+                membro_obj.autorizacao_imagem_aceita = True
+                membro_obj.save()
+
+                ficha = medica.save(commit=False)
+                ficha.membro = membro_obj
+                ficha.save()
+
+            login(request, usuario, backend=BACKEND_PADRAO)
+            request.session[SESSAO_USUARIO_ID] = usuario.pk
+            request.session[SESSAO_ULTIMO_NOME] = membro_obj.nome_completo
+            if com_aventureiro:
+                messages.success(
+                    request,
+                    "Cadastro de diretoria concluído! Agora cadastre o aventureiro.",
+                )
+                return redirect("core:cadastro_novo_aventureiro")
+            request.session["cadastro_tipo"] = "diretoria"
+            return redirect("core:cadastro_sucesso")
+
+    contexto = {
+        "conta_form": conta,
+        "membro_form": membro,
+        "medica_form": medica,
+        "erro_aceites": erro_aceites,
+        "com_aventureiro": com_aventureiro,
+    }
+    return render(request, "core/cadastro_diretoria.html", contexto)
 
 
 def _normaliza(texto):
@@ -3060,6 +3172,7 @@ def presenca_marcar_view(request, pk):
 
 def cadastro_sucesso_view(request):
     """Tela de confirmação: mostra o nome cadastrado e as próximas opções."""
+    tipo = request.session.pop("cadastro_tipo", "aventureiro")
     pode_cadastrar_outro = (
         request.user.is_authenticated
         or bool(request.session.get(SESSAO_USUARIO_ID))
@@ -3067,6 +3180,7 @@ def cadastro_sucesso_view(request):
     contexto = {
         "nome_aventureiro": request.session.get(SESSAO_ULTIMO_NOME),
         "pode_cadastrar_outro": pode_cadastrar_outro,
+        "tipo": tipo,
     }
     return render(request, "core/cadastro_sucesso.html", contexto)
 

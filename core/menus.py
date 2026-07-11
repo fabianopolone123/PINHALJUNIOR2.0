@@ -16,6 +16,7 @@ Uso:
 from .permissoes import eh_diretor
 
 PERFIL_DIRETOR = "Diretor"
+PERFIL_DIRETORIA = "Diretoria"
 PERFIL_RESPONSAVEL = "Responsável"
 PERFIL_PROFESSOR = "Professor"
 PERFIL_TESOUREIRO = "Tesoureiro"
@@ -23,13 +24,13 @@ PERFIL_SECRETARIO = "Secretário"
 
 # Ordem de exibição dos perfis (no seletor do menu).
 ORDEM_PERFIS = [
-    PERFIL_DIRETOR, PERFIL_RESPONSAVEL, PERFIL_PROFESSOR,
+    PERFIL_DIRETOR, PERFIL_DIRETORIA, PERFIL_RESPONSAVEL, PERFIL_PROFESSOR,
     PERFIL_TESOUREIRO, PERFIL_SECRETARIO,
 ]
 # Ícone de cada perfil (para o seletor).
 ICONE_PERFIL = {
-    PERFIL_DIRETOR: "🧭", PERFIL_RESPONSAVEL: "👨‍👩‍👧", PERFIL_PROFESSOR: "🎓",
-    PERFIL_TESOUREIRO: "💵", PERFIL_SECRETARIO: "🗂️",
+    PERFIL_DIRETOR: "🧭", PERFIL_DIRETORIA: "⛺", PERFIL_RESPONSAVEL: "👨‍👩‍👧",
+    PERFIL_PROFESSOR: "🎓", PERFIL_TESOUREIRO: "💵", PERFIL_SECRETARIO: "🗂️",
 }
 
 # Cada item: `id` estável, `rotulo`, `icone`, `url` (name completo) e `ativas`
@@ -67,6 +68,9 @@ ACESSO_PADRAO = {
     PERFIL_RESPONSAVEL: ["inicio", "mensalidades", "loja", "presenca"],
     # Perfis ainda sem telas próprias: por ora só "Meus Dados" (serão liberados
     # à medida que forem construídos — ver o encaixe em `_ids_liberados`).
+    # "Diretoria" é a diretoria genérica (papel específico definido pelo Diretor
+    # depois); por ora só "Meus Dados".
+    PERFIL_DIRETORIA: ["inicio"],
     PERFIL_PROFESSOR: ["inicio"],
     PERFIL_TESOUREIRO: ["inicio"],
     PERFIL_SECRETARIO: ["inicio"],
@@ -78,22 +82,39 @@ ACESSO_PADRAO = {
 PERFIL_ATIVO_KEY = "perfil_ativo"
 
 
+def _tem_aventureiros_reais(user):
+    """True se o usuário tem ao menos um aventureiro (não-demo) — o que o torna
+    Responsável de forma implícita (sem precisar do grupo)."""
+    try:
+        return user.aventureiros.filter(demo=False).exists()
+    except Exception:
+        return False
+
+
 def perfil_do_usuario(user):
-    """Perfil PADRÃO (real) do usuário. Diretor pelo grupo nativo; qualquer outro
-    membro logado é tratado como Responsável. Anônimo → None."""
+    """Perfil PADRÃO (real) do usuário. Diretor pelo grupo nativo; senão, o
+    primeiro grupo de perfil que possua (ex.: Diretoria); senão, Responsável
+    (implícito para qualquer membro logado). Anônimo → None."""
     if not getattr(user, "is_authenticated", False):
         return None
     if eh_diretor(user):
         return PERFIL_DIRETOR
+    nomes = set(user.groups.values_list("name", flat=True))
+    for p in ORDEM_PERFIS:
+        if p != PERFIL_RESPONSAVEL and p in nomes:
+            return p
     return PERFIL_RESPONSAVEL
 
 
 def perfis_do_usuario(user):
-    """Perfis que o usuário PODE assumir (grupos nativos ∩ perfis conhecidos), na
-    ordem de `ORDEM_PERFIS`. Sem grupo → só o perfil padrão."""
+    """Perfis que o usuário PODE assumir, na ordem de `ORDEM_PERFIS`. Vêm dos
+    grupos nativos; "Responsável" é implícito para quem tem aventureiro (não-demo).
+    Sem nenhum → só o perfil padrão."""
     if not getattr(user, "is_authenticated", False):
         return []
     nomes = set(user.groups.values_list("name", flat=True))
+    if _tem_aventureiros_reais(user):
+        nomes.add(PERFIL_RESPONSAVEL)
     perfis = [p for p in ORDEM_PERFIS if p in nomes]
     return perfis or [perfil_do_usuario(user)]
 

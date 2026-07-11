@@ -151,6 +151,16 @@ urlpatterns = [
     path("presenca/<int:pk>/marcar/", views.presenca_marcar_view, name="presenca_marcar"),
     path("cadastro/", views.cadastro_view, name="cadastro"),
     path(
+        "cadastro/aventureiro/",
+        views.cadastro_aventureiro_view,
+        name="cadastro_aventureiro",
+    ),
+    path(
+        "cadastro/diretoria/",
+        views.cadastro_diretoria_view,
+        name="cadastro_diretoria",
+    ),
+    path(
         "cadastro/novo-aventureiro/",
         views.cadastro_novo_aventureiro_view,
         name="cadastro_novo_aventureiro",

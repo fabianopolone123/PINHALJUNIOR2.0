@@ -725,6 +725,60 @@ body.sem-scroll {
     overflow: hidden;
 }
 
+/* ---------- Tela "Cadastre-se": escolha do tipo ---------- */
+.escolha-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin: 8px 0 4px;
+}
+
+.escolha-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 22px 18px;
+    border: 2px solid var(--borda);
+    border-radius: var(--raio-campo);
+    background: var(--branco);
+    color: var(--texto);
+    text-decoration: none;
+    transition: border-color var(--transicao), transform var(--transicao),
+        box-shadow var(--transicao);
+}
+
+.escolha-card:hover,
+.escolha-card:focus-visible {
+    border-color: var(--azul-claro);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(9, 42, 74, 0.14);
+    outline: none;
+}
+
+.escolha-emoji {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.escolha-nome {
+    font-size: 1.12rem;
+    font-weight: 700;
+    color: var(--azul-escuro);
+}
+
+.escolha-desc {
+    font-size: 0.9rem;
+    color: var(--texto-suave);
+}
+
+@media (min-width: 720px) {
+    .escolha-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 /* ---------- Acessibilidade ---------- */
 @media (prefers-reduced-motion: reduce) {
     *,

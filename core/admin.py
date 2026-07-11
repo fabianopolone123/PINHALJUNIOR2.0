@@ -15,7 +15,9 @@ from .models import (
     Mensalidade,
     FaixaEtariaPreco,
     FichaMedica,
+    FichaMedicaDiretoria,
     FotoProdutoLoja,
+    MembroDiretoria,
     GrupoLoja,
     Inscricao,
     ItemCompraLoja,
@@ -50,6 +52,19 @@ class FichaMedicaAdmin(admin.ModelAdmin):
 class AutorizacaoImagemAdmin(admin.ModelAdmin):
     list_display = ("aventureiro", "nome_menor", "resp_nome")
     search_fields = ("nome_menor", "resp_nome")
+
+
+@admin.register(MembroDiretoria)
+class MembroDiretoriaAdmin(admin.ModelAdmin):
+    list_display = ("nome_completo", "usuario", "cidade", "ativo", "criado_em")
+    search_fields = ("nome_completo", "cpf", "usuario__username")
+    list_filter = ("ativo", "escolaridade")
+
+
+@admin.register(FichaMedicaDiretoria)
+class FichaMedicaDiretoriaAdmin(admin.ModelAdmin):
+    list_display = ("membro", "tipo_sanguineo", "possui_plano_saude")
+    search_fields = ("membro__nome_completo",)
 
 
 @admin.register(AssinaturaDocumento)

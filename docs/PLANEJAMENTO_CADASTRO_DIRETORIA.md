@@ -1,11 +1,16 @@
 # Planejamento — Cadastro de Diretoria e tipos de cadastro
 
-> **Status:** PLANEJADO — **ainda NÃO implementado.**
-> Aguardando a **documentação oficial** dos campos e dos **textos** dos termos
-> (compromisso de voluntariado e autorização de imagem). Quando o Fabiano tiver
-> acesso a essa documentação, revisamos este arquivo e partimos para a implementação.
+> **Status:** IMPLEMENTADO em 2026-07-11 (base). Ver `docs/ESTADO_ATUAL.md`.
+> Feito: modelos `MembroDiretoria`/`FichaMedicaDiretoria`, perfil "Diretoria",
+> tela "Cadastre-se" com 3 opções, cadastro só-diretoria e o fluxo mesclado
+> (Diretoria + Aventureiro → 2 perfis com alternância).
 >
-> Registrado em 2026-07-03 a partir das conversas de alinhamento (não perder o planejado).
+> **Ainda pendente (próximo passo):** exibir o membro da diretoria em "Meus Dados"/
+> "Usuários"; UI do Diretor para **atribuir o papel específico** (Diretor/Secretário/
+> Tesoureiro/Professor); **assinatura desenhada** dos termos da diretoria; substituir o
+> texto do compromisso pelo oficial, se o clube fornecer um juramento formal.
+>
+> Campos e decisões abaixo (registrado em 2026-07-03) permanecem como referência.
 
 ---
 

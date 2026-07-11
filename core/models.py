@@ -48,6 +48,22 @@ TIPO_SANGUINEO_CHOICES = [
     ("NAO_SABE", "Não sabe"),
 ]
 
+# --- Diretoria (voluntários) ---
+ESTADO_CIVIL_CHOICES = [
+    ("solteiro", "Solteiro(a)"),
+    ("casado", "Casado(a)"),
+    ("divorciado", "Divorciado(a)"),
+    ("viuvo", "Viúvo(a)"),
+    ("uniao_estavel", "União estável"),
+    ("outro", "Outro"),
+]
+
+ESCOLARIDADE_CHOICES = [
+    ("fundamental", "Ensino Fundamental"),
+    ("medio", "Ensino Médio"),
+    ("superior", "Ensino Superior"),
+]
+
 
 class Aventureiro(models.Model):
     """Ficha de inscrição do aventureiro (dados principais + responsáveis)."""
@@ -162,15 +178,13 @@ class Aventureiro(models.Model):
         return self.nome_completo
 
 
-class FichaMedica(models.Model):
-    """Dados médicos do aventureiro (uma ficha por aventureiro)."""
+class FichaMedicaBase(models.Model):
+    """Campos médicos compartilhados (aventureiro e diretoria).
 
-    aventureiro = models.OneToOneField(
-        Aventureiro,
-        on_delete=models.CASCADE,
-        related_name="ficha_medica",
-        verbose_name="Aventureiro",
-    )
+    Molde ABSTRATO: as fichas concretas (`FichaMedica` do aventureiro e
+    `FichaMedicaDiretoria` do voluntário) herdam exatamente os mesmos campos,
+    sem duplicar as definições. Não cria tabela própria.
+    """
 
     # Plano de saúde
     possui_plano_saude = models.BooleanField("Possui plano de saúde", default=False)
@@ -277,6 +291,20 @@ class FichaMedica(models.Model):
     )
 
     class Meta:
+        abstract = True
+
+
+class FichaMedica(FichaMedicaBase):
+    """Dados médicos do aventureiro (uma ficha por aventureiro)."""
+
+    aventureiro = models.OneToOneField(
+        Aventureiro,
+        on_delete=models.CASCADE,
+        related_name="ficha_medica",
+        verbose_name="Aventureiro",
+    )
+
+    class Meta:
         verbose_name = "Ficha médica"
         verbose_name_plural = "Fichas médicas"
 
@@ -320,6 +348,104 @@ class AutorizacaoImagem(models.Model):
 
     def __str__(self):
         return f"Autorização de imagem de {self.aventureiro.nome_completo}"
+
+
+class MembroDiretoria(models.Model):
+    """Voluntário/integrante da diretoria (ficha "Compromisso para Voluntários").
+
+    Um usuário pode ter, além do papel de responsável (pelos aventureiros), o
+    papel de diretoria. O papel específico (Diretor/Secretário/Tesoureiro/
+    Professor) é atribuído pelo Diretor depois; ao se cadastrar, a pessoa entra
+    como diretoria genérica.
+    """
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="membro_diretoria",
+        verbose_name="Usuário",
+    )
+
+    # --- Identificação ---
+    foto = models.ImageField(
+        "Foto", upload_to="diretoria/fotos/", blank=True, null=True
+    )
+    nome_completo = models.CharField("Nome completo", max_length=150)
+    nacionalidade = models.CharField("Nacionalidade", max_length=80, blank=True)
+    igreja = models.CharField("Igreja", max_length=150, blank=True)
+    distrito = models.CharField("Distrito", max_length=150, blank=True)
+    cpf = models.CharField("CPF", max_length=20)
+    rg = models.CharField("RG", max_length=30, blank=True)
+    data_nascimento = models.DateField("Data de nascimento", null=True, blank=True)
+    estado_civil = models.CharField(
+        "Estado civil", max_length=20, choices=ESTADO_CIVIL_CHOICES, blank=True
+    )
+    conjuge_nome = models.CharField("Nome do cônjuge", max_length=150, blank=True)
+    tem_filhos = models.BooleanField("Tem filhos", default=False)
+    qtd_filhos = models.PositiveSmallIntegerField("Quantidade de filhos", default=0)
+
+    # --- Contato ---
+    email = models.EmailField("E-mail", blank=True)
+    whatsapp = models.CharField("WhatsApp", max_length=20)
+    tel_residencial = models.CharField("Telefone residencial", max_length=20, blank=True)
+    tel_comercial = models.CharField("Telefone comercial", max_length=20, blank=True)
+
+    # --- Endereço ---
+    endereco = models.CharField("Endereço", max_length=200, blank=True)
+    numero = models.CharField("Número", max_length=20, blank=True)
+    bairro = models.CharField("Bairro", max_length=100, blank=True)
+    cidade = models.CharField("Cidade", max_length=100, blank=True)
+    cep = models.CharField("CEP", max_length=15, blank=True)
+    estado = models.CharField("Estado", max_length=50, blank=True)
+
+    # --- Escolaridade ---
+    escolaridade = models.CharField(
+        "Escolaridade", max_length=20, choices=ESCOLARIDADE_CHOICES, blank=True
+    )
+
+    # --- Aceites (assinatura desenhada fica para depois) ---
+    compromisso_aceito = models.BooleanField(
+        "Compromisso de voluntário aceito", default=False
+    )
+    declaracao_medica_aceita = models.BooleanField(
+        "Declaração médica aceita", default=False
+    )
+    autorizacao_imagem_aceita = models.BooleanField(
+        "Autorização de imagem aceita", default=False
+    )
+
+    # Membro ativo (na diretoria) ou desligado.
+    ativo = models.BooleanField("Ativo (na diretoria)", default=True)
+    # Dado FICTÍCIO (teste/demo) — NUNCA entra nas contagens/relatórios do clube.
+    demo = models.BooleanField("Fictício (dados de teste)", default=False)
+
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Membro da diretoria"
+        verbose_name_plural = "Membros da diretoria"
+        ordering = ["nome_completo"]
+
+    def __str__(self):
+        return self.nome_completo
+
+
+class FichaMedicaDiretoria(FichaMedicaBase):
+    """Dados médicos do membro da diretoria (mesmos campos do aventureiro)."""
+
+    membro = models.OneToOneField(
+        MembroDiretoria,
+        on_delete=models.CASCADE,
+        related_name="ficha_medica",
+        verbose_name="Membro da diretoria",
+    )
+
+    class Meta:
+        verbose_name = "Ficha médica (diretoria)"
+        verbose_name_plural = "Fichas médicas (diretoria)"
+
+    def __str__(self):
+        return f"Ficha médica de {self.membro.nome_completo}"
 
 
 TIPO_EVENTO_CHOICES = [

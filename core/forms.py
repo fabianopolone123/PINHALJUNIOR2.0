@@ -21,6 +21,8 @@ from .models import (
     Evento,
     FaixaEtariaPreco,
     FichaMedica,
+    FichaMedicaDiretoria,
+    MembroDiretoria,
     ProdutoEvento,
     ProdutoLoja,
 )
@@ -146,6 +148,53 @@ class AutorizacaoImagemForm(EstiloFormMixin, forms.ModelForm):
     class Meta:
         model = AutorizacaoImagem
         exclude = ["aventureiro"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._aplicar_estilo()
+
+
+class MembroDiretoriaForm(EstiloFormMixin, forms.ModelForm):
+    """Ficha "Compromisso para Voluntários" — dados do membro da diretoria.
+
+    Os aceites (compromisso/declaração médica/autorização de imagem) e os campos
+    de sistema (usuário, ativo, demo) são tratados no servidor, fora do form.
+    """
+
+    class Meta:
+        model = MembroDiretoria
+        exclude = [
+            "usuario", "ativo", "demo", "criado_em",
+            "compromisso_aceito", "declaracao_medica_aceita",
+            "autorizacao_imagem_aceita",
+        ]
+        widgets = {
+            "data_nascimento": forms.DateInput(
+                attrs={"type": "date"}, format="%Y-%m-%d"
+            ),
+            "email": forms.EmailInput(),
+            "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Campos condicionais (cônjuge/qtd de filhos) não são obrigatórios; a
+        # exibição é controlada por JS e a coerência garantida no servidor.
+        self.fields["conjuge_nome"].required = False
+        self.fields["qtd_filhos"].required = False
+        self.fields["tem_filhos"].required = False
+        self._aplicar_estilo()
+
+
+class FichaMedicaDiretoriaForm(EstiloFormMixin, forms.ModelForm):
+    """Dados médicos do membro da diretoria (mesmos campos do aventureiro)."""
+
+    class Meta:
+        model = FichaMedicaDiretoria
+        exclude = ["membro"]
+        widgets = {
+            "outros_problemas": forms.Textarea(attrs={"rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

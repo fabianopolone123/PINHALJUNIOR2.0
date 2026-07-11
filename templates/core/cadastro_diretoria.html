@@ -1,0 +1,342 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Cadastro de Diretoria - Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/cadastro.css' %}">
+</head>
+<body>
+    <main class="tela-cadastro">
+        <section class="cadastro-card">
+
+            <header class="cadastro-topo">
+                <img src="{% static 'img/logo.png' %}" alt="Logo do clube" class="cadastro-logo">
+                <h1 class="cadastro-titulo">Compromisso para Voluntários</h1>
+                <p class="cadastro-sub">
+                    Cadastro da diretoria do Clube de Aventureiros Pinhal Júnior.
+                    {% if com_aventureiro %}
+                        Ao final, você seguirá para o cadastro do aventureiro.
+                    {% endif %}
+                </p>
+            </header>
+
+            {% if com_aventureiro %}
+            <div class="aviso-info">
+                Você escolheu <strong>Diretoria + Aventureiro</strong>: primeiro a diretoria,
+                depois o aventureiro (na mesma conta).
+            </div>
+            {% endif %}
+
+            <div class="progresso" aria-hidden="true">
+                <div class="progresso-linha"><span class="progresso-preenchido" id="progressoPreenchido"></span></div>
+                <ol class="progresso-etapas" id="progressoEtapas">
+                    <li class="etapa-ponto ativo"><span>1</span><em>Conta</em></li>
+                    <li class="etapa-ponto"><span>2</span><em>Identificação</em></li>
+                    <li class="etapa-ponto"><span>3</span><em>Contato</em></li>
+                    <li class="etapa-ponto"><span>4</span><em>Ficha médica</em></li>
+                    <li class="etapa-ponto"><span>5</span><em>Termos</em></li>
+                    <li class="etapa-ponto"><span>6</span><em>Revisão</em></li>
+                </ol>
+            </div>
+
+            {% if erro_aceites %}
+            <div class="aviso-erro">
+                <strong>Não foi possível enviar:</strong>
+                <ul>{% for e in erro_aceites %}<li>{{ e }}</li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+
+            <form class="cadastro-form" method="post" action="" enctype="multipart/form-data" novalidate id="cadastroForm">
+                {% csrf_token %}
+                {% if com_aventureiro %}<input type="hidden" name="com_aventureiro" value="1">{% endif %}
+
+                <!-- ===== Etapa 1: Conta ===== -->
+                <section class="passo ativo" data-passo="1">
+                    <h2 class="passo-titulo">1. Conta de acesso</h2>
+                    <p class="passo-desc">Crie o usuário e a senha para acessar o sistema.</p>
+                    {% if conta_form.non_field_errors %}<div class="erros">{{ conta_form.non_field_errors }}</div>{% endif %}
+                    {% include "core/_campo.html" with campo=conta_form.username %}
+                    <div class="grade-2">
+                        {% include "core/_campo.html" with campo=conta_form.senha %}
+                        {% include "core/_campo.html" with campo=conta_form.confirmar_senha %}
+                    </div>
+                </section>
+
+                <!-- ===== Etapa 2: Identificação ===== -->
+                <section class="passo" data-passo="2">
+                    <h2 class="passo-titulo">2. Identificação</h2>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Dados pessoais</h3>
+                        <div class="campo-foto">
+                            {% include "core/_campo.html" with campo=membro_form.foto %}
+                            <img id="fotoPreview" class="foto-preview" alt="Pré-visualização da foto" hidden>
+                        </div>
+                        {% include "core/_campo.html" with campo=membro_form.nome_completo %}
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.nacionalidade %}
+                            {% include "core/_campo.html" with campo=membro_form.data_nascimento %}
+                        </div>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.igreja %}
+                            {% include "core/_campo.html" with campo=membro_form.distrito %}
+                        </div>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.cpf %}
+                            {% include "core/_campo.html" with campo=membro_form.rg %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Família</h3>
+                        {% include "core/_campo.html" with campo=membro_form.estado_civil %}
+                        <div class="condicional" id="blocoConjuge">
+                            {% include "core/_campo.html" with campo=membro_form.conjuge_nome %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=membro_form.tem_filhos %}
+                        <div class="condicional" data-depende="{{ membro_form.tem_filhos.id_for_label }}">
+                            {% include "core/_campo.html" with campo=membro_form.qtd_filhos %}
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== Etapa 3: Contato e endereço ===== -->
+                <section class="passo" data-passo="3">
+                    <h2 class="passo-titulo">3. Contato e endereço</h2>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Contato</h3>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.email %}
+                            {% include "core/_campo.html" with campo=membro_form.whatsapp %}
+                        </div>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.tel_residencial %}
+                            {% include "core/_campo.html" with campo=membro_form.tel_comercial %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Endereço</h3>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.endereco %}
+                            {% include "core/_campo.html" with campo=membro_form.numero %}
+                        </div>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.bairro %}
+                            {% include "core/_campo.html" with campo=membro_form.cidade %}
+                        </div>
+                        <div class="grade-2">
+                            {% include "core/_campo.html" with campo=membro_form.cep %}
+                            {% include "core/_campo.html" with campo=membro_form.estado %}
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== Etapa 4: Ficha médica (mesma do aventureiro) ===== -->
+                <section class="passo" data-passo="4">
+                    <h2 class="passo-titulo">4. Dados médicos</h2>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Plano de saúde</h3>
+                        {% include "core/_campo_check.html" with campo=medica_form.possui_plano_saude %}
+                        <div class="condicional" data-depende="{{ medica_form.possui_plano_saude.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.qual_plano_saude %}
+                        </div>
+                        {% include "core/_campo.html" with campo=medica_form.cartao_sus %}
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Doenças que já teve ou tem</h3>
+                        <div class="grade-3">
+                            {% include "core/_campo_check.html" with campo=medica_form.catapora %}
+                            {% include "core/_campo_check.html" with campo=medica_form.meningite %}
+                            {% include "core/_campo_check.html" with campo=medica_form.hepatite %}
+                            {% include "core/_campo_check.html" with campo=medica_form.dengue %}
+                            {% include "core/_campo_check.html" with campo=medica_form.pneumonia %}
+                            {% include "core/_campo_check.html" with campo=medica_form.malaria %}
+                            {% include "core/_campo_check.html" with campo=medica_form.febre_amarela %}
+                            {% include "core/_campo_check.html" with campo=medica_form.h1n1 %}
+                            {% include "core/_campo_check.html" with campo=medica_form.colera %}
+                            {% include "core/_campo_check.html" with campo=medica_form.rubeola %}
+                            {% include "core/_campo_check.html" with campo=medica_form.sarampo %}
+                            {% include "core/_campo_check.html" with campo=medica_form.tetano %}
+                            {% include "core/_campo_check.html" with campo=medica_form.variola %}
+                            {% include "core/_campo_check.html" with campo=medica_form.coqueluche %}
+                            {% include "core/_campo_check.html" with campo=medica_form.difteria %}
+                            {% include "core/_campo_check.html" with campo=medica_form.caxumba %}
+                            {% include "core/_campo_check.html" with campo=medica_form.rinite %}
+                            {% include "core/_campo_check.html" with campo=medica_form.bronquite %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Alergias</h3>
+                        {% include "core/_campo_check.html" with campo=medica_form.alergia_pele %}
+                        <div class="condicional" data-depende="{{ medica_form.alergia_pele.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.alergia_pele_qual %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.alergia_alimentar %}
+                        <div class="condicional" data-depende="{{ medica_form.alergia_alimentar.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.alergia_alimentar_qual %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.alergia_medicamentos %}
+                        <div class="condicional" data-depende="{{ medica_form.alergia_medicamentos.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.alergia_medicamentos_qual %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Deficiência física</h3>
+                        <div class="grade-3">
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_cadeirante %}
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_visual %}
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_auditivo %}
+                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_fala %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Condições de saúde</h3>
+                        {% include "core/_campo_check.html" with campo=medica_form.cardiaco %}
+                        <div class="condicional" data-depende="{{ medica_form.cardiaco.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.cardiaco_medicamentos %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.diabetico %}
+                        <div class="condicional" data-depende="{{ medica_form.diabetico.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.diabetico_medicamentos %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.renais %}
+                        <div class="condicional" data-depende="{{ medica_form.renais.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.renais_medicamentos %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.psicologicos %}
+                        <div class="condicional" data-depende="{{ medica_form.psicologicos.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.psicologicos_medicamentos %}
+                        </div>
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Outras informações médicas</h3>
+                        {% include "core/_campo.html" with campo=medica_form.outros_problemas %}
+                        {% include "core/_campo_check.html" with campo=medica_form.problema_recente %}
+                        <div class="condicional" data-depende="{{ medica_form.problema_recente.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.problema_recente_qual %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.medicamento_recente %}
+                        <div class="condicional" data-depende="{{ medica_form.medicamento_recente.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.medicamento_recente_qual %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.ferimento_recente %}
+                        <div class="condicional" data-depende="{{ medica_form.ferimento_recente.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.ferimento_recente_qual %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.cirurgia %}
+                        <div class="condicional" data-depende="{{ medica_form.cirurgia.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.cirurgia_qual %}
+                        </div>
+                        {% include "core/_campo_check.html" with campo=medica_form.internado_5anos %}
+                        <div class="condicional" data-depende="{{ medica_form.internado_5anos.id_for_label }}">
+                            {% include "core/_campo.html" with campo=medica_form.internado_5anos_motivo %}
+                        </div>
+                        {% include "core/_campo.html" with campo=medica_form.tipo_sanguineo %}
+                    </div>
+                </section>
+
+                <!-- ===== Etapa 5: Escolaridade + Termos/Aceites ===== -->
+                <section class="passo" data-passo="5">
+                    <h2 class="passo-titulo">5. Escolaridade e termos</h2>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Escolaridade</h3>
+                        {% include "core/_campo.html" with campo=membro_form.escolaridade %}
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Compromisso de voluntário</h3>
+                        <div class="termo">
+                            <p>
+                                Confirmo meu compromisso como voluntário(a) do Clube de Aventureiros
+                                Pinhal Júnior, comprometendo-me a participar das atividades, zelar
+                                pelo bem-estar e pela segurança dos aventureiros e a manter os
+                                princípios do clube.
+                            </p>
+                        </div>
+                        {% include "core/_campo_check_livre.html" with nome="aceite_compromisso" rotulo="Li e aceito o compromisso de voluntário." %}
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Declaração médica</h3>
+                        <div class="termo">
+                            <p>
+                                Atesto serem verdadeiras todas as informações médicas preenchidas e
+                                me responsabilizo por quaisquer acidentes que venham a ocorrer em
+                                decorrência de não informar problema médico de qualquer natureza.
+                            </p>
+                        </div>
+                        {% include "core/_campo_check_livre.html" with nome="aceite_medica" rotulo="Li e aceito a declaração médica." %}
+                    </div>
+
+                    <div class="bloco">
+                        <h3 class="bloco-titulo">Termo de Autorização de Uso de Imagem</h3>
+                        <div class="termo" id="termoImagem">
+                            <p>
+                                Eu, <strong data-fill="id_dir-nome_completo" data-vazio="[NOME]">[NOME]</strong>,
+                                <span data-fill="id_dir-nacionalidade" data-vazio="[NACIONALIDADE]">[NACIONALIDADE]</span>,
+                                <span data-fill="id_dir-estado_civil" data-vazio="[ESTADO CIVIL]">[ESTADO CIVIL]</span>,
+                                portador(a) da Cédula de identidade RG nº <span data-fill="id_dir-rg" data-vazio="[RG]">[RG]</span>,
+                                inscrito(a) no CPF sob nº <span data-fill="id_dir-cpf" data-vazio="[CPF]">[CPF]</span>,
+                                residente na <span data-fill="id_dir-endereco" data-vazio="[ENDEREÇO]">[ENDEREÇO]</span>,
+                                nº <span data-fill="id_dir-numero" data-vazio="[Nº]">[Nº]</span>,
+                                bairro <span data-fill="id_dir-bairro" data-vazio="[BAIRRO]">[BAIRRO]</span>,
+                                município de <span data-fill="id_dir-cidade" data-vazio="[CIDADE]">[CIDADE]</span> /
+                                <span data-fill="id_dir-estado" data-vazio="[ESTADO]">[ESTADO]</span>,
+                                <strong>AUTORIZO</strong> o uso da minha imagem em todo e qualquer material entre
+                                fotos e documentos para ser utilizado em campanhas promocionais e institucionais
+                                do CLUBE DE AVENTUREIROS, sejam essas destinadas à divulgação ao público em geral.
+                                A presente autorização é concedida a título gratuito, abrangendo o uso da imagem em
+                                todo território nacional, das seguintes formas: (I) outdoor; (II) folhetos em geral;
+                                (III) folder de apresentação; (IV) anúncios em revistas e jornais; (V) home page
+                                (facebook); (VI) cartazes; (VII) mídia eletrônica (painéis, vídeos, televisão,
+                                rádio, entre outros). Por esta ser a expressão da minha vontade, declaro que
+                                autorizo o uso acima descrito sem que nada haja a ser reclamado a título de direitos
+                                conexos à imagem ou a qualquer outro.
+                            </p>
+                            <small class="ajuda">Os campos destacados são preenchidos com os dados informados acima.</small>
+                        </div>
+                        {% include "core/_campo_check_livre.html" with nome="aceite_imagem" rotulo="Li e aceito a autorização de uso de imagem." %}
+                    </div>
+                </section>
+
+                <!-- ===== Etapa 6: Revisão ===== -->
+                <section class="passo" data-passo="6">
+                    <h2 class="passo-titulo">6. Revisão</h2>
+                    <p class="passo-desc">Confira as informações antes de finalizar.</p>
+                    <div class="revisao" id="revisao"></div>
+                    <p class="aviso-revisao">
+                        Ao finalizar, o cadastro de diretoria será registrado
+                        {% if com_aventureiro %} e você seguirá para o cadastro do aventureiro{% endif %}.
+                    </p>
+                </section>
+
+                <!-- Navegação -->
+                <div class="navegacao">
+                    <button type="button" class="btn-secundario" id="btnVoltar" hidden>Voltar</button>
+                    <button type="button" class="btn-primario" id="btnProximo">Próximo</button>
+                    <button type="submit" class="btn-primario btn-finalizar" id="btnFinalizar" hidden>Finalizar cadastro</button>
+                </div>
+            </form>
+
+            <p class="voltar-login">
+                <a href="{% url 'core:cadastro' %}">Voltar às opções de cadastro</a>
+            </p>
+        </section>
+    </main>
+
+    <script src="{% static 'js/cadastro_diretoria.js' %}"></script>
+</body>
+</html>
