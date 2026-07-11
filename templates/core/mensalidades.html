@@ -273,15 +273,22 @@
 
                 <!-- ===== ABA: COBRANÇAS ===== -->
                 <section class="mens-painel" data-painel="cobrancas"{% if aba != 'cobrancas' %} hidden{% endif %}
-                         data-enviar-url="{% url 'core:mensalidade_cobranca_enviar' %}" data-csrf="{{ csrf_token }}">
+                         data-enviar-url="{% url 'core:mensalidade_cobranca_enviar' %}"
+                         data-modo-url="{% url 'core:mensalidade_cobranca_modo' %}"
+                         data-ia-configurada="{% if ia_configurada %}1{% else %}0{% endif %}"
+                         data-csrf="{{ csrf_token }}">
 
                     <details class="card mens-cobranca-msg">
                         <summary>✏️ Mensagens (cobrança e apelo)</summary>
                         <form method="post" action="{% url 'core:mensalidade_cobranca_config' %}" class="mens-cobranca-form">
                             {% csrf_token %}
-                            <label class="bloco-rotulo">Mensagem de cobrança (WhatsApp)</label>
+                            <label class="bloco-rotulo">Mensagem de cobrança padrão (WhatsApp)</label>
                             <textarea name="mensagem_cobranca" rows="10" class="mens-cobranca-textarea">{{ mensagem_cobranca }}</textarea>
-                            <p class="ajuda">Marcadores que serão trocados por família: <code>{nome}</code> (1º nome), <code>{itens}</code> (lista do que deve), <code>{total}</code>, <code>{link}</code> (página de acerto).</p>
+                            <p class="ajuda">Usada quando o modo IA está <strong>desligado</strong>. Marcadores trocados por família: <code>{nome}</code> (1º nome), <code>{itens}</code> (lista do que deve), <code>{total}</code>, <code>{link}</code> (página de acerto).</p>
+
+                            <label class="bloco-rotulo" style="margin-top:14px;">🤖 Prompt da cobrança pela IA</label>
+                            <textarea name="prompt_cobranca_ia" rows="10" class="mens-cobranca-textarea">{{ prompt_cobranca_ia }}</textarea>
+                            <p class="ajuda">Usado quando o modo IA está <strong>ligado</strong>: a IA recebe este prompt (com os mesmos marcadores <code>{nome}</code>/<code>{itens}</code>/<code>{total}</code>/<code>{link}</code> já preenchidos) e redige uma mensagem personalizada para cada família.</p>
 
                             <label class="bloco-rotulo" style="margin-top:14px;">Mensagem de apelo (área do responsável)</label>
                             <textarea name="mensagem_apelo" rows="5" class="mens-cobranca-textarea">{{ mensagem_apelo }}</textarea>
@@ -290,6 +297,22 @@
                             <div class="form-acoes"><button type="submit" class="btn-acao">💾 Salvar mensagens</button></div>
                         </form>
                     </details>
+
+                    <div class="card mens-cobranca-modo">
+                        <div class="mens-modo-info">
+                            <span class="mens-modo-titulo">Como enviar a cobrança</span>
+                            <span class="mens-modo-sub" id="cobrancaModoSub">{% if cobranca_via_ia %}🤖 A IA redige uma mensagem personalizada para cada família.{% else %}📝 Usa a mensagem de cobrança padrão.{% endif %}</span>
+                        </div>
+                        <label class="mens-switch" title="Alternar entre mensagem padrão e IA">
+                            <span class="mens-switch-lbl">Padrão</span>
+                            <input type="checkbox" id="cobrancaModoIA" {% if cobranca_via_ia %}checked{% endif %}>
+                            <span class="mens-switch-trilho"><span class="mens-switch-bolinha"></span></span>
+                            <span class="mens-switch-lbl">🤖 IA</span>
+                        </label>
+                    </div>
+                    {% if not ia_configurada %}
+                    <p class="ajuda mens-modo-aviso" id="cobrancaIaAviso"{% if not cobranca_via_ia %} hidden{% endif %}>⚠️ O modo IA está ligado, mas a IA ainda não foi configurada. Configure em <strong>Configurações IA</strong> ou volte para a mensagem padrão.</p>
+                    {% endif %}
 
                     {% if cobrancas %}
                     <div class="card mens-cobranca-barra">

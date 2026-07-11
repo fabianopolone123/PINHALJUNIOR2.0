@@ -217,6 +217,7 @@ urlpatterns = [
     path("mensalidades/cobrar/", views.mensalidade_cobrar_view, name="mensalidade_cobrar"),
     path("mensalidades/pagar-selecionadas/", views.minhas_mensalidades_pagar_view, name="minhas_mensalidades_pagar"),
     path("mensalidades/cobrancas/config/", views.mensalidade_cobranca_config_view, name="mensalidade_cobranca_config"),
+    path("mensalidades/cobrancas/modo/", views.mensalidade_cobranca_modo_view, name="mensalidade_cobranca_modo"),
     path("mensalidades/cobrancas/enviar/", views.mensalidade_cobranca_enviar_view, name="mensalidade_cobranca_enviar"),
     path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),
     path("mensalidades/editar/", views.mensalidade_editar_view, name="mensalidade_editar"),

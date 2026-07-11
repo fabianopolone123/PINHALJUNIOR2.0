@@ -66,6 +66,7 @@ from .models import (
     ConfigMensalidade,
     MENSAGEM_APELO_PADRAO,
     MENSAGEM_COBRANCA_PADRAO,
+    PROMPT_COBRANCA_IA_PADRAO,
     AssinaturaDocumentoDiretoria,
     CupomDesconto,
     CustoClube,
@@ -4149,10 +4150,11 @@ def _montar_mensagem_cobranca(template, familia, request):
 @diretor_required
 @require_POST
 def mensalidade_cobranca_config_view(request):
-    """Salva o template da mensagem de cobrança (WhatsApp) e a mensagem de apelo
-    (exibida ao responsável na área de mensalidades dele)."""
+    """Salva o template da mensagem de cobrança (WhatsApp), o prompt da IA e a
+    mensagem de apelo (exibida ao responsável na área de mensalidades dele)."""
     c = ConfigMensalidade.get_solo()
     c.mensagem_cobranca = (request.POST.get("mensagem_cobranca") or "").strip() or MENSAGEM_COBRANCA_PADRAO
+    c.prompt_cobranca_ia = (request.POST.get("prompt_cobranca_ia") or "").strip() or PROMPT_COBRANCA_IA_PADRAO
     c.mensagem_apelo = (request.POST.get("mensagem_apelo") or "").strip() or MENSAGEM_APELO_PADRAO
     c.atualizado_por = request.user
     c.save()
@@ -4162,15 +4164,49 @@ def mensalidade_cobranca_config_view(request):
 
 @diretor_required
 @require_POST
+def mensalidade_cobranca_modo_view(request):
+    """Liga/desliga o modo IA da cobrança (a "alavanca"). Persiste na hora."""
+    c = ConfigMensalidade.get_solo()
+    c.cobranca_via_ia = request.POST.get("via_ia") == "1"
+    c.atualizado_por = request.user
+    c.save(update_fields=["cobranca_via_ia", "atualizado_por", "atualizado_em"])
+    return JsonResponse({"ok": True, "via_ia": c.cobranca_via_ia})
+
+
+def _gerar_cobranca_ia(prompt_template, familia, request, ia_cfg):
+    """Pede ao GPT a mensagem de cobrança personalizada da família. Reaproveita a
+    interpolação dos marcadores ({nome}/{itens}/{total}/{link}) para montar o prompt.
+    Retorna (ok, texto|erro); contabiliza os tokens no sucesso."""
+    prompt = _montar_mensagem_cobranca(prompt_template, familia, request)
+    ok, texto, uso = openai_ia.enviar_prompt(ia_cfg, prompt)
+    if ok:
+        ia_cfg.registrar_uso(uso)
+        return True, texto
+    return False, texto
+
+
+@diretor_required
+@require_POST
 def mensalidade_cobranca_enviar_view(request):
     """Envia a cobrança por WhatsApp (uma família ou todas) e registra o histórico.
+    A mensagem vem do template padrão ou é redigida pela IA (conforme a alavanca).
     Filtro opcional: só quem ainda não recebeu neste mês."""
     wa = WhatsappConfig.get_solo()
     if not wa.configurado:
         return JsonResponse(
             {"ok": False, "erro": "Configure o WhatsApp antes de enviar cobranças."}, status=400
         )
-    template = ConfigMensalidade.get_solo().mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO
+    cfg = ConfigMensalidade.get_solo()
+    via_ia = cfg.cobranca_via_ia
+    template = cfg.mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO
+    prompt_ia = cfg.prompt_cobranca_ia or PROMPT_COBRANCA_IA_PADRAO
+    ia_cfg = OpenAIConfig.get_solo()
+    if via_ia and not ia_cfg.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Modo IA ligado, mas a IA não está configurada. "
+                                  "Configure em Configurações IA ou desligue o modo IA."},
+            status=400,
+        )
     alvo = request.POST.get("usuario_id")
     so_nao_enviados = request.POST.get("so_nao_enviados") == "1"
     hoje = timezone.localdate()
@@ -4187,7 +4223,13 @@ def mensalidade_cobranca_enviar_view(request):
         if not f["tem_numero"]:
             falhas.append(f"{f['resp_nome']}: sem WhatsApp cadastrado")
             continue
-        msg = _montar_mensagem_cobranca(template, f, request)
+        if via_ia:
+            ok_ia, msg = _gerar_cobranca_ia(prompt_ia, f, request, ia_cfg)
+            if not ok_ia:
+                falhas.append(f"{f['resp_nome']}: IA falhou ({msg})")
+                continue
+        else:
+            msg = _montar_mensagem_cobranca(template, f, request)
         ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
         if ok:
             CobrancaEnviada.objects.create(
@@ -4197,7 +4239,7 @@ def mensalidade_cobranca_enviar_view(request):
             enviados += 1
         else:
             falhas.append(f"{f['resp_nome']}: {detalhe}")
-    return JsonResponse({"ok": True, "enviados": enviados, "falhas": falhas})
+    return JsonResponse({"ok": True, "enviados": enviados, "falhas": falhas, "via_ia": via_ia})
 
 
 # ---------------------------------------------------------------------------
@@ -5535,8 +5577,11 @@ def mensalidades_view(request):
         # Aba Cobranças
         "cobrancas": _cobrancas_familias(),
         "mensagem_cobranca": ConfigMensalidade.get_solo().mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO,
+        "prompt_cobranca_ia": ConfigMensalidade.get_solo().prompt_cobranca_ia or PROMPT_COBRANCA_IA_PADRAO,
+        "cobranca_via_ia": ConfigMensalidade.get_solo().cobranca_via_ia,
         "mensagem_apelo": ConfigMensalidade.get_solo().mensagem_apelo or MENSAGEM_APELO_PADRAO,
         "wa_configurado": WhatsappConfig.get_solo().configurado,
+        "ia_configurada": OpenAIConfig.get_solo().configurado,
     }
     return render(request, "core/mensalidades.html", contexto)
 

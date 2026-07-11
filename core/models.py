@@ -2044,6 +2044,21 @@ MENSAGEM_COBRANCA_PADRAO = (
     "Qualquer dúvida, estamos à disposição. Obrigado! 💚"
 )
 
+# Prompt enviado ao GPT para ELE redigir a mensagem de cobrança (quando o modo IA
+# está ligado). Usa os MESMOS marcadores da mensagem padrão ({nome}/{itens}/{total}/
+# {link}), trocados por família antes de ir para a IA. Editável na aba "Cobranças".
+PROMPT_COBRANCA_IA_PADRAO = (
+    "Você é o tesoureiro do Clube de Aventureiros Pinhal Júnior e vai escrever uma "
+    "mensagem de WhatsApp para {nome}, lembrando com gentileza de mensalidades em aberto.\n\n"
+    "Mensalidades em aberto:\n{itens}\n"
+    "Total: R$ {total}\n"
+    "Link para pagar fácil (Pix ou cartão): {link}\n\n"
+    "Escreva uma mensagem CURTA, objetiva e MUITO educada, em português do Brasil, "
+    "agradecendo a família pela colaboração e parceria com o clube. Inclua o link de pagamento. "
+    "Use no máximo 1 ou 2 emojis discretos. NÃO invente valores, datas ou informações além das "
+    "acima. Responda apenas com o texto final da mensagem, sem aspas nem comentários."
+)
+
 # Texto de "apelo" exibido ao responsável na área de mensalidades dele (dentro do
 # sistema), incentivando a contribuir. Editável pelo Diretor na aba "Cobranças".
 MENSAGEM_APELO_PADRAO = (
@@ -2068,6 +2083,13 @@ class ConfigMensalidade(models.Model):
     # de acerto). Editável na aba "Cobranças".
     mensagem_cobranca = models.TextField(
         "Mensagem de cobrança (WhatsApp)", blank=True, default=MENSAGEM_COBRANCA_PADRAO
+    )
+    # Modo de envio da cobrança: False = mensagem padrão (template acima);
+    # True = a IA (GPT) redige uma mensagem personalizada por família.
+    cobranca_via_ia = models.BooleanField("Cobrança gerada pela IA", default=False)
+    # Prompt enviado ao GPT quando `cobranca_via_ia` está ligado (mesmos marcadores).
+    prompt_cobranca_ia = models.TextField(
+        "Prompt da cobrança (IA)", blank=True, default=PROMPT_COBRANCA_IA_PADRAO
     )
     # Texto de apelo mostrado ao responsável na área de mensalidades dele.
     mensagem_apelo = models.TextField(

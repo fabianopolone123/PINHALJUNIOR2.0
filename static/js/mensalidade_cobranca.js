@@ -18,6 +18,35 @@
         if (typeof window.mostrarToast === "function") window.mostrarToast(msg, tipo);
     }
 
+    // ---- Alavanca: mensagem padrão × IA (persiste ao trocar) ----
+    var modoIA = document.getElementById("cobrancaModoIA");
+    var modoSub = document.getElementById("cobrancaModoSub");
+    var iaAviso = document.getElementById("cobrancaIaAviso");
+    var iaConfigurada = painel.dataset.iaConfigurada === "1";
+    if (modoIA) {
+        modoIA.addEventListener("change", function () {
+            var ligado = modoIA.checked;
+            if (modoSub) {
+                modoSub.textContent = ligado
+                    ? "🤖 A IA redige uma mensagem personalizada para cada família."
+                    : "📝 Usa a mensagem de cobrança padrão.";
+            }
+            if (iaAviso && !iaConfigurada) iaAviso.hidden = !ligado;
+            fetch(painel.dataset.modoUrl, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrf,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: "via_ia=" + (ligado ? "1" : "0"),
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (!d || !d.ok) { toast("Não foi possível salvar o modo.", "error"); return; }
+                toast(ligado ? "Cobrança pela IA ativada. 🤖" : "Cobrança pela mensagem padrão.", "success");
+            }).catch(function () { toast("Falha ao salvar o modo.", "error"); });
+        });
+    }
+
     function enviar(usuarioId) {
         return fetch(url, {
             method: "POST",

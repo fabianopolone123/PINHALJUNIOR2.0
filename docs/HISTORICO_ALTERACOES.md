@@ -22,6 +22,44 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Cobrança de mensalidades pela IA (1º uso do GPT no sistema)
+
+### Resumo
+Primeiro ponto de uso do módulo **Configurações IA**: na aba **Cobranças** de Mensalidades, o Diretor/Tesoureiro
+agora pode escolher **como** a cobrança é enviada por WhatsApp — pela **mensagem padrão** (template de sempre) ou
+**pela IA** (o GPT redige uma mensagem personalizada por família). Uma **alavanca** (switch) na barra de cobranças
+alterna os dois modos e persiste na hora; abaixo há um **prompt editável** que é enviado ao GPT. Ao enviar
+(individual ou em lote), quando o modo IA está ligado, o sistema monta o prompt com os dados da família, pede a
+mensagem ao GPT e envia o texto retornado. Os tokens consumidos entram no contador de Configurações IA.
+
+### Como funciona
+- O prompt usa os **mesmos marcadores** da mensagem padrão (`{nome}`/`{itens}`/`{total}`/`{link}`), já
+  preenchidos por família antes de ir ao GPT (reaproveita `_montar_mensagem_cobranca`).
+- Se o modo IA estiver **ligado mas a IA não configurada**, o envio é barrado com aviso claro (configurar em
+  Configurações IA ou voltar ao padrão) — e a tela já mostra um alerta preventivo.
+- Se a IA **falhar** para uma família específica no lote, ela entra em "falhas" (não é enviada) — o Tesoureiro vê.
+
+### Arquivos alterados
+- `core/models.py`: `ConfigMensalidade` ganhou `cobranca_via_ia` (bool, a alavanca) e `prompt_cobranca_ia`
+  (texto); constante `PROMPT_COBRANCA_IA_PADRAO` (prompt padrão: tesoureiro educado, mensagem curta e objetiva).
+- `core/views.py`: `mensalidade_cobranca_config_view` salva o prompt; nova `mensalidade_cobranca_modo_view`
+  (liga/desliga a alavanca via AJAX); helper `_gerar_cobranca_ia` (monta o prompt + chama o GPT + conta tokens);
+  `mensalidade_cobranca_enviar_view` ramifica padrão × IA; contexto da tela passa prompt/flag/`ia_configurada`.
+- `core/urls.py`: rota `mensalidades/cobrancas/modo/`.
+- `templates/core/mensalidades.html`: prompt da IA no form de mensagens + card da alavanca (switch) + aviso.
+- `static/js/mensalidade_cobranca.js`: alavanca persiste ao trocar e atualiza o texto/aviso.
+- `static/css/mensalidades.css`: switch e card de modo.
+- Migration **0045**.
+
+### Decisões tomadas
+- A alavanca é uma configuração persistida (`ConfigMensalidade.cobranca_via_ia`), lida no servidor no ato do envio.
+- IA por família = 1 chamada ao GPT por envio (mais lento que o padrão, mas personalizado); tokens contabilizados.
+
+### Pendências
+- Próximos pontos de uso da IA no sistema (a definir).
+
+---
+
 ## 2026-07-11 - Configurações IA: modelo fixo + contador de tokens + sem URL base
 
 ### Resumo

@@ -2,7 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Configurações IA: modelo fixo + contador de tokens**): a tela `/ia/`
+**Última atualização:** 2026-07-11 (**Cobrança de mensalidades pela IA — 1º uso do GPT**): na aba **Cobranças**
+de Mensalidades, uma **alavanca** (switch, persiste na hora via `mensalidades/cobrancas/modo/`) escolhe se a
+cobrança por WhatsApp usa a **mensagem padrão** ou é redigida **pela IA** (GPT). Prompt editável no form de
+mensagens (`ConfigMensalidade.prompt_cobranca_ia`, flag `cobranca_via_ia`; constante `PROMPT_COBRANCA_IA_PADRAO`);
+usa os mesmos marcadores `{nome}/{itens}/{total}/{link}` (reaproveita `_montar_mensagem_cobranca`). No envio
+(individual/lote) com modo IA, `_gerar_cobranca_ia` monta o prompt, chama o GPT e envia o texto (tokens vão pro
+contador de Configurações IA). Guard: modo IA sem IA configurada → barra com aviso. Migration **0045**.
+Antes: Configurações IA — modelo fixo + contador de tokens.
+
+**Anterior (Configurações IA: modelo fixo + contador de tokens):** a tela `/ia/`
 (🤖, só Diretor) guarda **só a chave da API**; o **modelo é fixo** `gpt-4.1-nano` (o mais barato, constante
 `MODELO` em `core/openai_ia.py`) e a **URL base não é mais configurável**. Novo card **"Consumo de tokens"**
 acumulando chamadas + tokens de entrada (total/em cache/fora do cache) + saída + total, com **"Zerar contador"**
