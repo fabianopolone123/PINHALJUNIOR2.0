@@ -36,6 +36,11 @@ de **mesclagem** (um login com 2 perfis). Resultado registrado em `docs/MIGRACAO
 ### Decisões
 - Não versionar o levantamento (privacidade). Nenhum dado/código alterado — só análise + doc local.
 
+### Atualização (mesmo dia)
+- Investigado o **formato das assinaturas antigas** (só leitura): NÃO foram migradas; existem no export como
+  base64 por documento em `aventureiroficha`/`diretoriaficha` (batem 1:1 com o novo) + arquivos PNG únicos.
+  Mapeamento para `AssinaturaDocumento`/`AssinaturaDocumentoDiretoria` registrado no doc local.
+
 ---
 
 ## 2026-07-11 - Diretor atribui o papel dos integrantes da diretoria
