@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Validação do cadastro usa o toast padrão do sistema
+
+### Resumo
+Ao clicar "Próximo"/"Finalizar" com campos obrigatórios vazios, o aviso agora é o **toast clássico** do
+sistema (`window.mostrarToast`), com **uma notificação só** listando o(s) campo(s) que faltam (ex.:
+"Preencha os campos obrigatórios: Usuário, Senha, Confirmar senha"; acima de 4, resume com "e mais N").
+Removida a caixa `#avisoValidacao`.
+
+### Arquivos alterados
+- `static/js/wizard_validacao.js`: `mostrarAviso` monta uma mensagem e chama `window.mostrarToast(msg, "error")`.
+- `templates/core/cadastro.html` e `cadastro_diretoria.html`: carregam `inicio.js` (expõe `mostrarToast`;
+  CSS do toast já está em `base.css`) e removem a caixa de aviso.
+
+---
+
 ## 2026-07-11 - Ajustes na ficha médica e no visual do Sim/Não
 
 ### Resumo

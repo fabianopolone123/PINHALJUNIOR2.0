@@ -56,10 +56,6 @@
             </div>
             {% endif %}
 
-            <div class="aviso-erro" id="avisoValidacao" hidden>
-                <strong>Preencha os campos obrigatórios:</strong>
-                <ul id="avisoValidacaoLista"></ul>
-            </div>
 
             <form class="cadastro-form" method="post" action="" enctype="multipart/form-data" novalidate id="cadastroForm">
                 {% csrf_token %}
@@ -366,6 +362,7 @@
         </div>
     </div>
 
+    <script src="{% static 'js/inicio.js' %}"></script>
     <script src="{% static 'js/assinatura.js' %}"></script>
     <script src="{% static 'js/wizard_validacao.js' %}"></script>
     <script src="{% static 'js/cadastro.js' %}"></script>

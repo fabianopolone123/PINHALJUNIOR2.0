@@ -37,22 +37,28 @@
         return out;
     }
 
+    // Mostra UM toast (padrão do sistema) com o(s) nome(s) do(s) campo(s) que faltam.
     function mostrarAviso(lista) {
-        var box = document.getElementById("avisoValidacao");
-        var ul = document.getElementById("avisoValidacaoLista");
-        if (!box || !ul) return;
-        if (!lista.length) { box.hidden = true; return; }
-        ul.innerHTML = lista.map(function (x) {
-            return "<li>" + (x.rotulo || x) + "</li>";
-        }).join("");
-        box.hidden = false;
-        box.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (!lista || !lista.length) return;
+        var nomes = lista.map(function (x) { return x.rotulo || x; });
+        var msg;
+        if (nomes.length === 1) {
+            msg = "Preencha o campo obrigatório: " + nomes[0];
+        } else {
+            var MAX = 4;
+            var mostra = nomes.slice(0, MAX).join(", ");
+            var resto = nomes.length - MAX;
+            msg = "Preencha os campos obrigatórios: " + mostra + (resto > 0 ? " e mais " + resto : "");
+        }
+        if (window.mostrarToast) {
+            window.mostrarToast(msg, "error");
+        } else {
+            alert(msg);
+        }
     }
 
-    function limparAviso() {
-        var box = document.getElementById("avisoValidacao");
-        if (box) box.hidden = true;
-    }
+    // Toasts fecham sozinhos; nada a limpar (mantido por compatibilidade).
+    function limparAviso() {}
 
     window.WizardValidacao = {
         faltantes: faltantes,
