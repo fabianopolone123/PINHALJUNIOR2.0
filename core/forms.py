@@ -46,6 +46,89 @@ class EstiloFormMixin:
                 widget.attrs.setdefault("class", "campo-input")
 
 
+SIM_NAO_CHOICES = [("sim", "Sim"), ("nao", "Não")]
+
+
+def campo_sim_nao(label, required=True):
+    """Campo Sim/Não obrigatório (radio) que grava num BooleanField do model."""
+    return forms.TypedChoiceField(
+        label=label,
+        choices=SIM_NAO_CHOICES,
+        coerce=lambda v: v == "sim",
+        empty_value=None,
+        widget=forms.RadioSelect,
+        required=required,
+    )
+
+
+# Ficha médica: pares (pergunta booleana -> campo de detalhe obrigatório se "Sim").
+MED_PARES = [
+    ("possui_plano_saude", "qual_plano_saude"),
+    ("alergia_pele", "alergia_pele_qual"),
+    ("alergia_alimentar", "alergia_alimentar_qual"),
+    ("alergia_medicamentos", "alergia_medicamentos_qual"),
+    ("cardiaco", "cardiaco_medicamentos"),
+    ("diabetico", "diabetico_medicamentos"),
+    ("renais", "renais_medicamentos"),
+    ("psicologicos", "psicologicos_medicamentos"),
+    ("problema_recente", "problema_recente_qual"),
+    ("medicamento_recente", "medicamento_recente_qual"),
+    ("ferimento_recente", "ferimento_recente_qual"),
+    ("cirurgia", "cirurgia_qual"),
+    ("internado_5anos", "internado_5anos_motivo"),
+]
+MED_DOENCAS = [
+    "catapora", "meningite", "hepatite", "dengue", "pneumonia", "malaria",
+    "febre_amarela", "h1n1", "colera", "rubeola", "sarampo", "tetano",
+    "variola", "coqueluche", "difteria", "caxumba", "rinite", "bronquite",
+]
+MED_DEFICIENCIAS = [
+    "deficiente_cadeirante", "deficiente_visual", "deficiente_auditivo", "deficiente_fala",
+]
+
+
+class FichaMedicaCamposMixin:
+    """Transforma a ficha médica num formulário de Sim/Não OBRIGATÓRIO + detalhe.
+
+    Cada pergunta (plano, alergias, condições, histórico recente) vira um Sim/Não
+    obrigatório; o detalhe correspondente só é exigido quando "Sim". As listas de
+    doenças e de deficiências ganham um Sim/Não obrigatório na frente (`teve_doencas`
+    / `tem_deficiencia`); se "Sim", ao menos um item deve ser marcado; se "Não", a
+    lista é zerada. Reutilizado pelo aventureiro e pela diretoria."""
+
+    def _preparar_ficha_medica(self):
+        # 1) Perguntas Sim/Não obrigatórias (substituem os checkboxes dos booleanos).
+        for booleano, detalhe in MED_PARES:
+            self.fields[booleano] = campo_sim_nao(self.fields[booleano].label)
+            self.fields[detalhe].required = False  # exigido no clean() só se "Sim"
+        # 2) Gates das listas (campos extra, fora do model).
+        self.fields["teve_doencas"] = campo_sim_nao("Já teve ou tem alguma dessas doenças?")
+        self.fields["tem_deficiencia"] = campo_sim_nao("Possui alguma deficiência física?")
+        # 3) Tipo sanguíneo obrigatório.
+        self.fields["tipo_sanguineo"].required = True
+
+    def clean(self):
+        cleaned = super().clean()
+        for booleano, detalhe in MED_PARES:
+            if cleaned.get(booleano) is True and not (cleaned.get(detalhe) or "").strip():
+                self.add_error(detalhe, "Informe o detalhe, já que marcou Sim.")
+        # Doenças
+        if cleaned.get("teve_doencas") is True:
+            if not any(cleaned.get(d) for d in MED_DOENCAS):
+                self.add_error("teve_doencas", "Marque as doenças que teve (ou escolha Não).")
+        elif cleaned.get("teve_doencas") is False:
+            for d in MED_DOENCAS:
+                cleaned[d] = False
+        # Deficiências
+        if cleaned.get("tem_deficiencia") is True:
+            if not any(cleaned.get(x) for x in MED_DEFICIENCIAS):
+                self.add_error("tem_deficiencia", "Marque a(s) deficiência(s) (ou escolha Não).")
+        elif cleaned.get("tem_deficiencia") is False:
+            for x in MED_DEFICIENCIAS:
+                cleaned[x] = False
+        return cleaned
+
+
 class ContaForm(EstiloFormMixin, forms.Form):
     """Conta de acesso (etapa 1)."""
 
@@ -99,20 +182,57 @@ class AventureiroForm(EstiloFormMixin, forms.ModelForm):
             "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
+    OBRIGATORIOS = [
+        "foto", "colegio", "serie", "ano", "tamanho_camiseta",
+        "endereco", "bairro", "cidade", "cep", "estado",
+        "resp_parentesco", "resp_email",
+    ]
+    PAI_CAMPOS = ["pai_nome", "pai_email", "pai_cpf", "pai_celular", "pai_whatsapp"]
+    MAE_CAMPOS = ["mae_nome", "mae_email", "mae_cpf", "mae_celular", "mae_whatsapp"]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Os aceites são validados/mostrados nas etapas 5 e 6, não aqui.
         self.fields["declaracao_medica_aceita"].required = False
         self.fields["autorizacao_imagem_aceita"].required = False
-        # Isenção/desconto de mensalidade são definidos pelo Diretor depois (tela
-        # Mensalidades), não no cadastro público — usam o padrão (0 / não isento).
+        # Isenção/desconto de mensalidade são definidos pelo Diretor depois.
         self.fields["mensalidade_isento"].required = False
         self.fields["mensalidade_desconto_pct"].required = False
+        for nome in self.OBRIGATORIOS:
+            self.fields[nome].required = True
+        # Bolsa Família vira Sim/Não obrigatório.
+        self.fields["bolsa_familia"] = campo_sim_nao("Beneficiado pelo Bolsa Família?")
+        # Classes: opção "Nenhuma" (exigimos ao menos uma classe OU "nenhuma").
+        self.fields["sem_classe"] = forms.BooleanField(
+            label="Ainda não foi investido em nenhuma classe", required=False
+        )
+        # Dados de pai e mãe: "tem os dados?" (Sim/Não obrigatório). Se Sim, todos
+        # os campos daquele responsável são exigidos (no clean).
+        self.fields["tem_dados_pai"] = campo_sim_nao("Tem os dados do pai?")
+        self.fields["tem_dados_mae"] = campo_sim_nao("Tem os dados da mãe?")
         self._aplicar_estilo()
 
+    def clean(self):
+        cleaned = super().clean()
+        classes = [
+            cleaned.get("classe_abelhinhas"), cleaned.get("classe_luminares"),
+            cleaned.get("classe_edificadores"), cleaned.get("classe_maos_ajudadoras"),
+        ]
+        if not any(classes) and not cleaned.get("sem_classe"):
+            self.add_error("sem_classe", "Marque ao menos uma classe ou 'Nenhuma'.")
+        if cleaned.get("tem_dados_pai") is True:
+            for c in self.PAI_CAMPOS:
+                if not (cleaned.get(c) or "").strip():
+                    self.add_error(c, "Obrigatório (você marcou que tem os dados do pai).")
+        if cleaned.get("tem_dados_mae") is True:
+            for c in self.MAE_CAMPOS:
+                if not (cleaned.get(c) or "").strip():
+                    self.add_error(c, "Obrigatório (você marcou que tem os dados da mãe).")
+        return cleaned
 
-class FichaMedicaForm(EstiloFormMixin, forms.ModelForm):
-    """Dados médicos do aventureiro (etapa 4)."""
+
+class FichaMedicaForm(FichaMedicaCamposMixin, EstiloFormMixin, forms.ModelForm):
+    """Dados médicos do aventureiro (etapa 4). Sim/Não obrigatório + detalhe."""
 
     class Meta:
         model = FichaMedica
@@ -123,6 +243,7 @@ class FichaMedicaForm(EstiloFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._preparar_ficha_medica()
         self._aplicar_estilo()
 
 
@@ -145,12 +266,19 @@ class ResponsavelLegalForm(EstiloFormMixin, forms.Form):
 class AutorizacaoImagemForm(EstiloFormMixin, forms.ModelForm):
     """Termo de autorização de uso de imagem (etapa 6)."""
 
+    OBRIGATORIOS = [
+        "nome_menor", "nacionalidade_menor",
+        "resp_nome", "resp_nacionalidade", "resp_estado_civil", "resp_rg",
+    ]
+
     class Meta:
         model = AutorizacaoImagem
         exclude = ["aventureiro"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for nome in self.OBRIGATORIOS:
+            self.fields[nome].required = True
         self._aplicar_estilo()
 
 
@@ -176,18 +304,42 @@ class MembroDiretoriaForm(EstiloFormMixin, forms.ModelForm):
             "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
+    # Campos obrigatórios da diretoria (o resto: telefones/cônjuge/qtd são
+    # opcionais ou condicionais).
+    OBRIGATORIOS = [
+        "foto", "nacionalidade", "data_nascimento", "igreja", "distrito", "rg",
+        "estado_civil", "email", "endereco", "numero", "bairro", "cidade", "cep",
+        "estado", "escolaridade",
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Campos condicionais (cônjuge/qtd de filhos) não são obrigatórios; a
-        # exibição é controlada por JS e a coerência garantida no servidor.
+        for nome in self.OBRIGATORIOS:
+            self.fields[nome].required = True
+        # "Tem filhos?" vira Sim/Não obrigatório; cônjuge/qtd são condicionais.
+        self.fields["tem_filhos"] = campo_sim_nao("Tem filhos?")
         self.fields["conjuge_nome"].required = False
         self.fields["qtd_filhos"].required = False
-        self.fields["tem_filhos"].required = False
         self._aplicar_estilo()
 
+    def clean(self):
+        cleaned = super().clean()
+        civil = cleaned.get("estado_civil")
+        if civil in ("casado", "uniao_estavel") and not (cleaned.get("conjuge_nome") or "").strip():
+            self.add_error("conjuge_nome", "Informe o nome do cônjuge.")
+        if cleaned.get("tem_filhos") is True:
+            qtd = cleaned.get("qtd_filhos")
+            if not qtd or qtd < 1:
+                self.add_error("qtd_filhos", "Informe a quantidade de filhos.")
+        elif cleaned.get("tem_filhos") is False:
+            cleaned["qtd_filhos"] = 0
+        if cleaned.get("qtd_filhos") is None:
+            cleaned["qtd_filhos"] = 0
+        return cleaned
 
-class FichaMedicaDiretoriaForm(EstiloFormMixin, forms.ModelForm):
-    """Dados médicos do membro da diretoria (mesmos campos do aventureiro)."""
+
+class FichaMedicaDiretoriaForm(FichaMedicaCamposMixin, EstiloFormMixin, forms.ModelForm):
+    """Dados médicos do membro da diretoria. Sim/Não obrigatório + detalhe."""
 
     class Meta:
         model = FichaMedicaDiretoria
@@ -198,6 +350,7 @@ class FichaMedicaDiretoriaForm(EstiloFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._preparar_ficha_medica()
         self._aplicar_estilo()
 
 

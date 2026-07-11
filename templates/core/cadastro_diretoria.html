@@ -50,6 +50,11 @@
             </div>
             {% endif %}
 
+            <div class="aviso-erro" id="avisoValidacao" hidden>
+                <strong>Preencha os campos obrigatórios:</strong>
+                <ul id="avisoValidacaoLista"></ul>
+            </div>
+
             <form class="cadastro-form" method="post" action="" enctype="multipart/form-data" novalidate id="cadastroForm">
                 {% csrf_token %}
                 {% if com_aventureiro %}<input type="hidden" name="com_aventureiro" value="1">{% endif %}
@@ -97,8 +102,8 @@
                         <div class="condicional" id="blocoConjuge">
                             {% include "core/_campo.html" with campo=membro_form.conjuge_nome %}
                         </div>
-                        {% include "core/_campo_check.html" with campo=membro_form.tem_filhos %}
-                        <div class="condicional" data-depende="{{ membro_form.tem_filhos.id_for_label }}">
+                        {% include "core/_campo_simnao.html" with campo=membro_form.tem_filhos %}
+                        <div class="condicional" data-depende-nome="{{ membro_form.tem_filhos.html_name }}">
                             {% include "core/_campo.html" with campo=membro_form.qtd_filhos %}
                         </div>
                     </div>
@@ -140,111 +145,7 @@
                 <!-- ===== Etapa 4: Ficha médica (mesma do aventureiro) ===== -->
                 <section class="passo" data-passo="4">
                     <h2 class="passo-titulo">4. Dados médicos</h2>
-
-                    <div class="bloco">
-                        <h3 class="bloco-titulo">Plano de saúde</h3>
-                        {% include "core/_campo_check.html" with campo=medica_form.possui_plano_saude %}
-                        <div class="condicional" data-depende="{{ medica_form.possui_plano_saude.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.qual_plano_saude %}
-                        </div>
-                        {% include "core/_campo.html" with campo=medica_form.cartao_sus %}
-                    </div>
-
-                    <div class="bloco">
-                        <h3 class="bloco-titulo">Doenças que já teve ou tem</h3>
-                        <div class="grade-3">
-                            {% include "core/_campo_check.html" with campo=medica_form.catapora %}
-                            {% include "core/_campo_check.html" with campo=medica_form.meningite %}
-                            {% include "core/_campo_check.html" with campo=medica_form.hepatite %}
-                            {% include "core/_campo_check.html" with campo=medica_form.dengue %}
-                            {% include "core/_campo_check.html" with campo=medica_form.pneumonia %}
-                            {% include "core/_campo_check.html" with campo=medica_form.malaria %}
-                            {% include "core/_campo_check.html" with campo=medica_form.febre_amarela %}
-                            {% include "core/_campo_check.html" with campo=medica_form.h1n1 %}
-                            {% include "core/_campo_check.html" with campo=medica_form.colera %}
-                            {% include "core/_campo_check.html" with campo=medica_form.rubeola %}
-                            {% include "core/_campo_check.html" with campo=medica_form.sarampo %}
-                            {% include "core/_campo_check.html" with campo=medica_form.tetano %}
-                            {% include "core/_campo_check.html" with campo=medica_form.variola %}
-                            {% include "core/_campo_check.html" with campo=medica_form.coqueluche %}
-                            {% include "core/_campo_check.html" with campo=medica_form.difteria %}
-                            {% include "core/_campo_check.html" with campo=medica_form.caxumba %}
-                            {% include "core/_campo_check.html" with campo=medica_form.rinite %}
-                            {% include "core/_campo_check.html" with campo=medica_form.bronquite %}
-                        </div>
-                    </div>
-
-                    <div class="bloco">
-                        <h3 class="bloco-titulo">Alergias</h3>
-                        {% include "core/_campo_check.html" with campo=medica_form.alergia_pele %}
-                        <div class="condicional" data-depende="{{ medica_form.alergia_pele.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.alergia_pele_qual %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.alergia_alimentar %}
-                        <div class="condicional" data-depende="{{ medica_form.alergia_alimentar.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.alergia_alimentar_qual %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.alergia_medicamentos %}
-                        <div class="condicional" data-depende="{{ medica_form.alergia_medicamentos.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.alergia_medicamentos_qual %}
-                        </div>
-                    </div>
-
-                    <div class="bloco">
-                        <h3 class="bloco-titulo">Deficiência física</h3>
-                        <div class="grade-3">
-                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_cadeirante %}
-                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_visual %}
-                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_auditivo %}
-                            {% include "core/_campo_check.html" with campo=medica_form.deficiente_fala %}
-                        </div>
-                    </div>
-
-                    <div class="bloco">
-                        <h3 class="bloco-titulo">Condições de saúde</h3>
-                        {% include "core/_campo_check.html" with campo=medica_form.cardiaco %}
-                        <div class="condicional" data-depende="{{ medica_form.cardiaco.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.cardiaco_medicamentos %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.diabetico %}
-                        <div class="condicional" data-depende="{{ medica_form.diabetico.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.diabetico_medicamentos %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.renais %}
-                        <div class="condicional" data-depende="{{ medica_form.renais.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.renais_medicamentos %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.psicologicos %}
-                        <div class="condicional" data-depende="{{ medica_form.psicologicos.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.psicologicos_medicamentos %}
-                        </div>
-                    </div>
-
-                    <div class="bloco">
-                        <h3 class="bloco-titulo">Outras informações médicas</h3>
-                        {% include "core/_campo.html" with campo=medica_form.outros_problemas %}
-                        {% include "core/_campo_check.html" with campo=medica_form.problema_recente %}
-                        <div class="condicional" data-depende="{{ medica_form.problema_recente.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.problema_recente_qual %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.medicamento_recente %}
-                        <div class="condicional" data-depende="{{ medica_form.medicamento_recente.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.medicamento_recente_qual %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.ferimento_recente %}
-                        <div class="condicional" data-depende="{{ medica_form.ferimento_recente.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.ferimento_recente_qual %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.cirurgia %}
-                        <div class="condicional" data-depende="{{ medica_form.cirurgia.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.cirurgia_qual %}
-                        </div>
-                        {% include "core/_campo_check.html" with campo=medica_form.internado_5anos %}
-                        <div class="condicional" data-depende="{{ medica_form.internado_5anos.id_for_label }}">
-                            {% include "core/_campo.html" with campo=medica_form.internado_5anos_motivo %}
-                        </div>
-                        {% include "core/_campo.html" with campo=medica_form.tipo_sanguineo %}
-                    </div>
+                    {% include "core/_ficha_medica_campos.html" %}
                 </section>
 
                 <!-- ===== Etapa 5: Escolaridade + Termos/Aceites ===== -->
@@ -357,6 +258,7 @@
     </div>
 
     <script src="{% static 'js/assinatura.js' %}"></script>
+    <script src="{% static 'js/wizard_validacao.js' %}"></script>
     <script src="{% static 'js/cadastro_diretoria.js' %}"></script>
 </body>
 </html>

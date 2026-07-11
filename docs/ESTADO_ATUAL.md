@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Comandos de migração: diretoria + assinaturas antigas**): dois comandos
+**Última atualização:** 2026-07-11 (**Cadastros: obrigatoriedade + Sim/Não + validação com aviso**): revisão da
+obrigatoriedade dos campos nos cadastros de **aventureiro** e **diretoria**. Asterisco automático (via
+`_campo.html`); perguntas **Sim/Não obrigatórias** (novo parcial `_campo_simnao.html`); ao avançar/finalizar,
+um **aviso lista os campos obrigatórios que faltam** (`static/js/wizard_validacao.js`, caixa `#avisoValidacao`).
+A **ficha médica** virou Sim/Não obrigatório por pergunta (detalhe só se "Sim"; gates `teve_doencas`/
+`tem_deficiencia`; tipo sanguíneo obrigatório) num corpo **compartilhado** `_ficha_medica_campos.html`
+(mixin `FichaMedicaCamposMixin` em forms.py). Diretoria exige foto/nacionalidade/nascimento/igreja/distrito/RG/
+estado civil/e-mail/endereço completo/escolaridade + "Tem filhos?" e cônjuge condicionais. Aventureiro exige
+foto/sexo/nascimento/colégio/série/ano/camiseta/endereço completo/grau+e-mail do responsável, **Bolsa Família**
+Sim/Não, **classes** com opção "Nenhuma", **pai/mãe** com "Tem os dados? Sim/Não" (se Sim, todos obrigatórios),
+e no termo de imagem nacionalidade do menor + nacionalidade/estado civil/RG do responsável; o termo de imagem é
+**pré-preenchido** com os dados já digitados. Sem migration (obrigatoriedade no form). Condicionais por grupo de
+radios (`data-depende-nome`) no `cadastro.js`/`cadastro_diretoria.js`. Antes: Comandos de migração (diretoria + assinaturas).
+
+**Anterior (Comandos de migração: diretoria + assinaturas antigas**): dois comandos
 (`importar_diretoria` e `importar_assinaturas`), idempotentes, com `--dry-run`, que rodam **localmente** lendo o
 ZIP de exportação (git-ignored) — depois db/media vão para o VPS. `importar_diretoria` cria `MembroDiretoria`
 (+ficha+foto), vincula ao perfil Diretoria, trata **mesclagens** (diretoria+responsável em logins diferentes →

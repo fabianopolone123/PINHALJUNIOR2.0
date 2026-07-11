@@ -1,7 +1,6 @@
 /* =========================================================
    Cadastro de Diretoria — wizard de etapas
    JavaScript puro, sem bibliotecas externas.
-   (Mesmo padrão do cadastro de aventureiro, adaptado.)
    ========================================================= */
 (function () {
     "use strict";
@@ -15,6 +14,7 @@
     var btnVoltar = document.getElementById("btnVoltar");
     var btnProximo = document.getElementById("btnProximo");
     var btnFinalizar = document.getElementById("btnFinalizar");
+    var V = window.WizardValidacao;
 
     var total = passos.length;
     var atual = 0;
@@ -36,19 +36,43 @@
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
-    btnProximo.addEventListener("click", function () { mostrar(atual + 1); });
-    btnVoltar.addEventListener("click", function () { mostrar(atual - 1); });
+    // Avança só se a etapa atual estiver com os obrigatórios preenchidos.
+    btnProximo.addEventListener("click", function () {
+        var falta = V ? V.faltantes(passos[atual]) : [];
+        if (falta.length) {
+            V.mostrarAviso(falta);
+            try { falta[0].el.focus(); } catch (e) { /* ignora */ }
+            return;
+        }
+        if (V) V.limparAviso();
+        mostrar(atual + 1);
+    });
+    btnVoltar.addEventListener("click", function () { if (V) V.limparAviso(); mostrar(atual - 1); });
     pontos.forEach(function (ponto, i) {
         ponto.addEventListener("click", function () { mostrar(i); });
     });
 
-    /* ---------- Campos condicionais (checkbox "Sim") ---------- */
-    var condicionais = Array.prototype.slice.call(document.querySelectorAll(".condicional[data-depende]"));
-    condicionais.forEach(function (bloco) {
+    /* ---------- Campos condicionais ---------- */
+    // (a) checkbox: mostra o bloco quando marcado.
+    Array.prototype.forEach.call(document.querySelectorAll(".condicional[data-depende]"), function (bloco) {
         var controle = document.getElementById(bloco.getAttribute("data-depende"));
         if (!controle) return;
         function atualizar() { bloco.classList.toggle("visivel", controle.checked); }
         controle.addEventListener("change", atualizar);
+        atualizar();
+    });
+    // (b) grupo de radios Sim/Não: mostra quando o valor selecionado bate (padrão "sim").
+    Array.prototype.forEach.call(document.querySelectorAll(".condicional[data-depende-nome]"), function (bloco) {
+        var nome = bloco.getAttribute("data-depende-nome");
+        var valor = bloco.getAttribute("data-depende-valor") || "sim";
+        var radios = document.getElementsByName(nome);
+        if (!radios.length) return;
+        function atualizar() {
+            var sel = null;
+            Array.prototype.forEach.call(radios, function (r) { if (r.checked) sel = r.value; });
+            bloco.classList.toggle("visivel", sel === valor);
+        }
+        Array.prototype.forEach.call(radios, function (r) { r.addEventListener("change", atualizar); });
         atualizar();
     });
 
@@ -140,26 +164,28 @@
         }).join("");
     }
 
-    /* ---------- Validação de envio (assinaturas obrigatórias) ---------- */
+    /* ---------- Validação de envio ---------- */
     var ASSINATURAS = [
-        ["assinatura_compromisso", "o compromisso de voluntário"],
-        ["assinatura_medica_dir", "a declaração médica"],
-        ["assinatura_imagem_dir", "a autorização de uso de imagem"],
+        ["assinatura_compromisso", "Assinatura do compromisso de voluntário"],
+        ["assinatura_medica_dir", "Assinatura da declaração médica"],
+        ["assinatura_imagem_dir", "Assinatura da autorização de imagem"],
     ];
-    function indicePasso(id) {
-        var el = document.getElementById(id);
+    function indicePasso(el) {
         var passo = el ? el.closest(".passo") : null;
         return passo ? passos.indexOf(passo) : -1;
     }
     form.addEventListener("submit", function (evento) {
-        for (var i = 0; i < ASSINATURAS.length; i++) {
-            var campo = document.getElementById(ASSINATURAS[i][0]);
-            if (campo && !campo.value) {
-                evento.preventDefault();
-                mostrar(indicePasso(ASSINATURAS[i][0]));
-                alert("É necessário assinar " + ASSINATURAS[i][1] + " para finalizar.");
-                return;
-            }
+        var falta = V ? V.faltantes(form) : [];
+        ASSINATURAS.forEach(function (a) {
+            var campo = document.getElementById(a[0]);
+            if (campo && !campo.value) falta.push({ el: campo, rotulo: a[1] });
+        });
+        if (falta.length) {
+            evento.preventDefault();
+            if (V) V.mostrarAviso(falta);
+            var passo = indicePasso(falta[0].el);
+            if (passo >= 0) mostrar(passo);
+            return;
         }
     });
 

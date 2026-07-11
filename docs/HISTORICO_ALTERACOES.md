@@ -22,6 +22,41 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Cadastros: obrigatoriedade dos campos + Sim/Não + validação com aviso
+
+### Resumo
+Revisão da obrigatoriedade dos campos nos dois cadastros (diretoria e aventureiro), com asterisco automático,
+perguntas **Sim/Não obrigatórias** e **aviso listando os campos que faltam** ao tentar avançar/finalizar.
+- **Ficha médica (ambos):** cada pergunta virou **Sim/Não obrigatório**; o detalhe ("qual/medicamentos") só é
+  exigido quando "Sim". As listas de doenças e de deficiência ganharam um Sim/Não obrigatório na frente
+  (`teve_doencas`/`tem_deficiencia`); se "Sim", exige marcar ao menos um; tipo sanguíneo obrigatório.
+- **Diretoria:** obrigatórios foto, nacionalidade, data nasc., igreja, distrito, RG, estado civil, e-mail,
+  endereço completo e escolaridade; "Tem filhos?" Sim/Não (+ qtd se Sim); cônjuge obrigatório se casado/união.
+- **Aventureiro:** obrigatórios foto, sexo, data nasc., colégio/série/ano, tamanho da camiseta, endereço
+  completo, grau de parentesco e e-mail do responsável; **Bolsa Família** vira Sim/Não; **classes** com opção
+  **"Nenhuma"** (exige ao menos uma marcação); **pai/mãe** com "Tem os dados? Sim/Não" (se Sim, todos os campos
+  daquele responsável obrigatórios); termo de imagem exige nacionalidade do menor e nacionalidade/estado civil/
+  RG do responsável. Cidade da inscrição segue opcional.
+- **Reaproveitamento:** o termo de imagem agora é **pré-preenchido** com os dados já digitados (nome do menor,
+  nome/CPF/endereço do responsável) — sem redigitar.
+
+### Arquivos criados/alterados
+- `core/forms.py`: helper `campo_sim_nao` + `FichaMedicaCamposMixin` (compartilhado pelas duas fichas);
+  obrigatórios e `clean()` condicionais em `MembroDiretoriaForm`, `AventureiroForm`, `AutorizacaoImagemForm`.
+- Templates: `_campo_simnao.html` (novo), `_ficha_medica_campos.html` (novo, corpo da ficha compartilhado),
+  ajustes em `cadastro.html` e `cadastro_diretoria.html` (caixa `#avisoValidacao`, Sim/Não, classes, pai/mãe).
+- Estáticos: `static/js/wizard_validacao.js` (novo, valida e lista faltantes), `cadastro.js` e
+  `cadastro_diretoria.js` (condicionais por grupo de radios `data-depende-nome`, validação por etapa/envio,
+  reaproveitamento do termo de imagem); estilos `.campo-simnao`/`.simnao-*` em `cadastro.css`.
+- Removido `_campo_check_livre.html` (não usado). **Sem migration** (obrigatoriedade é no form).
+
+### Decisões (confirmadas com o Fabiano)
+- Ficha médica "tudo com Sim/Não"; pai/mãe "todos os campos" quando tem os dados; "endereço completo";
+  classes com opção "Nenhuma". Foto obrigatória (atenção: em erro de servidor o arquivo precisa ser
+  reanexado — a validação no cliente evita isso na maioria dos casos).
+
+---
+
 ## 2026-07-11 - Comandos de migração: diretoria + assinaturas antigas
 
 ### Resumo

@@ -177,6 +177,17 @@ Ao criar novos cadastros/formulários, seguir o padrão de `/cadastro/`:
   A validação autoritativa é sempre no servidor; o JS apenas guia o preenchimento.
 - **Campos condicionais**: campos "qual/motivo" aparecem só quando o "Sim" é marcado (JS), mas o
   backend deve aceitar o envio mesmo quando ocultos.
+- **Pergunta Sim/Não obrigatória**: quando o cadastro precisa que a pessoa **responda** Sim ou Não (não só
+  um checkbox), usar `forms.TypedChoiceField` (helper `campo_sim_nao` em `forms.py`, `coerce` para bool) +
+  parcial **`_campo_simnao.html`** (radios lado a lado). O detalhe "qual" fica `required=False` e é exigido no
+  `clean()` só quando "Sim". Os blocos condicionais desses Sim/Não usam **`data-depende-nome="{{ campo.html_name }}"`**
+  (grupo de radios), tratado no JS do wizard — diferente do `data-depende` (id de checkbox) antigo.
+- **Ficha médica**: o corpo é compartilhado (aventureiro + diretoria) no parcial `_ficha_medica_campos.html` e
+  no mixin `FichaMedicaCamposMixin` (forms.py) — alterar num lugar só.
+- **Validação com aviso (wizard)**: `static/js/wizard_validacao.js` (`window.WizardValidacao`) acha os
+  `[required]` vazios num escopo (etapa ou form), lista os rótulos na caixa `#avisoValidacao` e pula até o
+  primeiro. Chamar no "Próximo" (etapa atual) e no "Finalizar" (form todo + assinaturas). A validação do
+  servidor continua sendo a autoritativa.
 - **Uploads**: usar `ImageField`/`FileField` com `MEDIA_URL`/`MEDIA_ROOT`; em DEBUG o Django serve a mídia.
   Requer `Pillow` para imagens. Mostrar preview no navegador quando possível.
 - **Aceites obrigatórios**: validar no servidor (não confiar só no JS).

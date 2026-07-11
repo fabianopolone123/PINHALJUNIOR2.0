@@ -1,0 +1,10 @@
+{# Pergunta Sim/Não (radios lado a lado). Uso: {% include "core/_campo_simnao.html" with campo=form.x %} #}
+<div class="campo campo-simnao">
+    <span class="campo-simnao-rotulo">{{ campo.label }}{% if campo.field.required %} <span class="obrigatorio">*</span>{% endif %}</span>
+    <div class="simnao-opcoes">
+        {% for radio in campo %}
+        <label class="simnao-opcao">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>
+        {% endfor %}
+    </div>
+    {% if campo.errors %}<div class="erros">{{ campo.errors }}</div>{% endif %}
+</div>

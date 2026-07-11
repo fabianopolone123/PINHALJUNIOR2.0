@@ -14,6 +14,7 @@
     var btnVoltar = document.getElementById("btnVoltar");
     var btnProximo = document.getElementById("btnProximo");
     var btnFinalizar = document.getElementById("btnFinalizar");
+    var V = window.WizardValidacao;
 
     var total = passos.length;
     var atual = 0; // índice (0-based)
@@ -46,6 +47,8 @@
         btnProximo.hidden = ultimo;
         btnFinalizar.hidden = !ultimo;
 
+        reaproveitarTermoImagem();
+        if (typeof preencherTermoImagem === "function") preencherTermoImagem();
         if (ultimo) montarRevisao();
 
         // Rola para o topo do card
@@ -53,9 +56,17 @@
     }
 
     btnProximo.addEventListener("click", function () {
+        var falta = V ? V.faltantes(passos[atual]) : [];
+        if (falta.length) {
+            V.mostrarAviso(falta);
+            try { falta[0].el.focus(); } catch (e) { /* ignora */ }
+            return;
+        }
+        if (V) V.limparAviso();
         mostrar(atual + 1);
     });
     btnVoltar.addEventListener("click", function () {
+        if (V) V.limparAviso();
         mostrar(atual - 1);
     });
 
@@ -66,18 +77,28 @@
         });
     });
 
-    /* ---------- Campos condicionais (aparecem ao marcar "Sim") ---------- */
-    var condicionais = Array.prototype.slice.call(document.querySelectorAll(".condicional"));
-    condicionais.forEach(function (bloco) {
-        var idControle = bloco.getAttribute("data-depende");
-        var controle = document.getElementById(idControle);
+    /* ---------- Campos condicionais ---------- */
+    // (a) checkbox: mostra quando marcado.
+    Array.prototype.forEach.call(document.querySelectorAll(".condicional[data-depende]"), function (bloco) {
+        var controle = document.getElementById(bloco.getAttribute("data-depende"));
         if (!controle) return;
-
-        function atualizar() {
-            bloco.classList.toggle("visivel", controle.checked);
-        }
+        function atualizar() { bloco.classList.toggle("visivel", controle.checked); }
         controle.addEventListener("change", atualizar);
-        atualizar(); // estado inicial (útil quando o form volta com erro)
+        atualizar();
+    });
+    // (b) grupo de radios Sim/Não: mostra quando o valor selecionado bate (padrão "sim").
+    Array.prototype.forEach.call(document.querySelectorAll(".condicional[data-depende-nome]"), function (bloco) {
+        var nome = bloco.getAttribute("data-depende-nome");
+        var valor = bloco.getAttribute("data-depende-valor") || "sim";
+        var radios = document.getElementsByName(nome);
+        if (!radios.length) return;
+        function atualizar() {
+            var sel = null;
+            Array.prototype.forEach.call(radios, function (r) { if (r.checked) sel = r.value; });
+            bloco.classList.toggle("visivel", sel === valor);
+        }
+        Array.prototype.forEach.call(radios, function (r) { r.addEventListener("change", atualizar); });
+        atualizar();
     });
 
     /* ---------- Preview da foto 3x4 ---------- */
@@ -211,14 +232,16 @@
         ["assinatura_inscricao", "a ficha de inscrição"],
     ];
     form.addEventListener("submit", function (evento) {
+        var falta = V ? V.faltantes(form) : [];
         for (var i = 0; i < ASSINATURAS.length; i++) {
             var campo = document.getElementById(ASSINATURAS[i][0]);
-            if (campo && !campo.value) {
-                evento.preventDefault();
-                mostrar(indicePasso(ASSINATURAS[i][0]));
-                alert("É necessário assinar " + ASSINATURAS[i][1] + " para finalizar.");
-                return;
-            }
+            if (campo && !campo.value) falta.push({ el: campo, rotulo: "Assinatura: " + ASSINATURAS[i][1] });
+        }
+        if (falta.length) {
+            evento.preventDefault();
+            if (V) V.mostrarAviso(falta);
+            var passo = falta[0].el.closest(".passo");
+            if (passo) mostrar(passos.indexOf(passo));
         }
     });
 
@@ -231,6 +254,27 @@
             el.textContent = texto;
         });
     }
+    // Reaproveita dados já digitados (aventureiro/responsável) no termo de imagem,
+    // para não redigitar. Só preenche o que estiver vazio.
+    function reaproveitarTermoImagem() {
+        var mapa = {
+            "id_img-nome_menor": "id_av-nome_completo",
+            "id_img-resp_nome": "id_av-resp_nome",
+            "id_img-resp_cpf": "id_av-resp_cpf",
+            "id_img-resp_endereco": "id_av-endereco",
+            "id_img-resp_bairro": "id_av-bairro",
+            "id_img-resp_cidade": "id_av-cidade",
+            "id_img-resp_estado": "id_av-estado",
+        };
+        Object.keys(mapa).forEach(function (destinoId) {
+            var destino = document.getElementById(destinoId);
+            var origem = document.getElementById(mapa[destinoId]);
+            if (destino && origem && !destino.value && origem.value) {
+                destino.value = origem.value;
+            }
+        });
+    }
+
     var termoImagem = document.getElementById("termoImagem");
     if (termoImagem) {
         // Atualiza ao digitar nos campos do termo de imagem (prefixo "img").

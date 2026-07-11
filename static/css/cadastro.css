@@ -784,6 +784,31 @@ body.sem-scroll {
     }
 }
 
+/* ---------- Pergunta Sim/Não (radios) ---------- */
+.campo-simnao { margin-bottom: 14px; }
+.campo-simnao-rotulo {
+    display: block;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+    color: var(--texto);
+}
+.simnao-opcoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.simnao-opcao {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color var(--transicao), background var(--transicao);
+}
+.simnao-opcao:hover { border-color: var(--azul-claro); }
+.simnao-opcao input { accent-color: var(--azul); }
+.simnao-opcao span { font-size: 0.95rem; }
+
 /* ---------- Acessibilidade ---------- */
 @media (prefers-reduced-motion: reduce) {
     *,
