@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Configurações IA: modelo fixo + contador de tokens + sem URL base
+
+### Resumo
+Ajustes na tela **Configurações IA**: (1) o **modelo agora é fixo** — `gpt-4.1-nano` (o mais barato) —, sem
+campo para trocar; (2) a **URL base deixou de ser configurável** (constante no cliente); (3) novo card
+**"Consumo de tokens"** que acumula o gasto de todas as chamadas à IA: nº de chamadas, tokens de **entrada**
+(total), destes **em cache** e **fora do cache**, tokens de **saída** e **total**, com botão **"Zerar contador"**.
+O contador atualiza ao vivo após cada teste (sem recarregar).
+
+### Arquivos alterados
+- `core/openai_ia.py`: `MODELO`/`BASE_URL` viraram **constantes** (modelo `gpt-4.1-nano`); `conversar`/
+  `enviar_prompt` passam a devolver `(ok, texto, uso)` — `uso` traz `prompt`/`cache`/`completion`/`total`
+  (cache lido de `usage.prompt_tokens_details.cached_tokens`).
+- `core/models.py` (`OpenAIConfig`): removidos os campos `modelo` e `base_url`; adicionados os contadores
+  `chamadas`/`tokens_prompt`/`tokens_cache`/`tokens_completion`; props `tokens_prompt_sem_cache`/`tokens_total`;
+  métodos `registrar_uso(uso)` (acumula com `F()`, seguro em concorrência) e `zerar_uso()`.
+- `core/views.py`: `ia_config_view` salva só a chave; `ia_testar_view` contabiliza o uso e devolve o acumulado;
+  `ia_view` passa o modelo fixo; nova `ia_zerar_view`.
+- `core/urls.py`: rota `ia/zerar/`.
+- `templates/core/ia.html`: modelo mostrado como fixo, campos de modelo/URL base removidos, card "Consumo de
+  tokens" + botão zerar.
+- `static/js/ia.js`: atualiza o contador ao vivo após cada teste.
+- `static/css/whatsapp.css`: grade `.ia-tokens`.
+- Migration **0044** (remove `modelo`/`base_url`, adiciona os contadores).
+
+### Decisões tomadas
+- Modelo fixo **`gpt-4.1-nano`** (escolhido pelo usuário como o mais barato); mudar é trocar a constante `MODELO`.
+- Contagem de cache = subconjunto da entrada (`cached_tokens`), exibida separada de "fora do cache".
+
+---
+
 ## 2026-07-11 - Módulo "Configurações IA" (API do GPT / OpenAI)
 
 ### Resumo

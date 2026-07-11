@@ -190,3 +190,49 @@
     padding: 12px 14px;
     line-height: 1.5;
 }
+
+/* ---- Grade do consumo de tokens (tela Configurações IA) ---- */
+.ia-tokens {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+    max-width: 640px;
+}
+
+.ia-token-item {
+    display: flex;
+    flex-direction: column;
+    background: var(--fundo-suave, #f5f7fa);
+    border: 1px solid var(--borda, #e0e0e0);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.ia-token-num {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--azul, #0f4c81);
+    line-height: 1.1;
+}
+
+.ia-token-rot {
+    font-size: 0.82rem;
+    color: var(--texto-secundario, #555);
+    margin-top: 2px;
+}
+
+.ia-token-total {
+    background: #eaf3ea;
+    border-color: #cfe3cf;
+}
+
+.ia-token-total .ia-token-num {
+    color: var(--verde, #2e7d32);
+}
+
+@media (min-width: 560px) {
+    .ia-tokens {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

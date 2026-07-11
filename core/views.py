@@ -3410,29 +3410,22 @@ def whatsapp_enviar_view(request):
 # ===========================================================================
 @diretor_required
 def ia_view(request):
-    """Tela Configurações IA (só Diretor): guarda a chave da API do GPT, o modelo
-    e permite enviar um teste para ver se a IA responde."""
+    """Tela Configurações IA (só Diretor): guarda a chave da API do GPT e permite
+    enviar um teste. O modelo é fixo (o mais barato) e a URL base não é
+    configurável; a tela ainda mostra o consumo de tokens acumulado."""
     config = OpenAIConfig.get_solo()
-    return render(request, "core/ia.html", {"config": config})
+    return render(request, "core/ia.html", {"config": config, "modelo": openai_ia.MODELO})
 
 
 @diretor_required
 @require_POST
 def ia_config_view(request):
-    """Salva a chave da API, o modelo e (opcional) a URL base da OpenAI.
-
-    A chave só é substituída se uma nova for digitada — assim a tela exibe apenas
-    os últimos dígitos sem apagar a chave guardada."""
+    """Salva a chave da API da OpenAI. A chave só é substituída se uma nova for
+    digitada — assim a tela exibe apenas os últimos dígitos sem apagar a guardada."""
     config = OpenAIConfig.get_solo()
     nova_chave = (request.POST.get("api_key") or "").strip()
     if nova_chave:
         config.api_key = nova_chave
-    modelo = (request.POST.get("modelo") or "").strip()
-    if modelo:
-        config.modelo = modelo
-    base_url = (request.POST.get("base_url") or "").strip()
-    if base_url:
-        config.base_url = base_url
     config.atualizado_por = request.user
     config.save()
     messages.success(request, "Configuração da IA salva.")
@@ -3443,7 +3436,7 @@ def ia_config_view(request):
 @require_POST
 def ia_testar_view(request):
     """Envia um prompt de teste para a IA e devolve a resposta (JSON, sem
-    recarregar a página)."""
+    recarregar a página). Contabiliza os tokens consumidos."""
     config = OpenAIConfig.get_solo()
     if not config.configurado:
         return JsonResponse(
@@ -3453,10 +3446,32 @@ def ia_testar_view(request):
     prompt = (request.POST.get("prompt") or "").strip()
     if not prompt:
         return JsonResponse({"ok": False, "erro": "Digite o texto do teste."}, status=400)
-    ok, detalhe = openai_ia.enviar_prompt(config, prompt)
+    ok, detalhe, uso = openai_ia.enviar_prompt(config, prompt)
     if ok:
-        return JsonResponse({"ok": True, "resposta": detalhe, "modelo": config.modelo_efetivo})
+        config.registrar_uso(uso)
+        return JsonResponse({
+            "ok": True, "resposta": detalhe, "modelo": openai_ia.MODELO,
+            "uso": uso,
+            "acumulado": {
+                "chamadas": config.chamadas,
+                "prompt": config.tokens_prompt,
+                "cache": config.tokens_cache,
+                "sem_cache": config.tokens_prompt_sem_cache,
+                "completion": config.tokens_completion,
+                "total": config.tokens_total,
+            },
+        })
     return JsonResponse({"ok": False, "erro": detalhe}, status=502)
+
+
+@diretor_required
+@require_POST
+def ia_zerar_view(request):
+    """Zera o contador de consumo de tokens."""
+    config = OpenAIConfig.get_solo()
+    config.zerar_uso()
+    messages.success(request, "Contador de tokens zerado.")
+    return redirect("core:ia")
 
 
 # ===========================================================================

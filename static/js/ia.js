@@ -27,6 +27,19 @@
     var caixaTexto = document.getElementById("iaRespostaTexto");
     var caixaModelo = document.getElementById("iaRespostaModelo");
 
+    // Atualiza os números do card "Consumo de tokens" sem recarregar a página.
+    function atualizarContador(ac) {
+        if (!ac) return;
+        var mapa = {
+            tkChamadas: ac.chamadas, tkPrompt: ac.prompt, tkCache: ac.cache,
+            tkSemCache: ac.sem_cache, tkCompletion: ac.completion, tkTotal: ac.total,
+        };
+        Object.keys(mapa).forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && mapa[id] != null) el.textContent = mapa[id];
+        });
+    }
+
     form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (btn.dataset.enviando) return;
@@ -56,6 +69,7 @@
                         if (caixaModelo) caixaModelo.textContent = d.modelo ? "(" + d.modelo + ")" : "";
                         caixa.hidden = false;
                     }
+                    atualizarContador(d.acumulado);
                 } else {
                     if (window.mostrarToast) window.mostrarToast(d.erro || "Não foi possível enviar.", "error");
                 }

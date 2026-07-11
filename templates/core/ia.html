@@ -87,19 +87,8 @@
                         </div>
 
                         <div class="campo">
-                            <label for="modelo">Modelo</label>
-                            <input type="text" id="modelo" name="modelo"
-                                   value="{{ config.modelo }}"
-                                   placeholder="gpt-4o-mini" autocomplete="off">
-                            <small class="ajuda">Nome do modelo da OpenAI a usar (ex.: gpt-4o-mini, gpt-4o).</small>
-                        </div>
-
-                        <div class="campo">
-                            <label for="base_url">URL base da API <span class="wa-opcional">(opcional)</span></label>
-                            <input type="text" id="base_url" name="base_url"
-                                   value="{{ config.base_url }}"
-                                   placeholder="https://api.openai.com/v1" autocomplete="off">
-                            <small class="ajuda">Deixe o padrão, a menos que use um endpoint compatível diferente.</small>
+                            <label>Modelo</label>
+                            <p class="wa-token-atual">Fixo: <strong>{{ modelo }}</strong> <small>(o mais barato)</small></p>
                         </div>
 
                         <div class="wa-acoes">
@@ -139,6 +128,28 @@
                         <p class="ia-resposta-rotulo">Resposta da IA <span id="iaRespostaModelo" class="wa-opcional"></span></p>
                         <div class="ia-resposta-texto" id="iaRespostaTexto"></div>
                     </div>
+                </section>
+
+                <!-- ===================== Consumo de tokens ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">📊 Consumo de tokens</h2>
+                    </div>
+                    <p class="wa-ajuda">Total acumulado de todas as chamadas à IA. Entrada em cache é mais barata.</p>
+                    <div class="ia-tokens">
+                        <div class="ia-token-item"><span class="ia-token-num" id="tkChamadas">{{ config.chamadas }}</span><span class="ia-token-rot">Chamadas</span></div>
+                        <div class="ia-token-item"><span class="ia-token-num" id="tkPrompt">{{ config.tokens_prompt }}</span><span class="ia-token-rot">Entrada (total)</span></div>
+                        <div class="ia-token-item"><span class="ia-token-num" id="tkCache">{{ config.tokens_cache }}</span><span class="ia-token-rot">↳ em cache</span></div>
+                        <div class="ia-token-item"><span class="ia-token-num" id="tkSemCache">{{ config.tokens_prompt_sem_cache }}</span><span class="ia-token-rot">↳ fora do cache</span></div>
+                        <div class="ia-token-item"><span class="ia-token-num" id="tkCompletion">{{ config.tokens_completion }}</span><span class="ia-token-rot">Saída</span></div>
+                        <div class="ia-token-item ia-token-total"><span class="ia-token-num" id="tkTotal">{{ config.tokens_total }}</span><span class="ia-token-rot">Total</span></div>
+                    </div>
+                    <form method="post" action="{% url 'core:ia_zerar' %}" class="wa-form" onsubmit="return confirm('Zerar o contador de tokens?');">
+                        {% csrf_token %}
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-secundario"><span aria-hidden="true">♻️</span> Zerar contador</button>
+                        </div>
+                    </form>
                 </section>
             </div>
         </main>

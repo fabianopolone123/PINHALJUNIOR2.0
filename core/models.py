@@ -1508,20 +1508,21 @@ class MercadoPagoConfig(models.Model):
 class OpenAIConfig(models.Model):
     """Configuração da IA (API do GPT / OpenAI). Linha única (singleton).
 
-    Guarda a chave da API (token), o modelo padrão e a URL base. Espelha o padrão
+    Guarda só a chave da API (token) — o modelo é fixo (o mais barato, definido em
+    `core/openai_ia.py`) e a URL base não é configurável. Acumula ainda o consumo de
+    tokens (entrada/cache/saída) para o Diretor acompanhar o gasto. Espelha o padrão
     do `WhatsappConfig`/`MercadoPagoConfig`: singleton `get_solo`, segredo mascarado
-    (troca só quando um novo valor é digitado). Usada pelo cliente `core/openai_ia.py`
-    (chamadas via urllib, sem dependência nova)."""
+    (troca só quando um novo valor é digitado)."""
 
     api_key = models.CharField("Chave da API (token)", max_length=255, blank=True)
-    modelo = models.CharField(
-        "Modelo", max_length=80, blank=True, default="gpt-4o-mini",
-        help_text="Nome do modelo da OpenAI (ex.: gpt-4o-mini, gpt-4o).",
-    )
-    base_url = models.CharField(
-        "URL base da API", max_length=200, blank=True,
-        default="https://api.openai.com/v1",
-    )
+
+    # Contador acumulado de consumo (todas as chamadas à IA). `tokens_cache` é o
+    # subconjunto da ENTRADA que veio do cache da OpenAI (mais barato).
+    chamadas = models.PositiveIntegerField("Chamadas à IA", default=0)
+    tokens_prompt = models.PositiveBigIntegerField("Tokens de entrada", default=0)
+    tokens_cache = models.PositiveBigIntegerField("Tokens de entrada em cache", default=0)
+    tokens_completion = models.PositiveBigIntegerField("Tokens de saída", default=0)
+
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1550,12 +1551,41 @@ class OpenAIConfig(models.Model):
         return bool(self.api_key)
 
     @property
-    def modelo_efetivo(self):
-        return (self.modelo or "").strip() or "gpt-4o-mini"
-
-    @property
     def api_key_mascarada(self):
         return _mascarar_segredo(self.api_key)
+
+    # --- Consumo de tokens (derivados) ---
+    @property
+    def tokens_prompt_sem_cache(self):
+        """Tokens de entrada que NÃO vieram do cache (cobrados cheios)."""
+        return max(0, self.tokens_prompt - self.tokens_cache)
+
+    @property
+    def tokens_total(self):
+        return self.tokens_prompt + self.tokens_completion
+
+    def registrar_uso(self, uso):
+        """Acumula o consumo de UMA chamada. `uso` é o dict devolvido por
+        `core/openai_ia.py` (chaves `prompt`/`cache`/`completion`). Grava direto
+        (F() evita corrida entre chamadas simultâneas)."""
+        if not uso:
+            return
+        from django.db.models import F
+        type(self).objects.filter(pk=self.pk).update(
+            chamadas=F("chamadas") + 1,
+            tokens_prompt=F("tokens_prompt") + int(uso.get("prompt", 0) or 0),
+            tokens_cache=F("tokens_cache") + int(uso.get("cache", 0) or 0),
+            tokens_completion=F("tokens_completion") + int(uso.get("completion", 0) or 0),
+        )
+        self.refresh_from_db()
+
+    def zerar_uso(self):
+        """Zera o contador de consumo."""
+        self.chamadas = 0
+        self.tokens_prompt = 0
+        self.tokens_cache = 0
+        self.tokens_completion = 0
+        self.save(update_fields=["chamadas", "tokens_prompt", "tokens_cache", "tokens_completion"])
 
 
 STATUS_PAGAMENTO_CHOICES = [

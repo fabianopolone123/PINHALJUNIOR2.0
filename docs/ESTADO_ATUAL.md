@@ -2,13 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Módulo Configurações IA (API do GPT)**): novo módulo **Configurações IA**
-(🤖, só Diretor) no padrão WhatsApp/Mercado Pago — singleton `OpenAIConfig` (chave da API mascarada + `modelo`
-[padrão `gpt-4o-mini`] + `base_url`) e tela `/ia/` com **salvar config** e **enviar um teste** (resposta da IA na
-própria tela). Cliente `core/openai_ia.py` via `urllib` (sem dependência nova): `conversar`/`enviar_prompt`.
-Rotas `ia/`, `ia/config/`, `ia/testar/`; item de menu `ia`; template `core/ia.html` + `static/js/ia.js`;
-migration **0043**. É só a **configuração base** — onde a IA será aplicada no sistema vem depois.
-Antes: Mercado Pago — sinal de credenciais salvas.
+**Última atualização:** 2026-07-11 (**Configurações IA: modelo fixo + contador de tokens**): a tela `/ia/`
+(🤖, só Diretor) guarda **só a chave da API**; o **modelo é fixo** `gpt-4.1-nano` (o mais barato, constante
+`MODELO` em `core/openai_ia.py`) e a **URL base não é mais configurável**. Novo card **"Consumo de tokens"**
+acumulando chamadas + tokens de entrada (total/em cache/fora do cache) + saída + total, com **"Zerar contador"**
+(atualiza ao vivo após cada teste). `OpenAIConfig` ganhou os contadores `chamadas`/`tokens_prompt`/`tokens_cache`/
+`tokens_completion` (métodos `registrar_uso`/`zerar_uso`); `conversar`/`enviar_prompt` devolvem `(ok, texto, uso)`.
+Migration **0044**. Antes: módulo Configurações IA (criação).
+
+**Anterior (Módulo Configurações IA — criação):** novo módulo **Configurações IA**
+(🤖, só Diretor) no padrão WhatsApp/Mercado Pago — singleton `OpenAIConfig` e tela `/ia/` com **salvar config** e
+**enviar um teste** (resposta da IA na própria tela). Cliente `core/openai_ia.py` via `urllib` (sem dependência
+nova). Rotas `ia/`, `ia/config/`, `ia/testar/`; item de menu `ia`; template `core/ia.html` + `static/js/ia.js`.
+É só a **configuração base** — onde a IA será aplicada no sistema vem depois.
 
 **Anterior (Mercado Pago: sinal de credenciais salvas):** na tela `/mercadopago/`,
 cada par (Teste/Produção) ganhou um **badge "✓ Configurado / Não configurado"** no cabeçalho e os campos de

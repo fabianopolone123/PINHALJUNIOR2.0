@@ -138,6 +138,7 @@ urlpatterns = [
     path("ia/", views.ia_view, name="ia"),
     path("ia/config/", views.ia_config_view, name="ia_config"),
     path("ia/testar/", views.ia_testar_view, name="ia_testar"),
+    path("ia/zerar/", views.ia_zerar_view, name="ia_zerar"),
     # --- Pagamentos (Mercado Pago) ---
     path("mercadopago/", views.mercadopago_view, name="mercadopago"),
     path("mercadopago/config/", views.mercadopago_config_view, name="mercadopago_config"),
