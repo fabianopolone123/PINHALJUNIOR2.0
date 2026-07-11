@@ -101,10 +101,16 @@ class FichaMedicaCamposMixin:
         for booleano, detalhe in MED_PARES:
             self.fields[booleano] = campo_sim_nao(self.fields[booleano].label)
             self.fields[detalhe].required = False  # exigido no clean() só se "Sim"
-        # 2) Gates das listas (campos extra, fora do model).
-        self.fields["teve_doencas"] = campo_sim_nao("Já teve ou tem alguma dessas doenças?")
-        self.fields["tem_deficiencia"] = campo_sim_nao("Possui alguma deficiência física?")
-        # 3) Tipo sanguíneo obrigatório.
+        # 2) Doenças/deficiências: a lista fica VISÍVEL + opção "Nenhuma" (exige ao
+        #    menos uma marcação). Assim a pessoa vê a lista antes de responder.
+        self.fields["sem_doencas"] = forms.BooleanField(
+            label="Não teve/tem nenhuma dessas doenças", required=False
+        )
+        self.fields["sem_deficiencia"] = forms.BooleanField(
+            label="Não possui deficiência física", required=False
+        )
+        # 3) Cartão do SUS e tipo sanguíneo obrigatórios.
+        self.fields["cartao_sus"].required = True
         self.fields["tipo_sanguineo"].required = True
 
     def clean(self):
@@ -112,20 +118,10 @@ class FichaMedicaCamposMixin:
         for booleano, detalhe in MED_PARES:
             if cleaned.get(booleano) is True and not (cleaned.get(detalhe) or "").strip():
                 self.add_error(detalhe, "Informe o detalhe, já que marcou Sim.")
-        # Doenças
-        if cleaned.get("teve_doencas") is True:
-            if not any(cleaned.get(d) for d in MED_DOENCAS):
-                self.add_error("teve_doencas", "Marque as doenças que teve (ou escolha Não).")
-        elif cleaned.get("teve_doencas") is False:
-            for d in MED_DOENCAS:
-                cleaned[d] = False
-        # Deficiências
-        if cleaned.get("tem_deficiencia") is True:
-            if not any(cleaned.get(x) for x in MED_DEFICIENCIAS):
-                self.add_error("tem_deficiencia", "Marque a(s) deficiência(s) (ou escolha Não).")
-        elif cleaned.get("tem_deficiencia") is False:
-            for x in MED_DEFICIENCIAS:
-                cleaned[x] = False
+        if not any(cleaned.get(d) for d in MED_DOENCAS) and not cleaned.get("sem_doencas"):
+            self.add_error("sem_doencas", "Marque as doenças ou selecione 'Nenhuma'.")
+        if not any(cleaned.get(x) for x in MED_DEFICIENCIAS) and not cleaned.get("sem_deficiencia"):
+            self.add_error("sem_deficiencia", "Marque a(s) deficiência(s) ou selecione 'Nenhuma'.")
         return cleaned
 
 

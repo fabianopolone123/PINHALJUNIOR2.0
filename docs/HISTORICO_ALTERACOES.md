@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Ajustes na ficha médica e no visual do Sim/Não
+
+### Resumo
+Refinamentos após revisão:
+- **Doenças e Deficiência física:** a lista agora fica **sempre visível** (antes só aparecia depois do "Sim",
+  e a pessoa não via as opções). Viraram o padrão das classes: mostra a lista + opção **"Nenhuma"** e exige
+  ao menos uma marcação (doença/deficiência OU "Nenhuma"). Removidos os gates `teve_doencas`/`tem_deficiencia`.
+- **Número da Carteira do SUS:** agora **obrigatório**.
+- **Sim/Não:** deixado **menor** (padrão de todos os cadastros), sem o "quadrado azul" de foco ao clicar do
+  mouse (mantido no teclado via `:focus-visible`), com destaque discreto da opção escolhida (`:has(input:checked)`).
+- **Tipo sanguíneo:** confirmado que "Não sabe" já é uma das opções.
+
+### Arquivos alterados
+- `core/forms.py`: `FichaMedicaCamposMixin` — `sem_doencas`/`sem_deficiencia` (em vez dos gates), `cartao_sus`
+  obrigatório, `clean()` exige ao menos uma marcação.
+- `templates/core/_ficha_medica_campos.html`: listas visíveis + "Nenhuma".
+- `static/css/cadastro.css`: `.simnao-opcao` menor + foco/checked ajustados.
+
+---
+
 ## 2026-07-11 - Cadastros: obrigatoriedade dos campos + Sim/Não + validação com aviso
 
 ### Resumo
