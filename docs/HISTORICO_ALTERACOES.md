@@ -22,6 +22,22 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Levantamento da migração da diretoria (doc local)
+
+### Resumo
+Análise **somente leitura** dos dados do sistema antigo (zip de exportação) para planejar a migração da
+diretoria: quem é diretoria, quem é só-diretoria e quem tem duas contas (diretoria + responsável) e precisa
+de **mesclagem** (um login com 2 perfis). Resultado registrado em `docs/MIGRACAO_DIRETORIA.md`.
+
+### Arquivos alterados
+- `docs/MIGRACAO_DIRETORIA.md`: **novo, mantido LOCAL** (contém nomes/logins reais da diretoria).
+- `.gitignore`: ignora `docs/MIGRACAO_DIRETORIA.md` (não versionar dados pessoais).
+
+### Decisões
+- Não versionar o levantamento (privacidade). Nenhum dado/código alterado — só análise + doc local.
+
+---
+
 ## 2026-07-11 - Diretor atribui o papel dos integrantes da diretoria
 
 ### Resumo

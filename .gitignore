@@ -32,6 +32,9 @@ extratos/
 # Documentos/arquivos soltos na raiz (ex.: PDFs de referência escaneados) — não versionar
 /*.pdf
 
+# Levantamento de migração da diretoria (contém nomes reais/logins) — não versionar
+docs/MIGRACAO_DIRETORIA.md
+
 # Editores / SO
 .vscode/
 .idea/
