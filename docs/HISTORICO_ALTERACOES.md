@@ -22,6 +22,17 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - .gitignore: ignora PDFs soltos na raiz
+
+### Resumo
+Adiciona `/*.pdf` ao `.gitignore` para não versionar documentos de referência escaneados soltos na raiz
+(ex.: `Fichas-Secretaria-Padrão (1).pdf`), seguindo a regra de "arquivos soltos na raiz não são versionados".
+
+### Arquivos alterados
+- `.gitignore`: novo padrão `/*.pdf` (PDFs no diretório-raiz).
+
+---
+
 ## 2026-07-11 - Cadastro de Diretoria (Compromisso para Voluntários) + tela de escolha + 2 perfis
 
 ### Resumo
