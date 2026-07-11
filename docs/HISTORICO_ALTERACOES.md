@@ -40,6 +40,9 @@ de **mesclagem** (um login com 2 perfis). Resultado registrado em `docs/MIGRACAO
 - Investigado o **formato das assinaturas antigas** (só leitura): NÃO foram migradas; existem no export como
   base64 por documento em `aventureiroficha`/`diretoriaficha` (batem 1:1 com o novo) + arquivos PNG únicos.
   Mapeamento para `AssinaturaDocumento`/`AssinaturaDocumentoDiretoria` registrado no doc local.
+- Decisão: aventureiro tem 3 assinaturas (inscrição, declaração médica, imagem) — a ficha médica entra sob a
+  declaração médica. Diretoria (antigo) só tinha 2 (compromisso + imagem) → na migração, a declaração médica
+  da diretoria recebe uma **cópia** da assinatura do compromisso, para ficar com as 3.
 
 ---
 
