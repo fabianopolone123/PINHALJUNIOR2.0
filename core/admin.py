@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     AssinaturaDocumento,
+    AssinaturaDocumentoDiretoria,
     Aventureiro,
     AutorizacaoImagem,
     CampoInscricao,
@@ -59,6 +60,14 @@ class MembroDiretoriaAdmin(admin.ModelAdmin):
     list_display = ("nome_completo", "usuario", "cidade", "ativo", "criado_em")
     search_fields = ("nome_completo", "cpf", "usuario__username")
     list_filter = ("ativo", "escolaridade")
+
+
+@admin.register(AssinaturaDocumentoDiretoria)
+class AssinaturaDocumentoDiretoriaAdmin(admin.ModelAdmin):
+    list_display = ("membro", "documento", "assinante_nome", "assinado_em")
+    list_filter = ("documento", "assinado_em")
+    search_fields = ("membro__nome_completo", "assinante_nome", "assinante_cpf")
+    readonly_fields = ("assinado_em",)
 
 
 @admin.register(FichaMedicaDiretoria)

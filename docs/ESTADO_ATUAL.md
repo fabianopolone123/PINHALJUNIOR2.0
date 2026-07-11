@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Cadastro de Diretoria + tela de escolha + 2 perfis**): o "Cadastre-se"
+**Última atualização:** 2026-07-11 (**Diretoria: assinatura desenhada dos 3 documentos**): no cadastro de
+diretoria, os aceites por checkbox viraram **assinatura desenhada** (dedo/mouse) — cada documento (compromisso
+de voluntário, declaração médica e autorização de imagem do adulto) tem a sua, gravada como PNG + snapshot do
+texto do termo, no mesmo padrão do aventureiro (reusa `_assinatura_doc.html`, o modal e `assinatura.js`). Model
+`AssinaturaDocumentoDiretoria` (via molde abstrato `AssinaturaDocumentoBase`, migration **0042**); textos em
+`termos.py` (`montar_texto_diretoria`). Responsividade mobile verificada (490px). Corrigido bug do preview
+(imagem quebrada no estado vazio) que afetava também o aventureiro. Antes: Cadastro de Diretoria (base).
+
+**Anterior (Cadastro de Diretoria + tela de escolha + 2 perfis**): o "Cadastre-se"
 (`/cadastro/`) virou uma **tela de escolha** com 3 opções — **Aventureiro**, **Diretoria** e **Diretoria +
 Aventureiro**. Novo **cadastro de diretoria** (`/cadastro/diretoria/`, ficha "Compromisso para Voluntários"):
 wizard com Conta, Identificação (cônjuge condicional ao estado civil; qtd. de filhos), Contato/Endereço,

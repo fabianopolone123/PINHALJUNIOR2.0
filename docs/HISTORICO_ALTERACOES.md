@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Diretoria: assinatura desenhada dos 3 documentos (substitui os checkboxes)
+
+### Resumo
+No cadastro de diretoria, os aceites por checkbox (compromisso de voluntário, declaração médica e
+autorização de imagem) viraram **assinatura desenhada** (dedo/mouse), no mesmo padrão do cadastro de
+aventureiro. Cada documento tem a sua assinatura própria, gravada como imagem PNG + snapshot do texto do
+termo preenchido. Responsividade mobile verificada (Chrome headless, 490px): etapa de Termos e modal de
+assinatura OK. Corrigido, de quebra, um bug cosmético do preview de assinatura (imagem quebrada no estado
+vazio) que afetava também o cadastro de aventureiro.
+
+### Arquivos alterados
+- `core/models.py`: `AssinaturaDocumentoBase` (molde abstrato) + `AssinaturaDocumento` (aventureiro, refatorado
+  para herdar da base, tabela inalterada) + novo `AssinaturaDocumentoDiretoria` (membro + documento).
+- `core/migrations/0042_...`: cria AssinaturaDocumentoDiretoria.
+- `core/termos.py`: textos dos 3 documentos da diretoria (`montar_texto_diretoria`) — compromisso, declaração
+  médica e autorização de imagem do adulto.
+- `core/views.py`: `cadastro_diretoria_view` valida e grava as 3 assinaturas (`_validar_aceites_diretoria`
+  agora exige assinatura; `_salvar_assinaturas_diretoria`); reusa `_decode_signature`.
+- `core/admin.py`: registra `AssinaturaDocumentoDiretoria`.
+- `templates/core/cadastro_diretoria.html`: blocos `_assinatura_doc.html` + modal de assinatura + `assinatura.js`.
+- `static/js/cadastro_diretoria.js`: validação por assinatura (não mais checkbox) + revisão "Assinado".
+- `static/css/cadastro.css`: `.assinatura-doc-preview img[hidden] { display:none }` (fix da imagem quebrada).
+- Removido `templates/core/_campo_check_livre.html` (não é mais usado).
+
+### Pendências
+- Próximos: exibir o membro da diretoria em "Meus Dados"/"Usuários" e a UI do Diretor para atribuir o papel.
+
+---
+
 ## 2026-07-11 - .gitignore: ignora PDFs soltos na raiz
 
 ### Resumo

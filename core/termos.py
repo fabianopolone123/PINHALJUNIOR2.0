@@ -97,3 +97,78 @@ def montar_texto(documento, aventureiro, autorizacao=None):
             return titulo, ""
         return titulo, texto_autorizacao_imagem(aventureiro, autorizacao)
     return titulo, ""
+
+
+# ---------------------------------------------------------------------------
+# Diretoria (Compromisso para Voluntários) — termos do adulto
+# ---------------------------------------------------------------------------
+DOC_COMPROMISSO = "compromisso"
+
+TITULOS_DIRETORIA = {
+    DOC_COMPROMISSO: "Compromisso de voluntário",
+    DOC_DECLARACAO_MEDICA: "Declaração médica",
+    DOC_AUTORIZACAO_IMAGEM: "Termo de Autorização de Uso de Imagem",
+}
+
+
+def texto_compromisso_diretoria(membro):
+    """Compromisso do voluntário da diretoria."""
+    return (
+        "Confirmo meu compromisso como voluntário(a) do Clube de Aventureiros "
+        "Pinhal Júnior, comprometendo-me a participar das atividades, zelar pelo "
+        "bem-estar e pela segurança dos aventureiros e a manter os princípios do "
+        "clube. Eu, {nome}, assino o presente compromisso."
+    ).format(nome=_ou_traco(membro.nome_completo))
+
+
+def texto_declaracao_medica_diretoria(membro):
+    """Declaração médica do voluntário (veracidade das informações de saúde)."""
+    return (
+        "Atesto serem verdadeiras todas as informações médicas preenchidas e me "
+        "responsabilizo por quaisquer acidentes que venham a ocorrer em decorrência "
+        "de não informar problema médico de qualquer natureza. Eu, {nome}, assino a "
+        "presente declaração."
+    ).format(nome=_ou_traco(membro.nome_completo))
+
+
+def texto_autorizacao_imagem_diretoria(membro):
+    """Autorização de uso de imagem do adulto (o próprio voluntário autoriza)."""
+    m = membro
+    return (
+        "Eu, {nome}, {nac}, {civil}, portador(a) da Cédula de identidade RG nº "
+        "{rg}, inscrito(a) no CPF sob nº {cpf}, residente na {end}, nº {num}, bairro "
+        "{bairro}, município de {cidade} / {estado}, AUTORIZO o uso da minha imagem "
+        "em todo e qualquer material entre fotos e documentos para ser utilizado em "
+        "campanhas promocionais e institucionais do CLUBE DE AVENTUREIROS, sejam "
+        "essas destinadas à divulgação ao público em geral. A presente autorização é "
+        "concedida a título gratuito, abrangendo o uso da imagem em todo território "
+        "nacional, das seguintes formas: (I) outdoor; (II) folhetos em geral; (III) "
+        "folder de apresentação; (IV) anúncios em revistas e jornais; (V) home page "
+        "(facebook); (VI) cartazes; (VII) mídia eletrônica (painéis, vídeos, "
+        "televisão, rádio, entre outros). Por esta ser a expressão da minha vontade, "
+        "declaro que autorizo o uso acima descrito sem que nada haja a ser reclamado "
+        "a título de direitos conexos à imagem ou a qualquer outro."
+    ).format(
+        nome=_ou_traco(m.nome_completo),
+        nac=_ou_traco(m.nacionalidade),
+        civil=_ou_traco(m.get_estado_civil_display() if m.estado_civil else ""),
+        rg=_ou_traco(m.rg),
+        cpf=_ou_traco(m.cpf),
+        end=_ou_traco(m.endereco),
+        num=_ou_traco(m.numero),
+        bairro=_ou_traco(m.bairro),
+        cidade=_ou_traco(m.cidade),
+        estado=_ou_traco(m.estado),
+    )
+
+
+def montar_texto_diretoria(documento, membro):
+    """Devolve (titulo, texto) do documento da diretoria, já preenchido."""
+    titulo = TITULOS_DIRETORIA.get(documento, documento)
+    if documento == DOC_COMPROMISSO:
+        return titulo, texto_compromisso_diretoria(membro)
+    if documento == DOC_DECLARACAO_MEDICA:
+        return titulo, texto_declaracao_medica_diretoria(membro)
+    if documento == DOC_AUTORIZACAO_IMAGEM:
+        return titulo, texto_autorizacao_imagem_diretoria(membro)
+    return titulo, ""

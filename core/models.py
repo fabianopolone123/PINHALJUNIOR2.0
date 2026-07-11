@@ -2161,12 +2161,27 @@ class CaixaClube(models.Model):
         return obj
 
 
-class AssinaturaDocumento(models.Model):
-    """Assinatura desenhada (dedo/mouse) de um documento da inscrição do
-    aventureiro. Uma por documento. Comprova o aceite daquele termo e guarda o
-    texto do termo preenchido no momento da assinatura, para que o Diretor
-    consiga reconstruir depois o termo assinado (fiel mesmo que o cadastro mude).
-    A imagem NÃO é exibida ao responsável — só ao Diretor."""
+class AssinaturaDocumentoBase(models.Model):
+    """Campos de uma assinatura desenhada (imagem + snapshot do termo + assinante).
+
+    Molde ABSTRATO compartilhado pela assinatura do aventureiro e a da diretoria.
+    A imagem NÃO é exibida a quem assina — só ao Diretor."""
+
+    imagem = models.ImageField("Assinatura", upload_to="assinaturas/%Y/%m")
+    # Snapshot do termo preenchido no momento da assinatura.
+    titulo_documento = models.CharField("Título do documento", max_length=150, blank=True)
+    texto_documento = models.TextField("Texto do termo assinado", blank=True)
+    assinante_nome = models.CharField("Assinado por", max_length=150, blank=True)
+    assinante_cpf = models.CharField("CPF de quem assinou", max_length=20, blank=True)
+    assinado_em = models.DateTimeField("Assinado em", auto_now_add=True)
+
+    class Meta:
+        abstract = True
+
+
+class AssinaturaDocumento(AssinaturaDocumentoBase):
+    """Assinatura desenhada de um documento da inscrição do aventureiro.
+    Uma por documento; comprova o aceite e guarda o texto do termo preenchido."""
 
     DOC_INSCRICAO = "inscricao"
     DOC_DECLARACAO_MEDICA = "declaracao_medica"
@@ -2184,13 +2199,6 @@ class AssinaturaDocumento(models.Model):
         verbose_name="Aventureiro",
     )
     documento = models.CharField("Documento", max_length=30, choices=DOC_CHOICES)
-    imagem = models.ImageField("Assinatura", upload_to="assinaturas/%Y/%m")
-    # Snapshot do termo preenchido no momento da assinatura.
-    titulo_documento = models.CharField("Título do documento", max_length=150, blank=True)
-    texto_documento = models.TextField("Texto do termo assinado", blank=True)
-    assinante_nome = models.CharField("Assinado por", max_length=150, blank=True)
-    assinante_cpf = models.CharField("CPF de quem assinou", max_length=20, blank=True)
-    assinado_em = models.DateTimeField("Assinado em", auto_now_add=True)
 
     class Meta:
         verbose_name = "Assinatura de documento"
@@ -2200,3 +2208,34 @@ class AssinaturaDocumento(models.Model):
 
     def __str__(self):
         return f"{self.get_documento_display()} — {self.aventureiro.nome_completo}"
+
+
+class AssinaturaDocumentoDiretoria(AssinaturaDocumentoBase):
+    """Assinatura desenhada de um documento do cadastro de diretoria
+    (compromisso de voluntário, declaração médica e autorização de imagem)."""
+
+    DOC_COMPROMISSO = "compromisso"
+    DOC_DECLARACAO_MEDICA = "declaracao_medica"
+    DOC_AUTORIZACAO_IMAGEM = "autorizacao_imagem"
+    DOC_CHOICES = [
+        (DOC_COMPROMISSO, "Compromisso de voluntário"),
+        (DOC_DECLARACAO_MEDICA, "Declaração médica"),
+        (DOC_AUTORIZACAO_IMAGEM, "Termo de autorização de imagem"),
+    ]
+
+    membro = models.ForeignKey(
+        MembroDiretoria,
+        on_delete=models.CASCADE,
+        related_name="assinaturas",
+        verbose_name="Membro da diretoria",
+    )
+    documento = models.CharField("Documento", max_length=30, choices=DOC_CHOICES)
+
+    class Meta:
+        verbose_name = "Assinatura de documento (diretoria)"
+        verbose_name_plural = "Assinaturas de documentos (diretoria)"
+        unique_together = ("membro", "documento")
+        ordering = ["documento"]
+
+    def __str__(self):
+        return f"{self.get_documento_display()} — {self.membro.nome_completo}"

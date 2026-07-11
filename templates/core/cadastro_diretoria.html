@@ -266,7 +266,8 @@
                                 princípios do clube.
                             </p>
                         </div>
-                        {% include "core/_campo_check_livre.html" with nome="aceite_compromisso" rotulo="Li e aceito o compromisso de voluntário." %}
+                        <p class="assinatura-instrucao">Assine abaixo para aceitar o compromisso de voluntário.</p>
+                        {% include "core/_assinatura_doc.html" with campo_id="assinatura_compromisso" rotulo="Assinar compromisso" %}
                     </div>
 
                     <div class="bloco">
@@ -278,7 +279,8 @@
                                 decorrência de não informar problema médico de qualquer natureza.
                             </p>
                         </div>
-                        {% include "core/_campo_check_livre.html" with nome="aceite_medica" rotulo="Li e aceito a declaração médica." %}
+                        <p class="assinatura-instrucao">Assine abaixo para aceitar a declaração médica.</p>
+                        {% include "core/_assinatura_doc.html" with campo_id="assinatura_medica_dir" rotulo="Assinar declaração médica" %}
                     </div>
 
                     <div class="bloco">
@@ -308,7 +310,8 @@
                             </p>
                             <small class="ajuda">Os campos destacados são preenchidos com os dados informados acima.</small>
                         </div>
-                        {% include "core/_campo_check_livre.html" with nome="aceite_imagem" rotulo="Li e aceito a autorização de uso de imagem." %}
+                        <p class="assinatura-instrucao">Assine abaixo para autorizar o uso de imagem.</p>
+                        {% include "core/_assinatura_doc.html" with campo_id="assinatura_imagem_dir" rotulo="Assinar termo de imagem" %}
                     </div>
                 </section>
 
@@ -337,6 +340,23 @@
         </section>
     </main>
 
+    <!-- Modal de assinatura (dedo/mouse) — reutilizado pelos três documentos -->
+    <div class="assinatura-modal" id="signature-modal" aria-hidden="true">
+        <div class="assinatura-modal-caixa" role="dialog" aria-modal="true" aria-label="Assinatura">
+            <h3 class="assinatura-modal-titulo">Assine no quadro abaixo</h3>
+            <p class="ajuda">Use o dedo (no celular) ou o mouse. Depois toque em “Confirmar”.</p>
+            <div class="assinatura-canvas-wrap">
+                <canvas></canvas>
+            </div>
+            <div class="assinatura-modal-acoes">
+                <button type="button" class="btn-secundario" data-action="clear-signature">Limpar</button>
+                <button type="button" class="btn-secundario" data-action="close-signature">Cancelar</button>
+                <button type="button" class="btn-primario" data-action="save-signature">Confirmar assinatura</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/assinatura.js' %}"></script>
     <script src="{% static 'js/cadastro_diretoria.js' %}"></script>
 </body>
 </html>

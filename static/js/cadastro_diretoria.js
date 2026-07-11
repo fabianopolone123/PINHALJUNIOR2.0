@@ -116,9 +116,9 @@
         }
         return el.value ? el.value : "—";
     }
-    function aceito(id) {
+    function assinou(id) {
         var el = document.getElementById(id);
-        return el && el.checked ? "Aceito ✓" : "Pendente";
+        return el && el.value ? "Assinado ✓" : "Pendente";
     }
     function montarRevisao() {
         var revisao = document.getElementById("revisao");
@@ -131,20 +131,20 @@
             ["WhatsApp", valor("id_dir-whatsapp")],
             ["E-mail", valor("id_dir-email")],
             ["Escolaridade", valor("id_dir-escolaridade")],
-            ["Compromisso de voluntário", aceito("id_aceite_compromisso")],
-            ["Declaração médica", aceito("id_aceite_medica")],
-            ["Autorização de imagem", aceito("id_aceite_imagem")],
+            ["Compromisso de voluntário", assinou("assinatura_compromisso")],
+            ["Declaração médica", assinou("assinatura_medica_dir")],
+            ["Autorização de imagem", assinou("assinatura_imagem_dir")],
         ];
         revisao.innerHTML = itens.map(function (par) {
             return '<div class="revisao-item"><strong>' + par[0] + "</strong><span>" + par[1] + "</span></div>";
         }).join("");
     }
 
-    /* ---------- Validação de envio (aceites obrigatórios) ---------- */
-    var ACEITES = [
-        ["id_aceite_compromisso", "o compromisso de voluntário"],
-        ["id_aceite_medica", "a declaração médica"],
-        ["id_aceite_imagem", "a autorização de uso de imagem"],
+    /* ---------- Validação de envio (assinaturas obrigatórias) ---------- */
+    var ASSINATURAS = [
+        ["assinatura_compromisso", "o compromisso de voluntário"],
+        ["assinatura_medica_dir", "a declaração médica"],
+        ["assinatura_imagem_dir", "a autorização de uso de imagem"],
     ];
     function indicePasso(id) {
         var el = document.getElementById(id);
@@ -152,12 +152,12 @@
         return passo ? passos.indexOf(passo) : -1;
     }
     form.addEventListener("submit", function (evento) {
-        for (var i = 0; i < ACEITES.length; i++) {
-            var campo = document.getElementById(ACEITES[i][0]);
-            if (campo && !campo.checked) {
+        for (var i = 0; i < ASSINATURAS.length; i++) {
+            var campo = document.getElementById(ASSINATURAS[i][0]);
+            if (campo && !campo.value) {
                 evento.preventDefault();
-                mostrar(indicePasso(ACEITES[i][0]));
-                alert("É necessário aceitar " + ACEITES[i][1] + " para finalizar.");
+                mostrar(indicePasso(ASSINATURAS[i][0]));
+                alert("É necessário assinar " + ASSINATURAS[i][1] + " para finalizar.");
                 return;
             }
         }

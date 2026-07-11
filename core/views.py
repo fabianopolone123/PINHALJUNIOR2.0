@@ -65,6 +65,7 @@ from .models import (
     ConfigMensalidade,
     MENSAGEM_APELO_PADRAO,
     MENSAGEM_COBRANCA_PADRAO,
+    AssinaturaDocumentoDiretoria,
     CupomDesconto,
     CustoClube,
     CustoEvento,
@@ -609,21 +610,39 @@ def cadastro_novo_aventureiro_view(request):
     return render(request, "core/cadastro.html", contexto)
 
 
-# Aceites (checkbox) do cadastro de diretoria — a assinatura desenhada fica p/ depois.
-DIRETORIA_ACEITES = [
-    ("aceite_compromisso", "o compromisso de voluntário"),
-    ("aceite_medica", "a declaração médica"),
-    ("aceite_imagem", "a autorização de uso de imagem"),
+# Assinaturas do cadastro de diretoria: campo (name) no POST → documento + rótulo.
+CAMPOS_ASSINATURA_DIRETORIA = [
+    ("assinatura_compromisso", AssinaturaDocumentoDiretoria.DOC_COMPROMISSO, "o compromisso de voluntário"),
+    ("assinatura_medica_dir", AssinaturaDocumentoDiretoria.DOC_DECLARACAO_MEDICA, "a declaração médica"),
+    ("assinatura_imagem_dir", AssinaturaDocumentoDiretoria.DOC_AUTORIZACAO_IMAGEM, "a autorização de uso de imagem"),
 ]
 
 
 def _validar_aceites_diretoria(request):
-    """Exige os três aceites (checkbox) do cadastro de diretoria."""
+    """Exige a assinatura desenhada dos três documentos da diretoria."""
     erros = []
-    for campo, rotulo in DIRETORIA_ACEITES:
-        if request.POST.get(campo) != "on":
-            erros.append(f"É necessário aceitar {rotulo}.")
+    for campo, _doc, rotulo in CAMPOS_ASSINATURA_DIRETORIA:
+        if not _decode_signature(request.POST.get(campo, "")):
+            erros.append(f"É necessário assinar {rotulo}.")
     return erros
+
+
+def _salvar_assinaturas_diretoria(membro_obj, request):
+    """Cria os três AssinaturaDocumentoDiretoria (imagem + snapshot do termo)."""
+    for campo, doc, _rotulo in CAMPOS_ASSINATURA_DIRETORIA:
+        imagem_assinatura = _decode_signature(request.POST.get(campo, ""))
+        if imagem_assinatura is None:
+            continue
+        titulo, texto = termos.montar_texto_diretoria(doc, membro_obj)
+        AssinaturaDocumentoDiretoria.objects.create(
+            membro=membro_obj,
+            documento=doc,
+            imagem=imagem_assinatura,
+            titulo_documento=titulo,
+            texto_documento=texto,
+            assinante_nome=membro_obj.nome_completo,
+            assinante_cpf=membro_obj.cpf,
+        )
 
 
 def cadastro_diretoria_view(request):
@@ -668,6 +687,8 @@ def cadastro_diretoria_view(request):
                 ficha = medica.save(commit=False)
                 ficha.membro = membro_obj
                 ficha.save()
+
+                _salvar_assinaturas_diretoria(membro_obj, request)
 
             login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk

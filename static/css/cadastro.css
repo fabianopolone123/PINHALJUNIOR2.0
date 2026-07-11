@@ -640,6 +640,11 @@ body {
     display: block;
 }
 
+/* Sem assinatura ainda: o <img> vazio fica escondido (não mostrar imagem quebrada). */
+.assinatura-doc-preview img[hidden] {
+    display: none;
+}
+
 .assinatura-doc-status {
     font-size: 0.88rem;
     color: #6b7a89;
