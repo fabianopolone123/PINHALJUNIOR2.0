@@ -134,6 +134,10 @@ urlpatterns = [
     path("whatsapp/", views.whatsapp_view, name="whatsapp"),
     path("whatsapp/config/", views.whatsapp_config_view, name="whatsapp_config"),
     path("whatsapp/enviar/", views.whatsapp_enviar_view, name="whatsapp_enviar"),
+    # --- Configurações IA (API do GPT / OpenAI) ---
+    path("ia/", views.ia_view, name="ia"),
+    path("ia/config/", views.ia_config_view, name="ia_config"),
+    path("ia/testar/", views.ia_testar_view, name="ia_testar"),
     # --- Pagamentos (Mercado Pago) ---
     path("mercadopago/", views.mercadopago_view, name="mercadopago"),
     path("mercadopago/config/", views.mercadopago_config_view, name="mercadopago_config"),

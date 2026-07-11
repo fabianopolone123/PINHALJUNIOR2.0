@@ -1505,6 +1505,59 @@ class MercadoPagoConfig(models.Model):
         return _mascarar_segredo(self.webhook_secret_prod)
 
 
+class OpenAIConfig(models.Model):
+    """Configuração da IA (API do GPT / OpenAI). Linha única (singleton).
+
+    Guarda a chave da API (token), o modelo padrão e a URL base. Espelha o padrão
+    do `WhatsappConfig`/`MercadoPagoConfig`: singleton `get_solo`, segredo mascarado
+    (troca só quando um novo valor é digitado). Usada pelo cliente `core/openai_ia.py`
+    (chamadas via urllib, sem dependência nova)."""
+
+    api_key = models.CharField("Chave da API (token)", max_length=255, blank=True)
+    modelo = models.CharField(
+        "Modelo", max_length=80, blank=True, default="gpt-4o-mini",
+        help_text="Nome do modelo da OpenAI (ex.: gpt-4o-mini, gpt-4o).",
+    )
+    base_url = models.CharField(
+        "URL base da API", max_length=200, blank=True,
+        default="https://api.openai.com/v1",
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="openai_configs",
+        verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuração da IA"
+        verbose_name_plural = "Configuração da IA"
+
+    def __str__(self):
+        return "Configuração da IA (OpenAI/GPT)"
+
+    @classmethod
+    def get_solo(cls):
+        """Retorna (criando se preciso) a única linha de configuração."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def configurado(self):
+        return bool(self.api_key)
+
+    @property
+    def modelo_efetivo(self):
+        return (self.modelo or "").strip() or "gpt-4o-mini"
+
+    @property
+    def api_key_mascarada(self):
+        return _mascarar_segredo(self.api_key)
+
+
 STATUS_PAGAMENTO_CHOICES = [
     ("pendente", "Aguardando pagamento"),
     ("aprovado", "Aprovado"),

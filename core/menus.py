@@ -59,6 +59,8 @@ ITENS_MENU = [
      "url": "core:whatsapp", "ativas": ["whatsapp"]},
     {"id": "mercadopago", "rotulo": "Mercado Pago", "icone": "💳",
      "url": "core:mercadopago", "ativas": ["mercadopago"]},
+    {"id": "ia", "rotulo": "Configurações IA", "icone": "🤖",
+     "url": "core:ia", "ativas": ["ia"]},
 ]
 
 # Acesso PADRÃO por perfil (lista de ids de `ITENS_MENU`). É o "perfil tal tem

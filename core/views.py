@@ -52,6 +52,7 @@ from .forms import (
     ResponsavelLegalForm,
 )
 from . import mercadopago as mp
+from . import openai_ia
 from . import termos
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
@@ -78,6 +79,7 @@ from .models import (
     MembroDiretoria,
     MercadoPagoConfig,
     Mensalidade,
+    OpenAIConfig,
     OperadorEvento,
     Pagamento,
     ParticipanteInscricao,
@@ -3401,6 +3403,60 @@ def whatsapp_enviar_view(request):
     if ok:
         return JsonResponse({"ok": True, "telefone": telefone, "message_id": detalhe})
     return JsonResponse({"ok": False, "erro": detalhe, "telefone": telefone}, status=502)
+
+
+# ===========================================================================
+# Configurações IA (API do GPT / OpenAI) — só Diretor.
+# ===========================================================================
+@diretor_required
+def ia_view(request):
+    """Tela Configurações IA (só Diretor): guarda a chave da API do GPT, o modelo
+    e permite enviar um teste para ver se a IA responde."""
+    config = OpenAIConfig.get_solo()
+    return render(request, "core/ia.html", {"config": config})
+
+
+@diretor_required
+@require_POST
+def ia_config_view(request):
+    """Salva a chave da API, o modelo e (opcional) a URL base da OpenAI.
+
+    A chave só é substituída se uma nova for digitada — assim a tela exibe apenas
+    os últimos dígitos sem apagar a chave guardada."""
+    config = OpenAIConfig.get_solo()
+    nova_chave = (request.POST.get("api_key") or "").strip()
+    if nova_chave:
+        config.api_key = nova_chave
+    modelo = (request.POST.get("modelo") or "").strip()
+    if modelo:
+        config.modelo = modelo
+    base_url = (request.POST.get("base_url") or "").strip()
+    if base_url:
+        config.base_url = base_url
+    config.atualizado_por = request.user
+    config.save()
+    messages.success(request, "Configuração da IA salva.")
+    return redirect("core:ia")
+
+
+@diretor_required
+@require_POST
+def ia_testar_view(request):
+    """Envia um prompt de teste para a IA e devolve a resposta (JSON, sem
+    recarregar a página)."""
+    config = OpenAIConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure a chave da API antes de enviar."},
+            status=400,
+        )
+    prompt = (request.POST.get("prompt") or "").strip()
+    if not prompt:
+        return JsonResponse({"ok": False, "erro": "Digite o texto do teste."}, status=400)
+    ok, detalhe = openai_ia.enviar_prompt(config, prompt)
+    if ok:
+        return JsonResponse({"ok": True, "resposta": detalhe, "modelo": config.modelo_efetivo})
+    return JsonResponse({"ok": False, "erro": detalhe}, status=502)
 
 
 # ===========================================================================

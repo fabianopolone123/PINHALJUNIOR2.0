@@ -163,3 +163,30 @@
         width: auto;
     }
 }
+
+/* ---- Caixa de resposta da IA (tela Configurações IA) ---- */
+.ia-resposta {
+    margin-top: 16px;
+    border-top: 1px solid var(--borda, #e0e0e0);
+    padding-top: 14px;
+    max-width: 640px;
+}
+
+.ia-resposta-rotulo {
+    margin: 0 0 6px;
+    font-weight: 600;
+    color: var(--texto-secundario, #555);
+}
+
+.ia-resposta-rotulo .wa-opcional {
+    font-weight: 400;
+}
+
+.ia-resposta-texto {
+    white-space: pre-wrap;
+    background: var(--fundo-suave, #f5f7fa);
+    border: 1px solid var(--borda, #e0e0e0);
+    border-radius: 8px;
+    padding: 12px 14px;
+    line-height: 1.5;
+}

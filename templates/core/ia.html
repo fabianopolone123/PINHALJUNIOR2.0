@@ -1,0 +1,149 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Configurações IA — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/whatsapp.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Configurações IA</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo"><span aria-hidden="true">🤖</span> Configurações IA</h1>
+                    <p class="cabecalho-sub">
+                        Configure a chave da API do GPT (OpenAI) e envie um teste para ver se a IA responde.
+                    </p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- ===================== Configuração da API ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">🔑 Chave da API</h2>
+                        <span class="wa-status {% if config.configurado %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                            {% if config.configurado %}✓ Configurado{% else %}Não configurado{% endif %}
+                        </span>
+                    </div>
+                    <p class="wa-ajuda">
+                        A chave vem do painel da OpenAI (platform.openai.com → API keys). Por segurança,
+                        ela é exibida só com os últimos dígitos — digite uma nova chave apenas se quiser trocá-la.
+                    </p>
+
+                    <form method="post" action="{% url 'core:ia_config' %}" class="wa-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="api_key">Chave da API (token)</label>
+                            {% if config.api_key %}
+                            <p class="wa-token-atual">Chave atual: <strong>{{ config.api_key_mascarada }}</strong></p>
+                            {% endif %}
+                            <div class="wa-token-linha">
+                                <input type="password" id="api_key" name="api_key"
+                                       placeholder="{% if config.api_key %}Digite uma nova chave para trocar{% else %}sk-...{% endif %}"
+                                       autocomplete="off">
+                                <button type="button" class="btn-secundario wa-ver-token" id="verChave"
+                                        aria-pressed="false">Mostrar</button>
+                            </div>
+                        </div>
+
+                        <div class="campo">
+                            <label for="modelo">Modelo</label>
+                            <input type="text" id="modelo" name="modelo"
+                                   value="{{ config.modelo }}"
+                                   placeholder="gpt-4o-mini" autocomplete="off">
+                            <small class="ajuda">Nome do modelo da OpenAI a usar (ex.: gpt-4o-mini, gpt-4o).</small>
+                        </div>
+
+                        <div class="campo">
+                            <label for="base_url">URL base da API <span class="wa-opcional">(opcional)</span></label>
+                            <input type="text" id="base_url" name="base_url"
+                                   value="{{ config.base_url }}"
+                                   placeholder="https://api.openai.com/v1" autocomplete="off">
+                            <small class="ajuda">Deixe o padrão, a menos que use um endpoint compatível diferente.</small>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ===================== Enviar teste ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">✨ Enviar teste</h2>
+                    </div>
+                    {% if not config.configurado %}
+                    <p class="wa-aviso">Configure a chave da API acima para poder enviar um teste.</p>
+                    {% endif %}
+
+                    <form class="wa-form" id="iaTestarForm"
+                          data-url="{% url 'core:ia_testar' %}"
+                          data-csrf="{{ csrf_token }}">
+                        <div class="campo">
+                            <label for="ia_prompt">Texto do teste</label>
+                            <textarea id="ia_prompt" name="prompt" rows="3"
+                                      placeholder="Ex.: Diga olá e confirme que está funcionando."
+                                      {% if not config.configurado %}disabled{% endif %}></textarea>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao" id="iaTestarBtn"
+                                    {% if not config.configurado %}disabled{% endif %}>
+                                <span aria-hidden="true">🚀</span> Enviar teste
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="ia-resposta" id="iaResposta" hidden>
+                        <p class="ia-resposta-rotulo">Resposta da IA <span id="iaRespostaModelo" class="wa-opcional"></span></p>
+                        <div class="ia-resposta-texto" id="iaRespostaTexto"></div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/ia.js' %}"></script>
+</body>
+</html>

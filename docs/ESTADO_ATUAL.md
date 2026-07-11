@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Mercado Pago: sinal de credenciais salvas**): na tela `/mercadopago/`,
+**Última atualização:** 2026-07-11 (**Módulo Configurações IA (API do GPT)**): novo módulo **Configurações IA**
+(🤖, só Diretor) no padrão WhatsApp/Mercado Pago — singleton `OpenAIConfig` (chave da API mascarada + `modelo`
+[padrão `gpt-4o-mini`] + `base_url`) e tela `/ia/` com **salvar config** e **enviar um teste** (resposta da IA na
+própria tela). Cliente `core/openai_ia.py` via `urllib` (sem dependência nova): `conversar`/`enviar_prompt`.
+Rotas `ia/`, `ia/config/`, `ia/testar/`; item de menu `ia`; template `core/ia.html` + `static/js/ia.js`;
+migration **0043**. É só a **configuração base** — onde a IA será aplicada no sistema vem depois.
+Antes: Mercado Pago — sinal de credenciais salvas.
+
+**Anterior (Mercado Pago: sinal de credenciais salvas):** na tela `/mercadopago/`,
 cada par (Teste/Produção) ganhou um **badge "✓ Configurado / Não configurado"** no cabeçalho e os campos de
 segredo passam a mostrar os **últimos 4 dígitos** do que está salvo (`••••••1234`) — dá pra confirmar que as
 credenciais estão gravadas sem colar de novo. Propriedades novas em `MercadoPagoConfig`

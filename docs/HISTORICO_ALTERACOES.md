@@ -22,6 +22,41 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Módulo "Configurações IA" (API do GPT / OpenAI)
+
+### Resumo
+Novo módulo **Configurações IA** (🤖, só Diretor) no mesmo padrão do WhatsApp/Mercado Pago: um singleton de
+configuração + tela para guardar a **chave da API do GPT** (OpenAI), escolher o **modelo** e a URL base, mais um
+campo para **enviar um teste** e ver a resposta da IA na própria tela. A chave é exibida só com os últimos
+dígitos (mascarada) e só é trocada se uma nova for digitada. Cliente HTTP via `urllib` (sem dependência nova).
+Esta é a **base** — onde a IA vai ser aplicada dentro do sistema será definido depois.
+
+### Arquivos criados/alterados
+- `core/models.py`: model **`OpenAIConfig`** (singleton `get_solo`: `api_key`, `modelo` [padrão `gpt-4o-mini`],
+  `base_url` [padrão `https://api.openai.com/v1`], `atualizado_por/_em`); props `configurado`, `modelo_efetivo`,
+  `api_key_mascarada`.
+- `core/openai_ia.py` (novo): cliente da API de Chat Completions via `urllib` — `conversar(config, mensagens)`
+  (reaproveitável) e o atalho `enviar_prompt(config, prompt)`; devolve `(ok, texto|erro)` com erros amigáveis.
+- `core/views.py`: `ia_view` (tela), `ia_config_view` (POST salvar), `ia_testar_view` (POST → JSON com a
+  resposta); import de `OpenAIConfig` e do módulo `openai_ia`.
+- `core/urls.py`: rotas `ia/`, `ia/config/`, `ia/testar/`.
+- `core/menus.py`: item de menu `ia` ("Configurações IA", 🤖) — Diretor vê tudo, então já aparece só pra ele.
+- `templates/core/ia.html` (novo): card de configuração (badge ✓ Configurado/Não configurado + chave mascarada)
+  + card de teste com a caixa de resposta.
+- `static/js/ia.js` (novo): mostrar/ocultar chave + envio de teste via AJAX com toast e resposta na tela.
+- `static/css/whatsapp.css`: estilos da caixa `.ia-resposta` (reaproveita a folha, já carregada pela tela).
+- Migration **0043** (`OpenAIConfig`).
+
+### Decisões tomadas
+- Mesmo molde dos gateways existentes (singleton + `urllib`, sem dependência nova) — regra do projeto.
+- `modelo` é um campo **editável** (padrão `gpt-4o-mini`) para o Diretor apontar o modelo que tiver acesso.
+- Chave nunca reenviada ao navegador; exibida só mascarada.
+
+### Pendências
+- Definir **onde** a IA será usada no sistema (o usuário vai explicar) — este módulo é só a configuração base.
+
+---
+
 ## 2026-07-11 - Mercado Pago: sinal visível de "credenciais salvas"
 
 ### Resumo
