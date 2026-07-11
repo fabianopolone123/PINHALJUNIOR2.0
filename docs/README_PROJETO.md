@@ -180,6 +180,18 @@ python manage.py importar_migracao --origem "<pasta descompactada>"             
 
 As fotos reais e os dados pessoais de menores ficam **apenas** em `media/` (git-ignored) — nunca no Git.
 
+Para a **diretoria** e as **assinaturas antigas** (rodar localmente, lendo o ZIP de exportação; idempotentes):
+
+```bash
+python manage.py importar_diretoria --dry-run      # simula (usa migracao_mesclagem.json local)
+python manage.py importar_diretoria                # cria MembroDiretoria + mesclagens
+python manage.py importar_assinaturas --dry-run    # simula
+python manage.py importar_assinaturas              # importa assinaturas (casa por CPF)
+```
+
+A config de skip/mesclagem (`migracao_mesclagem.json`) e o levantamento (`docs/MIGRACAO_DIRETORIA.md`) são
+**locais/git-ignored** (contêm logins/nomes reais). Rode `importar_diretoria` antes de `importar_assinaturas`.
+
 ### Como testar o login e a tela "Meus Dados"
 
 1. Rode `python manage.py criar_dados_teste` (se ainda não rodou).

@@ -22,6 +22,36 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Comandos de migração: diretoria + assinaturas antigas
+
+### Resumo
+Dois comandos de importação (rodam **localmente**, lendo o ZIP de exportação git-ignored; depois db/media
+sincronizam para o VPS). Ambos idempotentes e com `--dry-run`.
+- **`importar_diretoria`**: cria `MembroDiretoria` (+ `FichaMedicaDiretoria` + foto) por integrante, vincula ao
+  perfil **Diretoria** e trata as **mesclagens** (quem tem diretoria e responsável em logins diferentes é
+  anexado ao login que tem o aventureiro → 1 login com 2 perfis). Cria o `User` (preservando username + hash da
+  senha) para os só-diretoria que ainda não existiam. Pula teste e Fabiano.
+- **`importar_assinaturas`**: importa as assinaturas desenhadas antigas casando **por CPF**:
+  `aventureiroficha` → `AssinaturaDocumento` (inscrição/declaração médica/imagem);
+  `diretoriaficha` → `AssinaturaDocumentoDiretoria` (compromisso/imagem + **declaração médica = cópia do
+  compromisso**, pois o antigo não tinha). As imagens vêm dos arquivos de assinatura do ZIP.
+
+### Resultado local (validado)
+- Diretoria: **10 membros** (6 logins novos criados; 3 mesclagens; Lediani no login dela); 10 fotos, 10 fichas.
+- Assinaturas: **96** de aventureiro (32 fichas × 3) e **21** de diretoria (7 × 3). Cobertura: 32/46
+  aventureiros e 7/10 membros (os demais não tinham ficha assinada no antigo).
+
+### Arquivos criados/alterados
+- `core/management/commands/importar_diretoria.py`, `core/management/commands/importar_assinaturas.py`.
+- `.gitignore`: ignora `migracao_mesclagem.json` (config local com logins reais — não versionar).
+
+### Decisões
+- A config de **skip/mesclagem** (com logins/nomes reais) fica em `migracao_mesclagem.json` **local**
+  (git-ignored); o comando é genérico. Sem o arquivo, só pula o registro de teste e não faz mesclagens.
+- Migração roda local; o db/media resultantes é que vão para o VPS (padrão já usado no projeto).
+
+---
+
 ## 2026-07-11 - Levantamento da migração da diretoria (doc local)
 
 ### Resumo

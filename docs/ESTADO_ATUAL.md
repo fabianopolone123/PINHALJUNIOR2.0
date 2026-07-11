@@ -2,7 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Diretor atribui o papel da diretoria**): nova tela do Diretor
+**Última atualização:** 2026-07-11 (**Comandos de migração: diretoria + assinaturas antigas**): dois comandos
+(`importar_diretoria` e `importar_assinaturas`), idempotentes, com `--dry-run`, que rodam **localmente** lendo o
+ZIP de exportação (git-ignored) — depois db/media vão para o VPS. `importar_diretoria` cria `MembroDiretoria`
+(+ficha+foto), vincula ao perfil Diretoria, trata **mesclagens** (diretoria+responsável em logins diferentes →
+anexa ao login com o aventureiro; 1 login/2 perfis) e cria o User dos só-diretoria (preservando senha). A config
+de skip/mesclagem fica em `migracao_mesclagem.json` **local** (git-ignored; contém logins reais). `importar_assinaturas`
+casa **por CPF** e importa as assinaturas antigas (`aventureiroficha`→`AssinaturaDocumento`;
+`diretoriaficha`→`AssinaturaDocumentoDiretoria`, com a **declaração médica = cópia do compromisso**). Resultado
+local: 10 membros de diretoria, 96 assinaturas de aventureiro, 21 de diretoria. Antes: Diretor atribui o papel da diretoria.
+
+**Anterior (Diretor atribui o papel da diretoria**): nova tela do Diretor
 (`/usuarios/diretoria/`, botão "Gerenciar diretoria (papéis)" em Usuários) que lista os integrantes da
 diretoria e permite **atribuir o papel** (Diretor/Secretário/Tesoureiro/Professor ou "Diretoria sem papel").
 A atribuição ajusta os **grupos** do usuário (remove os demais papéis e aplica o escolhido) → o perfil/menu

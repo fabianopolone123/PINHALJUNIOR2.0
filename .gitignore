@@ -34,6 +34,8 @@ extratos/
 
 # Levantamento de migração da diretoria (contém nomes reais/logins) — não versionar
 docs/MIGRACAO_DIRETORIA.md
+# Config local da migração da diretoria (skip/mesclagem com logins reais) — não versionar
+migracao_mesclagem.json
 
 # Editores / SO
 .vscode/
