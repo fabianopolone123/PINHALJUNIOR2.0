@@ -288,3 +288,11 @@
 .mens-prog-barra { height:8px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-bottom:8px; }
 .mens-prog-fill { height:100%; width:0; background:var(--verde,#2e7d32); transition:width .3s; }
 .mens-prog-txt { margin:0 0 8px; font-size:0.9rem; color:#475569; }
+
+/* ---- Aba Templates (notificações automáticas) ---- */
+.wa-check { display:flex; align-items:flex-start; gap:8px; margin:6px 0; font-size:0.95rem; cursor:pointer; }
+.wa-check input { margin-top:2px; }
+.wa-membros { display:grid; gap:4px; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+.wa-notif-form textarea { width:100%; font-family:inherit; font-size:0.95rem; }
+.wa-notif-form code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:0.85rem; }
+.wa-janela-form { margin-bottom:4px; }

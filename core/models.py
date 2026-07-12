@@ -1377,6 +1377,11 @@ class WhatsappConfig(models.Model):
     # mensagem, o clube manda `mensagem_reengajamento` para reativar a conversa e não
     # "esfriar" o número (evita o cenário de só o clube mandando, sem resposta).
     reengajar_dias = models.PositiveIntegerField("Reengajar após (dias sem resposta)", default=30)
+    # Notificações automáticas: só envia a quem autorizou OU mandou mensagem dentro
+    # desta janela (evita mandar a número "frio" e ser bloqueado). Dias.
+    notificar_janela_dias = models.PositiveIntegerField(
+        "Janela de envio de notificações (dias)", default=60
+    )
     mensagem_reengajamento = models.TextField(
         "Mensagem de reengajamento", blank=True,
         default=(
@@ -1472,6 +1477,178 @@ class WhatsappWebhookEvent(models.Model):
     def texto_curto(self):
         t = " ".join((self.message_text or "").split())
         return (t[:90] + "…") if len(t) > 90 else t
+
+
+class ContatoWhatsapp(models.Model):
+    """Todo número que já mandou mensagem para o WhatsApp do clube (via webhook),
+    esteja cadastrado ou não. É a **lista consultada antes de cada notificação
+    automática** para evitar mandar mensagem a quem nunca escreveu (risco de bloqueio).
+    `numero` é o telefone normalizado (só dígitos, com DDI)."""
+
+    numero = models.CharField("Número (normalizado)", max_length=20, unique=True)
+    nome = models.CharField("Nome do contato", max_length=150, blank=True, default="")
+    primeira_msg_em = models.DateTimeField("Primeira mensagem em", auto_now_add=True)
+    ultima_msg_em = models.DateTimeField("Última mensagem em", null=True, blank=True)
+    total_msgs = models.PositiveIntegerField("Mensagens recebidas", default=0)
+    autorizou_em = models.DateTimeField("Autorizou em", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Contato do WhatsApp"
+        verbose_name_plural = "Contatos do WhatsApp"
+        ordering = ["-ultima_msg_em"]
+
+    def __str__(self):
+        return self.numero
+
+
+# ---------------------------------------------------------------------------
+# Notificações automáticas por WhatsApp (templates configuráveis + alavanca IA)
+# ---------------------------------------------------------------------------
+# Cada tipo tem um texto padrão do sistema (com marcadores {…}) e um prompt padrão
+# para quando a redação for pela IA. Os marcadores válidos por tipo são documentados
+# na tela (aba Templates) e listados aqui para referência.
+NOTIF_LOJA_COMPRA = "loja_compra"
+NOTIF_LOJA_PEDIDO = "loja_pedido"
+NOTIF_MENSALIDADE_PAGA = "mensalidade_paga"
+NOTIF_CADASTRO_NOVO = "cadastro_novo"
+NOTIF_INSCRICAO_EVENTO = "inscricao_evento"
+
+# tipo -> (rótulo, interno?, marcadores, mensagem_padrão, prompt_padrão)
+TEMPLATES_NOTIFICACAO = {
+    NOTIF_LOJA_COMPRA: (
+        "Confirmação de compra (loja)",
+        False,
+        "{nome} {itens} {total} {codigo}",
+        (
+            "Olá, {nome}! ✅ Recebemos o pagamento da sua compra na Loja do Clube.\n"
+            "Pedido {codigo}\n{itens}\nTotal: R$ {total}\n\n"
+            "A diretoria já foi avisada para providenciar os itens. Avisaremos quando "
+            "estiver pronto para entrega. Obrigado! 💚"
+        ),
+        (
+            "Escreva uma mensagem curta e calorosa de WhatsApp confirmando que o "
+            "pagamento da compra na Loja do Clube de Aventureiros Pinhal Júnior foi "
+            "aprovado. Comprador: {nome}. Pedido {codigo}. Itens: {itens}. Total: R$ {total}. "
+            "Diga que a diretoria já foi avisada para preparar os itens. Máximo 3 linhas, "
+            "sem inventar dados."
+        ),
+    ),
+    NOTIF_LOJA_PEDIDO: (
+        "Novo pedido da loja (aviso interno)",
+        True,
+        "{comprador} {itens} {total} {codigo}",
+        (
+            "🛒 Novo pedido na Loja do Clube!\n"
+            "Comprador: {comprador}\nPedido {codigo}\n{itens}\nTotal: R$ {total}\n\n"
+            "Providencie a compra dos materiais para entrega."
+        ),
+        (
+            "Escreva um aviso interno curto de WhatsApp para a diretoria informando que "
+            "há um novo pedido na Loja do Clube que precisa ter os materiais comprados. "
+            "Comprador: {comprador}. Pedido {codigo}. Itens: {itens}. Total: R$ {total}. "
+            "Máximo 3 linhas, tom objetivo."
+        ),
+    ),
+    NOTIF_MENSALIDADE_PAGA: (
+        "Agradecimento de mensalidade paga",
+        False,
+        "{nome} {itens} {total}",
+        (
+            "Olá, {nome}! 💚 Recebemos o pagamento:\n{itens}\nTotal: R$ {total}\n\n"
+            "Obrigado por manter a mensalidade em dia com o Clube de Aventureiros "
+            "Pinhal Júnior!"
+        ),
+        (
+            "Escreva uma mensagem curta e calorosa de WhatsApp agradecendo o pagamento de "
+            "mensalidade(s) no Clube de Aventureiros Pinhal Júnior. Responsável: {nome}. "
+            "Referências pagas: {itens}. Total: R$ {total}. Máximo 3 linhas, sem inventar dados."
+        ),
+    ),
+    NOTIF_CADASTRO_NOVO: (
+        "Boas-vindas de novo cadastro",
+        False,
+        "{nome} {usuario}",
+        (
+            "Seja bem-vindo(a), {nome}! 🎉 Seu cadastro no Clube de Aventureiros Pinhal "
+            "Júnior foi concluído.\nSeu usuário de acesso: {usuario}\n\n"
+            "Guarde este usuário para entrar no sistema. Qualquer dúvida, é só chamar aqui. 💚"
+        ),
+        (
+            "Escreva uma mensagem curta e calorosa de WhatsApp dando boas-vindas a um novo "
+            "cadastro no Clube de Aventureiros Pinhal Júnior. Nome: {nome}. Usuário de acesso "
+            "para login: {usuario}. Peça para guardar o usuário. Máximo 3 linhas, sem inventar dados."
+        ),
+    ),
+    NOTIF_INSCRICAO_EVENTO: (
+        "Confirmação de inscrição em evento",
+        False,
+        "{nome} {evento} {total} {codigo}",
+        (
+            "Olá, {nome}! ✅ Sua inscrição no evento \"{evento}\" foi confirmada.\n"
+            "Código {codigo}\nTotal: R$ {total}\n\n"
+            "Nos vemos lá! Qualquer dúvida, é só chamar. 💚"
+        ),
+        (
+            "Escreva uma mensagem curta e animada de WhatsApp confirmando a inscrição em um "
+            "evento do Clube de Aventureiros Pinhal Júnior. Inscrito/responsável: {nome}. "
+            "Evento: {evento}. Código: {codigo}. Total: R$ {total}. Máximo 3 linhas, sem inventar dados."
+        ),
+    ),
+}
+
+
+class TemplateNotificacao(models.Model):
+    """Configuração de uma notificação automática por WhatsApp (um registro por
+    tipo). Guarda se está ativa, se a redação usa IA (com prompt) ou o texto do
+    sistema, e — só para avisos internos — quais integrantes da diretoria recebem."""
+
+    tipo = models.CharField("Tipo", max_length=40, unique=True)
+    ativo = models.BooleanField("Ativo", default=False)
+    usar_ia = models.BooleanField("Redigir com IA", default=False)
+    mensagem = models.TextField("Texto do sistema", blank=True, default="")
+    prompt_ia = models.TextField("Prompt da IA", blank=True, default="")
+    # Só para avisos internos (loja_pedido): integrantes da diretoria que recebem.
+    avisos_internos_para = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True,
+        related_name="notificacoes_internas", verbose_name="Recebem o aviso interno",
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="templates_notificacao", verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Template de notificação"
+        verbose_name_plural = "Templates de notificação"
+
+    def __str__(self):
+        return self.get_rotulo()
+
+    @classmethod
+    def get_tipo(cls, tipo):
+        """Retorna (criando com os padrões, se preciso) o template do tipo dado."""
+        defaults = TEMPLATES_NOTIFICACAO.get(tipo)
+        obj, criado = cls.objects.get_or_create(tipo=tipo)
+        if criado and defaults:
+            obj.mensagem = defaults[3]
+            obj.prompt_ia = defaults[4]
+            obj.save(update_fields=["mensagem", "prompt_ia"])
+        return obj
+
+    def get_rotulo(self):
+        d = TEMPLATES_NOTIFICACAO.get(self.tipo)
+        return d[0] if d else self.tipo
+
+    @property
+    def interno(self):
+        d = TEMPLATES_NOTIFICACAO.get(self.tipo)
+        return bool(d and d[1])
+
+    @property
+    def marcadores(self):
+        d = TEMPLATES_NOTIFICACAO.get(self.tipo)
+        return d[2] if d else ""
 
 
 def _mascarar_segredo(valor):

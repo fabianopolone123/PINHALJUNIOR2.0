@@ -58,14 +58,15 @@
                 {% endif %}
 
                 <div class="wa-abas" role="tablist">
-                    <button type="button" class="wa-aba{% if aba != 'grupos' and aba != 'webhook' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
+                    <button type="button" class="wa-aba{% if aba != 'grupos' and aba != 'webhook' and aba != 'autorizacao' and aba != 'liberacao' and aba != 'templates' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
                     <button type="button" class="wa-aba{% if aba == 'grupos' %} ativa{% endif %}" data-aba="grupos" role="tab">👥 Grupos</button>
                     <button type="button" class="wa-aba{% if aba == 'webhook' %} ativa{% endif %}" data-aba="webhook" role="tab">🔔 Webhook</button>
                     <button type="button" class="wa-aba{% if aba == 'autorizacao' %} ativa{% endif %}" data-aba="autorizacao" role="tab">✍️ Autorização</button>
                     <button type="button" class="wa-aba{% if aba == 'liberacao' %} ativa{% endif %}" data-aba="liberacao" role="tab">🚦 Liberação</button>
+                    <button type="button" class="wa-aba{% if aba == 'templates' %} ativa{% endif %}" data-aba="templates" role="tab">🧩 Templates</button>
                 </div>
 
-                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' or aba == 'autorizacao' or aba == 'liberacao' %} hidden{% endif %}>
+                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' or aba == 'autorizacao' or aba == 'liberacao' or aba == 'templates' %} hidden{% endif %}>
 
                 <!-- ===================== Configuração da instância ===================== -->
                 <section class="card wa-card">
@@ -370,6 +371,94 @@
                         </ul>
                     </section>
                 </div><!-- /painel liberacao -->
+
+                <div class="wa-painel" data-painel="templates"{% if aba != 'templates' %} hidden{% endif %}>
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🧩 Notificações automáticas</h2>
+                        </div>
+                        <p class="wa-ajuda">
+                            Avisos enviados automaticamente pelo WhatsApp quando algo acontece no sistema
+                            (compra, pagamento, cadastro, inscrição). Cada um pode ser <strong>ligado/desligado</strong>,
+                            usar o <strong>texto do sistema</strong> ou ser <strong>redigido pela IA</strong> (com o prompt).
+                            Use os <strong>marcadores</strong> indicados — eles são trocados pelos dados reais no envio.
+                        </p>
+                        {% if not config.configurado %}
+                        <p class="wa-aviso">Configure a instância na aba Configurações para os envios funcionarem.</p>
+                        {% endif %}
+
+                        <form method="post" action="{% url 'core:whatsapp_templates' %}" class="wa-form wa-janela-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="janela">
+                            <div class="campo">
+                                <label for="notificar_janela_dias">Só notificar quem mandou mensagem nos últimos (dias)</label>
+                                <input type="number" id="notificar_janela_dias" name="notificar_janela_dias"
+                                       min="1" value="{{ notif_janela_dias }}">
+                                <small class="ajuda">Proteção anti-bloqueio: quem autorizou recebe sempre; os demais só se escreveram ao clube dentro dessa janela.</small>
+                            </div>
+                            <div class="wa-acoes">
+                                <button type="submit" class="btn-secundario">Salvar janela</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    {% for t in notif_templates %}
+                    <section class="card wa-card">
+                        <form method="post" action="{% url 'core:whatsapp_templates' %}" class="wa-form wa-notif-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="tipo" value="{{ t.tipo }}">
+                            <div class="wa-card-topo">
+                                <h3 class="wa-titulo">{{ t.rotulo }}{% if t.interno %} <span class="wa-opcional">(aviso interno)</span>{% endif %}</h3>
+                                <span class="wa-status {% if t.ativo %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                                    {% if t.ativo %}✓ Ativo{% else %}Desligado{% endif %}
+                                </span>
+                            </div>
+
+                            <label class="wa-check">
+                                <input type="checkbox" name="ativo" value="1"{% if t.ativo %} checked{% endif %}>
+                                Enviar esta notificação
+                            </label>
+                            <label class="wa-check">
+                                <input type="checkbox" name="usar_ia" value="1"{% if t.usar_ia %} checked{% endif %}>
+                                Redigir com a IA (GPT){% if not ia_configurada %} <span class="wa-opcional">— IA não configurada (usa o texto do sistema)</span>{% endif %}
+                            </label>
+
+                            {% if t.interno %}
+                            <div class="campo">
+                                <label>Quem da diretoria recebe este aviso</label>
+                                {% if t.membros %}
+                                <div class="wa-membros">
+                                    {% for m in t.membros %}
+                                    <label class="wa-check">
+                                        <input type="checkbox" name="membros" value="{{ m.id }}"{% if m.marcado %} checked{% endif %}>
+                                        {{ m.nome }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <small class="ajuda">Nenhum integrante da diretoria com login cadastrado.</small>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <div class="campo">
+                                <label for="msg_{{ t.tipo }}">Texto do sistema</label>
+                                <textarea id="msg_{{ t.tipo }}" name="mensagem" rows="5">{{ t.mensagem }}</textarea>
+                                <small class="ajuda">Marcadores: <code>{{ t.marcadores }}</code></small>
+                            </div>
+                            <div class="campo">
+                                <label for="prompt_{{ t.tipo }}">Prompt da IA <span class="wa-opcional">(usado quando a IA está ligada)</span></label>
+                                <textarea id="prompt_{{ t.tipo }}" name="prompt_ia" rows="5">{{ t.prompt_ia }}</textarea>
+                                <small class="ajuda">Mesmos marcadores. A IA recebe este prompt já preenchido com os dados reais.</small>
+                            </div>
+
+                            <div class="wa-acoes">
+                                <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar</button>
+                            </div>
+                        </form>
+                    </section>
+                    {% endfor %}
+                </div><!-- /painel templates -->
             </div>
         </main>
     </div>

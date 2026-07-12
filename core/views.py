@@ -67,6 +67,14 @@ from .models import (
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
+    ContatoWhatsapp,
+    TemplateNotificacao,
+    TEMPLATES_NOTIFICACAO,
+    NOTIF_LOJA_COMPRA,
+    NOTIF_LOJA_PEDIDO,
+    NOTIF_MENSALIDADE_PAGA,
+    NOTIF_CADASTRO_NOVO,
+    NOTIF_INSCRICAO_EVENTO,
     MENSAGEM_APELO_PADRAO,
     MENSAGEM_COBRANCA_PADRAO,
     PROMPT_COBRANCA_IA_PADRAO,
@@ -3355,6 +3363,50 @@ def _enviar_whatsapp(config, phone, message):
         return False, f"Erro inesperado: {e}"
 
 
+_ORDEM_NOTIFICACOES = [
+    NOTIF_LOJA_COMPRA, NOTIF_LOJA_PEDIDO, NOTIF_MENSALIDADE_PAGA,
+    NOTIF_CADASTRO_NOVO, NOTIF_INSCRICAO_EVENTO,
+]
+
+
+def _diretoria_membros():
+    """Lista os integrantes da diretoria (ativos, não-demo, com login) para o
+    checklist de avisos internos."""
+    membros = MembroDiretoria.objects.filter(
+        usuario__isnull=False, ativo=True, demo=False
+    ).order_by("nome_completo")
+    return [{"id": m.usuario_id, "nome": m.nome_completo} for m in membros]
+
+
+def _notif_templates_ctx():
+    """Contexto da aba Templates: um item por notificação, com o estado atual
+    (ativo/IA/textos) e, nas internas, o checklist da diretoria."""
+    membros = _diretoria_membros()
+    itens = []
+    for tipo in _ORDEM_NOTIFICACOES:
+        tpl = TemplateNotificacao.get_tipo(tipo)
+        selecionados = set()
+        lista_membros = []
+        if tpl.interno:
+            selecionados = set(tpl.avisos_internos_para.values_list("id", flat=True))
+            lista_membros = [
+                {"id": m["id"], "nome": m["nome"], "marcado": m["id"] in selecionados}
+                for m in membros
+            ]
+        itens.append({
+            "tipo": tipo,
+            "rotulo": tpl.get_rotulo(),
+            "interno": tpl.interno,
+            "marcadores": tpl.marcadores,
+            "ativo": tpl.ativo,
+            "usar_ia": tpl.usar_ia,
+            "mensagem": tpl.mensagem,
+            "prompt_ia": tpl.prompt_ia,
+            "membros": lista_membros,
+        })
+    return itens
+
+
 @diretor_required
 def whatsapp_view(request):
     """Tela do módulo WhatsApp (só Diretor): abas Configurações (instância + teste)
@@ -3381,8 +3433,50 @@ def whatsapp_view(request):
         "mensagem_reengajamento": config.mensagem_reengajamento,
         "reengajar_alvos": reengajar_alvos,
         "reengajar_inativos_n": len(reengajar_alvos),
+        "notif_templates": _notif_templates_ctx(),
+        "notif_janela_dias": config.notificar_janela_dias,
+        "ia_configurada": OpenAIConfig.get_solo().configurado,
         "aba": request.GET.get("aba", "config"),
     })
+
+
+@diretor_required
+@require_POST
+def whatsapp_templates_view(request):
+    """Salva a configuração de UMA notificação automática (aba Templates) ou a
+    janela global de envio. Redireciona de volta para a aba Templates."""
+    destino = f"{reverse('core:whatsapp')}?aba=templates"
+    # Ação especial: salvar só a janela global de envio.
+    if request.POST.get("acao") == "janela":
+        cfg = WhatsappConfig.get_solo()
+        try:
+            dias = int(request.POST.get("notificar_janela_dias") or 0)
+        except (TypeError, ValueError):
+            dias = 0
+        if dias > 0:
+            cfg.notificar_janela_dias = dias
+            cfg.save(update_fields=["notificar_janela_dias"])
+            messages.success(request, "Janela de envio de notificações atualizada.")
+        else:
+            messages.error(request, "Informe um número de dias válido.")
+        return redirect(destino)
+
+    tipo = request.POST.get("tipo") or ""
+    if tipo not in TEMPLATES_NOTIFICACAO:
+        messages.error(request, "Notificação inválida.")
+        return redirect(destino)
+    tpl = TemplateNotificacao.get_tipo(tipo)
+    tpl.ativo = request.POST.get("ativo") == "1"
+    tpl.usar_ia = request.POST.get("usar_ia") == "1"
+    tpl.mensagem = (request.POST.get("mensagem") or "").strip()
+    tpl.prompt_ia = (request.POST.get("prompt_ia") or "").strip()
+    tpl.atualizado_por = request.user
+    tpl.save()
+    if tpl.interno:
+        ids = [i for i in request.POST.getlist("membros") if i.isdigit()]
+        tpl.avisos_internos_para.set(User.objects.filter(id__in=ids))
+    messages.success(request, f"Notificação “{tpl.get_rotulo()}” salva.")
+    return redirect(destino)
 
 
 def _liberacao_lista():
@@ -3613,6 +3707,97 @@ def _registrar_contato_whatsapp(numero, texto):
             pass
 
 
+def _registrar_contato_bruto(numero, texto, nome=""):
+    """Grava TODO número que escreve ao clube (cadastrado ou não) em ContatoWhatsapp:
+    data/contagem da última mensagem e, se o texto bate com a mensagem de autorização,
+    a data de autorização. É a lista consultada por `_pode_notificar` antes de enviar."""
+    alvo = normalizar_telefone(numero or "")
+    if not alvo or len(alvo) < 12:
+        return
+    agora = timezone.now()
+    contato, _ = ContatoWhatsapp.objects.get_or_create(numero=alvo)
+    contato.ultima_msg_em = agora
+    contato.total_msgs = (contato.total_msgs or 0) + 1
+    if nome and not contato.nome:
+        contato.nome = nome[:150]
+    esperado = _norm_comparacao(WhatsappConfig.get_solo().mensagem_autorizacao)
+    if esperado and not contato.autorizou_em:
+        recebido = _norm_comparacao(texto)
+        if recebido and (esperado in recebido or recebido == esperado):
+            contato.autorizou_em = agora
+    contato.save()
+
+
+def _pode_notificar(numero, agora=None):
+    """True se o número pode receber notificação automática: já autorizou OU mandou
+    mensagem ao clube dentro da janela (`WhatsappConfig.notificar_janela_dias`).
+    Consulta ContatoWhatsapp — a fonte da verdade de quem escreveu pro clube."""
+    alvo = normalizar_telefone(numero or "")
+    if not alvo or len(alvo) < 12:
+        return False
+    contato = ContatoWhatsapp.objects.filter(numero=alvo).first()
+    if contato is None:
+        return False
+    if contato.autorizou_em:
+        return True
+    if not contato.ultima_msg_em:
+        return False
+    agora = agora or timezone.now()
+    janela = WhatsappConfig.get_solo().notificar_janela_dias or 60
+    return contato.ultima_msg_em >= agora - datetime.timedelta(days=janela)
+
+
+class _MarcadorDict(dict):
+    """dict para `str.format_map`: marcador ausente vira string vazia (não quebra)."""
+
+    def __missing__(self, chave):
+        return ""
+
+
+def _render_notificacao(tpl, contexto):
+    """Monta o texto da notificação: pela IA (com o prompt) quando `usar_ia` e a IA
+    está configurada; senão (ou se a IA falhar) pelo texto do sistema. Ambos
+    interpolam os marcadores de `contexto` de forma segura."""
+    dados = _MarcadorDict(contexto or {})
+    if tpl.usar_ia:
+        ia_cfg = OpenAIConfig.get_solo()
+        if ia_cfg.configurado:
+            prompt = (tpl.prompt_ia or "").format_map(dados)
+            ok, texto, uso = openai_ia.enviar_prompt(ia_cfg, prompt)
+            if ok and (texto or "").strip():
+                if uso:
+                    ia_cfg.registrar_uso(uso)
+                return texto.strip()
+        # IA indisponível/falhou → cai no texto do sistema (nunca fica sem aviso).
+    return (tpl.mensagem or "").format_map(dados).strip()
+
+
+def _notificar(tipo, numero, contexto, *, forcar=False):
+    """Ponto ÚNICO de envio de notificação automática por WhatsApp.
+    Respeita o template (ativo? IA×texto?) e o gate anti-bloqueio (`_pode_notificar`,
+    salvo `forcar=True` para avisos internos à diretoria). Nunca levanta exceção.
+    Retorna (enviado: bool, motivo: str)."""
+    try:
+        cfg = WhatsappConfig.get_solo()
+        if not cfg.configurado:
+            return False, "whatsapp_nao_configurado"
+        tpl = TemplateNotificacao.get_tipo(tipo)
+        if not tpl.ativo:
+            return False, "template_inativo"
+        alvo = normalizar_telefone(numero or "")
+        if not alvo or len(alvo) < 12:
+            return False, "numero_invalido"
+        if not forcar and not _pode_notificar(alvo):
+            return False, "nao_liberado"
+        texto = _render_notificacao(tpl, contexto)
+        if not texto:
+            return False, "sem_texto"
+        ok, detalhe = _enviar_whatsapp(cfg, alvo, texto)
+        return (bool(ok), "enviado" if ok else f"falha:{detalhe}")
+    except Exception as exc:  # noqa: BLE001 — notificação nunca derruba o fluxo
+        return False, f"erro:{exc}"
+
+
 @diretor_required
 @require_POST
 def whatsapp_reengajar_config_view(request):
@@ -3721,6 +3906,9 @@ def whatsapp_webhook_view(request):
         # Rastreio de contato: mensagem DIRETA (não grupo) recebida de um responsável
         # marca a data da última mensagem e, se for o texto de autorização, a autorização.
         if not dados["from_me"] and not dados["is_group"] and dados["phone"]:
+            _registrar_contato_bruto(
+                dados["phone"], dados["message_text"], dados.get("contact_name", "")
+            )
             _registrar_contato_whatsapp(dados["phone"], dados["message_text"])
         # Mantém a tabela enxuta (é só diagnóstico): guarda os 100 mais recentes.
         ids = list(

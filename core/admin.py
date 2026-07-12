@@ -9,6 +9,8 @@ from .models import (
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
+    ContatoWhatsapp,
+    TemplateNotificacao,
     CupomDesconto,
     CustoClube,
     CustoEvento,
@@ -267,3 +269,17 @@ class CustoClubeAdmin(admin.ModelAdmin):
     search_fields = ("nome",)
     list_filter = ("data",)
     inlines = [ComprovanteCustoClubeInline]
+
+
+@admin.register(ContatoWhatsapp)
+class ContatoWhatsappAdmin(admin.ModelAdmin):
+    list_display = ("numero", "nome", "ultima_msg_em", "total_msgs", "autorizou_em")
+    search_fields = ("numero", "nome")
+    list_filter = ("autorizou_em",)
+    readonly_fields = ("primeira_msg_em",)
+
+
+@admin.register(TemplateNotificacao)
+class TemplateNotificacaoAdmin(admin.ModelAdmin):
+    list_display = ("tipo", "ativo", "usar_ia", "atualizado_em")
+    list_filter = ("ativo", "usar_ia")

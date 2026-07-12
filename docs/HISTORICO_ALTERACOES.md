@@ -22,6 +22,43 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 1: base + aba Templates)
+
+### Resumo
+Início do sistema de **notificações automáticas por WhatsApp** disparadas por eventos do sistema
+(compra na loja, mensalidade paga, novo cadastro, inscrição em evento). Esta etapa entrega a
+**infraestrutura** (sem disparar nada ainda): registro de todo número que escreve ao clube, salvaguarda
+anti-bloqueio e a **aba Templates** (🧩) para configurar cada notificação (liga/desliga, texto do sistema
+ou IA com prompt, e — no aviso interno — quais integrantes da diretoria recebem).
+
+### Arquivos criados/alterados
+- `core/models.py`: novos models **`ContatoWhatsapp`** (todo número que escreve ao clube: nome,
+  primeira/última mensagem, contagem, autorizou_em) e **`TemplateNotificacao`** (1 linha por tipo:
+  ativo, usar_ia, mensagem, prompt_ia, M2M `avisos_internos_para`); dict `TEMPLATES_NOTIFICACAO` com os
+  5 tipos e textos/prompts padrão; campo `WhatsappConfig.notificar_janela_dias` (default 60).
+- `core/migrations/0053_contatowhatsapp_whatsappconfig_notificar_janela_dias_and_more.py`.
+- `core/views.py`: webhook passa a chamar `_registrar_contato_bruto` (grava TODO número recebido);
+  helpers `_pode_notificar` (gate: autorizou OU mandou msg dentro da janela), `_render_notificacao`
+  (texto do sistema OU IA com prompt, reusa `openai_ia`+`registrar_uso`), `_notificar` (ponto único de
+  envio com o gate) e `_MarcadorDict`; contexto/`_notif_templates_ctx`/`_diretoria_membros` na
+  `whatsapp_view`; view `whatsapp_templates_view` (salva 1 template ou a janela global).
+- `core/urls.py`: rota `whatsapp/templates/salvar/` (`core:whatsapp_templates`).
+- `templates/core/whatsapp.html`: nova aba/painel **🧩 Templates**.
+- `static/css/whatsapp.css`: estilos `.wa-check`/`.wa-membros`/`.wa-notif-form`/`.wa-janela-form`.
+- `core/admin.py`: registro de `ContatoWhatsapp` e `TemplateNotificacao`.
+
+### Decisões tomadas
+- **Filtro anti-bloqueio SEMPRE aplicado** (`_pode_notificar`): número desconhecido só chega em evento
+  aberto; nesse caso a autorização pré-checkout (Etapa 5) o libera. `forcar=True` só para avisos internos.
+- **Fonte da verdade de "quem escreveu"** = `ContatoWhatsapp` (grava todo número, cadastrado ou não),
+  separado do rastreio por `PerfilUsuario` (mantido para o termômetro dos cadastrados).
+- Aba Templates cobre **só as 5 notificações novas**; cobrança/reengajamento/autorização ficam onde estão.
+- Cada notificação: liga/desliga + alavanca IA (com prompt) OU texto do sistema; se a IA falhar, cai no texto.
+
+### Pendências
+- Ligar os gatilhos (Etapas 2–5): Loja, Mensalidade, Cadastro, Inscrição + bloco de autorização
+  pré-checkout no evento aberto.
+
 ## 2026-07-12 - Doc: consolidação das fontes da verdade (IA + WhatsApp/liberação)
 
 ### Resumo

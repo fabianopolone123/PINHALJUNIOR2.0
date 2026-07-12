@@ -2,7 +2,23 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-11 (**Virada do VPS para o domínio raiz**): o **sistema novo** agora atende em
+**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 1: base + aba
+Templates**): começou o sistema de **notificações automáticas por WhatsApp**. Esta etapa é só a
+**infraestrutura** (nada dispara ainda): (1) o webhook passa a gravar **TODO número** que escreve ao clube
+(cadastrado ou não) em **`ContatoWhatsapp`** (nome, 1ª/última msg, contagem, `autorizou_em`) — é a lista
+consultada antes de cada envio; (2) helpers reutilizáveis **`_pode_notificar`** (gate anti-bloqueio: só
+envia a quem **autorizou** OU mandou msg dentro de `WhatsappConfig.notificar_janela_dias`, padrão 60),
+**`_render_notificacao`** (texto do sistema **ou** IA com prompt, reusa `openai_ia`+`registrar_uso`) e
+**`_notificar`** (ponto único de envio, com o gate; `forcar=True` só p/ avisos internos); (3) nova aba
+**🧩 Templates** na tela WhatsApp que configura as **5 notificações** (`loja_compra`, `loja_pedido` [aviso
+interno], `mensalidade_paga`, `cadastro_novo`, `inscricao_evento`) — por notificação: liga/desliga,
+alavanca **IA×texto do sistema** (com prompt), marcadores próprios e, no aviso interno, **checklist da
+diretoria** que recebe. Model `TemplateNotificacao` + `TEMPLATES_NOTIFICACAO` (textos/prompts padrão);
+view `whatsapp_templates_view`; rota `whatsapp/templates/salvar/`; migration **0053**. Filtro
+anti-bloqueio **sempre aplicado**. Próximo: ligar os gatilhos (Loja/Mensalidade/Cadastro/Inscrição +
+autorização pré-checkout no evento aberto). Antes: Virada do VPS para o domínio raiz.
+
+**Anterior (Virada do VPS para o domínio raiz):** o **sistema novo** agora atende em
 **`https://pinhaljunior.com.br/`** no VPS. A instalação em `/var/www/pinhaljunior2` continua a mesma
 (`pinhaljunior2.service`, Gunicorn em `127.0.0.1:8010`), mas o Nginx passou a apontar a **raiz `/`**,
 `/static/` e `/media/` para ela; o `DJANGO_FORCE_SCRIPT_NAME=/sistema-novo` foi removido do env de produção e
