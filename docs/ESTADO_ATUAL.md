@@ -13,7 +13,12 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: reengajamento de inativos**): na aba **🚦 Liberação**, config de
+**Última atualização:** 2026-07-11 (**WhatsApp: responsividade das abas (mobile)**): com 5 abas a barra cortava no
+celular; agora `.wa-abas` usa `flex-wrap` (+ media ≤520px) e todas as abas ficam visíveis sem overflow. Revisão
+mobile das últimas telas confirmada por screenshot a 484px (abas, Grupos, Webhook, Autorização, Liberação,
+Reengajamento e Cobranças com termômetro/seletor/alavanca). Só CSS. Antes: WhatsApp — reengajamento de inativos.
+
+**Anterior (WhatsApp: reengajamento de inativos):** na aba **🚦 Liberação**, config de
 **reengajamento** — se um contato que já interagiu fica `reengajar_dias` (padrão 30) sem responder, o clube manda
 uma **mensagem curta** ("ainda quer receber?") pra reativar. Só para quem já mandou msg (nunca cold); não reenvia
 na janela. Botão "Reengajar inativos agora" + comando `reengajar_inativos` (cron). Campos

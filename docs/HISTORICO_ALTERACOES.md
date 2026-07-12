@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: responsividade das abas (mobile)
+
+### Resumo
+Com 5 abas (Configurações/Grupos/Webhook/Autorização/Liberação), a barra de abas **estourava e cortava** no
+celular. Agora a barra **quebra em várias linhas** (`flex-wrap`), com padding/fonte menores abaixo de 520px —
+todas as abas ficam visíveis, sem corte nem scroll horizontal da página. Revisão mobile das últimas telas
+(Grupos, Webhook, Autorização, Liberação, Reengajamento e a aba Cobranças com termômetro/seletor de
+telefone/alavanca) confirmada por screenshot a 484px.
+
+### Arquivos alterados
+- `static/css/whatsapp.css`: `.wa-abas` com `flex-wrap:wrap` + media query (≤520px) reduzindo `.wa-aba`;
+  `.wa-grupo-item` com `flex-wrap` (ID longo não espreme).
+
+---
+
 ## 2026-07-11 - WhatsApp: reengajamento de contatos inativos
 
 ### Resumo
