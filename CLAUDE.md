@@ -9,11 +9,14 @@ Sistema web do **Clube de Aventureiros Pinhal Júnior** (Django). Já possui aut
 cadastro de conta e de aventureiros (com ficha médica e autorização de imagem), área interna
 "Meus Dados", a tela "Usuários" (vínculos familiares) e um **módulo de Eventos** completo: evento
 simples e **evento complexo** com inscrições (Fase 2), lojinha e **PDV/balcão** com operadores
-(Fase 4). Também há o módulo **Presença**, o módulo **WhatsApp** (integração com a API da W-API —
-configurar a instância e enviar mensagens; só Diretor) e a **Loja do Clube** (loja oficial de uniformes/
-lenços, independente da lojinha de evento; cadastro de produtos com **grupos/variações** + vitrine com
+(Fase 4). Também há o módulo **Presença**, o módulo **WhatsApp** (integração com a W-API: instância +
+envio de teste, **Grupos**, **Webhook** de mensagens recebidas e o **módulo de liberação de números** —
+autorização por link `wa.me` + reengajamento de inativos; só Diretor) e a **Loja do Clube** (loja oficial de
+uniformes/lenços, independente da lojinha de evento; cadastro de produtos com **grupos/variações** + vitrine com
 **carrinho** e pagamento simulado; só Diretor por ora) e o módulo **Mensalidades** (cobranças mensais por aventureiro,
-inscrição+mensalidade, valores configuráveis, isenção/desconto, controle de pago; só Diretor). O clube tem
+inscrição+mensalidade, valores configuráveis, isenção/desconto, controle de pago; **cobrança por WhatsApp** com
+**mensagem padrão ou gerada por IA** e termômetro de contato; só Diretor). Há ainda o módulo **Configurações IA**
+(🤖, Diretor): configura a chave da API do GPT (OpenAI) + contador de tokens; 1º uso = a cobrança pela IA. O clube tem
 **3 áreas financeiras**: eventos, **mensalidades** e **loja** — todas consolidadas no módulo **Financeiro**
 (📈, Diretor): resumo por fonte, gráficos, extrato consolidado e lançamento de custos do clube. Ver
 `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
@@ -48,7 +51,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** `/presenca/` **ramifica por perfil**: Diretor marca presença (`/presenca/<id>/`,
   `/presenca/<id>/marcar/`); **Responsável** vê um **relatório só-leitura** da frequência dos próprios filhos.
-- **WhatsApp** (Diretor): `/whatsapp/` (config W-API + envio), `/whatsapp/config/`, `/whatsapp/enviar/`
+- **WhatsApp** (Diretor): `/whatsapp/` com abas **Configurações/Grupos/Webhook/Autorização/Liberação**;
+  `/whatsapp/config/`, `/whatsapp/enviar/`, `/whatsapp/grupos/sincronizar/`, `/whatsapp/webhook/configurar|eventos/`,
+  `/whatsapp/autorizacao/`, `/whatsapp/reengajar/config/`, `/whatsapp/reengajar/` (envia 1 por request; JS faz 10s
+  entre cada). **Webhook público** de recebidas `/webhooks/whatsapp/`. **Link curto público** `/autorizar/`
+  (redireciona pro `wa.me` de autorização). Comando `reengajar_inativos` (cron).
+- **Configurações IA** (🤖, Diretor): `/ia/` (chave da API do GPT + teste + contador de tokens), `/ia/config/`,
+  `/ia/testar/`, `/ia/zerar/`. Modelo fixo `gpt-4.1-nano`; cliente `core/openai_ia.py` (urllib).
 - **Pagamentos (Mercado Pago)** (Diretor p/ config): `/mercadopago/` (config credenciais teste/produção + modo),
   `/mercadopago/config/`; **webhook público** `/webhooks/mercadopago/`; página/sucesso de pagamento **genéricos**
   `/pagamento/<ref>/` e `/pagamento/<ref>/sucesso/`; status/simulação `/pagamento/<ref>/status/` (polling) e
@@ -58,7 +67,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/loja/produto/<id>/` (vitrine), `/loja/carrinho/…`, `/loja/finalizar|pagamento|sucesso/`,
   `/loja/compra/<id>/cancelar/`, `/loja/entrega/…`
 - **Mensalidades** `/mensalidades/` **ramifica por perfil**: Diretor vê o painel
-  (`/mensalidades/config|gerar|pagar|isencao|reajustar|editar|cobrar/`, `/mensalidades/cobrancas/…`);
+  (`/mensalidades/config|gerar|pagar|isencao|reajustar|editar|cobrar/`); aba **Cobranças**
+  (`/mensalidades/cobrancas/config|modo|telefone|enviar/`): mensagem padrão **ou IA** (alavanca `modo`),
+  escolher o **telefone do responsável financeiro** por família (`telefone`), enviar 1/todos (10s entre cada,
+  filtro "só quem já mandou msg") e **termômetro** de contato/autorização por família.
   **Responsável** vê a própria visão (resumo + em aberto + apelo) e paga o que seleciona em
   `/mensalidades/pagar-selecionadas/`.
 - **Financeiro** (Diretor): `/financeiro/` (abas Resumo/Extrato/Custos), `/financeiro/custo/novo|<id>/excluir/`, `/financeiro/caixa/` (editar "Onde está o dinheiro"). Mostra o **líquido** (bruto − custos − **taxa do Mercado Pago**) por fonte e no resultado; a taxa vem de `Pagamento.taxa`. Idem no painel do evento, Mensalidades e Loja/Vendas.
@@ -80,7 +92,16 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Eventos/Lojinha/Presença**: `Evento`, `CustoEvento`, `FaixaEtariaPreco`, `CampoInscricao`, `Inscricao`,
   `ParticipanteInscricao`, `RespostaInscricao`, `ProdutoEvento`, `VariacaoProduto`, `PedidoLoja`,
   `ItemPedidoLoja`, `OperadorEvento`, `PerfilUsuario`, `CupomDesconto`, `PresencaEvento`.
-- **WhatsApp**: `WhatsappConfig` (singleton; ID/token/URL base da W-API) — módulo WhatsApp (só Diretor).
+- **WhatsApp**: `WhatsappConfig` (singleton; ID/token/URL base + `numero_clube`, `mensagem_autorizacao`/
+  `resposta_autorizacao`, `reengajar_dias`/`mensagem_reengajamento`), `GrupoWhatsapp` (grupo `id↔nome`,
+  `usar_liberacao`) e `WhatsappWebhookEvent` (mensagens recebidas: campos extraídos + `raw_payload`; 100 últimos).
+  Cliente `core/wapi.py` (grupos/webhook/enviar) + parser `core/wapi_parser.py` (portado do BEEZAP, defensivo).
+  **Liberação de números** (só Diretor): webhook casa o telefone recebido com responsável/diretoria e grava em
+  `PerfilUsuario` (`ultima_msg_whatsapp_em`, `autorizacao_recebida_em`, `reengajado_em`); reengajamento manda 1x
+  por silêncio (só de novo se a pessoa responder). Comando `reengajar_inativos` (cron).
+- **Configurações IA (OpenAI/GPT)**: `OpenAIConfig` (singleton; só `api_key` + contadores de tokens
+  `chamadas`/`tokens_prompt`/`tokens_cache`/`tokens_completion`). Modelo/URL fixos em `core/openai_ia.py`
+  (`gpt-4.1-nano`; `conversar`/`enviar_prompt` devolvem `(ok, texto, uso)`). Todo uso deve chamar `registrar_uso`.
 - **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
   `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
   `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep
@@ -94,10 +115,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
   um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
   (mais vendidos, a entregar, KPIs) + todas as compras.
-- **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão + `mensagem_cobranca` e **`mensagem_apelo`**,
-  esta exibida ao responsável na tela dele) e `Mensalidade` (aventureiro, ano, mês, tipo inscrição/mensalidade,
-  valor, isento, status pago/aberto). Campos `Aventureiro.mensalidade_isento`/`mensalidade_desconto_pct`.
-  Geração automática no cadastro.
+- **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão + `mensagem_cobranca`, **`mensagem_apelo`**,
+  `cobranca_via_ia` (alavanca padrão×IA) e `prompt_cobranca_ia`) e `Mensalidade` (aventureiro, ano, mês, tipo
+  inscrição/mensalidade, valor, isento, status pago/aberto); `CobrancaEnviada` (histórico do envio). Campos
+  `Aventureiro.mensalidade_isento`/`mensalidade_desconto_pct`. Geração automática no cadastro. Cobrança por
+  WhatsApp usa a engine da IA (`core/openai_ia.py`) quando a alavanca está ligada.
 - **Perfis/menu**: `Evento` também tem **`demo`** (evento fictício, fora das contagens/menu). O acesso por
   perfil e o seletor de perfil ficam em `core/menus.py` (ver Convenções); comando `dados_demo_fabiano` popula
   o perfil de Responsável do Fabiano com dados fictícios.
@@ -105,12 +127,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   gastos gerais do clube; `CaixaClube` (singleton `get_solo`: `saldo_banco`; espécie = resultado − banco,
   calculada) para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
-  o código; código de recuperação fica na **sessão** (não há model novo pra ele).
+  o código; código de recuperação fica na **sessão** (não há model novo pra ele). O **telefone de cobrança** é
+  um campo **separado** (`PerfilUsuario.cobranca_whatsapp_origem` — responsável financeiro), independente do principal.
 - **Assinatura de documentos**: `AssinaturaDocumento` (aventureiro + tipo de documento + imagem PNG da assinatura
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0039`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0052`). Detalhes em ESTADO_ATUAL.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`
@@ -152,6 +175,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   mascarado **em JS** (ex.: cálculo de troco) deve interpretar **os dígitos como centavos** (`value.replace(/\D/g,"")/100`),
   não `parseFloat` (que quebra com o separador de milhar). (Percentual, idade, estoque e quantidade **não** usam
   a máscara — não são valor em R$.)
+- **Integrações externas** seguem um padrão: cliente HTTP próprio via **`urllib`** (sem dep nova) — um módulo por
+  serviço (`core/mercadopago.py`, `core/openai_ia.py`, `core/wapi.py` + parser `core/wapi_parser.py`). **Webhooks
+  públicos** (`/webhooks/mercadopago/`, `/webhooks/whatsapp/`) são `@csrf_exempt`, idempotentes e **nunca** devolvem
+  erro/traceback ao chamador. **Envio em lote** (cobrança e reengajamento do WhatsApp) tem **pausa de 10s entre
+  cada** (front-end faz o pacing com barra+cancelar; comando de cron usa `time.sleep`) — evita bloqueio por spam.
 - **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless

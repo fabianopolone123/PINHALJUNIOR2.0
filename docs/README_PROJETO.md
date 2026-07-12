@@ -12,8 +12,11 @@ médica e autorização de imagem) e uma área interna "Meus Dados" que exibe os
 da conta e dos aventureiros do usuário logado.
 
 Além do cadastro, o sistema tem um **módulo de Eventos** completo (evento simples e evento
-complexo com inscrições, lojinha e PDV/balcão) — ver a seção "Estado atual" e
-`docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+complexo com inscrições, lojinha e PDV/balcão), além de **Presença**, **Mensalidades**, **Loja do Clube**,
+**Financeiro**, **Pagamentos (Mercado Pago)**, **WhatsApp** (integração W-API: instância, grupos, webhook de
+recebidas e **liberação de números** — autorização por link `wa.me` + reengajamento de inativos) e
+**Configurações IA** (chave do GPT/OpenAI + contador de tokens; usada na cobrança de mensalidades). Ver a seção
+"Estado atual", `docs/ESTADO_ATUAL.md` e `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
 
 O foco continua sendo uma interface bonita, moderna e **responsiva (mobile first)**,
 com CSS próprio (sem frameworks externos).

@@ -13,7 +13,12 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**Autorização: resposta automática**): quando alguém manda a mensagem de
+**Última atualização:** 2026-07-12 (**Doc: consolidação das fontes da verdade**): `CLAUDE.md` e
+`docs/README_PROJETO.md` atualizados com o módulo **Configurações IA**, a **cobrança por IA/telefone** e toda a
+evolução do **WhatsApp** (grupos, webhook, autorização, liberação, reengajamento, `/autorizar`) — rotas, models
+(migrations até **0052**) e a convenção de integrações externas. Sem mudança de código. Antes: Autorização — resposta automática.
+
+**Anterior (Autorização: resposta automática):** quando alguém manda a mensagem de
 autorização, o sistema responde automaticamente com uma confirmação curta (**1x só**, texto configurável na aba
 Autorização, vazio = não responde). É resposta a quem escreveu (seguro). `WhatsappConfig.resposta_autorizacao`;
 `_registrar_contato_whatsapp` envia na 1ª autorização; migration **0052**. Antes: reengajamento — uma vez por silêncio.

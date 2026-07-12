@@ -22,6 +22,24 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Doc: consolidação das fontes da verdade (IA + WhatsApp/liberação)
+
+### Resumo
+Atualização das fontes da verdade que ainda não refletiam tudo o que foi construído (módulo **Configurações IA**,
+**cobrança por IA/telefone** e toda a evolução do **WhatsApp**: grupos, webhook, autorização, liberação,
+reengajamento, link `/autorizar`). `ESTADO_ATUAL`/`HISTORICO` já vinham em dia a cada mudança; esta leva alinha o
+contexto principal.
+
+### Arquivos alterados
+- `CLAUDE.md`: intro (IA + WhatsApp liberação), **Rotas** (WhatsApp com abas + webhook + `/autorizar` + reengajar;
+  Configurações IA; Cobranças `modo`/`telefone`/`enviar`), **Models** (`WhatsappConfig` novo, `GrupoWhatsapp`,
+  `WhatsappWebhookEvent`, `OpenAIConfig`, `ConfigMensalidade` com IA, `PerfilUsuario` de cobrança/rastreio),
+  migrations até **0052**, e nova **convenção** de integrações externas (clients urllib, webhooks públicos,
+  envio em lote com 10s).
+- `docs/README_PROJETO.md`: parágrafo de módulos atualizado (Presença/Mensalidades/Loja/Financeiro/MP/WhatsApp/IA).
+
+---
+
 ## 2026-07-11 - Autorização: resposta automática de confirmação
 
 ### Resumo
