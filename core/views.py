@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 import re
 import secrets
+import time
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -3362,6 +3363,7 @@ def whatsapp_view(request):
     liberacao = _liberacao_lista()
     liberados = sum(1 for x in liberacao if x["ultima_msg_em"] or x["autorizou"])
     autorizados = sum(1 for x in liberacao if x["autorizou"])
+    reengajar_alvos = _inativos_para_reengajar(config)
     return render(request, "core/whatsapp.html", {
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
@@ -3376,7 +3378,8 @@ def whatsapp_view(request):
         "liberacao_autorizados": autorizados,
         "reengajar_dias": config.reengajar_dias,
         "mensagem_reengajamento": config.mensagem_reengajamento,
-        "reengajar_inativos_n": len(_inativos_para_reengajar(config)),
+        "reengajar_alvos": reengajar_alvos,
+        "reengajar_inativos_n": len(reengajar_alvos),
         "aba": request.GET.get("aba", "config"),
     })
 
@@ -3439,17 +3442,53 @@ def _inativos_para_reengajar(config, agora=None):
     return alvos
 
 
-def _reengajar_inativos(config):
-    """Envia a mensagem de reengajamento aos inativos. Retorna (enviados, falhas)."""
+# Intervalo entre envios em lote (evita parecer spam). Mesmo padrão da cobrança.
+DELAY_ENVIO_LOTE_S = 10
+
+
+def _numero_do_contato(user):
+    """Número de WhatsApp para acionar esta conta: o de cobrança (se responsável)
+    ou o da diretoria. Normalizado (ou "")."""
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=user)
+    if Aventureiro.objects.filter(usuario=user, ativo=True, demo=False).exists():
+        _, num = _resolver_origem_numero(_numeros_conta(user), perfil.cobranca_whatsapp_origem or "")
+        if num:
+            return num
+    m = MembroDiretoria.objects.filter(usuario=user, ativo=True, demo=False).first()
+    if m:
+        return normalizar_telefone(m.whatsapp)
+    return ""
+
+
+def _reengajar_um(config, usuario_id):
+    """Manda a mensagem de reengajamento a UMA conta e marca `reengajado_em`.
+    Retorna (ok, detalhe)."""
     msg = (config.mensagem_reengajamento or "").strip()
-    if not msg or not config.configurado:
+    if not msg:
+        return False, "mensagem de reengajamento vazia"
+    user = User.objects.filter(id=usuario_id).first()
+    if user is None:
+        return False, "conta não encontrada"
+    numero = _numero_do_contato(user)
+    if not numero:
+        return False, "sem WhatsApp"
+    ok, detalhe = _enviar_whatsapp(config, numero, msg)
+    if ok:
+        PerfilUsuario.objects.filter(usuario=user).update(reengajado_em=timezone.now())
+    return ok, detalhe
+
+
+def _reengajar_inativos(config):
+    """Reengaja todos os inativos, com **pausa** entre envios (usado pelo comando de
+    cron, que pode dormir sem estourar timeout). Retorna (enviados, falhas)."""
+    if not (config.mensagem_reengajamento or "").strip() or not config.configurado:
         return 0, []
-    agora = timezone.now()
     enviados, falhas = 0, []
-    for a in _inativos_para_reengajar(config, agora):
-        ok, detalhe = _enviar_whatsapp(config, a["numero"], msg)
+    for i, a in enumerate(_inativos_para_reengajar(config)):
+        if i:
+            time.sleep(DELAY_ENVIO_LOTE_S)
+        ok, detalhe = _reengajar_um(config, a["usuario_id"])
         if ok:
-            PerfilUsuario.objects.filter(usuario_id=a["usuario_id"]).update(reengajado_em=agora)
             enviados += 1
         else:
             falhas.append(f"{a['nome']}: {detalhe}")
@@ -3576,14 +3615,20 @@ def whatsapp_reengajar_config_view(request):
 @diretor_required
 @require_POST
 def whatsapp_reengajar_view(request):
-    """Dispara o reengajamento dos inativos agora (JSON, sem recarregar)."""
+    """Reengaja UMA conta (`usuario_id`) — o pacing (10s entre cada) é feito no
+    front, um envio por vez, igual ao 'Enviar a todos' da cobrança."""
     config = WhatsappConfig.get_solo()
     if not config.configurado:
         return JsonResponse(
             {"ok": False, "erro": "Configure a instância do WhatsApp antes."}, status=400
         )
-    enviados, falhas = _reengajar_inativos(config)
-    return JsonResponse({"ok": True, "enviados": enviados, "falhas": falhas})
+    uid = request.POST.get("usuario_id")
+    if not uid:
+        return JsonResponse({"ok": False, "erro": "Conta não informada."}, status=400)
+    ok, detalhe = _reengajar_um(config, uid)
+    if ok:
+        return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False, "erro": detalhe}, status=502)
 
 
 @diretor_required

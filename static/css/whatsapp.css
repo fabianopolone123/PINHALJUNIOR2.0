@@ -282,3 +282,9 @@
 .mens-term-vermelho { background:#fdecea; color:#a12a1e; border-color:#f2c4be; }
 
 .wa-sep { border:none; border-top:1px solid #e0e0e0; margin:16px 0; }
+
+/* ---- Barra de progresso (reengajamento em lote) ---- */
+.mens-cobranca-progresso { padding:12px 14px; }
+.mens-prog-barra { height:8px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-bottom:8px; }
+.mens-prog-fill { height:100%; width:0; background:var(--verde,#2e7d32); transition:width .3s; }
+.mens-prog-txt { margin:0 0 8px; font-size:0.9rem; color:#475569; }

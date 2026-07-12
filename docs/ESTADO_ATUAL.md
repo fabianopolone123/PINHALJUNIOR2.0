@@ -13,7 +13,13 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: responsividade das abas (mobile)**): com 5 abas a barra cortava no
+**Última atualização:** 2026-07-11 (**WhatsApp: reengajamento com pausa (10s)**): o "Reengajar inativos agora"
+passou a enviar **um a um com 10s entre cada** (barra de progresso + cancelar), igual ao "Enviar a todos" da
+cobrança — antes mandava tudo de uma vez. `whatsapp_reengajar_view` envia 1 por request (`usuario_id`); JS faz o
+pacing (alvos via `json_script`); comando `reengajar_inativos` pausa com `time.sleep`. Helpers `_reengajar_um`/
+`_numero_do_contato`; sem migration. Antes: WhatsApp — responsividade das abas.
+
+**Anterior (WhatsApp: responsividade das abas (mobile)):** com 5 abas a barra cortava no
 celular; agora `.wa-abas` usa `flex-wrap` (+ media ≤520px) e todas as abas ficam visíveis sem overflow. Revisão
 mobile das últimas telas confirmada por screenshot a 484px (abas, Grupos, Webhook, Autorização, Liberação,
 Reengajamento e Cobranças com termômetro/seletor/alavanca). Só CSS. Antes: WhatsApp — reengajamento de inativos.

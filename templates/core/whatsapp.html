@@ -296,6 +296,7 @@
 
                 <div class="wa-painel" data-painel="liberacao"{% if aba != 'liberacao' %} hidden{% endif %}
                      data-reengajar-url="{% url 'core:whatsapp_reengajar' %}" data-csrf="{{ csrf_token }}">
+                    {{ reengajar_alvos|json_script:"reengajarAlvos" }}
                     <section class="card wa-card">
                         <div class="wa-card-topo">
                             <h2 class="wa-titulo">🔁 Reengajamento (evitar esfriar)</h2>
@@ -326,7 +327,12 @@
                             <button type="button" class="btn-acao" id="waReengajarBtn"
                                     {% if not config.configurado %}disabled{% endif %}>🔁 Reengajar inativos agora</button>
                         </div>
-                        <p class="wa-ajuda" style="margin-top:8px;">Para rodar sozinho todo dia, dá para agendar o comando <code>reengajar_inativos</code> no servidor (cron).</p>
+                        <div class="card mens-cobranca-progresso" id="waReengajarProg" hidden style="margin-top:10px;">
+                            <div class="mens-prog-barra"><div class="mens-prog-fill" id="waReengajarFill"></div></div>
+                            <p class="mens-prog-txt" id="waReengajarTxt">Enviando…</p>
+                            <button type="button" class="btn-secundario" id="waReengajarCancelar">Cancelar</button>
+                        </div>
+                        <p class="wa-ajuda" style="margin-top:8px;">Há um intervalo de 10s entre cada envio (evita bloqueio); dá para cancelar. Para rodar sozinho todo dia, agende o comando <code>reengajar_inativos</code> no servidor (cron).</p>
                     </section>
 
                     <section class="card wa-card">

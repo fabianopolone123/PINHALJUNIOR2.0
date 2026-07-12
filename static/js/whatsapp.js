@@ -185,30 +185,62 @@
         if (abaWh) abaWh.addEventListener("click", carregarEventos);
     }
 
-    // ---- Reengajar inativos ----
+    // ---- Reengajar inativos (um a um, 10s entre cada, barra + cancelar) ----
     var painelLib = document.querySelector('.wa-painel[data-painel="liberacao"]');
     var btnReeng = document.getElementById("waReengajarBtn");
     if (painelLib && btnReeng) {
-        btnReeng.addEventListener("click", function () {
-            if (btnReeng.dataset.on) return;
-            var n = document.getElementById("waReengajarN");
-            var qtd = n ? parseInt(n.textContent, 10) || 0 : 0;
-            if (qtd === 0) { if (window.mostrarToast) window.mostrarToast("Nenhum inativo para reengajar agora.", "error"); return; }
-            if (!window.confirm("Enviar a mensagem de reengajamento para " + qtd + " contato(s) inativo(s)?")) return;
-            btnReeng.dataset.on = "1"; btnReeng.disabled = true;
-            var t = btnReeng.textContent; btnReeng.textContent = "Enviando…";
-            fetch(painelLib.dataset.reengajarUrl, {
+        var RE_DELAY = 10000;
+        var reFill = document.getElementById("waReengajarFill");
+        var reTxt = document.getElementById("waReengajarTxt");
+        var reProg = document.getElementById("waReengajarProg");
+        var reN = document.getElementById("waReengajarN");
+        var reCancel = document.getElementById("waReengajarCancelar");
+        var reAlvos = [];
+        try { reAlvos = JSON.parse((document.getElementById("reengajarAlvos") || {}).textContent || "[]"); } catch (e) { reAlvos = []; }
+        var reToast = function (m, t) { if (window.mostrarToast) window.mostrarToast(m, t); };
+        var reLote = { on: false, cancel: false, timer: null, i: 0, ok: 0, fail: 0 };
+
+        var reBarra = function () { if (reFill) reFill.style.width = Math.round(reLote.i / (reAlvos.length || 1) * 100) + "%"; };
+        var reFim = function (c) {
+            if (reLote.timer) { clearTimeout(reLote.timer); reLote.timer = null; }
+            reLote.on = false; if (reProg) reProg.hidden = true; btnReeng.disabled = false;
+            if (reN) reN.textContent = Math.max(0, reAlvos.length - reLote.ok);
+            reToast((c ? "Cancelado. " : "Concluído. ") + "Reengajados: " + reLote.ok
+                + (reLote.fail ? " · " + reLote.fail + " falha(s)" : ""), reLote.ok ? "success" : "error");
+        };
+        var reEnviar = function (uid) {
+            return fetch(painelLib.dataset.reengajarUrl, {
                 method: "POST",
-                headers: { "X-CSRFToken": painelLib.dataset.csrf, "X-Requested-With": "XMLHttpRequest",
-                    "Content-Type": "application/x-www-form-urlencoded" },
-            }).then(function (r) { return r.json(); }).then(function (d) {
-                if (!d || !d.ok) { if (window.mostrarToast) window.mostrarToast((d && d.erro) || "Não foi possível reengajar.", "error"); return; }
-                if (n) n.textContent = "0";
-                if (window.mostrarToast) window.mostrarToast(
-                    "Reengajamento enviado: " + d.enviados + (d.falhas && d.falhas.length ? " · " + d.falhas.length + " falha(s)" : ""),
-                    d.enviados ? "success" : "error");
-            }).catch(function () { if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error"); })
-              .finally(function () { delete btnReeng.dataset.on; btnReeng.disabled = false; btnReeng.textContent = t; });
+                headers: { "X-CSRFToken": painelLib.dataset.csrf, "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
+                body: "usuario_id=" + encodeURIComponent(uid),
+            }).then(function (r) { return r.json(); });
+        };
+        var reProximo = function () {
+            if (reLote.cancel || reLote.i >= reAlvos.length) { reFim(reLote.cancel); return; }
+            var a = reAlvos[reLote.i];
+            if (reTxt) reTxt.textContent = "Enviando " + (reLote.i + 1) + " de " + reAlvos.length + "…";
+            reEnviar(a.usuario_id).then(function (d) {
+                if (d && d.ok) reLote.ok++; else reLote.fail++;
+                reLote.i++; reBarra();
+                if (reLote.cancel || reLote.i >= reAlvos.length) { reFim(reLote.cancel); return; }
+                if (reTxt) reTxt.textContent = "Enviado " + reLote.i + " de " + reAlvos.length + " · aguardando 10s… (pode cancelar)";
+                reLote.timer = setTimeout(reProximo, RE_DELAY);
+            }).catch(function () {
+                reLote.fail++; reLote.i++; reBarra();
+                if (reLote.cancel || reLote.i >= reAlvos.length) { reFim(reLote.cancel); return; }
+                reLote.timer = setTimeout(reProximo, RE_DELAY);
+            });
+        };
+        btnReeng.addEventListener("click", function () {
+            if (reLote.on) return;
+            if (!reAlvos.length) { reToast("Nenhum inativo para reengajar agora.", "error"); return; }
+            if (!window.confirm("Enviar reengajamento para " + reAlvos.length + " contato(s)?\nHá um intervalo de 10s entre cada envio — você pode cancelar.")) return;
+            reLote = { on: true, cancel: false, timer: null, i: 0, ok: 0, fail: 0 };
+            btnReeng.disabled = true; if (reProg) reProg.hidden = false; reBarra(); reProximo();
+        });
+        if (reCancel) reCancel.addEventListener("click", function () {
+            if (!reLote.on) return; reLote.cancel = true;
+            if (reLote.timer) { clearTimeout(reLote.timer); reLote.timer = null; reFim(true); }
         });
     }
 

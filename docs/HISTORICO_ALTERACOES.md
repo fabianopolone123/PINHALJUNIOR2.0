@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: reengajamento com pausa entre envios (10s)
+
+### Resumo
+O "Reengajar inativos agora" mandava **tudo de uma vez** (um request só, sem intervalo) — arriscado (parece
+spam). Agora tem o **mesmo pacing da cobrança**: envia **um a um, com 10s entre cada**, barra de progresso e
+**cancelar**. O comando de cron (`reengajar_inativos`) também pausa 10s entre envios (server-side `time.sleep`,
+sem risco de timeout).
+
+### Arquivos alterados
+- `core/views.py`: `import time`; constante `DELAY_ENVIO_LOTE_S=10`; helpers `_numero_do_contato` e
+  `_reengajar_um(config, usuario_id)` (envia a 1 conta + marca `reengajado_em`); `_reengajar_inativos` agora
+  pausa entre envios (usado pelo comando); `whatsapp_reengajar_view` passou a enviar **1 por request**
+  (`usuario_id`); `whatsapp_view` embute a lista de alvos.
+- `templates/core/whatsapp.html`: alvos via `json_script` + barra de progresso/cancelar no card de reengajamento.
+- `static/js/whatsapp.js`: loop paced (10s, barra, cancelar), um envio por vez — espelha o "Enviar a todos".
+- `static/css/whatsapp.css`: barra de progresso.
+- Sem migration.
+
+---
+
 ## 2026-07-11 - WhatsApp: responsividade das abas (mobile)
 
 ### Resumo
