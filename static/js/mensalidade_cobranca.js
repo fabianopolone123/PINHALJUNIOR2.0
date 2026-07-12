@@ -164,11 +164,14 @@
     function alvosLote() {
         var so = document.getElementById("cobrancaSoNaoEnviados");
         var soNao = so && so.checked;
+        var lib = document.getElementById("cobrancaSoLiberados");
+        var soLiberados = lib && lib.checked;
         return Array.prototype.filter.call(
             painel.querySelectorAll(".mens-cobranca-item"),
             function (li) {
                 if (li.dataset.temNumero !== "1") return false;
                 if (soNao && li.dataset.cobrado !== "0") return false;
+                if (soLiberados && li.dataset.liberado !== "1") return false;
                 return true;
             }
         );

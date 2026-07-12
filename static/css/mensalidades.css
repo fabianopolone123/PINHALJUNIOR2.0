@@ -166,6 +166,7 @@
 }
 .mens-isencao label { display: inline-flex; align-items: center; gap: 5px; font-size: 0.9rem; }
 .mens-chk { font-weight: 600; }
+.mens-chk-dica { font-weight: 400; color: #64748b; font-size: 0.85rem; }
 
 /* Meses */
 .mens-meses { display: grid; gap: 8px; }

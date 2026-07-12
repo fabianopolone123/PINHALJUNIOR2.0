@@ -319,6 +319,7 @@
                     <div class="card mens-cobranca-barra">
                         <span><strong>{{ cobrancas|length }}</strong> família(s) com mensalidade em aberto.</span>
                         <label class="mens-chk"><input type="checkbox" id="cobrancaSoNaoEnviados" checked> Só quem não recebeu este mês</label>
+                        <label class="mens-chk"><input type="checkbox" id="cobrancaSoLiberados" checked> Só quem já me mandou mensagem <span class="mens-chk-dica">(evita bloqueio)</span></label>
                         <button type="button" class="btn-acao" id="cobrancaEnviarTodos">📤 Enviar a todos</button>
                     </div>
 
@@ -335,7 +336,8 @@
                         {% for f in cobrancas %}
                         <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}"
                             data-busca="{{ f.resp_nome|lower }}{% for c in f.criancas %} {{ c.nome|lower }}{% endfor %}" data-cobrado="{{ f.cobrado_mes }}"
-                            data-tem-numero="{% if f.tem_numero %}1{% else %}0{% endif %}">
+                            data-tem-numero="{% if f.tem_numero %}1{% else %}0{% endif %}"
+                            data-liberado="{% if f.autorizou or f.ultima_msg_em %}1{% else %}0{% endif %}">
                             <div class="mens-cobranca-linha">
                                 <span class="mens-cobranca-nome">{{ f.resp_nome }}</span>
                                 <span class="mens-cobranca-status">

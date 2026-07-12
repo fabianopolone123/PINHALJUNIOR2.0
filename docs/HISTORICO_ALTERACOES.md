@@ -22,6 +22,28 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Cobranças: enviar em lote só para quem já mandou mensagem
+
+### Resumo
+No "Enviar a todos" (aba Cobranças) faltava filtrar por quem é seguro cobrar. Adicionado o checkbox
+**"Só quem já me mandou mensagem (evita bloqueio)"** — quando ligado (padrão), o envio em lote mira **apenas**
+famílias que já **autorizaram** ou já **mandaram alguma mensagem** (dado do rastreio via webhook). Assim não se
+inicia conversa com quem só visualiza (o que causa o bloqueio por spam).
+
+### Arquivos alterados
+- `templates/core/mensalidades.html`: `data-liberado` por família (autorizou OU tem última msg) + checkbox
+  "Só quem já me mandou mensagem" (padrão marcado).
+- `static/js/mensalidade_cobranca.js`: `alvosLote()` respeita o novo filtro (além de "não recebeu este mês" e
+  "tem número").
+- `static/css/mensalidades.css`: dica do checkbox.
+- Sem migration.
+
+### Nota
+É filtro do **envio em lote**; o envio **individual** continua manual (você decide por pessoa). "Liberado" =
+autorizou OU já mandou qualquer mensagem (via webhook de recebidas).
+
+---
+
 ## 2026-07-11 - WhatsApp: link curto de autorização (/autorizar/ → wa.me)
 
 ### Resumo
