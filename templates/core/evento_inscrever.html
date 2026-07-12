@@ -56,6 +56,14 @@
                         {% include "core/_campo.html" with campo=bf %}
                     {% endfor %}
 
+                    {% if mostrar_autorizar %}
+                    <div class="notif-autorizar">
+                        <p class="notif-autorizar-titulo">📲 Quer receber a confirmação e os avisos deste evento no WhatsApp?</p>
+                        <p class="notif-autorizar-txt">Antes de continuar, toque no botão e envie a mensagem já pronta para o nosso número. É rapidinho e garante que você receba as notificações.</p>
+                        <a href="{{ link_autorizar }}" target="_blank" rel="noopener" class="btn-acao notif-autorizar-btn">Autorizar no WhatsApp</a>
+                    </div>
+                    {% endif %}
+
                     <h2 class="evento-publico-h2">Participantes</h2>
                     {% if erros_part %}
                     <div class="erros">

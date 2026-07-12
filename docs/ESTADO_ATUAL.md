@@ -2,7 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 4: novo cadastro**):
+**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 5: inscrição +
+autorização pré-checkout**): fecha a feature. (A) Toda **inscrição em evento** (ponto único
+`_criar_inscricao_de_payload`, grátis/imediata e paga via MP) manda uma **confirmação** ao responsável
+(`inscricao_evento`, `{nome}/{evento}/{total}/{codigo}`, via `on_commit`, respeita o gate). (B) Na página de
+inscrição de **evento aberto ao público**, quando o WhatsApp está configurado e a notificação de inscrição
+está ativa, aparece um **bloco "Autorizar no WhatsApp"** (contexto `mostrar_autorizar`/`link_autorizar`,
+usa o link curto `/autorizar/`) — assim o inscrito desconhecido **se libera antes do checkout** e o gate
+deixa a confirmação passar. CSS `.notif-autorizar` em eventos.css. Sem migration. **Feature completa**: as
+5 notificações (loja compra/pedido, mensalidade paga, cadastro, inscrição) configuráveis na aba 🧩
+Templates, com gate anti-bloqueio via `ContatoWhatsapp` e alavanca IA×texto por notificação. Suíte: 45
+testes OK. Antes: Etapa 4 (novo cadastro).
+
+**Anterior (Notificações automáticas por WhatsApp — Etapa 4: novo cadastro):**
 todo cadastro que **cria uma conta nova** — de **aventureiro** (`cadastro_aventureiro_view`) e de
 **diretoria** (`cadastro_diretoria_view`, exceto quando emenda no aventureiro, que envia a de aventureiro) —
 dispara uma **boas-vindas** (`cadastro_novo`) com o **usuário de acesso** (`{usuario}`), ao WhatsApp do

@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 5: inscrição + autorização pré-checkout)
+
+### Resumo
+Fecha a feature: confirmação de inscrição em evento + bloco "Autorizar no WhatsApp" antes do checkout
+nos eventos abertos ao público (para o inscrito desconhecido se liberar e receber a confirmação).
+
+### Arquivos criados/alterados
+- `core/views.py`: `_criar_inscricao_de_payload` agenda a confirmação (`inscricao_evento`) via `on_commit`;
+  `evento_inscrever_view` passa `mostrar_autorizar`/`link_autorizar` ao contexto.
+- `templates/core/evento_inscrever.html`: bloco de autorização (só evento aberto + WhatsApp configurado
+  + notificação ativa), usando o link curto `/autorizar/`.
+- `static/css/eventos.css`: estilos `.notif-autorizar*`.
+
+### Decisões tomadas
+- O bloco só aparece quando faz sentido (evento aberto, WhatsApp configurado, notificação de inscrição ativa).
+- Confirmação respeita o gate; o bloco pré-checkout é o caminho para o desconhecido se tornar "liberado".
+
+### Pendências
+- Nenhuma para esta feature. (Operacional no VPS: manter o Mercado Pago em modo teste até liberar produção.)
+
 ## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 4: novo cadastro)
 
 ### Resumo

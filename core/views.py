@@ -2032,6 +2032,13 @@ def evento_inscrever_view(request, pk):
             str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
         ),
         "mp_configurado": _mp_config().configurado,
+        # Evento aberto ao público: convida a autorizar notificações antes do checkout.
+        "mostrar_autorizar": bool(
+            evento.inscricao_aberta_publico
+            and WhatsappConfig.get_solo().configurado
+            and TemplateNotificacao.get_tipo(NOTIF_INSCRICAO_EVENTO).ativo
+        ),
+        "link_autorizar": request.build_absolute_uri(reverse("core:autorizar")),
     }
     return render(request, "core/evento_inscrever.html", contexto)
 
@@ -4312,6 +4319,15 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
             if pagamento and pedido is not None:
                 pedido.pagamento = pagamento
                 pedido.save(update_fields=["pagamento"])
+    # Confirmação ao inscrito/responsável (após o commit; respeita o gate).
+    ctx = {
+        "nome": (inscricao.responsavel_nome or "").split(" ")[0] or "aventureiro(a)",
+        "evento": evento.nome,
+        "total": _moeda_txt(inscricao.valor_total),
+        "codigo": inscricao.codigo,
+    }
+    numero = inscricao.responsavel_whatsapp
+    transaction.on_commit(lambda: _notificar(NOTIF_INSCRICAO_EVENTO, numero, ctx))
     return inscricao
 
 
