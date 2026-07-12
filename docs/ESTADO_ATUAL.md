@@ -2,8 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 1: base + aba
-Templates**): começou o sistema de **notificações automáticas por WhatsApp**. Esta etapa é só a
+**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 2: Loja**): ligado o
+1º gatilho. Toda **compra da Loja do Clube** (ponto único `_criar_compra_loja`, tanto o fluxo pago via
+Mercado Pago quanto o simulado) agora dispara, **após o commit** (`transaction.on_commit`, não trava/derruba
+a transação do webhook): (1) **confirmação ao comprador** (`loja_compra`, respeita o gate anti-bloqueio) e
+(2) **aviso interno** (`loja_pedido`, `forcar=True`) aos integrantes da diretoria marcados na aba Templates,
+para providenciar os materiais. Helpers `_notificar_compra_loja` e `_whatsapp_membro_diretoria`. Sem
+migration. Próximo: Mensalidade paga (Etapa 3). Antes: Etapa 1 (base + aba Templates).
+
+**Anterior (Notificações automáticas por WhatsApp — Etapa 1: base + aba
+Templates):** começou o sistema de **notificações automáticas por WhatsApp**. Esta etapa é só a
 **infraestrutura** (nada dispara ainda): (1) o webhook passa a gravar **TODO número** que escreve ao clube
 (cadastrado ou não) em **`ContatoWhatsapp`** (nome, 1ª/última msg, contagem, `autorizou_em`) — é a lista
 consultada antes de cada envio; (2) helpers reutilizáveis **`_pode_notificar`** (gate anti-bloqueio: só

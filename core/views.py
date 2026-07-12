@@ -5878,6 +5878,29 @@ def loja_finalizar_view(request):
     return redirect("core:loja_pagamento")
 
 
+def _whatsapp_membro_diretoria(user):
+    """WhatsApp normalizado de um integrante da diretoria (para avisos internos)."""
+    m = MembroDiretoria.objects.filter(usuario=user).first()
+    return normalizar_telefone(m.whatsapp) if m and m.whatsapp else ""
+
+
+def _notificar_compra_loja(compra_id, nome, whatsapp, itens_txt, total_txt, codigo):
+    """Notifica o comprador (confirmação) e a diretoria escolhida (aviso interno
+    para comprar os materiais). Chamado via on_commit — nunca derruba o fluxo."""
+    _notificar(NOTIF_LOJA_COMPRA, whatsapp, {
+        "nome": nome or "aventureiro(a)", "itens": itens_txt,
+        "total": total_txt, "codigo": codigo,
+    })
+    tpl = TemplateNotificacao.get_tipo(NOTIF_LOJA_PEDIDO)
+    if not tpl.ativo:
+        return
+    ctx = {"comprador": nome or "—", "itens": itens_txt, "total": total_txt, "codigo": codigo}
+    for u in tpl.avisos_internos_para.all():
+        numero = _whatsapp_membro_diretoria(u)
+        if numero:
+            _notificar(NOTIF_LOJA_PEDIDO, numero, ctx, forcar=True)
+
+
 def _criar_compra_loja(usuario, kits, comprador, forma):
     """Cria a CompraLoja + itens e baixa o estoque. Retorna a compra."""
     compra = CompraLoja(
@@ -5913,6 +5936,17 @@ def _criar_compra_loja(usuario, kits, comprador, forma):
     for item in itens_obj:
         item.compra = compra
         item.save()
+    # Notificações (após o commit, para não travar/derrubar a transação do webhook).
+    itens_txt = ", ".join(
+        f"{it.quantidade}× {it.produto_nome}"
+        + (f" ({it.variacao_nome})" if it.variacao_nome else "")
+        for it in itens_obj
+    )
+    dados_notif = (
+        compra.id, compra.comprador_nome, compra.comprador_whatsapp,
+        itens_txt, _moeda_txt(total), compra.codigo,
+    )
+    transaction.on_commit(lambda: _notificar_compra_loja(*dados_notif))
     return compra
 
 

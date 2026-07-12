@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 2: Loja)
+
+### Resumo
+Ligado o 1º gatilho: toda compra da Loja do Clube dispara confirmação ao comprador + aviso interno à
+diretoria escolhida (para comprar os materiais).
+
+### Arquivos criados/alterados
+- `core/views.py`: helpers `_whatsapp_membro_diretoria` e `_notificar_compra_loja`; `_criar_compra_loja`
+  monta o texto dos itens e agenda as notificações via `transaction.on_commit` (vale para o fluxo pago
+  via Mercado Pago e o simulado).
+
+### Decisões tomadas
+- **`on_commit`**: a chamada HTTP do WhatsApp roda só após o commit, para não segurar/derrubar a
+  transação atômica do webhook do Mercado Pago.
+- Confirmação ao comprador respeita o gate `_pode_notificar`; o aviso interno usa `forcar=True`
+  (diretoria sempre recebe, independe de ter mandado msg).
+
+### Pendências
+- Etapas 3–5: Mensalidade paga, novo cadastro, inscrição + autorização pré-checkout.
+
 ## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 1: base + aba Templates)
 
 ### Resumo
