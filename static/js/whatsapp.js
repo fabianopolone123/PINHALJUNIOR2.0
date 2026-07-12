@@ -48,6 +48,66 @@
         tel.addEventListener("input", atualizarPreview);
     }
 
+    // ---- Abas (Configurações / Grupos) ----
+    var abas = document.querySelectorAll(".wa-aba");
+    var paineis = document.querySelectorAll(".wa-painel");
+    Array.prototype.forEach.call(abas, function (b) {
+        b.addEventListener("click", function () {
+            var alvo = b.dataset.aba;
+            Array.prototype.forEach.call(abas, function (x) { x.classList.toggle("ativa", x === b); });
+            Array.prototype.forEach.call(paineis, function (p) { p.hidden = p.dataset.painel !== alvo; });
+        });
+    });
+
+    // ---- Grupos: sincronizar da W-API ----
+    var painelGrupos = document.querySelector('.wa-painel[data-painel="grupos"]');
+    var btnSync = document.getElementById("waGruposSync");
+    if (painelGrupos && btnSync) {
+        var lista = document.getElementById("waGruposLista");
+        var vazio = document.getElementById("waGruposVazio");
+        var escapar = function (s) {
+            var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML;
+        };
+        var render = function (grupos) {
+            lista.innerHTML = "";
+            grupos.forEach(function (g) {
+                var li = document.createElement("li");
+                li.className = "wa-grupo-item";
+                li.innerHTML = '<div class="wa-grupo-info">'
+                    + '<span class="wa-grupo-nome">' + (escapar(g.nome) || "(sem nome)") + '</span>'
+                    + '<span class="wa-grupo-id">' + escapar(g.group_id) + '</span></div>'
+                    + '<span class="wa-grupo-tam">' + (g.tamanho || 0) + ' 👤</span>';
+                lista.appendChild(li);
+            });
+            if (vazio) vazio.hidden = grupos.length > 0;
+        };
+        btnSync.addEventListener("click", function () {
+            if (btnSync.dataset.carregando) return;
+            btnSync.dataset.carregando = "1"; btnSync.disabled = true;
+            var txt = btnSync.textContent; btnSync.textContent = "Buscando…";
+            fetch(painelGrupos.dataset.syncUrl, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": painelGrupos.dataset.csrf,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+            }).then(function (r) { return r.json().catch(function () { return { ok: false, erro: "Resposta inválida." }; }); })
+                .then(function (d) {
+                    if (d.ok) {
+                        render(d.grupos || []);
+                        if (window.mostrarToast) window.mostrarToast((d.total || 0) + " grupo(s) carregado(s). ✅", "success");
+                    } else if (window.mostrarToast) {
+                        window.mostrarToast(d.erro || "Não foi possível buscar os grupos.", "error");
+                    }
+                })
+                .catch(function () { if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error"); })
+                .finally(function () {
+                    delete btnSync.dataset.carregando; btnSync.disabled = false; btnSync.textContent = txt;
+                });
+        });
+    }
+
     // ---- Mostrar/ocultar token ----
     var verToken = document.getElementById("verToken");
     var token = document.getElementById("token");

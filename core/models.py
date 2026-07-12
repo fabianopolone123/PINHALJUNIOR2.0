@@ -1382,6 +1382,26 @@ class WhatsappConfig(models.Model):
         return "•" * 6 + self.token[-4:]
 
 
+class GrupoWhatsapp(models.Model):
+    """Grupo do WhatsApp da conta (W-API). Vincula o **ID** do grupo (`...@g.us`) ao
+    **nome** (subject), sincronizado da API. Trabalha-se com o ID; exibe-se o nome.
+    `usar_liberacao` marca o grupo dos pais usado no módulo de liberação de números."""
+
+    group_id = models.CharField("ID do grupo", max_length=100, unique=True)
+    nome = models.CharField("Nome do grupo", max_length=200, blank=True)
+    tamanho = models.PositiveIntegerField("Participantes", default=0)
+    usar_liberacao = models.BooleanField("Grupo dos pais (liberação)", default=False)
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Grupo do WhatsApp"
+        verbose_name_plural = "Grupos do WhatsApp"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome or self.group_id
+
+
 def _mascarar_segredo(valor):
     """Mostra só os últimos 4 caracteres de um segredo (token/secret), sem vazá-lo."""
     if not valor:

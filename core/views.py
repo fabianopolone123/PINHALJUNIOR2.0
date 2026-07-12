@@ -54,6 +54,7 @@ from .forms import (
 from . import mercadopago as mp
 from . import openai_ia
 from . import termos
+from . import wapi
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
     MESES_PT,
@@ -74,6 +75,7 @@ from .models import (
     Evento,
     FotoProdutoLoja,
     GrupoLoja,
+    GrupoWhatsapp,
     Inscricao,
     ItemCompraLoja,
     ItemPedidoLoja,
@@ -3352,10 +3354,44 @@ def _enviar_whatsapp(config, phone, message):
 
 @diretor_required
 def whatsapp_view(request):
-    """Tela do módulo WhatsApp (só Diretor): configurar a instância (ID/token
-    da W-API) e enviar uma mensagem de teste."""
+    """Tela do módulo WhatsApp (só Diretor): abas Configurações (instância + teste)
+    e Grupos (lista de grupos da conta, vínculo ID↔nome)."""
     config = WhatsappConfig.get_solo()
-    return render(request, "core/whatsapp.html", {"config": config})
+    return render(request, "core/whatsapp.html", {
+        "config": config,
+        "grupos": list(GrupoWhatsapp.objects.all()),
+        "aba": request.GET.get("aba", "config"),
+    })
+
+
+@diretor_required
+@require_POST
+def whatsapp_grupos_sync_view(request):
+    """Sincroniza a lista de grupos da W-API para o banco (upsert por ID). Devolve
+    JSON com a lista atualizada (sem recarregar a página)."""
+    config = WhatsappConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure a instância do WhatsApp antes de buscar os grupos."},
+            status=400,
+        )
+    ok, resultado = wapi.listar_grupos(config)
+    if not ok:
+        return JsonResponse({"ok": False, "erro": resultado}, status=502)
+    vistos = set()
+    for g in resultado:
+        vistos.add(g["group_id"])
+        GrupoWhatsapp.objects.update_or_create(
+            group_id=g["group_id"],
+            defaults={"nome": g["nome"], "tamanho": g["tamanho"]},
+        )
+    # Remove os que não existem mais na conta (mantém os marcados p/ liberação).
+    GrupoWhatsapp.objects.exclude(group_id__in=vistos).filter(usar_liberacao=False).delete()
+    grupos = [
+        {"group_id": x.group_id, "nome": x.nome, "tamanho": x.tamanho, "usar_liberacao": x.usar_liberacao}
+        for x in GrupoWhatsapp.objects.all()
+    ]
+    return JsonResponse({"ok": True, "grupos": grupos, "total": len(grupos)})
 
 
 @diretor_required

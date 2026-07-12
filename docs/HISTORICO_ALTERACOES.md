@@ -22,6 +22,36 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: abas Configurações/Grupos + listagem de grupos (Fase 1 do módulo de liberação)
+
+### Resumo
+Início do **módulo de liberação de números** do WhatsApp (resolver bloqueio por "spam" quando o clube inicia
+conversa com quem só visualiza). **Fase 1**: a tela WhatsApp agora tem **duas abas** — **Configurações**
+(instância + teste, como antes) e **Grupos**. Na aba Grupos, o botão "Atualizar lista" busca os grupos da conta
+na W-API (`GET /v1/group/get-all-groups`) e mostra **nome + ID**, persistindo o vínculo (trabalha-se com o ID).
+
+### Arquivos criados/alterados
+- `core/wapi.py` (novo): cliente W-API via `urllib` — `listar_grupos` (parsing defensivo do payload),
+  `dados_grupo` (group-metadata), `configurar_webhook_recebido` (para a Fase 2) e `enviar_texto` (número ou
+  grupo `...@g.us`, para a Fase 3).
+- `core/models.py`: model **`GrupoWhatsapp`** (group_id único ↔ nome/subject, tamanho, `usar_liberacao`).
+- `core/views.py`: `whatsapp_view` com abas (`aba`); nova `whatsapp_grupos_sync_view` (upsert dos grupos, JSON).
+- `core/urls.py`: rota `whatsapp/grupos/sincronizar/`.
+- `templates/core/whatsapp.html`: abas Configurações/Grupos + lista de grupos.
+- `static/js/whatsapp.js`: troca de abas + sincronização via AJAX.
+- `static/css/whatsapp.css`: abas e lista de grupos.
+- Migration **0047**.
+
+### Notas / pendências
+- A doc da W-API é SPA; o **formato exato do item de grupo** e o **payload do webhook de recebidas** não vieram
+  100% autoritativos. O parser dos grupos é defensivo (aceita `id`/`groupId`/`jid`, `subject`/`name`, string pura).
+  Testar na instância real (não há como testar a W-API localmente).
+- **Fase 2** (próxima): webhook de mensagens recebidas — registrar o payload cru, confirmar o formato com uma
+  mensagem real, e marcar o número do responsável como "liberado" (whitelist).
+- **Fase 3**: campanha no grupo dos pais listando "quem falta" (postagem **manual + resumo**, escolha do usuário).
+
+---
+
 ## 2026-07-11 - Cobranças: escolher o telefone do responsável financeiro por família
 
 ### Resumo

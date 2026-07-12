@@ -13,7 +13,15 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**Cobranças: telefone do responsável financeiro por família**): na aba
+**Última atualização:** 2026-07-11 (**WhatsApp: abas + Grupos — Fase 1 do módulo de liberação**): a tela WhatsApp
+agora tem **duas abas** — **Configurações** (instância + teste) e **Grupos**. A aba Grupos busca os grupos da
+conta na W-API (`GET /v1/group/get-all-groups`, botão "Atualizar lista") e mostra **nome + ID**, persistindo em
+`GrupoWhatsapp` (vínculo ID↔nome). Cliente novo `core/wapi.py` (`listar_grupos`/`dados_grupo`/
+`configurar_webhook_recebido`/`enviar_texto`, via urllib). Rota `whatsapp/grupos/sincronizar/`; migration **0047**.
+É a base do **módulo de liberação de números** (Fase 2 = webhook de recebidas + whitelist; Fase 3 = campanha
+"quem falta" no grupo dos pais, postagem manual). Antes: Cobranças — telefone do responsável financeiro.
+
+**Anterior (Cobranças: telefone do responsável financeiro por família):** na aba
 **Cobranças**, cada família com **2+ telefones** (pai/mãe/resp. legal) tem um **seletor** de para qual WhatsApp a
 cobrança vai — o do **responsável financeiro**. A escolha **persiste** (toast "alterado" ao trocar) e habilita o
 envio se antes não havia número. Campo **próprio e independente** (`PerfilUsuario.cobranca_whatsapp_origem`),

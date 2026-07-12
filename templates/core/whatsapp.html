@@ -57,6 +57,13 @@
                 </div>
                 {% endif %}
 
+                <div class="wa-abas" role="tablist">
+                    <button type="button" class="wa-aba{% if aba != 'grupos' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
+                    <button type="button" class="wa-aba{% if aba == 'grupos' %} ativa{% endif %}" data-aba="grupos" role="tab">👥 Grupos</button>
+                </div>
+
+                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' %} hidden{% endif %}>
+
                 <!-- ===================== Configuração da instância ===================== -->
                 <section class="card wa-card">
                     <div class="wa-card-topo">
@@ -149,6 +156,38 @@
                         </div>
                     </form>
                 </section>
+
+                </div><!-- /painel config -->
+
+                <div class="wa-painel" data-painel="grupos"{% if aba != 'grupos' %} hidden{% endif %}
+                     data-sync-url="{% url 'core:whatsapp_grupos_sync' %}" data-csrf="{{ csrf_token }}">
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">👥 Grupos da conta</h2>
+                            <button type="button" class="btn-secundario" id="waGruposSync"
+                                    {% if not config.configurado %}disabled{% endif %}>🔄 Atualizar lista</button>
+                        </div>
+                        {% if not config.configurado %}
+                        <p class="wa-aviso">Configure a instância na aba Configurações para buscar os grupos.</p>
+                        {% else %}
+                        <p class="wa-ajuda">Lista dos grupos em que essa conta participa. Trabalhamos com o <strong>ID</strong> do grupo; o nome é só para você reconhecer.</p>
+                        {% endif %}
+                        <ul class="wa-grupos-lista" id="waGruposLista">
+                            {% for g in grupos %}
+                            <li class="wa-grupo-item">
+                                <div class="wa-grupo-info">
+                                    <span class="wa-grupo-nome">{{ g.nome|default:"(sem nome)" }}</span>
+                                    <span class="wa-grupo-id">{{ g.group_id }}</span>
+                                </div>
+                                <span class="wa-grupo-tam">{{ g.tamanho }} 👤</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <p class="wa-grupos-vazio" id="waGruposVazio"{% if grupos %} hidden{% endif %}>
+                            Nenhum grupo carregado ainda. Clique em “Atualizar lista”.
+                        </p>
+                    </section>
+                </div><!-- /painel grupos -->
             </div>
         </main>
     </div>
