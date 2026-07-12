@@ -2,8 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 3: Mensalidade
-paga**): todo **pagamento de mensalidade** dispara um **agradecimento** ao responsável (`mensalidade_paga`,
+**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 4: novo cadastro**):
+todo cadastro que **cria uma conta nova** — de **aventureiro** (`cadastro_aventureiro_view`) e de
+**diretoria** (`cadastro_diretoria_view`, exceto quando emenda no aventureiro, que envia a de aventureiro) —
+dispara uma **boas-vindas** (`cadastro_novo`) com o **usuário de acesso** (`{usuario}`), ao WhatsApp do
+responsável/integrante, via `on_commit`. Respeita o gate anti-bloqueio (chega a quem já escreveu ao clube;
+o cadastro de novo aventureiro em conta já existente **não** notifica). Helper `_notificar_cadastro`. Sem
+migration. Próximo: inscrição em evento + autorização pré-checkout no evento aberto (Etapa 5). Antes: Etapa
+3 (Mensalidade paga).
+
+**Anterior (Notificações automáticas por WhatsApp — Etapa 3: Mensalidade
+paga):** todo **pagamento de mensalidade** dispara um **agradecimento** ao responsável (`mensalidade_paga`,
 respeita o gate anti-bloqueio) — tanto o online (baixa múltipla em `_finalizar_mensalidade`, via
 `on_commit`) quanto a **baixa manual** do Diretor (`mensalidade_pagar_view`). O número é o do **responsável
 financeiro** (reusa `_resolver_origem_numero` + `cobranca_whatsapp_origem`), o nome é o do responsável e os

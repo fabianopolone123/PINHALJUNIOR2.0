@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 4: novo cadastro)
+
+### Resumo
+Cadastros que criam conta nova (aventureiro e diretoria) enviam boas-vindas com o usuário de acesso.
+
+### Arquivos criados/alterados
+- `core/views.py`: helper `_notificar_cadastro` (via `on_commit`); ligado em `cadastro_aventureiro_view`
+  (usa nome/WhatsApp do responsável) e `cadastro_diretoria_view` (nome/WhatsApp do integrante, exceto
+  quando `com_aventureiro`, que já cai no cadastro de aventureiro).
+
+### Decisões tomadas
+- Novo aventureiro em conta já existente NÃO notifica (não é conta/usuário novo).
+- Gate anti-bloqueio aplicado: a boas-vindas chega a quem já escreveu ao clube.
+
+### Pendências
+- Etapa 5: inscrição em evento + autorização pré-checkout no evento aberto.
+
 ## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 3: Mensalidade paga)
 
 ### Resumo

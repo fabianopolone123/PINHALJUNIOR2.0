@@ -620,6 +620,16 @@ def cadastro_view(request):
     return render(request, "core/cadastro_escolha.html")
 
 
+def _notificar_cadastro(nome, usuario_login, whatsapp):
+    """Boas-vindas a um novo cadastro (com o usuário de acesso), via on_commit.
+    Respeita o gate anti-bloqueio. Nunca derruba o cadastro."""
+    ctx = {
+        "nome": (nome or "").split(" ")[0] or "responsável",
+        "usuario": usuario_login or "",
+    }
+    transaction.on_commit(lambda: _notificar(NOTIF_CADASTRO_NOVO, whatsapp, ctx))
+
+
 def cadastro_aventureiro_view(request):
     """
     Cadastro inicial de aventureiro: cria a conta de acesso + o primeiro aventureiro.
@@ -652,6 +662,9 @@ def cadastro_aventureiro_view(request):
             login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk
             request.session[SESSAO_ULTIMO_NOME] = aventureiro_obj.nome_completo
+            _notificar_cadastro(
+                aventureiro_obj.resp_nome, usuario.username, aventureiro_obj.resp_whatsapp
+            )
             return redirect("core:cadastro_sucesso")
 
     contexto = {
@@ -788,6 +801,10 @@ def cadastro_diretoria_view(request):
             login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk
             request.session[SESSAO_ULTIMO_NOME] = membro_obj.nome_completo
+            if not com_aventureiro:
+                _notificar_cadastro(
+                    membro_obj.nome_completo, usuario.username, membro_obj.whatsapp
+                )
             if com_aventureiro:
                 messages.success(
                     request,
