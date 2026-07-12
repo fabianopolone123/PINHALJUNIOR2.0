@@ -3422,10 +3422,14 @@ def _liberacao_lista():
 
 
 def _inativos_para_reengajar(config, agora=None):
-    """Contatos que JÁ interagiram (têm última msg) mas ficaram `reengajar_dias` sem
-    mandar mensagem, e que não foram reengajados dentro desse período. Uma entrada
-    por conta (dedup responsável/diretoria). Cold (nunca mandou) NÃO entra — mandar
-    para quem nunca interagiu é justamente o que causa bloqueio."""
+    """Contatos a reengajar. Critérios (uma entrada por conta):
+    - JÁ interagiram alguma vez (têm última msg) — cold (nunca mandou) NÃO entra
+      (mandar para quem nunca interagiu é o que causa bloqueio);
+    - estão calados há pelo menos `reengajar_dias`;
+    - e **ainda não foram reengajados desde a última mensagem deles** — ou seja,
+      manda **uma vez só** por período de silêncio. Se a pessoa não responder, NÃO
+      insiste; só volta a ser elegível se ela mandar mensagem de novo (e depois
+      ficar calada outra vez)."""
     agora = agora or timezone.now()
     limite = agora - datetime.timedelta(days=config.reengajar_dias or 30)
     vistos, alvos = set(), []
@@ -3433,10 +3437,12 @@ def _inativos_para_reengajar(config, agora=None):
         uid = p["usuario_id"]
         if not uid or uid in vistos or not p["numero"]:
             continue
-        if not p["ultima_msg_em"] or p["ultima_msg_em"] >= limite:
-            continue
-        if p["reengajado_em"] and p["reengajado_em"] >= limite:
-            continue
+        ultima = p["ultima_msg_em"]
+        if not ultima or ultima >= limite:
+            continue  # nunca interagiu, ou respondeu recentemente
+        reeng = p["reengajado_em"]
+        if reeng and reeng >= ultima:
+            continue  # já reengajado desde a última msg dele → não insiste
         vistos.add(uid)
         alvos.append({"usuario_id": uid, "nome": p["nome"], "numero": p["numero"]})
     return alvos

@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Reengajamento: manda UMA vez por silêncio (não insiste)
+
+### Resumo
+Ajuste no critério de quem entra no reengajamento. Antes era **por tempo** (quem foi reengajado voltava a ser
+elegível depois de `reengajar_dias`, ou seja, **reenviava a cada 30 dias mesmo sem resposta**). Agora é **por
+mensagem**: reengaja **uma vez só** por período de silêncio e **não insiste** se a pessoa não responder. Só volta
+a ser elegível se ela **mandar mensagem de novo** e depois ficar calada outra vez.
+
+### Como controla
+Regra em `_inativos_para_reengajar`: elegível se (a) já interagiu alguma vez, (b) está calado há ≥
+`reengajar_dias` e (c) **`reengajado_em` é anterior à última mensagem** (`reengajado_em < ultima_msg_em`) — ou
+nunca foi reengajado. Assim o reengajamento "trava" após o envio e só "destrava" quando a última mensagem da
+pessoa passa a ser mais recente que o reengajamento (ela respondeu).
+
+### Arquivos alterados
+- `core/views.py`: `_inativos_para_reengajar` (critério por mensagem em vez de por janela de tempo).
+- Sem migration (usa os campos existentes `ultima_msg_whatsapp_em`/`reengajado_em`).
+
+### Verificação
+6 cenários testados (nunca reengajado → envia; já reengajado → não insiste; 200 dias depois ainda sem resposta →
+não reenvia; respondeu e calou de novo → envia; ativo → não; cold → não).
+
+---
+
 ## 2026-07-11 - Doc: cron do reengajamento (automático no servidor)
 
 ### Resumo

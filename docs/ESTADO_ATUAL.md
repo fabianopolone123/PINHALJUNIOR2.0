@@ -13,7 +13,12 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: reengajamento com pausa (10s)**): o "Reengajar inativos agora"
+**Última atualização:** 2026-07-11 (**Reengajamento: uma vez por silêncio**): o reengajamento agora manda **uma
+vez só** por período de silêncio e **não insiste** — critério por mensagem (`reengajado_em < ultima_msg_em`), não
+por janela de tempo. Só volta a ser elegível se a pessoa **responder** e depois ficar calada `reengajar_dias` de
+novo. Cold nunca entra. `_inativos_para_reengajar` ajustado; sem migration. Antes: reengajamento com pausa (10s).
+
+**Anterior (WhatsApp: reengajamento com pausa (10s)):** o "Reengajar inativos agora"
 passou a enviar **um a um com 10s entre cada** (barra de progresso + cancelar), igual ao "Enviar a todos" da
 cobrança — antes mandava tudo de uma vez. `whatsapp_reengajar_view` envia 1 por request (`usuario_id`); JS faz o
 pacing (alvos via `json_script`); comando `reengajar_inativos` pausa com `time.sleep`. Helpers `_reengajar_um`/
