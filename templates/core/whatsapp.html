@@ -294,7 +294,41 @@
                     </section>
                 </div><!-- /painel autorizacao -->
 
-                <div class="wa-painel" data-painel="liberacao"{% if aba != 'liberacao' %} hidden{% endif %}>
+                <div class="wa-painel" data-painel="liberacao"{% if aba != 'liberacao' %} hidden{% endif %}
+                     data-reengajar-url="{% url 'core:whatsapp_reengajar' %}" data-csrf="{{ csrf_token }}">
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🔁 Reengajamento (evitar esfriar)</h2>
+                        </div>
+                        <p class="wa-ajuda">
+                            Quem já interagiu mas ficou muito tempo sem te mandar mensagem "esfria" (só o clube
+                            manda, sem resposta). O sistema pode mandar uma mensagem curta perguntando se a pessoa
+                            quer continuar recebendo — reativando a conversa. Só vai para quem <strong>já mandou
+                            mensagem alguma vez</strong> (nunca para quem nunca interagiu).
+                        </p>
+                        <form method="post" action="{% url 'core:whatsapp_reengajar_config' %}" class="wa-form">
+                            {% csrf_token %}
+                            <div class="campo">
+                                <label for="reengajar_dias">Reengajar após quantos dias sem resposta</label>
+                                <input type="number" id="reengajar_dias" name="reengajar_dias" min="1" value="{{ reengajar_dias }}" style="max-width:120px;">
+                            </div>
+                            <div class="campo">
+                                <label for="mensagem_reengajamento">Mensagem de reengajamento</label>
+                                <textarea id="mensagem_reengajamento" name="mensagem_reengajamento" rows="4">{{ mensagem_reengajamento }}</textarea>
+                            </div>
+                            <div class="wa-acoes">
+                                <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar reengajamento</button>
+                            </div>
+                        </form>
+                        <hr class="wa-sep">
+                        <div class="wa-acoes">
+                            <span class="wa-ajuda" style="margin:0;flex:1;">Inativos agora (sem resposta há {{ reengajar_dias }}+ dias): <strong id="waReengajarN">{{ reengajar_inativos_n }}</strong></span>
+                            <button type="button" class="btn-acao" id="waReengajarBtn"
+                                    {% if not config.configurado %}disabled{% endif %}>🔁 Reengajar inativos agora</button>
+                        </div>
+                        <p class="wa-ajuda" style="margin-top:8px;">Para rodar sozinho todo dia, dá para agendar o comando <code>reengajar_inativos</code> no servidor (cron).</p>
+                    </section>
+
                     <section class="card wa-card">
                         <div class="wa-card-topo">
                             <h2 class="wa-titulo">🚦 Liberação de contatos</h2>

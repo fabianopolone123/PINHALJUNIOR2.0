@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: reengajamento de contatos inativos
+
+### Resumo
+Mesmo quem autorizou "esfria" se ficar muito tempo sem responder (só o clube manda). Agora, na aba **🚦
+Liberação**, dá para configurar um **reengajamento**: se um contato que **já interagiu** fica `reengajar_dias`
+(padrão 30) sem mandar mensagem, o clube envia uma **mensagem curta** perguntando se ele quer continuar recebendo
+— reativando a conversa. Só vai para **quem já mandou mensagem alguma vez** (nunca para cold, que causaria
+bloqueio) e **não reenvia** dentro da janela (idempotente).
+
+### Como usar
+- Config na aba Liberação: **dias sem resposta** + **mensagem de reengajamento**.
+- Botão **"Reengajar inativos agora"** (mostra quantos inativos há) — dispara na hora.
+- Comando **`python manage.py reengajar_inativos`** (mesma lógica) para agendar no **cron** (rodar sozinho).
+
+### Arquivos alterados
+- `core/models.py`: `WhatsappConfig.reengajar_dias`/`mensagem_reengajamento`; `PerfilUsuario.reengajado_em`.
+- `core/views.py`: `_inativos_para_reengajar` (seleção: já interagiu + parado há X dias + não reengajado na
+  janela; dedup responsável/diretoria) e `_reengajar_inativos` (envia + grava `reengajado_em`);
+  `_liberacao_lista` inclui `usuario_id`/`reengajado_em`; views `whatsapp_reengajar_config_view`/
+  `whatsapp_reengajar_view`; contexto com contagem de inativos.
+- `core/management/commands/reengajar_inativos.py` (novo): para cron.
+- `core/urls.py`: `whatsapp/reengajar/config/` e `whatsapp/reengajar/`.
+- `templates/core/whatsapp.html`: card de reengajamento (config + botão) na aba Liberação.
+- `static/js/whatsapp.js`: botão reengajar (confirma + AJAX + toast).
+- `static/css/whatsapp.css`: separador.
+- Migration **0051**.
+
+---
+
 ## 2026-07-11 - WhatsApp: rastreio inclui diretoria + painel Liberação
 
 ### Resumo

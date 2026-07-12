@@ -1182,6 +1182,9 @@ class PerfilUsuario(models.Model):
     autorizacao_recebida_em = models.DateTimeField(
         "Autorização recebida em", null=True, blank=True
     )
+    # Última vez que o clube mandou a mensagem de reengajamento (evita reenviar toda
+    # hora enquanto a pessoa não responde).
+    reengajado_em = models.DateTimeField("Reengajado em", null=True, blank=True)
 
     def __str__(self):
         return f"Perfil de {self.usuario.username}"
@@ -1363,6 +1366,18 @@ class WhatsappConfig(models.Model):
     mensagem_autorizacao = models.TextField(
         "Mensagem de autorização (o responsável envia)", blank=True,
         default="Autorizo o Clube de Aventureiros Pinhal Júnior a me enviar mensagens.",
+    )
+    # Reengajamento: se a pessoa (que já interagiu) fica `reengajar_dias` sem mandar
+    # mensagem, o clube manda `mensagem_reengajamento` para reativar a conversa e não
+    # "esfriar" o número (evita o cenário de só o clube mandando, sem resposta).
+    reengajar_dias = models.PositiveIntegerField("Reengajar após (dias sem resposta)", default=30)
+    mensagem_reengajamento = models.TextField(
+        "Mensagem de reengajamento", blank=True,
+        default=(
+            "Oi! 👋 Notei que não tive resposta nas últimas mensagens. Você quer "
+            "continuar recebendo as notificações do Clube de Aventureiros Pinhal Júnior? "
+            "Se sim, é só responder esta mensagem. 💚"
+        ),
     )
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,

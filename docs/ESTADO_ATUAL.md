@@ -13,7 +13,14 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: rastreio inclui diretoria + painel Liberação**): o casamento do
+**Última atualização:** 2026-07-11 (**WhatsApp: reengajamento de inativos**): na aba **🚦 Liberação**, config de
+**reengajamento** — se um contato que já interagiu fica `reengajar_dias` (padrão 30) sem responder, o clube manda
+uma **mensagem curta** ("ainda quer receber?") pra reativar. Só para quem já mandou msg (nunca cold); não reenvia
+na janela. Botão "Reengajar inativos agora" + comando `reengajar_inativos` (cron). Campos
+`WhatsappConfig.reengajar_dias`/`mensagem_reengajamento`, `PerfilUsuario.reengajado_em`; helpers
+`_inativos_para_reengajar`/`_reengajar_inativos`; migration **0051**. Antes: rastreio inclui diretoria + painel Liberação.
+
+**Anterior (WhatsApp: rastreio inclui diretoria + painel Liberação):** o casamento do
 número recebido agora acha **responsáveis E diretoria** (`_perfil_por_whatsapp`, inclui `MembroDiretoria.whatsapp`).
 Nova aba **🚦 Liberação** na tela WhatsApp: painel único listando responsáveis + diretoria com termômetro
 (🟢/🟡/🔴 + "há X") e resumo "N de M já mandaram msg" (`_liberacao_lista`). Sem migration (rastreio fica em

@@ -3374,6 +3374,9 @@ def whatsapp_view(request):
         "liberacao_total": len(liberacao),
         "liberacao_liberados": liberados,
         "liberacao_autorizados": autorizados,
+        "reengajar_dias": config.reengajar_dias,
+        "mensagem_reengajamento": config.mensagem_reengajamento,
+        "reengajar_inativos_n": len(_inativos_para_reengajar(config)),
         "aba": request.GET.get("aba", "config"),
     })
 
@@ -3395,8 +3398,10 @@ def _liberacao_lista():
         resp_nome, _ = _responsavel_da_familia(u)
         itens.append({
             "tipo": "Responsável", "nome": resp_nome, "numero": numero,
+            "usuario_id": u.id,
             "autorizou": bool(perfil.autorizacao_recebida_em),
             "ultima_msg_em": perfil.ultima_msg_whatsapp_em,
+            "reengajado_em": perfil.reengajado_em,
         })
     for m in MembroDiretoria.objects.filter(ativo=True, demo=False).select_related("usuario"):
         perfil = None
@@ -3404,11 +3409,51 @@ def _liberacao_lista():
             perfil, _ = PerfilUsuario.objects.get_or_create(usuario=m.usuario)
         itens.append({
             "tipo": "Diretoria", "nome": m.nome_completo, "numero": normalizar_telefone(m.whatsapp),
+            "usuario_id": m.usuario_id,
             "autorizou": bool(perfil and perfil.autorizacao_recebida_em),
             "ultima_msg_em": perfil.ultima_msg_whatsapp_em if perfil else None,
+            "reengajado_em": perfil.reengajado_em if perfil else None,
         })
     itens.sort(key=lambda x: (x["tipo"], (x["nome"] or "").lower()))
     return itens
+
+
+def _inativos_para_reengajar(config, agora=None):
+    """Contatos que JÁ interagiram (têm última msg) mas ficaram `reengajar_dias` sem
+    mandar mensagem, e que não foram reengajados dentro desse período. Uma entrada
+    por conta (dedup responsável/diretoria). Cold (nunca mandou) NÃO entra — mandar
+    para quem nunca interagiu é justamente o que causa bloqueio."""
+    agora = agora or timezone.now()
+    limite = agora - datetime.timedelta(days=config.reengajar_dias or 30)
+    vistos, alvos = set(), []
+    for p in _liberacao_lista():
+        uid = p["usuario_id"]
+        if not uid or uid in vistos or not p["numero"]:
+            continue
+        if not p["ultima_msg_em"] or p["ultima_msg_em"] >= limite:
+            continue
+        if p["reengajado_em"] and p["reengajado_em"] >= limite:
+            continue
+        vistos.add(uid)
+        alvos.append({"usuario_id": uid, "nome": p["nome"], "numero": p["numero"]})
+    return alvos
+
+
+def _reengajar_inativos(config):
+    """Envia a mensagem de reengajamento aos inativos. Retorna (enviados, falhas)."""
+    msg = (config.mensagem_reengajamento or "").strip()
+    if not msg or not config.configurado:
+        return 0, []
+    agora = timezone.now()
+    enviados, falhas = 0, []
+    for a in _inativos_para_reengajar(config, agora):
+        ok, detalhe = _enviar_whatsapp(config, a["numero"], msg)
+        if ok:
+            PerfilUsuario.objects.filter(usuario_id=a["usuario_id"]).update(reengajado_em=agora)
+            enviados += 1
+        else:
+            falhas.append(f"{a['nome']}: {detalhe}")
+    return enviados, falhas
 
 
 def _wa_link_autorizacao(config):
@@ -3508,6 +3553,37 @@ def _registrar_contato_whatsapp(numero, texto):
             perfil.autorizacao_recebida_em = agora
             campos.append("autorizacao_recebida_em")
     perfil.save(update_fields=campos)
+
+
+@diretor_required
+@require_POST
+def whatsapp_reengajar_config_view(request):
+    """Salva a config de reengajamento (dias sem resposta + mensagem)."""
+    config = WhatsappConfig.get_solo()
+    try:
+        dias = int(request.POST.get("reengajar_dias") or 0)
+        if dias > 0:
+            config.reengajar_dias = dias
+    except (TypeError, ValueError):
+        pass
+    config.mensagem_reengajamento = (request.POST.get("mensagem_reengajamento") or "").strip()
+    config.atualizado_por = request.user
+    config.save(update_fields=["reengajar_dias", "mensagem_reengajamento", "atualizado_por", "atualizado_em"])
+    messages.success(request, "Reengajamento salvo.")
+    return redirect(reverse("core:whatsapp") + "?aba=liberacao")
+
+
+@diretor_required
+@require_POST
+def whatsapp_reengajar_view(request):
+    """Dispara o reengajamento dos inativos agora (JSON, sem recarregar)."""
+    config = WhatsappConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure a instância do WhatsApp antes."}, status=400
+        )
+    enviados, falhas = _reengajar_inativos(config)
+    return JsonResponse({"ok": True, "enviados": enviados, "falhas": falhas})
 
 
 @diretor_required

@@ -185,6 +185,33 @@
         if (abaWh) abaWh.addEventListener("click", carregarEventos);
     }
 
+    // ---- Reengajar inativos ----
+    var painelLib = document.querySelector('.wa-painel[data-painel="liberacao"]');
+    var btnReeng = document.getElementById("waReengajarBtn");
+    if (painelLib && btnReeng) {
+        btnReeng.addEventListener("click", function () {
+            if (btnReeng.dataset.on) return;
+            var n = document.getElementById("waReengajarN");
+            var qtd = n ? parseInt(n.textContent, 10) || 0 : 0;
+            if (qtd === 0) { if (window.mostrarToast) window.mostrarToast("Nenhum inativo para reengajar agora.", "error"); return; }
+            if (!window.confirm("Enviar a mensagem de reengajamento para " + qtd + " contato(s) inativo(s)?")) return;
+            btnReeng.dataset.on = "1"; btnReeng.disabled = true;
+            var t = btnReeng.textContent; btnReeng.textContent = "Enviando…";
+            fetch(painelLib.dataset.reengajarUrl, {
+                method: "POST",
+                headers: { "X-CSRFToken": painelLib.dataset.csrf, "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/x-www-form-urlencoded" },
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (!d || !d.ok) { if (window.mostrarToast) window.mostrarToast((d && d.erro) || "Não foi possível reengajar.", "error"); return; }
+                if (n) n.textContent = "0";
+                if (window.mostrarToast) window.mostrarToast(
+                    "Reengajamento enviado: " + d.enviados + (d.falhas && d.falhas.length ? " · " + d.falhas.length + " falha(s)" : ""),
+                    d.enviados ? "success" : "error");
+            }).catch(function () { if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error"); })
+              .finally(function () { delete btnReeng.dataset.on; btnReeng.disabled = false; btnReeng.textContent = t; });
+        });
+    }
+
     // ---- Mostrar/ocultar token ----
     var verToken = document.getElementById("verToken");
     var token = document.getElementById("token");
