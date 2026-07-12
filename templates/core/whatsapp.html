@@ -58,11 +58,12 @@
                 {% endif %}
 
                 <div class="wa-abas" role="tablist">
-                    <button type="button" class="wa-aba{% if aba != 'grupos' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
+                    <button type="button" class="wa-aba{% if aba != 'grupos' and aba != 'webhook' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
                     <button type="button" class="wa-aba{% if aba == 'grupos' %} ativa{% endif %}" data-aba="grupos" role="tab">👥 Grupos</button>
+                    <button type="button" class="wa-aba{% if aba == 'webhook' %} ativa{% endif %}" data-aba="webhook" role="tab">🔔 Webhook</button>
                 </div>
 
-                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' %} hidden{% endif %}>
+                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' %} hidden{% endif %}>
 
                 <!-- ===================== Configuração da instância ===================== -->
                 <section class="card wa-card">
@@ -188,6 +189,40 @@
                         </p>
                     </section>
                 </div><!-- /painel grupos -->
+
+                <div class="wa-painel" data-painel="webhook"{% if aba != 'webhook' %} hidden{% endif %}
+                     data-eventos-url="{% url 'core:whatsapp_webhook_eventos' %}"
+                     data-config-url="{% url 'core:whatsapp_webhook_config' %}" data-csrf="{{ csrf_token }}">
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🔔 Webhook de mensagens recebidas</h2>
+                        </div>
+                        <p class="wa-ajuda">Cadastre esta URL na W-API para o sistema escutar as mensagens que chegam no seu número. Precisa ser HTTPS.</p>
+                        <div class="campo">
+                            <div class="pix-copia">
+                                <input type="text" id="waWebhookUrl" class="pix-copia-input selecionavel" value="{{ webhook_url }}" readonly>
+                                <button type="button" class="btn-secundario" id="btnCopiarWebhookWa" data-target="waWebhookUrl">Copiar</button>
+                            </div>
+                        </div>
+                        <div class="wa-acoes">
+                            <button type="button" class="btn-acao" id="waWebhookConfig"
+                                    {% if not config.configurado %}disabled{% endif %}>🔗 Configurar webhook na W-API</button>
+                        </div>
+                        {% if not config.configurado %}
+                        <p class="wa-aviso">Configure a instância na aba Configurações para poder registrar o webhook.</p>
+                        {% endif %}
+                    </section>
+
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">📥 Últimas 5 mensagens recebidas</h2>
+                            <button type="button" class="btn-secundario" id="waEventosRefresh">🔄 Atualizar</button>
+                        </div>
+                        <p class="wa-ajuda">Só para teste: mostra as últimas mensagens que o webhook recebeu (atualiza sozinho a cada 5s enquanto esta aba está aberta). Mande uma mensagem para o número da instância para ver aparecer aqui.</p>
+                        <ul class="wa-eventos-lista" id="waEventosLista"></ul>
+                        <p class="wa-eventos-vazio" id="waEventosVazio">Nenhuma mensagem recebida ainda.</p>
+                    </section>
+                </div><!-- /painel webhook -->
             </div>
         </main>
     </div>

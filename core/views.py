@@ -55,6 +55,7 @@ from . import mercadopago as mp
 from . import openai_ia
 from . import termos
 from . import wapi
+from . import wapi_parser
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
     MESES_PT,
@@ -95,6 +96,7 @@ from .models import (
     VariacaoLoja,
     VariacaoProduto,
     WhatsappConfig,
+    WhatsappWebhookEvent,
 )
 from .menus import PERFIL_ATIVO_KEY, atua_como_responsavel, perfis_do_usuario
 from .permissoes import diretor_required, eh_diretor, operador_required, pode_operar_evento
@@ -3360,6 +3362,7 @@ def whatsapp_view(request):
     return render(request, "core/whatsapp.html", {
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
+        "webhook_url": _webhook_whatsapp_url(request),
         "aba": request.GET.get("aba", "config"),
     })
 
@@ -3392,6 +3395,76 @@ def whatsapp_grupos_sync_view(request):
         for x in GrupoWhatsapp.objects.all()
     ]
     return JsonResponse({"ok": True, "grupos": grupos, "total": len(grupos)})
+
+
+def _webhook_whatsapp_url(request):
+    """URL pública do webhook de mensagens recebidas (respeita o prefixo do VPS)."""
+    return request.build_absolute_uri(reverse("core:whatsapp_webhook"))
+
+
+@diretor_required
+@require_POST
+def whatsapp_webhook_config_view(request):
+    """Cadastra a URL do nosso webhook na W-API (mensagens recebidas)."""
+    config = WhatsappConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure a instância do WhatsApp primeiro."}, status=400
+        )
+    url = _webhook_whatsapp_url(request)
+    ok, resultado = wapi.configurar_webhook_recebido(config, url)
+    if not ok:
+        return JsonResponse({"ok": False, "erro": resultado}, status=502)
+    return JsonResponse({"ok": True, "url": url})
+
+
+@diretor_required
+def whatsapp_webhook_eventos_view(request):
+    """Últimos eventos recebidos pelo webhook (para a atualização ao vivo na tela)."""
+    eventos = [
+        {
+            "id": e.id,
+            "event_type": e.event_type or "-",
+            "phone": e.phone or "-",
+            "contact_name": e.contact_name or "-",
+            "message_text": e.texto_curto or "-",
+            "from_me": e.from_me,
+            "is_group": e.is_group,
+            "recebido_em": timezone.localtime(e.recebido_em).strftime("%d/%m/%Y %H:%M:%S"),
+        }
+        for e in WhatsappWebhookEvent.objects.all()[:5]
+    ]
+    return JsonResponse({"ok": True, "eventos": eventos})
+
+
+@csrf_exempt
+@require_POST
+def whatsapp_webhook_view(request):
+    """Endpoint PÚBLICO que recebe as mensagens da W-API (mensagens recebidas).
+    Faz parsing defensivo, ignora status/transmissão e guarda o evento (com o
+    payload cru) para diagnóstico e para o módulo de liberação de números.
+    Nunca expõe erro ao chamador."""
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (UnicodeDecodeError, ValueError):
+        payload = {}
+    # Ignora atualizações de Status/transmissão (não são conversa).
+    if wapi_parser.is_status_or_broadcast(payload):
+        return JsonResponse({"ok": True, "ignorado": "status"})
+    try:
+        dados = wapi_parser.parse_webhook_payload(payload)
+        WhatsappWebhookEvent.objects.create(
+            raw_payload=payload if isinstance(payload, dict) else {}, **dados
+        )
+        # Mantém a tabela enxuta (é só diagnóstico): guarda os 100 mais recentes.
+        ids = list(
+            WhatsappWebhookEvent.objects.values_list("id", flat=True)[100:]
+        )
+        if ids:
+            WhatsappWebhookEvent.objects.filter(id__in=ids).delete()
+    except Exception:  # noqa: BLE001 — nunca derrubar o webhook
+        return JsonResponse({"ok": False}, status=200)
+    return JsonResponse({"ok": True})
 
 
 @diretor_required

@@ -108,6 +108,82 @@
         });
     }
 
+    // ---- Webhook: configurar + copiar URL + últimas 5 mensagens (poll) ----
+    var painelWebhook = document.querySelector('.wa-painel[data-painel="webhook"]');
+    if (painelWebhook) {
+        var csrfWh = painelWebhook.dataset.csrf;
+        var esc = function (s) {
+            var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML;
+        };
+        // Copiar URL do webhook
+        var btnCopiar = document.getElementById("btnCopiarWebhookWa");
+        if (btnCopiar) {
+            btnCopiar.addEventListener("click", function () {
+                var inp = document.getElementById(btnCopiar.dataset.target);
+                if (!inp) return;
+                inp.select();
+                navigator.clipboard && navigator.clipboard.writeText(inp.value);
+                if (window.mostrarToast) window.mostrarToast("URL copiada.", "success");
+            });
+        }
+        // Configurar webhook na W-API
+        var btnCfg = document.getElementById("waWebhookConfig");
+        if (btnCfg) {
+            btnCfg.addEventListener("click", function () {
+                if (btnCfg.dataset.ok) return;
+                btnCfg.dataset.ok = "1"; btnCfg.disabled = true;
+                var t = btnCfg.textContent; btnCfg.textContent = "Configurando…";
+                fetch(painelWebhook.dataset.configUrl, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": csrfWh, "X-Requested-With": "XMLHttpRequest",
+                        "Content-Type": "application/x-www-form-urlencoded" },
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                    if (window.mostrarToast) window.mostrarToast(
+                        d.ok ? "Webhook configurado na W-API! ✅" : (d.erro || "Não foi possível configurar."),
+                        d.ok ? "success" : "error");
+                }).catch(function () {
+                    if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error");
+                }).finally(function () {
+                    delete btnCfg.dataset.ok; btnCfg.disabled = false; btnCfg.textContent = t;
+                });
+            });
+        }
+        // Últimas mensagens recebidas
+        var listaEv = document.getElementById("waEventosLista");
+        var vazioEv = document.getElementById("waEventosVazio");
+        var carregarEventos = function () {
+            fetch(painelWebhook.dataset.eventosUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d || !d.ok) return;
+                    listaEv.innerHTML = "";
+                    (d.eventos || []).forEach(function (e) {
+                        var li = document.createElement("li");
+                        li.className = "wa-evento-item";
+                        var tags = (e.is_group ? '<span class="wa-evento-tag">grupo</span>' : "")
+                            + (e.from_me ? '<span class="wa-evento-tag">enviada por mim</span>' : "");
+                        li.innerHTML = '<div class="wa-evento-topo">'
+                            + '<span class="wa-evento-de">' + esc(e.contact_name) + ' · ' + esc(e.phone) + '</span>'
+                            + '<span class="wa-evento-hora">' + esc(e.recebido_em) + '</span></div>'
+                            + '<div class="wa-evento-txt">' + esc(e.message_text) + '</div>'
+                            + '<div class="wa-evento-meta">' + esc(e.event_type) + ' ' + tags + '</div>';
+                        listaEv.appendChild(li);
+                    });
+                    if (vazioEv) vazioEv.hidden = (d.eventos || []).length > 0;
+                }).catch(function () {});
+        };
+        var btnRefresh = document.getElementById("waEventosRefresh");
+        if (btnRefresh) btnRefresh.addEventListener("click", carregarEventos);
+        // Poll a cada 5s só enquanto a aba Webhook está visível.
+        setInterval(function () {
+            if (!painelWebhook.hidden) carregarEventos();
+        }, 5000);
+        if (!painelWebhook.hidden) carregarEventos();
+        // Carrega ao entrar na aba.
+        var abaWh = document.querySelector('.wa-aba[data-aba="webhook"]');
+        if (abaWh) abaWh.addEventListener("click", carregarEventos);
+    }
+
     // ---- Mostrar/ocultar token ----
     var verToken = document.getElementById("verToken");
     var token = document.getElementById("token");

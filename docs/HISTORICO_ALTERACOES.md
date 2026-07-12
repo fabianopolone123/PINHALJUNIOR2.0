@@ -22,6 +22,38 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: webhook de mensagens recebidas + últimas 5 (Fase 2)
+
+### Resumo
+**Fase 2** do módulo de liberação de números: nova aba **🔔 Webhook** na tela WhatsApp com (a) a **URL do webhook**
+para cadastrar na W-API + botão **"Configurar webhook na W-API"** (chama `PUT /webhook/update-webhook-received`);
+e (b) o painel **"Últimas 5 mensagens recebidas"** (atualiza sozinho a cada 5s), para **testar** que o webhook
+está chegando. Endpoint público recebe as mensagens, faz parsing robusto e guarda o evento (com payload cru).
+
+### Base (parser portado do BEEZAP)
+- `core/wapi_parser.py` (novo): `parse_webhook_payload` extrai remetente/nome/texto/tipo/`fromMe`/`is_group`/
+  `chat_id` de forma **muito defensiva** (vários caminhos + busca recursiva), pois o payload da W-API varia
+  (W-API Lite/Baileys/grupos). Portado do projeto **BEEZAP** (testado em produção), com detecção de grupo e de
+  status/transmissão (ignora Status/stories). Remetente vem de `sender.id`; texto de `message.conversation` etc.
+
+### Arquivos criados/alterados
+- `core/wapi_parser.py` (novo): parser do webhook.
+- `core/models.py`: model **`WhatsappWebhookEvent`** (campos extraídos + `raw_payload` JSON + `recebido_em`).
+- `core/views.py`: `whatsapp_webhook_view` (público, csrf_exempt, ignora status, guarda os 100 últimos),
+  `whatsapp_webhook_eventos_view` (JSON dos últimos 5), `whatsapp_webhook_config_view` (registra a URL na W-API);
+  `whatsapp_view` passa `webhook_url`.
+- `core/urls.py`: `webhooks/whatsapp/` (público), `whatsapp/webhook/configurar/`, `whatsapp/webhook/eventos/`.
+- `templates/core/whatsapp.html`: 3ª aba **Webhook** (URL + configurar + últimas 5).
+- `static/js/whatsapp.js`: configurar webhook, copiar URL, polling das últimas 5 (5s enquanto a aba está aberta).
+- `static/css/whatsapp.css`: lista de eventos.
+- Migration **0048**.
+
+### Pendências
+- Confirmar o payload real com uma mensagem de verdade (é o objetivo do painel "últimas 5").
+- **Fase 3**: usar o `phone` recebido para marcar o responsável como "liberado" (whitelist) e a campanha no grupo.
+
+---
+
 ## 2026-07-11 - WhatsApp: abas Configurações/Grupos + listagem de grupos (Fase 1 do módulo de liberação)
 
 ### Resumo

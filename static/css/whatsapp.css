@@ -251,3 +251,14 @@
 .wa-grupo-id { font-size:0.8rem; color:#64748b; word-break:break-all; }
 .wa-grupo-tam { flex:0 0 auto; font-size:0.9rem; color:#475569; }
 .wa-grupos-vazio { margin-top:14px; color:#64748b; }
+
+/* ---- Webhook: lista de eventos recebidos ---- */
+.wa-eventos-lista { list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.wa-evento-item { padding:10px 12px; border:1px solid #e0e0e0; border-radius:8px; background:var(--fundo-suave,#f5f7fa); }
+.wa-evento-topo { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.wa-evento-de { font-weight:600; }
+.wa-evento-hora { font-size:0.82rem; color:#64748b; }
+.wa-evento-txt { margin:4px 0; white-space:pre-wrap; word-break:break-word; }
+.wa-evento-meta { font-size:0.8rem; color:#64748b; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.wa-evento-tag { background:#e2e8f0; color:#334155; border-radius:6px; padding:1px 6px; font-size:0.75rem; }
+.wa-eventos-vazio { margin-top:12px; color:#64748b; }

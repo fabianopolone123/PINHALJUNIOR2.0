@@ -1402,6 +1402,38 @@ class GrupoWhatsapp(models.Model):
         return self.nome or self.group_id
 
 
+class WhatsappWebhookEvent(models.Model):
+    """Mensagem recebida pelo webhook da W-API. Guarda os campos extraídos pelo
+    parser + o payload cru, para diagnóstico ("últimas 5 recebidas") e para o
+    módulo de liberação de números (detectar quem mandou msg no privado)."""
+
+    event_type = models.CharField("Tipo de evento", max_length=80, default="unknown")
+    instance_id = models.CharField("Instância", max_length=120, blank=True, default="")
+    phone = models.CharField("Telefone do remetente", max_length=40, blank=True, default="")
+    contact_name = models.CharField("Nome do contato", max_length=150, blank=True, default="")
+    message_id = models.CharField("ID da mensagem", max_length=160, blank=True, default="")
+    message_type = models.CharField("Tipo da mensagem", max_length=60, default="unknown")
+    message_text = models.TextField("Texto", blank=True, default="")
+    from_me = models.BooleanField("Enviada por mim", default=False)
+    is_group = models.BooleanField("De grupo", default=False)
+    chat_id = models.CharField("ID da conversa", max_length=120, blank=True, default="")
+    raw_payload = models.JSONField("Payload cru", default=dict)
+    recebido_em = models.DateTimeField("Recebido em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Evento de webhook (WhatsApp)"
+        verbose_name_plural = "Eventos de webhook (WhatsApp)"
+        ordering = ["-recebido_em"]
+
+    def __str__(self):
+        return f"{self.event_type} — {self.phone or 'sem telefone'}"
+
+    @property
+    def texto_curto(self):
+        t = " ".join((self.message_text or "").split())
+        return (t[:90] + "…") if len(t) > 90 else t
+
+
 def _mascarar_segredo(valor):
     """Mostra só os últimos 4 caracteres de um segredo (token/secret), sem vazá-lo."""
     if not valor:

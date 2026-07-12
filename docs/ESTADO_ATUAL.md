@@ -13,7 +13,16 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: abas + Grupos — Fase 1 do módulo de liberação**): a tela WhatsApp
+**Última atualização:** 2026-07-11 (**WhatsApp: webhook de recebidas + últimas 5 — Fase 2**): nova aba **🔔
+Webhook** na tela WhatsApp com a **URL do webhook** (+ botão "Configurar webhook na W-API", `PUT
+/webhook/update-webhook-received`) e o painel **"Últimas 5 mensagens recebidas"** (poll de 5s), para testar o
+recebimento. Endpoint público `webhooks/whatsapp/` recebe, faz parsing robusto (`core/wapi_parser.py`, portado do
+BEEZAP: remetente de `sender.id`, texto de `message.conversation`, detecta grupo e ignora status) e guarda em
+`WhatsappWebhookEvent` (payload cru, 100 últimos). Rotas `whatsapp/webhook/configurar|eventos/`; migration **0048**.
+Próximo (Fase 3): marcar o responsável como "liberado" (whitelist) pelo telefone recebido + campanha no grupo.
+Antes: WhatsApp — abas + Grupos (Fase 1).
+
+**Anterior (WhatsApp: abas + Grupos — Fase 1 do módulo de liberação):** a tela WhatsApp
 agora tem **duas abas** — **Configurações** (instância + teste) e **Grupos**. A aba Grupos busca os grupos da
 conta na W-API (`GET /v1/group/get-all-groups`, botão "Atualizar lista") e mostra **nome + ID**, persistindo em
 `GrupoWhatsapp` (vínculo ID↔nome). Cliente novo `core/wapi.py` (`listar_grupos`/`dados_grupo`/
