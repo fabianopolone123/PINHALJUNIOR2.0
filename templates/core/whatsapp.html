@@ -267,13 +267,22 @@
                             a família é marcada como autorizada automaticamente.
                         </p>
                         <div class="campo">
+                            <label>Link para compartilhar (curto)</label>
                             <div class="pix-copia">
+                                <input type="text" id="linkAutCurto" class="pix-copia-input selecionavel" value="{{ link_autorizar_curto }}" readonly>
+                                <button type="button" class="btn-secundario" data-target="linkAutCurto">Copiar</button>
+                            </div>
+                            <small class="ajuda">Curto e com o endereço do clube; redireciona para o WhatsApp com a mensagem pronta.</small>
+                        </div>
+                        <details class="wa-link-direto">
+                            <summary>Ver o link direto do WhatsApp (wa.me)</summary>
+                            <div class="pix-copia" style="margin-top:8px;">
                                 <input type="text" id="waLinkAutorizacao" class="pix-copia-input selecionavel" value="{{ wa_link_autorizacao }}" readonly>
-                                <button type="button" class="btn-secundario" id="btnCopiarLinkAut" data-target="waLinkAutorizacao">Copiar</button>
+                                <button type="button" class="btn-secundario" data-target="waLinkAutorizacao">Copiar</button>
                             </div>
-                            <div class="wa-acoes">
-                                <a class="btn-acao" href="{{ wa_link_autorizacao }}" target="_blank" rel="noopener"><span aria-hidden="true">🟢</span> Abrir no WhatsApp (teste)</a>
-                            </div>
+                        </details>
+                        <div class="wa-acoes">
+                            <a class="btn-acao" href="{{ link_autorizar_curto }}" target="_blank" rel="noopener"><span aria-hidden="true">🟢</span> Abrir no WhatsApp (teste)</a>
                         </div>
                         {% else %}
                         <p class="wa-aviso">

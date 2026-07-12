@@ -22,6 +22,28 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: link curto de autorização (/autorizar/ → wa.me)
+
+### Resumo
+O link de autorização ficava longo (wa.me + texto grande). Agora há um **link curto e com a marca do clube**:
+`https://pinhaljunior.com.br/autorizar` (rota pública `/autorizar/`) que **redireciona** (302) para o wa.me
+montado a partir da config (número do clube + mensagem de autorização). É o link **curto** que se compartilha; o
+wa.me fica "escondido" atrás dele. A aba Autorização passa a mostrar o link curto como principal (Copiar) e o
+wa.me num `<details>` "Ver o link direto".
+
+### Arquivos alterados
+- `core/views.py`: helper `_wa_link_autorizacao(config)` (reaproveitado); `autorizar_view` (pública, redireciona;
+  503 amigável se não configurado); `whatsapp_view` passa `link_autorizar_curto`. Import de `HttpResponse`.
+- `core/urls.py`: rota `autorizar/`.
+- `templates/core/whatsapp.html`: link curto (Copiar) + wa.me em `<details>` + Abrir.
+- Sem migration.
+
+### Nota
+Sob o domínio raiz (produção) o link fica `pinhaljunior.com.br/autorizar`. Sem `numero_clube`/mensagem, a rota
+responde 503 (configurar primeiro na aba Configurações/Autorização).
+
+---
+
 ## 2026-07-11 - WhatsApp: link wa.me de autorização (avulso, copiável)
 
 ### Resumo

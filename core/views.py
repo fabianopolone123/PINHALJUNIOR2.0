@@ -22,7 +22,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import Group, User
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -3359,20 +3359,37 @@ def whatsapp_view(request):
     """Tela do módulo WhatsApp (só Diretor): abas Configurações (instância + teste)
     e Grupos (lista de grupos da conta, vínculo ID↔nome)."""
     config = WhatsappConfig.get_solo()
-    # Link wa.me de autorização: abre o WhatsApp do responsável já numa conversa
-    # com o clube, com a mensagem de autorização pronta (ele só envia).
-    wa_link = ""
-    numero = normalizar_telefone(config.numero_clube)
-    if numero and config.mensagem_autorizacao:
-        wa_link = f"https://wa.me/{numero}?text={urllib.parse.quote(config.mensagem_autorizacao)}"
     return render(request, "core/whatsapp.html", {
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
         "webhook_url": _webhook_whatsapp_url(request),
         "mensagem_autorizacao": config.mensagem_autorizacao,
-        "wa_link_autorizacao": wa_link,
+        "wa_link_autorizacao": _wa_link_autorizacao(config),
+        # Link curto/branded (redireciona pro wa.me) — melhor para compartilhar.
+        "link_autorizar_curto": request.build_absolute_uri(reverse("core:autorizar")),
         "aba": request.GET.get("aba", "config"),
     })
+
+
+def _wa_link_autorizacao(config):
+    """Monta o link wa.me com a mensagem de autorização pronta (ou "" se faltar
+    número do clube ou mensagem)."""
+    numero = normalizar_telefone(config.numero_clube)
+    if numero and config.mensagem_autorizacao:
+        return f"https://wa.me/{numero}?text={urllib.parse.quote(config.mensagem_autorizacao)}"
+    return ""
+
+
+def autorizar_view(request):
+    """Link curto PÚBLICO (`/autorizar/`): redireciona para o wa.me de autorização.
+    Curto e com a marca do clube — o que se compartilha; o wa.me fica escondido."""
+    link = _wa_link_autorizacao(WhatsappConfig.get_solo())
+    if not link:
+        return HttpResponse(
+            "Link de autorização ainda não configurado.",
+            content_type="text/plain; charset=utf-8", status=503,
+        )
+    return redirect(link)
 
 
 @diretor_required

@@ -13,7 +13,12 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: link wa.me de autorização**): a aba **✍️ Autorização** gera um
+**Última atualização:** 2026-07-11 (**WhatsApp: link curto de autorização**): rota pública **`/autorizar/`**
+(`pinhaljunior.com.br/autorizar`) que **redireciona** pro wa.me da autorização — link **curto e branded** que se
+compartilha (o wa.me fica atrás). A aba Autorização mostra o curto (Copiar) + o wa.me em `<details>`. Helper
+`_wa_link_autorizacao`; `autorizar_view` (503 se não configurado); sem migration. Antes: link wa.me avulso.
+
+**Anterior (WhatsApp: link wa.me de autorização):** a aba **✍️ Autorização** gera um
 **link wa.me avulso** (`https://wa.me/<numero_clube>?text=<msg de autorização>`) com botão **Copiar** e **Abrir**.
 O responsável clica → manda a mensagem pronta pro clube → webhook casa o número → família **autorizada** (termômetro
 verde), sem o clube iniciar conversa. Campo novo `WhatsappConfig.numero_clube` (aba Configurações); handler de
