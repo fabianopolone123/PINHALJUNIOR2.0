@@ -62,9 +62,10 @@
                     <button type="button" class="wa-aba{% if aba == 'grupos' %} ativa{% endif %}" data-aba="grupos" role="tab">👥 Grupos</button>
                     <button type="button" class="wa-aba{% if aba == 'webhook' %} ativa{% endif %}" data-aba="webhook" role="tab">🔔 Webhook</button>
                     <button type="button" class="wa-aba{% if aba == 'autorizacao' %} ativa{% endif %}" data-aba="autorizacao" role="tab">✍️ Autorização</button>
+                    <button type="button" class="wa-aba{% if aba == 'liberacao' %} ativa{% endif %}" data-aba="liberacao" role="tab">🚦 Liberação</button>
                 </div>
 
-                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' or aba == 'autorizacao' %} hidden{% endif %}>
+                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' or aba == 'autorizacao' or aba == 'liberacao' %} hidden{% endif %}>
 
                 <!-- ===================== Configuração da instância ===================== -->
                 <section class="card wa-card">
@@ -292,6 +293,38 @@
                         {% endif %}
                     </section>
                 </div><!-- /painel autorizacao -->
+
+                <div class="wa-painel" data-painel="liberacao"{% if aba != 'liberacao' %} hidden{% endif %}>
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🚦 Liberação de contatos</h2>
+                            <span class="wa-status wa-status-ok">{{ liberacao_liberados }} de {{ liberacao_total }} já mandaram msg</span>
+                        </div>
+                        <p class="wa-ajuda">
+                            Situação de contato de <strong>responsáveis e diretoria</strong>. 🟢 autorizado ·
+                            🟡 já mandou mensagem (sem autorização) · 🔴 nunca mandou. Atualiza conforme as
+                            pessoas enviam mensagem pelo link de autorização. ({{ liberacao_autorizados }} autorizado(s).)
+                        </p>
+                        <ul class="wa-lib-lista">
+                            {% for p in liberacao %}
+                            <li class="wa-lib-item">
+                                <div class="wa-lib-info">
+                                    <span class="wa-lib-nome">{{ p.nome|default:"(sem nome)" }} <span class="wa-lib-tipo">{{ p.tipo }}</span></span>
+                                    <span class="wa-lib-num">{% if p.numero %}📱 {{ p.numero }}{% else %}sem WhatsApp{% endif %}</span>
+                                </div>
+                                <div class="wa-lib-status">
+                                    {% if p.autorizou %}<span class="mens-term-pill mens-term-verde">✅ Autorizado</span>
+                                    {% elif p.ultima_msg_em %}<span class="mens-term-pill mens-term-amarelo">🟡 Mandou msg</span>
+                                    {% else %}<span class="mens-term-pill mens-term-vermelho">⛔ Nunca</span>{% endif %}
+                                    <span class="wa-lib-quando">{% if p.ultima_msg_em %}há {{ p.ultima_msg_em|timesince }}{% endif %}</span>
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li class="wa-lib-item"><span>Nenhum responsável ou diretor cadastrado.</span></li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+                </div><!-- /painel liberacao -->
             </div>
         </main>
     </div>

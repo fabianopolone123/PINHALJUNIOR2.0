@@ -3359,6 +3359,9 @@ def whatsapp_view(request):
     """Tela do módulo WhatsApp (só Diretor): abas Configurações (instância + teste)
     e Grupos (lista de grupos da conta, vínculo ID↔nome)."""
     config = WhatsappConfig.get_solo()
+    liberacao = _liberacao_lista()
+    liberados = sum(1 for x in liberacao if x["ultima_msg_em"] or x["autorizou"])
+    autorizados = sum(1 for x in liberacao if x["autorizou"])
     return render(request, "core/whatsapp.html", {
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
@@ -3367,8 +3370,45 @@ def whatsapp_view(request):
         "wa_link_autorizacao": _wa_link_autorizacao(config),
         # Link curto/branded (redireciona pro wa.me) — melhor para compartilhar.
         "link_autorizar_curto": request.build_absolute_uri(reverse("core:autorizar")),
+        "liberacao": liberacao,
+        "liberacao_total": len(liberacao),
+        "liberacao_liberados": liberados,
+        "liberacao_autorizados": autorizados,
         "aba": request.GET.get("aba", "config"),
     })
+
+
+def _liberacao_lista():
+    """Todos os contatos que o clube pode precisar acionar (responsáveis + diretoria),
+    com o status de contato (última mensagem / autorização). Uma linha por conta de
+    responsável e uma por membro da diretoria (ativos, não-demo)."""
+    itens = []
+    contas = {}
+    for av in (
+        Aventureiro.objects.filter(usuario__isnull=False, ativo=True, demo=False)
+        .select_related("usuario")
+    ):
+        contas.setdefault(av.usuario_id, av.usuario)
+    for u in contas.values():
+        perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
+        _, numero = _resolver_origem_numero(_numeros_conta(u), perfil.cobranca_whatsapp_origem or "")
+        resp_nome, _ = _responsavel_da_familia(u)
+        itens.append({
+            "tipo": "Responsável", "nome": resp_nome, "numero": numero,
+            "autorizou": bool(perfil.autorizacao_recebida_em),
+            "ultima_msg_em": perfil.ultima_msg_whatsapp_em,
+        })
+    for m in MembroDiretoria.objects.filter(ativo=True, demo=False).select_related("usuario"):
+        perfil = None
+        if m.usuario_id:
+            perfil, _ = PerfilUsuario.objects.get_or_create(usuario=m.usuario)
+        itens.append({
+            "tipo": "Diretoria", "nome": m.nome_completo, "numero": normalizar_telefone(m.whatsapp),
+            "autorizou": bool(perfil and perfil.autorizacao_recebida_em),
+            "ultima_msg_em": perfil.ultima_msg_whatsapp_em if perfil else None,
+        })
+    itens.sort(key=lambda x: (x["tipo"], (x["nome"] or "").lower()))
+    return itens
 
 
 def _wa_link_autorizacao(config):
@@ -3433,9 +3473,10 @@ def _norm_comparacao(texto):
     return " ".join(s.lower().split())
 
 
-def _familia_por_whatsapp(numero_recebido):
-    """Acha o PerfilUsuario cuja família (pai/mãe/resp de algum aventureiro ativo,
-    não-demo) tem este número. None se não encontrar."""
+def _perfil_por_whatsapp(numero_recebido):
+    """Acha o PerfilUsuario dono deste número — seja **responsável** (pai/mãe/resp de
+    aventureiro ativo não-demo) ou **diretoria** (MembroDiretoria ativo não-demo).
+    None se não encontrar."""
     alvo = normalizar_telefone(numero_recebido)
     if not alvo or len(alvo) < 12:
         return None
@@ -3444,13 +3485,17 @@ def _familia_por_whatsapp(numero_recebido):
             if normalizar_telefone(getattr(av, attr) or "") == alvo:
                 perfil, _ = PerfilUsuario.objects.get_or_create(usuario=av.usuario)
                 return perfil
+    for m in MembroDiretoria.objects.filter(usuario__isnull=False, ativo=True, demo=False):
+        if normalizar_telefone(m.whatsapp or "") == alvo:
+            perfil, _ = PerfilUsuario.objects.get_or_create(usuario=m.usuario)
+            return perfil
     return None
 
 
 def _registrar_contato_whatsapp(numero, texto):
-    """Registra que uma família mandou mensagem (data da última) e, se o texto bate
-    com a mensagem de autorização configurada, marca a autorização como recebida."""
-    perfil = _familia_por_whatsapp(numero)
+    """Registra que um responsável/diretor mandou mensagem (data da última) e, se o
+    texto bate com a mensagem de autorização configurada, marca a autorização."""
+    perfil = _perfil_por_whatsapp(numero)
     if perfil is None:
         return
     agora = timezone.now()

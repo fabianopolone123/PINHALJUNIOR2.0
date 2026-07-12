@@ -13,7 +13,13 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**Cobranças: enviar em lote só para liberados**): no "Enviar a todos" (aba
+**Última atualização:** 2026-07-11 (**WhatsApp: rastreio inclui diretoria + painel Liberação**): o casamento do
+número recebido agora acha **responsáveis E diretoria** (`_perfil_por_whatsapp`, inclui `MembroDiretoria.whatsapp`).
+Nova aba **🚦 Liberação** na tela WhatsApp: painel único listando responsáveis + diretoria com termômetro
+(🟢/🟡/🔴 + "há X") e resumo "N de M já mandaram msg" (`_liberacao_lista`). Sem migration (rastreio fica em
+`PerfilUsuario`). Termômetro das Cobranças segue só responsáveis. Antes: Cobranças — enviar em lote só p/ liberados.
+
+**Anterior (Cobranças: enviar em lote só para liberados):** no "Enviar a todos" (aba
 Cobranças) há um checkbox **"Só quem já me mandou mensagem (evita bloqueio)"** (padrão marcado) — o lote mira só
 famílias que autorizaram OU já mandaram mensagem (rastreio via webhook). `data-liberado` por família +
 `alvosLote()` no JS; sem migration. Antes: WhatsApp — link curto de autorização.

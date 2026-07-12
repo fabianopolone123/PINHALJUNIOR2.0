@@ -22,6 +22,28 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: rastreio inclui diretoria + painel Liberação
+
+### Resumo
+O rastreio de contato/autorização passou a valer **também para a diretoria** (antes era só responsáveis). Agora,
+uma mensagem recebida é casada com o número de **pai/mãe/resp. legal de aventureiro** OU de **membro da diretoria**
+(`MembroDiretoria.whatsapp`). E a tela WhatsApp ganhou uma aba **🚦 Liberação**: um painel único que lista
+**responsáveis + diretoria** com o termômetro (🟢 autorizado / 🟡 mandou msg / 🔴 nunca) + "há X" e um resumo
+"N de M já mandaram msg".
+
+### Arquivos alterados
+- `core/views.py`: `_familia_por_whatsapp` → **`_perfil_por_whatsapp`** (casa responsáveis **e** diretoria);
+  helper `_liberacao_lista` (responsáveis por conta + diretoria); `whatsapp_view` passa a lista + resumo.
+- `templates/core/whatsapp.html`: 5ª aba **Liberação** com a lista e o resumo.
+- `static/css/whatsapp.css`: estilos do painel + pills do termômetro (self-contained).
+- Sem migration (rastreio já ficava em `PerfilUsuario`, que existe para qualquer conta).
+
+### Nota
+Quem é responsável **e** diretor aparece nas duas seções (status é por conta, então idêntico). O termômetro nas
+Cobranças continua só para responsáveis (mensalidade); a visão completa (com diretoria) é o painel Liberação.
+
+---
+
 ## 2026-07-11 - Cobranças: enviar em lote só para quem já mandou mensagem
 
 ### Resumo

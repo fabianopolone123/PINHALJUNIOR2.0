@@ -262,3 +262,18 @@
 .wa-evento-meta { font-size:0.8rem; color:#64748b; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
 .wa-evento-tag { background:#e2e8f0; color:#334155; border-radius:6px; padding:1px 6px; font-size:0.75rem; }
 .wa-eventos-vazio { margin-top:12px; color:#64748b; }
+
+/* ---- Painel Liberação (responsáveis + diretoria) ---- */
+.wa-lib-lista { list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.wa-lib-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid #e0e0e0; border-radius:8px; background:var(--fundo-suave,#f5f7fa); flex-wrap:wrap; }
+.wa-lib-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.wa-lib-nome { font-weight:600; }
+.wa-lib-tipo { font-weight:400; font-size:0.78rem; color:#64748b; background:#e2e8f0; border-radius:6px; padding:1px 6px; margin-left:4px; }
+.wa-lib-num { font-size:0.85rem; color:#64748b; }
+.wa-lib-status { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+.wa-lib-quando { font-size:0.82rem; color:#64748b; }
+/* pills (mesmo visual do termômetro das Cobranças) */
+.mens-term-pill { font-size:0.82rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid transparent; white-space:nowrap; }
+.mens-term-verde { background:#e6f4ea; color:#1e7d34; border-color:#bfe3c8; }
+.mens-term-amarelo { background:#fdf6e3; color:#8a6d1a; border-color:#efe0b0; }
+.mens-term-vermelho { background:#fdecea; color:#a12a1e; border-color:#f2c4be; }
