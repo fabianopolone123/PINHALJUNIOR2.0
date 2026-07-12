@@ -251,6 +251,11 @@
                                 <label for="mensagem_autorizacao">Texto da autorização</label>
                                 <textarea id="mensagem_autorizacao" name="mensagem_autorizacao" rows="4">{{ mensagem_autorizacao }}</textarea>
                             </div>
+                            <div class="campo">
+                                <label for="resposta_autorizacao">Resposta automática ao autorizar <span class="wa-opcional">(vazio = não responde)</span></label>
+                                <textarea id="resposta_autorizacao" name="resposta_autorizacao" rows="3">{{ resposta_autorizacao }}</textarea>
+                                <small class="ajuda">Enviada automaticamente quando a pessoa manda a autorização (só uma vez). Como ela acabou de escrever, é uma resposta — não conta como o clube iniciar conversa.</small>
+                            </div>
                             <div class="wa-acoes">
                                 <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar mensagem</button>
                             </div>

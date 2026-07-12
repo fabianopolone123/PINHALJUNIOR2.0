@@ -22,6 +22,27 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Autorização: resposta automática de confirmação
+
+### Resumo
+Quando alguém manda a **mensagem de autorização**, o sistema agora **responde automaticamente** com uma
+confirmação curta (uma vez só). Como é uma resposta a quem acabou de escrever, é seguro (não é o clube iniciando
+conversa). O texto é **configurável** na aba Autorização (vazio = não responde).
+
+### Arquivos alterados
+- `core/models.py`: `WhatsappConfig.resposta_autorizacao` (com default).
+- `core/views.py`: `_registrar_contato_whatsapp` envia a resposta só na **1ª** vez que a autorização é
+  reconhecida (guardas: WhatsApp configurado + resposta não-vazia; try/except pra nunca derrubar o webhook);
+  `whatsapp_autorizacao_config_view` salva o campo; contexto da tela.
+- `templates/core/whatsapp.html`: campo "Resposta automática ao autorizar" na aba Autorização.
+- Migration **0052**.
+
+### Verificação
+Msg comum → não responde; autorização → responde 1x ao número certo; 2ª autorização → não repete; resposta
+vazia → não responde.
+
+---
+
 ## 2026-07-11 - Reengajamento: manda UMA vez por silêncio (não insiste)
 
 ### Resumo

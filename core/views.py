@@ -3369,6 +3369,7 @@ def whatsapp_view(request):
         "grupos": list(GrupoWhatsapp.objects.all()),
         "webhook_url": _webhook_whatsapp_url(request),
         "mensagem_autorizacao": config.mensagem_autorizacao,
+        "resposta_autorizacao": config.resposta_autorizacao,
         "wa_link_autorizacao": _wa_link_autorizacao(config),
         # Link curto/branded (redireciona pro wa.me) — melhor para compartilhar.
         "link_autorizar_curto": request.build_absolute_uri(reverse("core:autorizar")),
@@ -3584,20 +3585,32 @@ def _perfil_por_whatsapp(numero_recebido):
 
 def _registrar_contato_whatsapp(numero, texto):
     """Registra que um responsável/diretor mandou mensagem (data da última) e, se o
-    texto bate com a mensagem de autorização configurada, marca a autorização."""
+    texto bate com a mensagem de autorização configurada, marca a autorização e
+    responde com uma confirmação automática (uma vez só)."""
     perfil = _perfil_por_whatsapp(numero)
     if perfil is None:
         return
+    cfg = WhatsappConfig.get_solo()
     agora = timezone.now()
     perfil.ultima_msg_whatsapp_em = agora
     campos = ["ultima_msg_whatsapp_em"]
-    esperado = _norm_comparacao(WhatsappConfig.get_solo().mensagem_autorizacao)
+    autorizou_agora = False
+    esperado = _norm_comparacao(cfg.mensagem_autorizacao)
     if esperado and not perfil.autorizacao_recebida_em:
         recebido = _norm_comparacao(texto)
         if recebido and (esperado in recebido or recebido == esperado):
             perfil.autorizacao_recebida_em = agora
             campos.append("autorizacao_recebida_em")
+            autorizou_agora = True
     perfil.save(update_fields=campos)
+    # Resposta automática de confirmação — só na 1ª vez que a autorização é
+    # reconhecida, e é uma RESPOSTA (a pessoa acabou de escrever), então é seguro.
+    resposta = (cfg.resposta_autorizacao or "").strip()
+    if autorizou_agora and cfg.configurado and resposta:
+        try:
+            _enviar_whatsapp(cfg, numero, resposta)
+        except Exception:  # noqa: BLE001 — nunca derrubar o webhook
+            pass
 
 
 @diretor_required
@@ -3640,11 +3653,13 @@ def whatsapp_reengajar_view(request):
 @diretor_required
 @require_POST
 def whatsapp_autorizacao_config_view(request):
-    """Salva a mensagem de autorização (o texto que o responsável deve enviar)."""
+    """Salva a mensagem de autorização (o texto que o responsável deve enviar) e a
+    resposta automática de confirmação."""
     config = WhatsappConfig.get_solo()
     config.mensagem_autorizacao = (request.POST.get("mensagem_autorizacao") or "").strip()
+    config.resposta_autorizacao = (request.POST.get("resposta_autorizacao") or "").strip()
     config.atualizado_por = request.user
-    config.save(update_fields=["mensagem_autorizacao", "atualizado_por", "atualizado_em"])
+    config.save(update_fields=["mensagem_autorizacao", "resposta_autorizacao", "atualizado_por", "atualizado_em"])
     messages.success(request, "Mensagem de autorização salva.")
     return redirect(reverse("core:whatsapp") + "?aba=autorizacao")
 

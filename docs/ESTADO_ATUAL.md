@@ -13,7 +13,12 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**Reengajamento: uma vez por silêncio**): o reengajamento agora manda **uma
+**Última atualização:** 2026-07-11 (**Autorização: resposta automática**): quando alguém manda a mensagem de
+autorização, o sistema responde automaticamente com uma confirmação curta (**1x só**, texto configurável na aba
+Autorização, vazio = não responde). É resposta a quem escreveu (seguro). `WhatsappConfig.resposta_autorizacao`;
+`_registrar_contato_whatsapp` envia na 1ª autorização; migration **0052**. Antes: reengajamento — uma vez por silêncio.
+
+**Anterior (Reengajamento: uma vez por silêncio):** o reengajamento agora manda **uma
 vez só** por período de silêncio e **não insiste** — critério por mensagem (`reengajado_em < ultima_msg_em`), não
 por janela de tempo. Só volta a ser elegível se a pessoa **responder** e depois ficar calada `reengajar_dias` de
 novo. Cold nunca entra. `_inativos_para_reengajar` ajustado; sem migration. Antes: reengajamento com pausa (10s).

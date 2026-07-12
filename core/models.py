@@ -1367,6 +1367,12 @@ class WhatsappConfig(models.Model):
         "Mensagem de autorização (o responsável envia)", blank=True,
         default="Autorizo o Clube de Aventureiros Pinhal Júnior a me enviar mensagens.",
     )
+    # Resposta automática enviada quando a autorização é reconhecida (uma vez só).
+    # Vazio = não responde.
+    resposta_autorizacao = models.TextField(
+        "Resposta automática à autorização", blank=True,
+        default="Prontinho! ✅ Você já está autorizado(a) a receber as notificações do Clube de Aventureiros Pinhal Júnior. Obrigado pela parceria! 💚",
+    )
     # Reengajamento: se a pessoa (que já interagiu) fica `reengajar_dias` sem mandar
     # mensagem, o clube manda `mensagem_reengajamento` para reativar a conversa e não
     # "esfriar" o número (evita o cenário de só o clube mandando, sem resposta).
