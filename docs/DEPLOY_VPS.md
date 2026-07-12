@@ -112,6 +112,25 @@ cd /var/www/pinhaljunior2/current
 /var/www/pinhaljunior2/.venv/bin/python manage.py check
 ```
 
+## Cron — reengajamento do WhatsApp
+
+O reengajamento de contatos inativos (WhatsApp) roda pelo comando `reengajar_inativos`. **Quantos dias sem
+resposta** disparam o reengajamento é configurável **na tela** (WhatsApp → aba Liberação → "Reengajar após quantos
+dias"); o cron só executa a verificação. O comando já pausa **10s entre cada envio** e não reenvia para quem já
+foi reengajado dentro da janela.
+
+Agendar (ex.: **todo dia às 09:00**) com `crontab -e`:
+
+```cron
+0 9 * * * cd /var/www/pinhaljunior2/current && set -a && . /etc/pinhaljunior2.env && set +a && /var/www/pinhaljunior2/.venv/bin/python manage.py reengajar_inativos >> /var/www/pinhaljunior2/backup/reengajar.log 2>&1
+```
+
+- Roda **independente de acesso** ao site (é o cron do servidor).
+- Ajuste o horário (`0 9`) se quiser; o fuso é o do servidor.
+- Para **pausar**, basta comentar/remover a linha do crontab (o comando também não faz nada se o WhatsApp não
+  estiver configurado ou a mensagem de reengajamento estiver vazia).
+- Rodar na mão para testar: use o mesmo bloco sem o `>> ...log`.
+
 ## Cuidados
 
 - Não copiar código manualmente para o VPS. Código sempre por GitHub + `pinhaljunior2-deploy`.

@@ -22,6 +22,23 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - Doc: cron do reengajamento (automático no servidor)
+
+### Resumo
+Decidido rodar o reengajamento **automático via cron no servidor** (opção do usuário). Nenhuma mudança de
+código: o comando `reengajar_inativos` já existe, já **pausa 10s** entre envios e já lê o **nº de dias**
+configurável na tela (WhatsApp → Liberação). Só faltava documentar a linha do cron.
+
+### Arquivos alterados
+- `docs/DEPLOY_VPS.md`: seção "Cron — reengajamento do WhatsApp" com a linha pronta do crontab (caminhos reais do
+  VPS: `/var/www/pinhaljunior2/current`, venv `.venv/bin/python`, env `/etc/pinhaljunior2.env`), como pausar e testar.
+
+### Decisão
+- Frequência da verificação = no **crontab (servidor)**; **quantos dias sem resposta** = na **tela** (configurável).
+  Roda independente de acesso ao site.
+
+---
+
 ## 2026-07-11 - WhatsApp: reengajamento com pausa entre envios (10s)
 
 ### Resumo
