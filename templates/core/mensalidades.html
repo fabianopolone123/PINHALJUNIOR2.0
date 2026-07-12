@@ -356,6 +356,16 @@
                                 {% elif f.tem_numero %}<span>📱 {{ f.numero }}</span>
                                 {% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
                             </div>
+                            <div class="mens-termometro">
+                                {% if f.autorizou %}
+                                <span class="mens-term-pill mens-term-verde">✅ Autorizado</span>
+                                {% elif f.ultima_msg_em %}
+                                <span class="mens-term-pill mens-term-amarelo">🟡 Enviou msg, sem autorização</span>
+                                {% else %}
+                                <span class="mens-term-pill mens-term-vermelho">⛔ Nunca enviou mensagem</span>
+                                {% endif %}
+                                <span class="mens-term-msg">💬 {% if f.ultima_msg_em %}última mensagem há {{ f.ultima_msg_em|timesince }}{% else %}sem mensagem recebida{% endif %}</span>
+                            </div>
                             <ul class="mens-cobranca-criancas">
                                 {% for c in f.criancas %}
                                 <li>

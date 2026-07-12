@@ -137,6 +137,7 @@ urlpatterns = [
     path("whatsapp/grupos/sincronizar/", views.whatsapp_grupos_sync_view, name="whatsapp_grupos_sync"),
     path("whatsapp/webhook/configurar/", views.whatsapp_webhook_config_view, name="whatsapp_webhook_config"),
     path("whatsapp/webhook/eventos/", views.whatsapp_webhook_eventos_view, name="whatsapp_webhook_eventos"),
+    path("whatsapp/autorizacao/", views.whatsapp_autorizacao_config_view, name="whatsapp_autorizacao_config"),
     path("webhooks/whatsapp/", views.whatsapp_webhook_view, name="whatsapp_webhook"),
     # --- Configurações IA (API do GPT / OpenAI) ---
     path("ia/", views.ia_view, name="ia"),

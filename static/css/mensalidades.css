@@ -255,6 +255,14 @@
 .mens-cob-tel { display:inline-flex; align-items:center; gap:6px; }
 .mens-cob-tel-sel { padding:4px 8px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; font-size:0.9rem; background:#fff; max-width:100%; }
 .mens-cob-tel-sel:disabled { opacity:.6; }
+
+/* Termômetro de contato (WhatsApp recebido / autorização) */
+.mens-termometro { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 10px; }
+.mens-term-pill { font-size:0.82rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid transparent; }
+.mens-term-verde { background:#e6f4ea; color:#1e7d34; border-color:#bfe3c8; }
+.mens-term-amarelo { background:#fdf6e3; color:#8a6d1a; border-color:#efe0b0; }
+.mens-term-vermelho { background:#fdecea; color:#a12a1e; border-color:#f2c4be; }
+.mens-term-msg { font-size:0.85rem; color:#64748b; }
 .mens-cobranca-busca { width:100%; margin-bottom:12px; }
 .mens-cobranca-progresso { padding:12px 16px; margin-bottom:12px; }
 .mens-prog-barra { height:10px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-bottom:8px; }

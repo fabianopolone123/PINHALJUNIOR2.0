@@ -1173,6 +1173,15 @@ class PerfilUsuario(models.Model):
     token_acerto = models.CharField(
         "Token de acerto", max_length=40, blank=True, db_index=True
     )
+    # Rastreio de contato (via webhook da W-API): quando a família mandou a última
+    # mensagem no WhatsApp do clube e se/quando enviou a "mensagem de autorização".
+    # Servem ao mecanismo de visibilidade (termômetro na aba Cobranças).
+    ultima_msg_whatsapp_em = models.DateTimeField(
+        "Última mensagem recebida (WhatsApp)", null=True, blank=True
+    )
+    autorizacao_recebida_em = models.DateTimeField(
+        "Autorização recebida em", null=True, blank=True
+    )
 
     def __str__(self):
         return f"Perfil de {self.usuario.username}"
@@ -1344,6 +1353,13 @@ class WhatsappConfig(models.Model):
     base_url = models.CharField(
         "URL base da API", max_length=200, blank=True,
         default="https://api.w-api.app/v1",
+    )
+    # Mensagem padrão que o responsável deve ENVIAR ao clube para contar como
+    # "autorização recebida". Quando uma mensagem recebida bate com este texto, a
+    # família é marcada como autorizada (mecanismo de liberação de números).
+    mensagem_autorizacao = models.TextField(
+        "Mensagem de autorização (o responsável envia)", blank=True,
+        default="Autorizo o Clube de Aventureiros Pinhal Júnior a me enviar mensagens.",
     )
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,

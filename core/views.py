@@ -3363,6 +3363,7 @@ def whatsapp_view(request):
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
         "webhook_url": _webhook_whatsapp_url(request),
+        "mensagem_autorizacao": config.mensagem_autorizacao,
         "aba": request.GET.get("aba", "config"),
     })
 
@@ -3400,6 +3401,56 @@ def whatsapp_grupos_sync_view(request):
 def _webhook_whatsapp_url(request):
     """URL pública do webhook de mensagens recebidas (respeita o prefixo do VPS)."""
     return request.build_absolute_uri(reverse("core:whatsapp_webhook"))
+
+
+def _norm_comparacao(texto):
+    """Normaliza texto para comparação (minúsculas, sem acento, espaços colapsados)."""
+    s = unicodedata.normalize("NFKD", texto or "").encode("ascii", "ignore").decode()
+    return " ".join(s.lower().split())
+
+
+def _familia_por_whatsapp(numero_recebido):
+    """Acha o PerfilUsuario cuja família (pai/mãe/resp de algum aventureiro ativo,
+    não-demo) tem este número. None se não encontrar."""
+    alvo = normalizar_telefone(numero_recebido)
+    if not alvo or len(alvo) < 12:
+        return None
+    for av in Aventureiro.objects.filter(usuario__isnull=False, ativo=True, demo=False):
+        for attr in ("pai_whatsapp", "mae_whatsapp", "resp_whatsapp"):
+            if normalizar_telefone(getattr(av, attr) or "") == alvo:
+                perfil, _ = PerfilUsuario.objects.get_or_create(usuario=av.usuario)
+                return perfil
+    return None
+
+
+def _registrar_contato_whatsapp(numero, texto):
+    """Registra que uma família mandou mensagem (data da última) e, se o texto bate
+    com a mensagem de autorização configurada, marca a autorização como recebida."""
+    perfil = _familia_por_whatsapp(numero)
+    if perfil is None:
+        return
+    agora = timezone.now()
+    perfil.ultima_msg_whatsapp_em = agora
+    campos = ["ultima_msg_whatsapp_em"]
+    esperado = _norm_comparacao(WhatsappConfig.get_solo().mensagem_autorizacao)
+    if esperado and not perfil.autorizacao_recebida_em:
+        recebido = _norm_comparacao(texto)
+        if recebido and (esperado in recebido or recebido == esperado):
+            perfil.autorizacao_recebida_em = agora
+            campos.append("autorizacao_recebida_em")
+    perfil.save(update_fields=campos)
+
+
+@diretor_required
+@require_POST
+def whatsapp_autorizacao_config_view(request):
+    """Salva a mensagem de autorização (o texto que o responsável deve enviar)."""
+    config = WhatsappConfig.get_solo()
+    config.mensagem_autorizacao = (request.POST.get("mensagem_autorizacao") or "").strip()
+    config.atualizado_por = request.user
+    config.save(update_fields=["mensagem_autorizacao", "atualizado_por", "atualizado_em"])
+    messages.success(request, "Mensagem de autorização salva.")
+    return redirect(reverse("core:whatsapp") + "?aba=autorizacao")
 
 
 @diretor_required
@@ -3456,6 +3507,10 @@ def whatsapp_webhook_view(request):
         WhatsappWebhookEvent.objects.create(
             raw_payload=payload if isinstance(payload, dict) else {}, **dados
         )
+        # Rastreio de contato: mensagem DIRETA (não grupo) recebida de um responsável
+        # marca a data da última mensagem e, se for o texto de autorização, a autorização.
+        if not dados["from_me"] and not dados["is_group"] and dados["phone"]:
+            _registrar_contato_whatsapp(dados["phone"], dados["message_text"])
         # Mantém a tabela enxuta (é só diagnóstico): guarda os 100 mais recentes.
         ids = list(
             WhatsappWebhookEvent.objects.values_list("id", flat=True)[100:]
@@ -4231,6 +4286,8 @@ def _cobrancas_familias():
             "tem_numero": bool(numero),
             "numeros": numeros,
             "origem_atual": origem_atual,
+            "ultima_msg_em": perfil.ultima_msg_whatsapp_em,
+            "autorizou": bool(perfil.autorizacao_recebida_em),
             "cobrado_mes": cont_mes.get(uid, 0),
             "token": perfil.get_token_acerto(),
             "mensalidades": sorted(

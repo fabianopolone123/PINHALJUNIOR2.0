@@ -22,6 +22,43 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: rastreio de contato + autorização (termômetro nas Cobranças)
+
+### Resumo
+Mecanismo de **visibilidade** de quem responde no WhatsApp (o que faltava, mais do que o disparo no grupo).
+Agora, **toda mensagem recebida pelo webhook** (direta, não de grupo) é casada com o telefone de um responsável
+(pai/mãe/resp. legal de aventureiro ativo não-demo). Ao casar, o sistema registra **a data da última mensagem**
+daquela família e, se o texto bater com a **mensagem de autorização** configurada, marca a **autorização como
+recebida**. Em **Mensalidades → Cobranças**, cada família ganhou um **termômetro visual** (verde = autorizado;
+amarelo = já mandou msg, sem autorização; vermelho = nunca mandou) + "última mensagem há X".
+
+### Onde configurar
+Nova aba **✍️ Autorização** na tela WhatsApp: o Diretor define o **texto que o responsável deve enviar** para
+contar como autorizado. A comparação ignora maiúsculas/minúsculas e acentos (equale ou contém).
+
+### Arquivos alterados
+- `core/models.py`: `PerfilUsuario.ultima_msg_whatsapp_em`/`autorizacao_recebida_em`;
+  `WhatsappConfig.mensagem_autorizacao`.
+- `core/views.py`: helpers `_familia_por_whatsapp` (casa telefone→família), `_registrar_contato_whatsapp`
+  (grava última msg/autorização) e `_norm_comparacao`; o webhook chama o registro para mensagem direta;
+  `_cobrancas_familias` expõe `ultima_msg_em`/`autorizou`; `whatsapp_autorizacao_config_view`; contexto da tela.
+- `core/urls.py`: rota `whatsapp/autorizacao/`.
+- `templates/core/whatsapp.html`: 4ª aba **Autorização** (texto padrão).
+- `templates/core/mensalidades.html`: termômetro por família na aba Cobranças.
+- `static/css/mensalidades.css`: estilo do termômetro.
+- Migration **0049**.
+
+### Decisões
+- **Não** troca o número de destino automaticamente ao receber msg (o usuário ficou em dúvida) — só rastreia/
+  mostra; a troca de telefone segue manual (seletor da aba Cobranças).
+- Casamento por telefone normalizado (`normalizar_telefone`) contra os 3 números da família.
+
+### Pendências / futuro
+- Link/botão "enviar autorização" fácil (wa.me com texto pronto) para o responsável — combinado para depois.
+- Disparo no grupo listando "quem falta" (a antiga Fase 3) — despriorizado pelo usuário.
+
+---
+
 ## 2026-07-11 - WhatsApp: webhook de mensagens recebidas + últimas 5 (Fase 2)
 
 ### Resumo

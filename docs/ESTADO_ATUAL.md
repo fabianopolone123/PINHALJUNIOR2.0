@@ -13,7 +13,17 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: webhook de recebidas + últimas 5 — Fase 2**): nova aba **🔔
+**Última atualização:** 2026-07-11 (**WhatsApp: rastreio de contato + autorização (termômetro nas Cobranças)**):
+toda mensagem recebida pelo webhook (direta) é casada com o telefone de um responsável; grava a **data da última
+mensagem** da família e, se o texto bate com a **mensagem de autorização** (nova aba **✍️ Autorização**, texto
+configurável; compara sem acento/caixa), marca **autorização recebida**. Em **Mensalidades → Cobranças** cada
+família tem um **termômetro** (verde=autorizado / amarelo=mandou msg sem autorizar / vermelho=nunca) + "última msg
+há X". Campos `PerfilUsuario.ultima_msg_whatsapp_em`/`autorizacao_recebida_em`, `WhatsappConfig.mensagem_autorizacao`;
+helpers `_familia_por_whatsapp`/`_registrar_contato_whatsapp`; migration **0049**. NÃO troca o número
+automaticamente (só rastreia). Futuro: link wa.me pronto p/ o responsável; disparo no grupo despriorizado.
+Antes: WhatsApp — webhook de recebidas + últimas 5 (Fase 2).
+
+**Anterior (WhatsApp: webhook de recebidas + últimas 5 — Fase 2):** nova aba **🔔
 Webhook** na tela WhatsApp com a **URL do webhook** (+ botão "Configurar webhook na W-API", `PUT
 /webhook/update-webhook-received`) e o painel **"Últimas 5 mensagens recebidas"** (poll de 5s), para testar o
 recebimento. Endpoint público `webhooks/whatsapp/` recebe, faz parsing robusto (`core/wapi_parser.py`, portado do
