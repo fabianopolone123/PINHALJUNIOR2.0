@@ -114,6 +114,14 @@
                             <small class="ajuda">Deixe o padrão, a menos que a W-API informe outro endereço.</small>
                         </div>
 
+                        <div class="campo">
+                            <label for="numero_clube">Número do WhatsApp do clube</label>
+                            <input type="text" id="numero_clube" name="numero_clube"
+                                   value="{{ config.numero_clube }}"
+                                   placeholder="(47) 99999-9999" autocomplete="off">
+                            <small class="ajuda">É este o número da instância — destino do link de autorização (aba Autorização).</small>
+                        </div>
+
                         <div class="wa-acoes">
                             <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
                         </div>
@@ -246,6 +254,33 @@
                                 <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar mensagem</button>
                             </div>
                         </form>
+                    </section>
+
+                    <section class="card wa-card">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">🔗 Link de autorização (wa.me)</h2>
+                        </div>
+                        {% if wa_link_autorizacao %}
+                        <p class="wa-ajuda">
+                            Copie e compartilhe este link (grupo, cartaz, reunião). Quem clicar abre o WhatsApp já
+                            numa conversa com o clube, com a mensagem de autorização pronta — é só enviar. Ao enviar,
+                            a família é marcada como autorizada automaticamente.
+                        </p>
+                        <div class="campo">
+                            <div class="pix-copia">
+                                <input type="text" id="waLinkAutorizacao" class="pix-copia-input selecionavel" value="{{ wa_link_autorizacao }}" readonly>
+                                <button type="button" class="btn-secundario" id="btnCopiarLinkAut" data-target="waLinkAutorizacao">Copiar</button>
+                            </div>
+                            <div class="wa-acoes">
+                                <a class="btn-acao" href="{{ wa_link_autorizacao }}" target="_blank" rel="noopener"><span aria-hidden="true">🟢</span> Abrir no WhatsApp (teste)</a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="wa-aviso">
+                            Para gerar o link, informe o <strong>número do WhatsApp do clube</strong> na aba
+                            Configurações e salve a mensagem de autorização acima.
+                        </p>
+                        {% endif %}
                     </section>
                 </div><!-- /painel autorizacao -->
             </div>

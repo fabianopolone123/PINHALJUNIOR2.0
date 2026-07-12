@@ -3359,11 +3359,18 @@ def whatsapp_view(request):
     """Tela do módulo WhatsApp (só Diretor): abas Configurações (instância + teste)
     e Grupos (lista de grupos da conta, vínculo ID↔nome)."""
     config = WhatsappConfig.get_solo()
+    # Link wa.me de autorização: abre o WhatsApp do responsável já numa conversa
+    # com o clube, com a mensagem de autorização pronta (ele só envia).
+    wa_link = ""
+    numero = normalizar_telefone(config.numero_clube)
+    if numero and config.mensagem_autorizacao:
+        wa_link = f"https://wa.me/{numero}?text={urllib.parse.quote(config.mensagem_autorizacao)}"
     return render(request, "core/whatsapp.html", {
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
         "webhook_url": _webhook_whatsapp_url(request),
         "mensagem_autorizacao": config.mensagem_autorizacao,
+        "wa_link_autorizacao": wa_link,
         "aba": request.GET.get("aba", "config"),
     })
 
@@ -3539,6 +3546,7 @@ def whatsapp_config_view(request):
     novo_token = (request.POST.get("token") or "").strip()
     if novo_token:
         config.token = novo_token
+    config.numero_clube = (request.POST.get("numero_clube") or "").strip()
     config.atualizado_por = request.user
     config.save()
     messages.success(request, "Configuração do WhatsApp salva.")

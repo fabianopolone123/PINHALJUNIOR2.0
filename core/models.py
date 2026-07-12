@@ -1354,6 +1354,9 @@ class WhatsappConfig(models.Model):
         "URL base da API", max_length=200, blank=True,
         default="https://api.w-api.app/v1",
     )
+    # Número de WhatsApp do próprio clube (o número da instância). É o destino do
+    # link wa.me de autorização — o responsável clica e manda a mensagem para cá.
+    numero_clube = models.CharField("Número do WhatsApp do clube", max_length=30, blank=True)
     # Mensagem padrão que o responsável deve ENVIAR ao clube para contar como
     # "autorização recebida". Quando uma mensagem recebida bate com este texto, a
     # família é marcada como autorizada (mecanismo de liberação de números).

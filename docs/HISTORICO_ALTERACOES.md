@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-11 - WhatsApp: link wa.me de autorização (avulso, copiável)
+
+### Resumo
+Fecha o ciclo do rastreio de autorização: a aba **✍️ Autorização** agora gera um **link wa.me avulso** com a
+mensagem de autorização **pronta**. O responsável clica → abre o WhatsApp dele numa conversa com o clube com o
+texto preenchido → só enviar. Ao enviar, cai no webhook, casa o número e marca a família como **autorizada**
+(termômetro verde) — sem o clube iniciar conversa (não dispara o antspam do WhatsApp). O link tem botão
+**Copiar** (para colar no grupo/cartaz/reunião) e um **Abrir no WhatsApp** para teste.
+
+### Arquivos alterados
+- `core/models.py`: `WhatsappConfig.numero_clube` (número da instância = destino do wa.me).
+- `core/views.py`: `whatsapp_config_view` salva `numero_clube`; `whatsapp_view` monta `wa_link_autorizacao`
+  (`https://wa.me/<numero normalizado>?text=<msg URL-encoded>`).
+- `templates/core/whatsapp.html`: campo "Número do WhatsApp do clube" (aba Configurações) + card do link (aba
+  Autorização, com Copiar e Abrir).
+- `static/js/whatsapp.js`: handler de "Copiar" genérico (qualquer botão com `data-target`).
+- Migration **0050**.
+
+### Decisões / pendências
+- **Disparo no grupo listando "quem falta": CANCELADO** (decisão do usuário) — não será feito.
+- **QR code** do link: não feito agora (exigiria dependência nova; combinar depois se quiser).
+
+---
+
 ## 2026-07-11 - WhatsApp: rastreio de contato + autorização (termômetro nas Cobranças)
 
 ### Resumo

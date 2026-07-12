@@ -13,7 +13,14 @@ temporariamente por compatibilidade, com rewrite para a raiz antes do proxy. O s
 `collectstatic`, `nginx -t` e HTTP 200 em `/`, `/cadastro/`, `/recuperar-senha/`, `/static/css/login.css` e
 `/sistema-novo/`. **Atenção operacional:** o Mercado Pago no VPS segue em **modo teste**.
 
-**Última atualização:** 2026-07-11 (**WhatsApp: rastreio de contato + autorização (termômetro nas Cobranças)**):
+**Última atualização:** 2026-07-11 (**WhatsApp: link wa.me de autorização**): a aba **✍️ Autorização** gera um
+**link wa.me avulso** (`https://wa.me/<numero_clube>?text=<msg de autorização>`) com botão **Copiar** e **Abrir**.
+O responsável clica → manda a mensagem pronta pro clube → webhook casa o número → família **autorizada** (termômetro
+verde), sem o clube iniciar conversa. Campo novo `WhatsappConfig.numero_clube` (aba Configurações); handler de
+copiar genérico; migration **0050**. **Disparo no grupo: CANCELADO** (decisão do usuário). QR: não feito (dep nova).
+Antes: WhatsApp — rastreio de contato + autorização (termômetro).
+
+**Anterior (WhatsApp: rastreio de contato + autorização (termômetro nas Cobranças)):**
 toda mensagem recebida pelo webhook (direta) é casada com o telefone de um responsável; grava a **data da última
 mensagem** da família e, se o texto bate com a **mensagem de autorização** (nova aba **✍️ Autorização**, texto
 configurável; compara sem acento/caixa), marca **autorização recebida**. Em **Mensalidades → Cobranças** cada

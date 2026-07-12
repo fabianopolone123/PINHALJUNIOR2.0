@@ -6,6 +6,18 @@
 (function () {
     "use strict";
 
+    // ---- Copiar (qualquer botão com data-target apontando um input) ----
+    document.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-target]");
+        if (!btn) return;
+        var inp = document.getElementById(btn.dataset.target);
+        if (!inp) return;
+        inp.select();
+        if (navigator.clipboard) navigator.clipboard.writeText(inp.value);
+        else document.execCommand("copy");
+        if (window.mostrarToast) window.mostrarToast("Copiado!", "success");
+    });
+
     // ---- Normalização do telefone (espelha normalizar_telefone no back-end) ----
     function normalizarTelefone(bruto) {
         var d = (bruto || "").replace(/\D/g, "");
@@ -115,17 +127,6 @@
         var esc = function (s) {
             var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML;
         };
-        // Copiar URL do webhook
-        var btnCopiar = document.getElementById("btnCopiarWebhookWa");
-        if (btnCopiar) {
-            btnCopiar.addEventListener("click", function () {
-                var inp = document.getElementById(btnCopiar.dataset.target);
-                if (!inp) return;
-                inp.select();
-                navigator.clipboard && navigator.clipboard.writeText(inp.value);
-                if (window.mostrarToast) window.mostrarToast("URL copiada.", "success");
-            });
-        }
         // Configurar webhook na W-API
         var btnCfg = document.getElementById("waWebhookConfig");
         if (btnCfg) {
