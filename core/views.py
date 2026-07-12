@@ -4312,13 +4312,52 @@ def _finalizar_loja_clube(pagamento):
     pagamento.payload = dados
 
 
+def _whatsapp_familia(usuario):
+    """WhatsApp de cobrança da família (responsável financeiro), normalizado."""
+    if usuario is None:
+        return ""
+    perfil = PerfilUsuario.objects.filter(usuario=usuario).first()
+    origem = perfil.cobranca_whatsapp_origem if perfil else ""
+    _, numero = _resolver_origem_numero(_numeros_conta(usuario), origem or "")
+    return numero
+
+
+def _rotulo_mensalidade(m):
+    """Rótulo curto de uma cobrança para a mensagem (ex.: 'Mensalidade Jul/2026')."""
+    tipo = "Inscrição" if m.tipo == "inscricao" else "Mensalidade"
+    mes = MESES_PT[m.mes][:3] if 1 <= m.mes <= 12 else str(m.mes)
+    return f"{tipo} {mes}/{m.ano}"
+
+
+def _notificar_mensalidade_paga(aventureiro, mensalidades):
+    """Agradece ao responsável o pagamento de mensalidade(s), via on_commit
+    (respeita o gate anti-bloqueio). Nunca derruba o fluxo."""
+    if not mensalidades or aventureiro is None or aventureiro.usuario is None:
+        return
+    usuario = aventureiro.usuario
+    numero = _whatsapp_familia(usuario)
+    if not numero:
+        return
+    nome, _ = _responsavel_da_familia(usuario)
+    itens_txt = ", ".join(_rotulo_mensalidade(m) for m in mensalidades)
+    total = sum((m.valor_pago or m.valor or Decimal("0")) for m in mensalidades)
+    ctx = {
+        "nome": (nome or "").split(" ")[0] or "responsável",
+        "itens": itens_txt, "total": _moeda_txt(total),
+    }
+    transaction.on_commit(lambda: _notificar(NOTIF_MENSALIDADE_PAGA, numero, ctx))
+
+
 def _finalizar_mensalidade(pagamento):
     """Marca como pagas as mensalidades do payload (baixa múltipla de uma cobrança
     Pix só). Idempotente: só mexe nas que ainda estão em aberto."""
     dados = pagamento.payload or {}
     ids = dados.get("mensalidade_ids", [])
     qtd = 0
-    for m in Mensalidade.objects.filter(pk__in=ids, status="aberta"):
+    pagas = []
+    for m in Mensalidade.objects.filter(
+        pk__in=ids, status="aberta"
+    ).select_related("aventureiro__usuario"):
         m.status = "paga"
         m.forma_pagamento = pagamento.forma
         m.valor_pago = m.valor
@@ -4329,9 +4368,12 @@ def _finalizar_mensalidade(pagamento):
             "status", "forma_pagamento", "valor_pago", "pago_em",
             "registrado_por", "pagamento",
         ])
+        pagas.append(m)
         qtd += 1
     dados["quitadas"] = qtd
     pagamento.payload = dados
+    if pagas:
+        _notificar_mensalidade_paga(pagas[0].aventureiro, pagas)
 
 
 def _finalizar_loja_evento(pagamento):
@@ -6348,6 +6390,8 @@ def mensalidade_pagar_view(request):
         m.pago_em = None
         m.registrado_por = None
     m.save()
+    if pagar:
+        _notificar_mensalidade_paga(m.aventureiro, [m])
     meses = list(m.aventureiro.mensalidades.filter(ano=m.ano))
     r = _resumo_mensalidades(meses)
     return JsonResponse({

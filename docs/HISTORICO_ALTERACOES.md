@@ -22,6 +22,25 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 3: Mensalidade paga)
+
+### Resumo
+Todo pagamento de mensalidade (online ou baixa manual do Diretor) dispara um agradecimento ao
+responsável, respeitando o gate anti-bloqueio.
+
+### Arquivos criados/alterados
+- `core/views.py`: helpers `_whatsapp_familia` (número do responsável financeiro), `_rotulo_mensalidade`
+  e `_notificar_mensalidade_paga` (agenda via `on_commit`); ligados em `_finalizar_mensalidade`
+  (coleta as pagas + notifica) e em `mensalidade_pagar_view` (baixa manual, só quando marca pago).
+
+### Decisões tomadas
+- Número da família = responsável financeiro (`cobranca_whatsapp_origem` + `_resolver_origem_numero`),
+  mesma lógica das Cobranças.
+- Notifica também na baixa manual do Diretor (é um pagamento recebido); o gate evita spam a não-liberados.
+
+### Pendências
+- Etapas 4–5: novo cadastro, inscrição + autorização pré-checkout.
+
 ## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 2: Loja)
 
 ### Resumo

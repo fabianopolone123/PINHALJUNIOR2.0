@@ -2,7 +2,16 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 2: Loja**): ligado o
+**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 3: Mensalidade
+paga**): todo **pagamento de mensalidade** dispara um **agradecimento** ao responsável (`mensalidade_paga`,
+respeita o gate anti-bloqueio) — tanto o online (baixa múltipla em `_finalizar_mensalidade`, via
+`on_commit`) quanto a **baixa manual** do Diretor (`mensalidade_pagar_view`). O número é o do **responsável
+financeiro** (reusa `_resolver_origem_numero` + `cobranca_whatsapp_origem`), o nome é o do responsável e os
+`{itens}` listam as competências pagas (ex.: "Mensalidade Jul/2026"). Helpers `_whatsapp_familia`,
+`_rotulo_mensalidade`, `_notificar_mensalidade_paga`. Sem migration. Próximo: novo cadastro (Etapa 4).
+Antes: Etapa 2 (Loja).
+
+**Anterior (Notificações automáticas por WhatsApp — Etapa 2: Loja):** ligado o
 1º gatilho. Toda **compra da Loja do Clube** (ponto único `_criar_compra_loja`, tanto o fluxo pago via
 Mercado Pago quanto o simulado) agora dispara, **após o commit** (`transaction.on_commit`, não trava/derruba
 a transação do webhook): (1) **confirmação ao comprador** (`loja_compra`, respeita o gate anti-bloqueio) e
