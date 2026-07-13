@@ -17,7 +17,14 @@ SECRET_KEY = os.environ.get(
 )
 
 # ATENÇÃO: não deixe DEBUG=True em produção!
-DEBUG = os.environ.get("DJANGO_DEBUG", "1").lower() in {"1", "true", "yes", "on"}
+# Se DJANGO_DEBUG for definido, ele manda. Se NÃO for definido, o padrão é seguro:
+# liga DEBUG só quando não há ALLOWED_HOSTS configurado (= desenvolvimento local).
+# Em produção (ALLOWED_HOSTS setado) fica DEBUG=False mesmo que esqueçam a variável.
+_debug_env = os.environ.get("DJANGO_DEBUG")
+if _debug_env is None:
+    DEBUG = not os.environ.get("DJANGO_ALLOWED_HOSTS", "").strip()
+else:
+    DEBUG = _debug_env.lower() in {"1", "true", "yes", "on"}
 
 ALLOWED_HOSTS = [
     host.strip()

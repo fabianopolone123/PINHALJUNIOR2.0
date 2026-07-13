@@ -2,8 +2,23 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Notificações automáticas por WhatsApp — Etapa 5: inscrição +
-autorização pré-checkout**): fecha a feature. (A) Toda **inscrição em evento** (ponto único
+**Última atualização:** 2026-07-12 (**Revisão geral — parte 1: gate transacional + críticos de
+produção**): a partir de uma auditoria geral. (1) **Gate das notificações**: as notificações
+**transacionais** (compra na loja, mensalidade paga, boas-vindas, inscrição) agora **enviam sempre** —
+são resposta direta a uma ação da própria pessoa, com o número que ela forneceu (baixo risco de bloqueio);
+o filtro anti-bloqueio (`_pode_notificar`) fica reservado a avisos não solicitados/futuros. Conjunto
+`NOTIF_TRANSACIONAIS`; o bloco pré-checkout do evento aberto foi reescrito para convidar a "avisos futuros"
+(a confirmação já vem sempre). (2) **Webhook do Mercado Pago** agora tem `try/except` de topo (loga e
+responde 500 sem traceback; nunca vaza erro). (3) **Idempotência do pagamento**: `_aprovar_pagamento` faz um
+**claim atômico** (`UPDATE ... WHERE finalizado=False`) — webhooks duplicados/concorrentes do MP não criam
+mais compra/inscrição em dobro nem baixam estoque duas vezes (validado: 3 aprovações → 1 finalização).
+(4) **`cadastro_aventureiro_view` atômica** (não deixa User órfão se salvar o aventureiro falhar). (5)
+**`DEBUG` seguro**: sem a env `DJANGO_DEBUG`, liga só quando não há `ALLOWED_HOSTS` (dev local); produção
+fica `DEBUG=False` mesmo se esquecerem a variável. Suíte: 45 testes OK. **Operacional:** confirmar
+`DJANGO_SECRET_KEY` setada no `/etc/pinhaljunior2.env` do VPS. Próximo: robustez WhatsApp (envio em lote em
+background, match de autorização estrito), performance e mobile. Antes: Notificações — Etapa 5.
+
+**Anterior (Notificações automáticas por WhatsApp — Etapa 5: inscrição + autorização pré-checkout):** fecha a feature. (A) Toda **inscrição em evento** (ponto único
 `_criar_inscricao_de_payload`, grátis/imediata e paga via MP) manda uma **confirmação** ao responsável
 (`inscricao_evento`, `{nome}/{evento}/{total}/{codigo}`, via `on_commit`, respeita o gate). (B) Na página de
 inscrição de **evento aberto ao público**, quando o WhatsApp está configurado e a notificação de inscrição

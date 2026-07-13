@@ -3,6 +3,7 @@ import binascii
 import datetime
 import hashlib
 import json
+import logging
 from collections import defaultdict
 import re
 import secrets
@@ -109,6 +110,8 @@ from .models import (
 )
 from .menus import PERFIL_ATIVO_KEY, atua_como_responsavel, perfis_do_usuario
 from .permissoes import diretor_required, eh_diretor, operador_required, pode_operar_evento
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Identificação do usuário durante o cadastro.
@@ -653,11 +656,14 @@ def cadastro_aventureiro_view(request):
         erro_aceites = _validar_aceites(request)
 
         if formularios_ok and not erro_aceites:
-            usuario = User.objects.create_user(
-                username=conta.cleaned_data["username"],
-                password=conta.cleaned_data["senha"],
-            )
-            aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem, request)
+            # Atômico: se salvar o aventureiro falhar, o User não fica órfão
+            # (username consumido, conta sem aventureiro). Igual à diretoria.
+            with transaction.atomic():
+                usuario = User.objects.create_user(
+                    username=conta.cleaned_data["username"],
+                    password=conta.cleaned_data["senha"],
+                )
+                aventureiro_obj = _salvar_aventureiro(usuario, aventureiro, medica, imagem, request)
             # Login automático (autenticação real) + retaguarda por sessão.
             login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk
@@ -3796,11 +3802,22 @@ def _render_notificacao(tpl, contexto):
     return (tpl.mensagem or "").format_map(dados).strip()
 
 
+# Notificações TRANSACIONAIS: resposta direta a uma ação que a própria pessoa
+# acabou de fazer (comprou, se inscreveu, pagou, se cadastrou) usando o número que
+# ela mesma forneceu. São de baixo risco de bloqueio, então FURAM o gate
+# anti-bloqueio (enviam sempre). O gate/`_pode_notificar` fica reservado para
+# eventuais avisos NÃO solicitados no futuro. (O aviso interno da loja é `forcar`.)
+NOTIF_TRANSACIONAIS = {
+    NOTIF_LOJA_COMPRA, NOTIF_MENSALIDADE_PAGA, NOTIF_CADASTRO_NOVO,
+    NOTIF_INSCRICAO_EVENTO,
+}
+
+
 def _notificar(tipo, numero, contexto, *, forcar=False):
     """Ponto ÚNICO de envio de notificação automática por WhatsApp.
-    Respeita o template (ativo? IA×texto?) e o gate anti-bloqueio (`_pode_notificar`,
-    salvo `forcar=True` para avisos internos à diretoria). Nunca levanta exceção.
-    Retorna (enviado: bool, motivo: str)."""
+    Respeita o template (ativo? IA×texto?). O gate anti-bloqueio (`_pode_notificar`)
+    é aplicado só a notificações NÃO transacionais e não `forcar`. Nunca levanta
+    exceção. Retorna (enviado: bool, motivo: str)."""
     try:
         cfg = WhatsappConfig.get_solo()
         if not cfg.configurado:
@@ -3811,7 +3828,8 @@ def _notificar(tipo, numero, contexto, *, forcar=False):
         alvo = normalizar_telefone(numero or "")
         if not alvo or len(alvo) < 12:
             return False, "numero_invalido"
-        if not forcar and not _pode_notificar(alvo):
+        aplica_gate = not forcar and tipo not in NOTIF_TRANSACIONAIS
+        if aplica_gate and not _pode_notificar(alvo):
             return False, "nao_liberado"
         texto = _render_notificacao(tpl, contexto)
         if not texto:
@@ -4203,13 +4221,27 @@ def _aprovar_pagamento(pagamento, *, liquido=None):
     else:
         liq = min(Decimal(str(liquido)), pagamento.valor_bruto)
         taxa = pagamento.valor_bruto - liq
-    pagamento.status = "aprovado"
-    pagamento.taxa = taxa
-    pagamento.valor_liquido = liq
-    pagamento.pago_em = timezone.now()
+    agora = timezone.now()
     with transaction.atomic():
-        _finalizar_pagamento(pagamento)
+        # Claim atômico: só UMA requisição concorrente marca `finalizado`. O
+        # Mercado Pago manda webhooks duplicados/concorrentes — sem isto, dois
+        # webhooks leem finalizado=False e criam a compra/inscrição em dobro (e
+        # baixam o estoque duas vezes). O UPDATE condicional é atômico no banco
+        # (não depende de lock de linha, que o SQLite não faz). Se a finalização
+        # falhar, o rollback reverte o claim e o MP pode reprocessar.
+        claimed = (
+            Pagamento.objects
+            .filter(pk=pagamento.pk, finalizado=False)
+            .update(finalizado=True)
+        )
+        if not claimed:
+            return
+        pagamento.status = "aprovado"
+        pagamento.taxa = taxa
+        pagamento.valor_liquido = liq
+        pagamento.pago_em = agora
         pagamento.finalizado = True
+        _finalizar_pagamento(pagamento)
         pagamento.save()
 
 
@@ -4561,11 +4593,18 @@ def mercadopago_webhook(request):
         return JsonResponse({"ok": True, "desconhecido": True})
 
     pagamento.mp_payment_id = str(data_id)
-    if info["status"] == "aprovado":
-        _aprovar_pagamento(pagamento, liquido=info["liquido"])
-    else:
-        pagamento.status = info["status"]
-        pagamento.save(update_fields=["status", "mp_payment_id"])
+    try:
+        if info["status"] == "aprovado":
+            _aprovar_pagamento(pagamento, liquido=info["liquido"])
+        else:
+            pagamento.status = info["status"]
+            pagamento.save(update_fields=["status", "mp_payment_id"])
+    except Exception:  # noqa: BLE001 — nunca vazar traceback ao MP
+        # Erro ao finalizar: responde 500 (sem traceback no corpo) para o MP
+        # reenviar depois. O processamento é idempotente (claim atômico), então
+        # o reenvio é seguro.
+        logger.exception("Falha ao finalizar pagamento %s no webhook MP", pagamento.pk)
+        return JsonResponse({"ok": False}, status=500)
     return JsonResponse({"ok": True, "status": pagamento.status})
 
 

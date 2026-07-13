@@ -22,6 +22,32 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Revisão geral (parte 1): gate transacional + críticos de produção
+
+### Resumo
+A partir de uma auditoria geral (responsividade, performance, correção). Esta parte fecha o
+comportamento do gate das notificações e endurece pontos críticos de produção.
+
+### Arquivos criados/alterados
+- `core/views.py`: `NOTIF_TRANSACIONAIS` + `_notificar` aplica o gate só a notificações não
+  transacionais; `_aprovar_pagamento` com claim atômico de idempotência; `mercadopago_webhook` com
+  `try/except` de topo (loga via `logger` e responde 500 sem traceback); `cadastro_aventureiro_view`
+  envolta em `transaction.atomic`; `import logging` + `logger`.
+- `templates/core/evento_inscrever.html`: texto do bloco de autorização reescrito (a confirmação já vem
+  sempre; o convite passa a ser para avisos futuros).
+- `config/settings.py`: `DEBUG` com padrão seguro (liga só sem `ALLOWED_HOSTS`; env explícita manda).
+
+### Decisões tomadas
+- Notificações transacionais furam o gate (resposta a uma ação da própria pessoa; baixo risco de bloqueio).
+- Idempotência por claim atômico (`UPDATE ... WHERE finalizado=False`) — funciona no SQLite (sem lock de
+  linha) e no Postgres; rollback reverte o claim em falha, deixando o MP reprocessar.
+- Webhook do MP responde 500 (sem traceback) em erro de finalização, para o MP reenviar — seguro por ser
+  idempotente.
+
+### Pendências
+- Robustez WhatsApp (envio em lote em background, match de autorização estrito), performance, mobile.
+- Operacional: confirmar `DJANGO_SECRET_KEY` no `/etc/pinhaljunior2.env` do VPS.
+
 ## 2026-07-12 - Notificações automáticas por WhatsApp (Etapa 5: inscrição + autorização pré-checkout)
 
 ### Resumo
