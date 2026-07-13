@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import json
 import logging
+import threading
 from collections import defaultdict
 import re
 import secrets
@@ -630,7 +631,7 @@ def _notificar_cadastro(nome, usuario_login, whatsapp):
         "nome": (nome or "").split(" ")[0] or "responsável",
         "usuario": usuario_login or "",
     }
-    transaction.on_commit(lambda: _notificar(NOTIF_CADASTRO_NOVO, whatsapp, ctx))
+    transaction.on_commit(lambda: _em_thread(_notificar, NOTIF_CADASTRO_NOVO, whatsapp, ctx))
 
 
 def cadastro_aventureiro_view(request):
@@ -3721,8 +3722,8 @@ def _registrar_contato_whatsapp(numero, texto):
     autorizou_agora = False
     esperado = _norm_comparacao(cfg.mensagem_autorizacao)
     if esperado and not perfil.autorizacao_recebida_em:
-        recebido = _norm_comparacao(texto)
-        if recebido and (esperado in recebido or recebido == esperado):
+        # Match EXATO (normalizado) — ver _registrar_contato_bruto.
+        if _norm_comparacao(texto) == esperado:
             perfil.autorizacao_recebida_em = agora
             campos.append("autorizacao_recebida_em")
             autorizou_agora = True
@@ -3752,8 +3753,9 @@ def _registrar_contato_bruto(numero, texto, nome=""):
         contato.nome = nome[:150]
     esperado = _norm_comparacao(WhatsappConfig.get_solo().mensagem_autorizacao)
     if esperado and not contato.autorizou_em:
-        recebido = _norm_comparacao(texto)
-        if recebido and (esperado in recebido or recebido == esperado):
+        # Match EXATO (normalizado): o link /autorizar já manda o texto exato, e
+        # substring abriria o gate com mensagens curtas comuns (ex.: "autorizo").
+        if _norm_comparacao(texto) == esperado:
             contato.autorizou_em = agora
     contato.save()
 
@@ -3838,6 +3840,23 @@ def _notificar(tipo, numero, contexto, *, forcar=False):
         return (bool(ok), "enviado" if ok else f"falha:{detalhe}")
     except Exception as exc:  # noqa: BLE001 — notificação nunca derruba o fluxo
         return False, f"erro:{exc}"
+
+
+def _em_thread(func, *args, **kwargs):
+    """Roda `func` num thread daemon (fire-and-forget), para a chamada HTTP do
+    WhatsApp/OpenAI não bloquear o request nem o webhook do Mercado Pago (o envio
+    pode levar até ~20s cada, e o aviso interno percorre vários diretores). Fecha a
+    conexão de banco do thread ao final; erros são logados, nunca propagados.
+    Usado dentro de `transaction.on_commit`, então roda só após o commit."""
+    def alvo():
+        try:
+            func(*args, **kwargs)
+        except Exception:  # noqa: BLE001
+            logger.exception("Falha em notificação assíncrona")
+        finally:
+            from django.db import connection
+            connection.close()
+    threading.Thread(target=alvo, daemon=True).start()
 
 
 @diretor_required
@@ -4359,7 +4378,7 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
         "codigo": inscricao.codigo,
     }
     numero = inscricao.responsavel_whatsapp
-    transaction.on_commit(lambda: _notificar(NOTIF_INSCRICAO_EVENTO, numero, ctx))
+    transaction.on_commit(lambda: _em_thread(_notificar, NOTIF_INSCRICAO_EVENTO, numero, ctx))
     return inscricao
 
 
@@ -4410,7 +4429,7 @@ def _notificar_mensalidade_paga(aventureiro, mensalidades):
         "nome": (nome or "").split(" ")[0] or "responsável",
         "itens": itens_txt, "total": _moeda_txt(total),
     }
-    transaction.on_commit(lambda: _notificar(NOTIF_MENSALIDADE_PAGA, numero, ctx))
+    transaction.on_commit(lambda: _em_thread(_notificar, NOTIF_MENSALIDADE_PAGA, numero, ctx))
 
 
 def _finalizar_mensalidade(pagamento):
@@ -6060,7 +6079,7 @@ def _criar_compra_loja(usuario, kits, comprador, forma):
         compra.id, compra.comprador_nome, compra.comprador_whatsapp,
         itens_txt, _moeda_txt(total), compra.codigo,
     )
-    transaction.on_commit(lambda: _notificar_compra_loja(*dados_notif))
+    transaction.on_commit(lambda: _em_thread(_notificar_compra_loja, *dados_notif))
     return compra
 
 

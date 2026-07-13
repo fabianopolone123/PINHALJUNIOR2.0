@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Revisão geral (parte 2): robustez das notificações WhatsApp
+
+### Resumo
+Envio das notificações não bloqueia mais o request/webhook, e o reconhecimento da autorização ficou exato.
+
+### Arquivos criados/alterados
+- `core/views.py`: helper `_em_thread` (thread daemon fire-and-forget que fecha a conexão de banco e
+  loga erros); os 4 `on_commit` de notificação passam a chamar `_em_thread(...)`; match de autorização
+  em `_registrar_contato_bruto` e `_registrar_contato_whatsapp` virou igualdade normalizada exata;
+  `import threading`.
+
+### Decisões tomadas
+- Thread daemon (sem dependência nova, sem fila) para as notificações transacionais — HTTP de até ~20s
+  não segura a resposta nem o webhook do MP.
+- Match exato: o link `/autorizar` já envia o texto exato; substring abria o gate indevidamente.
+- Cobrança/reengajamento em lote não mudaram (já são 1-por-request com pausa de 10s no front).
+
+### Pendências
+- Performance e responsividade mobile (próximas partes da revisão).
+
 ## 2026-07-12 - Revisão geral (parte 1): gate transacional + críticos de produção
 
 ### Resumo

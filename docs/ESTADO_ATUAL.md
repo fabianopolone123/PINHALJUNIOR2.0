@@ -2,8 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Revisão geral — parte 1: gate transacional + críticos de
-produção**): a partir de uma auditoria geral. (1) **Gate das notificações**: as notificações
+**Última atualização:** 2026-07-12 (**Revisão geral — parte 2: robustez das notificações**): (1) as
+notificações automáticas passam a ser enviadas em **thread daemon** (`_em_thread`, fire-and-forget) dentro
+do `on_commit` — a chamada HTTP do WhatsApp/OpenAI (até ~20s cada; o aviso interno percorre vários
+diretores) **não bloqueia** mais o request nem o webhook do Mercado Pago (evita timeout → reenvio). O
+thread fecha a própria conexão de banco e loga erros. (2) O **reconhecimento da autorização** passou a ser
+**match exato** (normalizado) em vez de substring — evita que uma "mensagem de autorização" curta (ex.:
+"autorizo") seja disparada por qualquer texto que a contenha. Nota: a cobrança/reengajamento em lote já são
+**1-por-request** com pausa de 10s no front (não bloqueiam). Suíte: 45 testes OK. Próximo: performance e
+mobile. Antes: Revisão parte 1.
+
+**Anterior (Revisão geral — parte 1: gate transacional + críticos de produção):** a partir de uma auditoria geral. (1) **Gate das notificações**: as notificações
 **transacionais** (compra na loja, mensalidade paga, boas-vindas, inscrição) agora **enviam sempre** —
 são resposta direta a uma ação da própria pessoa, com o número que ela forneceu (baixo risco de bloqueio);
 o filtro anti-bloqueio (`_pode_notificar`) fica reservado a avisos não solicitados/futuros. Conjunto
