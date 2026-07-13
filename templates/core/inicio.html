@@ -139,7 +139,9 @@
                         <summary class="painel-summary">
                             <div class="resp-cabecalho">
                                 {% if membro_diretoria.foto_ok %}
-                                    <img class="resp-avatar-img" src="{{ membro_diretoria.foto.url }}" alt="Foto de {{ membro_diretoria.nome_completo }}">
+                                    <img class="resp-avatar-img" src="{{ membro_diretoria.foto.url }}" alt="Foto de {{ membro_diretoria.nome_completo }}"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                    <span class="resp-avatar" aria-hidden="true" style="display:none;">⛺</span>
                                 {% else %}
                                     <span class="resp-avatar" aria-hidden="true">⛺</span>
                                 {% endif %}

@@ -204,13 +204,10 @@ def _iniciais(nome):
 
 
 def _foto_valida(av):
-    """True apenas se o campo tem valor E o arquivo existe fisicamente."""
-    if not av.foto:
-        return False
-    try:
-        return av.foto.storage.exists(av.foto.name)
-    except Exception:
-        return False
+    """True se há foto cadastrada. Antes fazia um `storage.exists()` (stat de disco)
+    por aventureiro — pesado em loops (Usuários/Presença). Agora confia no campo; o
+    template trata arquivo ausente/quebrado com `onerror` (cai no placeholder)."""
+    return bool(av.foto)
 
 
 def _classes_investidas(av):
@@ -3204,9 +3201,10 @@ def presenca_view(request):
     próprios filhos (`_presenca_responsavel`)."""
     if atua_como_responsavel(request):
         return _presenca_responsavel(request)
-    eventos = list(Evento.objects.filter(demo=False))   # eventos fictícios (demo) ficam de fora
-    for e in eventos:
-        e.qtd_presentes = e.presencas.count()
+    # 1 query com Count anotado (antes: um COUNT por evento). Demo fica de fora.
+    eventos = list(
+        Evento.objects.filter(demo=False).annotate(qtd_presentes=Count("presencas"))
+    )
     return render(request, "core/presenca_selecionar.html", {"eventos": eventos})
 
 
@@ -3446,7 +3444,8 @@ def whatsapp_view(request):
     liberacao = _liberacao_lista()
     liberados = sum(1 for x in liberacao if x["ultima_msg_em"] or x["autorizou"])
     autorizados = sum(1 for x in liberacao if x["autorizou"])
-    reengajar_alvos = _inativos_para_reengajar(config)
+    # Reaproveita a lista já computada (antes _liberacao_lista rodava 2× por request).
+    reengajar_alvos = _inativos_para_reengajar(config, liberacao=liberacao)
     return render(request, "core/whatsapp.html", {
         "config": config,
         "grupos": list(GrupoWhatsapp.objects.all()),
@@ -3547,7 +3546,7 @@ def _liberacao_lista():
     return itens
 
 
-def _inativos_para_reengajar(config, agora=None):
+def _inativos_para_reengajar(config, agora=None, liberacao=None):
     """Contatos a reengajar. Critérios (uma entrada por conta):
     - JÁ interagiram alguma vez (têm última msg) — cold (nunca mandou) NÃO entra
       (mandar para quem nunca interagiu é o que causa bloqueio);
@@ -3555,11 +3554,12 @@ def _inativos_para_reengajar(config, agora=None):
     - e **ainda não foram reengajados desde a última mensagem deles** — ou seja,
       manda **uma vez só** por período de silêncio. Se a pessoa não responder, NÃO
       insiste; só volta a ser elegível se ela mandar mensagem de novo (e depois
-      ficar calada outra vez)."""
+      ficar calada outra vez).
+    `liberacao` pode ser passada já pronta (evita recomputar `_liberacao_lista`)."""
     agora = agora or timezone.now()
     limite = agora - datetime.timedelta(days=config.reengajar_dias or 30)
     vistos, alvos = set(), []
-    for p in _liberacao_lista():
+    for p in (liberacao if liberacao is not None else _liberacao_lista()):
         uid = p["usuario_id"]
         if not uid or uid in vistos or not p["numero"]:
             continue
@@ -5769,7 +5769,12 @@ def _loja_relatorio():
     obrigatórios; produto **simples** conta por **quantidade** de unidades.
     """
     conf = CompraLoja.objects.filter(status="confirmado")
-    itens = ItemCompraLoja.objects.filter(compra__status="confirmado").select_related("produto")
+    itens_qs = ItemCompraLoja.objects.filter(
+        compra__status="confirmado"
+    ).select_related("produto")
+    # Materializa uma vez: os dois loops abaixo (mais vendidos + fornecedor)
+    # percorrem a mesma lista; sem isto, a consulta ia ao banco 2×.
+    itens = list(itens_qs)
     n_compras = conf.count()
     arrecadado = conf.aggregate(s=Sum("valor_total"))["s"] or Decimal("0")
     ticket = (arrecadado / n_compras) if n_compras else Decimal("0")
@@ -5806,7 +5811,7 @@ def _loja_relatorio():
     for f in por_forma:
         f["nome"] = formas_nomes.get(f["forma_pagamento"], f["forma_pagamento"])
     pendentes = list(
-        itens.filter(quantidade_entregue__lt=F("quantidade"))
+        itens_qs.filter(quantidade_entregue__lt=F("quantidade"))
         .select_related("compra")
         .order_by("compra__criado_em")
     )
@@ -6327,8 +6332,9 @@ def mensalidades_view(request):
 
     taxa = (tot["recebido"] / (tot["recebido"] + tot["aberto"]) * 100) \
         if (tot["recebido"] + tot["aberto"]) else Decimal("0")
+    cfg_mens = ConfigMensalidade.get_solo()  # 1 consulta reaproveitada (antes: 5×)
     contexto = {
-        "config": ConfigMensalidade.get_solo(),
+        "config": cfg_mens,
         "ano": ano,
         "anos": anos,
         "linhas": linhas,
@@ -6344,10 +6350,10 @@ def mensalidades_view(request):
         ],
         # Aba Cobranças
         "cobrancas": _cobrancas_familias(),
-        "mensagem_cobranca": ConfigMensalidade.get_solo().mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO,
-        "prompt_cobranca_ia": ConfigMensalidade.get_solo().prompt_cobranca_ia or PROMPT_COBRANCA_IA_PADRAO,
-        "cobranca_via_ia": ConfigMensalidade.get_solo().cobranca_via_ia,
-        "mensagem_apelo": ConfigMensalidade.get_solo().mensagem_apelo or MENSAGEM_APELO_PADRAO,
+        "mensagem_cobranca": cfg_mens.mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO,
+        "prompt_cobranca_ia": cfg_mens.prompt_cobranca_ia or PROMPT_COBRANCA_IA_PADRAO,
+        "cobranca_via_ia": cfg_mens.cobranca_via_ia,
+        "mensagem_apelo": cfg_mens.mensagem_apelo or MENSAGEM_APELO_PADRAO,
         "wa_configurado": WhatsappConfig.get_solo().configurado,
         "ia_configurada": OpenAIConfig.get_solo().configurado,
     }

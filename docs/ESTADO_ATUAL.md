@@ -2,7 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Revisão geral — parte 2: robustez das notificações**): (1) as
+**Última atualização:** 2026-07-12 (**Revisão geral — parte 3: performance**): (1) **`_foto_valida`** não
+faz mais `storage.exists()` (stat de disco) por aventureiro — confia no campo e o template trata arquivo
+ausente com `onerror` (grande ganho em Usuários/Presença; adicionado `onerror` na foto da diretoria em
+inicio.html). (2) **`presenca_view`**: um `annotate(Count("presencas"))` em vez de um `COUNT` por evento.
+(3) **`whatsapp_view`**: `_liberacao_lista()` computada **uma vez** e passada a `_inativos_para_reengajar`
+(antes rodava 2× por request). (4) **`mensalidades_view`**: `ConfigMensalidade.get_solo()` chamada 1× (antes
+5×). (5) **`_loja_relatorio`**: itens materializados uma vez (dois loops reusam a lista). (6) **Índices** novos
+(migration **0054**): `Aventureiro.ativo/demo`, `Pagamento.status/tipo`, `Mensalidade.ano/status`. Suíte: 45
+testes OK. **Pendente (recomendação, não feito):** `static/img/logo.png` tem 448 KB (servido em toda página)
+e `logo_original_backup.png` (1,7 MB) é backup morto dentro de `static/` — otimizar/mover exige sua
+confirmação (binários). Próximo: mobile. Antes: Revisão parte 2.
+
+**Anterior (Revisão geral — parte 2: robustez das notificações):** (1) as
 notificações automáticas passam a ser enviadas em **thread daemon** (`_em_thread`, fire-and-forget) dentro
 do `on_commit` — a chamada HTTP do WhatsApp/OpenAI (até ~20s cada; o aviso interno percorre vários
 diretores) **não bloqueia** mais o request nem o webhook do Mercado Pago (evita timeout → reenvio). O

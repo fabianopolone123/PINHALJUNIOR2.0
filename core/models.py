@@ -154,11 +154,11 @@ class Aventureiro(models.Model):
     # Aventureiro ativo (frequenta o clube) ou inativo/desligado. Ao desligar,
     # se o responsável (usuario) não tiver mais nenhum aventureiro ativo, a conta
     # dele também é desativada (ver views/usuarios).
-    ativo = models.BooleanField("Ativo (frequenta o clube)", default=True)
+    ativo = models.BooleanField("Ativo (frequenta o clube)", default=True, db_index=True)
     # Aventureiro FICTÍCIO (dados de teste/demo, ex.: perfil de responsável do
     # Diretor). NUNCA entra nas contagens/relatórios do clube (usuários,
     # mensalidades, presença, financeiro). Ver `core/menus.py` e as views.
-    demo = models.BooleanField("Fictício (dados de teste)", default=False)
+    demo = models.BooleanField("Fictício (dados de teste)", default=False, db_index=True)
 
     # Mensalidades: isenção total ou desconto percentual (0-100) aplicados ao
     # valor das mensalidades/inscrição deste aventureiro.
@@ -1894,7 +1894,7 @@ class Pagamento(models.Model):
     O `payload` guarda **o que está sendo pago** (itens/ids/comprador), para o
     webhook saber **quem pagou e o quê** sem depender da sessão do navegador."""
 
-    tipo = models.CharField("Tipo", max_length=20, choices=TIPO_PAGAMENTO_CHOICES)
+    tipo = models.CharField("Tipo", max_length=20, choices=TIPO_PAGAMENTO_CHOICES, db_index=True)
     forma = models.CharField(
         "Forma", max_length=12, choices=[("pix", "Pix"), ("cartao", "Cartão de crédito")],
         default="pix",
@@ -1905,7 +1905,8 @@ class Pagamento(models.Model):
     mp_payment_id = models.CharField("ID no Mercado Pago", max_length=40, blank=True, db_index=True)
     modo = models.CharField("Modo", max_length=10, default="teste")
     status = models.CharField(
-        "Situação", max_length=12, choices=STATUS_PAGAMENTO_CHOICES, default="pendente"
+        "Situação", max_length=12, choices=STATUS_PAGAMENTO_CHOICES, default="pendente",
+        db_index=True,
     )
 
     valor_bruto = models.DecimalField("Valor bruto", max_digits=10, decimal_places=2)
@@ -2436,7 +2437,7 @@ class Mensalidade(models.Model):
         related_name="mensalidades",
         verbose_name="Aventureiro",
     )
-    ano = models.PositiveIntegerField("Ano")
+    ano = models.PositiveIntegerField("Ano", db_index=True)
     mes = models.PositiveSmallIntegerField("Mês")  # 1-12
     tipo = models.CharField(
         "Tipo", max_length=12, choices=TIPO_MENSALIDADE_CHOICES, default="mensalidade"
@@ -2444,7 +2445,8 @@ class Mensalidade(models.Model):
     valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
     isento = models.BooleanField("Isento", default=False)
     status = models.CharField(
-        "Situação", max_length=12, choices=STATUS_MENSALIDADE_CHOICES, default="aberta"
+        "Situação", max_length=12, choices=STATUS_MENSALIDADE_CHOICES, default="aberta",
+        db_index=True,
     )
     forma_pagamento = models.CharField(
         "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES, blank=True

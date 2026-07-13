@@ -22,6 +22,30 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Revisão geral (parte 3): performance
+
+### Resumo
+Elimina N+1 e trabalho redundante nas telas mais pesadas; adiciona índices de banco.
+
+### Arquivos criados/alterados
+- `core/views.py`: `_foto_valida` só checa o campo (sem `storage.exists()`); `presenca_view` usa
+  `annotate(Count("presencas"))`; `_inativos_para_reengajar` aceita `liberacao` pronta e `whatsapp_view`
+  reusa a lista (antes 2×); `mensalidades_view` chama `ConfigMensalidade.get_solo()` 1× (antes 5×);
+  `_loja_relatorio` materializa os itens (queryset separado só para o `.filter` dos pendentes).
+- `templates/core/inicio.html`: `onerror` na foto da diretoria (degrada pro placeholder).
+- `core/models.py` + `core/migrations/0054_*`: `db_index` em `Aventureiro.ativo/demo`,
+  `Pagamento.status/tipo`, `Mensalidade.ano/status`.
+
+### Decisões tomadas
+- Confiar no campo de foto + `onerror` no template (padrão já usado) em vez do stat de disco em loop.
+- Índices nos campos mais filtrados; ganho cresce com a base (hoje pequena).
+
+### Pendências
+- Recomendação (não feita, exige confirmação — são binários): otimizar `static/img/logo.png` (448 KB,
+  servido em toda página) e remover/mover `static/img/logo_original_backup.png` (1,7 MB, backup morto
+  em `static/`).
+- Mobile (próxima parte).
+
 ## 2026-07-12 - Revisão geral (parte 2): robustez das notificações WhatsApp
 
 ### Resumo
