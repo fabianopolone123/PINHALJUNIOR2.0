@@ -183,8 +183,8 @@
     border: none;
     background: rgba(192, 57, 43, 0.1);
     color: #c0392b;
-    width: 28px;
-    height: 28px;
+    width: 40px;
+    height: 40px;
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.9rem;
@@ -697,3 +697,14 @@
 }
 .loja-custos-total { text-align: right; margin: 10px 2px 0; font-weight: 600; }
 .loja-resultado-card { margin-bottom: 18px; }
+
+/* Mobile: campos de valor/estoque da linha de variação deixam de ter largura
+   fixa (110px) e fluem, para não quebrar cada um em uma linha em ~360px
+   (espelha o comportamento de eventos.css). */
+@media (max-width: 560px) {
+    .loja-var-linha .loja-var-valor,
+    .loja-var-linha .loja-var-estoque {
+        flex: 1 1 120px;
+        width: auto;
+    }
+}

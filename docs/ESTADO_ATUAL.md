@@ -2,7 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Revisão geral — parte 3: performance**): (1) **`_foto_valida`** não
+**Última atualização:** 2026-07-12 (**Revisão geral — parte 4: responsividade mobile**): fecha a revisão.
+(1) **Alvos de toque** aumentados para ~40px: `.ordem-btn` (reordenar campos), `.entrega-btn` (baixa de
+entrega no evento) e `.loja-kit-remover` (remover item do carrinho). (2) As **3 tabelas da aba Vendas** da
+Loja (`loja.html`) ganharam wrapper `.tabela-scroll` (rolagem horizontal em telas estreitas, como já fazia o
+painel do evento). (3) **Salvaguarda global `img { max-width: 100% }`** em `base.css` (nenhuma imagem estoura
+a largura no mobile). (4) No mobile, os campos **valor/estoque** da linha de variação da Loja deixam de ter
+largura fixa (110px) e fluem (media ≤560px, espelha o `eventos.css`). Só CSS/HTML. Suíte: 45 testes OK.
+**Revisão geral concluída** (partes 1-4: gate + críticos, robustez WhatsApp, performance, mobile). Antes:
+Revisão parte 3.
+
+**Anterior (Revisão geral — parte 3: performance):** (1) **`_foto_valida`** não
 faz mais `storage.exists()` (stat de disco) por aventureiro — confia no campo e o template trata arquivo
 ausente com `onerror` (grande ganho em Usuários/Presença; adicionado `onerror` na foto da diretoria em
 inicio.html). (2) **`presenca_view`**: um `annotate(Count("presencas"))` em vez de um `COUNT` por evento.

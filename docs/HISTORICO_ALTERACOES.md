@@ -22,6 +22,25 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-12 - Revisão geral (parte 4): responsividade mobile
+
+### Resumo
+Ajustes de responsividade a partir da auditoria: alvos de toque, tabelas roláveis e salvaguarda de imagem.
+
+### Arquivos criados/alterados
+- `static/css/eventos.css`: `.ordem-btn` (40×34) e `.entrega-btn` (40×40) — antes 28×22 / 26×26.
+- `static/css/loja.css`: `.loja-kit-remover` (40×40); media ≤560px colapsa `.loja-var-valor/.loja-var-estoque`.
+- `static/css/base.css`: `img { max-width: 100% }` global.
+- `templates/core/loja.html`: as 3 tabelas da aba Vendas envoltas em `.tabela-scroll`.
+
+### Decisões tomadas
+- Reaproveita `.tabela-scroll` (já em eventos.css, linkado na loja) em vez de criar classe nova.
+- Alvos de toque ~40px (padrão recomendado); vale uma conferência final no dispositivo real.
+
+### Pendências
+- Nenhuma para esta revisão. Recomendações operacionais em aberto: otimizar `logo.png`/remover
+  `logo_original_backup.png` (binários, exige ok); confirmar `DJANGO_SECRET_KEY` no VPS.
+
 ## 2026-07-12 - Revisão geral (parte 3): performance
 
 ### Resumo

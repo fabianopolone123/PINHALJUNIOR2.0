@@ -19,6 +19,12 @@ body {
     user-select: none;
 }
 
+/* Salvaguarda global: nenhuma imagem estoura a largura do container (evita
+   scroll horizontal no mobile com imagens de conteúdo livre / coladas). */
+img {
+    max-width: 100%;
+}
+
 /* Exceções: campos realmente digitáveis e conteúdo marcado como selecionável. */
 input,
 textarea,

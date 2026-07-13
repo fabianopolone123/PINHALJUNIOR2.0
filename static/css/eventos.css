@@ -450,8 +450,8 @@ a.tipo-card:hover {
 .campo-ordem { display: flex; flex-direction: column; gap: 4px; flex: none; }
 .campo-ordem form { margin: 0; line-height: 0; }
 .ordem-btn {
-    width: 28px;
-    height: 22px;
+    width: 40px;
+    height: 34px;
     border: 1px solid var(--borda);
     background: var(--branco);
     border-radius: 6px;
@@ -1274,8 +1274,8 @@ a.tipo-card:hover {
     padding: 2px;
 }
 .entrega-btn {
-    width: 26px;
-    height: 26px;
+    width: 40px;
+    height: 40px;
     border: none;
     border-radius: 999px;
     background: rgba(15, 76, 129, 0.06);

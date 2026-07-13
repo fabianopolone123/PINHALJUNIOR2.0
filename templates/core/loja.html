@@ -176,6 +176,7 @@
                         <section class="card loja-rel-bloco">
                             <h2 class="secao-titulo">🏆 Mais vendidos</h2>
                             {% if relatorio.mais_vendidos %}
+                            <div class="tabela-scroll">
                             <table class="loja-tabela">
                                 <thead><tr><th>Produto</th><th>Vendidos</th><th>Total</th></tr></thead>
                                 <tbody>
@@ -188,6 +189,7 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            </div>
                             {% else %}
                             <p class="painel-nota">Nenhuma venda ainda.</p>
                             {% endif %}
@@ -196,6 +198,7 @@
                         <section class="card loja-rel-bloco">
                             <h2 class="secao-titulo">💳 Por forma de pagamento</h2>
                             {% if relatorio.por_forma %}
+                            <div class="tabela-scroll">
                             <table class="loja-tabela">
                                 <thead><tr><th>Forma</th><th>Nº</th><th>Total</th></tr></thead>
                                 <tbody>
@@ -208,6 +211,7 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            </div>
                             {% else %}
                             <p class="painel-nota">—</p>
                             {% endif %}
@@ -252,6 +256,7 @@
                         {% for p in relatorio.fornecedor %}
                         <div class="loja-forn-produto">
                             <h3 class="loja-forn-titulo">{{ p.produto_nome }} <span class="loja-forn-resumo">a entregar: <strong class="saida">{{ p.falta }}</strong></span></h3>
+                            <div class="tabela-scroll">
                             <table class="loja-tabela loja-forn-tabela">
                                 <thead><tr><th>Variação</th><th class="num">A entregar</th></tr></thead>
                                 <tbody>
@@ -263,6 +268,7 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                         {% endfor %}
                         {% else %}
