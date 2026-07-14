@@ -233,6 +233,49 @@
         });
     }
 
+    // ---- Liberação: marcar autorizado manualmente ----
+    var painelLibMarcar = document.querySelector('.wa-painel[data-painel="liberacao"]');
+    if (painelLibMarcar && painelLibMarcar.dataset.liberarUrl) {
+        painelLibMarcar.addEventListener("click", function (e) {
+            var btn = e.target.closest(".wa-lib-liberar");
+            if (!btn || btn.disabled) return;
+            var uid = btn.dataset.usuario;
+            if (!uid) return;
+            if (!window.confirm("Marcar este contato como AUTORIZADO manualmente?\nEle passará a receber as notificações automáticas, como se tivesse mandado mensagem.")) return;
+            var txt = btn.textContent;
+            btn.disabled = true; btn.textContent = "Marcando…";
+            fetch(painelLibMarcar.dataset.liberarUrl, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": painelLibMarcar.dataset.csrf,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: "usuario_id=" + encodeURIComponent(uid),
+            }).then(function (r) { return r.json().catch(function () { return { ok: false, erro: "Resposta inválida." }; }); })
+                .then(function (d) {
+                    if (d.ok) {
+                        var status = btn.closest(".wa-lib-status");
+                        if (status) {
+                            var pill = status.querySelector(".mens-term-pill");
+                            if (pill) { pill.className = "mens-term-pill mens-term-verde"; pill.textContent = "✅ Autorizado"; }
+                            var quando = status.querySelector(".wa-lib-quando");
+                            if (quando) quando.textContent = "há instantes";
+                        }
+                        btn.remove();
+                        if (window.mostrarToast) window.mostrarToast("Contato autorizado! ✅", "success");
+                    } else {
+                        btn.disabled = false; btn.textContent = txt;
+                        if (window.mostrarToast) window.mostrarToast(d.erro || "Não foi possível marcar.", "error");
+                    }
+                })
+                .catch(function () {
+                    btn.disabled = false; btn.textContent = txt;
+                    if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error");
+                });
+        });
+    }
+
     // ---- Reengajar inativos (um a um, 10s entre cada, barra + cancelar) ----
     var painelLib = document.querySelector('.wa-painel[data-painel="liberacao"]');
     var btnReeng = document.getElementById("waReengajarBtn");

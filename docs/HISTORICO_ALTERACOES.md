@@ -22,6 +22,32 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-14 - WhatsApp/Liberação: marcar autorizado manualmente
+
+### Resumo
+Botão por linha na aba 🚦 Liberação para marcar um contato como autorizado à mão (autorização por fora ou
+mensagem que não chegou ao webhook), já liberando as notificações automáticas para ele.
+
+### Arquivos criados/alterados
+- `core/views.py`: `whatsapp_liberar_view` (POST, `@diretor_required`) — seta `autorizacao_recebida_em` e
+  `ultima_msg_whatsapp_em` no `PerfilUsuario` e `autorizou_em`/`ultima_msg_em` no `ContatoWhatsapp` (só quando
+  vazios; não sobrescreve contato real). Resolve o número com `_numero_do_contato`.
+- `core/urls.py`: rota `whatsapp/liberar/` (`whatsapp_liberar`).
+- `templates/core/whatsapp.html`: `data-liberar-url` no painel + botão `.wa-lib-liberar` (só se `not p.autorizou`
+  e há `p.usuario_id`).
+- `static/js/whatsapp.js`: handler por delegação — confirma, POST AJAX, e na resposta ok deixa a pill verde
+  ("✅ Autorizado" + "há instantes") e remove o botão.
+- `static/css/whatsapp.css`: `.wa-lib-liberar` (+ hover/disabled); `.wa-lib-status` com `flex-wrap`.
+
+### Decisões tomadas
+- Marcar também o `ContatoWhatsapp` (não só o perfil) é o que importa: o gate `_pode_notificar` consulta o
+  ContatoWhatsapp por número — sem isso, ficaria verde no termômetro mas as notificações continuariam barradas.
+- Só preenche datas vazias (idempotente; não clobbera uma última mensagem real mais recente).
+- Botão só para linhas com conta (`usuario_id`); diretoria sem User não tem perfil a marcar.
+
+### Pendências
+- Robustez da resposta automática de autorização (log + retry idempotente, migration `0055`) segue pendente.
+
 ## 2026-07-14 - WhatsApp/Liberação: busca inteligente + diagnóstico da resposta de autorização
 
 ### Resumo

@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-14 (**WhatsApp/Liberação: busca inteligente**): a aba **🚦 Liberação** ganhou
+**Última atualização:** 2026-07-14 (**WhatsApp/Liberação: marcar autorizado manualmente**): cada linha
+não-autorizada (com conta) da aba **🚦 Liberação** ganhou o botão **"✓ Marcar autorizado"** — para quem
+autorizou por fora (ligação/presencial) ou cuja mensagem não chegou ao webhook (ex.: caso Manuella). Ao clicar,
+marca a conta como **autorizada** e grava a **data da última mensagem** (como se tivesse escrito) tanto no
+`PerfilUsuario` (termômetro fica verde) quanto no **`ContatoWhatsapp`** — que é a fonte do gate
+`_pode_notificar`, então a pessoa passa a **receber as notificações automáticas** de verdade. Só preenche o que
+está vazio (não sobrescreve contato real mais recente). AJAX, atualiza a linha na hora (pill verde + "há
+instantes"), só Diretor. Peças: view `whatsapp_liberar_view` + rota `whatsapp/liberar/`; botão `.wa-lib-liberar`
+em `whatsapp.html`; handler em `whatsapp.js` (delegação); CSS em `whatsapp.css`. Reusa `_numero_do_contato`.
+Sem migration. Suíte: 45 testes OK. Antes: WhatsApp/Liberação — busca inteligente.
+
+**Anterior (WhatsApp/Liberação: busca inteligente):** a aba **🚦 Liberação** ganhou
 um **campo de busca ao vivo** — começa a digitar e a lista de responsáveis/diretoria filtra na hora, por **nome**
 (ignora acento/caixa) ou por **número** (dígitos). Mostra contador "N de M", "nenhum contato encontrado" quando não
 há match e **Esc** limpa. Filtro 100% no front (JS puro, sem request), sobre a lista já renderizada. Arquivos:

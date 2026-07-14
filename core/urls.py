@@ -141,6 +141,7 @@ urlpatterns = [
     path("whatsapp/templates/salvar/", views.whatsapp_templates_view, name="whatsapp_templates"),
     path("whatsapp/reengajar/config/", views.whatsapp_reengajar_config_view, name="whatsapp_reengajar_config"),
     path("whatsapp/reengajar/", views.whatsapp_reengajar_view, name="whatsapp_reengajar"),
+    path("whatsapp/liberar/", views.whatsapp_liberar_view, name="whatsapp_liberar"),
     path("webhooks/whatsapp/", views.whatsapp_webhook_view, name="whatsapp_webhook"),
     path("autorizar/", views.autorizar_view, name="autorizar"),
     # --- Configurações IA (API do GPT / OpenAI) ---

@@ -3898,6 +3898,45 @@ def whatsapp_reengajar_view(request):
 
 @diretor_required
 @require_POST
+def whatsapp_liberar_view(request):
+    """Marca manualmente UMA conta (`usuario_id`) como AUTORIZADA na Liberação —
+    para casos em que a pessoa autorizou por fora (ligação, presencial) ou cuja
+    mensagem não chegou ao webhook. Seta a autorização e a data da última mensagem
+    (como se tivesse escrito) tanto no PerfilUsuario (termômetro) quanto no
+    ContatoWhatsapp (fonte do gate `_pode_notificar`), só quando ainda vazios (não
+    sobrescreve um contato real mais recente)."""
+    uid = request.POST.get("usuario_id")
+    user = User.objects.filter(id=uid).first() if uid else None
+    if user is None:
+        return JsonResponse({"ok": False, "erro": "Conta não encontrada."}, status=400)
+    agora = timezone.now()
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=user)
+    campos = []
+    if not perfil.autorizacao_recebida_em:
+        perfil.autorizacao_recebida_em = agora
+        campos.append("autorizacao_recebida_em")
+    if not perfil.ultima_msg_whatsapp_em:
+        perfil.ultima_msg_whatsapp_em = agora
+        campos.append("ultima_msg_whatsapp_em")
+    if campos:
+        perfil.save(update_fields=campos)
+    numero = _numero_do_contato(user)
+    if numero and len(numero) >= 12:
+        contato, _ = ContatoWhatsapp.objects.get_or_create(numero=numero)
+        mudou = False
+        if not contato.autorizou_em:
+            contato.autorizou_em = agora
+            mudou = True
+        if not contato.ultima_msg_em:
+            contato.ultima_msg_em = agora
+            mudou = True
+        if mudou:
+            contato.save()
+    return JsonResponse({"ok": True})
+
+
+@diretor_required
+@require_POST
 def whatsapp_autorizacao_config_view(request):
     """Salva a mensagem de autorização (o texto que o responsável deve enviar) e a
     resposta automática de confirmação."""

@@ -301,7 +301,7 @@
                 </div><!-- /painel autorizacao -->
 
                 <div class="wa-painel" data-painel="liberacao"{% if aba != 'liberacao' %} hidden{% endif %}
-                     data-reengajar-url="{% url 'core:whatsapp_reengajar' %}" data-csrf="{{ csrf_token }}">
+                     data-reengajar-url="{% url 'core:whatsapp_reengajar' %}" data-liberar-url="{% url 'core:whatsapp_liberar' %}" data-csrf="{{ csrf_token }}">
                     {{ reengajar_alvos|json_script:"reengajarAlvos" }}
                     <section class="card wa-card">
                         <div class="wa-card-topo">
@@ -367,6 +367,7 @@
                                     {% elif p.ultima_msg_em %}<span class="mens-term-pill mens-term-amarelo">🟡 Mandou msg</span>
                                     {% else %}<span class="mens-term-pill mens-term-vermelho">⛔ Nunca</span>{% endif %}
                                     <span class="wa-lib-quando">{% if p.ultima_msg_em %}há {{ p.ultima_msg_em|timesince }}{% endif %}</span>
+                                    {% if not p.autorizou and p.usuario_id %}<button type="button" class="wa-lib-liberar" data-usuario="{{ p.usuario_id }}" title="Marcar como autorizado manualmente">✓ Marcar autorizado</button>{% endif %}
                                 </div>
                             </li>
                             {% empty %}

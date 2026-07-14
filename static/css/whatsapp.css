@@ -279,8 +279,11 @@
 .wa-lib-nome { font-weight:600; }
 .wa-lib-tipo { font-weight:400; font-size:0.78rem; color:#64748b; background:#e2e8f0; border-radius:6px; padding:1px 6px; margin-left:4px; }
 .wa-lib-num { font-size:0.85rem; color:#64748b; }
-.wa-lib-status { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+.wa-lib-status { display:flex; align-items:center; gap:8px; flex:0 0 auto; flex-wrap:wrap; }
 .wa-lib-quando { font-size:0.82rem; color:#64748b; }
+.wa-lib-liberar { font-size:0.82rem; font-weight:600; padding:5px 10px; border:1px solid var(--verde,#1e7d34); color:var(--verde,#1e7d34); background:#fff; border-radius:999px; cursor:pointer; white-space:nowrap; min-height:32px; }
+.wa-lib-liberar:hover { background:#e6f4ea; }
+.wa-lib-liberar:disabled { opacity:0.6; cursor:default; }
 /* pills (mesmo visual do termômetro das Cobranças) */
 .mens-term-pill { font-size:0.82rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid transparent; white-space:nowrap; }
 .mens-term-verde { background:#e6f4ea; color:#1e7d34; border-color:#bfe3c8; }
