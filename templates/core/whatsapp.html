@@ -351,6 +351,10 @@
                             🟡 já mandou mensagem (sem autorização) · 🔴 nunca mandou. Atualiza conforme as
                             pessoas enviam mensagem pelo link de autorização. ({{ liberacao_autorizados }} autorizado(s).)
                         </p>
+                        <div class="wa-lib-busca">
+                            <input type="search" id="waLibBusca" class="wa-lib-busca-input" placeholder="🔎 Buscar por nome ou número…" autocomplete="off" aria-label="Buscar contato">
+                            <span class="wa-lib-busca-conta" id="waLibConta" aria-live="polite"></span>
+                        </div>
                         <ul class="wa-lib-lista">
                             {% for p in liberacao %}
                             <li class="wa-lib-item">
@@ -369,6 +373,7 @@
                             <li class="wa-lib-item"><span>Nenhum responsável ou diretor cadastrado.</span></li>
                             {% endfor %}
                         </ul>
+                        <p class="wa-lib-vazio-busca" id="waLibSemResultado" hidden>Nenhum contato encontrado para essa busca.</p>
                     </section>
                 </div><!-- /painel liberacao -->
 

@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-14 - WhatsApp/Liberação: busca inteligente + diagnóstico da resposta de autorização
+
+### Resumo
+Adicionado um campo de busca ao vivo na aba 🚦 Liberação (filtra a lista de responsáveis/diretoria enquanto
+digita, por nome ou número). Trabalho originado de um diagnóstico: por que a resposta automática de autorização
+não estava sendo enviada em alguns casos.
+
+### Arquivos criados/alterados
+- `templates/core/whatsapp.html`: campo `#waLibBusca` (input `type=search`) + contador `#waLibConta` acima da
+  lista e aviso `#waLibSemResultado` ("nenhum contato encontrado") abaixo dela.
+- `static/js/whatsapp.js`: bloco de busca da Liberação — pré-computa por linha um índice de nome (sem acento/caixa,
+  via `normalize("NFD")`) e os dígitos do número; handler `input` filtra escondendo `.wa-lib-item`; `Esc` limpa.
+- `static/css/whatsapp.css`: `.wa-lib-busca`, `.wa-lib-busca-input` (+ `:focus`), `.wa-lib-busca-conta`,
+  `.wa-lib-vazio-busca` — na paleta existente.
+
+### Diagnóstico (resposta automática de autorização)
+- **Caso 1 — Sirleide (`5516981444197`)**: a mensagem chegou, casou com o perfil e a autorização foi marcada,
+  mas a resposta de confirmação não saiu. Causa: `_registrar_contato_whatsapp` envia a confirmação em
+  `try/except: pass` **ignorando o retorno** de `_enviar_whatsapp`, e a confirmação é disparo único — uma falha
+  transitória da W-API se perde sem log nem retry. Instância estava OK (listou 216 grupos); envio de teste manual
+  agora deu `ok:True` (ela recebeu a confirmação com atraso).
+- **Caso 2 — Manuella/`fla.pinhal` (`5517997134996`)**: `autorizacao_recebida_em=None`, `ultima_msg_whatsapp_em=None`,
+  **nenhum** evento de webhook e **nenhum** `ContatoWhatsapp` (que é permanente) em qualquer variante da área 17.
+  Conclusão: a mensagem de autorização dela **nunca chegou ao webhook do clube** — não é bug de código.
+
+### Decisões tomadas
+- Busca 100% no front (sobre a lista já renderizada) — sem novo endpoint, coerente com o tamanho da base.
+- Match "inteligente": letras filtram por nome (sem acento), dígitos filtram por número.
+
+### Pendências
+- **Robustez da resposta de autorização (não feita)**: logar a falha do envio (parar de engolir) e tornar a
+  confirmação **idempotente com retry** na próxima mensagem (campo novo, migration `0055`). Combinado com o
+  usuário, fica para uma próxima etapa.
+
 ## 2026-07-12 - Revisão geral (parte 4): responsividade mobile
 
 ### Resumo

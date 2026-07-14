@@ -267,6 +267,11 @@
 .wa-eventos-vazio { margin-top:12px; color:#64748b; }
 
 /* ---- Painel Liberação (responsáveis + diretoria) ---- */
+.wa-lib-busca { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.wa-lib-busca-input { flex:1 1 240px; min-width:0; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.95rem; background:#fff; }
+.wa-lib-busca-input:focus { outline:none; border-color:var(--verde,#1e7d34); box-shadow:0 0 0 3px rgba(30,125,52,0.12); }
+.wa-lib-busca-conta { font-size:0.82rem; color:#64748b; white-space:nowrap; }
+.wa-lib-vazio-busca { margin:12px 0 0; padding:10px 12px; color:#64748b; font-size:0.9rem; text-align:center; }
 .wa-lib-lista { list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
 .wa-lib-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid #e0e0e0; border-radius:8px; background:var(--fundo-suave,#f5f7fa); flex-wrap:wrap; }
 .wa-lib-info { display:flex; flex-direction:column; gap:2px; min-width:0; }

@@ -185,6 +185,54 @@
         if (abaWh) abaWh.addEventListener("click", carregarEventos);
     }
 
+    // ---- Liberação: busca inteligente (filtra a lista enquanto digita) ----
+    var libBusca = document.getElementById("waLibBusca");
+    var libLista = document.querySelector(".wa-lib-lista");
+    if (libBusca && libLista) {
+        var libConta = document.getElementById("waLibConta");
+        var libSem = document.getElementById("waLibSemResultado");
+        // Normaliza para comparação: minúsculas, sem acento.
+        var normTxt = function (s) {
+            return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        };
+        // Só as linhas reais de contato (ignora o "nenhum cadastrado" do {% empty %}).
+        var libItens = Array.prototype.filter.call(
+            libLista.querySelectorAll(".wa-lib-item"),
+            function (li) { return li.querySelector(".wa-lib-nome"); }
+        );
+        // Pré-computa o índice de busca de cada linha (nome sem acento + dígitos do número).
+        libItens.forEach(function (li) {
+            var nome = normTxt((li.querySelector(".wa-lib-nome") || {}).textContent || "");
+            var num = ((li.querySelector(".wa-lib-num") || {}).textContent || "").replace(/\D/g, "");
+            li.dataset.libNome = nome;
+            li.dataset.libNum = num;
+        });
+        var libFiltrar = function () {
+            var q = libBusca.value.trim();
+            var qTxt = normTxt(q);
+            var qNum = q.replace(/\D/g, "");
+            var visiveis = 0;
+            libItens.forEach(function (li) {
+                var casa = !q
+                    || li.dataset.libNome.indexOf(qTxt) !== -1
+                    || (qNum && li.dataset.libNum.indexOf(qNum) !== -1);
+                li.hidden = !casa;
+                if (casa) visiveis++;
+            });
+            if (libSem) libSem.hidden = visiveis !== 0;
+            if (libConta) {
+                libConta.textContent = q
+                    ? visiveis + " de " + libItens.length
+                    : "";
+            }
+        };
+        libBusca.addEventListener("input", libFiltrar);
+        // Esc limpa a busca.
+        libBusca.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && libBusca.value) { libBusca.value = ""; libFiltrar(); }
+        });
+    }
+
     // ---- Reengajar inativos (um a um, 10s entre cada, barra + cancelar) ----
     var painelLib = document.querySelector('.wa-painel[data-painel="liberacao"]');
     var btnReeng = document.getElementById("waReengajarBtn");

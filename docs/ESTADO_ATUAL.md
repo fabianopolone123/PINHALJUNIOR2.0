@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-12 (**Revisão geral — parte 4: responsividade mobile**): fecha a revisão.
+**Última atualização:** 2026-07-14 (**WhatsApp/Liberação: busca inteligente**): a aba **🚦 Liberação** ganhou
+um **campo de busca ao vivo** — começa a digitar e a lista de responsáveis/diretoria filtra na hora, por **nome**
+(ignora acento/caixa) ou por **número** (dígitos). Mostra contador "N de M", "nenhum contato encontrado" quando não
+há match e **Esc** limpa. Filtro 100% no front (JS puro, sem request), sobre a lista já renderizada. Arquivos:
+`templates/core/whatsapp.html` (input `#waLibBusca` + `#waLibSemResultado`), `static/js/whatsapp.js` (índice
+pré-computado nome+dígitos por linha e `input`/`keydown` handlers) e `static/css/whatsapp.css` (`.wa-lib-busca*`).
+Sem migration. Suíte: 45 testes OK. Contexto: veio de diagnóstico da resposta automática de autorização — **caso 1**
+(Sirleide): mensagem chegou/autorizou mas a resposta de confirmação **falhou em silêncio** (envio transitório
+engolido por `except: pass`, sem retry) — reenviada manualmente; **pendência de robustez** (logar falha + retry
+idempotente, migration `0055`) **ainda não implementada**. **Caso 2** (Manuella/`fla.pinhal`): **nenhum** rastro de
+entrada no webhook (nem `ContatoWhatsapp`) — a mensagem dela nunca chegou ao clube; não é bug de código.
+Antes: Revisão geral — parte 4.
+
+**Anterior (Revisão geral — parte 4: responsividade mobile):** fecha a revisão.
 (1) **Alvos de toque** aumentados para ~40px: `.ordem-btn` (reordenar campos), `.entrega-btn` (baixa de
 entrega no evento) e `.loja-kit-remover` (remover item do carrinho). (2) As **3 tabelas da aba Vendas** da
 Loja (`loja.html`) ganharam wrapper `.tabela-scroll` (rolagem horizontal em telas estreitas, como já fazia o
