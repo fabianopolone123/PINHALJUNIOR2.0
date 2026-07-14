@@ -274,6 +274,7 @@
 .wa-lib-vazio-busca { margin:12px 0 0; padding:10px 12px; color:#64748b; font-size:0.9rem; text-align:center; }
 .wa-lib-lista { list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
 .wa-lib-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid #e0e0e0; border-radius:8px; background:var(--fundo-suave,#f5f7fa); flex-wrap:wrap; }
+.wa-lib-item[hidden] { display:none; }  /* [hidden] precisa vencer o display:flex acima */
 .wa-lib-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .wa-lib-nome { font-weight:600; }
 .wa-lib-tipo { font-weight:400; font-size:0.78rem; color:#64748b; background:#e2e8f0; border-radius:6px; padding:1px 6px; margin-left:4px; }

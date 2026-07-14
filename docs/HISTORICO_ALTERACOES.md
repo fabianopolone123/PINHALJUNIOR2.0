@@ -35,7 +35,8 @@ não estava sendo enviada em alguns casos.
 - `static/js/whatsapp.js`: bloco de busca da Liberação — pré-computa por linha um índice de nome (sem acento/caixa,
   via `normalize("NFD")`) e os dígitos do número; handler `input` filtra escondendo `.wa-lib-item`; `Esc` limpa.
 - `static/css/whatsapp.css`: `.wa-lib-busca`, `.wa-lib-busca-input` (+ `:focus`), `.wa-lib-busca-conta`,
-  `.wa-lib-vazio-busca` — na paleta existente.
+  `.wa-lib-vazio-busca` — na paleta existente. **Fix:** `.wa-lib-item[hidden] { display:none }` — o `display:flex`
+  do item sobrescrevia o `[hidden]` (contava "1 de 11" mas não escondia os demais); a regra por atributo vence.
 
 ### Diagnóstico (resposta automática de autorização)
 - **Caso 1 — Sirleide (`5516981444197`)**: a mensagem chegou, casou com o perfil e a autorização foi marcada,
