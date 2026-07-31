@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-31 (**Cobrança: opção "Ambos" (WhatsApp + e-mail)**): o seletor de canal da
+**Última atualização:** 2026-07-31 (**DEPLOY_VPS: conhecimento operacional do servidor**): só documentação,
+sem código. Registrado no `docs/DEPLOY_VPS.md` o que custou tempo descobrir nesta sessão: (1) **os dois atalhos
+de deploy parecidos** — `pinhaljunior2-deploy` (este sistema, `/var/www/pinhaljunior2`, porta 8010) × 
+`pinhaljunior-deploy` **sem o "2"** (sistema antigo, `/srv/sitepinhal`, porta 8000), cujo uso por engano
+**reativa o `sitepinhal.service`** que deve ficar parado; (2) o VPS **é compartilhado por 11 aplicações
+Django** (lista + domínios) com **1 vCPU, 3,8 GB e sem swap** — não mexer em serviço de outro projeto, e
+`reboot` derruba os 11; (3) **dependências que expiram sem alerta** (assinatura da W-API → 403; sessão do
+WhatsApp → 401 pede QR de novo; senha de app do Gmail), com o comando de diagnóstico da W-API que envia para o
+próprio número do clube; (4) **bloqueio em rede corporativa (FortiGate)** — domínio novo tende a cair como não
+classificado; conserto é a reclassificação no FortiGuard, e o paliativo que cobre todos os perfis é
+*Web Rating Overrides*, não a lista de URLs; (5) aviso de que o deploy só traz o que já está no GitHub (se
+`Commit anterior == Commit atual`, faltou o push). Antes: Cobrança — opção "Ambos".
+
+**Anterior (Cobrança: opção "Ambos" (WhatsApp + e-mail)):** o seletor de canal da
 aba Cobranças ganhou **💬+✉️ Ambos** — um clique manda pelos dois canais, cada um com as suas regras. `CANAL_AMBOS`
 é opção de **envio**, não valor gravável: cada mensagem que sai vira um `CobrancaEnviada` do canal real, então a
 contagem por canal continua exata. Pontos do desenho: (1) a mensagem é montada **uma vez por família** e reusada

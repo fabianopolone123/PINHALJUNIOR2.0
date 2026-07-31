@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-31 - DEPLOY_VPS: registra o conhecimento operacional do servidor
+
+### Resumo
+Só documentação. Registra no `docs/DEPLOY_VPS.md` o que foi descoberto operando o servidor nesta sessão e que
+não estava escrito em lugar nenhum — informação que, sem registro, seria rediagnosticada do zero.
+
+### Arquivos alterados
+- `docs/DEPLOY_VPS.md`:
+  - Aviso sobre os **dois atalhos de deploy** (`pinhaljunior2-deploy` × `pinhaljunior-deploy`), com tabela de
+    projeto/caminho/porta e como distinguir pela saída. Rodar o errado reativa o `sitepinhal.service`.
+  - Nova seção **"O VPS é compartilhado com outros projetos"**: as 11 aplicações Django ativas, os recursos
+    (1 vCPU, 3,8 GB, **sem swap**, ~38 gunicorn) e as implicações.
+  - Nova seção **"Dependências externas que expiram"**: W-API (403 = assinatura, 401 = QR), certificado,
+    senha de app do Gmail — com o comando de diagnóstico da W-API que envia ao próprio número do clube.
+  - Nova seção **"Acesso bloqueado em redes corporativas (FortiGate)"**: causa provável (domínio novo, não
+    classificado), conserto (reclassificação no FortiGuard) e o paliativo correto (*Web Rating Overrides*,
+    que vale para todos os perfis — a lista de URLs vale só para o perfil amarrado).
+  - Cuidado novo: deploy só traz o que está no GitHub; `Commit anterior == Commit atual` = faltou o push.
+
+### Decisões tomadas
+- Documentar no `DEPLOY_VPS.md` e não no `ESTADO_ATUAL.md`: é conhecimento de **operação**, não estado do
+  sistema, e quem for mexer no servidor abre esse arquivo.
+- Não versionar a chave SSH de automação nem credenciais — só o caminho de diagnóstico.
+
+### Validação
+- Sem código; suíte segue em **107 testes OK**. Deploy `cba3830` confirmado no ar.
+
 ## 2026-07-31 - Cobrança: opção "Ambos" (WhatsApp + e-mail no mesmo clique)
 
 ### Resumo

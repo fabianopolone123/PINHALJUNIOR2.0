@@ -32,6 +32,25 @@ Depois de commitar e fazer push no GitHub:
 pinhaljunior2-deploy
 ```
 
+> **Atenção ao nome.** Existem **dois** atalhos parecidos no servidor:
+>
+> | Comando | Projeto | Caminho | Porta |
+> |---|---|---|---|
+> | `pinhaljunior2-deploy` | **este sistema** | `/var/www/pinhaljunior2` | 8010 |
+> | `pinhaljunior-deploy` (sem o "2") | sistema **antigo** | `/srv/sitepinhal` | 8000 |
+>
+> Rodar o de baixo por engano **reativa o `sitepinhal.service`**, que deve ficar parado — ele volta a consumir
+> memória sem servir tráfego (o Nginx aponta o domínio para a porta 8010). Não quebra o site, mas passa
+> despercebido. Para conferir e parar:
+>
+> ```bash
+> systemctl is-active sitepinhal.service
+> systemctl stop sitepinhal.service
+> ```
+>
+> Como distinguir na saída: o nosso mostra `[pinhaljunior2]` em cada linha, aplica migrations do app `core` e
+> faz healthcheck na porta 8010.
+
 O atalho faz:
 
 - lock para impedir dois deploys simultâneos;
@@ -131,9 +150,73 @@ Agendar (ex.: **todo dia às 09:00**) com `crontab -e`:
   estiver configurado ou a mensagem de reengajamento estiver vazia).
 - Rodar na mão para testar: use o mesmo bloco sem o `>> ...log`.
 
+## O VPS é compartilhado com outros projetos
+
+Este servidor **não é exclusivo** do Pinhal Júnior. Em 2026-07-31 havia **11 aplicações Django** ativas, todas
+em Gunicorn atrás do mesmo Nginx:
+
+| Serviço | Domínio / porta |
+|---|---|
+| `pinhaljunior2` | pinhaljunior.com.br → 8010 |
+| `site_inscricao` / `site_inscricao_v2` | inscriçãoandrews.com.br |
+| `sitemissao` | missaoandrewsc.com.br |
+| `italiano`, `mapa`, `polloniflow`, `beezap`, `trade`, `treinartrade`, `site_samela_orcamento` | fabianopolone.com.br e outros |
+| `sitepinhal` | sistema antigo, deve ficar **parado** |
+
+**Recursos apertados:** 1 vCPU, 3,8 GB de RAM, **sem swap**, ~38 processos gunicorn no total. Disco em 30% de
+48 GB (folgado). Implicações práticas:
+
+- Nunca parar/reiniciar serviço que não seja o `pinhaljunior2` sem saber a quem pertence.
+- Sem swap não há rede de proteção: um pico de memória mata processo direto (não houve OOM até hoje, mas a
+  margem é pequena — ~2 GB disponíveis).
+- Um `systemctl restart` do nosso serviço é seguro; um `reboot` derruba os 11 sites e precisa de janela.
+
+## Dependências externas que expiram
+
+Coisas que param sozinhas e **não** geram alerta — quando algo "parou de funcionar sem ninguém mexer", comece por aqui:
+
+| Dependência | Como falha | Onde renovar |
+|---|---|---|
+| **W-API** (WhatsApp) | `Erro 403: para continuar usando essa instância, você deve assinar novamente` | painel da w-api.app — assinatura da instância |
+| **Sessão do WhatsApp** | `Erro 401: Whatsapp não conectado` | ler o QR Code de novo no painel da W-API |
+| **Certificado SSL** | site fora do ar por HTTPS | automático (`certbot.timer`); só conferir se o timer está ativo |
+| **Senha de app do Gmail** | `SMTPAuthenticationError` na tela de E-mail | Conta do Google → Segurança → Senhas de app |
+
+Quando a W-API cai, **tudo** que depende dela para: cobrança por WhatsApp, as notificações automáticas nesse
+canal, o código de recuperação de senha e o reengajamento. O sistema não quebra (as falhas viram mensagem na
+tela), mas nada sai. O canal de **e-mail é independente** e continua funcionando.
+
+Diagnóstico rápido da W-API, sem incomodar ninguém (envia para o próprio número do clube):
+
+```bash
+set -a; . /etc/pinhaljunior2.env; set +a
+cd /var/www/pinhaljunior2/current
+/var/www/pinhaljunior2/.venv/bin/python -c "
+import django; django.setup()
+from core.models import WhatsappConfig
+from core import wapi
+print(wapi.listar_grupos(WhatsappConfig.get_solo())[:2])
+"
+```
+
+## Acesso bloqueado em redes corporativas (FortiGate)
+
+O domínio é novo (registrado em 2026-01-18) e pequeno, então o **FortiGuard** pode não tê-lo classificado — e
+muitos perfis de FortiGate bloqueiam categoria "não classificada" por padrão. O site fica inacessível na rede
+da empresa e normal em todo o resto.
+
+- **Conserto definitivo (gratuito):** pedir reclassificação em `fortiguard.com/webfilter` → *Request
+  Reclassification*. Categoria sugerida: **Education** ou **Charitable Organizations**.
+- **Paliativo por rede:** exceção no FortiGate. O caminho que resolve todos os perfis de uma vez é
+  **Security Profiles → Web Rating Overrides**, não a lista de URLs (que vale só para o perfil ao qual a
+  tabela está amarrada).
+- Não é problema do servidor: o site responde 200 normalmente da internet aberta.
+
 ## Cuidados
 
 - Não copiar código manualmente para o VPS. Código sempre por GitHub + `pinhaljunior2-deploy`.
+- **Deploy só traz o que já está no GitHub.** Se `Commit anterior` e `Commit atual` saírem iguais na saída do
+  atalho, é sinal de que o `git push` não foi feito — não adianta rodar de novo.
 - O deploy padrão (`pinhaljunior2-deploy`) hoje sobe o sistema novo para a **raiz** do domínio.
 - O serviço antigo `sitepinhal.service` está desativado; só reativar em rollback explícito.
 - Não versionar banco, uploads, tokens, `.env` ou backups.
