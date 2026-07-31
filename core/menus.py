@@ -57,6 +57,8 @@ ITENS_MENU = [
      "url": "core:presenca", "ativas": ["presenca", "presenca_evento"]},
     {"id": "whatsapp", "rotulo": "WhatsApp", "icone": "💬",
      "url": "core:whatsapp", "ativas": ["whatsapp"]},
+    {"id": "email", "rotulo": "E-mail", "icone": "✉️",
+     "url": "core:email", "ativas": ["email"]},
     {"id": "mercadopago", "rotulo": "Mercado Pago", "icone": "💳",
      "url": "core:mercadopago", "ativas": ["mercadopago"]},
     {"id": "ia", "rotulo": "Configurações IA", "icone": "🤖",

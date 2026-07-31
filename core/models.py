@@ -11,6 +11,7 @@ import random
 import string
 import uuid
 from decimal import Decimal
+from email.utils import formataddr
 
 from django.conf import settings
 from django.db import models
@@ -1863,6 +1864,106 @@ class OpenAIConfig(models.Model):
         self.tokens_cache = 0
         self.tokens_completion = 0
         self.save(update_fields=["chamadas", "tokens_prompt", "tokens_cache", "tokens_completion"])
+
+
+class EmailConfig(models.Model):
+    """Configuração do envio de e-mail (SMTP). Linha única (singleton).
+
+    Segundo canal de notificação, ao lado do WhatsApp. Guarda o servidor SMTP, a
+    conta e a senha de app, além do contador de envios. Espelha o padrão do
+    `WhatsappConfig`/`OpenAIConfig`: singleton `get_solo`, segredo mascarado (a
+    senha só é trocada quando um novo valor é digitado) e contador na tela.
+
+    O envio em si fica em `core/email_envio.py` (usa o `django.core.mail`, nativo —
+    sem dependência nova). Os padrões vêm prontos para o SMTP do Gmail, que é o
+    que o clube usa; nada impede apontar para outro servidor pela tela."""
+
+    SEGURANCA_TLS = "tls"
+    SEGURANCA_SSL = "ssl"
+    SEGURANCA_NENHUMA = "nenhuma"
+    SEGURANCA_CHOICES = [
+        (SEGURANCA_TLS, "STARTTLS (porta 587)"),
+        (SEGURANCA_SSL, "SSL/TLS (porta 465)"),
+        (SEGURANCA_NENHUMA, "Nenhuma"),
+    ]
+
+    host = models.CharField("Servidor SMTP", max_length=120, blank=True, default="smtp.gmail.com")
+    porta = models.PositiveIntegerField("Porta", default=587)
+    seguranca = models.CharField(
+        "Segurança", max_length=10, choices=SEGURANCA_CHOICES, default=SEGURANCA_TLS
+    )
+    usuario = models.CharField("Conta (e-mail)", max_length=254, blank=True)
+    senha = models.CharField("Senha de app", max_length=255, blank=True)
+    remetente_nome = models.CharField(
+        "Nome do remetente", max_length=120, blank=True,
+        default="Clube de Aventureiros Pinhal Júnior",
+    )
+
+    # Contador acumulado de envios (todos os e-mails que saem pelo sistema).
+    enviados = models.PositiveIntegerField("E-mails enviados", default=0)
+    falhas = models.PositiveIntegerField("Falhas de envio", default=0)
+    ultimo_envio_em = models.DateTimeField("Último envio", null=True, blank=True)
+    ultimo_erro = models.TextField("Último erro", blank=True, default="")
+
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="email_configs",
+        verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuração de e-mail"
+        verbose_name_plural = "Configuração de e-mail"
+
+    def __str__(self):
+        return "Configuração de e-mail (SMTP)"
+
+    @classmethod
+    def get_solo(cls):
+        """Retorna (criando se preciso) a única linha de configuração."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def configurado(self):
+        return bool(self.host and self.usuario and self.senha)
+
+    @property
+    def senha_mascarada(self):
+        return _mascarar_segredo(self.senha)
+
+    @property
+    def remetente(self):
+        """Remetente no formato `Nome <conta@dominio>` (ou só a conta, sem nome)."""
+        if not self.usuario:
+            return ""
+        nome = (self.remetente_nome or "").strip()
+        return formataddr((nome, self.usuario)) if nome else self.usuario
+
+    def registrar_envio(self):
+        """Contabiliza UM envio bem-sucedido (F() evita corrida entre threads)."""
+        from django.db.models import F
+        type(self).objects.filter(pk=self.pk).update(
+            enviados=F("enviados") + 1, ultimo_envio_em=timezone.now(), ultimo_erro=""
+        )
+
+    def registrar_falha(self, erro):
+        """Contabiliza UMA falha e guarda o motivo (para aparecer na tela)."""
+        from django.db.models import F
+        type(self).objects.filter(pk=self.pk).update(
+            falhas=F("falhas") + 1, ultimo_erro=(erro or "")[:500]
+        )
+
+    def zerar_contador(self):
+        """Zera o contador de envios/falhas."""
+        self.enviados = 0
+        self.falhas = 0
+        self.ultimo_erro = ""
+        self.save(update_fields=["enviados", "falhas", "ultimo_erro"])
 
 
 STATUS_PAGAMENTO_CHOICES = [

@@ -22,6 +22,59 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-30 - Notificações por e-mail (Etapa 1: base + tela)
+
+### Resumo
+Início do **segundo canal de notificação**: e-mail, ao lado do WhatsApp. Esta etapa entrega só a
+infraestrutura — configuração da conta SMTP, cliente de envio e tela com teste. **Nenhuma notificação sai por
+e-mail ainda**; o canal por notificação entra na Etapa 2.
+
+### Arquivos criados/alterados
+- `core/models.py`: novo **`EmailConfig`** (singleton `get_solo`) — `host`/`porta`/`seguranca`
+  (STARTTLS/SSL/nenhuma)/`usuario`/`senha`/`remetente_nome` + contador `enviados`/`falhas`/`ultimo_envio_em`/
+  `ultimo_erro`. Propriedades `configurado`, `senha_mascarada` (reusa `_mascarar_segredo`) e `remetente`
+  (`formataddr`); métodos `registrar_envio`/`registrar_falha` (com `F()`, seguros entre threads) e
+  `zerar_contador`. Novo import `from email.utils import formataddr`.
+- `core/email_envio.py` **(novo)**: cliente de envio. Usa `django.core.mail` (`get_connection` + `EmailMessage`)
+  montando a conexão SMTP a partir do `EmailConfig`, não do settings. `enviar(config, destino, assunto, corpo)`
+  → `(ok, detalhe)`; `_amigavel` traduz `SMTPAuthenticationError`/recusa de destinatário/timeout etc.
+- `core/migrations/0055_emailconfig.py` **(novo)**.
+- `core/views.py`: bloco novo "E-mail (SMTP)" com `email_view`, `email_config_view`, `email_testar_view` (JSON) e
+  `email_zerar_view`, todas `@diretor_required`. Helper **`_email_do_usuario`** (conta de login → ficha da
+  diretoria → `resp_email` do aventureiro). Imports `email_envio` e `EmailConfig`.
+- `core/urls.py`: rotas `email/`, `email/config/`, `email/testar/`, `email/zerar/`.
+- `core/menus.py`: item **✉️ E-mail** em `ITENS_MENU`, logo após WhatsApp (o Diretor já recebe todos os itens
+  por `ACESSO_PADRAO`, então não foi preciso mexer no acesso).
+- `templates/core/email.html` **(novo)** e `static/js/email.js` **(novo)**: espelham `ia.html`/`ia.js`
+  (mostrar/ocultar segredo, teste via AJAX com toast, contador atualizado sem recarregar). Reusam `whatsapp.css`.
+- `core/tests.py`: nova `EmailConfigTests` com 11 testes.
+
+### Decisões tomadas
+- **Sem dependência nova**: as outras integrações falam HTTP por `urllib`, mas para e-mail o Django já traz o
+  `django.core.mail`. A conexão é montada a partir do model (não das variáveis `EMAIL_*` do settings), para a
+  configuração ficar na tela como nos demais módulos.
+- **Senha de app com espaços é normalizada** ao salvar e no cliente: o Gmail exibe em grupos de 4 e o usuário
+  cola assim, mas o servidor SMTP não aceita.
+- **`_email_do_usuario` desce até o `resp_email`**: a conta de login quase nunca tem e-mail (1 de 43 no banco de
+  produção), enquanto o `resp_email` do aventureiro está preenchido em 100% das famílias.
+- **Sem gate no e-mail**: o `_pode_notificar` existe pelo risco de bloqueio da W-API, específico do WhatsApp.
+  E-mail transacional para quem forneceu o próprio endereço não tem esse risco.
+- Módulo próprio em vez de aba dentro do WhatsApp: é outro canal e o padrão de `ITENS_MENU` já suporta.
+
+### Validação
+- Suíte completa: **56 testes OK** (45 anteriores + 11 novos).
+- `manage.py check` e `makemigrations --check` limpos.
+- SMTP do Gmail: autenticação e envio reais confirmados pelo código novo (`email_envio.enviar`), incluindo a
+  falha proposital com senha errada (mensagem amigável + contador de falhas).
+- No VPS de produção: saída para `smtp.gmail.com` liberada nas portas 587, 465 e 25.
+
+### Pendências
+- **Etapa 2**: campos `enviar_whatsapp`/`enviar_email`/`assunto` no `TemplateNotificacao` + os controles na aba
+  🧩 Templates.
+- **Etapa 3**: `_notificar` vira fan-out entre os dois canais + `_email_familia`; limpar a marcação `*negrito*`
+  do WhatsApp no caminho do e-mail.
+- Robustez da resposta automática de autorização do WhatsApp (log + retry idempotente) segue pendente.
+
 ## 2026-07-14 - WhatsApp/Liberação: marcar autorizado manualmente
 
 ### Resumo

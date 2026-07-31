@@ -58,6 +58,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   (redireciona pro `wa.me` de autorização). Comando `reengajar_inativos` (cron).
 - **Configurações IA** (🤖, Diretor): `/ia/` (chave da API do GPT + teste + contador de tokens), `/ia/config/`,
   `/ia/testar/`, `/ia/zerar/`. Modelo fixo `gpt-4.1-nano`; cliente `core/openai_ia.py` (urllib).
+- **E-mail** (✉️, Diretor): `/email/` (conta SMTP + envio de teste + contador), `/email/config/`,
+  `/email/testar/`, `/email/zerar/`. Cliente `core/email_envio.py` (`django.core.mail`, **nativo**). É o
+  **2º canal de notificação**; hoje só a base — nada dispara por e-mail ainda (ver ESTADO_ATUAL).
 - **Pagamentos (Mercado Pago)** (Diretor p/ config): `/mercadopago/` (config credenciais teste/produção + modo),
   `/mercadopago/config/`; **webhook público** `/webhooks/mercadopago/`; página/sucesso de pagamento **genéricos**
   `/pagamento/<ref>/` e `/pagamento/<ref>/sucesso/`; status/simulação `/pagamento/<ref>/status/` (polling) e
@@ -102,6 +105,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Configurações IA (OpenAI/GPT)**: `OpenAIConfig` (singleton; só `api_key` + contadores de tokens
   `chamadas`/`tokens_prompt`/`tokens_cache`/`tokens_completion`). Modelo/URL fixos em `core/openai_ia.py`
   (`gpt-4.1-nano`; `conversar`/`enviar_prompt` devolvem `(ok, texto, uso)`). Todo uso deve chamar `registrar_uso`.
+- **E-mail (SMTP)**: `EmailConfig` (singleton; `host`/`porta`/`seguranca`/`usuario`/`senha` de app mascarada/
+  `remetente_nome` + contador `enviados`/`falhas`/`ultimo_envio_em`/`ultimo_erro`). Cliente `core/email_envio.py`
+  — `enviar(config, destino, assunto, corpo)` → `(ok, detalhe)`, mesmo contrato do `_enviar_whatsapp`. A conexão
+  SMTP vem do **model**, não do settings (as variáveis `EMAIL_*` do Django não são usadas). Helper
+  `_email_do_usuario` resolve o endereço: conta de login → ficha da diretoria → `Aventureiro.resp_email`.
 - **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
   `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
   `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep
@@ -176,7 +184,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   não `parseFloat` (que quebra com o separador de milhar). (Percentual, idade, estoque e quantidade **não** usam
   a máscara — não são valor em R$.)
 - **Integrações externas** seguem um padrão: cliente HTTP próprio via **`urllib`** (sem dep nova) — um módulo por
-  serviço (`core/mercadopago.py`, `core/openai_ia.py`, `core/wapi.py` + parser `core/wapi_parser.py`). **Webhooks
+  serviço (`core/mercadopago.py`, `core/openai_ia.py`, `core/wapi.py` + parser `core/wapi_parser.py`). A exceção
+  é o **e-mail** (`core/email_envio.py`), que usa o `django.core.mail` — também nativo, então a regra de fundo
+  (**zero dependência nova**) se mantém. **Webhooks
   públicos** (`/webhooks/mercadopago/`, `/webhooks/whatsapp/`) são `@csrf_exempt`, idempotentes e **nunca** devolvem
   erro/traceback ao chamador. **Envio em lote** (cobrança e reengajamento do WhatsApp) tem **pausa de 10s entre
   cada** (front-end faz o pacing com barra+cancelar; comando de cron usa `time.sleep`) — evita bloqueio por spam.

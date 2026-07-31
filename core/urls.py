@@ -149,6 +149,11 @@ urlpatterns = [
     path("ia/config/", views.ia_config_view, name="ia_config"),
     path("ia/testar/", views.ia_testar_view, name="ia_testar"),
     path("ia/zerar/", views.ia_zerar_view, name="ia_zerar"),
+    # --- E-mail (SMTP) ---
+    path("email/", views.email_view, name="email"),
+    path("email/config/", views.email_config_view, name="email_config"),
+    path("email/testar/", views.email_testar_view, name="email_testar"),
+    path("email/zerar/", views.email_zerar_view, name="email_zerar"),
     # --- Pagamentos (Mercado Pago) ---
     path("mercadopago/", views.mercadopago_view, name="mercadopago"),
     path("mercadopago/config/", views.mercadopago_config_view, name="mercadopago_config"),

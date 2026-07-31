@@ -54,6 +54,7 @@ from .forms import (
     ProdutoLojaForm,
     ResponsavelLegalForm,
 )
+from . import email_envio
 from . import mercadopago as mp
 from . import openai_ia
 from . import termos
@@ -84,6 +85,7 @@ from .models import (
     CupomDesconto,
     CustoClube,
     CustoEvento,
+    EmailConfig,
     Evento,
     FotoProdutoLoja,
     GrupoLoja,
@@ -4137,6 +4139,121 @@ def ia_zerar_view(request):
     config.zerar_uso()
     messages.success(request, "Contador de tokens zerado.")
     return redirect("core:ia")
+
+
+# ===========================================================================
+# E-mail (SMTP) — só Diretor. Segundo canal de notificação, ao lado do WhatsApp.
+# Esta etapa é só a BASE: configuração + envio de teste. Nenhuma notificação sai
+# por e-mail ainda — isso entra quando o canal for ligado no TemplateNotificacao.
+# ===========================================================================
+def _email_do_usuario(user):
+    """Melhor e-mail conhecido de um usuário, na ordem: conta de login → ficha da
+    diretoria → e-mail do responsável legal no cadastro do aventureiro.
+
+    A conta de login quase nunca tem e-mail preenchido (o cadastro não pede), mas o
+    `resp_email` do aventureiro está preenchido em 100% das famílias — por isso a
+    busca desce até lá. Espelha a lógica do `_whatsapp_familia`, que resolve o
+    número por caminhos parecidos."""
+    if not getattr(user, "is_authenticated", False):
+        return ""
+    if (getattr(user, "email", "") or "").strip():
+        return user.email.strip()
+    membro = MembroDiretoria.objects.filter(usuario=user).first()
+    if membro and (membro.email or "").strip():
+        return membro.email.strip()
+    av = (
+        Aventureiro.objects.filter(usuario=user, demo=False)
+        .exclude(resp_email="")
+        .order_by("id")
+        .first()
+    )
+    return (av.resp_email or "").strip() if av else ""
+
+
+@diretor_required
+def email_view(request):
+    """Tela de E-mail (só Diretor): guarda a conta SMTP e permite enviar um teste.
+    Mostra o contador de envios/falhas e o último erro, para diagnóstico."""
+    config = EmailConfig.get_solo()
+    return render(request, "core/email.html", {
+        "config": config,
+        "destino_padrao": _email_do_usuario(request.user) or config.usuario,
+    })
+
+
+@diretor_required
+@require_POST
+def email_config_view(request):
+    """Salva a configuração de SMTP. A senha só é substituída se uma nova for
+    digitada — assim a tela exibe apenas os últimos dígitos sem apagar a guardada
+    (mesmo comportamento do token da W-API e da chave da IA)."""
+    config = EmailConfig.get_solo()
+    config.host = (request.POST.get("host") or "").strip() or config.host
+    config.usuario = (request.POST.get("usuario") or "").strip()
+    config.remetente_nome = (request.POST.get("remetente_nome") or "").strip()
+
+    seguranca = (request.POST.get("seguranca") or "").strip()
+    if seguranca in dict(EmailConfig.SEGURANCA_CHOICES):
+        config.seguranca = seguranca
+
+    try:
+        porta = int((request.POST.get("porta") or "").strip())
+        if 1 <= porta <= 65535:
+            config.porta = porta
+    except (TypeError, ValueError):
+        pass  # porta inválida → mantém a que já estava
+
+    nova_senha = (request.POST.get("senha") or "").strip()
+    if nova_senha:
+        # O Gmail mostra a senha de app em grupos de 4 separados por espaço.
+        config.senha = nova_senha.replace(" ", "")
+
+    config.atualizado_por = request.user
+    config.save()
+    messages.success(request, "Configuração de e-mail salva.")
+    return redirect("core:email")
+
+
+@diretor_required
+@require_POST
+def email_testar_view(request):
+    """Envia um e-mail de teste e devolve o resultado (JSON, sem recarregar a
+    página). Serve para validar a conta antes de ligar qualquer notificação."""
+    config = EmailConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Preencha o servidor, a conta e a senha antes de testar."},
+            status=400,
+        )
+    destino = (request.POST.get("destino") or "").strip()
+    if not destino or "@" not in destino:
+        return JsonResponse({"ok": False, "erro": "Informe um e-mail de destino válido."},
+                            status=400)
+
+    ok, detalhe = email_envio.enviar(
+        config,
+        destino,
+        "Teste de envio — Clube de Aventureiros Pinhal Júnior",
+        "Este é um e-mail de teste do sistema do Clube de Aventureiros Pinhal Júnior.\n\n"
+        "Se você recebeu esta mensagem, a configuração de e-mail está funcionando "
+        "e as notificações automáticas podem ser ligadas.\n\n"
+        "-- \nEnviado automaticamente pelo sistema.",
+    )
+    config.refresh_from_db()
+    contador = {"enviados": config.enviados, "falhas": config.falhas}
+    if ok:
+        return JsonResponse({"ok": True, "destino": destino, "contador": contador})
+    return JsonResponse({"ok": False, "erro": detalhe, "contador": contador}, status=502)
+
+
+@diretor_required
+@require_POST
+def email_zerar_view(request):
+    """Zera o contador de envios/falhas."""
+    config = EmailConfig.get_solo()
+    config.zerar_contador()
+    messages.success(request, "Contador de e-mails zerado.")
+    return redirect("core:email")
 
 
 # ===========================================================================

@@ -11,12 +11,14 @@ from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from . import email_envio
 from . import mercadopago as mp
 from .models import (
     Aventureiro,
     CobrancaEnviada,
     CompraLoja,
     CustoClube,
+    EmailConfig,
     Evento,
     FaixaEtariaPreco,
     GrupoLoja,
@@ -949,3 +951,115 @@ class DemoIsolamentoTests(TestCase):
         nomes = [a.nome_completo for a in r.context["aventureiros"]]
         self.assertIn("Joao Real", nomes)
         self.assertNotIn("Fantasma Demo", nomes)
+
+
+class EmailConfigTests(TestCase):
+    """Base do canal de e-mail: configuração, mascaramento e envio de teste."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_email", password="x")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+
+    def test_tela_exige_diretor(self):
+        outro = User.objects.create_user("resp_email", password="x")
+        self.client.force_login(outro)
+        r = self.client.get(reverse("core:email"))
+        self.assertNotEqual(r.status_code, 200)
+
+    def test_salva_config_e_normaliza_senha_de_app(self):
+        r = self.client.post(reverse("core:email_config"), {
+            "usuario": "clube@gmail.com",
+            "senha": "abcd efgh ijkl mnop",   # o Gmail exibe com espaços
+            "remetente_nome": "Clube Pinhal",
+            "host": "smtp.gmail.com",
+            "porta": "587",
+            "seguranca": "tls",
+        })
+        self.assertEqual(r.status_code, 302)
+        cfg = EmailConfig.get_solo()
+        # Os espaços são removidos — o servidor SMTP não os aceita.
+        self.assertEqual(cfg.senha, "abcdefghijklmnop")
+        self.assertTrue(cfg.configurado)
+        self.assertEqual(cfg.remetente, "Clube Pinhal <clube@gmail.com>")
+
+    def test_senha_persiste_quando_campo_vem_vazio(self):
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "SENHA-SALVA"
+        cfg.save()
+
+        self.client.post(reverse("core:email_config"), {
+            "usuario": "clube@gmail.com", "senha": "",
+            "host": "smtp.gmail.com", "porta": "587", "seguranca": "tls",
+        })
+        cfg.refresh_from_db()
+        self.assertEqual(cfg.senha, "SENHA-SALVA")
+
+    def test_senha_mascarada_nao_vaza(self):
+        cfg = EmailConfig.get_solo()
+        cfg.senha = "abcdefghijklmnop"
+        cfg.save()
+        self.assertNotIn("abcd", cfg.senha_mascarada)
+        self.assertTrue(cfg.senha_mascarada.endswith("mnop"))
+
+    def test_porta_invalida_mantem_a_anterior(self):
+        self.client.post(reverse("core:email_config"), {
+            "usuario": "clube@gmail.com", "senha": "x",
+            "host": "smtp.gmail.com", "porta": "abc", "seguranca": "tls",
+        })
+        self.assertEqual(EmailConfig.get_solo().porta, 587)
+
+    def test_testar_sem_configurar_devolve_400(self):
+        r = self.client.post(reverse("core:email_testar"), {"destino": "a@b.com"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_envio_de_teste_usa_o_cliente_e_conta_o_envio(self):
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.save()
+
+        with mock.patch("core.views.email_envio.enviar", return_value=(True, "enviado")) as env:
+            r = self.client.post(reverse("core:email_testar"), {"destino": "pai@exemplo.com"})
+
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["ok"])
+        self.assertEqual(env.call_args[0][1], "pai@exemplo.com")
+
+    def test_falha_de_envio_devolve_502_com_motivo(self):
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.save()
+
+        with mock.patch("core.views.email_envio.enviar", return_value=(False, "Senha recusada.")):
+            r = self.client.post(reverse("core:email_testar"), {"destino": "pai@exemplo.com"})
+
+        self.assertEqual(r.status_code, 502)
+        self.assertIn("Senha recusada.", r.json()["erro"])
+
+    def test_contadores_registram_envio_e_falha(self):
+        cfg = EmailConfig.get_solo()
+        cfg.registrar_envio()
+        cfg.registrar_falha("erro qualquer")
+        cfg.refresh_from_db()
+        self.assertEqual(cfg.enviados, 1)
+        self.assertEqual(cfg.falhas, 1)
+        self.assertIn("erro qualquer", cfg.ultimo_erro)
+
+    def test_menu_do_diretor_tem_o_item_email(self):
+        r = self.client.get(reverse("core:email"))
+        self.assertEqual(r.status_code, 200)
+        ids = [i["id"] for i in r.context["menu_itens"]]
+        self.assertIn("email", ids)
+
+    def test_cliente_recusa_destino_invalido_sem_abrir_conexao(self):
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.save()
+        ok, detalhe = email_envio.enviar(cfg, "sem-arroba", "Assunto", "Corpo")
+        self.assertFalse(ok)
+        self.assertIn("inválido", detalhe)

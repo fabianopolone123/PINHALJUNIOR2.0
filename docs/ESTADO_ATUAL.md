@@ -2,7 +2,26 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-14 (**WhatsApp/Liberação: marcar autorizado manualmente**): cada linha
+**Última atualização:** 2026-07-30 (**Notificações por e-mail — Etapa 1: base + tela**): começou o
+**segundo canal de notificação**, ao lado do WhatsApp. Esta etapa é só a **infraestrutura — nada dispara por
+e-mail ainda**. (1) Novo model **`EmailConfig`** (singleton `get_solo`, migration **0055**): servidor SMTP,
+porta, segurança (STARTTLS/SSL/nenhuma), conta, **senha de app** (mascarada, só troca quando uma nova é
+digitada — mesmo padrão do token da W-API e da chave da IA), nome do remetente e contador
+`enviados`/`falhas`/`ultimo_envio_em`/`ultimo_erro`. (2) **`core/email_envio.py`** — cliente de envio com
+`django.core.mail` (**nativo, sem dependência nova**, diferente das outras integrações que usam `urllib`); monta
+a conexão SMTP a partir do `EmailConfig`, **não** do settings; `enviar(config, destino, assunto, corpo)` devolve
+`(ok, detalhe)` no mesmo contrato do `_enviar_whatsapp`, nunca levanta exceção e traduz as falhas comuns de SMTP
+para mensagens acionáveis. Remove os espaços da senha de app (o Gmail a exibe em grupos de 4). (3) Novo módulo
+**✉️ E-mail** (`/email/`, só Diretor, em `ITENS_MENU`): configuração + **envio de teste** (AJAX) + card de envios
+com zerar contador. Rotas `/email/config|testar|zerar/`; template `core/email.html` e `static/js/email.js`
+espelhando o módulo de IA; reusa `whatsapp.css` (sem CSS novo). (4) Helper **`_email_do_usuario`** — resolve o
+melhor e-mail conhecido na ordem conta de login → ficha da diretoria → **`resp_email`** do aventureiro (a conta
+de login quase nunca tem e-mail: **1 de 43**; já o `resp_email` está preenchido em **100%** das famílias).
+**Validado em produção**: SMTP do Gmail autentica, o VPS alcança `smtp.gmail.com` nas portas 587/465/25 e o envio
+real pelo código novo chegou à caixa. Suíte: **56 testes OK** (45 + 11 novos). Próximo: canal por notificação no
+`TemplateNotificacao` (Etapa 2). Antes: WhatsApp/Liberação — marcar autorizado manualmente.
+
+**Anterior (WhatsApp/Liberação: marcar autorizado manualmente):** cada linha
 não-autorizada (com conta) da aba **🚦 Liberação** ganhou o botão **"✓ Marcar autorizado"** — para quem
 autorizou por fora (ligação/presencial) ou cuja mensagem não chegou ao webhook (ex.: caso Manuella). Ao clicar,
 marca a conta como **autorizada** e grava a **data da última mensagem** (como se tivesse escrito) tanto no

@@ -1,0 +1,189 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>E-mail — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/whatsapp.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">E-mail</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo"><span aria-hidden="true">✉️</span> E-mail</h1>
+                    <p class="cabecalho-sub">
+                        Configure a conta que envia os e-mails do clube e faça um teste.
+                        Este é o segundo canal de notificação, ao lado do WhatsApp.
+                    </p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- ===================== Conta de envio (SMTP) ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">📮 Conta de envio</h2>
+                        <span class="wa-status {% if config.configurado %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                            {% if config.configurado %}✓ Configurado{% else %}Não configurado{% endif %}
+                        </span>
+                    </div>
+                    <p class="wa-ajuda">
+                        Para o Gmail, use uma <strong>senha de app</strong> (Conta do Google → Segurança →
+                        Senhas de app), não a senha normal — é preciso ter a verificação em duas etapas
+                        ligada. Por segurança, a senha é exibida só com os últimos dígitos; digite uma nova
+                        apenas se quiser trocá-la.
+                    </p>
+
+                    <form method="post" action="{% url 'core:email_config' %}" class="wa-form">
+                        {% csrf_token %}
+                        <div class="campo">
+                            <label for="usuario">Conta (e-mail que envia)</label>
+                            <input type="email" id="usuario" name="usuario" value="{{ config.usuario }}"
+                                   placeholder="clube@gmail.com" autocomplete="off">
+                        </div>
+
+                        <div class="campo">
+                            <label for="senha">Senha de app</label>
+                            {% if config.senha %}
+                            <p class="wa-token-atual">Senha atual: <strong>{{ config.senha_mascarada }}</strong></p>
+                            {% endif %}
+                            <div class="wa-token-linha">
+                                <input type="password" id="senha" name="senha"
+                                       placeholder="{% if config.senha %}Digite uma nova senha para trocar{% else %}xxxx xxxx xxxx xxxx{% endif %}"
+                                       autocomplete="new-password">
+                                <button type="button" class="btn-secundario wa-ver-token" id="verSenha"
+                                        aria-pressed="false">Mostrar</button>
+                            </div>
+                        </div>
+
+                        <div class="campo">
+                            <label for="remetente_nome">Nome do remetente <span class="wa-opcional">(como aparece para quem recebe)</span></label>
+                            <input type="text" id="remetente_nome" name="remetente_nome"
+                                   value="{{ config.remetente_nome }}"
+                                   placeholder="Clube de Aventureiros Pinhal Júnior">
+                        </div>
+
+                        <div class="campo">
+                            <label for="host">Servidor SMTP</label>
+                            <input type="text" id="host" name="host" value="{{ config.host }}"
+                                   placeholder="smtp.gmail.com">
+                        </div>
+
+                        <div class="campo">
+                            <label for="porta">Porta</label>
+                            <input type="number" id="porta" name="porta" value="{{ config.porta }}"
+                                   min="1" max="65535">
+                        </div>
+
+                        <div class="campo">
+                            <label for="seguranca">Segurança</label>
+                            <select id="seguranca" name="seguranca">
+                                {% for valor, rotulo in config.SEGURANCA_CHOICES %}
+                                <option value="{{ valor }}" {% if config.seguranca == valor %}selected{% endif %}>{{ rotulo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ===================== Enviar teste ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">✨ Enviar teste</h2>
+                    </div>
+                    {% if not config.configurado %}
+                    <p class="wa-aviso">Preencha a conta de envio acima para poder enviar um teste.</p>
+                    {% endif %}
+
+                    <form class="wa-form" id="emailTestarForm"
+                          data-url="{% url 'core:email_testar' %}"
+                          data-csrf="{{ csrf_token }}">
+                        <div class="campo">
+                            <label for="destino">Enviar para</label>
+                            <input type="email" id="destino" name="destino" value="{{ destino_padrao }}"
+                                   placeholder="voce@exemplo.com"
+                                   {% if not config.configurado %}disabled{% endif %}>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao" id="emailTestarBtn"
+                                    {% if not config.configurado %}disabled{% endif %}>
+                                <span aria-hidden="true">🚀</span> Enviar teste
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ===================== Envios ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">📊 Envios</h2>
+                    </div>
+                    <p class="wa-ajuda">Total acumulado de e-mails que saíram pelo sistema.</p>
+                    <div class="ia-tokens">
+                        <div class="ia-token-item"><span class="ia-token-num" id="emEnviados">{{ config.enviados }}</span><span class="ia-token-rot">Enviados</span></div>
+                        <div class="ia-token-item"><span class="ia-token-num" id="emFalhas">{{ config.falhas }}</span><span class="ia-token-rot">Falhas</span></div>
+                    </div>
+                    {% if config.ultimo_envio_em %}
+                    <p class="wa-token-atual">Último envio: <strong>{{ config.ultimo_envio_em|date:"d/m/Y H:i" }}</strong></p>
+                    {% endif %}
+                    {% if config.ultimo_erro %}
+                    <p class="wa-aviso">Último erro: {{ config.ultimo_erro }}</p>
+                    {% endif %}
+                    <form method="post" action="{% url 'core:email_zerar' %}" class="wa-form" onsubmit="return confirm('Zerar o contador de e-mails?');">
+                        {% csrf_token %}
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-secundario"><span aria-hidden="true">♻️</span> Zerar contador</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/email.js' %}"></script>
+</body>
+</html>
