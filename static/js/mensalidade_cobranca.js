@@ -110,7 +110,9 @@
     var telUrl = painel.dataset.telefoneUrl;
     painel.addEventListener("change", function (e) {
         var sel = e.target.closest(".mens-cob-tel-sel");
-        if (!sel) return;
+        // Exige o `data-usuario`: sem ele não é um seletor de telefone de família
+        // (guarda contra outro <select> herdar a classe por engano).
+        if (!sel || !sel.dataset.usuario) return;
         var origem = sel.value;
         var anterior = sel.dataset.origemAtual || "";
         sel.disabled = true;

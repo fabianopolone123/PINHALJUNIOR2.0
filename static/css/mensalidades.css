@@ -254,8 +254,12 @@
 .mens-cobranca-det { display:flex; gap:16px; flex-wrap:wrap; align-items:center; color:#475569; font-size:0.92rem; margin:6px 0 10px; }
 .mens-cobranca-semzap { color:#a12a1e; }
 .mens-cob-tel { display:inline-flex; align-items:center; gap:6px; }
-.mens-cob-tel-sel { padding:4px 8px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; font-size:0.9rem; background:#fff; max-width:100%; }
-.mens-cob-tel-sel:disabled { opacity:.6; }
+.mens-cob-tel-sel,
+.mens-cob-canal-sel { padding:4px 8px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; font-size:0.9rem; background:#fff; max-width:100%; }
+.mens-cob-tel-sel:disabled,
+.mens-cob-canal-sel:disabled { opacity:.6; }
+/* Seletor de canal da cobrança: destacado, é o que decide por onde o lote sai. */
+.mens-cob-canal-sel { font-weight:700; border-color:#0f4c81; }
 
 /* Termômetro de contato (WhatsApp recebido / autorização) */
 .mens-termometro { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 10px; }

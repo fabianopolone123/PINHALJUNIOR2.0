@@ -22,6 +22,36 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-31 - Corrige o seletor de canal da cobrança disparando a troca de telefone
+
+### Resumo
+O seletor "Enviar por" (canal da cobrança) nasceu com a classe `mens-cob-tel-sel`, que é o gancho do handler
+que **troca o telefone de cobrança da família**. Resultado: só de mudar o canal, o front disparava um POST
+indevido para `mensalidade_cobranca_telefone_view` (com `usuario_id=undefined`) e mostrava um toast de erro,
+sem o Diretor ter clicado em nada de envio.
+
+### Arquivos alterados
+- `templates/core/mensalidades.html`: o `#cobrancaCanal` passou a usar a classe própria
+  `mens-cob-canal-sel` (+ comentário explicando por que não reusar a outra).
+- `static/js/mensalidade_cobranca.js`: o handler de troca de telefone agora exige `data-usuario` na origem do
+  evento — guarda contra outro `<select>` herdar a classe por engano.
+- `static/css/mensalidades.css`: `.mens-cob-canal-sel` herda o estilo do seletor e ganha destaque (é o que
+  decide por onde o lote sai).
+- `core/tests.py`: teste de regressão conferindo que a tag do `#cobrancaCanal` **não** tem a classe do
+  seletor de telefone.
+
+### Decisões tomadas
+- Corrigido nos **dois** lados: classe própria no template (causa) e exigência de `data-usuario` no handler
+  (proteção). Só a primeira já resolveria, mas a segunda impede a repetição do mesmo engano.
+
+### Validação
+- Suíte: **99 testes OK** (98 + 1 de regressão).
+
+### Nota de diagnóstico (não é código)
+- No mesmo período a instância da W-API estava com a **assinatura vencida** (403) e depois **desconectada**
+  (401), o que fazia toda cobrança por WhatsApp falhar. Após a renovação e o pareamento, envio real validado
+  (`ok=True`, 218 grupos). O 403 que aparecia na tela vinha daí, não do código.
+
 ## 2026-07-31 - E-mail: extrato dos últimos envios
 
 ### Resumo

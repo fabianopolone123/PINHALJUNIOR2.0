@@ -1437,6 +1437,16 @@ class CobrancaPorEmailTests(TestCase):
         r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {"canal": "pombo"})
         self.assertEqual(r.status_code, 400)
 
+    def test_seletor_de_canal_nao_usa_a_classe_do_seletor_de_telefone(self):
+        """Regressão: o seletor de canal chegou a nascer com a classe
+        `mens-cob-tel-sel`, o que fazia trocar o canal disparar o POST que muda o
+        telefone de cobrança da família."""
+        html = self.client.get(reverse("core:mensalidades") + "?aba=cobrancas").content.decode()
+        i = html.index('id="cobrancaCanal"')
+        tag = html[html.rindex("<select", 0, i):html.index(">", i) + 1]
+        self.assertIn("mens-cob-canal-sel", tag)
+        self.assertNotIn("mens-cob-tel-sel", tag)
+
     def test_registro_antigo_conta_como_whatsapp(self):
         """Compatibilidade: cobranças gravadas antes do campo `canal`."""
         reg = CobrancaEnviada.objects.create(

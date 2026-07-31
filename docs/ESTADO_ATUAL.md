@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-31 (**E-mail: extrato dos últimos envios**): a tela `/email/` ganhou o card
+**Última atualização:** 2026-07-31 (**Correção: seletor de canal disparava a troca de telefone**): o
+`<select>` "Enviar por" da aba Cobranças nasceu com a classe **`mens-cob-tel-sel`**, que é o gancho do handler
+que troca o **telefone de cobrança da família** — então só de mudar o canal o front disparava um POST indevido
+(com `usuario_id=undefined`) e mostrava erro na tela, sem o Diretor ter clicado em enviar nada. Corrigido nos
+dois lados: classe própria **`mens-cob-canal-sel`** no template (a causa) e o handler passou a exigir
+`data-usuario` no elemento (proteção contra outro `<select>` herdar a classe). CSS do seletor herdado + destaque.
+Teste de regressão conferindo a classe da tag. Suíte: **99 testes OK**. *Diagnóstico do mesmo período (não é
+código):* a instância da W-API estava com **assinatura vencida** (403) e depois **desconectada** (401), o que
+derrubava toda cobrança por WhatsApp; após renovar e parear, envio real validado (218 grupos). Antes: E-mail —
+extrato dos últimos envios.
+
+**Anterior (E-mail: extrato dos últimos envios):** a tela `/email/` ganhou o card
 **📬 Últimos envios** — antes só havia contador agregado, e ao ligar as notificações não dava para saber **o
 que** saiu, para quem e por que falhou. Novo model **`LogEmail`** (migration **0058**): destinatário, assunto,
 `origem` (tipo da notificação / `cobranca` / `teste`), `ok`, `detalhe` e data; mantém as últimas **200** linhas
