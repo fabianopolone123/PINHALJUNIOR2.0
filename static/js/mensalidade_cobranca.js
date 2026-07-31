@@ -47,6 +47,24 @@
         });
     }
 
+    // ---- Canal de envio (WhatsApp × e-mail) ----
+    // A contagem "cobrado este mês" é POR CANAL: mandar por e-mail não pode fazer
+    // o WhatsApp deixar de sair, então cada canal tem o seu dataset e o seu filtro.
+    function canalAtual() {
+        var sel = document.getElementById("cobrancaCanal");
+        return (sel && sel.value) || "whatsapp";
+    }
+
+    function campoCobrado(li) {
+        return canalAtual() === "email" ? "cobradoEmail" : "cobradoWhatsapp";
+    }
+
+    function temDestino(li) {
+        return canalAtual() === "email"
+            ? li.dataset.temEmail === "1"
+            : li.dataset.temNumero === "1";
+    }
+
     function enviar(usuarioId) {
         return fetch(url, {
             method: "POST",
@@ -55,17 +73,37 @@
                 "Content-Type": "application/x-www-form-urlencoded",
                 "X-Requested-With": "XMLHttpRequest",
             },
-            body: "so_nao_enviados=0&usuario_id=" + encodeURIComponent(usuarioId),
+            body: "so_nao_enviados=0&canal=" + encodeURIComponent(canalAtual())
+                + "&usuario_id=" + encodeURIComponent(usuarioId),
         }).then(function (r) { return r.json(); });
     }
 
     function marcaEnviado(li) {
-        var n = (parseInt(li.dataset.cobrado, 10) || 0) + 1;
-        li.dataset.cobrado = String(n);
+        var campo = campoCobrado(li);
+        var n = (parseInt(li.dataset[campo], 10) || 0) + 1;
+        li.dataset[campo] = String(n);
         var s = li.querySelector(".mens-cobranca-status");
         if (s) {
-            s.innerHTML = '<span class="mens-badge mens-badge-isento">📤 Cobrado este mês (' + n + ')</span>';
+            var icone = canalAtual() === "email" ? "✉️" : "📤";
+            s.innerHTML = '<span class="mens-badge mens-badge-isento">' + icone
+                + ' Cobrado este mês (' + n + ')</span>';
         }
+    }
+
+    // Ao trocar o canal, revalida quais linhas podem receber.
+    var selCanal = document.getElementById("cobrancaCanal");
+    if (selCanal) {
+        selCanal.addEventListener("change", function () {
+            var email = canalAtual() === "email";
+            Array.prototype.forEach.call(
+                painel.querySelectorAll(".mens-cobranca-item"),
+                function (li) {
+                    var btn = li.querySelector(".mens-cobranca-enviar");
+                    if (btn) btn.disabled = !temDestino(li);
+                }
+            );
+            toast(email ? "Canal: e-mail ✉️" : "Canal: WhatsApp 💬", "success");
+        });
     }
 
     // ---- Trocar o telefone de cobrança da família (persiste no servidor) ----
@@ -166,12 +204,16 @@
         var soNao = so && so.checked;
         var lib = document.getElementById("cobrancaSoLiberados");
         var soLiberados = lib && lib.checked;
+        var email = canalAtual() === "email";
         return Array.prototype.filter.call(
             painel.querySelectorAll(".mens-cobranca-item"),
             function (li) {
-                if (li.dataset.temNumero !== "1") return false;
-                if (soNao && li.dataset.cobrado !== "0") return false;
-                if (soLiberados && li.dataset.liberado !== "1") return false;
+                if (!temDestino(li)) return false;
+                if (soNao && (li.dataset[campoCobrado(li)] || "0") !== "0") return false;
+                // O filtro "só liberados" é do gate do WhatsApp (quem escreveu ao
+                // clube). No e-mail o gate é outro (descadastro/bounce) e roda no
+                // servidor, então aqui ele não se aplica.
+                if (!email && soLiberados && li.dataset.liberado !== "1") return false;
                 return true;
             }
         );

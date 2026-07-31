@@ -22,6 +22,61 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-31 - Notificações por e-mail (Etapas 3 e 4: fan-out dos gatilhos + cobrança)
+
+### Resumo
+Fecha a feature: o e-mail passou a sair de verdade. As 5 notificações transacionais despacham para os canais
+marcados no template, e a cobrança de mensalidades ganhou seletor de canal com contagem por canal.
+
+### Arquivos criados/alterados
+- `core/views.py`:
+  - **`_notificar(tipo, numero, contexto, *, forcar=False, email="")`** virou despachante. Renderiza o texto
+    **uma vez** e chama `_notificar_whatsapp` e/ou `_notificar_email` conforme `enviar_whatsapp`/`enviar_email`.
+    Retorna o resultado por canal. Curto-circuito `sem_canal` antes de renderizar (não gasta chamada de IA).
+  - **`texto_para_email`** (+ `_RX_NEGRITO_WA`): remove o `*negrito*` do WhatsApp.
+  - **`_email_familia`** (par do `_whatsapp_familia`) e `_MOTIVO_EMAIL` (motivos do gate em português).
+  - Gatilhos com e-mail: `_notificar_cadastro` (resp_email / e-mail da diretoria),
+    `_notificar_mensalidade_paga`, `_criar_inscricao_de_payload` (`responsavel_email`),
+    `_notificar_compra_loja` (`comprador_email` + e-mail dos membros no aviso interno).
+  - `_cobrancas_familias`: `email`/`tem_email` e contagem por canal
+    (`cobrado_mes_whatsapp`/`cobrado_mes_email`; `cobrado_mes` continua sendo o total).
+  - `mensalidade_cobranca_enviar_view`: parâmetro `canal`, envio por `_enviar_email` com
+    `transacional=False`, filtro por canal e `CobrancaEnviada(canal=...)`.
+  - `mensalidade_cobranca_config_view` salva o assunto; `mensalidades_view` expõe `email_configurado`.
+- `core/models.py`: `CobrancaEnviada.canal` (+ `CANAL_WHATSAPP`/`CANAL_EMAIL`/`CANAL_COBRANCA_CHOICES`),
+  `ConfigMensalidade.assunto_cobranca_email` e `ASSUNTO_COBRANCA_PADRAO`.
+- `core/migrations/0057_cobrancaenviada_canal_and_more.py` **(novo)**.
+- `templates/core/mensalidades.html`: seletor `#cobrancaCanal`, campo de assunto e os `data-*` por canal.
+- `static/js/mensalidade_cobranca.js`: `canalAtual`/`campoCobrado`/`temDestino`, `canal` no POST, badge por
+  canal e revalidação dos botões ao trocar o canal.
+- `core/tests.py`: `FanOutNotificacaoTests` (10) e `CobrancaPorEmailTests` (8).
+
+### Decisões tomadas
+- **Texto renderizado uma vez** para os dois canais: com a IA ligada, renderizar por canal dobraria o custo e
+  poderia mandar textos diferentes para a mesma pessoa. Há teste garantindo `render.call_count == 1`.
+- **`canal` no `CobrancaEnviada` com default `whatsapp`**: todo o histórico anterior é de WhatsApp, então a
+  contagem antiga continua correta sem data migration.
+- **Cobrança vai como não-transacional.** É o clube que inicia; respeita descadastro, leva
+  `List-Unsubscribe` e é barrada por bounce — ao contrário dos comprovantes.
+- **Só `*...*` é limpo** do texto: `_` e `~` aparecem em endereços de e-mail e nomes de arquivo.
+- **O filtro "só quem já me mandou mensagem" não se aplica ao e-mail** — é o gate do WhatsApp; o do e-mail
+  (descadastro/bounce) roda no servidor.
+- Assunto padrão da cobrança sem caixa alta, "!" ou "URGENTE": linguagem agressiva é gatilho de spam.
+
+### Validação
+- Suíte: **90 testes OK** (72 + 18).
+- `check` e `makemigrations --check` limpos; aba Cobranças renderiza o seletor e os `data-*` por canal.
+- Corrigido em produção o único e-mail inválido da base: um `pai_email` cujo domínio estava digitado pela
+  metade. Revalidação: **0 e-mails com formato inválido**. (Identificação do registro fora do versionamento —
+  ver a regra de dados pessoais no `.gitignore`.)
+
+### Pendências
+- Ligar cada notificação no canal de e-mail pela aba 🧩 Templates (todas nascem desligadas) e preencher o
+  `Reply-To` na tela `/email/`.
+- Por decisão do usuário: os 2 aventureiros de `teste_responsavel` **ficam** com `demo=False`, e a senha de app
+  do Gmail **não** será rotacionada.
+- Robustez da resposta automática de autorização do WhatsApp segue pendente.
+
 ## 2026-07-31 - Notificações por e-mail (Etapa 2: canal por notificação + camada anti-spam)
 
 ### Resumo
@@ -73,7 +128,7 @@ quem marca "é spam" derruba a reputação da conta para todos os envios, inclus
 - Suíte: **72 testes OK** (45 + 11 da Etapa 1 + 16 desta).
 - `check` e `makemigrations --check` limpos; as 3 telas renderizam (5 blocos de canal na aba Templates).
 - **Base de e-mails checada por DNS, sem enviar nada**: 62 endereços distintos, 59 em domínios saudáveis.
-  Problemas: `rerison.vasques@gmai` (digitação, pai de Lorenzo Brianezi Vasques) e 2× `@example.com`
+  Problemas: um `pai_email` com o domínio digitado pela metade e 2× um endereço `@example.com`
   (null MX — RFC 7505 — dos registros de teste `teste_responsavel`).
 - Autenticação de remetente já OK sem trabalho: com `From` `@gmail.com`, SPF/DKIM/DMARC passam pelo Google.
 

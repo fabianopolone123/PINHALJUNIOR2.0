@@ -118,6 +118,15 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   — Gmail/Outlook fazem POST One-Click, RFC 8058), reversível. Todo e-mail leva rodapé de identificação; os
   não-transacionais levam também `List-Unsubscribe`. Só recusa **5xx** marca bounce (4xx/conexão é problema
   nosso). Ao criar envio novo de e-mail, **use `_enviar_email`** — nunca `email_envio.enviar` direto.
+- **Notificações são multicanal**: `_notificar(tipo, numero, ctx, *, forcar=False, email="")` é o ponto único e
+  **despacha** para WhatsApp e/ou e-mail conforme `TemplateNotificacao.enviar_whatsapp`/`enviar_email`. O texto é
+  renderizado **uma vez** (a IA é chamada 1× por notificação) e no e-mail passa por `texto_para_email`, que tira
+  o `*negrito*` do WhatsApp. Ao ligar um gatilho novo, passe **os dois** destinos (`_whatsapp_familia` e
+  `_email_familia`) e deixe o template decidir. Cobrança/lembrete **não** é transacional: vai com
+  `transacional=False` e respeita descadastro.
+- **Cobrança tem canal**: `CobrancaEnviada.canal` (`whatsapp`/`email`, default `whatsapp`). A contagem "já
+  cobrei este mês" e o filtro da tela são **por canal** — sem isso, mandar por um canal silenciaria o outro. Ao
+  criar envio em lote novo, mantenha o padrão **1-por-request + 10s no front**.
 - **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
   `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
   `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep

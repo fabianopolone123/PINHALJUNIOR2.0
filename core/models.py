@@ -2560,6 +2560,11 @@ STATUS_MENSALIDADE_CHOICES = [
 ]
 
 
+# Assunto padrão quando a cobrança sai por e-mail. Deliberadamente sem caixa alta,
+# sem "!" e sem "URGENTE": linguagem de cobrança agressiva é gatilho clássico de
+# filtro de spam, e cobrança já é o envio de maior risco (não é transacional).
+ASSUNTO_COBRANCA_PADRAO = "Mensalidades em aberto — Clube de Aventureiros Pinhal Júnior"
+
 MENSAGEM_COBRANCA_PADRAO = (
     "Olá {nome}! 👋 Aqui é do Clube de Aventureiros Pinhal Júnior.\n\n"
     "Identificamos as seguintes mensalidades em aberto:\n"
@@ -2616,6 +2621,11 @@ class ConfigMensalidade(models.Model):
     mensagem_cobranca = models.TextField(
         "Mensagem de cobrança (WhatsApp)", blank=True, default=MENSAGEM_COBRANCA_PADRAO
     )
+    # Assunto usado quando a cobrança sai por e-mail (o corpo é o mesmo texto acima).
+    assunto_cobranca_email = models.CharField(
+        "Assunto da cobrança (e-mail)", max_length=200, blank=True,
+        default=ASSUNTO_COBRANCA_PADRAO,
+    )
     # Modo de envio da cobrança: False = mensagem padrão (template acima);
     # True = a IA (GPT) redige uma mensagem personalizada por família.
     cobranca_via_ia = models.BooleanField("Cobrança gerada pela IA", default=False)
@@ -2649,15 +2659,32 @@ class ConfigMensalidade(models.Model):
         return self.valor_inscricao if tipo == "inscricao" else self.valor_mensalidade
 
 
+CANAL_WHATSAPP = "whatsapp"
+CANAL_EMAIL = "email"
+CANAL_COBRANCA_CHOICES = [
+    (CANAL_WHATSAPP, "WhatsApp"),
+    (CANAL_EMAIL, "E-mail"),
+]
+
+
 class CobrancaEnviada(models.Model):
-    """Registro de uma mensagem de cobrança enviada (por WhatsApp) a uma família.
-    Guarda o mês/ano do ENVIO para o histórico e o filtro "quem já recebeu este mês"."""
+    """Registro de uma mensagem de cobrança enviada a uma família.
+    Guarda o mês/ano do ENVIO para o histórico e o filtro "quem já recebeu este mês".
+
+    O **canal** é parte da identidade do registro: sem ele, mandar a cobrança por
+    e-mail marcaria a família como "já cobrada" e o WhatsApp deixaria de sair (ou o
+    contrário). Registros anteriores ao canal de e-mail são todos de WhatsApp — daí
+    o default."""
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="cobrancas_enviadas",
         verbose_name="Família (conta)",
+    )
+    canal = models.CharField(
+        "Canal", max_length=10, choices=CANAL_COBRANCA_CHOICES,
+        default=CANAL_WHATSAPP, db_index=True,
     )
     ano = models.PositiveIntegerField("Ano do envio")
     mes = models.PositiveSmallIntegerField("Mês do envio")
@@ -2673,7 +2700,7 @@ class CobrancaEnviada(models.Model):
         ordering = ["-enviada_em"]
 
     def __str__(self):
-        return f"Cobrança {self.mes:02d}/{self.ano} — {self.usuario}"
+        return f"Cobrança {self.mes:02d}/{self.ano} ({self.get_canal_display()}) — {self.usuario}"
 
 
 class Mensalidade(models.Model):

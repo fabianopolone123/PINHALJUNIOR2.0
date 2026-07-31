@@ -81,7 +81,11 @@ from .models import (
     NOTIF_INSCRICAO_EVENTO,
     MENSAGEM_APELO_PADRAO,
     MENSAGEM_COBRANCA_PADRAO,
+    ASSUNTO_COBRANCA_PADRAO,
     PROMPT_COBRANCA_IA_PADRAO,
+    CANAL_WHATSAPP,
+    CANAL_EMAIL,
+    CANAL_COBRANCA_CHOICES,
     AssinaturaDocumentoDiretoria,
     CupomDesconto,
     CustoClube,
@@ -624,14 +628,16 @@ def cadastro_view(request):
     return render(request, "core/cadastro_escolha.html")
 
 
-def _notificar_cadastro(nome, usuario_login, whatsapp):
+def _notificar_cadastro(nome, usuario_login, whatsapp, email=""):
     """Boas-vindas a um novo cadastro (com o usuário de acesso), via on_commit.
-    Respeita o gate anti-bloqueio. Nunca derruba o cadastro."""
+    Sai pelos canais marcados no template. Nunca derruba o cadastro."""
     ctx = {
         "nome": (nome or "").split(" ")[0] or "responsável",
         "usuario": usuario_login or "",
     }
-    transaction.on_commit(lambda: _em_thread(_notificar, NOTIF_CADASTRO_NOVO, whatsapp, ctx))
+    transaction.on_commit(
+        lambda: _em_thread(_notificar, NOTIF_CADASTRO_NOVO, whatsapp, ctx, email=email)
+    )
 
 
 def cadastro_aventureiro_view(request):
@@ -670,7 +676,8 @@ def cadastro_aventureiro_view(request):
             request.session[SESSAO_USUARIO_ID] = usuario.pk
             request.session[SESSAO_ULTIMO_NOME] = aventureiro_obj.nome_completo
             _notificar_cadastro(
-                aventureiro_obj.resp_nome, usuario.username, aventureiro_obj.resp_whatsapp
+                aventureiro_obj.resp_nome, usuario.username,
+                aventureiro_obj.resp_whatsapp, aventureiro_obj.resp_email,
             )
             return redirect("core:cadastro_sucesso")
 
@@ -810,7 +817,8 @@ def cadastro_diretoria_view(request):
             request.session[SESSAO_ULTIMO_NOME] = membro_obj.nome_completo
             if not com_aventureiro:
                 _notificar_cadastro(
-                    membro_obj.nome_completo, usuario.username, membro_obj.whatsapp
+                    membro_obj.nome_completo, usuario.username,
+                    membro_obj.whatsapp, membro_obj.email,
                 )
             if com_aventureiro:
                 messages.success(
@@ -3830,29 +3838,81 @@ NOTIF_TRANSACIONAIS = {
 }
 
 
-def _notificar(tipo, numero, contexto, *, forcar=False):
-    """Ponto ÚNICO de envio de notificação automática por WhatsApp.
-    Respeita o template (ativo? IA×texto?). O gate anti-bloqueio (`_pode_notificar`)
-    é aplicado só a notificações NÃO transacionais e não `forcar`. Nunca levanta
-    exceção. Retorna (enviado: bool, motivo: str)."""
+_RX_NEGRITO_WA = re.compile(r"\*([^*\n]+)\*")
+
+
+def texto_para_email(texto):
+    """Tira a marcação de formatação do WhatsApp do texto.
+
+    Os templates são escritos para o WhatsApp, onde `*assim*` vira negrito. No
+    e-mail os asteriscos apareceriam crus, então o mesmo texto serve aos dois
+    canais sem manter duas versões. Só mexe em `*...*` — `_` e `~` aparecem em
+    endereços e nomes de arquivo, e mexer neles daria falso positivo."""
+    return _RX_NEGRITO_WA.sub(r"\1", texto or "")
+
+
+def _notificar_whatsapp(tpl, tipo, numero, texto, *, forcar=False):
+    """Envia UMA notificação já renderizada pelo WhatsApp, com o gate anti-bloqueio."""
+    cfg = WhatsappConfig.get_solo()
+    if not cfg.configurado:
+        return False, "whatsapp_nao_configurado"
+    alvo = normalizar_telefone(numero or "")
+    if not alvo or len(alvo) < 12:
+        return False, "numero_invalido"
+    aplica_gate = not forcar and tipo not in NOTIF_TRANSACIONAIS
+    if aplica_gate and not _pode_notificar(alvo):
+        return False, "nao_liberado"
+    ok, detalhe = _enviar_whatsapp(cfg, alvo, texto)
+    return (bool(ok), "enviado" if ok else f"falha:{detalhe}")
+
+
+def _notificar_email(tpl, tipo, email, texto, contexto, *, forcar=False):
+    """Envia UMA notificação já renderizada por e-mail, com o gate de consentimento.
+    O assunto interpola os mesmos marcadores do corpo."""
+    assunto = (tpl.assunto or TemplateNotificacao.assunto_padrao(tipo) or "").format_map(
+        _MarcadorDict(contexto or {})
+    )
+    return _enviar_email(
+        email, assunto, texto_para_email(texto),
+        transacional=(tipo in NOTIF_TRANSACIONAIS), forcar=forcar,
+    )
+
+
+def _notificar(tipo, numero, contexto, *, forcar=False, email=""):
+    """Ponto ÚNICO de envio de notificação automática — despacha para os canais
+    marcados no template (WhatsApp e/ou e-mail).
+
+    O texto é renderizado **uma vez** (a IA, quando ligada, é chamada só uma vez) e
+    vai para os dois canais; no e-mail passa por `texto_para_email`. Cada canal tem
+    o seu gate: WhatsApp usa `_pode_notificar` (risco de bloqueio da W-API), e-mail
+    usa `_pode_enviar_email` (descadastro/bounce).
+
+    Nunca levanta exceção. Retorna `(enviado_em_algum_canal: bool, motivo: str)`,
+    onde o motivo resume o resultado por canal."""
     try:
-        cfg = WhatsappConfig.get_solo()
-        if not cfg.configurado:
-            return False, "whatsapp_nao_configurado"
         tpl = TemplateNotificacao.get_tipo(tipo)
         if not tpl.ativo:
             return False, "template_inativo"
-        alvo = normalizar_telefone(numero or "")
-        if not alvo or len(alvo) < 12:
-            return False, "numero_invalido"
-        aplica_gate = not forcar and tipo not in NOTIF_TRANSACIONAIS
-        if aplica_gate and not _pode_notificar(alvo):
-            return False, "nao_liberado"
+        quer_wa = tpl.enviar_whatsapp and bool(numero)
+        quer_email = tpl.enviar_email and bool(email)
+        if not quer_wa and not quer_email:
+            return False, "sem_canal"
+
         texto = _render_notificacao(tpl, contexto)
         if not texto:
             return False, "sem_texto"
-        ok, detalhe = _enviar_whatsapp(cfg, alvo, texto)
-        return (bool(ok), "enviado" if ok else f"falha:{detalhe}")
+
+        resultados = []
+        enviado = False
+        if quer_wa:
+            ok, motivo = _notificar_whatsapp(tpl, tipo, numero, texto, forcar=forcar)
+            enviado = enviado or ok
+            resultados.append(f"whatsapp:{motivo}")
+        if quer_email:
+            ok, motivo = _notificar_email(tpl, tipo, email, texto, contexto, forcar=forcar)
+            enviado = enviado or ok
+            resultados.append(f"email:{motivo}")
+        return enviado, " ".join(resultados)
     except Exception as exc:  # noqa: BLE001 — notificação nunca derruba o fluxo
         return False, f"erro:{exc}"
 
@@ -4276,6 +4336,16 @@ def email_zerar_view(request):
 
 
 # --------------------- Consentimento (gate do canal de e-mail) ---------------
+# Motivos técnicos do gate traduzidos para a tela de cobrança (o Diretor precisa
+# saber POR QUE não saiu, e "descadastrado" é uma informação de ação, não um erro).
+_MOTIVO_EMAIL = {
+    "descadastrado": "descadastrou-se dos e-mails do clube",
+    "endereco_recusado": "e-mail recusado pelo servidor (endereço inválido)",
+    "endereco_invalido": "e-mail inválido",
+    "email_nao_configurado": "e-mail do clube não configurado",
+}
+
+
 def _pode_enviar_email(endereco, *, transacional=False):
     """Gate do e-mail. Devolve `(pode: bool, contato|None, motivo: str)`.
 
@@ -4628,7 +4698,10 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
         "codigo": inscricao.codigo,
     }
     numero = inscricao.responsavel_whatsapp
-    transaction.on_commit(lambda: _em_thread(_notificar, NOTIF_INSCRICAO_EVENTO, numero, ctx))
+    email = inscricao.responsavel_email
+    transaction.on_commit(
+        lambda: _em_thread(_notificar, NOTIF_INSCRICAO_EVENTO, numero, ctx, email=email)
+    )
     return inscricao
 
 
@@ -4656,6 +4729,18 @@ def _whatsapp_familia(usuario):
     return numero
 
 
+def _email_familia(usuario):
+    """E-mail da família (responsável). Par do `_whatsapp_familia`.
+
+    Diferente do WhatsApp, não há escolha de origem por família — o número tem
+    pai/mãe/responsável e o Diretor escolhe qual usar (`cobranca_whatsapp_origem`),
+    enquanto o e-mail usa sempre o do responsável. Por isso resolve pelo mesmo
+    caminho do `_email_do_usuario`."""
+    if usuario is None:
+        return ""
+    return _email_do_usuario(usuario)
+
+
 def _rotulo_mensalidade(m):
     """Rótulo curto de uma cobrança para a mensagem (ex.: 'Mensalidade Jul/2026')."""
     tipo = "Inscrição" if m.tipo == "inscricao" else "Mensalidade"
@@ -4670,7 +4755,8 @@ def _notificar_mensalidade_paga(aventureiro, mensalidades):
         return
     usuario = aventureiro.usuario
     numero = _whatsapp_familia(usuario)
-    if not numero:
+    email = _email_familia(usuario)
+    if not numero and not email:
         return
     nome, _ = _responsavel_da_familia(usuario)
     itens_txt = ", ".join(_rotulo_mensalidade(m) for m in mensalidades)
@@ -4679,7 +4765,9 @@ def _notificar_mensalidade_paga(aventureiro, mensalidades):
         "nome": (nome or "").split(" ")[0] or "responsável",
         "itens": itens_txt, "total": _moeda_txt(total),
     }
-    transaction.on_commit(lambda: _em_thread(_notificar, NOTIF_MENSALIDADE_PAGA, numero, ctx))
+    transaction.on_commit(
+        lambda: _em_thread(_notificar, NOTIF_MENSALIDADE_PAGA, numero, ctx, email=email)
+    )
 
 
 def _finalizar_mensalidade(pagamento):
@@ -5033,11 +5121,14 @@ def _cobrancas_familias():
         if m.aventureiro.usuario_id:
             por_conta[m.aventureiro.usuario_id].append(m)
 
-    cont_mes = {
-        e["usuario"]: e["n"]
-        for e in CobrancaEnviada.objects.filter(ano=hoje.year, mes=hoje.month)
-        .values("usuario").annotate(n=Count("id"))
-    }
+    # Contagem do mês POR CANAL: "já cobrei esta família" é uma pergunta por canal.
+    # Sem isso, mandar por e-mail faria o WhatsApp deixar de sair (e vice-versa).
+    cont_canal = defaultdict(lambda: {CANAL_WHATSAPP: 0, CANAL_EMAIL: 0})
+    for e in (
+        CobrancaEnviada.objects.filter(ano=hoje.year, mes=hoje.month)
+        .values("usuario", "canal").annotate(n=Count("id"))
+    ):
+        cont_canal[e["usuario"]][e["canal"]] = e["n"]
     users = {u.id: u for u in User.objects.filter(id__in=por_conta.keys())}
     familias = []
     for uid, mens in por_conta.items():
@@ -5058,6 +5149,8 @@ def _cobrancas_familias():
                 f"{m.mes_nome}/{m.ano}" + (" (inscrição)" if m.tipo == "inscricao" else "")
             )
         criancas = sorted(por_av.values(), key=lambda c: c["nome"])
+        email = _email_familia(u)
+        contagens = cont_canal[uid]
         familias.append({
             "usuario_id": uid,
             "resp_nome": resp_nome,
@@ -5068,10 +5161,14 @@ def _cobrancas_familias():
             "numero": numero,
             "tem_numero": bool(numero),
             "numeros": numeros,
+            "email": email,
+            "tem_email": bool(email),
             "origem_atual": origem_atual,
             "ultima_msg_em": perfil.ultima_msg_whatsapp_em,
             "autorizou": bool(perfil.autorizacao_recebida_em),
-            "cobrado_mes": cont_mes.get(uid, 0),
+            "cobrado_mes": contagens[CANAL_WHATSAPP] + contagens[CANAL_EMAIL],
+            "cobrado_mes_whatsapp": contagens[CANAL_WHATSAPP],
+            "cobrado_mes_email": contagens[CANAL_EMAIL],
             "token": perfil.get_token_acerto(),
             "mensalidades": sorted(
                 mens, key=lambda x: (x.aventureiro.nome_completo, x.ano, x.mes)
@@ -5108,6 +5205,9 @@ def mensalidade_cobranca_config_view(request):
     c.mensagem_cobranca = (request.POST.get("mensagem_cobranca") or "").strip() or MENSAGEM_COBRANCA_PADRAO
     c.prompt_cobranca_ia = (request.POST.get("prompt_cobranca_ia") or "").strip() or PROMPT_COBRANCA_IA_PADRAO
     c.mensagem_apelo = (request.POST.get("mensagem_apelo") or "").strip() or MENSAGEM_APELO_PADRAO
+    c.assunto_cobranca_email = (
+        (request.POST.get("assunto_cobranca_email") or "").strip() or ASSUNTO_COBRANCA_PADRAO
+    )
     c.atualizado_por = request.user
     c.save()
     messages.success(request, "Mensagens salvas.")
@@ -5163,14 +5263,30 @@ def _gerar_cobranca_ia(prompt_template, familia, request, ia_cfg):
 @diretor_required
 @require_POST
 def mensalidade_cobranca_enviar_view(request):
-    """Envia a cobrança por WhatsApp (uma família ou todas) e registra o histórico.
-    A mensagem vem do template padrão ou é redigida pela IA (conforme a alavanca).
-    Filtro opcional: só quem ainda não recebeu neste mês."""
+    """Envia a cobrança (uma família ou todas) pelo canal escolhido e registra o
+    histórico. A mensagem vem do template padrão ou é redigida pela IA (conforme a
+    alavanca) — a mesma para os dois canais. Filtro opcional: só quem ainda não
+    recebeu neste mês **naquele canal**.
+
+    Cobrança **não é transacional**: o clube inicia, a pessoa não pediu. Por isso o
+    envio por e-mail passa pelo gate de consentimento (`_enviar_email`), leva o
+    `List-Unsubscribe` e respeita descadastro e bounce."""
+    canal = (request.POST.get("canal") or CANAL_WHATSAPP).strip()
+    if canal not in dict(CANAL_COBRANCA_CHOICES):
+        return JsonResponse({"ok": False, "erro": "Canal inválido."}, status=400)
+
     wa = WhatsappConfig.get_solo()
-    if not wa.configurado:
+    email_cfg = EmailConfig.get_solo()
+    if canal == CANAL_WHATSAPP and not wa.configurado:
         return JsonResponse(
             {"ok": False, "erro": "Configure o WhatsApp antes de enviar cobranças."}, status=400
         )
+    if canal == CANAL_EMAIL and not email_cfg.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure o e-mail antes de enviar cobranças por e-mail."},
+            status=400,
+        )
+
     cfg = ConfigMensalidade.get_solo()
     via_ia = cfg.cobranca_via_ia
     template = cfg.mensagem_cobranca or MENSAGEM_COBRANCA_PADRAO
@@ -5185,19 +5301,25 @@ def mensalidade_cobranca_enviar_view(request):
     alvo = request.POST.get("usuario_id")
     so_nao_enviados = request.POST.get("so_nao_enviados") == "1"
     hoje = timezone.localdate()
+    chave_contagem = "cobrado_mes_email" if canal == CANAL_EMAIL else "cobrado_mes_whatsapp"
+    assunto = (cfg.assunto_cobranca_email or ASSUNTO_COBRANCA_PADRAO)
 
     familias = _cobrancas_familias()
     if alvo:
         familias = [f for f in familias if str(f["usuario_id"]) == str(alvo)]
     if so_nao_enviados:
-        familias = [f for f in familias if not f["cobrado_mes"]]
+        familias = [f for f in familias if not f[chave_contagem]]
 
     enviados = 0
     falhas = []
     for f in familias:
-        if not f["tem_numero"]:
+        if canal == CANAL_EMAIL and not f["tem_email"]:
+            falhas.append(f"{f['resp_nome']}: sem e-mail cadastrado")
+            continue
+        if canal == CANAL_WHATSAPP and not f["tem_numero"]:
             falhas.append(f"{f['resp_nome']}: sem WhatsApp cadastrado")
             continue
+
         if via_ia:
             ok_ia, msg = _gerar_cobranca_ia(prompt_ia, f, request, ia_cfg)
             if not ok_ia:
@@ -5205,16 +5327,31 @@ def mensalidade_cobranca_enviar_view(request):
                 continue
         else:
             msg = _montar_mensagem_cobranca(template, f, request)
-        ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
+
+        if canal == CANAL_EMAIL:
+            ok, detalhe = _enviar_email(
+                f["email"],
+                assunto.format_map(_MarcadorDict({"nome": f["primeiro_nome"]})),
+                texto_para_email(msg),
+                transacional=False,           # o clube inicia — respeita descadastro
+                nome=f["resp_nome"] or "",
+            )
+            detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
+        else:
+            ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
+
         if ok:
             CobrancaEnviada.objects.create(
-                usuario_id=f["usuario_id"], ano=hoje.year, mes=hoje.month,
+                usuario_id=f["usuario_id"], canal=canal, ano=hoje.year, mes=hoje.month,
                 enviada_por=request.user,
             )
             enviados += 1
         else:
             falhas.append(f"{f['resp_nome']}: {detalhe}")
-    return JsonResponse({"ok": True, "enviados": enviados, "falhas": falhas, "via_ia": via_ia})
+    return JsonResponse({
+        "ok": True, "enviados": enviados, "falhas": falhas,
+        "via_ia": via_ia, "canal": canal,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -6272,21 +6409,22 @@ def _whatsapp_membro_diretoria(user):
     return normalizar_telefone(m.whatsapp) if m and m.whatsapp else ""
 
 
-def _notificar_compra_loja(compra_id, nome, whatsapp, itens_txt, total_txt, codigo):
+def _notificar_compra_loja(compra_id, nome, whatsapp, itens_txt, total_txt, codigo, email=""):
     """Notifica o comprador (confirmação) e a diretoria escolhida (aviso interno
     para comprar os materiais). Chamado via on_commit — nunca derruba o fluxo."""
     _notificar(NOTIF_LOJA_COMPRA, whatsapp, {
         "nome": nome or "aventureiro(a)", "itens": itens_txt,
         "total": total_txt, "codigo": codigo,
-    })
+    }, email=email)
     tpl = TemplateNotificacao.get_tipo(NOTIF_LOJA_PEDIDO)
     if not tpl.ativo:
         return
     ctx = {"comprador": nome or "—", "itens": itens_txt, "total": total_txt, "codigo": codigo}
     for u in tpl.avisos_internos_para.all():
         numero = _whatsapp_membro_diretoria(u)
-        if numero:
-            _notificar(NOTIF_LOJA_PEDIDO, numero, ctx, forcar=True)
+        email_membro = _email_do_usuario(u)
+        if numero or email_membro:
+            _notificar(NOTIF_LOJA_PEDIDO, numero, ctx, forcar=True, email=email_membro)
 
 
 def _criar_compra_loja(usuario, kits, comprador, forma):
@@ -6332,7 +6470,7 @@ def _criar_compra_loja(usuario, kits, comprador, forma):
     )
     dados_notif = (
         compra.id, compra.comprador_nome, compra.comprador_whatsapp,
-        itens_txt, _moeda_txt(total), compra.codigo,
+        itens_txt, _moeda_txt(total), compra.codigo, compra.comprador_email,
     )
     transaction.on_commit(lambda: _em_thread(_notificar_compra_loja, *dados_notif))
     return compra
@@ -6604,8 +6742,10 @@ def mensalidades_view(request):
         "prompt_cobranca_ia": cfg_mens.prompt_cobranca_ia or PROMPT_COBRANCA_IA_PADRAO,
         "cobranca_via_ia": cfg_mens.cobranca_via_ia,
         "mensagem_apelo": cfg_mens.mensagem_apelo or MENSAGEM_APELO_PADRAO,
+        "assunto_cobranca_email": cfg_mens.assunto_cobranca_email or ASSUNTO_COBRANCA_PADRAO,
         "wa_configurado": WhatsappConfig.get_solo().configurado,
         "ia_configurada": OpenAIConfig.get_solo().configurado,
+        "email_configurado": EmailConfig.get_solo().configurado,
     }
     return render(request, "core/mensalidades.html", contexto)
 

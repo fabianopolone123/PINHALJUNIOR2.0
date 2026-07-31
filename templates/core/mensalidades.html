@@ -291,6 +291,10 @@
                             <textarea name="prompt_cobranca_ia" rows="10" class="mens-cobranca-textarea">{{ prompt_cobranca_ia }}</textarea>
                             <p class="ajuda">Usado quando o modo IA está <strong>ligado</strong>: a IA recebe este prompt (com os mesmos marcadores <code>{nome}</code>/<code>{itens}</code>/<code>{total}</code>/<code>{link}</code> já preenchidos) e redige uma mensagem personalizada para cada família.</p>
 
+                            <label class="bloco-rotulo" style="margin-top:14px;">✉️ Assunto da cobrança por e-mail</label>
+                            <input type="text" name="assunto_cobranca_email" maxlength="200" class="mens-cobranca-textarea" value="{{ assunto_cobranca_email }}">
+                            <p class="ajuda">Usado quando a cobrança sai por e-mail — o corpo é o mesmo texto acima, sem a marcação <code>*negrito*</code> do WhatsApp. Aceita <code>{nome}</code>. Evite caixa alta, "!" e "URGENTE": linguagem agressiva de cobrança é gatilho de filtro de spam.</p>
+
                             <label class="bloco-rotulo" style="margin-top:14px;">Mensagem de apelo (área do responsável)</label>
                             <textarea name="mensagem_apelo" rows="5" class="mens-cobranca-textarea">{{ mensagem_apelo }}</textarea>
                             <p class="ajuda">Texto que aparece para o responsável na tela de Mensalidades dele, incentivando a contribuir. Sem marcadores.</p>
@@ -318,8 +322,14 @@
                     {% if cobrancas %}
                     <div class="card mens-cobranca-barra">
                         <span><strong>{{ cobrancas|length }}</strong> família(s) com mensalidade em aberto.</span>
+                        <label class="mens-chk">Enviar por
+                            <select id="cobrancaCanal" class="mens-cob-tel-sel">
+                                <option value="whatsapp">💬 WhatsApp</option>
+                                <option value="email"{% if not email_configurado %} disabled{% endif %}>✉️ E-mail{% if not email_configurado %} (não configurado){% endif %}</option>
+                            </select>
+                        </label>
                         <label class="mens-chk"><input type="checkbox" id="cobrancaSoNaoEnviados" checked> Só quem não recebeu este mês</label>
-                        <label class="mens-chk"><input type="checkbox" id="cobrancaSoLiberados" checked> Só quem já me mandou mensagem <span class="mens-chk-dica">(evita bloqueio)</span></label>
+                        <label class="mens-chk"><input type="checkbox" id="cobrancaSoLiberados" checked> Só quem já me mandou mensagem <span class="mens-chk-dica">(evita bloqueio; só vale no WhatsApp)</span></label>
                         <button type="button" class="btn-acao" id="cobrancaEnviarTodos">📤 Enviar a todos</button>
                     </div>
 
@@ -336,7 +346,10 @@
                         {% for f in cobrancas %}
                         <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}"
                             data-busca="{{ f.resp_nome|lower }}{% for c in f.criancas %} {{ c.nome|lower }}{% endfor %}" data-cobrado="{{ f.cobrado_mes }}"
+                            data-cobrado-whatsapp="{{ f.cobrado_mes_whatsapp }}"
+                            data-cobrado-email="{{ f.cobrado_mes_email }}"
                             data-tem-numero="{% if f.tem_numero %}1{% else %}0{% endif %}"
+                            data-tem-email="{% if f.tem_email %}1{% else %}0{% endif %}"
                             data-liberado="{% if f.autorizou or f.ultima_msg_em %}1{% else %}0{% endif %}">
                             <div class="mens-cobranca-linha">
                                 <span class="mens-cobranca-nome">{{ f.resp_nome }}</span>

@@ -2,8 +2,30 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-31 (**Notificações por e-mail — Etapa 2: canal por notificação +
-camada anti-spam**): o canal de e-mail ganhou **consentimento** e cada notificação passou a escolher por onde
+**Última atualização:** 2026-07-31 (**Notificações por e-mail — Etapas 3 e 4: fan-out + cobrança**):
+o e-mail passou a **sair de verdade**. (1) **`_notificar` virou fan-out**: renderiza o texto **uma vez** (a IA,
+quando ligada, é chamada 1× por notificação) e despacha para os canais marcados no template — cada um com o seu
+gate (WhatsApp = `_pode_notificar`, e-mail = `_pode_enviar_email`). Assinatura ganhou `email=`; retorna o
+resultado por canal (`"whatsapp:enviado email:descadastrado"`). Sem número **e** sem e-mail nem chega a
+renderizar (`sem_canal`), o que evita chamada de IA à toa. (2) **`texto_para_email`** tira o `*negrito*` do
+WhatsApp (só `*...*`; `_` e `~` aparecem em endereços e dariam falso positivo) — o mesmo texto serve aos dois
+canais sem manter duas versões. (3) **Os 5 gatilhos passam o e-mail**: cadastro (aventureiro e diretoria),
+mensalidade paga, inscrição em evento, compra na loja e o aviso interno da diretoria. Helper **`_email_familia`**
+(par do `_whatsapp_familia`). (4) **Cobrança por e-mail** com **seletor de canal** na aba Cobranças. O
+bloqueante era o `CobrancaEnviada` não distinguir canal — ganhou o campo **`canal`** (default `whatsapp`, então
+o histórico antigo continua correto) e a contagem/filtro "só quem não recebeu este mês" passou a ser **por
+canal** (`cobrado_mes_whatsapp`/`cobrado_mes_email`). Cobrança **não é transacional**: vai com
+`transacional=False`, ou seja, respeita descadastro, leva `List-Unsubscribe` e é barrada por bounce; o motivo
+volta legível na tela (`_MOTIVO_EMAIL`). Novo `ConfigMensalidade.assunto_cobranca_email` (padrão
+**`ASSUNTO_COBRANCA_PADRAO`**, deliberadamente sem caixa alta/"!"/"URGENTE" — gatilho de spam). O pacing de
+**10s entre cada** e o 1-por-request já existiam no JS e valem para os dois canais; o filtro "só quem já me
+mandou mensagem" só se aplica ao WhatsApp (no e-mail o gate é outro). Migration **0057**. Suíte: **90 testes
+OK** (72 + 18). Também corrigido em produção o único e-mail inválido da base (um `pai_email` com o domínio
+digitado pela metade): **0 e-mails inválidos** agora. **Feature completa** — falta só
+ligar cada notificação na tela. Antes: Notificações por e-mail — Etapa 2.
+
+**Anterior (Notificações por e-mail — Etapa 2: canal por notificação +
+camada anti-spam):** o canal de e-mail ganhou **consentimento** e cada notificação passou a escolher por onde
 sai. **Ainda não dispara nada** — a Etapa 3 liga os gatilhos. (1) `TemplateNotificacao` += **`enviar_whatsapp`**
 (nasce `True`, é como sempre funcionou), **`enviar_email`** (nasce `False`) e **`assunto`**; a aba 🧩 Templates
 ganhou o bloco "Por onde enviar" (2 checkboxes) + campo de assunto por notificação. Os 5 tipos ganharam
@@ -23,8 +45,8 @@ notificações saem em thread, sem `request`) e `rodape`; card "🛡️ Proteç�
 descadastrados/recusados. Migration **0056**. **Autenticação já resolvida** de graça: como o remetente é
 `@gmail.com`, SPF/DKIM/DMARC passam pelo Google (só precisaria de DNS se trocar para o alias
 `@pinhaljunior.com.br`). **Validação da base** (só DNS, nada enviado): 62 endereços distintos, **59 em domínios
-saudáveis**; problemas = 1 digitação (`rerison.vasques@gmai`, pai de Lorenzo Brianezi Vasques) e 2×
-`mariana.santos@example.com` (null MX, registros de teste). Suíte: **72 testes OK** (45 + 11 + 16). Próximo:
+saudáveis**; problemas = 1 digitação (um `pai_email` com o domínio pela metade) e 2× um endereço
+`@example.com` (null MX, registros de teste). Suíte: **72 testes OK** (45 + 11 + 16). Próximo:
 Etapa 3 (ligar os 5 transacionais); depois Etapa 4 (cobrança/lembrete, com canal no `CobrancaEnviada` e
 pacing). Antes: Notificações por e-mail — Etapa 1.
 

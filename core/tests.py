@@ -1233,3 +1233,213 @@ class ConsentimentoEmailTests(TestCase):
             TemplateNotificacao.get_tipo("cadastro_novo").assunto,
             TemplateNotificacao.assunto_padrao("cadastro_novo"),
         )
+
+
+class FanOutNotificacaoTests(TestCase):
+    """Etapa 3: `_notificar` despacha para os canais marcados no template."""
+
+    def setUp(self):
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "X"
+        wa.token = "Y"
+        wa.base_url = "https://api.w-api.app/v1"
+        wa.save()
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.save()
+        self.tpl = TemplateNotificacao.get_tipo("cadastro_novo")
+        self.tpl.ativo = True
+        self.tpl.mensagem = "Ola {nome}, seu usuario e *{usuario}*"
+        self.tpl.assunto = "Bem-vindo, {nome}"
+        self.tpl.save()
+        self.ctx = {"nome": "Ana", "usuario": "ana123"}
+
+    def _chamar(self, **kw):
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")) as wa, \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")) as em:
+            enviado, motivo = views._notificar("cadastro_novo", "5516999999999",
+                                               self.ctx, **kw)
+        return enviado, motivo, wa, em
+
+    def test_so_whatsapp_por_padrao(self):
+        enviado, _, wa, em = self._chamar(email="pai@exemplo.com")
+        self.assertTrue(enviado)
+        self.assertTrue(wa.called)
+        self.assertFalse(em.called)   # enviar_email nasce desligado
+
+    def test_os_dois_canais_quando_marcados(self):
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        enviado, motivo, wa, em = self._chamar(email="pai@exemplo.com")
+        self.assertTrue(enviado)
+        self.assertTrue(wa.called)
+        self.assertTrue(em.called)
+        self.assertIn("whatsapp:", motivo)
+        self.assertIn("email:", motivo)
+
+    def test_so_email_quando_whatsapp_desmarcado(self):
+        self.tpl.enviar_whatsapp = False
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        _, _, wa, em = self._chamar(email="pai@exemplo.com")
+        self.assertFalse(wa.called)
+        self.assertTrue(em.called)
+
+    def test_email_recebe_texto_sem_marcacao_do_whatsapp(self):
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        _, _, _, em = self._chamar(email="pai@exemplo.com")
+        corpo = em.call_args[0][2]
+        self.assertIn("ana123", corpo)
+        self.assertNotIn("*", corpo)     # o *negrito* do WhatsApp foi removido
+
+    def test_assunto_interpola_marcadores(self):
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        _, _, _, em = self._chamar(email="pai@exemplo.com")
+        self.assertEqual(em.call_args[0][1], "Bem-vindo, Ana")
+
+    def test_transacional_marcado_no_envio_de_email(self):
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        _, _, _, em = self._chamar(email="pai@exemplo.com")
+        self.assertTrue(em.call_args.kwargs["transacional"])
+
+    def test_sem_canal_util_nao_renderiza(self):
+        """Sem número e sem e-mail não chega a chamar a IA nem montar texto."""
+        with mock.patch("core.views._render_notificacao") as render:
+            enviado, motivo = views._notificar("cadastro_novo", "", self.ctx)
+        self.assertFalse(enviado)
+        self.assertEqual(motivo, "sem_canal")
+        self.assertFalse(render.called)
+
+    def test_template_inativo_nao_envia_por_nenhum_canal(self):
+        self.tpl.ativo = False
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        enviado, motivo, wa, em = self._chamar(email="pai@exemplo.com")
+        self.assertFalse(enviado)
+        self.assertEqual(motivo, "template_inativo")
+        self.assertFalse(wa.called)
+        self.assertFalse(em.called)
+
+    def test_texto_renderizado_uma_vez_para_os_dois_canais(self):
+        """A IA (quando ligada) não pode ser chamada duas vezes por notificação."""
+        self.tpl.enviar_email = True
+        self.tpl.save()
+        with mock.patch("core.views._render_notificacao", return_value="txt") as render, \
+             mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")), \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")):
+            views._notificar("cadastro_novo", "5516999999999", self.ctx,
+                             email="pai@exemplo.com")
+        self.assertEqual(render.call_count, 1)
+
+    def test_limpeza_da_marcacao(self):
+        self.assertEqual(views.texto_para_email("Total: *R$ 10,00* hoje"),
+                         "Total: R$ 10,00 hoje")
+        # Underscore e til não são tocados (aparecem em e-mails e arquivos).
+        self.assertEqual(views.texto_para_email("a_b ~c~"), "a_b ~c~")
+
+
+class CobrancaPorEmailTests(TestCase):
+    """Etapa 4: cobrança por e-mail, com contagem e filtro POR CANAL."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_cob", password="x")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.save()
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "X"
+        wa.token = "Y"
+        wa.base_url = "https://api.w-api.app/v1"
+        wa.save()
+
+        self.familia = User.objects.create_user("familia_cob", password="x")
+        hoje = timezone.localdate()
+        self.av = Aventureiro.objects.create(
+            usuario=self.familia, nome_completo="Filho Um", sexo="M",
+            data_nascimento=datetime.date(2015, 5, 5), cpf="C1",
+            resp_nome="Mae Cobranca", resp_cpf="C2",
+            resp_whatsapp="5516988887777", resp_email="mae@exemplo.com",
+        )
+        Mensalidade.objects.create(
+            aventureiro=self.av, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("50.00"), status="aberta",
+        )
+
+    def test_familia_traz_email_e_contagem_por_canal(self):
+        f = views._cobrancas_familias()[0]
+        self.assertEqual(f["email"], "mae@exemplo.com")
+        self.assertTrue(f["tem_email"])
+        self.assertEqual(f["cobrado_mes_whatsapp"], 0)
+        self.assertEqual(f["cobrado_mes_email"], 0)
+
+    def test_envio_por_email_registra_o_canal(self):
+        with mock.patch("core.views._enviar_email", return_value=(True, "enviado")) as em:
+            r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {
+                "canal": "email", "usuario_id": self.familia.id,
+            })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["enviados"], 1)
+        reg = CobrancaEnviada.objects.get()
+        self.assertEqual(reg.canal, "email")
+        # Cobrança NÃO é transacional: respeita descadastro e leva List-Unsubscribe.
+        self.assertFalse(em.call_args.kwargs["transacional"])
+
+    def test_cobranca_por_email_nao_marca_o_whatsapp_como_enviado(self):
+        """O bug que o campo `canal` existe para evitar."""
+        with mock.patch("core.views._enviar_email", return_value=(True, "enviado")):
+            self.client.post(reverse("core:mensalidade_cobranca_enviar"), {
+                "canal": "email", "usuario_id": self.familia.id,
+            })
+        f = views._cobrancas_familias()[0]
+        self.assertEqual(f["cobrado_mes_email"], 1)
+        self.assertEqual(f["cobrado_mes_whatsapp"], 0)   # WhatsApp segue pendente
+
+    def test_filtro_so_nao_enviados_e_por_canal(self):
+        CobrancaEnviada.objects.create(
+            usuario=self.familia, canal="email",
+            ano=timezone.localdate().year, mes=timezone.localdate().month,
+        )
+        # Já cobrado por e-mail, mas o WhatsApp ainda deve sair.
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")):
+            r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {
+                "canal": "whatsapp", "so_nao_enviados": "1",
+            })
+        self.assertEqual(r.json()["enviados"], 1)
+
+    def test_descadastrado_nao_recebe_cobranca(self):
+        ContatoEmail.para("mae@exemplo.com").descadastrar()
+        r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {
+            "canal": "email", "usuario_id": self.familia.id,
+        })
+        d = r.json()
+        self.assertEqual(d["enviados"], 0)
+        self.assertIn("descadastrou-se", d["falhas"][0])
+        self.assertFalse(CobrancaEnviada.objects.exists())
+
+    def test_sem_email_configurado_recusa(self):
+        cfg = EmailConfig.get_solo()
+        cfg.senha = ""
+        cfg.save()
+        r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {"canal": "email"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_canal_invalido_recusa(self):
+        r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {"canal": "pombo"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_registro_antigo_conta_como_whatsapp(self):
+        """Compatibilidade: cobranças gravadas antes do campo `canal`."""
+        reg = CobrancaEnviada.objects.create(
+            usuario=self.familia,
+            ano=timezone.localdate().year, mes=timezone.localdate().month,
+        )
+        self.assertEqual(reg.canal, "whatsapp")
