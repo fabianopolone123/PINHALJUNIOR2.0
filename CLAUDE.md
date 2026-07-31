@@ -127,6 +127,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Cobrança tem canal**: `CobrancaEnviada.canal` (`whatsapp`/`email`, default `whatsapp`). A contagem "já
   cobrei este mês" e o filtro da tela são **por canal** — sem isso, mandar por um canal silenciaria o outro. Ao
   criar envio em lote novo, mantenha o padrão **1-por-request + 10s no front**.
+- **Extrato de e-mail**: todo envio (e todo bloqueio pelo gate) grava um `LogEmail` — destinatário, assunto,
+  `origem`, resultado; **nunca o corpo**. Aparece no card 📬 Últimos envios em `/email/`; guarda os últimos 200.
+  Ao criar um envio novo, passe `origem=` para a linha sair identificada.
+- **`Reply-To` vazio é o certo** quando as respostas devem cair na própria conta de envio (sem ele a resposta
+  vai para o `From`). Só preencha para desviar a outro endereço.
 - **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
   `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
   `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep

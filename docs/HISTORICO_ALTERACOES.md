@@ -22,6 +22,46 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-31 - E-mail: extrato dos últimos envios
+
+### Resumo
+A tela `/email/` passou a mostrar os últimos e-mails que o sistema tentou enviar — sucesso, falha e o que foi
+barrado pelo gate. Antes só havia o contador agregado, insuficiente para acompanhar a ligação das notificações.
+
+### Arquivos criados/alterados
+- `core/models.py`: novo **`LogEmail`** (`para`, `assunto`, `origem`, `ok`, `detalhe`, `criado_em`), com
+  `LIMITE = 200`, `registrar()` (nunca levanta exceção; apara em lote quando passa de `LIMITE + 50`) e a
+  propriedade `rotulo_origem`, que reusa o rótulo do `TEMPLATES_NOTIFICACAO`.
+- `core/email_envio.py`: `enviar(..., origem="")` + `_registrar_log`; grava sucesso e falha.
+- `core/views.py`: `_enviar_email(..., origem="")` — e o que é **barrado pelo gate** também vira linha, com o
+  motivo já traduzido por `_MOTIVO_EMAIL`. `origem` propagada: tipo da notificação em `_notificar_email`,
+  `"cobranca"` no envio em lote e `"teste"` no botão de teste. `email_view` passa `log_emails` (60 mais recentes).
+- `templates/core/email.html`: card **📬 Últimos envios** (tabela com `tabela-scroll`, botão Atualizar e aviso
+  quando vazio).
+- `core/migrations/0058_logemail.py` **(novo)**.
+- `core/tests.py`: `LogEmailTests` (8 testes).
+
+### Decisões tomadas
+- **O corpo não é gravado.** Só destinatário, assunto e resultado — o extrato serve para diagnóstico, não para
+  arquivar mensagens, e o projeto evita acumular dado pessoal. Há teste garantindo.
+- **Barrado pelo gate também vira linha.** Sem isso, um descadastro pareceria "sumiço" da notificação.
+- **Apara em lote** (`LIMITE + 50`), não a cada envio: evita um DELETE por e-mail enviado.
+- **`rotulo_origem` no model**, não no contexto da view: template Django não faz lookup de dicionário por chave
+  variável, e a informação pertence ao registro.
+
+### Dúvidas do usuário respondidas (sem mudança de código)
+- **`Reply-To` deve ficar vazio** para as respostas caírem na conta de envio: sem ele, a resposta vai para o
+  `From`, que já é a conta configurada. O campo existe para desviar as respostas a *outro* endereço.
+- **A cobrança já tem pausa nos dois canais**: 1 por requisição com 10s entre cada, barra e cancelar — o pacing
+  está no JS (`mensalidade_cobranca.js`), então independe do canal.
+
+### Validação
+- Suíte: **98 testes OK** (90 + 8). `check` e `makemigrations --check` limpos.
+
+### Pendências
+- Ligar cada notificação no canal de e-mail pela aba 🧩 Templates (todas nascem desligadas).
+- Robustez da resposta automática de autorização do WhatsApp segue pendente.
+
 ## 2026-07-31 - Notificações por e-mail (Etapas 3 e 4: fan-out dos gatilhos + cobrança)
 
 ### Resumo

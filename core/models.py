@@ -2007,6 +2007,62 @@ class EmailConfig(models.Model):
         self.save(update_fields=["enviados", "falhas", "ultimo_erro"])
 
 
+class LogEmail(models.Model):
+    """Registro de UM e-mail que o sistema tentou enviar — o "extrato" da tela.
+
+    Sem isso só havia o contador agregado, e ao ligar as notificações não dava para
+    saber **o que** saiu, para quem e por quê falhou. Guarda sucesso e falha; o
+    corpo NÃO é gravado (evita acumular dado pessoal à toa — só destinatário,
+    assunto e resultado). Mantém as últimas `LIMITE` linhas, como o histórico de
+    webhooks do WhatsApp."""
+
+    LIMITE = 200
+
+    para = models.EmailField("Destinatário", max_length=254)
+    assunto = models.CharField("Assunto", max_length=200, blank=True, default="")
+    origem = models.CharField(
+        "Origem", max_length=40, blank=True, default="",
+        help_text="Tipo da notificação, 'cobranca' ou 'teste'.",
+    )
+    ok = models.BooleanField("Enviado", default=False)
+    detalhe = models.CharField("Detalhe / erro", max_length=300, blank=True, default="")
+    criado_em = models.DateTimeField("Quando", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "E-mail enviado"
+        verbose_name_plural = "E-mails enviados"
+        ordering = ["-criado_em"]
+        indexes = [models.Index(fields=["-criado_em"])]
+
+    def __str__(self):
+        return f"{'OK' if self.ok else 'FALHA'} — {self.para}"
+
+    @property
+    def rotulo_origem(self):
+        """Nome amigável da origem (o valor gravado é o tipo técnico)."""
+        rotulos = {"teste": "Teste", "cobranca": "Cobrança"}
+        d = TEMPLATES_NOTIFICACAO.get(self.origem)
+        if d:
+            return d[0]
+        return rotulos.get(self.origem, self.origem or "—")
+
+    @classmethod
+    def registrar(cls, para, assunto, ok, detalhe="", origem=""):
+        """Grava uma linha e apara o excedente. Nunca levanta exceção — log de
+        envio não pode derrubar o envio."""
+        try:
+            obj = cls.objects.create(
+                para=(para or "")[:254], assunto=(assunto or "")[:200],
+                ok=bool(ok), detalhe=(detalhe or "")[:300], origem=(origem or "")[:40],
+            )
+            if cls.objects.count() > cls.LIMITE + 50:   # apara em lote, não a cada envio
+                antigos = cls.objects.order_by("-criado_em").values_list("id", flat=True)[cls.LIMITE:]
+                cls.objects.filter(id__in=list(antigos)).delete()
+            return obj
+        except Exception:  # noqa: BLE001
+            return None
+
+
 class ContatoEmail(models.Model):
     """Um endereço de e-mail que o clube usa para notificar — e o **consentimento**
     dele. É a fonte da verdade do gate de envio (`_pode_enviar_email`).

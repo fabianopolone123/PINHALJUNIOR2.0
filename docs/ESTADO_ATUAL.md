@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-31 (**Notificações por e-mail — Etapas 3 e 4: fan-out + cobrança**):
+**Última atualização:** 2026-07-31 (**E-mail: extrato dos últimos envios**): a tela `/email/` ganhou o card
+**📬 Últimos envios** — antes só havia contador agregado, e ao ligar as notificações não dava para saber **o
+que** saiu, para quem e por que falhou. Novo model **`LogEmail`** (migration **0058**): destinatário, assunto,
+`origem` (tipo da notificação / `cobranca` / `teste`), `ok`, `detalhe` e data; mantém as últimas **200** linhas
+(apara em lote, não a cada envio) e o **corpo NÃO é gravado** (evita acumular dado pessoal — há teste
+garantindo). `LogEmail.registrar` nunca levanta exceção. Grava tanto o **sucesso** quanto a **falha**, e também
+o que foi **barrado pelo gate** (descadastro/bounce) — com o motivo em português, para o descadastro não sumir
+em silêncio. A propriedade `rotulo_origem` traduz a origem usando o rótulo do próprio `TEMPLATES_NOTIFICACAO`.
+`email_envio.enviar` e `_enviar_email` ganharam `origem=`. Suíte: **98 testes OK** (90 + 8). Nota de operação:
+o campo **`Reply-To` deve ficar vazio** para as respostas caírem na própria conta de envio (sem ele, a resposta
+vai para o `From`); e a cobrança já envia **1 por requisição com 10s entre cada** nos **dois** canais (o pacing
+está no JS, não no canal). Antes: Notificações por e-mail — Etapas 3 e 4.
+
+**Anterior (Notificações por e-mail — Etapas 3 e 4: fan-out + cobrança):**
 o e-mail passou a **sair de verdade**. (1) **`_notificar` virou fan-out**: renderiza o texto **uma vez** (a IA,
 quando ligada, é chamada 1× por notificação) e despacha para os canais marcados no template — cada um com o seu
 gate (WhatsApp = `_pode_notificar`, e-mail = `_pode_enviar_email`). Assinatura ganhou `email=`; retorna o

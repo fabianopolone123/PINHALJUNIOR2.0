@@ -22,6 +22,7 @@ from .models import (
     CustoClube,
     EmailConfig,
     Evento,
+    LogEmail,
     TemplateNotificacao,
     FaixaEtariaPreco,
     GrupoLoja,
@@ -1443,3 +1444,73 @@ class CobrancaPorEmailTests(TestCase):
             ano=timezone.localdate().year, mes=timezone.localdate().month,
         )
         self.assertEqual(reg.canal, "whatsapp")
+
+
+class LogEmailTests(TestCase):
+    """Extrato de envios da tela /email/."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_log", password="x")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.save()
+        self.cfg = cfg
+
+    def test_envio_bem_sucedido_vira_linha(self):
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.return_value = 1
+            email_envio.enviar(self.cfg, "a@x.com", "Oi", "Corpo", origem="teste")
+        log = LogEmail.objects.get()
+        self.assertTrue(log.ok)
+        self.assertEqual(log.para, "a@x.com")
+        self.assertEqual(log.assunto, "Oi")
+        self.assertEqual(log.rotulo_origem, "Teste")
+
+    def test_falha_vira_linha_com_motivo(self):
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.side_effect = TimeoutError("estourou")
+            email_envio.enviar(self.cfg, "a@x.com", "Oi", "Corpo", origem="cobranca")
+        log = LogEmail.objects.get()
+        self.assertFalse(log.ok)
+        self.assertIn("tempo esgotado", log.detalhe)
+        self.assertEqual(log.rotulo_origem, "Cobrança")
+
+    def test_barrado_pelo_gate_tambem_aparece(self):
+        """Descadastrado não some em silêncio — o Diretor precisa ver o motivo."""
+        ContatoEmail.para("saiu@x.com").descadastrar()
+        views._enviar_email("saiu@x.com", "Cobranca", "Corpo", origem="cobranca")
+        log = LogEmail.objects.get()
+        self.assertFalse(log.ok)
+        self.assertIn("descadastrou-se", log.detalhe)
+
+    def test_rotulo_de_notificacao_usa_o_nome_do_template(self):
+        LogEmail.registrar("a@x.com", "s", True, "enviado", "cadastro_novo")
+        self.assertEqual(LogEmail.objects.get().rotulo_origem,
+                         "Boas-vindas de novo cadastro")
+
+    def test_corpo_nao_e_gravado(self):
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.return_value = 1
+            email_envio.enviar(self.cfg, "a@x.com", "Oi", "SEGREDO NO CORPO")
+        campos = " ".join(str(v) for v in LogEmail.objects.values()[0].values())
+        self.assertNotIn("SEGREDO", campos)
+
+    def test_apara_o_excedente(self):
+        for i in range(LogEmail.LIMITE + 60):
+            LogEmail.registrar(f"n{i}@x.com", "s", True)
+        self.assertLessEqual(LogEmail.objects.count(), LogEmail.LIMITE + 50)
+
+    def test_tela_mostra_o_extrato(self):
+        LogEmail.registrar("pai@exemplo.com", "Assunto Visivel", True, "enviado", "teste")
+        r = self.client.get(reverse("core:email"))
+        self.assertContains(r, "Últimos envios")
+        self.assertContains(r, "pai@exemplo.com")
+        self.assertContains(r, "Assunto Visivel")
+
+    def test_tela_sem_envios_mostra_aviso(self):
+        r = self.client.get(reverse("core:email"))
+        self.assertContains(r, "Nenhum e-mail enviado ainda")

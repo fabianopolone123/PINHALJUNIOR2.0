@@ -74,7 +74,14 @@ def _montar_corpo(config, corpo, url_saida):
     return "\n\n".join(partes)
 
 
-def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False):
+def _registrar_log(destino, assunto, ok, detalhe, origem):
+    """Grava a linha do extrato da tela. Isolado para nunca atrapalhar o envio."""
+    from .models import LogEmail
+
+    LogEmail.registrar(destino, assunto, ok, detalhe, origem)
+
+
+def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False, origem=""):
     """Envia UM e-mail de texto simples e devolve `(ok: bool, detalhe: str)`.
 
     `detalhe` é "enviado" no sucesso ou uma mensagem de erro amigável na falha.
@@ -95,6 +102,7 @@ def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False)
         return False, "Endereço de destino inválido."
     if not (corpo or "").strip():
         return False, "Mensagem vazia."
+    assunto_final = (assunto or "").strip() or "(sem assunto)"
 
     url_saida = "" if transacional else link_descadastro(config, contato)
     cabecalhos = {}
@@ -108,7 +116,7 @@ def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False)
 
     try:
         msg = EmailMessage(
-            subject=(assunto or "").strip() or "(sem assunto)",
+            subject=assunto_final,
             body=_montar_corpo(config, corpo, url_saida),
             from_email=config.remetente,
             to=[destino],
@@ -120,13 +128,15 @@ def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False)
     except Exception as exc:  # noqa: BLE001 — envio nunca derruba o fluxo do chamador
         erro = f"{type(exc).__name__}: {exc}"
         logger.warning("Falha ao enviar e-mail para %s: %s", destino, erro)
+        amigavel = _amigavel(exc)
         try:
             config.registrar_falha(erro)
             if contato is not None and _eh_recusa_definitiva(exc):
                 contato.registrar_bounce(erro)
         except Exception:  # noqa: BLE001 — contador nunca atrapalha o retorno
             logger.exception("Falha ao registrar erro de e-mail")
-        return False, _amigavel(exc)
+        _registrar_log(destino, assunto_final, False, amigavel, origem)
+        return False, amigavel
 
     try:
         config.registrar_envio()
@@ -134,6 +144,7 @@ def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False)
             contato.registrar_envio()
     except Exception:  # noqa: BLE001
         logger.exception("Falha ao registrar envio de e-mail")
+    _registrar_log(destino, assunto_final, True, "enviado", origem)
     return True, "enviado"
 
 

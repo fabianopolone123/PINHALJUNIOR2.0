@@ -237,6 +237,54 @@
                         </div>
                     </form>
                 </section>
+
+                <!-- ===================== Últimos envios ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">📬 Últimos envios</h2>
+                        <a href="{% url 'core:email' %}" class="btn-secundario">↻ Atualizar</a>
+                    </div>
+                    <p class="wa-ajuda">
+                        Os últimos e-mails que o sistema tentou enviar — inclusive os que
+                        <strong>não</strong> saíram, com o motivo. O corpo da mensagem não é guardado.
+                    </p>
+
+                    {% if log_emails %}
+                    <div class="tabela-scroll">
+                        <table class="tabela">
+                            <thead>
+                                <tr>
+                                    <th>Quando</th>
+                                    <th>Para</th>
+                                    <th>Assunto</th>
+                                    <th>Origem</th>
+                                    <th>Resultado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for e in log_emails %}
+                                <tr>
+                                    <td>{{ e.criado_em|date:"d/m H:i" }}</td>
+                                    <td>{{ e.para }}</td>
+                                    <td>{{ e.assunto|default:"—" }}</td>
+                                    <td>{{ e.rotulo_origem }}</td>
+                                    <td>
+                                        {% if e.ok %}
+                                        <span class="wa-status wa-status-ok">✓ enviado</span>
+                                        {% else %}
+                                        <span class="wa-status wa-status-off" title="{{ e.detalhe }}">✕ {{ e.detalhe|truncatechars:60 }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="wa-ajuda">Mostrando os {{ log_emails|length }} mais recentes (o sistema guarda os últimos 200).</p>
+                    {% else %}
+                    <p class="wa-aviso">Nenhum e-mail enviado ainda. Faça um teste acima para ver o extrato aparecer.</p>
+                    {% endif %}
+                </section>
             </div>
         </main>
     </div>

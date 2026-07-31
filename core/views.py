@@ -72,6 +72,7 @@ from .models import (
     ConfigMensalidade,
     ContatoEmail,
     ContatoWhatsapp,
+    LogEmail,
     TemplateNotificacao,
     TEMPLATES_NOTIFICACAO,
     NOTIF_LOJA_COMPRA,
@@ -3874,7 +3875,7 @@ def _notificar_email(tpl, tipo, email, texto, contexto, *, forcar=False):
     )
     return _enviar_email(
         email, assunto, texto_para_email(texto),
-        transacional=(tipo in NOTIF_TRANSACIONAIS), forcar=forcar,
+        transacional=(tipo in NOTIF_TRANSACIONAIS), forcar=forcar, origem=tipo,
     )
 
 
@@ -4245,8 +4246,8 @@ def _email_do_usuario(user):
 
 @diretor_required
 def email_view(request):
-    """Tela de E-mail (só Diretor): guarda a conta SMTP e permite enviar um teste.
-    Mostra o contador de envios/falhas e o último erro, para diagnóstico."""
+    """Tela de E-mail (só Diretor): conta SMTP, envio de teste, painel de
+    consentimento e o **extrato dos últimos envios** (sucesso e falha)."""
     config = EmailConfig.get_solo()
     return render(request, "core/email.html", {
         "config": config,
@@ -4254,6 +4255,7 @@ def email_view(request):
         "contatos_total": ContatoEmail.objects.count(),
         "descadastrados": ContatoEmail.objects.filter(descadastrado_em__isnull=False).count(),
         "recusados": ContatoEmail.objects.filter(bounce_em__isnull=False).count(),
+        "log_emails": LogEmail.objects.all()[:60],
     })
 
 
@@ -4317,6 +4319,7 @@ def email_testar_view(request):
         "Se você recebeu esta mensagem, a configuração de e-mail está funcionando "
         "e as notificações automáticas podem ser ligadas.\n\n"
         "-- \nEnviado automaticamente pelo sistema.",
+        origem="teste",
     )
     config.refresh_from_db()
     contador = {"enviados": config.enviados, "falhas": config.falhas}
@@ -4368,12 +4371,14 @@ def _pode_enviar_email(endereco, *, transacional=False):
     return True, contato, "ok"
 
 
-def _enviar_email(endereco, assunto, corpo, *, transacional=False, nome="", forcar=False):
+def _enviar_email(endereco, assunto, corpo, *, transacional=False, nome="", forcar=False,
+                  origem=""):
     """Ponto ÚNICO de envio de e-mail do sistema, com o gate de consentimento.
 
     Espelha o `_notificar` do WhatsApp: nunca levanta exceção e devolve
     `(enviado: bool, motivo: str)`. `forcar=True` pula o gate — reservado a avisos
-    internos para a própria diretoria (que não são mala direta)."""
+    internos para a própria diretoria (que não são mala direta). `origem` é só o
+    rótulo que aparece no extrato da tela."""
     try:
         config = EmailConfig.get_solo()
         if not config.configurado:
@@ -4384,10 +4389,14 @@ def _enviar_email(endereco, assunto, corpo, *, transacional=False, nome="", forc
         # Bounce bloqueia até o `forcar` — insistir em endereço morto é o que mais
         # machuca a reputação do remetente.
         if not pode and not (forcar and motivo == "descadastrado"):
+            # Barrado pelo gate também vira linha no extrato: o Diretor precisa ver
+            # que não saiu e por quê, não só o silêncio.
+            LogEmail.registrar(endereco, assunto, False,
+                               _MOTIVO_EMAIL.get(motivo, motivo), origem)
             return False, motivo
         return email_envio.enviar(
             config, endereco, assunto, corpo,
-            contato=contato, transacional=transacional,
+            contato=contato, transacional=transacional, origem=origem,
         )
     except Exception as exc:  # noqa: BLE001 — envio nunca derruba o fluxo
         logger.exception("Falha inesperada no envio de e-mail")
@@ -5334,7 +5343,7 @@ def mensalidade_cobranca_enviar_view(request):
                 assunto.format_map(_MarcadorDict({"nome": f["primeiro_nome"]})),
                 texto_para_email(msg),
                 transacional=False,           # o clube inicia — respeita descadastro
-                nome=f["resp_nome"] or "",
+                nome=f["resp_nome"] or "", origem="cobranca",
             )
             detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
         else:
