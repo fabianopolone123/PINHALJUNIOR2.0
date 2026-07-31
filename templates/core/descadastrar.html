@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Preferências de e-mail — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <article class="card evento-publico-card">
+                {% if invalido %}
+                <h1 class="evento-publico-titulo">Link inválido</h1>
+                <p class="evento-publico-desc">
+                    Este link de descadastro não é válido. Se você não quer mais receber nossos
+                    e-mails, fale com a diretoria do clube.
+                </p>
+
+                {% elif feito %}
+                    {% if contato.descadastrado %}
+                    <div class="sucesso-check" aria-hidden="true">✅</div>
+                    <h1 class="evento-publico-titulo">Pronto, você foi descadastrado</h1>
+                    <p class="evento-publico-desc">
+                        Não enviaremos mais avisos por e-mail para <strong>{{ contato.endereco }}</strong>.
+                    </p>
+                    <p class="evento-publico-desc">
+                        Você ainda vai receber comprovantes do que você mesmo fizer no sistema —
+                        confirmação de compra, de pagamento e de inscrição. Esses não são avisos,
+                        são o recibo da sua própria ação.
+                    </p>
+                    <form method="post" class="wa-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="reinscrever">
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-secundario">Voltar a receber os avisos</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="sucesso-check" aria-hidden="true">💚</div>
+                    <h1 class="evento-publico-titulo">Inscrição reativada</h1>
+                    <p class="evento-publico-desc">
+                        <strong>{{ contato.endereco }}</strong> voltará a receber os avisos do clube.
+                    </p>
+                    {% endif %}
+
+                {% else %}
+                <h1 class="evento-publico-titulo">Não receber mais e-mails</h1>
+                <p class="evento-publico-desc">
+                    Confirme para parar de receber os avisos do Clube de Aventureiros Pinhal Júnior
+                    em <strong>{{ contato.endereco }}</strong>.
+                </p>
+                {% if contato.descadastrado %}
+                <p class="evento-publico-desc">
+                    Este endereço <strong>já está descadastrado</strong> desde
+                    {{ contato.descadastrado_em|date:"d/m/Y" }}.
+                </p>
+                <form method="post" class="wa-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="reinscrever">
+                    <div class="wa-acoes">
+                        <button type="submit" class="btn-acao">Voltar a receber os avisos</button>
+                    </div>
+                </form>
+                {% else %}
+                <form method="post" class="wa-form">
+                    {% csrf_token %}
+                    <div class="wa-acoes">
+                        <button type="submit" class="btn-acao">Confirmar descadastro</button>
+                    </div>
+                </form>
+                <p class="evento-publico-desc">
+                    <small>
+                        Comprovantes de compra, pagamento e inscrição continuam sendo enviados —
+                        são o recibo da sua própria ação, não avisos.
+                    </small>
+                </p>
+                {% endif %}
+                {% endif %}
+            </article>
+        </main>
+    </div>
+</body>
+</html>

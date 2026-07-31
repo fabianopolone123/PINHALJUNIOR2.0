@@ -106,10 +106,18 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `chamadas`/`tokens_prompt`/`tokens_cache`/`tokens_completion`). Modelo/URL fixos em `core/openai_ia.py`
   (`gpt-4.1-nano`; `conversar`/`enviar_prompt` devolvem `(ok, texto, uso)`). Todo uso deve chamar `registrar_uso`.
 - **E-mail (SMTP)**: `EmailConfig` (singleton; `host`/`porta`/`seguranca`/`usuario`/`senha` de app mascarada/
-  `remetente_nome` + contador `enviados`/`falhas`/`ultimo_envio_em`/`ultimo_erro`). Cliente `core/email_envio.py`
-  — `enviar(config, destino, assunto, corpo)` → `(ok, detalhe)`, mesmo contrato do `_enviar_whatsapp`. A conexão
-  SMTP vem do **model**, não do settings (as variáveis `EMAIL_*` do Django não são usadas). Helper
-  `_email_do_usuario` resolve o endereço: conta de login → ficha da diretoria → `Aventureiro.resp_email`.
+  `remetente_nome`/`reply_to`/`site_url`/`rodape` + contador `enviados`/`falhas`/`ultimo_envio_em`/`ultimo_erro`).
+  Cliente `core/email_envio.py` — `enviar(config, destino, assunto, corpo, contato=, transacional=)` →
+  `(ok, detalhe)`, mesmo contrato do `_enviar_whatsapp`. A conexão SMTP vem do **model**, não do settings (as
+  variáveis `EMAIL_*` do Django não são usadas). Helper `_email_do_usuario` resolve o endereço: conta de login →
+  ficha da diretoria → `Aventureiro.resp_email`.
+- **Consentimento de e-mail (anti-spam)**: `ContatoEmail` (endereço único + `descadastrado_em` +
+  `bounce_em`/`bounce_motivo` + `token`) é a fonte do gate `_pode_enviar_email`; o ponto único de envio é
+  `_enviar_email`. Regra: **bounce bloqueia tudo** (até `forcar`), **descadastro bloqueia só o não-transacional**
+  (comprovante do que a pessoa fez sempre chega). Descadastro público em `/descadastrar/<token>/` (`@csrf_exempt`
+  — Gmail/Outlook fazem POST One-Click, RFC 8058), reversível. Todo e-mail leva rodapé de identificação; os
+  não-transacionais levam também `List-Unsubscribe`. Só recusa **5xx** marca bounce (4xx/conexão é problema
+  nosso). Ao criar envio novo de e-mail, **use `_enviar_email`** — nunca `email_envio.enviar` direto.
 - **Pagamentos (Mercado Pago)**: `MercadoPagoConfig` (singleton; credenciais teste/produção + modo ativo) e
   `Pagamento` (engine única: tipo/forma/`referencia`/`mp_payment_id`/status/`valor_bruto`/`taxa`/`valor_liquido`/
   `payload` JSON/`finalizado`). FK `PedidoLoja.pagamento`. Cliente HTTP em `core/mercadopago.py` (urllib, sem dep

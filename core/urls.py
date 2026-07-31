@@ -154,6 +154,8 @@ urlpatterns = [
     path("email/config/", views.email_config_view, name="email_config"),
     path("email/testar/", views.email_testar_view, name="email_testar"),
     path("email/zerar/", views.email_zerar_view, name="email_zerar"),
+    # Descadastro público (rodapé do e-mail + cabeçalho List-Unsubscribe)
+    path("descadastrar/<str:token>/", views.descadastrar_view, name="descadastrar"),
     # --- Pagamentos (Mercado Pago) ---
     path("mercadopago/", views.mercadopago_view, name="mercadopago"),
     path("mercadopago/config/", views.mercadopago_config_view, name="mercadopago_config"),

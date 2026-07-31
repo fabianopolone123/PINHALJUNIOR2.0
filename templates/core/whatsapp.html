@@ -429,6 +429,26 @@
                                 Redigir com a IA (GPT){% if not ia_configurada %} <span class="wa-opcional">— IA não configurada (usa o texto do sistema)</span>{% endif %}
                             </label>
 
+                            <div class="campo">
+                                <label>Por onde enviar</label>
+                                <label class="wa-check">
+                                    <input type="checkbox" name="enviar_whatsapp" value="1"{% if t.enviar_whatsapp %} checked{% endif %}>
+                                    💬 WhatsApp
+                                </label>
+                                <label class="wa-check">
+                                    <input type="checkbox" name="enviar_email" value="1"{% if t.enviar_email %} checked{% endif %}>
+                                    ✉️ E-mail{% if not email_configurado %} <span class="wa-opcional">— e-mail não configurado</span>{% endif %}
+                                </label>
+                                <small class="ajuda">O mesmo texto vai pelos dois canais. Desmarcar os dois equivale a desligar a notificação.</small>
+                            </div>
+
+                            <div class="campo">
+                                <label for="assunto_{{ t.tipo }}">Assunto do e-mail</label>
+                                <input type="text" id="assunto_{{ t.tipo }}" name="assunto" value="{{ t.assunto }}"
+                                       maxlength="200" placeholder="Deixe vazio para usar o padrão">
+                                <small class="ajuda">Aceita os mesmos marcadores do texto.</small>
+                            </div>
+
                             {% if t.interno %}
                             <div class="campo">
                                 <label>Quem da diretoria recebe este aviso</label>

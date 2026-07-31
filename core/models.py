@@ -1514,7 +1514,7 @@ NOTIF_MENSALIDADE_PAGA = "mensalidade_paga"
 NOTIF_CADASTRO_NOVO = "cadastro_novo"
 NOTIF_INSCRICAO_EVENTO = "inscricao_evento"
 
-# tipo -> (rótulo, interno?, marcadores, mensagem_padrão, prompt_padrão)
+# tipo -> (rótulo, interno?, marcadores, mensagem_padrão, prompt_padrão, assunto_padrão)
 TEMPLATES_NOTIFICACAO = {
     NOTIF_LOJA_COMPRA: (
         "Confirmação de compra (loja)",
@@ -1533,6 +1533,7 @@ TEMPLATES_NOTIFICACAO = {
             "Diga que a diretoria já foi avisada para preparar os itens. Máximo 3 linhas, "
             "sem inventar dados."
         ),
+        "Compra confirmada — Loja do Clube",
     ),
     NOTIF_LOJA_PEDIDO: (
         "Novo pedido da loja (aviso interno)",
@@ -1549,6 +1550,7 @@ TEMPLATES_NOTIFICACAO = {
             "Comprador: {comprador}. Pedido {codigo}. Itens: {itens}. Total: R$ {total}. "
             "Máximo 3 linhas, tom objetivo."
         ),
+        "Novo pedido na Loja do Clube",
     ),
     NOTIF_MENSALIDADE_PAGA: (
         "Agradecimento de mensalidade paga",
@@ -1564,6 +1566,7 @@ TEMPLATES_NOTIFICACAO = {
             "mensalidade(s) no Clube de Aventureiros Pinhal Júnior. Responsável: {nome}. "
             "Referências pagas: {itens}. Total: R$ {total}. Máximo 3 linhas, sem inventar dados."
         ),
+        "Pagamento recebido — obrigado!",
     ),
     NOTIF_CADASTRO_NOVO: (
         "Boas-vindas de novo cadastro",
@@ -1579,6 +1582,7 @@ TEMPLATES_NOTIFICACAO = {
             "cadastro no Clube de Aventureiros Pinhal Júnior. Nome: {nome}. Usuário de acesso "
             "para login: {usuario}. Peça para guardar o usuário. Máximo 3 linhas, sem inventar dados."
         ),
+        "Bem-vindo ao Clube de Aventureiros Pinhal Júnior",
     ),
     NOTIF_INSCRICAO_EVENTO: (
         "Confirmação de inscrição em evento",
@@ -1594,6 +1598,7 @@ TEMPLATES_NOTIFICACAO = {
             "evento do Clube de Aventureiros Pinhal Júnior. Inscrito/responsável: {nome}. "
             "Evento: {evento}. Código: {codigo}. Total: R$ {total}. Máximo 3 linhas, sem inventar dados."
         ),
+        "Inscrição confirmada — {evento}",
     ),
 }
 
@@ -1608,6 +1613,11 @@ class TemplateNotificacao(models.Model):
     usar_ia = models.BooleanField("Redigir com IA", default=False)
     mensagem = models.TextField("Texto do sistema", blank=True, default="")
     prompt_ia = models.TextField("Prompt da IA", blank=True, default="")
+    # Canais de saída. O WhatsApp nasce ligado (é como sempre funcionou); o e-mail
+    # nasce desligado, para ligar notificação por notificação sem surpresa.
+    enviar_whatsapp = models.BooleanField("Enviar por WhatsApp", default=True)
+    enviar_email = models.BooleanField("Enviar por e-mail", default=False)
+    assunto = models.CharField("Assunto do e-mail", max_length=200, blank=True, default="")
     # Só para avisos internos (loja_pedido): integrantes da diretoria que recebem.
     avisos_internos_para = models.ManyToManyField(
         settings.AUTH_USER_MODEL, blank=True,
@@ -1628,14 +1638,26 @@ class TemplateNotificacao(models.Model):
 
     @classmethod
     def get_tipo(cls, tipo):
-        """Retorna (criando com os padrões, se preciso) o template do tipo dado."""
+        """Retorna (criando com os padrões, se preciso) o template do tipo dado.
+        O assunto padrão também é preenchido em templates JÁ existentes que ainda
+        estejam sem assunto — assim os 5 templates criados antes do canal de e-mail
+        não ficam com o campo vazio."""
         defaults = TEMPLATES_NOTIFICACAO.get(tipo)
         obj, criado = cls.objects.get_or_create(tipo=tipo)
         if criado and defaults:
             obj.mensagem = defaults[3]
             obj.prompt_ia = defaults[4]
             obj.save(update_fields=["mensagem", "prompt_ia"])
+        if defaults and not obj.assunto:
+            obj.assunto = cls.assunto_padrao(tipo)
+            obj.save(update_fields=["assunto"])
         return obj
+
+    @staticmethod
+    def assunto_padrao(tipo):
+        """Assunto de e-mail padrão do tipo (6º item da tupla), se houver."""
+        d = TEMPLATES_NOTIFICACAO.get(tipo)
+        return d[5] if d and len(d) > 5 else ""
 
     def get_rotulo(self):
         d = TEMPLATES_NOTIFICACAO.get(self.tipo)
@@ -1898,6 +1920,25 @@ class EmailConfig(models.Model):
         "Nome do remetente", max_length=120, blank=True,
         default="Clube de Aventureiros Pinhal Júnior",
     )
+    # Para onde vão as RESPOSTAS. Sem isso, quem responder cai na caixa pessoal da
+    # conta de envio. Resposta que chega a alguém real também conta como sinal de
+    # legitimidade para os filtros de spam.
+    reply_to = models.EmailField("Responder para", max_length=254, blank=True)
+    # Base pública do site, usada para montar o link de descadastro nos e-mails
+    # enviados em thread de fundo (onde não existe `request` para `build_absolute_uri`).
+    site_url = models.URLField(
+        "Endereço público do site", max_length=200, blank=True,
+        default="https://pinhaljunior.com.br",
+    )
+    # Rodapé de identificação em todo e-mail. Identificar o remetente é exigência
+    # prática dos filtros de spam para quem não é transacional puro.
+    rodape = models.TextField(
+        "Rodapé", blank=True,
+        default=(
+            "Clube de Aventureiros Pinhal Júnior\n"
+            "Você recebeu este e-mail porque faz parte do cadastro do clube."
+        ),
+    )
 
     # Contador acumulado de envios (todos os e-mails que saem pelo sistema).
     enviados = models.PositiveIntegerField("E-mails enviados", default=0)
@@ -1964,6 +2005,112 @@ class EmailConfig(models.Model):
         self.falhas = 0
         self.ultimo_erro = ""
         self.save(update_fields=["enviados", "falhas", "ultimo_erro"])
+
+
+class ContatoEmail(models.Model):
+    """Um endereço de e-mail que o clube usa para notificar — e o **consentimento**
+    dele. É a fonte da verdade do gate de envio (`_pode_enviar_email`).
+
+    Faz para o e-mail o que o `ContatoWhatsapp` faz para o WhatsApp, mas o risco é
+    outro: no WhatsApp o problema é a W-API bloquear o número; aqui o problema é o
+    filtro de spam. Por isso o gate olha **descadastro** e **bounce**, não janela de
+    contato.
+
+    - `descadastrado_em`: a pessoa clicou no link de descadastro. Bloqueia avisos
+      não solicitados (cobrança, lembrete) — mas **não** os transacionais (a
+      confirmação do que ela mesma acabou de fazer continua chegando).
+    - `bounce_em`: o servidor recusou o endereço. Insistir em endereço morto
+      derruba a reputação do remetente, então ele fica suprimido para tudo.
+    - `token`: identifica a pessoa no link público de descadastro, sem expor o
+      e-mail na URL."""
+
+    endereco = models.EmailField("E-mail", max_length=254, unique=True)
+    nome = models.CharField("Nome", max_length=150, blank=True)
+
+    descadastrado_em = models.DateTimeField("Descadastrado em", null=True, blank=True)
+    bounce_em = models.DateTimeField("Recusado em", null=True, blank=True)
+    bounce_motivo = models.CharField("Motivo da recusa", max_length=300, blank=True)
+
+    enviados = models.PositiveIntegerField("E-mails enviados", default=0)
+    ultimo_envio_em = models.DateTimeField("Último envio", null=True, blank=True)
+
+    token = models.CharField("Token de descadastro", max_length=40, blank=True, db_index=True)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Contato de e-mail"
+        verbose_name_plural = "Contatos de e-mail"
+        ordering = ["endereco"]
+        indexes = [
+            models.Index(fields=["descadastrado_em"]),
+            models.Index(fields=["bounce_em"]),
+        ]
+
+    def __str__(self):
+        return self.endereco
+
+    @classmethod
+    def para(cls, endereco, nome=""):
+        """Retorna (criando se preciso) o contato de um endereço, normalizado."""
+        alvo = (endereco or "").strip().lower()
+        if not alvo:
+            return None
+        obj, criado = cls.objects.get_or_create(
+            endereco=alvo, defaults={"nome": (nome or "").strip()[:150]}
+        )
+        if criado or not obj.token:
+            obj.get_token()
+        return obj
+
+    def get_token(self):
+        """Retorna o token do link de descadastro, criando um na primeira vez.
+        Mesmo padrão do `PerfilUsuario.get_token_acerto`."""
+        if not self.token:
+            self.token = uuid.uuid4().hex
+            self.save(update_fields=["token"])
+        return self.token
+
+    @property
+    def bloqueado(self):
+        """True se o endereço não pode receber NADA (recusado pelo servidor)."""
+        return self.bounce_em is not None
+
+    @property
+    def descadastrado(self):
+        return self.descadastrado_em is not None
+
+    def pode_receber(self, transacional=False):
+        """Regra de consentimento. Bounce bloqueia tudo; descadastro bloqueia só o
+        que não é transacional (o comprovante do que a pessoa fez sempre chega)."""
+        if self.bloqueado:
+            return False
+        if self.descadastrado and not transacional:
+            return False
+        return True
+
+    def registrar_envio(self):
+        from django.db.models import F
+        type(self).objects.filter(pk=self.pk).update(
+            enviados=F("enviados") + 1, ultimo_envio_em=timezone.now()
+        )
+
+    def registrar_bounce(self, motivo=""):
+        """Marca o endereço como recusado pelo servidor (suprimido daqui em diante)."""
+        if self.bounce_em:
+            return
+        type(self).objects.filter(pk=self.pk).update(
+            bounce_em=timezone.now(), bounce_motivo=(motivo or "")[:300]
+        )
+
+    def descadastrar(self):
+        """Registra o opt-out (idempotente — não sobrescreve a data original)."""
+        if self.descadastrado_em:
+            return
+        type(self).objects.filter(pk=self.pk).update(descadastrado_em=timezone.now())
+
+    def reinscrever(self):
+        """Desfaz o descadastro (o Diretor pode reverter a pedido da família)."""
+        type(self).objects.filter(pk=self.pk).update(descadastrado_em=None)
 
 
 STATUS_PAGAMENTO_CHOICES = [

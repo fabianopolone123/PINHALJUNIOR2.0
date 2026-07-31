@@ -13,13 +13,16 @@ from django.utils import timezone
 
 from . import email_envio
 from . import mercadopago as mp
+from . import views
 from .models import (
     Aventureiro,
     CobrancaEnviada,
     CompraLoja,
+    ContatoEmail,
     CustoClube,
     EmailConfig,
     Evento,
+    TemplateNotificacao,
     FaixaEtariaPreco,
     GrupoLoja,
     Inscricao,
@@ -1063,3 +1066,170 @@ class EmailConfigTests(TestCase):
         ok, detalhe = email_envio.enviar(cfg, "sem-arroba", "Assunto", "Corpo")
         self.assertFalse(ok)
         self.assertIn("inválido", detalhe)
+
+
+class ConsentimentoEmailTests(TestCase):
+    """Camada anti-spam: descadastro, bounce, gate e cabeçalhos."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_cons", password="x")
+        self.diretor.groups.add(grupo)
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"
+        cfg.senha = "x"
+        cfg.site_url = "https://pinhaljunior.com.br"
+        cfg.save()
+        self.cfg = cfg
+
+    # ---- Gate ----
+    def test_gate_libera_endereco_novo_e_cria_contato(self):
+        pode, contato, motivo = views._pode_enviar_email("novo@exemplo.com")
+        self.assertTrue(pode)
+        self.assertEqual(motivo, "ok")
+        self.assertTrue(ContatoEmail.objects.filter(endereco="novo@exemplo.com").exists())
+        self.assertTrue(contato.token)
+
+    def test_gate_normaliza_caixa_e_espacos(self):
+        views._pode_enviar_email("  Maiuscula@Exemplo.COM ")
+        self.assertTrue(ContatoEmail.objects.filter(endereco="maiuscula@exemplo.com").exists())
+
+    def test_descadastrado_barra_aviso_mas_nao_comprovante(self):
+        c = ContatoEmail.para("saiu@exemplo.com")
+        c.descadastrar()
+        pode, _, motivo = views._pode_enviar_email("saiu@exemplo.com")
+        self.assertFalse(pode)
+        self.assertEqual(motivo, "descadastrado")
+        # Transacional (comprovante do que a propria pessoa fez) continua passando.
+        pode_t, _, _ = views._pode_enviar_email("saiu@exemplo.com", transacional=True)
+        self.assertTrue(pode_t)
+
+    def test_bounce_barra_ate_o_transacional(self):
+        c = ContatoEmail.para("morto@exemplo.com")
+        c.registrar_bounce("550 no such user")
+        for transacional in (False, True):
+            pode, _, motivo = views._pode_enviar_email("morto@exemplo.com",
+                                                       transacional=transacional)
+            self.assertFalse(pode)
+            self.assertEqual(motivo, "endereco_recusado")
+
+    def test_forcar_fura_descadastro_mas_nao_bounce(self):
+        ContatoEmail.para("a@x.com").descadastrar()
+        ContatoEmail.para("b@x.com").registrar_bounce("550")
+        with mock.patch("core.views.email_envio.enviar", return_value=(True, "enviado")):
+            ok_a, _ = views._enviar_email("a@x.com", "s", "c", forcar=True)
+        ok_b, motivo_b = views._enviar_email("b@x.com", "s", "c", forcar=True)
+        self.assertTrue(ok_a)
+        self.assertFalse(ok_b)
+        self.assertEqual(motivo_b, "endereco_recusado")
+
+    # ---- Cabecalhos e corpo ----
+    def test_aviso_leva_list_unsubscribe_e_link(self):
+        contato = ContatoEmail.para("pai@exemplo.com")
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.return_value = 1
+            email_envio.enviar(self.cfg, "pai@exemplo.com", "Cobranca", "Corpo",
+                               contato=contato, transacional=False)
+        kw = EM.call_args.kwargs
+        self.assertIn("List-Unsubscribe", kw["headers"])
+        self.assertIn(contato.token, kw["headers"]["List-Unsubscribe"])
+        self.assertEqual(kw["headers"]["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click")
+        self.assertIn("Para não receber mais estes avisos", kw["body"])
+
+    def test_transacional_nao_leva_descadastro(self):
+        contato = ContatoEmail.para("pai@exemplo.com")
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.return_value = 1
+            email_envio.enviar(self.cfg, "pai@exemplo.com", "Compra", "Corpo",
+                               contato=contato, transacional=True)
+        kw = EM.call_args.kwargs
+        self.assertIsNone(kw["headers"])
+        self.assertNotIn("Para não receber mais estes avisos", kw["body"])
+        # O rodape de identificacao continua em todo e-mail.
+        self.assertIn("Clube de Aventureiros Pinhal Júnior", kw["body"])
+
+    def test_reply_to_vai_quando_configurado(self):
+        self.cfg.reply_to = "contato@pinhaljunior.com.br"
+        self.cfg.save()
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.return_value = 1
+            email_envio.enviar(self.cfg, "a@x.com", "s", "c")
+        self.assertEqual(EM.call_args.kwargs["reply_to"], ["contato@pinhaljunior.com.br"])
+
+    # ---- Bounce automatico ----
+    def test_recusa_do_servidor_marca_bounce(self):
+        import smtplib
+        contato = ContatoEmail.para("recusa@exemplo.com")
+        erro = smtplib.SMTPRecipientsRefused({"recusa@exemplo.com": (550, b"No such user")})
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.side_effect = erro
+            ok, _ = email_envio.enviar(self.cfg, "recusa@exemplo.com", "s", "c", contato=contato)
+        contato.refresh_from_db()
+        self.assertFalse(ok)
+        self.assertTrue(contato.bloqueado)
+
+    def test_falha_de_conexao_nao_marca_bounce(self):
+        """Problema nosso (rede/senha) nao pode suprimir o endereco da pessoa."""
+        contato = ContatoEmail.para("ok@exemplo.com")
+        with mock.patch("core.email_envio.EmailMessage") as EM:
+            EM.return_value.send.side_effect = TimeoutError("timeout")
+            email_envio.enviar(self.cfg, "ok@exemplo.com", "s", "c", contato=contato)
+        contato.refresh_from_db()
+        self.assertFalse(contato.bloqueado)
+
+    # ---- Pagina publica de descadastro ----
+    def test_pagina_descadastro_funciona_e_e_reversivel(self):
+        contato = ContatoEmail.para("saida@exemplo.com")
+        url = reverse("core:descadastrar", args=[contato.token])
+
+        self.assertEqual(self.client.get(url).status_code, 200)   # publica, sem login
+
+        self.client.post(url)
+        contato.refresh_from_db()
+        self.assertTrue(contato.descadastrado)
+
+        self.client.post(url, {"acao": "reinscrever"})
+        contato.refresh_from_db()
+        self.assertFalse(contato.descadastrado)
+
+    def test_descadastro_com_token_invalido_da_404(self):
+        r = self.client.get(reverse("core:descadastrar", args=["naoexiste"]))
+        self.assertEqual(r.status_code, 404)
+
+    def test_descadastro_e_idempotente(self):
+        contato = ContatoEmail.para("dup@exemplo.com")
+        contato.descadastrar()
+        contato.refresh_from_db()
+        primeira = contato.descadastrado_em
+        contato.descadastrar()
+        contato.refresh_from_db()
+        self.assertEqual(contato.descadastrado_em, primeira)
+
+    # ---- Canal por notificacao ----
+    def test_template_nasce_com_whatsapp_ligado_e_email_desligado(self):
+        tpl = TemplateNotificacao.get_tipo("cadastro_novo")
+        self.assertTrue(tpl.enviar_whatsapp)
+        self.assertFalse(tpl.enviar_email)
+        self.assertTrue(tpl.assunto)   # assunto padrao preenchido
+
+    def test_salvar_template_grava_os_canais(self):
+        self.client.force_login(self.diretor)
+        self.client.post(reverse("core:whatsapp_templates"), {
+            "tipo": "cadastro_novo", "ativo": "1", "enviar_email": "1",
+            "mensagem": "Oi {nome}", "prompt_ia": "", "assunto": "Bem-vindo!",
+        })
+        tpl = TemplateNotificacao.get_tipo("cadastro_novo")
+        self.assertTrue(tpl.enviar_email)
+        self.assertFalse(tpl.enviar_whatsapp)   # nao veio no POST = desmarcado
+        self.assertEqual(tpl.assunto, "Bem-vindo!")
+
+    def test_assunto_vazio_cai_no_padrao(self):
+        self.client.force_login(self.diretor)
+        self.client.post(reverse("core:whatsapp_templates"), {
+            "tipo": "cadastro_novo", "ativo": "1", "assunto": "",
+            "mensagem": "Oi", "prompt_ia": "",
+        })
+        self.assertEqual(
+            TemplateNotificacao.get_tipo("cadastro_novo").assunto,
+            TemplateNotificacao.assunto_padrao("cadastro_novo"),
+        )

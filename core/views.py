@@ -70,6 +70,7 @@ from .models import (
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
+    ContatoEmail,
     ContatoWhatsapp,
     TemplateNotificacao,
     TEMPLATES_NOTIFICACAO,
@@ -3434,6 +3435,9 @@ def _notif_templates_ctx():
             "mensagem": tpl.mensagem,
             "prompt_ia": tpl.prompt_ia,
             "membros": lista_membros,
+            "enviar_whatsapp": tpl.enviar_whatsapp,
+            "enviar_email": tpl.enviar_email,
+            "assunto": tpl.assunto,
         })
     return itens
 
@@ -3468,6 +3472,7 @@ def whatsapp_view(request):
         "notif_templates": _notif_templates_ctx(),
         "notif_janela_dias": config.notificar_janela_dias,
         "ia_configurada": OpenAIConfig.get_solo().configurado,
+        "email_configurado": EmailConfig.get_solo().configurado,
         "aba": request.GET.get("aba", "config"),
     })
 
@@ -3502,6 +3507,14 @@ def whatsapp_templates_view(request):
     tpl.usar_ia = request.POST.get("usar_ia") == "1"
     tpl.mensagem = (request.POST.get("mensagem") or "").strip()
     tpl.prompt_ia = (request.POST.get("prompt_ia") or "").strip()
+    # Canais de saída (Etapa 2 do e-mail). O assunto cai no padrão se vier vazio,
+    # para nunca sair e-mail sem assunto.
+    tpl.enviar_whatsapp = request.POST.get("enviar_whatsapp") == "1"
+    tpl.enviar_email = request.POST.get("enviar_email") == "1"
+    tpl.assunto = (
+        (request.POST.get("assunto") or "").strip()
+        or TemplateNotificacao.assunto_padrao(tipo)
+    )
     tpl.atualizado_por = request.user
     tpl.save()
     if tpl.interno:
@@ -4178,6 +4191,9 @@ def email_view(request):
     return render(request, "core/email.html", {
         "config": config,
         "destino_padrao": _email_do_usuario(request.user) or config.usuario,
+        "contatos_total": ContatoEmail.objects.count(),
+        "descadastrados": ContatoEmail.objects.filter(descadastrado_em__isnull=False).count(),
+        "recusados": ContatoEmail.objects.filter(bounce_em__isnull=False).count(),
     })
 
 
@@ -4191,6 +4207,9 @@ def email_config_view(request):
     config.host = (request.POST.get("host") or "").strip() or config.host
     config.usuario = (request.POST.get("usuario") or "").strip()
     config.remetente_nome = (request.POST.get("remetente_nome") or "").strip()
+    config.reply_to = (request.POST.get("reply_to") or "").strip()
+    config.site_url = (request.POST.get("site_url") or "").strip() or config.site_url
+    config.rodape = (request.POST.get("rodape") or "").strip()
 
     seguranca = (request.POST.get("seguranca") or "").strip()
     if seguranca in dict(EmailConfig.SEGURANCA_CHOICES):
@@ -4254,6 +4273,81 @@ def email_zerar_view(request):
     config.zerar_contador()
     messages.success(request, "Contador de e-mails zerado.")
     return redirect("core:email")
+
+
+# --------------------- Consentimento (gate do canal de e-mail) ---------------
+def _pode_enviar_email(endereco, *, transacional=False):
+    """Gate do e-mail. Devolve `(pode: bool, contato|None, motivo: str)`.
+
+    É o análogo do `_pode_notificar` do WhatsApp, mas a preocupação é outra: lá o
+    risco é a W-API bloquear o número; aqui é o filtro de spam. Por isso olha
+    **descadastro** e **bounce** — não janela de contato.
+
+    Cria o `ContatoEmail` na primeira vez (todo endereço que o clube usa passa a
+    ter registro de consentimento e token de descadastro)."""
+    alvo = (endereco or "").strip().lower()
+    if not alvo or "@" not in alvo:
+        return False, None, "endereco_invalido"
+    contato = ContatoEmail.para(alvo)
+    if contato is None:
+        return False, None, "endereco_invalido"
+    if contato.bloqueado:
+        return False, contato, "endereco_recusado"
+    if contato.descadastrado and not transacional:
+        return False, contato, "descadastrado"
+    return True, contato, "ok"
+
+
+def _enviar_email(endereco, assunto, corpo, *, transacional=False, nome="", forcar=False):
+    """Ponto ÚNICO de envio de e-mail do sistema, com o gate de consentimento.
+
+    Espelha o `_notificar` do WhatsApp: nunca levanta exceção e devolve
+    `(enviado: bool, motivo: str)`. `forcar=True` pula o gate — reservado a avisos
+    internos para a própria diretoria (que não são mala direta)."""
+    try:
+        config = EmailConfig.get_solo()
+        if not config.configurado:
+            return False, "email_nao_configurado"
+        pode, contato, motivo = _pode_enviar_email(endereco, transacional=transacional)
+        if contato is not None and nome and not contato.nome:
+            ContatoEmail.objects.filter(pk=contato.pk).update(nome=nome[:150])
+        # Bounce bloqueia até o `forcar` — insistir em endereço morto é o que mais
+        # machuca a reputação do remetente.
+        if not pode and not (forcar and motivo == "descadastrado"):
+            return False, motivo
+        return email_envio.enviar(
+            config, endereco, assunto, corpo,
+            contato=contato, transacional=transacional,
+        )
+    except Exception as exc:  # noqa: BLE001 — envio nunca derruba o fluxo
+        logger.exception("Falha inesperada no envio de e-mail")
+        return False, f"erro:{exc}"
+
+
+# ------------------------- Descadastro (público) -----------------------------
+@csrf_exempt
+def descadastrar_view(request, token):
+    """Página pública de descadastro (link do rodapé e do cabeçalho
+    `List-Unsubscribe`). GET mostra a confirmação; POST efetiva.
+
+    É `@csrf_exempt` **só no POST de um clique** porque o Gmail/Outlook fazem um
+    POST direto no link (RFC 8058, "One-Click") sem passar pela nossa página — sem
+    isso o botão nativo do cliente de e-mail falharia. O token é a credencial, e a
+    ação é reversível pelo Diretor."""
+    contato = ContatoEmail.objects.filter(token=token).first() if token else None
+    if contato is None:
+        return render(request, "core/descadastrar.html", {"invalido": True}, status=404)
+
+    if request.method == "POST":
+        if request.POST.get("acao") == "reinscrever":
+            contato.reinscrever()
+        else:
+            contato.descadastrar()
+        contato.refresh_from_db()
+        return render(request, "core/descadastrar.html", {
+            "contato": contato, "feito": True,
+        })
+    return render(request, "core/descadastrar.html", {"contato": contato})
 
 
 # ===========================================================================

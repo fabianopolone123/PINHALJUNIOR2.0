@@ -22,6 +22,70 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-31 - Notificações por e-mail (Etapa 2: canal por notificação + camada anti-spam)
+
+### Resumo
+Cada notificação passou a escolher por qual canal sai (WhatsApp e/ou e-mail), e o canal de e-mail ganhou a
+camada de **consentimento** que faltava: descadastro, supressão por bounce, `List-Unsubscribe`, `Reply-To` e
+rodapé de identificação. **Nada dispara por e-mail ainda** — a Etapa 3 liga os gatilhos.
+
+### Motivação
+Pergunta do usuário sobre risco de spam ao mandar cobrança/lembrete. Cobrança **não é transacional**: o clube
+inicia, não o usuário. Para filtro de spam isso é outra categoria, e sem opt-out o dano vai além da cobrança —
+quem marca "é spam" derruba a reputação da conta para todos os envios, inclusive os comprovantes.
+
+### Arquivos criados/alterados
+- `core/models.py`:
+  - `TemplateNotificacao` += `enviar_whatsapp` (default `True`), `enviar_email` (default `False`), `assunto`.
+    `TEMPLATES_NOTIFICACAO` ganhou um 6º item por tipo (assunto padrão) e o novo `assunto_padrao(tipo)`;
+    `get_tipo` passa a preencher o assunto também em templates já existentes que estejam sem.
+  - Novo **`ContatoEmail`**: `endereco` (único), `nome`, `descadastrado_em`, `bounce_em`/`bounce_motivo`,
+    contador, `token`. `para()` normaliza e cria; `pode_receber(transacional)`, `registrar_bounce`,
+    `descadastrar`/`reinscrever` (idempotentes). Índices em `descadastrado_em` e `bounce_em`.
+  - `EmailConfig` += `reply_to`, `site_url`, `rodape`.
+- `core/email_envio.py`: `enviar(..., contato=None, transacional=False)` — cabeçalhos `List-Unsubscribe` e
+  `List-Unsubscribe-Post` (RFC 8058), `Reply-To`, rodapé via `_montar_corpo`, `link_descadastro` e
+  `_eh_recusa_definitiva` (só 5xx/`SMTPRecipientsRefused` marcam bounce).
+- `core/views.py`: `_pode_enviar_email` (gate), `_enviar_email` (ponto único), `descadastrar_view` (pública,
+  `@csrf_exempt`), canais em `whatsapp_templates_view`, `enviar_*`/`assunto` em `_notif_templates_ctx`,
+  `email_configurado` no contexto do WhatsApp e painel de contatos em `email_view`.
+- `core/urls.py`: `descadastrar/<str:token>/`.
+- `templates/core/descadastrar.html` **(novo)**; `templates/core/email.html` (card "🛡️ Proteção contra spam" +
+  `Reply-To`); `templates/core/whatsapp.html` (bloco "Por onde enviar" + assunto).
+- `core/migrations/0056_...py` **(novo)**.
+- `core/tests.py`: nova `ConsentimentoEmailTests` com 16 testes.
+
+### Decisões tomadas
+- **Bounce bloqueia tudo; descadastro bloqueia só o não-transacional.** Quem se descadastrou de avisos ainda
+  recebe o comprovante do que ele mesmo fez — espelha a lógica de `NOTIF_TRANSACIONAIS` do WhatsApp.
+- **`forcar=True` não fura bounce.** Insistir em endereço morto é o que mais machuca reputação; o `forcar`
+  existe para aviso interno à diretoria, não para contornar recusa do servidor.
+- **Falha 4xx ou de conexão não marca bounce** — é problema nosso (rede, senha, greylisting), não do endereço.
+- **`site_url` no model em vez de `build_absolute_uri`**: as notificações saem em thread de fundo (`_em_thread`
+  dentro de `on_commit`), onde não existe `request`.
+- **`@csrf_exempt` no descadastro**: Gmail/Outlook fazem POST direto no link (One-Click) sem passar pela nossa
+  página. O token é a credencial e a ação é reversível.
+- **Transacional não leva convite de descadastro** — não faz sentido oferecer saída de um comprovante.
+- Sequência escolhida: transacionais primeiro (constroem reputação com destinatários engajados), cobrança só
+  depois. Começar por cobrança em massa faria o contrário.
+
+### Validação
+- Suíte: **72 testes OK** (45 + 11 da Etapa 1 + 16 desta).
+- `check` e `makemigrations --check` limpos; as 3 telas renderizam (5 blocos de canal na aba Templates).
+- **Base de e-mails checada por DNS, sem enviar nada**: 62 endereços distintos, 59 em domínios saudáveis.
+  Problemas: `rerison.vasques@gmai` (digitação, pai de Lorenzo Brianezi Vasques) e 2× `@example.com`
+  (null MX — RFC 7505 — dos registros de teste `teste_responsavel`).
+- Autenticação de remetente já OK sem trabalho: com `From` `@gmail.com`, SPF/DKIM/DMARC passam pelo Google.
+
+### Pendências
+- **Etapa 3**: `_notificar` vira fan-out entre os canais + `_email_familia`; limpar a marcação `*negrito*` do
+  WhatsApp no caminho do e-mail.
+- **Etapa 4**: cobrança/lembrete por e-mail — exige campo `canal` no `CobrancaEnviada` (hoje ele não distingue
+  canal, então ligar e-mail faria a família contar como cobrada e o WhatsApp deixaria de sair) e pacing.
+- Corrigir o `resp/pai_email` com digitação (`@gmai`) — dado pessoal em produção, aguarda confirmação.
+- Marcar os 2 aventureiros de teste (`teste_responsavel`) como `demo=True`; hoje estão `demo=False`.
+- Robustez da resposta automática de autorização do WhatsApp segue pendente.
+
 ## 2026-07-30 - Notificações por e-mail (Etapa 1: base + tela)
 
 ### Resumo

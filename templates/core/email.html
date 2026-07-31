@@ -103,6 +103,13 @@
                         </div>
 
                         <div class="campo">
+                            <label for="reply_to">Responder para <span class="wa-opcional">(para onde vão as respostas)</span></label>
+                            <input type="email" id="reply_to" name="reply_to" value="{{ config.reply_to }}"
+                                   placeholder="contato@pinhaljunior.com.br">
+                            <small class="ajuda">Sem isso, quem responder cai na caixa pessoal da conta de envio.</small>
+                        </div>
+
+                        <div class="campo">
                             <label for="host">Servidor SMTP</label>
                             <input type="text" id="host" name="host" value="{{ config.host }}"
                                    placeholder="smtp.gmail.com">
@@ -127,6 +134,56 @@
                             <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar configuração</button>
                         </div>
                     </form>
+                </section>
+
+                <!-- ===================== Entregabilidade ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">🛡️ Proteção contra spam</h2>
+                    </div>
+                    <p class="wa-ajuda">
+                        Todo e-mail leva o rodapé de identificação. Os que <strong>não</strong> são comprovante
+                        (cobrança, lembrete) levam também o link de descadastro e o cabeçalho
+                        <code>List-Unsubscribe</code>, que faz o Gmail e o Outlook mostrarem o botão
+                        "Cancelar inscrição". Quem se descadastra para de receber avisos, mas continua
+                        recebendo os comprovantes do que ele mesmo fizer.
+                    </p>
+
+                    <form method="post" action="{% url 'core:email_config' %}" class="wa-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="usuario" value="{{ config.usuario }}">
+                        <input type="hidden" name="remetente_nome" value="{{ config.remetente_nome }}">
+                        <input type="hidden" name="reply_to" value="{{ config.reply_to }}">
+                        <input type="hidden" name="host" value="{{ config.host }}">
+                        <input type="hidden" name="porta" value="{{ config.porta }}">
+                        <input type="hidden" name="seguranca" value="{{ config.seguranca }}">
+
+                        <div class="campo">
+                            <label for="site_url">Endereço público do site</label>
+                            <input type="url" id="site_url" name="site_url" value="{{ config.site_url }}"
+                                   placeholder="https://pinhaljunior.com.br">
+                            <small class="ajuda">Usado para montar o link de descadastro. As notificações saem em segundo plano, sem acesso ao endereço da requisição.</small>
+                        </div>
+
+                        <div class="campo">
+                            <label for="rodape">Rodapé de identificação</label>
+                            <textarea id="rodape" name="rodape" rows="3">{{ config.rodape }}</textarea>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar</button>
+                        </div>
+                    </form>
+
+                    {% if descadastrados or recusados %}
+                    <p class="wa-token-atual">
+                        Contatos: <strong>{{ contatos_total }}</strong> ·
+                        descadastrados: <strong>{{ descadastrados }}</strong> ·
+                        recusados pelo servidor: <strong>{{ recusados }}</strong>
+                    </p>
+                    {% elif contatos_total %}
+                    <p class="wa-token-atual">Contatos registrados: <strong>{{ contatos_total }}</strong> — nenhum descadastro ou recusa.</p>
+                    {% endif %}
                 </section>
 
                 <!-- ===================== Enviar teste ===================== -->

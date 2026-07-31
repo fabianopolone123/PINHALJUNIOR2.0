@@ -2,7 +2,33 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-30 (**Notificações por e-mail — Etapa 1: base + tela**): começou o
+**Última atualização:** 2026-07-31 (**Notificações por e-mail — Etapa 2: canal por notificação +
+camada anti-spam**): o canal de e-mail ganhou **consentimento** e cada notificação passou a escolher por onde
+sai. **Ainda não dispara nada** — a Etapa 3 liga os gatilhos. (1) `TemplateNotificacao` += **`enviar_whatsapp`**
+(nasce `True`, é como sempre funcionou), **`enviar_email`** (nasce `False`) e **`assunto`**; a aba 🧩 Templates
+ganhou o bloco "Por onde enviar" (2 checkboxes) + campo de assunto por notificação. Os 5 tipos ganharam
+**assunto padrão** (6º item da tupla de `TEMPLATES_NOTIFICACAO`); `get_tipo` preenche o assunto também em
+templates **já existentes** que estejam sem. (2) Novo model **`ContatoEmail`** — o análogo do `ContatoWhatsapp`,
+mas para o risco de **spam**, não de bloqueio da API: `descadastrado_em`, `bounce_em`/`bounce_motivo`,
+contador e `token` de descadastro. Método `pode_receber(transacional)` com a regra: **bounce bloqueia tudo;
+descadastro bloqueia só o que não é comprovante**. (3) Gate **`_pode_enviar_email`** + ponto único
+**`_enviar_email`** (espelham `_pode_notificar`/`_notificar`; `forcar=True` fura o descadastro mas **nunca** o
+bounce). (4) **Descadastro público** `/descadastrar/<token>/` (`@csrf_exempt` por causa do POST One-Click do
+Gmail, RFC 8058) — página com confirmação e **reversível**. (5) `email_envio.enviar` ganhou `contato=` e
+`transacional=`: monta o cabeçalho **`List-Unsubscribe` + `List-Unsubscribe-Post`** (o que faz Gmail/Outlook
+mostrarem "Cancelar inscrição"), **`Reply-To`**, **rodapé de identificação** em todo e-mail e a linha de saída
+só nos não-transacionais; e **marca bounce** automaticamente em recusa 5xx — falha 4xx/conexão **não** suprime
+(problema nosso, não do endereço). (6) `EmailConfig` += `reply_to`, `site_url` (base do link de descadastro; as
+notificações saem em thread, sem `request`) e `rodape`; card "🛡️ Proteção contra spam" na tela com o painel de
+descadastrados/recusados. Migration **0056**. **Autenticação já resolvida** de graça: como o remetente é
+`@gmail.com`, SPF/DKIM/DMARC passam pelo Google (só precisaria de DNS se trocar para o alias
+`@pinhaljunior.com.br`). **Validação da base** (só DNS, nada enviado): 62 endereços distintos, **59 em domínios
+saudáveis**; problemas = 1 digitação (`rerison.vasques@gmai`, pai de Lorenzo Brianezi Vasques) e 2×
+`mariana.santos@example.com` (null MX, registros de teste). Suíte: **72 testes OK** (45 + 11 + 16). Próximo:
+Etapa 3 (ligar os 5 transacionais); depois Etapa 4 (cobrança/lembrete, com canal no `CobrancaEnviada` e
+pacing). Antes: Notificações por e-mail — Etapa 1.
+
+**Anterior (Notificações por e-mail — Etapa 1: base + tela):** começou o
 **segundo canal de notificação**, ao lado do WhatsApp. Esta etapa é só a **infraestrutura — nada dispara por
 e-mail ainda**. (1) Novo model **`EmailConfig`** (singleton `get_solo`, migration **0055**): servidor SMTP,
 porta, segurança (STARTTLS/SSL/nenhuma), conta, **senha de app** (mascarada, só troca quando uma nova é

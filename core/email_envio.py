@@ -46,11 +46,48 @@ def _conexao(config):
     )
 
 
-def enviar(config, destino, assunto, corpo):
+def link_descadastro(config, contato):
+    """URL pública de descadastro de um contato (vazia se não der para montar).
+
+    Usa `EmailConfig.site_url` em vez de `request.build_absolute_uri` porque as
+    notificações saem em thread de fundo, onde não existe request."""
+    base = (getattr(config, "site_url", "") or "").rstrip("/")
+    token = getattr(contato, "token", "") if contato else ""
+    if not base or not token:
+        return ""
+    return f"{base}/descadastrar/{token}/"
+
+
+def _montar_corpo(config, corpo, url_saida):
+    """Junta o corpo ao rodapé de identificação e, quando houver, à linha de
+    descadastro. Identificar o remetente e oferecer saída são os dois sinais que
+    mais pesam contra a marcação de spam em mensagem não solicitada."""
+    partes = [(corpo or "").rstrip()]
+    rodape = (getattr(config, "rodape", "") or "").strip()
+    extras = []
+    if rodape:
+        extras.append(rodape)
+    if url_saida:
+        extras.append(f"Para não receber mais estes avisos: {url_saida}")
+    if extras:
+        partes.append("-- \n" + "\n".join(extras))
+    return "\n\n".join(partes)
+
+
+def enviar(config, destino, assunto, corpo, *, contato=None, transacional=False):
     """Envia UM e-mail de texto simples e devolve `(ok: bool, detalhe: str)`.
 
     `detalhe` é "enviado" no sucesso ou uma mensagem de erro amigável na falha.
-    Contabiliza o resultado no contador do `EmailConfig`. Não levanta exceção."""
+    Contabiliza o resultado no `EmailConfig` e, quando `contato` é passado, também
+    nele — inclusive marcando **bounce** se o servidor recusar o endereço, para não
+    insistir num endereço morto (o que derruba a reputação do remetente).
+
+    `transacional=True` (confirmação do que a própria pessoa acabou de fazer) omite
+    o convite de descadastro e o cabeçalho `List-Unsubscribe`: não faz sentido
+    oferecer saída de um comprovante. Para todo o resto eles vão — Gmail e Outlook
+    esperam esse cabeçalho de quem manda aviso não solicitado.
+
+    Não levanta exceção."""
     if not getattr(config, "configurado", False):
         return False, "E-mail não configurado."
     destino = (destino or "").strip()
@@ -59,12 +96,24 @@ def enviar(config, destino, assunto, corpo):
     if not (corpo or "").strip():
         return False, "Mensagem vazia."
 
+    url_saida = "" if transacional else link_descadastro(config, contato)
+    cabecalhos = {}
+    if url_saida:
+        # RFC 8058: com o par abaixo, o próprio Gmail/Outlook mostra o botão
+        # "Cancelar inscrição" e o clique chega no nosso endpoint.
+        cabecalhos["List-Unsubscribe"] = f"<{url_saida}>"
+        cabecalhos["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+
+    reply_to = (getattr(config, "reply_to", "") or "").strip()
+
     try:
         msg = EmailMessage(
             subject=(assunto or "").strip() or "(sem assunto)",
-            body=corpo,
+            body=_montar_corpo(config, corpo, url_saida),
             from_email=config.remetente,
             to=[destino],
+            reply_to=[reply_to] if reply_to else None,
+            headers=cabecalhos or None,
             connection=_conexao(config),
         )
         msg.send(fail_silently=False)
@@ -73,15 +122,33 @@ def enviar(config, destino, assunto, corpo):
         logger.warning("Falha ao enviar e-mail para %s: %s", destino, erro)
         try:
             config.registrar_falha(erro)
+            if contato is not None and _eh_recusa_definitiva(exc):
+                contato.registrar_bounce(erro)
         except Exception:  # noqa: BLE001 — contador nunca atrapalha o retorno
             logger.exception("Falha ao registrar erro de e-mail")
         return False, _amigavel(exc)
 
     try:
         config.registrar_envio()
+        if contato is not None:
+            contato.registrar_envio()
     except Exception:  # noqa: BLE001
         logger.exception("Falha ao registrar envio de e-mail")
     return True, "enviado"
+
+
+def _eh_recusa_definitiva(exc):
+    """True se o servidor recusou o ENDEREÇO (bounce permanente) — caso em que o
+    contato deve ser suprimido. Falha de conexão/autenticação é problema nosso, não
+    do endereço, e não pode marcar bounce."""
+    import smtplib
+
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return True
+    codigo = getattr(exc, "smtp_code", None)
+    # 5xx = erro permanente. 4xx é temporário (greylisting, caixa cheia) e merece
+    # nova tentativa depois, então não suprime.
+    return isinstance(codigo, int) and 500 <= codigo < 600
 
 
 def _amigavel(exc):
