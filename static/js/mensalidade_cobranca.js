@@ -55,14 +55,31 @@
         return (sel && sel.value) || "whatsapp";
     }
 
-    function campoCobrado(li) {
-        return canalAtual() === "email" ? "cobradoEmail" : "cobradoWhatsapp";
+    // Canais que o envio vai tentar, conforme o seletor.
+    function canaisDoEnvio() {
+        var c = canalAtual();
+        return c === "ambos" ? ["whatsapp", "email"] : [c];
     }
 
+    function campoDoCanal(c) {
+        return c === "email" ? "cobradoEmail" : "cobradoWhatsapp";
+    }
+
+    function temDestinoNoCanal(li, c) {
+        return c === "email" ? li.dataset.temEmail === "1" : li.dataset.temNumero === "1";
+    }
+
+    // Em "ambos", basta UM canal com destino para a família entrar no lote.
     function temDestino(li) {
-        return canalAtual() === "email"
-            ? li.dataset.temEmail === "1"
-            : li.dataset.temNumero === "1";
+        return canaisDoEnvio().some(function (c) { return temDestinoNoCanal(li, c); });
+    }
+
+    // Com o filtro "só quem não recebeu", em "ambos" a família ainda entra se
+    // faltar QUALQUER canal — o servidor manda só pelo que falta, sem duplicar.
+    function faltaAlgumCanal(li) {
+        return canaisDoEnvio().some(function (c) {
+            return temDestinoNoCanal(li, c) && (li.dataset[campoDoCanal(c)] || "0") === "0";
+        });
     }
 
     function enviar(usuarioId) {
@@ -78,23 +95,36 @@
         }).then(function (r) { return r.json(); });
     }
 
-    function marcaEnviado(li) {
-        var campo = campoCobrado(li);
-        var n = (parseInt(li.dataset[campo], 10) || 0) + 1;
-        li.dataset[campo] = String(n);
+    // Recebe o `por_canal` da resposta e atualiza cada contador separadamente.
+    function marcaEnviado(li, porCanal) {
+        var total = 0;
+        ["whatsapp", "email"].forEach(function (c) {
+            var q = (porCanal && porCanal[c]) || 0;
+            var campo = campoDoCanal(c);
+            var n = (parseInt(li.dataset[campo], 10) || 0) + q;
+            li.dataset[campo] = String(n);
+            total += n;
+        });
         var s = li.querySelector(".mens-cobranca-status");
         if (s) {
-            var icone = canalAtual() === "email" ? "✉️" : "📤";
-            s.innerHTML = '<span class="mens-badge mens-badge-isento">' + icone
-                + ' Cobrado este mês (' + n + ')</span>';
+            var partes = [];
+            if (parseInt(li.dataset.cobradoWhatsapp, 10) > 0) partes.push("💬 " + li.dataset.cobradoWhatsapp);
+            if (parseInt(li.dataset.cobradoEmail, 10) > 0) partes.push("✉️ " + li.dataset.cobradoEmail);
+            s.innerHTML = '<span class="mens-badge mens-badge-isento">Cobrado este mês ('
+                + partes.join(" · ") + ')</span>';
         }
+        return total;
     }
 
     // Ao trocar o canal, revalida quais linhas podem receber.
     var selCanal = document.getElementById("cobrancaCanal");
     if (selCanal) {
+        var ROTULO_CANAL = {
+            whatsapp: "Canal: WhatsApp 💬",
+            email: "Canal: e-mail ✉️",
+            ambos: "Canal: WhatsApp + e-mail 💬✉️",
+        };
         selCanal.addEventListener("change", function () {
-            var email = canalAtual() === "email";
             Array.prototype.forEach.call(
                 painel.querySelectorAll(".mens-cobranca-item"),
                 function (li) {
@@ -102,7 +132,7 @@
                     if (btn) btn.disabled = !temDestino(li);
                 }
             );
-            toast(email ? "Canal: e-mail ✉️" : "Canal: WhatsApp 💬", "success");
+            toast(ROTULO_CANAL[canalAtual()] || "Canal alterado", "success");
         });
     }
 
@@ -177,8 +207,9 @@
             if (!d || !d.ok) { toast((d && d.erro) || "Não foi possível enviar.", "error"); }
             else if (d.enviados) {
                 var li = um.closest(".mens-cobranca-item");
-                if (li) marcaEnviado(li);
-                toast("Cobrança enviada!", "success");
+                if (li) marcaEnviado(li, d.por_canal);
+                toast(d.enviados > 1 ? "Cobrança enviada nos 2 canais!" : "Cobrança enviada!",
+                      "success");
             } else {
                 toast((d.falhas && d.falhas[0]) || "Não enviado.", "error");
             }
@@ -206,16 +237,18 @@
         var soNao = so && so.checked;
         var lib = document.getElementById("cobrancaSoLiberados");
         var soLiberados = lib && lib.checked;
-        var email = canalAtual() === "email";
+        var usaWhatsapp = canaisDoEnvio().indexOf("whatsapp") !== -1;
         return Array.prototype.filter.call(
             painel.querySelectorAll(".mens-cobranca-item"),
             function (li) {
                 if (!temDestino(li)) return false;
-                if (soNao && (li.dataset[campoCobrado(li)] || "0") !== "0") return false;
+                if (soNao && !faltaAlgumCanal(li)) return false;
                 // O filtro "só liberados" é do gate do WhatsApp (quem escreveu ao
                 // clube). No e-mail o gate é outro (descadastro/bounce) e roda no
-                // servidor, então aqui ele não se aplica.
-                if (!email && soLiberados && li.dataset.liberado !== "1") return false;
+                // servidor. Em "ambos" ele não pode excluir a família, senão
+                // barraria também o e-mail — o servidor resolve por canal.
+                if (canalAtual() === "whatsapp" && usaWhatsapp && soLiberados
+                    && li.dataset.liberado !== "1") return false;
                 return true;
             }
         );
@@ -248,7 +281,8 @@
                 fim(true);
                 return;
             }
-            if (d.enviados) { lote.ok++; marcaEnviado(li); } else { lote.falhas++; }
+            if (d.enviados) { lote.ok += d.enviados; marcaEnviado(li, d.por_canal); }
+            else { lote.falhas++; }
             lote.i++;
             barra();
             if (lote.cancelado || lote.i >= lote.alvos.length) { fim(lote.cancelado); return; }

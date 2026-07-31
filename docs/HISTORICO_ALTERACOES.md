@@ -22,6 +22,39 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-07-31 - Cobrança: opção "Ambos" (WhatsApp + e-mail no mesmo clique)
+
+### Resumo
+O seletor de canal da aba Cobranças ganhou **💬+✉️ Ambos**: um clique envia pelos dois canais, cada um com as
+suas próprias regras anti-bloqueio/anti-spam, sem duplicar quem já recebeu.
+
+### Arquivos alterados
+- `core/models.py`: `CANAL_AMBOS` — opção de **envio**, deliberadamente **fora** de `CANAL_COBRANCA_CHOICES`
+  (o campo `CobrancaEnviada.canal` guarda só o canal que realmente saiu).
+- `core/views.py` (`mensalidade_cobranca_enviar_view`): aceita `canal=ambos`; monta `pedidos` e, **por família**,
+  calcula os `destinos` que faltam; a mensagem é gerada **uma vez** e reusada; um `CobrancaEnviada` por envio;
+  resposta com `por_canal`. O filtro `so_nao_enviados` saiu do pré-filtro da lista e passou a ser avaliado
+  por canal dentro do laço.
+- `templates/core/mensalidades.html`: `<option value="ambos">`.
+- `static/js/mensalidade_cobranca.js`: `canaisDoEnvio`, `campoDoCanal`, `temDestinoNoCanal`, `faltaAlgumCanal`;
+  `marcaEnviado(li, porCanal)` atualiza os dois contadores e mostra `💬 n · ✉️ n`; `alvosLote` e o toast de
+  troca de canal cobrindo "ambos".
+- `core/tests.py`: 8 testes do modo "ambos".
+
+### Decisões tomadas
+- **Uma geração de mensagem por família**, não por canal: com o modo IA ligado seriam duas chamadas ao GPT e
+  dois textos diferentes para a mesma pessoa. Há teste garantindo `call_count == 1`.
+- **Filtro por canal dentro do laço**: é o que permite "quem já recebeu por WhatsApp leva só o e-mail".
+- **Um canal desconfigurado não aborta o lote** — em "ambos" segue pelo outro; só recusa (400) se nenhum
+  estiver configurado. Antes, qualquer canal faltando derrubava a requisição inteira.
+- **Gate de e-mail não bloqueia o WhatsApp**: se a pessoa se descadastrou do e-mail, o WhatsApp ainda sai e a
+  falha aparece na lista com o motivo.
+- **"Só quem já me mandou mensagem" não exclui a família em "ambos"** — é o gate do WhatsApp; excluir a linha
+  barraria também o e-mail, que tem gate próprio no servidor.
+
+### Validação
+- Suíte: **107 testes OK** (99 + 8). Sem migration.
+
 ## 2026-07-31 - Corrige o seletor de canal da cobrança disparando a troca de telefone
 
 ### Resumo

@@ -86,6 +86,7 @@ from .models import (
     PROMPT_COBRANCA_IA_PADRAO,
     CANAL_WHATSAPP,
     CANAL_EMAIL,
+    CANAL_AMBOS,
     CANAL_COBRANCA_CHOICES,
     AssinaturaDocumentoDiretoria,
     CupomDesconto,
@@ -5281,20 +5282,27 @@ def mensalidade_cobranca_enviar_view(request):
     envio por e-mail passa pelo gate de consentimento (`_enviar_email`), leva o
     `List-Unsubscribe` e respeita descadastro e bounce."""
     canal = (request.POST.get("canal") or CANAL_WHATSAPP).strip()
-    if canal not in dict(CANAL_COBRANCA_CHOICES):
+    if canal not in dict(CANAL_COBRANCA_CHOICES) and canal != CANAL_AMBOS:
         return JsonResponse({"ok": False, "erro": "Canal inválido."}, status=400)
+    pedidos = ([CANAL_WHATSAPP, CANAL_EMAIL] if canal == CANAL_AMBOS else [canal])
 
     wa = WhatsappConfig.get_solo()
     email_cfg = EmailConfig.get_solo()
-    if canal == CANAL_WHATSAPP and not wa.configurado:
-        return JsonResponse(
-            {"ok": False, "erro": "Configure o WhatsApp antes de enviar cobranças."}, status=400
+    # Em "ambos", basta um canal configurado — o outro é reportado como falha por
+    # família, em vez de abortar o lote inteiro.
+    faltando = [
+        c for c in pedidos
+        if (c == CANAL_WHATSAPP and not wa.configurado)
+        or (c == CANAL_EMAIL and not email_cfg.configurado)
+    ]
+    if len(faltando) == len(pedidos):
+        qual = "o WhatsApp" if pedidos == [CANAL_WHATSAPP] else (
+            "o e-mail" if pedidos == [CANAL_EMAIL] else "o WhatsApp e o e-mail"
         )
-    if canal == CANAL_EMAIL and not email_cfg.configurado:
         return JsonResponse(
-            {"ok": False, "erro": "Configure o e-mail antes de enviar cobranças por e-mail."},
-            status=400,
+            {"ok": False, "erro": f"Configure {qual} antes de enviar cobranças."}, status=400
         )
+    pedidos = [c for c in pedidos if c not in faltando]
 
     cfg = ConfigMensalidade.get_solo()
     via_ia = cfg.cobranca_via_ia
@@ -5310,25 +5318,36 @@ def mensalidade_cobranca_enviar_view(request):
     alvo = request.POST.get("usuario_id")
     so_nao_enviados = request.POST.get("so_nao_enviados") == "1"
     hoje = timezone.localdate()
-    chave_contagem = "cobrado_mes_email" if canal == CANAL_EMAIL else "cobrado_mes_whatsapp"
     assunto = (cfg.assunto_cobranca_email or ASSUNTO_COBRANCA_PADRAO)
+    chave = {CANAL_WHATSAPP: "cobrado_mes_whatsapp", CANAL_EMAIL: "cobrado_mes_email"}
 
     familias = _cobrancas_familias()
     if alvo:
         familias = [f for f in familias if str(f["usuario_id"]) == str(alvo)]
-    if so_nao_enviados:
-        familias = [f for f in familias if not f[chave_contagem]]
 
     enviados = 0
+    por_canal = {CANAL_WHATSAPP: 0, CANAL_EMAIL: 0}
     falhas = []
     for f in familias:
-        if canal == CANAL_EMAIL and not f["tem_email"]:
-            falhas.append(f"{f['resp_nome']}: sem e-mail cadastrado")
-            continue
-        if canal == CANAL_WHATSAPP and not f["tem_numero"]:
-            falhas.append(f"{f['resp_nome']}: sem WhatsApp cadastrado")
+        # Quais canais faltam para ESTA família. Com "ambos" e o filtro ligado,
+        # quem já recebeu por um canal recebe só pelo outro — sem duplicar.
+        destinos = []
+        for c in pedidos:
+            if so_nao_enviados and f[chave[c]]:
+                continue
+            if c == CANAL_EMAIL and not f["tem_email"]:
+                falhas.append(f"{f['resp_nome']}: sem e-mail cadastrado")
+                continue
+            if c == CANAL_WHATSAPP and not f["tem_numero"]:
+                falhas.append(f"{f['resp_nome']}: sem WhatsApp cadastrado")
+                continue
+            destinos.append(c)
+        if not destinos:
             continue
 
+        # A mensagem é montada UMA vez por família e reusada nos dois canais: com o
+        # modo IA ligado, gerar por canal dobraria o custo e mandaria textos
+        # diferentes para a mesma pessoa.
         if via_ia:
             ok_ia, msg = _gerar_cobranca_ia(prompt_ia, f, request, ia_cfg)
             if not ok_ia:
@@ -5337,29 +5356,34 @@ def mensalidade_cobranca_enviar_view(request):
         else:
             msg = _montar_mensagem_cobranca(template, f, request)
 
-        if canal == CANAL_EMAIL:
-            ok, detalhe = _enviar_email(
-                f["email"],
-                assunto.format_map(_MarcadorDict({"nome": f["primeiro_nome"]})),
-                texto_para_email(msg),
-                transacional=False,           # o clube inicia — respeita descadastro
-                nome=f["resp_nome"] or "", origem="cobranca",
-            )
-            detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
-        else:
-            ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
+        for c in destinos:
+            if c == CANAL_EMAIL:
+                ok, detalhe = _enviar_email(
+                    f["email"],
+                    assunto.format_map(_MarcadorDict({"nome": f["primeiro_nome"]})),
+                    texto_para_email(msg),
+                    transacional=False,       # o clube inicia — respeita descadastro
+                    nome=f["resp_nome"] or "", origem="cobranca",
+                )
+                detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
+                rotulo = "e-mail"
+            else:
+                ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
+                rotulo = "WhatsApp"
 
-        if ok:
-            CobrancaEnviada.objects.create(
-                usuario_id=f["usuario_id"], canal=canal, ano=hoje.year, mes=hoje.month,
-                enviada_por=request.user,
-            )
-            enviados += 1
-        else:
-            falhas.append(f"{f['resp_nome']}: {detalhe}")
+            if ok:
+                CobrancaEnviada.objects.create(
+                    usuario_id=f["usuario_id"], canal=c, ano=hoje.year, mes=hoje.month,
+                    enviada_por=request.user,
+                )
+                enviados += 1
+                por_canal[c] += 1
+            else:
+                falhas.append(f"{f['resp_nome']} ({rotulo}): {detalhe}")
+
     return JsonResponse({
         "ok": True, "enviados": enviados, "falhas": falhas,
-        "via_ia": via_ia, "canal": canal,
+        "via_ia": via_ia, "canal": canal, "por_canal": por_canal,
     })
 
 

@@ -1437,6 +1437,92 @@ class CobrancaPorEmailTests(TestCase):
         r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {"canal": "pombo"})
         self.assertEqual(r.status_code, 400)
 
+    # ---- Canal "ambos" ----
+    def _enviar_ambos(self, **extra):
+        dados = {"canal": "ambos", "usuario_id": self.familia.id}
+        dados.update(extra)
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")) as wa, \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")) as em:
+            r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), dados)
+        return r, wa, em
+
+    def test_ambos_envia_pelos_dois_e_grava_dois_registros(self):
+        r, wa, em = self._enviar_ambos()
+        d = r.json()
+        self.assertEqual(d["enviados"], 2)
+        self.assertEqual(d["por_canal"], {"whatsapp": 1, "email": 1})
+        self.assertTrue(wa.called)
+        self.assertTrue(em.called)
+        canais = sorted(CobrancaEnviada.objects.values_list("canal", flat=True))
+        self.assertEqual(canais, ["email", "whatsapp"])
+
+    def test_ambos_gera_a_mensagem_uma_vez_so(self):
+        """Com a IA ligada, gerar por canal dobraria o custo e mandaria textos
+        diferentes para a mesma pessoa."""
+        with mock.patch("core.views._montar_mensagem_cobranca", return_value="msg") as m, \
+             mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")), \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")):
+            self.client.post(reverse("core:mensalidade_cobranca_enviar"),
+                             {"canal": "ambos", "usuario_id": self.familia.id})
+        self.assertEqual(m.call_count, 1)
+
+    def test_ambos_com_filtro_manda_so_pelo_canal_que_falta(self):
+        """Já cobrada por WhatsApp: em 'ambos' com o filtro, sai só o e-mail."""
+        CobrancaEnviada.objects.create(
+            usuario=self.familia, canal="whatsapp",
+            ano=timezone.localdate().year, mes=timezone.localdate().month,
+        )
+        r, wa, em = self._enviar_ambos(so_nao_enviados="1")
+        d = r.json()
+        self.assertEqual(d["por_canal"], {"whatsapp": 0, "email": 1})
+        self.assertFalse(wa.called)      # não duplica o WhatsApp
+        self.assertTrue(em.called)
+
+    def test_ambos_sem_filtro_manda_pelos_dois_mesmo_ja_cobrado(self):
+        CobrancaEnviada.objects.create(
+            usuario=self.familia, canal="whatsapp",
+            ano=timezone.localdate().year, mes=timezone.localdate().month,
+        )
+        r, wa, em = self._enviar_ambos()
+        self.assertEqual(r.json()["enviados"], 2)
+        self.assertTrue(wa.called)
+
+    def test_ambos_respeita_descadastro_no_email_e_manda_o_whatsapp(self):
+        ContatoEmail.para("mae@exemplo.com").descadastrar()
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")) as wa:
+            r = self.client.post(reverse("core:mensalidade_cobranca_enviar"),
+                                 {"canal": "ambos", "usuario_id": self.familia.id})
+        d = r.json()
+        self.assertEqual(d["por_canal"], {"whatsapp": 1, "email": 0})
+        self.assertTrue(wa.called)
+        self.assertTrue(any("descadastrou-se" in x for x in d["falhas"]))
+
+    def test_ambos_continua_se_um_canal_nao_esta_configurado(self):
+        """E-mail desconfigurado não pode abortar o lote inteiro."""
+        cfg = EmailConfig.get_solo()
+        cfg.senha = ""
+        cfg.save()
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")) as wa:
+            r = self.client.post(reverse("core:mensalidade_cobranca_enviar"),
+                                 {"canal": "ambos", "usuario_id": self.familia.id})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["por_canal"], {"whatsapp": 1, "email": 0})
+        self.assertTrue(wa.called)
+
+    def test_ambos_recusa_se_nenhum_canal_configurado(self):
+        cfg = EmailConfig.get_solo()
+        cfg.senha = ""
+        cfg.save()
+        wa = WhatsappConfig.get_solo()
+        wa.token = ""
+        wa.save()
+        r = self.client.post(reverse("core:mensalidade_cobranca_enviar"), {"canal": "ambos"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_seletor_tem_a_opcao_ambos(self):
+        html = self.client.get(reverse("core:mensalidades") + "?aba=cobrancas").content.decode()
+        self.assertIn('<option value="ambos"', html)
+
     def test_seletor_de_canal_nao_usa_a_classe_do_seletor_de_telefone(self):
         """Regressão: o seletor de canal chegou a nascer com a classe
         `mens-cob-tel-sel`, o que fazia trocar o canal disparar o POST que muda o

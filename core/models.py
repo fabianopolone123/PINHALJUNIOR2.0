@@ -2721,6 +2721,10 @@ CANAL_COBRANCA_CHOICES = [
     (CANAL_WHATSAPP, "WhatsApp"),
     (CANAL_EMAIL, "E-mail"),
 ]
+# "Ambos" é uma opção de ENVIO (pedido da tela), não um valor gravável: cada envio
+# vira um `CobrancaEnviada` do canal que realmente saiu, para a contagem por canal
+# continuar exata.
+CANAL_AMBOS = "ambos"
 
 
 class CobrancaEnviada(models.Model):

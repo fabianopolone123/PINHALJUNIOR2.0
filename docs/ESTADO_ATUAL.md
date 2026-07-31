@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-31 (**Correção: seletor de canal disparava a troca de telefone**): o
+**Última atualização:** 2026-07-31 (**Cobrança: opção "Ambos" (WhatsApp + e-mail)**): o seletor de canal da
+aba Cobranças ganhou **💬+✉️ Ambos** — um clique manda pelos dois canais, cada um com as suas regras. `CANAL_AMBOS`
+é opção de **envio**, não valor gravável: cada mensagem que sai vira um `CobrancaEnviada` do canal real, então a
+contagem por canal continua exata. Pontos do desenho: (1) a mensagem é montada **uma vez por família** e reusada
+nos dois canais — com o modo IA ligado, gerar por canal dobraria o custo e mandaria textos diferentes para a
+mesma pessoa (há teste); (2) com o filtro **"só quem não recebeu este mês"**, em "ambos" a família recebe **só
+pelo canal que falta** — quem já foi cobrada por WhatsApp leva só o e-mail, sem duplicar; (3) cada canal mantém
+o seu gate — o e-mail respeita descadastro/bounce e, se barrar, o WhatsApp **ainda sai** (a falha entra na lista
+com o motivo); (4) se **um** dos canais não estiver configurado o lote **não aborta** — segue pelo outro; só
+recusa se nenhum estiver. O filtro "só quem já me mandou mensagem" continua exclusivo do WhatsApp e, em "ambos",
+não exclui a família (senão barraria também o e-mail). A resposta agora traz `por_canal`, e o badge da linha
+mostra `💬 n · ✉️ n`. Sem migration. Suíte: **107 testes OK** (99 + 8). Antes: correção do seletor de canal.
+
+**Anterior (Correção: seletor de canal disparava a troca de telefone):** o
 `<select>` "Enviar por" da aba Cobranças nasceu com a classe **`mens-cob-tel-sel`**, que é o gancho do handler
 que troca o **telefone de cobrança da família** — então só de mudar o canal o front disparava um POST indevido
 (com `usuario_id=undefined`) e mostrava erro na tela, sem o Diretor ter clicado em enviar nada. Corrigido nos

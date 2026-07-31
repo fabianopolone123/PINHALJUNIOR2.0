@@ -126,7 +126,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `transacional=False` e respeita descadastro.
 - **Cobrança tem canal**: `CobrancaEnviada.canal` (`whatsapp`/`email`, default `whatsapp`). A contagem "já
   cobrei este mês" e o filtro da tela são **por canal** — sem isso, mandar por um canal silenciaria o outro. Ao
-  criar envio em lote novo, mantenha o padrão **1-por-request + 10s no front**.
+  criar envio em lote novo, mantenha o padrão **1-por-request + 10s no front**. O seletor tem ainda
+  **`CANAL_AMBOS`**, que é opção de *envio* e nunca é gravada: sai um `CobrancaEnviada` por canal real. Em
+  "ambos" a mensagem é gerada **uma vez por família** (a IA não pode ser chamada 2×) e o filtro "não recebeu
+  este mês" é avaliado **por canal**, então quem já foi cobrada por um canal recebe só pelo outro.
 - **Extrato de e-mail**: todo envio (e todo bloqueio pelo gate) grava um `LogEmail` — destinatário, assunto,
   `origem`, resultado; **nunca o corpo**. Aparece no card 📬 Últimos envios em `/email/`; guarda os últimos 200.
   Ao criar um envio novo, passe `origem=` para a linha sair identificada.
