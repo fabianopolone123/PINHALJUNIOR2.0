@@ -58,6 +58,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   (redireciona pro `wa.me` de autorização). Comando `reengajar_inativos` (cron).
 - **Configurações IA** (🤖, Diretor): `/ia/` (chave da API do GPT + teste + contador de tokens), `/ia/config/`,
   `/ia/testar/`, `/ia/zerar/`. Modelo fixo `gpt-4.1-nano`; cliente `core/openai_ia.py` (urllib).
+- **Aniversariantes** (🎂, Diretor): `/aniversarios/` (abas 🎈 lista e ✏️ mensagens),
+  `/aniversarios/mensagem/`. Junta os **3 perfis** numa lista só, deduplicando a pessoa que tem mais de um
+  perfil. Um `TemplateAniversario` por perfil. **Disparo automático ainda não existe.**
 - **E-mail** (✉️, Diretor): `/email/` (conta SMTP + envio de teste + contador), `/email/config/`,
   `/email/testar/`, `/email/zerar/`. Cliente `core/email_envio.py` (`django.core.mail`, **nativo**). É o
   **2º canal de notificação**; hoje só a base — nada dispara por e-mail ainda (ver ESTADO_ATUAL).
@@ -152,6 +155,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
   um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
   (mais vendidos, a entregar, KPIs) + todas as compras.
+- **Aniversários**: `_aniversariantes()` monta a lista dos 3 perfis. A **deduplicação** usa `_chave_pessoa`
+  (CPF → WhatsApp → nome) com prioridade **diretoria > responsável**; o **aventureiro fica fora dela**, com
+  chave `av:<id>` — a criança usa telefone/e-mail do responsável e seria engolida por ele. Datas de nascimento:
+  `Aventureiro.data_nascimento` (obrigatória), `MembroDiretoria.data_nascimento` e os opcionais
+  `pai_/mae_/resp_data_nascimento` (criados em 08/2026; famílias antigas estão sem).
 - **Regra do clube: aventureiro INATIVO não é cobrado**, mesmo com mês em aberto — quem saiu não recebe
   cobrança e a dívida não conta como "a receber". Toda query de cobrança/em-aberto precisa de
   `aventureiro__ativo=True` (além de `demo=False`). Já aplicado em `_cobrancas_familias`,

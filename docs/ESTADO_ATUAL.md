@@ -2,7 +2,26 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-01 (**Acerto público deixa de cobrar inativo**): a regra do clube é
+**Última atualização:** 2026-08-01 (**Novo módulo: 🎂 Aniversariantes**): item de menu novo (só Diretor) com
+duas abas. **🎈 Aniversariantes** — lista única dos **três perfis** (aventureiro, responsável e diretoria) com
+dia/mês, idade que completa e de onde a pessoa vem; seletor de mês com contagem por mês + "Ano todo", destaque
+**"É hoje!"** e ordenação por dia. **✏️ Mensagens** — um texto por perfil (`TemplateAniversario`, migration
+**0060**), com assunto, alavanca de ativo e os marcadores `{nome}`/`{nome_completo}`/`{idade}`; nasce com texto
+padrão e **desligado**. **O disparo automático ainda NÃO existe** — esta etapa é a consulta + os textos.
+Pontos de desenho: (1) **deduplicação por pessoa** — o mesmo adulto costuma ser diretoria **e** responsável, e
+receberia duas mensagens; a chave é CPF → WhatsApp → nome normalizado, e a prioridade é **diretoria >
+responsável** (a tela mostra "também é responsável"); mãe de dois filhos também aparece **uma vez**. (2) O
+**aventureiro tem chave própria (`av:<id>`)**, nunca a de pessoa: a criança usa o telefone/e-mail do
+responsável e seria engolida por ele na deduplicação — bug pego na verificação visual, com teste de regressão.
+(3) **29/02 cai em 28/02** para não sumir do calendário em ano comum. (4) Só entra gente **ativa e não-demo**.
+**Dado que faltava:** o cadastro nunca pediu data de nascimento de pai/mãe/responsável — foram criados
+`pai_data_nascimento`/`mae_data_nascimento`/`resp_data_nascimento` (opcionais) e o campo do responsável entrou
+em **Meus Dados → Editar responsável**; a tela mostra um card **"⚠️ Faltando data de nascimento"** contando
+quem fica de fora. Cobertura hoje em produção: aventureiros **35/35** e diretoria **10/10** já têm data;
+**responsáveis começam em zero**. Suíte: **138 testes OK** (118 + 20). Antes: Acerto público deixa de cobrar
+inativo.
+
+**Anterior (Acerto público deixa de cobrar inativo):** a regra do clube é
 **aventureiro inativo não é cobrado**, mesmo com mês em aberto. A cobrança (`_cobrancas_familias`), o painel do
 Diretor (total `aberto`), a área do responsável e o Financeiro já filtravam `aventureiro__ativo=True` — mas a
 **página pública de acerto** (o link do WhatsApp de cobrança, token permanente) **não**: ela listava e pedia

@@ -1,0 +1,48 @@
+/* =========================================================
+   Aniversariantes — lista por mês e mensagens por perfil.
+   Segue a paleta azul/verde do resto do sistema.
+   ========================================================= */
+
+/* Seletor de mês: pílulas que quebram linha no mobile. */
+.aniv-meses { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 14px; }
+.aniv-mes {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:6px 11px; border:1px solid #cbd5e1; border-radius:999px;
+    font-size:0.85rem; font-weight:600; color:#334155; text-decoration:none;
+    background:#fff; min-height:34px;
+}
+.aniv-mes:hover { border-color:#0f4c81; color:#0f4c81; }
+.aniv-mes-ativo { background:#0f4c81; border-color:#0f4c81; color:#fff; }
+.aniv-mes-qtd {
+    font-size:0.75rem; font-weight:700; padding:1px 6px; border-radius:999px;
+    background:#eef2f7; color:#475569;
+}
+.aniv-mes-ativo .aniv-mes-qtd { background:rgba(255,255,255,.22); color:#fff; }
+
+/* Lista */
+.aniv-lista { list-style:none; margin:0; padding:0; }
+.aniv-item {
+    display:grid;
+    grid-template-columns:62px 1fr auto;
+    grid-template-areas:"dia nome idade" ".  detalhe detalhe";
+    gap:2px 10px; align-items:center;
+    padding:10px 4px; border-bottom:1px solid #eef2f7;
+}
+.aniv-item:last-child { border-bottom:none; }
+.aniv-dia {
+    grid-area:dia; font-weight:700; color:#0f4c81; font-variant-numeric:tabular-nums;
+}
+.aniv-nome { grid-area:nome; font-weight:600; color:#1e293b; }
+.aniv-idade { grid-area:idade; font-size:0.85rem; color:#64748b; white-space:nowrap; }
+.aniv-detalhe { grid-area:detalhe; font-size:0.82rem; color:#64748b; }
+.aniv-tambem { color:#8a6d1a; font-style:italic; }
+
+/* Destaque de quem faz aniversário hoje */
+.aniv-item-hoje { background:#e6f4ea; border-radius:8px; padding-left:10px; padding-right:10px; }
+.aniv-item-hoje .aniv-dia { color:#1e7d34; }
+.aniv-hoje { border-left:4px solid #1e7d34; }
+
+@media (max-width:560px) {
+    .aniv-item { grid-template-columns:54px 1fr; grid-template-areas:"dia nome" ". idade" ". detalhe"; }
+    .aniv-idade { justify-self:start; }
+}

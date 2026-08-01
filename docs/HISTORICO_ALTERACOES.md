@@ -22,6 +22,55 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-01 - Novo módulo: Aniversariantes (lista + mensagens por perfil)
+
+### Resumo
+Módulo novo (só Diretor) que junta aventureiros, responsáveis e diretoria numa lista de aniversários, mais uma
+aba para cadastrar a mensagem de cada perfil. **O disparo automático não faz parte desta etapa** — fica para a
+próxima, como combinado.
+
+### Arquivos criados/alterados
+- `core/models.py`:
+  - `Aventureiro` += `pai_data_nascimento`, `mae_data_nascimento`, `resp_data_nascimento` (opcionais).
+  - Novo **`TemplateAniversario`** (um registro por perfil) + `TEMPLATES_ANIVERSARIO` com rótulo, ícone,
+    marcadores, mensagem e assunto padrão. `get_tipo` cria com os padrões e preenche assunto faltante.
+- `core/views.py`: `_idade_em`, `_chave_pessoa`, `_PRIORIDADE_ANIV`, **`_aniversariantes`**,
+  `_aniversarios_faltando`, `aniversarios_view` e `aniversario_template_view`.
+- `core/urls.py`: `aniversarios/` e `aniversarios/mensagem/`. `core/menus.py`: item 🎂.
+- `templates/core/aniversarios.html` **(novo)** e `static/css/aniversarios.css` **(novo)**.
+- `core/forms.py`: `ResponsavelLegalForm` += `resp_data_nascimento` (opcional, `<input type=date>`);
+  `editar_responsavel_view` grava e recarrega o campo.
+- `core/migrations/0060_...py` **(novo)**.
+- `core/tests.py`: `AniversariantesTests` (20 testes).
+
+### Decisões tomadas
+- **Deduplicação por pessoa, com prioridade.** O mesmo adulto costuma ser diretoria **e** responsável e
+  receberia duas mensagens. Chave: CPF (≥11 dígitos) → WhatsApp → nome normalizado. Prioridade
+  **diretoria > responsável > aventureiro**; os perfis descartados viram a nota "também é ...".
+- **Aventureiro tem chave própria (`av:<id>`), fora da deduplicação de pessoas.** A criança não tem telefone
+  nem e-mail próprios — usa os do responsável — e colidia com o pai/mãe, sumindo da lista. Pego na verificação
+  visual (a criança aparecia só como texto no detalhe da mãe), com teste de regressão. Deduplicar criança com
+  adulto também não faz sentido conceitual.
+- **29/02 é tratado como 28/02**: senão o aniversariante some do calendário em ano não bissexto.
+- **Template separado do `TemplateNotificacao`**: aniversário não é reação a uma ação da pessoa (é data de
+  calendário) e o texto muda muito por perfil — não se escreve para uma criança como para um voluntário.
+- **Campos de data do responsável criados, mesmo nascendo vazios.** Sem eles o perfil "responsável" seria
+  decorativo. A tela é honesta sobre isso com o card "⚠️ Faltando data de nascimento".
+
+### Cobertura em produção (consultada antes de construir)
+- Aventureiros ativos: **35/35** com data. Diretoria ativa: **10/10** com data.
+- Responsáveis: **66 nomes distintos, nenhum com data** — o campo não existia. Começam todos no card de
+  pendência até serem preenchidos.
+
+### Validação
+- Suíte: **138 testes OK** (118 + 20). `check` e `makemigrations --check` limpos.
+- Renderização conferida com dados reais: lista ordenada por dia, ícone por perfil, idade correta.
+
+### Pendências
+- **Disparo automático** da mensagem de aniversário (próxima etapa): decidir gatilho (cron diário),
+  canal (WhatsApp/e-mail, reusando `_notificar`/`_enviar_email`) e registro de "já enviei este ano".
+- Preencher a data de nascimento dos responsáveis (dado operacional, não código).
+
 ## 2026-08-01 - Acerto público deixa de cobrar aventureiro inativo
 
 ### Resumo

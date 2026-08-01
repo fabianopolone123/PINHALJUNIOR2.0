@@ -55,6 +55,8 @@ ITENS_MENU = [
      "url": "core:financeiro", "ativas": ["financeiro"]},
     {"id": "presenca", "rotulo": "Presença", "icone": "✅",
      "url": "core:presenca", "ativas": ["presenca", "presenca_evento"]},
+    {"id": "aniversarios", "rotulo": "Aniversariantes", "icone": "🎂",
+     "url": "core:aniversarios", "ativas": ["aniversarios"]},
     {"id": "whatsapp", "rotulo": "WhatsApp", "icone": "💬",
      "url": "core:whatsapp", "ativas": ["whatsapp"]},
     {"id": "email", "rotulo": "E-mail", "icone": "✉️",

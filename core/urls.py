@@ -149,6 +149,9 @@ urlpatterns = [
     path("ia/config/", views.ia_config_view, name="ia_config"),
     path("ia/testar/", views.ia_testar_view, name="ia_testar"),
     path("ia/zerar/", views.ia_zerar_view, name="ia_zerar"),
+    # --- Aniversariantes ---
+    path("aniversarios/", views.aniversarios_view, name="aniversarios"),
+    path("aniversarios/mensagem/", views.aniversario_template_view, name="aniversario_template"),
     # --- E-mail (SMTP) ---
     path("email/", views.email_view, name="email"),
     path("email/config/", views.email_config_view, name="email_config"),

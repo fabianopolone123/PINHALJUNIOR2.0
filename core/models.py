@@ -123,6 +123,11 @@ class Aventureiro(models.Model):
     pai_cpf = models.CharField("CPF do pai", max_length=20, blank=True)
     pai_celular = models.CharField("Celular do pai", max_length=20, blank=True)
     pai_whatsapp = models.CharField("WhatsApp do pai", max_length=20, blank=True)
+    # Opcional: o cadastro só passou a pedir a partir de 2026-08, então as famílias
+    # antigas ficam sem. Usado pelo módulo de Aniversariantes.
+    pai_data_nascimento = models.DateField(
+        "Data de nascimento do pai", null=True, blank=True
+    )
 
     # --- Dados da mãe ---
     mae_nome = models.CharField("Nome da mãe", max_length=150, blank=True)
@@ -130,6 +135,9 @@ class Aventureiro(models.Model):
     mae_cpf = models.CharField("CPF da mãe", max_length=20, blank=True)
     mae_celular = models.CharField("Celular da mãe", max_length=20, blank=True)
     mae_whatsapp = models.CharField("WhatsApp da mãe", max_length=20, blank=True)
+    mae_data_nascimento = models.DateField(
+        "Data de nascimento da mãe", null=True, blank=True
+    )
 
     # --- Responsável legal (nem sempre é o pai ou a mãe) ---
     resp_nome = models.CharField("Nome do responsável legal", max_length=150)
@@ -137,6 +145,9 @@ class Aventureiro(models.Model):
     resp_cpf = models.CharField("CPF do responsável legal", max_length=20)
     resp_email = models.EmailField("E-mail do responsável legal", blank=True)
     resp_whatsapp = models.CharField("WhatsApp do responsável legal", max_length=20)
+    resp_data_nascimento = models.DateField(
+        "Data de nascimento do responsável legal", null=True, blank=True
+    )
 
     # --- Local e data da inscrição ---
     cidade_inscricao = models.CharField(
@@ -2069,6 +2080,106 @@ class LogEmail(models.Model):
             return obj
         except Exception:  # noqa: BLE001
             return None
+
+
+ANIV_AVENTUREIRO = "aventureiro"
+ANIV_RESPONSAVEL = "responsavel"
+ANIV_DIRETORIA = "diretoria"
+
+# tipo -> (rótulo, ícone, marcadores, mensagem_padrão, assunto_padrão)
+TEMPLATES_ANIVERSARIO = {
+    ANIV_AVENTUREIRO: (
+        "Aventureiro(a)", "🧒", "{nome} {nome_completo} {idade}",
+        (
+            "Parabéns, {nome}! 🎉🎂\n\n"
+            "Hoje é o seu dia, e todo o Clube de Aventureiros Pinhal Júnior está "
+            "torcendo por você! Que este novo ano seja cheio de aventuras, "
+            "aprendizado e alegria.\n\n"
+            "Um grande abraço da sua diretoria! 💚"
+        ),
+        "Feliz aniversário, {nome}! 🎂",
+    ),
+    ANIV_RESPONSAVEL: (
+        "Responsável", "👨‍👩‍👧", "{nome} {nome_completo} {idade}",
+        (
+            "Parabéns, {nome}! 🎉\n\n"
+            "O Clube de Aventureiros Pinhal Júnior deseja a você um feliz "
+            "aniversário. Obrigado por caminhar junto com a gente na formação "
+            "das nossas crianças.\n\n"
+            "Que seja um ano de muitas bênçãos! 💚"
+        ),
+        "Feliz aniversário, {nome}!",
+    ),
+    ANIV_DIRETORIA: (
+        "Diretoria", "⛺", "{nome} {nome_completo} {idade}",
+        (
+            "Parabéns, {nome}! 🎉\n\n"
+            "Hoje é dia de celebrar você, que doa seu tempo e seu carinho ao "
+            "Clube de Aventureiros Pinhal Júnior. Que Deus te abençoe muito "
+            "neste novo ano de vida!\n\n"
+            "Com carinho, sua equipe. 💚"
+        ),
+        "Feliz aniversário, {nome}!",
+    ),
+}
+
+
+class TemplateAniversario(models.Model):
+    """Mensagem de aniversário por tipo de perfil (aventureiro / responsável /
+    diretoria). Um registro por tipo.
+
+    Espelha o `TemplateNotificacao`, mas separado de propósito: aniversário não é
+    reação a uma ação da pessoa — é uma data do calendário — e o texto muda bastante
+    conforme o perfil (não faz sentido escrever para uma criança como se escreve para
+    um voluntário adulto). Por ora só guarda o texto; o **disparo automático** vem
+    depois."""
+
+    tipo = models.CharField("Perfil", max_length=20, unique=True)
+    ativo = models.BooleanField("Ativo", default=False)
+    mensagem = models.TextField("Mensagem", blank=True, default="")
+    assunto = models.CharField("Assunto do e-mail", max_length=200, blank=True, default="")
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="templates_aniversario", verbose_name="Atualizado por",
+    )
+    atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Mensagem de aniversário"
+        verbose_name_plural = "Mensagens de aniversário"
+
+    def __str__(self):
+        return f"Aniversário — {self.get_rotulo()}"
+
+    @classmethod
+    def get_tipo(cls, tipo):
+        """Retorna (criando com os padrões, se preciso) o template do tipo dado."""
+        d = TEMPLATES_ANIVERSARIO.get(tipo)
+        obj, criado = cls.objects.get_or_create(tipo=tipo)
+        mudou = []
+        if criado and d:
+            obj.mensagem, obj.assunto = d[3], d[4]
+            mudou = ["mensagem", "assunto"]
+        elif d and not obj.assunto:
+            obj.assunto = d[4]
+            mudou = ["assunto"]
+        if mudou:
+            obj.save(update_fields=mudou)
+        return obj
+
+    def get_rotulo(self):
+        d = TEMPLATES_ANIVERSARIO.get(self.tipo)
+        return d[0] if d else self.tipo
+
+    @property
+    def icone(self):
+        d = TEMPLATES_ANIVERSARIO.get(self.tipo)
+        return d[1] if d else "🎂"
+
+    @property
+    def marcadores(self):
+        d = TEMPLATES_ANIVERSARIO.get(self.tipo)
+        return d[2] if d else ""
 
 
 class ContatoEmail(models.Model):

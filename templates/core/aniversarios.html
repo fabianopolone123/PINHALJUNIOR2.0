@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Aniversariantes — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/whatsapp.css' %}">
+    <link rel="stylesheet" href="{% static 'css/aniversarios.css' %}">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="barra-lateral" id="barraLateral" aria-label="Menu principal">
+            <div class="barra-topo">
+                <div class="barra-logo">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="barra-logo-img">
+                </div>
+                <span class="barra-nome">Clube de Aventureiros Pinhal Júnior</span>
+            </div>
+            {% include "core/_menu.html" %}
+            <div class="barra-rodape">
+                <form method="post" action="{% url 'core:sair' %}" class="form-sair">
+                    {% csrf_token %}
+                    <button type="submit" class="botao-sair"><span aria-hidden="true">🚪</span> Sair</button>
+                </form>
+                <span class="barra-rodape-txt">© {% now "Y" %} Pinhal Júnior</span>
+            </div>
+        </aside>
+
+        <div class="overlay" id="overlay" hidden></div>
+
+        <main class="conteudo">
+            <header class="topo-mobile">
+                <button class="botao-menu" id="botaoMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="barraLateral">
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                    <span class="botao-menu-barra"></span>
+                </button>
+                <span class="topo-mobile-nome">Aniversariantes</span>
+            </header>
+
+            <div class="conteudo-interno">
+                <header class="cabecalho">
+                    <h1 class="cabecalho-titulo"><span aria-hidden="true">🎂</span> Aniversariantes</h1>
+                    <p class="cabecalho-sub">
+                        Aventureiros, responsáveis e diretoria numa lista só.
+                        Quem tem mais de um perfil aparece uma vez apenas.
+                    </p>
+                </header>
+
+                {% if messages %}
+                <div class="mensagens">
+                    {% for m in messages %}
+                    <div class="mensagem mensagem-{{ m.tags }}" role="status">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <nav class="abas" aria-label="Seções">
+                    <a href="?aba=lista" class="aba {% if aba != 'mensagens' %}aba-ativa{% endif %}">🎈 Aniversariantes</a>
+                    <a href="?aba=mensagens" class="aba {% if aba == 'mensagens' %}aba-ativa{% endif %}">✏️ Mensagens</a>
+                </nav>
+
+                <!-- ===================== ABA: LISTA ===================== -->
+                {% if aba != 'mensagens' %}
+
+                {% if hoje %}
+                <section class="card aniv-hoje">
+                    <h2 class="wa-titulo">🎉 É hoje!</h2>
+                    <ul class="aniv-lista">
+                        {% for p in hoje %}
+                        <li class="aniv-item aniv-item-hoje">
+                            <span class="aniv-dia">{{ p.dia|stringformat:"02d" }}/{{ p.mes|stringformat:"02d" }}</span>
+                            <span class="aniv-nome">{{ p.icone }} {{ p.nome }}</span>
+                            <span class="aniv-idade">{{ p.idade }} anos</span>
+                            <span class="aniv-detalhe">{{ p.detalhe }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endif %}
+
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">{{ mes_nome }}</h2>
+                        <span class="wa-status wa-status-ok">{{ lista|length }} de {{ total_geral }}</span>
+                    </div>
+
+                    <div class="aniv-meses">
+                        {% for m in meses %}
+                        <a href="?mes={{ m.n }}" class="aniv-mes {% if m.atual %}aniv-mes-ativo{% endif %}">
+                            {{ m.nome|slice:":3" }} <span class="aniv-mes-qtd">{{ m.qtd }}</span>
+                        </a>
+                        {% endfor %}
+                        <a href="?mes=0" class="aniv-mes {% if mes == 0 %}aniv-mes-ativo{% endif %}">Ano todo</a>
+                    </div>
+
+                    {% if lista %}
+                    <ul class="aniv-lista">
+                        {% for p in lista %}
+                        <li class="aniv-item {% if p.faz_hoje %}aniv-item-hoje{% endif %}">
+                            <span class="aniv-dia">{{ p.dia|stringformat:"02d" }}/{{ p.mes|stringformat:"02d" }}</span>
+                            <span class="aniv-nome">{{ p.icone }} {{ p.nome }}</span>
+                            <span class="aniv-idade">{{ p.idade }} anos</span>
+                            <span class="aniv-detalhe">
+                                {{ p.detalhe }}
+                                {% if p.tambem_em %}<em class="aniv-tambem">(também é {% for t in p.tambem_em %}{{ t }}{% if not forloop.last %}, {% endif %}{% endfor %})</em>{% endif %}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="wa-aviso">Nenhum aniversariante em {{ mes_nome|lower }}.</p>
+                    {% endif %}
+                </section>
+
+                {% if cobertura.responsaveis_sem_data or cobertura.diretoria_sem_data %}
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">⚠️ Faltando data de nascimento</h2>
+                    </div>
+                    <p class="wa-ajuda">
+                        Estas pessoas <strong>não aparecem</strong> na lista porque a data de nascimento
+                        não está cadastrada. A data do responsável passou a ser pedida no cadastro
+                        agora, então as famílias antigas ficaram sem — dá para preencher em
+                        <strong>Meus Dados → Editar responsável</strong> ou pelo /admin/.
+                    </p>
+                    <div class="ia-tokens">
+                        {% if cobertura.responsaveis_sem_data %}
+                        <div class="ia-token-item"><span class="ia-token-num">{{ cobertura.responsaveis_sem_data }}</span><span class="ia-token-rot">Responsáveis</span></div>
+                        {% endif %}
+                        {% if cobertura.diretoria_sem_data %}
+                        <div class="ia-token-item"><span class="ia-token-num">{{ cobertura.diretoria_sem_data }}</span><span class="ia-token-rot">Diretoria</span></div>
+                        {% endif %}
+                    </div>
+                </section>
+                {% endif %}
+
+                {% else %}
+                <!-- ===================== ABA: MENSAGENS ===================== -->
+                <p class="wa-ajuda">
+                    Uma mensagem por perfil — não se escreve para uma criança como se escreve
+                    para um voluntário adulto. Marcadores trocados na hora do envio:
+                    <code>{nome}</code> (1º nome), <code>{nome_completo}</code>, <code>{idade}</code>.
+                </p>
+                <p class="wa-aviso">
+                    O <strong>disparo automático ainda não existe</strong> — por enquanto estes textos
+                    ficam guardados e a lista serve de consulta.
+                </p>
+
+                {% for t in templates %}
+                <section class="card wa-card">
+                    <form method="post" action="{% url 'core:aniversario_template' %}" class="wa-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="tipo" value="{{ t.tipo }}">
+                        <div class="wa-card-topo">
+                            <h2 class="wa-titulo">{{ t.icone }} {{ t.get_rotulo }}</h2>
+                            <span class="wa-status {% if t.ativo %}wa-status-ok{% else %}wa-status-off{% endif %}">
+                                {% if t.ativo %}✓ Ativo{% else %}Desligado{% endif %}
+                            </span>
+                        </div>
+
+                        <label class="wa-check">
+                            <input type="checkbox" name="ativo" value="1"{% if t.ativo %} checked{% endif %}>
+                            Enviar a mensagem para este perfil <span class="wa-opcional">(quando o disparo automático existir)</span>
+                        </label>
+
+                        <div class="campo">
+                            <label for="assunto_{{ t.tipo }}">Assunto do e-mail</label>
+                            <input type="text" id="assunto_{{ t.tipo }}" name="assunto" value="{{ t.assunto }}" maxlength="200">
+                        </div>
+
+                        <div class="campo">
+                            <label for="msg_{{ t.tipo }}">Mensagem</label>
+                            <textarea id="msg_{{ t.tipo }}" name="mensagem" rows="8">{{ t.mensagem }}</textarea>
+                            <small class="ajuda">Marcadores: <code>{{ t.marcadores }}</code></small>
+                        </div>
+
+                        <div class="wa-acoes">
+                            <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar</button>
+                        </div>
+                    </form>
+                </section>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/inicio.js' %}"></script>
+</body>
+</html>

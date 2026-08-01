@@ -23,6 +23,8 @@ from .models import (
     EmailConfig,
     Evento,
     LogEmail,
+    MembroDiretoria,
+    TemplateAniversario,
     TemplateNotificacao,
     FaixaEtariaPreco,
     GrupoLoja,
@@ -1674,6 +1676,195 @@ class ConfirmacaoAutorizacaoTests(TestCase):
         enviou, motivo = views._confirmar_autorizacao(p, "5516999999999")
         self.assertFalse(enviou)
         self.assertEqual(motivo, "ja_confirmado")
+
+
+class AniversariantesTests(TestCase):
+    """Lista unificada dos três perfis, com deduplicação de quem tem mais de um."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_aniv", password="x")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+
+        self.conta = User.objects.create_user("familia_aniv", password="x")
+        self.av = Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Crianca Um", sexo="M",
+            data_nascimento=datetime.date(2015, 3, 10), cpf="11111111111",
+            resp_nome="Mae Um", resp_cpf="22222222222",
+            resp_whatsapp="5516991110001", resp_email="mae@exemplo.com",
+            resp_data_nascimento=datetime.date(1985, 7, 20),
+        )
+
+    def _nomes(self):
+        return [x["nome"] for x in views._aniversariantes()]
+
+    def test_junta_aventureiro_e_responsavel(self):
+        nomes = self._nomes()
+        self.assertIn("Crianca Um", nomes)
+        self.assertIn("Mae Um", nomes)
+
+    def test_responsavel_sem_data_fica_de_fora(self):
+        self.av.resp_data_nascimento = None
+        self.av.save()
+        self.assertNotIn("Mae Um", self._nomes())
+
+    def test_inativo_e_demo_nao_entram(self):
+        self.av.ativo = False
+        self.av.save()
+        nomes = self._nomes()
+        self.assertNotIn("Crianca Um", nomes)
+        self.assertNotIn("Mae Um", nomes)   # responsável do inativo também sai
+
+    def test_mesma_pessoa_em_duas_criancas_aparece_uma_vez(self):
+        """Mãe de dois filhos não pode receber duas mensagens."""
+        Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Crianca Dois", sexo="F",
+            data_nascimento=datetime.date(2017, 5, 5), cpf="33333333333",
+            resp_nome="Mae Um", resp_cpf="22222222222",
+            resp_whatsapp="5516991110001", resp_email="mae@exemplo.com",
+            resp_data_nascimento=datetime.date(1985, 7, 20),
+        )
+        self.assertEqual(self._nomes().count("Mae Um"), 1)
+
+    def test_diretoria_vence_responsavel_quando_e_a_mesma_pessoa(self):
+        """Mesmo CPF nos dois perfis: entra como diretoria, e a tela avisa."""
+        u = User.objects.create_user("dupla", password="x")
+        MembroDiretoria.objects.create(
+            usuario=u, nome_completo="Mae Um", cpf="22222222222",
+            whatsapp="5516991110001", email="mae@exemplo.com",
+            data_nascimento=datetime.date(1985, 7, 20),
+        )
+        itens = [x for x in views._aniversariantes() if x["nome"] == "Mae Um"]
+        self.assertEqual(len(itens), 1)
+        self.assertEqual(itens[0]["perfil"], "diretoria")
+        self.assertIn("responsavel", itens[0]["tambem_em"])
+
+    def test_crianca_nao_e_engolida_pelo_responsavel(self):
+        """Regressão: a criança usa o WhatsApp do responsável, então uma chave de
+        identidade baseada em telefone fazia mãe e filho colidirem — e o filho
+        sumia da lista, absorvido pela mãe."""
+        av2 = Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Sem Cpf Proprio", sexo="F",
+            data_nascimento=datetime.date(2018, 9, 9), cpf="",   # sem CPF
+            resp_nome="Mae Um", resp_cpf="22222222222",
+            resp_whatsapp="5516991110001",                        # MESMO da mãe
+            resp_data_nascimento=datetime.date(1985, 7, 20),
+        )
+        nomes = self._nomes()
+        self.assertIn("Sem Cpf Proprio", nomes)
+        self.assertIn("Mae Um", nomes)
+        self.assertEqual(nomes.count("Mae Um"), 1)
+        item = [x for x in views._aniversariantes() if x["nome"] == av2.nome_completo][0]
+        self.assertEqual(item["perfil"], "aventureiro")
+
+    def test_dois_irmaos_com_cpf_vazio_aparecem_os_dois(self):
+        for i, nome in enumerate(("Irmao A", "Irmao B")):
+            Aventureiro.objects.create(
+                usuario=self.conta, nome_completo=nome, sexo="M",
+                data_nascimento=datetime.date(2016, 4, 1 + i), cpf="",
+                resp_nome="Mae Um", resp_cpf="22222222222",
+                resp_whatsapp="5516991110001",
+            )
+        nomes = self._nomes()
+        self.assertIn("Irmao A", nomes)
+        self.assertIn("Irmao B", nomes)
+
+    def test_idade_e_calculada_na_data_de_hoje(self):
+        hoje = timezone.localdate()
+        Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Faz Hoje", sexo="M",
+            data_nascimento=datetime.date(hoje.year - 9, hoje.month, hoje.day),
+            cpf="44444444444", resp_nome="Pai X", resp_cpf="55555555555",
+            resp_whatsapp="5516991110002",
+        )
+        item = [x for x in views._aniversariantes() if x["nome"] == "Faz Hoje"][0]
+        self.assertEqual(item["idade"], 9)
+        self.assertTrue(item["faz_hoje"])
+
+    def test_29_de_fevereiro_cai_em_28(self):
+        Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Bissexto", sexo="F",
+            data_nascimento=datetime.date(2016, 2, 29), cpf="66666666666",
+            resp_nome="Pai Y", resp_cpf="77777777777", resp_whatsapp="5516991110003",
+        )
+        item = [x for x in views._aniversariantes() if x["nome"] == "Bissexto"][0]
+        self.assertEqual((item["mes"], item["dia"]), (2, 28))
+
+    def test_ordenado_por_mes_e_dia(self):
+        lista = views._aniversariantes()
+        chaves = [(x["mes"], x["dia"]) for x in lista]
+        self.assertEqual(chaves, sorted(chaves))
+
+    # ---- Tela ----
+    def test_tela_exige_diretor(self):
+        self.client.force_login(self.conta)
+        r = self.client.get(reverse("core:aniversarios"))
+        self.assertNotEqual(r.status_code, 200)
+
+    def test_tela_lista_filtra_por_mes(self):
+        r = self.client.get(reverse("core:aniversarios") + "?mes=3")
+        self.assertContains(r, "Crianca Um")
+        self.assertNotContains(r, "Mae Um")      # julho, não março
+        r2 = self.client.get(reverse("core:aniversarios") + "?mes=7")
+        self.assertContains(r2, "Mae Um")
+
+    def test_mes_zero_mostra_o_ano_todo(self):
+        r = self.client.get(reverse("core:aniversarios") + "?mes=0")
+        self.assertContains(r, "Crianca Um")
+        self.assertContains(r, "Mae Um")
+
+    def test_mes_invalido_nao_quebra(self):
+        for v in ("abc", "99", "-1"):
+            self.assertEqual(
+                self.client.get(reverse("core:aniversarios") + f"?mes={v}").status_code, 200
+            )
+
+    def test_menu_tem_o_item(self):
+        r = self.client.get(reverse("core:aniversarios"))
+        self.assertIn("aniversarios", [i["id"] for i in r.context["menu_itens"]])
+
+    def test_aviso_de_cobertura_conta_quem_falta(self):
+        Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Sem Data", sexo="M",
+            data_nascimento=datetime.date(2016, 1, 1), cpf="88888888888",
+            resp_nome="Resp Sem Data", resp_cpf="99999999999",
+            resp_whatsapp="5516991110009",
+        )
+        r = self.client.get(reverse("core:aniversarios"))
+        self.assertGreaterEqual(r.context["cobertura"]["responsaveis_sem_data"], 1)
+
+    # ---- Mensagens ----
+    def test_templates_nascem_com_texto_padrao(self):
+        r = self.client.get(reverse("core:aniversarios") + "?aba=mensagens")
+        tipos = [t.tipo for t in r.context["templates"]]
+        self.assertEqual(tipos, ["aventureiro", "responsavel", "diretoria"])
+        for t in r.context["templates"]:
+            self.assertTrue(t.mensagem)
+            self.assertTrue(t.assunto)
+            self.assertFalse(t.ativo)     # nasce desligado
+
+    def test_salvar_mensagem(self):
+        r = self.client.post(reverse("core:aniversario_template"), {
+            "tipo": "aventureiro", "ativo": "1",
+            "mensagem": "Parabens {nome}, {idade} anos!", "assunto": "Parabens!",
+        })
+        self.assertEqual(r.status_code, 302)
+        t = TemplateAniversario.get_tipo("aventureiro")
+        self.assertTrue(t.ativo)
+        self.assertEqual(t.assunto, "Parabens!")
+
+    def test_assunto_vazio_cai_no_padrao(self):
+        self.client.post(reverse("core:aniversario_template"), {
+            "tipo": "diretoria", "mensagem": "oi", "assunto": "",
+        })
+        self.assertTrue(TemplateAniversario.get_tipo("diretoria").assunto)
+
+    def test_tipo_invalido_recusado(self):
+        self.client.post(reverse("core:aniversario_template"), {
+            "tipo": "inexistente", "mensagem": "x",
+        })
+        self.assertFalse(TemplateAniversario.objects.filter(tipo="inexistente").exists())
 
 
 class LogEmailTests(TestCase):

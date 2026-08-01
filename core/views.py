@@ -73,6 +73,11 @@ from .models import (
     ContatoEmail,
     ContatoWhatsapp,
     LogEmail,
+    TemplateAniversario,
+    TEMPLATES_ANIVERSARIO,
+    ANIV_AVENTUREIRO,
+    ANIV_RESPONSAVEL,
+    ANIV_DIRETORIA,
     TemplateNotificacao,
     TEMPLATES_NOTIFICACAO,
     NOTIF_LOJA_COMPRA,
@@ -473,6 +478,7 @@ def editar_responsavel_view(request):
 
             campos = [
                 "resp_nome", "resp_parentesco", "resp_cpf", "resp_email", "resp_whatsapp",
+                "resp_data_nascimento",
             ]
             for av in alvos:
                 for campo in campos:
@@ -490,6 +496,7 @@ def editar_responsavel_view(request):
                 "resp_cpf": base.resp_cpf,
                 "resp_email": base.resp_email,
                 "resp_whatsapp": base.resp_whatsapp,
+                "resp_data_nascimento": base.resp_data_nascimento,
             }
         )
 
@@ -4253,6 +4260,210 @@ def ia_zerar_view(request):
     config.zerar_uso()
     messages.success(request, "Contador de tokens zerado.")
     return redirect("core:ia")
+
+
+# ===========================================================================
+# Aniversariantes — só Diretor. Junta os três perfis (aventureiro, responsável e
+# diretoria) numa lista única por data. Esta etapa é a **consulta + os textos**;
+# o disparo automático vem depois.
+# ===========================================================================
+def _idade_em(nascimento, ref=None):
+    """Idade que a pessoa completa/completou na data de referência."""
+    if not nascimento:
+        return None
+    ref = ref or timezone.localdate()
+    return ref.year - nascimento.year - (
+        (ref.month, ref.day) < (nascimento.month, nascimento.day)
+    )
+
+
+def _chave_pessoa(cpf, whatsapp, nome):
+    """Identidade de uma pessoa para deduplicar entre perfis.
+
+    O mesmo adulto costuma aparecer como **diretoria** e como **responsável** de um
+    aventureiro — e receberia duas mensagens de aniversário. O CPF é a chave boa;
+    sem ele cai no WhatsApp e, em último caso, no nome normalizado."""
+    doc = _so_digitos(cpf or "")
+    if len(doc) >= 11:
+        return f"cpf:{doc}"
+    fone = normalizar_telefone(whatsapp or "")
+    if len(fone) >= 12:
+        return f"tel:{fone}"
+    return f"nome:{_normaliza(nome or '')}"
+
+
+# Prioridade quando a mesma pessoa aparece em mais de um perfil: manda como
+# diretoria (o vínculo mais forte com o clube e o texto mais específico).
+_PRIORIDADE_ANIV = {ANIV_DIRETORIA: 0, ANIV_RESPONSAVEL: 1, ANIV_AVENTUREIRO: 2}
+
+
+def _aniversariantes():
+    """Todas as pessoas com data de nascimento conhecida, dos três perfis, já
+    deduplicadas. Cada item traz o perfil escolhido e os perfis descartados (para
+    a tela poder explicar por que a pessoa aparece uma vez só).
+
+    Só entra gente **ativa** e **não-demo** — mesma regra do resto do sistema."""
+    achados = {}
+
+    def somar(chave, dados, descartado_de=None):
+        atual = achados.get(chave)
+        if atual is None:
+            dados["tambem_em"] = []
+            achados[chave] = dados
+            return
+        # Já existe: fica o de maior prioridade; o outro vira nota.
+        if _PRIORIDADE_ANIV[dados["perfil"]] < _PRIORIDADE_ANIV[atual["perfil"]]:
+            dados["tambem_em"] = atual["tambem_em"] + [atual["perfil"]]
+            achados[chave] = dados
+        elif dados["perfil"] not in atual["tambem_em"] and dados["perfil"] != atual["perfil"]:
+            atual["tambem_em"].append(dados["perfil"])
+
+    # --- Diretoria (prioridade mais alta) ---
+    for m in MembroDiretoria.objects.filter(
+        ativo=True, demo=False, data_nascimento__isnull=False
+    ).select_related("usuario"):
+        somar(_chave_pessoa(m.cpf, m.whatsapp, m.nome_completo), {
+            "perfil": ANIV_DIRETORIA, "nome": m.nome_completo,
+            "nascimento": m.data_nascimento, "whatsapp": m.whatsapp,
+            "email": m.email, "usuario_id": m.usuario_id, "detalhe": "Diretoria",
+        })
+
+    # --- Responsáveis (pai/mãe/responsável legal de aventureiro ativo) ---
+    # A mesma pessoa costuma ser responsável de vários filhos: a chave deduplica e
+    # o `detalhe` acumula os nomes das crianças.
+    for a in Aventureiro.objects.filter(ativo=True, demo=False).select_related("usuario"):
+        for nome_c, cpf_c, wa_c, mail_c, dt_c, papel in (
+            (a.pai_nome, a.pai_cpf, a.pai_whatsapp, a.pai_email, a.pai_data_nascimento, "Pai"),
+            (a.mae_nome, a.mae_cpf, a.mae_whatsapp, a.mae_email, a.mae_data_nascimento, "Mãe"),
+            (a.resp_nome, a.resp_cpf, a.resp_whatsapp, a.resp_email,
+             a.resp_data_nascimento, a.resp_parentesco or "Responsável"),
+        ):
+            if not dt_c or not (nome_c or "").strip():
+                continue
+            somar(_chave_pessoa(cpf_c, wa_c, nome_c), {
+                "perfil": ANIV_RESPONSAVEL, "nome": nome_c.strip(),
+                "nascimento": dt_c, "whatsapp": wa_c, "email": mail_c,
+                "usuario_id": a.usuario_id,
+                "detalhe": f"{papel} de {a.nome_completo}",
+            })
+
+    # --- Aventureiros ---
+    # Chave PRÓPRIA (`av:<id>`), nunca `_chave_pessoa`: a criança não tem telefone
+    # nem e-mail dela — usa os do responsável — e cairia na mesma chave que o pai ou
+    # a mãe, sendo engolida pela deduplicação. Além disso, deduplicar criança com
+    # adulto não faz sentido: uma criança não é diretoria nem responsável.
+    for a in Aventureiro.objects.filter(
+        ativo=True, demo=False, data_nascimento__isnull=False
+    ).select_related("usuario"):
+        somar(f"av:{a.pk}", {
+            "perfil": ANIV_AVENTUREIRO, "nome": a.nome_completo,
+            "nascimento": a.data_nascimento, "whatsapp": a.resp_whatsapp,
+            "email": a.resp_email, "usuario_id": a.usuario_id,
+            "detalhe": "Aventureiro(a)",
+        })
+
+    hoje = timezone.localdate()
+    lista = []
+    for dados in achados.values():
+        n = dados["nascimento"]
+        # Dia do ano usado para ordenar e para "faltam X dias" (29/02 cai em 28/02
+        # nos anos comuns, senão a pessoa some do calendário).
+        dia, mes = n.day, n.month
+        if mes == 2 and dia == 29:
+            dia = 28
+        dados.update({
+            "dia": dia, "mes": mes,
+            "idade": _idade_em(n, hoje),
+            "faz_hoje": (mes, dia) == (hoje.month, hoje.day),
+            "rotulo_perfil": TEMPLATES_ANIVERSARIO[dados["perfil"]][0],
+            "icone": TEMPLATES_ANIVERSARIO[dados["perfil"]][1],
+        })
+        lista.append(dados)
+    lista.sort(key=lambda x: (x["mes"], x["dia"], _normaliza(x["nome"])))
+    return lista
+
+
+def _aniversarios_faltando():
+    """Quantas pessoas ficam de fora por não ter data de nascimento cadastrada.
+    Serve para a tela ser honesta sobre a cobertura da lista."""
+    resp = set()
+    sem = set()
+    for a in Aventureiro.objects.filter(ativo=True, demo=False):
+        for nome_c, cpf_c, wa_c, dt_c in (
+            (a.pai_nome, a.pai_cpf, a.pai_whatsapp, a.pai_data_nascimento),
+            (a.mae_nome, a.mae_cpf, a.mae_whatsapp, a.mae_data_nascimento),
+            (a.resp_nome, a.resp_cpf, a.resp_whatsapp, a.resp_data_nascimento),
+        ):
+            if not (nome_c or "").strip():
+                continue
+            k = _chave_pessoa(cpf_c, wa_c, nome_c)
+            resp.add(k)
+            if not dt_c:
+                sem.add(k)
+    return {
+        "responsaveis_total": len(resp),
+        "responsaveis_sem_data": len(sem - {k for k in resp if k not in sem}),
+        "diretoria_sem_data": MembroDiretoria.objects.filter(
+            ativo=True, demo=False, data_nascimento__isnull=True
+        ).count(),
+    }
+
+
+@diretor_required
+def aniversarios_view(request):
+    """Tela de Aniversariantes (só Diretor): a lista do mês (ou do ano todo) e as
+    mensagens por perfil. O disparo automático ainda não existe."""
+    lista = _aniversariantes()
+    hoje = timezone.localdate()
+    try:
+        mes = int(request.GET.get("mes", hoje.month))
+    except (TypeError, ValueError):
+        mes = hoje.month
+    if not 0 <= mes <= 12:      # 0 = "ano todo"
+        mes = hoje.month
+    do_mes = [x for x in lista if x["mes"] == mes] if mes else lista
+
+    por_mes = defaultdict(int)
+    for x in lista:
+        por_mes[x["mes"]] += 1
+    meses = [
+        {"n": i, "nome": MESES_PT[i], "qtd": por_mes.get(i, 0), "atual": i == mes}
+        for i in range(1, 13)
+    ]
+    return render(request, "core/aniversarios.html", {
+        "lista": do_mes,
+        "total_geral": len(lista),
+        "meses": meses,
+        "mes": mes,
+        "mes_nome": MESES_PT[mes] if mes else "Ano todo",
+        "hoje": [x for x in lista if x["faz_hoje"]],
+        "templates": [
+            TemplateAniversario.get_tipo(t) for t in
+            (ANIV_AVENTUREIRO, ANIV_RESPONSAVEL, ANIV_DIRETORIA)
+        ],
+        "cobertura": _aniversarios_faltando(),
+        "aba": request.GET.get("aba", "lista"),
+    })
+
+
+@diretor_required
+@require_POST
+def aniversario_template_view(request):
+    """Salva a mensagem de aniversário de UM perfil."""
+    tipo = (request.POST.get("tipo") or "").strip()
+    if tipo not in TEMPLATES_ANIVERSARIO:
+        messages.error(request, "Perfil inválido.")
+        return redirect(reverse("core:aniversarios") + "?aba=mensagens")
+    tpl = TemplateAniversario.get_tipo(tipo)
+    tpl.ativo = request.POST.get("ativo") == "1"
+    tpl.mensagem = (request.POST.get("mensagem") or "").strip()
+    tpl.assunto = (
+        (request.POST.get("assunto") or "").strip() or TEMPLATES_ANIVERSARIO[tipo][4]
+    )
+    tpl.atualizado_por = request.user
+    tpl.save()
+    messages.success(request, f"Mensagem de aniversário ({tpl.get_rotulo()}) salva.")
+    return redirect(reverse("core:aniversarios") + "?aba=mensagens")
 
 
 # ===========================================================================

@@ -253,6 +253,13 @@ class ResponsavelLegalForm(EstiloFormMixin, forms.Form):
     resp_cpf = forms.CharField(label="CPF", max_length=20)
     resp_email = forms.EmailField(label="E-mail", required=False)
     resp_whatsapp = forms.CharField(label="WhatsApp", max_length=20)
+    # Opcional: alimenta o módulo de Aniversariantes. As famílias cadastradas antes
+    # de 2026-08 ficaram sem — é aqui que dá para completar.
+    resp_data_nascimento = forms.DateField(
+        label="Data de nascimento", required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        help_text="Opcional — usada para a mensagem de aniversário do clube.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
