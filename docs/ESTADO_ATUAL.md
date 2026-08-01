@@ -2,7 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-01 (**WhatsApp: resposta da autorização com log e retry**): fecha a pendência
+**Última atualização:** 2026-08-01 (**Acerto público deixa de cobrar inativo**): a regra do clube é
+**aventureiro inativo não é cobrado**, mesmo com mês em aberto. A cobrança (`_cobrancas_familias`), o painel do
+Diretor (total `aberto`), a área do responsável e o Financeiro já filtravam `aventureiro__ativo=True` — mas a
+**página pública de acerto** (o link do WhatsApp de cobrança, token permanente) **não**: ela listava e pedia
+pagamento da dívida de quem já saiu. Corrigido em `_mensalidades_abertas_familia` + 2 testes (inativo não
+aparece / família só com inativo vê "Tudo em dia"). A regra virou convenção explícita no `CLAUDE.md`, com a
+lista dos pontos onde o filtro precisa existir — **pagas contam sempre**, só o "em aberto" de inativo é
+ignorado. Produção: 4 inativos, 1 deles com **R$ 240,00** em 8 mensalidades abertas (já invisível na cobrança e
+nos totais; agora também no acerto). Optou-se por **filtrar** em vez de marcar isento: aplica a regra sozinho,
+sem ação manual a cada desligamento e sem reescrever histórico. Sem migration. Suíte: **118 testes OK**.
+Antes: WhatsApp — resposta da autorização com log e retry.
+
+**Anterior (WhatsApp: resposta da autorização com log e retry):** fecha a pendência
 aberta em 14/07. A confirmação automática da autorização era **disparo único dentro de `try/except: pass`**,
 ignorando o retorno de `_enviar_whatsapp` — bastava uma instabilidade da W-API para a pessoa autorizar e
 **nunca** receber resposta, sem log e sem nova tentativa (foi o que aconteceu num caso real, descoberto só na

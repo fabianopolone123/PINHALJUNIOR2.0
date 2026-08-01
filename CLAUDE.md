@@ -152,6 +152,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
   um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
   (mais vendidos, a entregar, KPIs) + todas as compras.
+- **Regra do clube: aventureiro INATIVO não é cobrado**, mesmo com mês em aberto — quem saiu não recebe
+  cobrança e a dívida não conta como "a receber". Toda query de cobrança/em-aberto precisa de
+  `aventureiro__ativo=True` (além de `demo=False`). Já aplicado em `_cobrancas_familias`,
+  `_mensalidades_abertas_familia` (acerto público), `_mensalidades_familia_abertas` (área do responsável),
+  no total `aberto` do painel do Diretor e no Financeiro. **Pagas contam sempre** (histórico não muda).
 - **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão + `mensagem_cobranca`, **`mensagem_apelo`**,
   `cobranca_via_ia` (alavanca padrão×IA) e `prompt_cobranca_ia`) e `Mensalidade` (aventureiro, ano, mês, tipo
   inscrição/mensalidade, valor, isento, status pago/aberto); `CobrancaEnviada` (histórico do envio). Campos

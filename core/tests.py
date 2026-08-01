@@ -690,6 +690,35 @@ class AcertoPublicoTests(TestCase):
         self.assertIn(self.m1, abertas)          # mês atual (vencido) entra
         self.assertNotIn(futura, abertas)         # mês futuro NÃO entra
 
+    def test_acerto_ignora_aventureiro_inativo(self):
+        """Regra do clube: **inativo não é cobrado**, mesmo tendo mês em aberto.
+        A cobrança e os relatórios já respeitavam; esta página pública não."""
+        inativo = Aventureiro.objects.create(
+            usuario=self.user, nome_completo="Saiu do Clube", sexo="M",
+            data_nascimento=datetime.date(2014, 1, 1), cpf="INAT1", ativo=False,
+            resp_nome="Mae Teste", resp_cpf="2", resp_whatsapp="4799",
+        )
+        hoje = timezone.localdate()
+        divida = Mensalidade.objects.create(
+            aventureiro=inativo, ano=hoje.year, mes=hoje.month,
+            valor=Decimal("30.00"), status="aberta",
+        )
+        from .views import _mensalidades_abertas_familia
+        abertas = _mensalidades_abertas_familia(self.user)
+        self.assertIn(self.m1, abertas)           # o ativo continua
+        self.assertNotIn(divida, abertas)         # o inativo NÃO é cobrado
+
+        r = self.client.get(reverse("core:acerto", args=[self.token]))
+        self.assertContains(r, "Ana Teste")
+        self.assertNotContains(r, "Saiu do Clube")
+
+    def test_acerto_de_familia_so_com_inativo_nao_cobra_nada(self):
+        self.av.ativo = False
+        self.av.save()
+        r = self.client.get(reverse("core:acerto", args=[self.token]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Tudo em dia")     # nada a cobrar
+
     def test_cobrar_pix_e_simular_quita_familia(self):
         fake = {"ok": True, "mp_payment_id": "MP", "status": "pendente",
                 "qr_code": "P", "qr_code_base64": "B", "ticket_url": "http://t"}

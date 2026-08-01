@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-01 - Acerto público deixa de cobrar aventureiro inativo
+
+### Resumo
+A regra do clube é **aventureiro inativo não é cobrado**, mesmo tendo mês em aberto. A cobrança, o painel do
+Diretor, a área do responsável e o Financeiro já respeitavam; a **página pública de acerto** (o link que vai no
+WhatsApp de cobrança) não — ela listava e pedia pagamento da dívida de quem já saiu do clube.
+
+### Arquivos alterados
+- `core/views.py`: `_mensalidades_abertas_familia` ganhou `aventureiro__ativo=True`, com comentário
+  explicando por que o filtro não é detalhe.
+- `core/tests.py`: dois testes em `AcertoPublicoTests` — um garantindo que o inativo não aparece (e o ativo
+  continua), outro que uma família só com inativo vê "Tudo em dia".
+- `CLAUDE.md`: a regra virou convenção explícita, com a lista dos pontos onde o filtro precisa existir.
+
+### Contexto (dados de produção)
+- 4 aventureiros inativos, dos quais **1 com 8 mensalidades em aberto (R$ 240,00)**. Ela já estava fora da
+  cobrança e dos totais, mas apareceria no acerto se a família abrisse o link antigo (o token é permanente).
+- Nenhuma conta tem aventureiro ativo e inativo ao mesmo tempo hoje, então o efeito prático era limitado —
+  mas o teste cobre o caso misto, que é o que dá errado de forma silenciosa.
+
+### Decisões tomadas
+- **Filtrar em vez de marcar isento.** Marcar as mensalidades do inativo como isentas também sumiria com elas,
+  mas exigiria ação manual a cada desligamento e reescreveria dado histórico. O filtro aplica a regra sozinho.
+- **Pagas continuam contando.** Só o "em aberto" de inativo é ignorado; o que a pessoa pagou enquanto era
+  ativa permanece no histórico e nos relatórios.
+
+### Validação
+- Suíte: **118 testes OK** (116 + 2). Sem migration.
+
 ## 2026-08-01 - WhatsApp: resposta da autorização com log e retry idempotente
 
 ### Resumo

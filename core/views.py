@@ -5440,11 +5440,17 @@ def _q_mens_vencidas():
 
 
 def _mensalidades_abertas_familia(usuario):
-    """Mensalidades VENCIDAS em aberto (não isentas) de todos os aventureiros da conta.
-    Não inclui meses futuros (que ainda não venceram)."""
+    """Mensalidades VENCIDAS em aberto (não isentas) dos aventureiros **ativos** da
+    conta. Não inclui meses futuros (que ainda não venceram).
+
+    O filtro de `ativo` não é detalhe: **aventureiro inativo não é cobrado**, mesmo
+    tendo mês em aberto — quem saiu do clube não deve continuar recebendo cobrança.
+    Sem ele, esta página (que é pública, aberta pelo link do WhatsApp) pediria
+    pagamento de uma dívida que a cobrança e os relatórios já ignoram."""
     return list(
         Mensalidade.objects.filter(
-            aventureiro__usuario=usuario, status="aberta", isento=False
+            aventureiro__usuario=usuario, aventureiro__ativo=True,
+            status="aberta", isento=False,
         ).filter(_q_mens_vencidas()).select_related("aventureiro").order_by(
             "aventureiro__nome_completo", "ano", "mes"
         )
