@@ -2082,6 +2082,18 @@ class LogEmail(models.Model):
             return None
 
 
+# Canais de envio, compartilhados por cobrança e aniversário.
+CANAL_WHATSAPP = "whatsapp"
+CANAL_EMAIL = "email"
+CANAL_COBRANCA_CHOICES = [
+    (CANAL_WHATSAPP, "WhatsApp"),
+    (CANAL_EMAIL, "E-mail"),
+]
+# "Ambos" é uma opção de ENVIO (pedido da tela), não um valor gravável: cada envio
+# vira um `CobrancaEnviada` do canal que realmente saiu, para a contagem por canal
+# continuar exata.
+CANAL_AMBOS = "ambos"
+
 ANIV_AVENTUREIRO = "aventureiro"
 ANIV_RESPONSAVEL = "responsavel"
 ANIV_DIRETORIA = "diretoria"
@@ -2138,6 +2150,11 @@ class TemplateAniversario(models.Model):
     ativo = models.BooleanField("Ativo", default=False)
     mensagem = models.TextField("Mensagem", blank=True, default="")
     assunto = models.CharField("Assunto do e-mail", max_length=200, blank=True, default="")
+    # Canais de saída, como no TemplateNotificacao. Ambos nascem ligados: aqui o
+    # `ativo` já é a trava principal (nasce desligado), então não faz sentido
+    # obrigar a marcar canal também.
+    enviar_whatsapp = models.BooleanField("Enviar por WhatsApp", default=True)
+    enviar_email = models.BooleanField("Enviar por e-mail", default=True)
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="templates_aniversario", verbose_name="Atualizado por",
@@ -2180,6 +2197,60 @@ class TemplateAniversario(models.Model):
     def marcadores(self):
         d = TEMPLATES_ANIVERSARIO.get(self.tipo)
         return d[2] if d else ""
+
+
+class EnvioAniversario(models.Model):
+    """Registro de UMA mensagem de aniversário enviada — e a **trava** que impede
+    mandar duas vezes.
+
+    A unicidade `(chave, ano, canal)` é o coração do controle: a pessoa é
+    identificada pela mesma chave de deduplicação da lista (`_chave_pessoa` ou
+    `av:<id>`), então ela recebe **no máximo uma vez por ano em cada canal**, não
+    importa se o cron rodou duas vezes, se alguém clicou no botão manual depois do
+    automático, ou se a pessoa aparece ligada a vários aventureiros.
+
+    Falhas também são gravadas (`ok=False`), mas **não** ocupam a trava — senão um
+    erro de rede queimaria o aniversário da pessoa até o ano seguinte."""
+
+    chave = models.CharField("Identidade da pessoa", max_length=120, db_index=True)
+    nome = models.CharField("Nome", max_length=150)
+    perfil = models.CharField("Perfil", max_length=20)
+    ano = models.PositiveIntegerField("Ano do aniversário")
+    canal = models.CharField("Canal", max_length=10, choices=CANAL_COBRANCA_CHOICES)
+    destino = models.CharField("Destino", max_length=254, blank=True, default="")
+    ok = models.BooleanField("Enviado", default=False)
+    detalhe = models.CharField("Detalhe / erro", max_length=300, blank=True, default="")
+    manual = models.BooleanField("Envio manual", default=False)
+    enviado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="aniversarios_enviados", verbose_name="Enviado por",
+    )
+    criado_em = models.DateTimeField("Quando", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Aniversário enviado"
+        verbose_name_plural = "Aniversários enviados"
+        ordering = ["-criado_em"]
+        constraints = [
+            # Só o SUCESSO ocupa a trava: uma falha pode (e deve) ser tentada de novo.
+            models.UniqueConstraint(
+                fields=["chave", "ano", "canal"],
+                condition=models.Q(ok=True),
+                name="aniversario_unico_por_ano_e_canal",
+            ),
+        ]
+        indexes = [models.Index(fields=["ano", "chave"])]
+
+    def __str__(self):
+        return f"{self.nome} — {self.ano} ({self.canal})"
+
+    @classmethod
+    def ja_enviado(cls, chave, ano):
+        """Canais em que esta pessoa JÁ recebeu com sucesso no ano."""
+        return set(
+            cls.objects.filter(chave=chave, ano=ano, ok=True)
+            .values_list("canal", flat=True)
+        )
 
 
 class ContatoEmail(models.Model):
@@ -2833,17 +2904,6 @@ class ConfigMensalidade(models.Model):
     def valor_base(self, tipo):
         return self.valor_inscricao if tipo == "inscricao" else self.valor_mensalidade
 
-
-CANAL_WHATSAPP = "whatsapp"
-CANAL_EMAIL = "email"
-CANAL_COBRANCA_CHOICES = [
-    (CANAL_WHATSAPP, "WhatsApp"),
-    (CANAL_EMAIL, "E-mail"),
-]
-# "Ambos" é uma opção de ENVIO (pedido da tela), não um valor gravável: cada envio
-# vira um `CobrancaEnviada` do canal que realmente saiu, para a contagem por canal
-# continuar exata.
-CANAL_AMBOS = "ambos"
 
 
 class CobrancaEnviada(models.Model):

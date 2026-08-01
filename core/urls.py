@@ -152,6 +152,7 @@ urlpatterns = [
     # --- Aniversariantes ---
     path("aniversarios/", views.aniversarios_view, name="aniversarios"),
     path("aniversarios/mensagem/", views.aniversario_template_view, name="aniversario_template"),
+    path("aniversarios/enviar/", views.aniversario_enviar_view, name="aniversario_enviar"),
     # --- E-mail (SMTP) ---
     path("email/", views.email_view, name="email"),
     path("email/config/", views.email_config_view, name="email_config"),

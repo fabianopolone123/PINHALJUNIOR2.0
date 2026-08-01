@@ -22,6 +22,50 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-01 - Aniversários: disparo automático, envio manual e controle de duplicidade
+
+### Resumo
+Fecha o módulo de Aniversariantes: as mensagens passam a sair de verdade, por WhatsApp e/ou e-mail, com as
+mesmas regras anti-spam do resto do sistema, botão de envio manual por pessoa e trava de "já enviei este ano".
+
+### Arquivos criados/alterados
+- `core/models.py`:
+  - `TemplateAniversario` += `enviar_whatsapp` / `enviar_email` (ambos nascem ligados — o `ativo`, que nasce
+    desligado, já é a trava principal).
+  - Novo **`EnvioAniversario`**: `chave`/`nome`/`perfil`/`ano`/`canal`/`destino`/`ok`/`detalhe`/`manual`/
+    `enviado_por`. `UniqueConstraint(chave, ano, canal)` **com `condition=Q(ok=True)`** e o helper
+    `ja_enviado(chave, ano)`.
+  - As constantes `CANAL_*` subiram no arquivo (agora servem cobrança **e** aniversário).
+- `core/views.py`: `_render_aniversario`, **`_enviar_aniversario`**, `_anotar_envios`, `_MOTIVO_ANIV` e
+  `aniversario_enviar_view`. `_aniversariantes` passou a expor a `chave` de cada pessoa.
+- `core/management/commands/enviar_aniversarios.py` **(novo)**: cron diário, `--dry-run`, `--pausa` (10s).
+- `templates/core/aniversarios.html` (painel de status, aba 📬 Envios, canais na aba de mensagens),
+  `templates/core/_aniv_acoes.html` **(novo)**, `static/js/aniversarios.js` **(novo)**,
+  `static/css/aniversarios.css` (selos, botão, 4ª coluna).
+- `core/urls.py`: `aniversarios/enviar/`. `core/migrations/0061_...py` **(novo)**.
+- `docs/DEPLOY_VPS.md`: seção do cron. `core/tests.py`: `EnvioAniversarioTests` (20 testes).
+
+### Decisões tomadas
+- **A trava é no banco, não só na consulta.** `UniqueConstraint` condicionada a `ok=True` protege contra a
+  corrida real: o cron rodando enquanto alguém clica no botão manual.
+- **Falha não ocupa a trava.** Se ocupasse, um timeout de rede queimaria o aniversário da pessoa até o ano
+  seguinte. Falhas ficam como log e podem ser retentadas.
+- **Reenvio forçado usa `update_or_create`**, não `create`: a constraint só permite uma linha de sucesso por
+  pessoa/ano/canal, então o reenvio atualiza a existente (data e autor do último envio).
+- **Aniversário não é transacional.** A pessoa não fez nada — é o clube que resolve escrever. Passa pelos dois
+  gates, como cobrança. `forcar` reenvia mas **não** fura consentimento; forçar não pode virar atalho.
+- **Um canal barrado não impede o outro**: descadastrado do e-mail ainda recebe no WhatsApp, e vice-versa.
+- **A criança recebe no contato do responsável** — é o único que existe, e está correto.
+
+### Validação
+- Suíte: **158 testes OK** (138 + 20), cobrindo trava anual, retry após falha, gates, `forcar`, botão manual,
+  idempotência do comando e `--dry-run`.
+- Renderização conferida com dados reais (destaque "É hoje!", botão, selos, aba de envios).
+
+### Pendências
+- **Operacional**: agendar o cron `enviar_aniversarios` no VPS e ligar as mensagens na aba ✏️ (nascem
+  desligadas). Preencher a data de nascimento dos responsáveis segue pendente.
+
 ## 2026-08-01 - Novo módulo: Aniversariantes (lista + mensagens por perfil)
 
 ### Resumo

@@ -78,6 +78,7 @@ from .models import (
     ANIV_AVENTUREIRO,
     ANIV_RESPONSAVEL,
     ANIV_DIRETORIA,
+    EnvioAniversario,
     TemplateNotificacao,
     TEMPLATES_NOTIFICACAO,
     NOTIF_LOJA_COMPRA,
@@ -4364,7 +4365,8 @@ def _aniversariantes():
 
     hoje = timezone.localdate()
     lista = []
-    for dados in achados.values():
+    for chave, dados in achados.items():
+        dados["chave"] = chave
         n = dados["nascimento"]
         # Dia do ano usado para ordenar e para "faltam X dias" (29/02 cai em 28/02
         # nos anos comuns, senão a pessoa some do calendário).
@@ -4380,6 +4382,131 @@ def _aniversariantes():
         })
         lista.append(dados)
     lista.sort(key=lambda x: (x["mes"], x["dia"], _normaliza(x["nome"])))
+    return lista
+
+
+def _render_aniversario(tpl, pessoa):
+    """Texto e assunto da mensagem de aniversário de uma pessoa, com os marcadores
+    trocados. Marcador ausente vira vazio (nunca quebra o envio)."""
+    nome = (pessoa.get("nome") or "").strip()
+    ctx = _MarcadorDict({
+        "nome": nome.split(" ")[0] or nome,
+        "nome_completo": nome,
+        "idade": pessoa.get("idade") or "",
+    })
+    d = TEMPLATES_ANIVERSARIO.get(pessoa["perfil"])
+    assunto = (tpl.assunto or (d[4] if d else "")).format_map(ctx)
+    return (tpl.mensagem or "").format_map(ctx).strip(), assunto
+
+
+def _enviar_aniversario(pessoa, *, ano=None, manual=False, usuario=None, forcar=False):
+    """Envia a mensagem de aniversário de UMA pessoa pelos canais ligados no
+    template do perfil dela. Devolve `{canal: (ok, motivo)}`.
+
+    Regras que valem aqui — aniversário **não é transacional** (a pessoa não fez
+    nada; é o clube que resolve escrever), então passa pelos **dois gates**:
+    - WhatsApp: `_pode_notificar` (anti-bloqueio da W-API — só quem já escreveu ao
+      clube ou autorizou);
+    - E-mail: `_enviar_email(transacional=False)` — respeita descadastro e bounce e
+      leva o `List-Unsubscribe`.
+
+    A trava de duplicidade é o `EnvioAniversario`: canal já enviado com sucesso no
+    ano é pulado. `forcar=True` (botão manual) refaz o envio mesmo assim, mas ainda
+    respeita os gates — forçar não pode virar atalho para furar consentimento.
+
+    Nunca levanta exceção."""
+    ano = ano or timezone.localdate().year
+    resultado = {}
+    try:
+        tpl = TemplateAniversario.get_tipo(pessoa["perfil"])
+        if not tpl.ativo:
+            return {"_": (False, "template_inativo")}
+
+        texto, assunto = _render_aniversario(tpl, pessoa)
+        if not texto:
+            return {"_": (False, "sem_texto")}
+
+        chave = pessoa["chave"]
+        ja = EnvioAniversario.ja_enviado(chave, ano)
+
+        canais = []
+        if tpl.enviar_whatsapp:
+            canais.append(CANAL_WHATSAPP)
+        if tpl.enviar_email:
+            canais.append(CANAL_EMAIL)
+        if not canais:
+            return {"_": (False, "sem_canal")}
+
+        for canal in canais:
+            if canal in ja and not forcar:
+                resultado[canal] = (False, "ja_enviado")
+                continue
+
+            if canal == CANAL_WHATSAPP:
+                destino = normalizar_telefone(pessoa.get("whatsapp") or "")
+                if not destino or len(destino) < 12:
+                    resultado[canal] = (False, "sem_numero")
+                    continue
+                cfg = WhatsappConfig.get_solo()
+                if not cfg.configurado:
+                    resultado[canal] = (False, "whatsapp_nao_configurado")
+                    continue
+                if not _pode_notificar(destino):
+                    resultado[canal] = (False, "nao_liberado")
+                    continue
+                ok, detalhe = _enviar_whatsapp(cfg, destino, texto)
+            else:
+                destino = (pessoa.get("email") or "").strip()
+                if not destino:
+                    resultado[canal] = (False, "sem_email")
+                    continue
+                ok, detalhe = _enviar_email(
+                    destino, assunto, texto_para_email(texto),
+                    transacional=False,          # o clube inicia — respeita descadastro
+                    nome=pessoa.get("nome") or "", origem="aniversario",
+                )
+                detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
+
+            dados = {
+                "nome": pessoa.get("nome", "")[:150], "perfil": pessoa["perfil"],
+                "destino": str(destino)[:254], "detalhe": str(detalhe)[:300],
+                "manual": manual, "enviado_por": usuario,
+            }
+            if ok:
+                # `update_or_create` e não `create`: a trava do banco só permite UMA
+                # linha de sucesso por pessoa/ano/canal. Num reenvio forçado a linha
+                # existente é atualizada (data e autor do último envio) em vez de
+                # estourar a constraint.
+                EnvioAniversario.objects.update_or_create(
+                    chave=chave, ano=ano, canal=canal, ok=True,
+                    defaults={**dados, "criado_em": timezone.now()},
+                )
+            else:
+                # Falha é log puro: pode repetir e NÃO ocupa a trava.
+                EnvioAniversario.objects.create(
+                    chave=chave, ano=ano, canal=canal, ok=False, **dados
+                )
+            resultado[canal] = (bool(ok), detalhe)
+        return resultado
+    except Exception as exc:  # noqa: BLE001 — envio nunca derruba o chamador
+        logger.exception("Falha ao enviar aniversário")
+        return {"_": (False, f"erro:{exc}")}
+
+
+def _anotar_envios(lista, ano=None):
+    """Marca em cada pessoa o que já foi enviado no ano (para a tela e o comando).
+    Uma consulta só para a lista inteira."""
+    ano = ano or timezone.localdate().year
+    enviados = defaultdict(set)
+    for chave, canal in EnvioAniversario.objects.filter(
+        ano=ano, ok=True, chave__in=[p["chave"] for p in lista]
+    ).values_list("chave", "canal"):
+        enviados[chave].add(canal)
+    for p in lista:
+        canais = enviados.get(p["chave"], set())
+        p["enviado_whatsapp"] = CANAL_WHATSAPP in canais
+        p["enviado_email"] = CANAL_EMAIL in canais
+        p["enviado_algum"] = bool(canais)
     return lista
 
 
@@ -4413,7 +4540,7 @@ def _aniversarios_faltando():
 def aniversarios_view(request):
     """Tela de Aniversariantes (só Diretor): a lista do mês (ou do ano todo) e as
     mensagens por perfil. O disparo automático ainda não existe."""
-    lista = _aniversariantes()
+    lista = _anotar_envios(_aniversariantes())
     hoje = timezone.localdate()
     try:
         mes = int(request.GET.get("mes", hoje.month))
@@ -4443,6 +4570,57 @@ def aniversarios_view(request):
         ],
         "cobertura": _aniversarios_faltando(),
         "aba": request.GET.get("aba", "lista"),
+        "ano": hoje.year,
+        "wa_configurado": WhatsappConfig.get_solo().configurado,
+        "email_configurado": EmailConfig.get_solo().configurado,
+        "ultimos_envios": EnvioAniversario.objects.all()[:30],
+    })
+
+
+# Motivos técnicos do envio traduzidos para a tela.
+_MOTIVO_ANIV = {
+    "template_inativo": "a mensagem deste perfil está desligada",
+    "sem_texto": "a mensagem está vazia",
+    "sem_canal": "nenhum canal ligado no template",
+    "ja_enviado": "já enviado este ano",
+    "sem_numero": "sem WhatsApp cadastrado",
+    "sem_email": "sem e-mail cadastrado",
+    "whatsapp_nao_configurado": "WhatsApp não configurado",
+    "nao_liberado": "não liberado no WhatsApp (nunca escreveu ao clube)",
+}
+
+
+@diretor_required
+@require_POST
+def aniversario_enviar_view(request):
+    """Envia a mensagem de aniversário de UMA pessoa, na hora (botão da tela).
+
+    `forcar=1` reenvia mesmo já tendo saído este ano — útil quando a primeira
+    tentativa falhou ou o texto foi corrigido. Ainda assim respeita os gates:
+    forçar não fura descadastro nem bloqueio de WhatsApp."""
+    chave = (request.POST.get("chave") or "").strip()
+    if not chave:
+        return JsonResponse({"ok": False, "erro": "Pessoa não informada."}, status=400)
+    pessoa = next((p for p in _aniversariantes() if p["chave"] == chave), None)
+    if pessoa is None:
+        return JsonResponse({"ok": False, "erro": "Pessoa não encontrada."}, status=404)
+
+    res = _enviar_aniversario(
+        pessoa, manual=True, usuario=request.user,
+        forcar=request.POST.get("forcar") == "1",
+    )
+    enviados = [c for c, (ok, _) in res.items() if ok]
+    problemas = [
+        f"{'WhatsApp' if c == CANAL_WHATSAPP else 'e-mail'}: "
+        f"{_MOTIVO_ANIV.get(m, m)}" if c != "_" else _MOTIVO_ANIV.get(m, m)
+        for c, (ok, m) in res.items() if not ok
+    ]
+    ja = EnvioAniversario.ja_enviado(chave, timezone.localdate().year)
+    return JsonResponse({
+        "ok": True, "nome": pessoa["nome"],
+        "enviados": enviados, "problemas": problemas,
+        "enviado_whatsapp": CANAL_WHATSAPP in ja,
+        "enviado_email": CANAL_EMAIL in ja,
     })
 
 
@@ -4456,6 +4634,8 @@ def aniversario_template_view(request):
         return redirect(reverse("core:aniversarios") + "?aba=mensagens")
     tpl = TemplateAniversario.get_tipo(tipo)
     tpl.ativo = request.POST.get("ativo") == "1"
+    tpl.enviar_whatsapp = request.POST.get("enviar_whatsapp") == "1"
+    tpl.enviar_email = request.POST.get("enviar_email") == "1"
     tpl.mensagem = (request.POST.get("mensagem") or "").strip()
     tpl.assunto = (
         (request.POST.get("assunto") or "").strip() or TEMPLATES_ANIVERSARIO[tipo][4]

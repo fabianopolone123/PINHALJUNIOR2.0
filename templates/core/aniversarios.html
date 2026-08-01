@@ -60,12 +60,26 @@
                 {% endif %}
 
                 <nav class="abas" aria-label="Seções">
-                    <a href="?aba=lista" class="aba {% if aba != 'mensagens' %}aba-ativa{% endif %}">🎈 Aniversariantes</a>
+                    <a href="?aba=lista" class="aba {% if aba != 'mensagens' and aba != 'envios' %}aba-ativa{% endif %}">🎈 Aniversariantes</a>
                     <a href="?aba=mensagens" class="aba {% if aba == 'mensagens' %}aba-ativa{% endif %}">✏️ Mensagens</a>
+                    <a href="?aba=envios" class="aba {% if aba == 'envios' %}aba-ativa{% endif %}">📬 Envios</a>
                 </nav>
 
                 <!-- ===================== ABA: LISTA ===================== -->
-                {% if aba != 'mensagens' %}
+                {% if aba != 'mensagens' and aba != 'envios' %}
+
+                <div class="card aniv-painel" id="anivPainel"
+                     data-url="{% url 'core:aniversario_enviar' %}" data-csrf="{{ csrf_token }}">
+                    <span class="aniv-painel-txt">
+                        Envio de {{ ano }} ·
+                        {% if wa_configurado %}💬 WhatsApp pronto{% else %}<strong>💬 WhatsApp não configurado</strong>{% endif %} ·
+                        {% if email_configurado %}✉️ E-mail pronto{% else %}<strong>✉️ E-mail não configurado</strong>{% endif %}
+                    </span>
+                    <span class="aniv-painel-dica">
+                        Cada pessoa recebe <strong>uma vez por ano em cada canal</strong>. O envio respeita o
+                        descadastro do e-mail e a liberação do WhatsApp.
+                    </span>
+                </div>
 
                 {% if hoje %}
                 <section class="card aniv-hoje">
@@ -77,6 +91,7 @@
                             <span class="aniv-nome">{{ p.icone }} {{ p.nome }}</span>
                             <span class="aniv-idade">{{ p.idade }} anos</span>
                             <span class="aniv-detalhe">{{ p.detalhe }}</span>
+                            {% include "core/_aniv_acoes.html" %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -139,6 +154,45 @@
                 </section>
                 {% endif %}
 
+                {% elif aba == 'envios' %}
+                <!-- ===================== ABA: ENVIOS ===================== -->
+                <section class="card wa-card">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">📬 Últimos envios de aniversário</h2>
+                        <a href="?aba=envios" class="btn-secundario">↻ Atualizar</a>
+                    </div>
+                    <p class="wa-ajuda">
+                        Sucessos e falhas. Uma falha <strong>não</strong> queima o aniversário da pessoa —
+                        ela pode ser reenviada; só o sucesso trava o canal para o ano.
+                    </p>
+                    {% if ultimos_envios %}
+                    <div class="tabela-scroll">
+                        <table class="tabela">
+                            <thead>
+                                <tr><th>Quando</th><th>Quem</th><th>Ano</th><th>Canal</th><th>Como</th><th>Resultado</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for e in ultimos_envios %}
+                                <tr>
+                                    <td>{{ e.criado_em|date:"d/m H:i" }}</td>
+                                    <td>{{ e.nome }}</td>
+                                    <td>{{ e.ano }}</td>
+                                    <td>{% if e.canal == 'email' %}✉️{% else %}💬{% endif %} {{ e.get_canal_display }}</td>
+                                    <td>{% if e.manual %}manual{% else %}automático{% endif %}</td>
+                                    <td>
+                                        {% if e.ok %}<span class="wa-status wa-status-ok">✓ enviado</span>
+                                        {% else %}<span class="wa-status wa-status-off" title="{{ e.detalhe }}">✕ {{ e.detalhe|truncatechars:50 }}</span>{% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="wa-aviso">Nenhuma mensagem de aniversário enviada ainda.</p>
+                    {% endif %}
+                </section>
+
                 {% else %}
                 <!-- ===================== ABA: MENSAGENS ===================== -->
                 <p class="wa-ajuda">
@@ -146,9 +200,12 @@
                     para um voluntário adulto. Marcadores trocados na hora do envio:
                     <code>{nome}</code> (1º nome), <code>{nome_completo}</code>, <code>{idade}</code>.
                 </p>
-                <p class="wa-aviso">
-                    O <strong>disparo automático ainda não existe</strong> — por enquanto estes textos
-                    ficam guardados e a lista serve de consulta.
+                <p class="wa-ajuda">
+                    O <strong>disparo automático</strong> roda uma vez por dia (cron
+                    <code>enviar_aniversarios</code>) e manda para quem faz aniversário naquele dia.
+                    Cada pessoa recebe <strong>uma vez por ano em cada canal</strong>, e o envio
+                    respeita o descadastro do e-mail e a liberação do WhatsApp. Você também pode
+                    enviar na hora, pelo botão de cada pessoa na aba 🎈.
                 </p>
 
                 {% for t in templates %}
@@ -165,8 +222,20 @@
 
                         <label class="wa-check">
                             <input type="checkbox" name="ativo" value="1"{% if t.ativo %} checked{% endif %}>
-                            Enviar a mensagem para este perfil <span class="wa-opcional">(quando o disparo automático existir)</span>
+                            Enviar a mensagem para este perfil
                         </label>
+
+                        <div class="campo">
+                            <label>Por onde enviar</label>
+                            <label class="wa-check">
+                                <input type="checkbox" name="enviar_whatsapp" value="1"{% if t.enviar_whatsapp %} checked{% endif %}>
+                                💬 WhatsApp
+                            </label>
+                            <label class="wa-check">
+                                <input type="checkbox" name="enviar_email" value="1"{% if t.enviar_email %} checked{% endif %}>
+                                ✉️ E-mail
+                            </label>
+                        </div>
 
                         <div class="campo">
                             <label for="assunto_{{ t.tipo }}">Assunto do e-mail</label>
@@ -190,5 +259,6 @@
         </main>
     </div>
     <script src="{% static 'js/inicio.js' %}"></script>
+    <script src="{% static 'js/aniversarios.js' %}"></script>
 </body>
 </html>

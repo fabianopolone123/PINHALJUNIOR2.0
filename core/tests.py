@@ -19,8 +19,10 @@ from .models import (
     CobrancaEnviada,
     CompraLoja,
     ContatoEmail,
+    ContatoWhatsapp,
     CustoClube,
     EmailConfig,
+    EnvioAniversario,
     Evento,
     LogEmail,
     MembroDiretoria,
@@ -1865,6 +1867,209 @@ class AniversariantesTests(TestCase):
             "tipo": "inexistente", "mensagem": "x",
         })
         self.assertFalse(TemplateAniversario.objects.filter(tipo="inexistente").exists())
+
+
+class EnvioAniversarioTests(TestCase):
+    """Disparo da mensagem de aniversário: gates, trava anual e botão manual."""
+
+    def setUp(self):
+        grupo = Group.objects.create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_env", password="x")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "X"; wa.token = "Y"
+        wa.base_url = "https://api.w-api.app/v1"; wa.save()
+        cfg = EmailConfig.get_solo()
+        cfg.usuario = "clube@gmail.com"; cfg.senha = "x"; cfg.save()
+
+        self.tpl = TemplateAniversario.get_tipo("aventureiro")
+        self.tpl.ativo = True
+        self.tpl.mensagem = "Parabens {nome}, {idade} anos!"
+        self.tpl.save()
+
+        hoje = timezone.localdate()
+        self.conta = User.objects.create_user("fam_env", password="x")
+        self.av = Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Nino Aniversario", sexo="M",
+            data_nascimento=datetime.date(hoje.year - 10, hoje.month, hoje.day),
+            cpf="ENV1", resp_nome="Mae Env", resp_cpf="ENV2",
+            resp_whatsapp="5516991112233", resp_email="mae.env@exemplo.com",
+        )
+        # Liberado no gate do WhatsApp (escreveu ao clube).
+        ContatoWhatsapp.objects.create(
+            numero="5516991112233", ultima_msg_em=timezone.now(), total_msgs=1,
+        )
+        self.ano = hoje.year
+
+    def _pessoa(self):
+        return [p for p in views._aniversariantes() if p["nome"] == "Nino Aniversario"][0]
+
+    def _enviar(self, **kw):
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")) as wa, \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")) as em:
+            res = views._enviar_aniversario(self._pessoa(), **kw)
+        return res, wa, em
+
+    # ---- Canais e conteúdo ----
+    def test_envia_pelos_dois_canais(self):
+        res, wa, em = self._enviar()
+        self.assertTrue(res["whatsapp"][0])
+        self.assertTrue(res["email"][0])
+        self.assertTrue(wa.called and em.called)
+        self.assertEqual(EnvioAniversario.objects.filter(ok=True).count(), 2)
+
+    def test_marcadores_sao_trocados(self):
+        _, wa, _ = self._enviar()
+        texto = wa.call_args[0][2]
+        self.assertIn("Nino", texto)
+        self.assertIn("10", texto)
+        self.assertNotIn("{nome}", texto)
+
+    def test_template_desligado_nao_envia(self):
+        self.tpl.ativo = False
+        self.tpl.save()
+        res, wa, em = self._enviar()
+        self.assertEqual(res, {"_": (False, "template_inativo")})
+        self.assertFalse(wa.called or em.called)
+
+    def test_canal_desmarcado_nao_envia(self):
+        self.tpl.enviar_email = False
+        self.tpl.save()
+        res, wa, em = self._enviar()
+        self.assertIn("whatsapp", res)
+        self.assertNotIn("email", res)
+        self.assertFalse(em.called)
+
+    # ---- Trava anual ----
+    def test_nao_envia_duas_vezes_no_mesmo_ano(self):
+        self._enviar()
+        res, wa, em = self._enviar()
+        self.assertEqual(res["whatsapp"], (False, "ja_enviado"))
+        self.assertEqual(res["email"], (False, "ja_enviado"))
+        self.assertFalse(wa.called or em.called)
+        self.assertEqual(EnvioAniversario.objects.filter(ok=True).count(), 2)
+
+    def test_forcar_reenvia(self):
+        self._enviar()
+        res, wa, _ = self._enviar(forcar=True)
+        self.assertTrue(res["whatsapp"][0])
+        self.assertTrue(wa.called)
+
+    def test_ano_seguinte_envia_de_novo(self):
+        self._enviar()
+        res, wa, _ = self._enviar(ano=self.ano + 1)
+        self.assertTrue(res["whatsapp"][0])
+
+    def test_falha_nao_queima_o_ano(self):
+        """Erro de rede não pode impedir a pessoa de receber depois."""
+        with mock.patch("core.views._enviar_whatsapp", return_value=(False, "timeout")), \
+             mock.patch("core.views._enviar_email", return_value=(False, "timeout")):
+            views._enviar_aniversario(self._pessoa())
+        self.assertEqual(EnvioAniversario.objects.filter(ok=True).count(), 0)
+        res, wa, _ = self._enviar()          # nova tentativa passa
+        self.assertTrue(res["whatsapp"][0])
+
+    # ---- Gates anti-spam ----
+    def test_whatsapp_barrado_para_quem_nunca_escreveu(self):
+        ContatoWhatsapp.objects.all().delete()
+        res, wa, em = self._enviar()
+        self.assertEqual(res["whatsapp"], (False, "nao_liberado"))
+        self.assertFalse(wa.called)
+        self.assertTrue(res["email"][0])     # o e-mail continua
+
+    def test_email_vai_como_nao_transacional(self):
+        """Aniversário não é comprovante: respeita descadastro e leva
+        List-Unsubscribe."""
+        _, _, em = self._enviar()
+        self.assertFalse(em.call_args.kwargs["transacional"])
+        self.assertEqual(em.call_args.kwargs["origem"], "aniversario")
+
+    def test_forcar_nao_fura_o_gate_do_whatsapp(self):
+        ContatoWhatsapp.objects.all().delete()
+        res, wa, _ = self._enviar(forcar=True)
+        self.assertEqual(res["whatsapp"], (False, "nao_liberado"))
+        self.assertFalse(wa.called)
+
+    def test_descadastrado_no_email_ainda_recebe_no_whatsapp(self):
+        ContatoEmail.para("mae.env@exemplo.com").descadastrar()
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")) as wa:
+            res = views._enviar_aniversario(self._pessoa())
+        self.assertTrue(res["whatsapp"][0])
+        self.assertFalse(res["email"][0])
+        self.assertTrue(wa.called)
+
+    # ---- Botão manual ----
+    def test_botao_manual_envia_e_registra_quem_clicou(self):
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")), \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")):
+            r = self.client.post(reverse("core:aniversario_enviar"),
+                                 {"chave": self._pessoa()["chave"]})
+        d = r.json()
+        self.assertTrue(d["ok"])
+        self.assertEqual(sorted(d["enviados"]), ["email", "whatsapp"])
+        reg = EnvioAniversario.objects.filter(ok=True).first()
+        self.assertTrue(reg.manual)
+        self.assertEqual(reg.enviado_por, self.diretor)
+
+    def test_botao_manual_com_chave_inexistente(self):
+        r = self.client.post(reverse("core:aniversario_enviar"), {"chave": "nao-existe"})
+        self.assertEqual(r.status_code, 404)
+
+    def test_botao_manual_exige_diretor(self):
+        self.client.force_login(self.conta)
+        r = self.client.post(reverse("core:aniversario_enviar"), {"chave": "x"})
+        self.assertNotEqual(r.status_code, 200)
+
+    # ---- Tela ----
+    def test_tela_marca_quem_ja_recebeu(self):
+        self._enviar()
+        r = self.client.get(reverse("core:aniversarios"))
+        pessoa = [p for p in r.context["lista"] if p["nome"] == "Nino Aniversario"][0]
+        self.assertTrue(pessoa["enviado_whatsapp"])
+        self.assertTrue(pessoa["enviado_email"])
+
+    def test_aba_envios_lista_o_historico(self):
+        self._enviar()
+        r = self.client.get(reverse("core:aniversarios") + "?aba=envios")
+        self.assertContains(r, "Nino Aniversario")
+        self.assertContains(r, "Últimos envios de aniversário")
+
+    # ---- Comando de cron ----
+    def test_comando_envia_so_quem_faz_hoje(self):
+        Aventureiro.objects.create(
+            usuario=self.conta, nome_completo="Outro Mes", sexo="F",
+            data_nascimento=datetime.date(2015, 1, 1) if timezone.localdate().month != 1
+            else datetime.date(2015, 6, 1),
+            cpf="ENV9", resp_nome="Mae Env", resp_cpf="ENV2",
+            resp_whatsapp="5516991112233",
+        )
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")), \
+             mock.patch("core.views._enviar_email", return_value=(True, "enviado")):
+            call_command("enviar_aniversarios", "--pausa", "0", stdout=out)
+        self.assertIn("Nino Aniversario", out.getvalue())
+        self.assertNotIn("Outro Mes", out.getvalue())
+
+    def test_comando_e_idempotente(self):
+        from django.core.management import call_command
+        from io import StringIO
+        for _ in range(2):
+            with mock.patch("core.views._enviar_whatsapp", return_value=(True, "ok")), \
+                 mock.patch("core.views._enviar_email", return_value=(True, "enviado")):
+                call_command("enviar_aniversarios", "--pausa", "0", stdout=StringIO())
+        self.assertEqual(EnvioAniversario.objects.filter(ok=True).count(), 2)
+
+    def test_dry_run_nao_envia(self):
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        call_command("enviar_aniversarios", "--dry-run", stdout=out)
+        self.assertIn("simulação", out.getvalue())
+        self.assertEqual(EnvioAniversario.objects.count(), 0)
 
 
 class LogEmailTests(TestCase):

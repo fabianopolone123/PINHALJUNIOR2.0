@@ -42,7 +42,31 @@
 .aniv-item-hoje .aniv-dia { color:#1e7d34; }
 .aniv-hoje { border-left:4px solid #1e7d34; }
 
+/* Painel de status do envio */
+.aniv-painel { display:flex; flex-direction:column; gap:4px; padding:12px 16px; margin-bottom:12px; }
+.aniv-painel-txt { font-size:0.9rem; font-weight:600; color:#334155; }
+.aniv-painel-dica { font-size:0.82rem; color:#64748b; }
+
+/* Selos de "já enviado" + botão de envio manual */
+.aniv-acoes { grid-area:acoes; display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-self:end; }
+.aniv-selo {
+    font-size:0.78rem; font-weight:700; padding:2px 8px; border-radius:999px;
+    background:#e6f4ea; color:#1e7d34; border:1px solid #bfe3c8; white-space:nowrap;
+}
+.aniv-enviar { padding:5px 12px; font-size:0.82rem; min-height:34px; white-space:nowrap; }
+.aniv-enviar:disabled { opacity:.6; cursor:default; }
+
+/* A linha ganha uma 4ª coluna para as ações. */
+.aniv-item {
+    grid-template-columns:62px 1fr auto auto;
+    grid-template-areas:"dia nome idade acoes" ".  detalhe detalhe detalhe";
+}
+
 @media (max-width:560px) {
-    .aniv-item { grid-template-columns:54px 1fr; grid-template-areas:"dia nome" ". idade" ". detalhe"; }
+    .aniv-item {
+        grid-template-columns:54px 1fr;
+        grid-template-areas:"dia nome" ". idade" ". detalhe" ". acoes";
+    }
     .aniv-idade { justify-self:start; }
+    .aniv-acoes { justify-self:start; margin-top:6px; }
 }

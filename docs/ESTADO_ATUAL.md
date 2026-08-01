@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-01 (**Novo módulo: 🎂 Aniversariantes**): item de menu novo (só Diretor) com
+**Última atualização:** 2026-08-01 (**Aniversários: disparo automático + envio manual**): fecha o módulo.
+Cada perfil ganhou **canais** (`enviar_whatsapp`/`enviar_email` no `TemplateAniversario`) e o envio saiu do
+papel. (1) Novo model **`EnvioAniversario`** (migration **0061**) — é a **trava**: `UniqueConstraint(chave, ano,
+canal)` **condicionada a `ok=True`**, então a pessoa recebe **no máximo uma vez por ano em cada canal**, não
+importa se o cron rodou duas vezes ou se alguém clicou no manual depois do automático. **Falha não ocupa a
+trava** (senão um erro de rede queimaria o aniversário até o ano seguinte) e pode ser retentada. Reenvio
+forçado usa `update_or_create` — atualiza a linha existente em vez de estourar a constraint. (2) Motor
+**`_enviar_aniversario`**: aniversário **não é transacional** (o clube é quem inicia), então passa pelos
+**dois gates** — WhatsApp por `_pode_notificar` (anti-bloqueio da W-API) e e-mail por
+`_enviar_email(transacional=False)`, que respeita descadastro/bounce e leva o `List-Unsubscribe`. Um canal
+barrado **não impede o outro**. `forcar=True` refaz o envio mas **não fura os gates**. (3) **Botão "📤 Enviar"
+por pessoa** (AJAX) na lista, com selos `💬 ✓`/`✉️ ✓` de quem já recebeu e confirmação no reenvio.
+(4) Comando **`enviar_aniversarios`** para cron diário, com `--dry-run`, `--pausa` e **10s entre cada pessoa**.
+(5) Nova aba **📬 Envios** com o histórico (sucesso e falha, manual × automático). Suíte: **158 testes OK**
+(138 + 20). **Operacional:** agendar o cron (ver `DEPLOY_VPS.md`) e ligar as mensagens na aba ✏️ — todas
+nascem desligadas. Antes: Novo módulo Aniversariantes.
+
+**Anterior (Novo módulo: 🎂 Aniversariantes):** item de menu novo (só Diretor) com
 duas abas. **🎈 Aniversariantes** — lista única dos **três perfis** (aventureiro, responsável e diretoria) com
 dia/mês, idade que completa e de onde a pessoa vem; seletor de mês com contagem por mês + "Ano todo", destaque
 **"É hoje!"** e ordenação por dia. **✏️ Mensagens** — um texto por perfil (`TemplateAniversario`, migration

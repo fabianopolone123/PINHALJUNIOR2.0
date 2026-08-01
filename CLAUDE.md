@@ -58,9 +58,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   (redireciona pro `wa.me` de autorização). Comando `reengajar_inativos` (cron).
 - **Configurações IA** (🤖, Diretor): `/ia/` (chave da API do GPT + teste + contador de tokens), `/ia/config/`,
   `/ia/testar/`, `/ia/zerar/`. Modelo fixo `gpt-4.1-nano`; cliente `core/openai_ia.py` (urllib).
-- **Aniversariantes** (🎂, Diretor): `/aniversarios/` (abas 🎈 lista e ✏️ mensagens),
-  `/aniversarios/mensagem/`. Junta os **3 perfis** numa lista só, deduplicando a pessoa que tem mais de um
-  perfil. Um `TemplateAniversario` por perfil. **Disparo automático ainda não existe.**
+- **Aniversariantes** (🎂, Diretor): `/aniversarios/` (abas 🎈 lista, ✏️ mensagens e 📬 envios),
+  `/aniversarios/mensagem/`, `/aniversarios/enviar/`. Junta os **3 perfis** numa lista só, deduplicando a
+  pessoa que tem mais de um perfil. Um `TemplateAniversario` por perfil (com canais). Disparo pelo cron
+  `enviar_aniversarios` (diário, 10s entre cada) + botão manual por pessoa.
 - **E-mail** (✉️, Diretor): `/email/` (conta SMTP + envio de teste + contador), `/email/config/`,
   `/email/testar/`, `/email/zerar/`. Cliente `core/email_envio.py` (`django.core.mail`, **nativo**). É o
   **2º canal de notificação**; hoje só a base — nada dispara por e-mail ainda (ver ESTADO_ATUAL).
@@ -155,6 +156,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `CompraLoja`/`ItemCompraLoja` (compra vinculada ao login e, opc., a um aventureiro; `kit` agrupa itens de
   um mesmo uniforme; itens têm controle de entrega). Pagamento simulado. Aba **Vendas** = relatório
   (mais vendidos, a entregar, KPIs) + todas as compras.
+- **Envio de aniversário**: `_enviar_aniversario(pessoa, ...)` é o ponto único. **Não é transacional** (o clube
+  inicia), então passa pelos **dois gates** — `_pode_notificar` no WhatsApp e `_enviar_email(transacional=False)`
+  no e-mail; um canal barrado não impede o outro, e `forcar=True` **não** fura gate. A trava é
+  `EnvioAniversario` com `UniqueConstraint(chave, ano, canal)` **condicionada a `ok=True`**: uma vez por ano por
+  canal, à prova de corrida entre o cron e o botão manual. **Falha não ocupa a trava** (pode retentar);
+  reenvio forçado usa `update_or_create`, nunca `create`.
 - **Aniversários**: `_aniversariantes()` monta a lista dos 3 perfis. A **deduplicação** usa `_chave_pessoa`
   (CPF → WhatsApp → nome) com prioridade **diretoria > responsável**; o **aventureiro fica fora dela**, com
   chave `av:<id>` — a criança usa telefone/e-mail do responsável e seria engolida por ele. Datas de nascimento:

@@ -212,6 +212,24 @@ da empresa e normal em todo o resto.
   tabela está amarrada).
 - Não é problema do servidor: o site responde 200 normalmente da internet aberta.
 
+## Cron — mensagens de aniversário
+
+O disparo das mensagens de aniversário roda pelo comando `enviar_aniversarios`, que manda para quem faz
+aniversário **naquele dia**, pelos canais ligados no template de cada perfil (WhatsApp e/ou e-mail).
+
+É **idempotente**: o `EnvioAniversario` trava um envio por pessoa/ano/canal, então rodar duas vezes no mesmo
+dia não duplica — e rodar depois de um envio manual pela tela também não. Pausa **10s entre cada pessoa**.
+
+Agendar (ex.: **todo dia às 09:00**) com `crontab -e`:
+
+```cron
+0 9 * * * cd /var/www/pinhaljunior2/current && set -a && . /etc/pinhaljunior2.env && set +a && /var/www/pinhaljunior2/.venv/bin/python manage.py enviar_aniversarios >> /var/www/pinhaljunior2/backup/aniversarios.log 2>&1
+```
+
+- Para ver quem receberia **sem enviar nada**: acrescente `--dry-run`.
+- Para mudar a pausa: `--pausa 5` (segundos).
+- Nada sai enquanto a mensagem do perfil estiver **desligada** na tela (todas nascem assim).
+
 ## Cuidados
 
 - Não copiar código manualmente para o VPS. Código sempre por GitHub + `pinhaljunior2-deploy`.
