@@ -182,6 +182,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Segurança de menores: NUNCA usar fotos reais de crianças** nem baixar imagens da internet.
   Imagens de teste são avatares fictícios desenhados com Pillow. (Há imagens soltas na raiz que
   NÃO devem ser versionadas.)
+- **O repositório é PÚBLICO.** Nunca escreva dado pessoal real em lugar nenhum versionado — e isso inclui a
+  **documentação** e as **mensagens de commit**, não só o código: nome de aventureiro ou responsável, e-mail,
+  telefone, CPF, login. Ao relatar um diagnóstico com caso real, descreva o **padrão da falha** ("caso 1:
+  mensagem chegou, confirmação não saiu"), nunca quem foi. Em teste, use dados claramente fictícios
+  (`@exemplo.com`, `abcd efgh ijkl mnop`) — **jamais** um valor real copiado do banco.
 - Fazer só o que foi pedido; não quebrar login, cadastro nem o cadastro de múltiplos aventureiros.
 
 ## Convenções úteis

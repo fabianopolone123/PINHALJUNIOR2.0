@@ -135,7 +135,8 @@ real pelo código novo chegou à caixa. Suíte: **56 testes OK** (45 + 11 novos)
 
 **Anterior (WhatsApp/Liberação: marcar autorizado manualmente):** cada linha
 não-autorizada (com conta) da aba **🚦 Liberação** ganhou o botão **"✓ Marcar autorizado"** — para quem
-autorizou por fora (ligação/presencial) ou cuja mensagem não chegou ao webhook (ex.: caso Manuella). Ao clicar,
+autorizou por fora (ligação/presencial) ou cuja mensagem não chegou ao webhook (o "caso 2" do diagnóstico
+anterior). Ao clicar,
 marca a conta como **autorizada** e grava a **data da última mensagem** (como se tivesse escrito) tanto no
 `PerfilUsuario` (termômetro fica verde) quanto no **`ContatoWhatsapp`** — que é a fonte do gate
 `_pode_notificar`, então a pessoa passa a **receber as notificações automáticas** de verdade. Só preenche o que
@@ -150,12 +151,12 @@ um **campo de busca ao vivo** — começa a digitar e a lista de responsáveis/d
 há match e **Esc** limpa. Filtro 100% no front (JS puro, sem request), sobre a lista já renderizada. Arquivos:
 `templates/core/whatsapp.html` (input `#waLibBusca` + `#waLibSemResultado`), `static/js/whatsapp.js` (índice
 pré-computado nome+dígitos por linha e `input`/`keydown` handlers) e `static/css/whatsapp.css` (`.wa-lib-busca*`).
-Sem migration. Suíte: 45 testes OK. Contexto: veio de diagnóstico da resposta automática de autorização — **caso 1**
-(Sirleide): mensagem chegou/autorizou mas a resposta de confirmação **falhou em silêncio** (envio transitório
+Sem migration. Suíte: 45 testes OK. Contexto: veio de diagnóstico da resposta automática de autorização —
+**caso 1**: mensagem chegou/autorizou mas a resposta de confirmação **falhou em silêncio** (envio transitório
 engolido por `except: pass`, sem retry) — reenviada manualmente; **pendência de robustez** (logar falha + retry
-idempotente, migration `0055`) **ainda não implementada**. **Caso 2** (Manuella/`fla.pinhal`): **nenhum** rastro de
-entrada no webhook (nem `ContatoWhatsapp`) — a mensagem dela nunca chegou ao clube; não é bug de código.
-Antes: Revisão geral — parte 4.
+idempotente) **ainda não implementada** *(feita depois, em 01/08, com a migration `0059`)*. **Caso 2**: **nenhum**
+rastro de entrada no webhook (nem `ContatoWhatsapp`) — a mensagem nunca chegou ao clube; não é bug de código.
+*(Identificação das pessoas removida: o repositório é público.)* Antes: Revisão geral — parte 4.
 
 **Anterior (Revisão geral — parte 4: responsividade mobile):** fecha a revisão.
 (1) **Alvos de toque** aumentados para ~40px: `.ordem-btn` (reordenar campos), `.entrega-btn` (baixa de

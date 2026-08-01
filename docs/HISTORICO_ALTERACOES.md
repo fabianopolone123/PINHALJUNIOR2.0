@@ -408,14 +408,17 @@ não estava sendo enviada em alguns casos.
   do item sobrescrevia o `[hidden]` (contava "1 de 11" mas não escondia os demais); a regra por atributo vence.
 
 ### Diagnóstico (resposta automática de autorização)
-- **Caso 1 — Sirleide (`5516981444197`)**: a mensagem chegou, casou com o perfil e a autorização foi marcada,
-  mas a resposta de confirmação não saiu. Causa: `_registrar_contato_whatsapp` envia a confirmação em
-  `try/except: pass` **ignorando o retorno** de `_enviar_whatsapp`, e a confirmação é disparo único — uma falha
-  transitória da W-API se perde sem log nem retry. Instância estava OK (listou 216 grupos); envio de teste manual
-  agora deu `ok:True` (ela recebeu a confirmação com atraso).
-- **Caso 2 — Manuella/`fla.pinhal` (`5517997134996`)**: `autorizacao_recebida_em=None`, `ultima_msg_whatsapp_em=None`,
-  **nenhum** evento de webhook e **nenhum** `ContatoWhatsapp` (que é permanente) em qualquer variante da área 17.
-  Conclusão: a mensagem de autorização dela **nunca chegou ao webhook do clube** — não é bug de código.
+> Identificação das pessoas envolvidas fora do versionamento — o repositório é público (ver a regra de dados
+> pessoais no `.gitignore`). Os casos ficam descritos pelo padrão de falha, que é o que importa tecnicamente.
+
+- **Caso 1 — mensagem chegou, confirmação não saiu**: a mensagem casou com o perfil e a autorização foi
+  marcada, mas a resposta de confirmação não foi entregue. Causa: `_registrar_contato_whatsapp` envia a
+  confirmação em `try/except: pass` **ignorando o retorno** de `_enviar_whatsapp`, e a confirmação é disparo
+  único — uma falha transitória da W-API se perde sem log nem retry. A instância estava OK (listou 216 grupos);
+  o envio manual depois deu `ok:True` (a pessoa recebeu a confirmação com atraso).
+- **Caso 2 — a mensagem nunca chegou**: `autorizacao_recebida_em=None`, `ultima_msg_whatsapp_em=None`,
+  **nenhum** evento de webhook e **nenhum** `ContatoWhatsapp` (que é permanente) em qualquer variante do DDD.
+  Conclusão: a mensagem de autorização **nunca chegou ao webhook do clube** — não é bug de código.
 
 ### Decisões tomadas
 - Busca 100% no front (sobre a lista já renderizada) — sem novo endpoint, coerente com o tamanho da base.
