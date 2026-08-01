@@ -1542,6 +1542,111 @@ class CobrancaPorEmailTests(TestCase):
         self.assertEqual(reg.canal, "whatsapp")
 
 
+class ConfirmacaoAutorizacaoTests(TestCase):
+    """Resposta automática da autorização: idempotente, com retry e com log."""
+
+    def setUp(self):
+        cfg = WhatsappConfig.get_solo()
+        cfg.instance_id = "X"
+        cfg.token = "Y"
+        cfg.base_url = "https://api.w-api.app/v1"
+        cfg.mensagem_autorizacao = "Autorizo o clube a me enviar mensagens"
+        cfg.resposta_autorizacao = "Obrigado! Voce foi liberado."
+        cfg.save()
+        self.cfg = cfg
+
+        self.user = User.objects.create_user("resp_auth", password="x")
+        Aventureiro.objects.create(
+            usuario=self.user, nome_completo="Filho Auth", sexo="M",
+            data_nascimento=datetime.date(2015, 2, 2), cpf="AUTH1",
+            resp_nome="Resp Auth", resp_cpf="AUTH2",
+            resp_whatsapp="5516991112222", resp_email="auth@exemplo.com",
+        )
+        self.numero = "5516991112222"
+
+    def _mensagem(self, texto, envio=(True, "ok")):
+        with mock.patch("core.views._enviar_whatsapp", return_value=envio) as env:
+            views._registrar_contato_whatsapp(self.numero, texto)
+        return env
+
+    def _perfil(self):
+        return PerfilUsuario.objects.get(usuario=self.user)
+
+    def test_autorizacao_envia_confirmacao_e_marca(self):
+        env = self._mensagem(self.cfg.mensagem_autorizacao)
+        p = self._perfil()
+        self.assertIsNotNone(p.autorizacao_recebida_em)
+        self.assertIsNotNone(p.confirmacao_autorizacao_em)
+        self.assertTrue(env.called)
+
+    def test_nao_reenvia_em_mensagens_seguintes(self):
+        self._mensagem(self.cfg.mensagem_autorizacao)
+        env = self._mensagem("oi, tudo bem?")
+        self.assertFalse(env.called)      # ja confirmado, nao repete
+
+    def test_falha_no_envio_deixa_pendente_e_nao_marca(self):
+        """O bug que motivou a mudança: falha transitória sumia em silêncio."""
+        self._mensagem(self.cfg.mensagem_autorizacao, envio=(False, "timeout"))
+        p = self._perfil()
+        self.assertIsNotNone(p.autorizacao_recebida_em)   # autorizou
+        self.assertIsNone(p.confirmacao_autorizacao_em)   # mas nao confirmou
+
+    def test_retry_na_proxima_mensagem_apos_falha(self):
+        self._mensagem(self.cfg.mensagem_autorizacao, envio=(False, "timeout"))
+        env = self._mensagem("oi")                        # qualquer mensagem
+        self.assertTrue(env.called)                       # tentou de novo
+        self.assertIsNotNone(self._perfil().confirmacao_autorizacao_em)
+
+    def test_excecao_no_envio_nao_derruba_o_webhook(self):
+        with mock.patch("core.views._enviar_whatsapp", side_effect=RuntimeError("boom")):
+            views._registrar_contato_whatsapp(self.numero, self.cfg.mensagem_autorizacao)
+        p = self._perfil()
+        self.assertIsNotNone(p.autorizacao_recebida_em)
+        self.assertIsNone(p.confirmacao_autorizacao_em)   # segue pendente
+
+    def test_sem_resposta_configurada_nao_envia(self):
+        self.cfg.resposta_autorizacao = ""
+        self.cfg.save()
+        env = self._mensagem(self.cfg.mensagem_autorizacao)
+        self.assertFalse(env.called)
+
+    def test_mensagem_qualquer_nao_autoriza(self):
+        env = self._mensagem("bom dia")
+        self.assertIsNone(self._perfil().autorizacao_recebida_em)
+        self.assertFalse(env.called)
+
+    def test_marcar_autorizado_manualmente_nao_gera_resposta_depois(self):
+        """Quem foi liberado à mão autorizou por fora — não pode receber a
+        confirmação automática do nada na próxima mensagem."""
+        grupo = Group.objects.create(name="Diretor")
+        diretor = User.objects.create_user("dir_auth", password="x")
+        diretor.groups.add(grupo)
+        self.client.force_login(diretor)
+
+        self.client.post(reverse("core:whatsapp_liberar"), {"usuario_id": self.user.id})
+        p = self._perfil()
+        self.assertIsNotNone(p.autorizacao_recebida_em)
+        self.assertIsNotNone(p.confirmacao_autorizacao_em)
+
+        env = self._mensagem("oi")
+        self.assertFalse(env.called)
+
+    def test_migration_fecha_o_passado(self):
+        """Quem já estava autorizado antes do campo não pode receber 2ª resposta."""
+        p = PerfilUsuario.objects.create(
+            usuario=User.objects.create_user("antigo", password="x"),
+            autorizacao_recebida_em=timezone.now(),
+        )
+        # Simula o estado pós-migration (o backfill roda no deploy).
+        PerfilUsuario.objects.filter(pk=p.pk).update(
+            confirmacao_autorizacao_em=p.autorizacao_recebida_em
+        )
+        p.refresh_from_db()
+        enviou, motivo = views._confirmar_autorizacao(p, "5516999999999")
+        self.assertFalse(enviou)
+        self.assertEqual(motivo, "ja_confirmado")
+
+
 class LogEmailTests(TestCase):
     """Extrato de envios da tela /email/."""
 

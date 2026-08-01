@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-07-31 (**DEPLOY_VPS: conhecimento operacional do servidor**): só documentação,
+**Última atualização:** 2026-08-01 (**WhatsApp: resposta da autorização com log e retry**): fecha a pendência
+aberta em 14/07. A confirmação automática da autorização era **disparo único dentro de `try/except: pass`**,
+ignorando o retorno de `_enviar_whatsapp` — bastava uma instabilidade da W-API para a pessoa autorizar e
+**nunca** receber resposta, sem log e sem nova tentativa (foi o que aconteceu num caso real, descoberto só na
+investigação). Agora: novo campo **`PerfilUsuario.confirmacao_autorizacao_em`** (migration **0059**) marca
+quando a confirmação **saiu com sucesso**; autorizado com o campo vazio = **pendente**, e a **próxima mensagem
+da pessoa tenta de novo**. O envio saiu do fluxo principal para o helper **`_confirmar_autorizacao`**, que
+confere o retorno, **loga** a falha (`logger.warning`, em vez de engolir), só marca quando a W-API confirma e
+nunca levanta exceção (roda dentro do webhook). Dois cuidados de compatibilidade: (1) a migration tem
+**backfill** — quem já estava autorizado é marcado como já confirmado, senão a próxima mensagem de **todos**
+dispararia uma segunda resposta; (2) a **marcação manual** ("✓ Marcar autorizado") passa a fechar a pendência
+junto, porque quem autorizou por fora não deve receber a confirmação do nada depois. Suíte: **116 testes OK**
+(107 + 9). Antes: DEPLOY_VPS — conhecimento operacional.
+
+**Anterior (DEPLOY_VPS: conhecimento operacional do servidor):** só documentação,
 sem código. Registrado no `docs/DEPLOY_VPS.md` o que custou tempo descobrir nesta sessão: (1) **os dois atalhos
 de deploy parecidos** — `pinhaljunior2-deploy` (este sistema, `/var/www/pinhaljunior2`, porta 8010) × 
 `pinhaljunior-deploy` **sem o "2"** (sistema antigo, `/srv/sitepinhal`, porta 8000), cujo uso por engano

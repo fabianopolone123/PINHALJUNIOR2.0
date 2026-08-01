@@ -1183,6 +1183,14 @@ class PerfilUsuario(models.Model):
     autorizacao_recebida_em = models.DateTimeField(
         "Autorização recebida em", null=True, blank=True
     )
+    # Quando a resposta automática de confirmação da autorização foi de fato
+    # ENVIADA com sucesso. Autorizado com este campo vazio = confirmação pendente,
+    # e a próxima mensagem da pessoa dispara nova tentativa. Antes deste campo o
+    # envio era único e engolia falha: uma instabilidade da W-API fazia a pessoa
+    # autorizar e nunca receber resposta, sem log e sem nova tentativa.
+    confirmacao_autorizacao_em = models.DateTimeField(
+        "Confirmação da autorização enviada em", null=True, blank=True
+    )
     # Última vez que o clube mandou a mensagem de reengajamento (evita reenviar toda
     # hora enquanto a pessoa não responde).
     reengajado_em = models.DateTimeField("Reengajado em", null=True, blank=True)

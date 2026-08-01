@@ -102,6 +102,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   **Liberação de números** (só Diretor): webhook casa o telefone recebido com responsável/diretoria e grava em
   `PerfilUsuario` (`ultima_msg_whatsapp_em`, `autorizacao_recebida_em`, `reengajado_em`); reengajamento manda 1x
   por silêncio (só de novo se a pessoa responder). Comando `reengajar_inativos` (cron).
+  A **resposta automática da autorização** passa por `_confirmar_autorizacao`: marca
+  `confirmacao_autorizacao_em` **só quando a W-API confirma o envio**; falha é **logada** e fica **pendente**,
+  e a próxima mensagem da pessoa tenta de novo. Ao mexer nesse fluxo, não volte a ignorar o retorno de
+  `_enviar_whatsapp` — o `except: pass` anterior fazia autorização virar silêncio.
 - **Configurações IA (OpenAI/GPT)**: `OpenAIConfig` (singleton; só `api_key` + contadores de tokens
   `chamadas`/`tokens_prompt`/`tokens_cache`/`tokens_completion`). Modelo/URL fixos em `core/openai_ia.py`
   (`gpt-4.1-nano`; `conversar`/`enviar_prompt` devolvem `(ok, texto, uso)`). Todo uso deve chamar `registrar_uso`.

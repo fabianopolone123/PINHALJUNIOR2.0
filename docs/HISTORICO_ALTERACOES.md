@@ -22,6 +22,47 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-01 - WhatsApp: resposta da autorização com log e retry idempotente
+
+### Resumo
+Fecha a pendência aberta em 2026-07-14. A confirmação automática da autorização era disparo único dentro de
+`try/except: pass`, ignorando o retorno do envio: uma falha transitória da W-API se perdia sem log e sem nova
+tentativa, deixando a pessoa autorizada e sem resposta.
+
+### Arquivos alterados
+- `core/models.py`: `PerfilUsuario.confirmacao_autorizacao_em` — data em que a confirmação **saiu com
+  sucesso**. Autorizado + campo vazio = pendente.
+- `core/views.py`:
+  - `_registrar_contato_whatsapp` deixou de enviar direto; agora delega a **`_confirmar_autorizacao`** e é
+    chamado em **toda** mensagem, não só na que autoriza — é isso que dá o retry.
+  - Novo **`_confirmar_autorizacao(perfil, numero, cfg=None)`**: sai só se ainda não confirmada; confere o
+    retorno de `_enviar_whatsapp`; marca `confirmacao_autorizacao_em` **apenas** no sucesso; loga
+    (`logger.warning`) na falha e deixa pendente; nunca levanta exceção. Devolve `(enviou, motivo)`.
+  - `whatsapp_liberar_view` passa a preencher também `confirmacao_autorizacao_em`.
+- `core/migrations/0059_...py` **(novo)**: `AddField` + **`RunPython` de backfill**.
+- `core/tests.py`: `ConfirmacaoAutorizacaoTests` (9 testes).
+
+### Decisões tomadas
+- **Retry na próxima mensagem**, não em fila/cron: a pessoa escrevendo de novo é o gatilho natural e mantém a
+  resposta contextual. Sem infraestrutura nova.
+- **Marca só no sucesso.** É o que transforma "disparo único" em "entrega garantida na próxima chance".
+- **Backfill obrigatório na migration.** Sem ele o campo nasceria vazio para todos os já autorizados, e a
+  próxima mensagem de cada um dispararia uma segunda confirmação — quem recebeu semanas atrás levaria outra.
+  O passado fica fechado; o retry vale só daqui em diante.
+- **Marcação manual fecha a pendência.** Quem foi liberado à mão autorizou por fora (ligação, presencial);
+  receberia a confirmação do nada na próxima mensagem. Preserva o comportamento de hoje.
+- **`logger.warning`, não `exception`**: falha de terceiro em webhook é esperada, não é bug nosso — não polui
+  o log com stack trace.
+
+### Validação
+- Suíte: **116 testes OK** (107 + 9), incluindo o caso que motivou a mudança (falha → fica pendente → retry na
+  mensagem seguinte) e a garantia de que a marcação manual não gera resposta posterior.
+- `check` e `makemigrations --check` limpos; migration aplicada localmente com o backfill.
+
+### Pendências
+- Nenhuma para esta correção. **A lista de pendências técnicas do WhatsApp fica zerada.**
+- Segue em aberto (decisão do usuário): nomes reais de pessoas no histórico do Git — ver a entrada de 31/07.
+
 ## 2026-07-31 - DEPLOY_VPS: registra o conhecimento operacional do servidor
 
 ### Resumo

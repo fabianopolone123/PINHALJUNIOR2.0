@@ -3736,7 +3736,13 @@ def _perfil_por_whatsapp(numero_recebido):
 def _registrar_contato_whatsapp(numero, texto):
     """Registra que um responsável/diretor mandou mensagem (data da última) e, se o
     texto bate com a mensagem de autorização configurada, marca a autorização e
-    responde com uma confirmação automática (uma vez só)."""
+    responde com uma confirmação automática.
+
+    A confirmação é **idempotente com retry**: só sai se ainda não foi enviada
+    (`confirmacao_autorizacao_em` vazio) e, quando falha, fica pendente para a
+    **próxima mensagem** da pessoa. Antes o envio era único e a falha era engolida
+    por um `except: pass` — bastava uma instabilidade da W-API para a pessoa
+    autorizar e nunca receber resposta, sem log e sem nova tentativa."""
     perfil = _perfil_por_whatsapp(numero)
     if perfil is None:
         return
@@ -3744,23 +3750,50 @@ def _registrar_contato_whatsapp(numero, texto):
     agora = timezone.now()
     perfil.ultima_msg_whatsapp_em = agora
     campos = ["ultima_msg_whatsapp_em"]
-    autorizou_agora = False
     esperado = _norm_comparacao(cfg.mensagem_autorizacao)
     if esperado and not perfil.autorizacao_recebida_em:
         # Match EXATO (normalizado) — ver _registrar_contato_bruto.
         if _norm_comparacao(texto) == esperado:
             perfil.autorizacao_recebida_em = agora
             campos.append("autorizacao_recebida_em")
-            autorizou_agora = True
     perfil.save(update_fields=campos)
-    # Resposta automática de confirmação — só na 1ª vez que a autorização é
-    # reconhecida, e é uma RESPOSTA (a pessoa acabou de escrever), então é seguro.
+    _confirmar_autorizacao(perfil, numero, cfg)
+
+
+def _confirmar_autorizacao(perfil, numero, cfg=None):
+    """Envia (ou reenvia) a confirmação automática da autorização, uma única vez
+    com sucesso. Marca `confirmacao_autorizacao_em` só quando a W-API confirma o
+    envio; se falhar, **loga** e deixa pendente para a próxima mensagem da pessoa.
+
+    Nunca levanta exceção — roda dentro do webhook. Devolve `(enviou, motivo)`."""
+    cfg = cfg or WhatsappConfig.get_solo()
+    if not perfil.autorizacao_recebida_em:
+        return False, "nao_autorizou"
+    if perfil.confirmacao_autorizacao_em:
+        return False, "ja_confirmado"
     resposta = (cfg.resposta_autorizacao or "").strip()
-    if autorizou_agora and cfg.configurado and resposta:
-        try:
-            _enviar_whatsapp(cfg, numero, resposta)
-        except Exception:  # noqa: BLE001 — nunca derrubar o webhook
-            pass
+    if not resposta:
+        return False, "sem_texto"
+    if not cfg.configurado:
+        return False, "whatsapp_nao_configurado"
+    try:
+        ok, detalhe = _enviar_whatsapp(cfg, numero, resposta)
+    except Exception as exc:  # noqa: BLE001 — nunca derrubar o webhook
+        logger.warning(
+            "Confirmação de autorização falhou para %s (fica pendente): %s", numero, exc
+        )
+        return False, f"erro:{exc}"
+    if ok:
+        PerfilUsuario.objects.filter(pk=perfil.pk).update(
+            confirmacao_autorizacao_em=timezone.now()
+        )
+        return True, "enviado"
+    # Falha transitória: NÃO marca como confirmado, então a próxima mensagem tenta
+    # de novo. É isso que evita a autorização silenciosa sem resposta.
+    logger.warning(
+        "Confirmação de autorização não saiu para %s (fica pendente): %s", numero, detalhe
+    )
+    return False, f"falha:{detalhe}"
 
 
 def _registrar_contato_bruto(numero, texto, nome=""):
@@ -3995,6 +4028,12 @@ def whatsapp_liberar_view(request):
     if not perfil.ultima_msg_whatsapp_em:
         perfil.ultima_msg_whatsapp_em = agora
         campos.append("ultima_msg_whatsapp_em")
+    # Marcação MANUAL não deve gerar resposta automática depois: quem autorizou por
+    # fora (ligação, presencial) receberia do nada uma confirmação na próxima vez
+    # que escrevesse. Fecha a pendência junto com a autorização.
+    if not perfil.confirmacao_autorizacao_em:
+        perfil.confirmacao_autorizacao_em = agora
+        campos.append("confirmacao_autorizacao_em")
     if campos:
         perfil.save(update_fields=campos)
     numero = _numero_do_contato(user)
