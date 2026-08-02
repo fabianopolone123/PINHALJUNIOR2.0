@@ -4576,6 +4576,10 @@ def aniversarios_view(request):
         ],
         "cobertura": _aniversarios_faltando(),
         "aba": request.GET.get("aba", "lista"),
+        # Badges das abas: total de aniversariantes, quantos perfis estão com a
+        # mensagem ligada e quantos envios já saíram com sucesso este ano.
+        "ativos_qtd": TemplateAniversario.objects.filter(ativo=True).count(),
+        "envios_qtd": EnvioAniversario.objects.filter(ano=hoje.year, ok=True).count(),
         "ano": hoje.year,
         "wa_configurado": WhatsappConfig.get_solo().configurado,
         "email_configurado": EmailConfig.get_solo().configurado,

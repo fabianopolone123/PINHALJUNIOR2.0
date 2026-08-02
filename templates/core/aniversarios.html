@@ -59,10 +59,26 @@
                 </div>
                 {% endif %}
 
-                <nav class="abas" aria-label="Seções">
-                    <a href="?aba=lista" class="aba {% if aba != 'mensagens' and aba != 'envios' %}aba-ativa{% endif %}">🎈 Aniversariantes</a>
-                    <a href="?aba=mensagens" class="aba {% if aba == 'mensagens' %}aba-ativa{% endif %}">✏️ Mensagens</a>
-                    <a href="?aba=envios" class="aba {% if aba == 'envios' %}aba-ativa{% endif %}">📬 Envios</a>
+                <nav class="aniv-abas" aria-label="Seções">
+                    <a href="?aba=lista{% if mes %}&amp;mes={{ mes }}{% endif %}"
+                       class="aniv-aba {% if aba != 'mensagens' and aba != 'envios' %}ativa{% endif %}"
+                       {% if aba != 'mensagens' and aba != 'envios' %}aria-current="page"{% endif %}>
+                        <span aria-hidden="true">🎈</span>
+                        <span class="aniv-aba-txt">Aniversariantes</span>
+                        <span class="aniv-aba-badge">{{ total_geral }}</span>
+                    </a>
+                    <a href="?aba=mensagens" class="aniv-aba {% if aba == 'mensagens' %}ativa{% endif %}"
+                       {% if aba == 'mensagens' %}aria-current="page"{% endif %}>
+                        <span aria-hidden="true">✏️</span>
+                        <span class="aniv-aba-txt">Mensagens</span>
+                        <span class="aniv-aba-badge">{{ ativos_qtd }}/3</span>
+                    </a>
+                    <a href="?aba=envios" class="aniv-aba {% if aba == 'envios' %}ativa{% endif %}"
+                       {% if aba == 'envios' %}aria-current="page"{% endif %}>
+                        <span aria-hidden="true">📬</span>
+                        <span class="aniv-aba-txt">Envios</span>
+                        {% if envios_qtd %}<span class="aniv-aba-badge">{{ envios_qtd }}</span>{% endif %}
+                    </a>
                 </nav>
 
                 <!-- ===================== ABA: LISTA ===================== -->

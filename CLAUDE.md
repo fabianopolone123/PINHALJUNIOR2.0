@@ -252,5 +252,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   injete uma **sonda** que compara `documentElement.scrollWidth` com `clientWidth` e lista quem estoura.
   A sonda também serve para contar elementos (`querySelectorAll(...).length`) — foi assim que se descobriu
   um `{% include %}` que faltava numa das listas.
+- **Abas seguem um padrão só**: trilho `*-abas` (fundo suave + borda + cantos) com pílulas `*-aba`, a ativa em
+  **gradiente azul** e badge de contagem — ver `loja.css`, `mensalidades.css`, `aniversarios.css`. Ao criar uma
+  tela com abas, **copie esse padrão**; não invente nomes de classe. Classe usada no HTML sem regra em CSS
+  nenhum não quebra nada e não falha teste — só renderiza feio (já aconteceu).
 - **Comentário em template Django: `{# ... #}` é de UMA linha.** Em várias linhas ele **não** comenta — o texto
   vaza como conteúdo na tela. Para bloco, use `{% comment %}...{% endcomment %}`. Já aconteceu duas vezes.

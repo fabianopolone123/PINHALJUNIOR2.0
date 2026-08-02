@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-02 - Aniversários: abas com o padrão visual do projeto
+
+### Resumo
+As abas da tela eram **links sublinhados soltos**. Motivo: nasceram com as classes `abas`/`aba`/`aba-ativa`,
+que **não existiam em CSS nenhum** do projeto — inventadas na criação da tela. Agora seguem o mesmo padrão de
+`loja.css`/`mensalidades.css`.
+
+### Arquivos alterados
+- `static/css/aniversarios.css`: `.aniv-abas` (trilho com fundo suave, borda e cantos arredondados),
+  `.aniv-aba` (pílula, 44px de alvo de toque, sem sublinhado), `.aniv-aba.ativa` (gradiente azul + sombra) e
+  `.aniv-aba-badge` (contador verde, translúcido na ativa).
+- `templates/core/aniversarios.html`: abas remarcadas, com `aria-current="page"` na ativa e badges —
+  total de aniversariantes, quantas mensagens estão ligadas (`n/3`) e envios do ano.
+  O link da aba da lista **preserva o mês selecionado**.
+- `core/views.py`: `ativos_qtd` e `envios_qtd` no contexto (as badges).
+- `core/tests.py`: dois testes novos.
+
+### Decisões tomadas
+- **Reusar o padrão existente** em vez de criar um visual novo: a tela passa a ser indistinguível das outras.
+- **No celular (≤480px) o rótulo some** e fica só o ícone + badge — três abas com texto completo não cabem
+  lado a lado. A **ativa mantém o nome**, para não virar adivinhação de ícone.
+- Badge de mensagens como `n/3` em vez de só o número: "1" sozinho não diz se falta ligar as outras.
+
+### Validação
+- Teste que confere que **toda classe usada no HTML existe no CSS** — é exatamente o defeito que passou:
+  classe inventada, sem estilo, sem nenhum teste reclamando.
+- Teste de que só a aba ativa tem `aria-current`.
+- Suíte: **161 testes OK**. Conferido em 1400px e 520px.
+
 ## 2026-08-02 - Aniversários: cards com larguras diferentes no desktop
 
 ### Resumo

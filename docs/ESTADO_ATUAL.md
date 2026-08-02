@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-02 (**Aniversários: cards desalinhados no desktop**): no desktop os cards
+**Última atualização:** 2026-08-02 (**Aniversários: abas com o padrão visual do projeto**): as abas eram
+**links sublinhados soltos** — nasceram com as classes `abas`/`aba`/`aba-ativa`, que **não existiam em CSS
+nenhum** (inventadas na criação da tela). Refeitas no mesmo padrão de `loja.css`/`mensalidades.css`: trilho com
+fundo suave, pílula de **44px** (alvo de toque), **ativa em gradiente azul** com sombra e **badge** verde de
+contagem — total de aniversariantes, mensagens ligadas (`n/3`) e envios do ano (`ativos_qtd`/`envios_qtd` no
+contexto). A aba ativa leva `aria-current="page"` e o link da lista **preserva o mês selecionado**. No celular
+(≤480px) o **rótulo some** e fica ícone + badge — três abas com texto não cabem lado a lado —, mas a **ativa
+mantém o nome** para não virar adivinhação de ícone. Novo teste confere que **toda classe usada no HTML existe
+no CSS** (é o defeito que passou: classe sem estilo e sem ninguém reclamando) + teste do `aria-current`.
+Suíte: **161 testes OK**. Conferido em 1400px e 520px. Antes: cards desalinhados no desktop.
+
+**Anterior (Aniversários: cards desalinhados no desktop):** no desktop os cards
 tinham **larguras diferentes** — "É hoje!" ia até a borda e "Agosto"/"Faltando data" paravam em 640px. Causa:
 **`.wa-card { max-width: 640px }`**, herdado da tela do WhatsApp (onde os cards são formulários e a largura
 menor é proposital); o card "É hoje!" usa `card aniv-hoje`, **sem** `wa-card`, e por isso era o único sem o

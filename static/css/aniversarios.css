@@ -8,6 +8,68 @@
    - <560px  : empilha (dia+nome / idade / detalhe / ações)
    ========================================================= */
 
+/* ------------------------------- Abas --------------------------------- */
+/* Mesmo padrão de `loja.css`/`mensalidades.css`: trilho com fundo suave e a aba
+   ativa em gradiente. Antes daqui as classes `abas`/`aba` não existiam em CSS
+   nenhum e as abas caíam como links sublinhados. */
+.aniv-abas {
+    display: flex;
+    gap: 8px;
+    margin: 4px 0 18px;
+    background: rgba(15, 76, 129, 0.06);
+    border: 1px solid rgba(15, 76, 129, 0.12);
+    border-radius: 14px;
+    padding: 6px;
+    max-width: 980px;      /* acompanha a largura dos cards da tela */
+}
+.aniv-aba {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    min-height: 44px;                 /* alvo de toque */
+    border-radius: 10px;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--azul-escuro, #0f4c81);
+    text-decoration: none;            /* sem sublinhado de link */
+    text-align: center;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+.aniv-aba:hover { background: rgba(15, 76, 129, 0.1); }
+.aniv-aba.ativa {
+    background: linear-gradient(135deg, var(--azul, #1f6fb2), var(--azul-escuro, #0f4c81));
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(15, 76, 129, 0.25);
+}
+/* Badge com a contagem (nº de aniversariantes / de envios). */
+.aniv-aba-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--verde, #3a9d3a);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.aniv-aba.ativa .aniv-aba-badge { background: rgba(255, 255, 255, 0.24); }
+/* O rótulo some no celular e fica só o ícone + contagem — três abas com texto
+   completo não cabem lado a lado em tela estreita. */
+.aniv-aba-txt { white-space: nowrap; }
+@media (max-width: 480px) {
+    .aniv-abas { gap: 4px; padding: 4px; }
+    .aniv-aba { padding: 10px 6px; font-size: 0.9rem; }
+    .aniv-aba-txt { display: none; }
+    .aniv-aba.ativa .aniv-aba-txt { display: inline; }  /* a ativa mantém o nome */
+}
+
 /* ------------------------- Largura dos cards -------------------------- */
 /* O `.wa-card` (herdado da tela do WhatsApp) limita em 640px — bom para
    formulário, ruim para lista e tabela, que ficavam estreitas ao lado do card

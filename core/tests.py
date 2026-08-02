@@ -1834,6 +1834,29 @@ class AniversariantesTests(TestCase):
             self.assertNotIn("{#", html, f"comentário vazando em {url}")
             self.assertNotIn("#}", html, f"comentário vazando em {url}")
 
+    def test_classes_das_abas_existem_no_css(self):
+        """Regressão: as abas nasceram com as classes `abas`/`aba`, que não
+        existiam em CSS nenhum — renderizavam como links sublinhados."""
+        from pathlib import Path
+        from django.conf import settings
+
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "aniversarios.css").read_text(
+            encoding="utf-8"
+        )
+        html = self.client.get(reverse("core:aniversarios")).content.decode()
+        for classe in ("aniv-abas", "aniv-aba", "aniv-aba-badge", "aniv-largo"):
+            self.assertIn(classe, html, f"{classe} não está no HTML")
+            self.assertIn(f".{classe}", css, f"{classe} usada no HTML mas ausente do CSS")
+
+    def test_abas_marcam_a_ativa(self):
+        for aba, esperado in (("", "🎈"), ("mensagens", "✏️"), ("envios", "📬")):
+            html = self.client.get(
+                reverse("core:aniversarios") + (f"?aba={aba}" if aba else "")
+            ).content.decode()
+            # A aba ativa é a única com aria-current.
+            self.assertEqual(html.count('aria-current="page"'), 1)
+            self.assertIn(esperado, html)
+
     def test_menu_tem_o_item(self):
         r = self.client.get(reverse("core:aniversarios"))
         self.assertIn("aniversarios", [i["id"] for i in r.context["menu_itens"]])
