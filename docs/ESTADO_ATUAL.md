@@ -2,8 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-01 (**Aniversários: responsividade + 3 correções achadas na verificação
-visual**): revisão de tela em 8 larguras (485→1920) com Chrome headless e uma **sonda de overflow** (compara
+**Última atualização:** 2026-08-02 (**Aniversários: cards desalinhados no desktop**): no desktop os cards
+tinham **larguras diferentes** — "É hoje!" ia até a borda e "Agosto"/"Faltando data" paravam em 640px. Causa:
+**`.wa-card { max-width: 640px }`**, herdado da tela do WhatsApp (onde os cards são formulários e a largura
+menor é proposital); o card "É hoje!" usa `card aniv-hoje`, **sem** `wa-card`, e por isso era o único sem o
+limite. Corrigido com a classe **`.aniv-largo { max-width: none }`** nos três cards de lista/tabela; os
+**formulários da aba ✏️ continuam em 640px** (texto longo é mais legível em coluna estreita), por isso um
+modificador explícito em vez de zerar o `max-width` da tela toda. Medido com sonda: os dois cards agora em
+**980px**. Suíte: **159 testes OK**. *Nota de método:* o defeito estava na captura revisada na véspera e passou
+batido a olho — comparar **números** (largura de cada card) é o que pega. Antes: responsividade + 3 correções.
+
+**Anterior (Aniversários: responsividade + 3 correções achadas na verificação
+visual):** revisão de tela em 8 larguras (485→1920) com Chrome headless e uma **sonda de overflow** (compara
 `scrollWidth` com `clientWidth` e lista quem estoura). Resultado final: **zero overflow em todas**, botão com
 **40px** de altura (alvo de toque). CSS reescrito em **3 faixas**: ≥760px tudo numa linha; 560–760 nome/idade/
 detalhe empilham com o botão à direita; <560px empilha tudo, com pílulas de mês ocupando a largura e botão de

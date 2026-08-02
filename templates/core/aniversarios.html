@@ -98,7 +98,7 @@
                 </section>
                 {% endif %}
 
-                <section class="card wa-card">
+                <section class="card wa-card aniv-largo">
                     <div class="wa-card-topo">
                         <h2 class="wa-titulo">{{ mes_nome }}</h2>
                         <span class="wa-status wa-status-ok">{{ lista|length }} de {{ total_geral }}</span>
@@ -134,7 +134,7 @@
                 </section>
 
                 {% if cobertura.responsaveis_sem_data or cobertura.diretoria_sem_data %}
-                <section class="card wa-card">
+                <section class="card wa-card aniv-largo">
                     <div class="wa-card-topo">
                         <h2 class="wa-titulo">⚠️ Faltando data de nascimento</h2>
                     </div>
@@ -157,7 +157,7 @@
 
                 {% elif aba == 'envios' %}
                 <!-- ===================== ABA: ENVIOS ===================== -->
-                <section class="card wa-card">
+                <section class="card wa-card aniv-largo">
                     <div class="wa-card-topo">
                         <h2 class="wa-titulo">📬 Últimos envios de aniversário</h2>
                         <a href="?aba=envios" class="btn-secundario">↻ Atualizar</a>

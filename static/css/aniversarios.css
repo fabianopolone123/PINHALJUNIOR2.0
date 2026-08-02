@@ -8,6 +8,13 @@
    - <560px  : empilha (dia+nome / idade / detalhe / ações)
    ========================================================= */
 
+/* ------------------------- Largura dos cards -------------------------- */
+/* O `.wa-card` (herdado da tela do WhatsApp) limita em 640px — bom para
+   formulário, ruim para lista e tabela, que ficavam estreitas ao lado do card
+   "É hoje!" e deixavam a coluna desalinhada. Só as listas/tabelas soltam a
+   largura; os formulários da aba ✏️ continuam em 640px, que é mais legível. */
+.aniv-largo { max-width: none; }
+
 /* --------------------------- Seletor de mês --------------------------- */
 .aniv-meses { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 14px; }
 .aniv-mes {

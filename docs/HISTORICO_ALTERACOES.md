@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-02 - Aniversários: cards com larguras diferentes no desktop
+
+### Resumo
+No desktop os cards da tela tinham **larguras diferentes** — "É hoje!" ia até a borda e "Agosto" e "Faltando
+data" paravam em 640px, deixando a coluna visivelmente desalinhada. Reportado pelo usuário com print.
+
+### Causa
+`.wa-card { max-width: 640px }`, herdado da tela do WhatsApp (onde os cards são formulários e a largura menor
+é proposital). O card "É hoje!" usa `card aniv-hoje`, **sem** `wa-card`, então era o único sem o limite — daí
+a diferença. Medido com sonda: `CARD[1] maxw=none w=980` × `CARD[2] maxw=640px w=640`.
+
+### Arquivos alterados
+- `static/css/aniversarios.css`: nova classe `.aniv-largo { max-width: none }`, com o porquê no comentário.
+- `templates/core/aniversarios.html`: `aniv-largo` nos três cards de lista/tabela (mês, faltando data e
+  envios). Os formulários da aba ✏️ **continuam em 640px** — texto longo é mais legível em coluna estreita.
+
+### Decisões tomadas
+- Modificador explícito em vez de `.wa-card { max-width: none }` no CSS da tela: o override global também
+  esticaria os formulários da aba de mensagens, que ficam melhores estreitos.
+
+### Validação
+- Sonda no desktop (1400px): os dois cards agora em **980px**, iguais. Suíte: **159 testes OK**.
+
+### Nota de método
+- Este defeito estava na captura que eu havia revisado na véspera e passou batido a olho. Comparar **números**
+  (largura de cada card) em vez de confiar na impressão visual é o que o pega.
+
 ## 2026-08-01 - Aniversários: responsividade e 3 correções achadas na verificação visual
 
 ### Resumo
