@@ -1,5 +1,9 @@
-{# Selos de "já enviado" + botão de envio manual de UMA pessoa.
-   Usado nas duas listas (a de hoje e a do mês). #}
+{% comment %}
+Selos de "já enviado" + botão de envio manual de UMA pessoa.
+Usado nas duas listas (a de hoje e a do mês).
+ATENÇÃO: comentário de várias linhas precisa ser {% comment %}, não {# #} —
+o `{# #}` é de UMA linha só e o resto vaza como texto na tela.
+{% endcomment %}
 <span class="aniv-acoes">
     {% if p.enviado_whatsapp %}<span class="aniv-selo aniv-selo-ok" title="Enviado por WhatsApp este ano">💬 ✓</span>{% endif %}
     {% if p.enviado_email %}<span class="aniv-selo aniv-selo-ok" title="Enviado por e-mail este ano">✉️ ✓</span>{% endif %}

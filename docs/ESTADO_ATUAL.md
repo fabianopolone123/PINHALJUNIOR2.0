@@ -2,7 +2,22 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-01 (**Aniversários: disparo automático + envio manual**): fecha o módulo.
+**Última atualização:** 2026-08-01 (**Aniversários: responsividade + 3 correções achadas na verificação
+visual**): revisão de tela em 8 larguras (485→1920) com Chrome headless e uma **sonda de overflow** (compara
+`scrollWidth` com `clientWidth` e lista quem estoura). Resultado final: **zero overflow em todas**, botão com
+**40px** de altura (alvo de toque). CSS reescrito em **3 faixas**: ≥760px tudo numa linha; 560–760 nome/idade/
+detalhe empilham com o botão à direita; <560px empilha tudo, com pílulas de mês ocupando a largura e botão de
+largura mínima; extra ≤380px reduzindo paddings. `minmax(0, 1fr)` + `overflow-wrap:anywhere` no nome e no
+detalhe — sem isso um nome comprido empurra a grade e cria rolagem horizontal na página inteira. **Três bugs
+que só apareceram na captura:** (1) **comentário de template vazando como texto** — `{# ... #}` do Django é de
+**UMA linha**; escrito em várias, virava conteúdo visível em cada linha da lista. O mesmo erro estava no
+seletor de canal da cobrança (de 31/07), também corrigido; ambos agora usam `{% comment %}` e há **teste de
+regressão** varrendo `{#`/`#}` no HTML de 3 telas. (2) **A lista do mês não tinha botão de envio** — o include
+só havia entrado na lista "É hoje". (3) A nota de perfil duplicado mostrava a **chave técnica**
+("responsavel") em vez do rótulo ("Responsável"). Suíte: **159 testes OK**. Antes: Aniversários — disparo
+automático + envio manual.
+
+**Anterior (Aniversários: disparo automático + envio manual):** fecha o módulo.
 Cada perfil ganhou **canais** (`enviar_whatsapp`/`enviar_email` no `TemplateAniversario`) e o envio saiu do
 papel. (1) Novo model **`EnvioAniversario`** (migration **0061**) — é a **trava**: `UniqueConstraint(chave, ano,
 canal)` **condicionada a `ok=True`**, então a pessoa recebe **no máximo uma vez por ano em cada canal**, não

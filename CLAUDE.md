@@ -247,4 +247,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless
-  (`--force-device-scale-factor=1`; o viewport mínimo do headless é ~484px).
+  (`--headless=new --force-device-scale-factor=1`; o viewport mínimo do headless é ~485px — pedir 360px
+  **renderiza em 485 e reduz**, o que parece corte de layout sem ser). Para overflow, não confie na captura:
+  injete uma **sonda** que compara `documentElement.scrollWidth` com `clientWidth` e lista quem estoura.
+  A sonda também serve para contar elementos (`querySelectorAll(...).length`) — foi assim que se descobriu
+  um `{% include %}` que faltava numa das listas.
+- **Comentário em template Django: `{# ... #}` é de UMA linha.** Em várias linhas ele **não** comenta — o texto
+  vaza como conteúdo na tela. Para bloco, use `{% comment %}...{% endcomment %}`. Já aconteceu duas vezes.

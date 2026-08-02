@@ -4379,6 +4379,12 @@ def _aniversariantes():
             "faz_hoje": (mes, dia) == (hoje.month, hoje.day),
             "rotulo_perfil": TEMPLATES_ANIVERSARIO[dados["perfil"]][0],
             "icone": TEMPLATES_ANIVERSARIO[dados["perfil"]][1],
+            # Na tela mostramos o RÓTULO ("Responsável"), não a chave técnica
+            # ("responsavel"), que apareceria sem acento e em minúscula.
+            "tambem_em": [
+                TEMPLATES_ANIVERSARIO[p][0] for p in dados["tambem_em"]
+                if p in TEMPLATES_ANIVERSARIO
+            ],
         })
         lista.append(dados)
     lista.sort(key=lambda x: (x["mes"], x["dia"], _normaliza(x["nome"])))

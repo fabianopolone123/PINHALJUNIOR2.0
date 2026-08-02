@@ -22,6 +22,47 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-01 - Aniversários: responsividade e 3 correções achadas na verificação visual
+
+### Resumo
+Revisão de responsividade da tela de Aniversariantes em 8 larguras. A verificação visual encontrou três
+defeitos que os testes não pegavam — um deles afetando também uma tela feita ontem.
+
+### Arquivos alterados
+- `static/css/aniversarios.css`: reescrito com **3 faixas** (≥760 / 560–760 / <560) + ajuste ≤380px.
+  `minmax(0, 1fr)` e `overflow-wrap:anywhere` no nome e no detalhe; botão com `min-height:40px`; pílulas de
+  mês com `flex:1 1 auto` no celular.
+- `templates/core/_aniv_acoes.html`: `{# ... #}` trocado por `{% comment %}`.
+- `templates/core/mensalidades.html`: mesmo erro no comentário do seletor de canal (de 31/07).
+- `templates/core/aniversarios.html`: include das ações **também** na lista do mês.
+- `core/views.py`: `tambem_em` passa a guardar o **rótulo** do perfil, não a chave.
+- `core/tests.py`: teste de regressão de comentário vazando; ajuste do teste de perfil duplicado.
+
+### Os três defeitos
+1. **Comentário de template renderizado como texto.** O `{# ... #}` do Django é de **uma linha só**; escrito
+   em várias, o conteúdo vaza para a tela. Aparecia em cada pessoa da lista e também na aba Cobranças, no
+   comentário que eu havia escrito ontem. Agora ambos usam `{% comment %}` e um teste varre `{#`/`#}` no HTML
+   renderizado de 3 telas.
+2. **A lista do mês não tinha botão de envio.** O `replace_all` que inseriu o include casou só com o markup da
+   lista "É hoje" — a do mês tem o bloco de detalhe diferente (por causa do "também é"). Ou seja, a lista
+   principal ficou sem a ação.
+3. **Nota de perfil duplicado mostrava a chave técnica** ("responsavel", sem acento) em vez do rótulo.
+
+### Método
+- Chrome headless (`--headless=new`) com HTML gerado pelo test client e caminhos de estático reescritos para
+  `file:///`. Cenários que estressam o layout: nome de 48 caracteres, nome de 2 letras, pessoa com dois perfis
+  e aniversariante do dia.
+- **Sonda de overflow** injetada na página: compara `documentElement.scrollWidth` com `clientWidth` e lista os
+  elementos cujo `right` passa da viewport. Mede também a altura do botão e conta os botões renderizados —
+  foi assim que o defeito 2 apareceu (`QTD_BOTOES` menor que o esperado).
+- **Nota sobre o método:** o viewport mínimo do headless é **~485px**, então uma captura pedida em 360px é
+  renderizada em 485 e reduzida — o que *parece* corte de layout e não é. Vale medir com a sonda antes de
+  concluir que há overflow (foi o que evitou uma "correção" de um problema inexistente).
+
+### Validação
+- 485, 560, 640, 768, 900, 1024, 1440 e 1920px: **`OVERFLOW=nao`** em todas; botão 40px; 6 botões renderizados.
+- Suíte: **159 testes OK**.
+
 ## 2026-08-01 - Aniversários: disparo automático, envio manual e controle de duplicidade
 
 ### Resumo

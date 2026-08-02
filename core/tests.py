@@ -1740,7 +1740,8 @@ class AniversariantesTests(TestCase):
         itens = [x for x in views._aniversariantes() if x["nome"] == "Mae Um"]
         self.assertEqual(len(itens), 1)
         self.assertEqual(itens[0]["perfil"], "diretoria")
-        self.assertIn("responsavel", itens[0]["tambem_em"])
+        # A tela mostra o rótulo, não a chave técnica ("responsavel", sem acento).
+        self.assertIn("Responsável", itens[0]["tambem_em"])
 
     def test_crianca_nao_e_engolida_pelo_responsavel(self):
         """Regressão: a criança usa o WhatsApp do responsável, então uma chave de
@@ -1821,6 +1822,17 @@ class AniversariantesTests(TestCase):
             self.assertEqual(
                 self.client.get(reverse("core:aniversarios") + f"?mes={v}").status_code, 200
             )
+
+    def test_nenhum_comentario_de_template_vaza_na_tela(self):
+        """Regressão: `{# ... #}` do Django é de UMA linha. Escrito em várias, o
+        texto vira conteúdo visível — aconteceu no bloco de ações da lista e no
+        seletor de canal da cobrança."""
+        for url in (reverse("core:aniversarios"),
+                    reverse("core:aniversarios") + "?aba=mensagens",
+                    reverse("core:mensalidades") + "?aba=cobrancas"):
+            html = self.client.get(url).content.decode()
+            self.assertNotIn("{#", html, f"comentário vazando em {url}")
+            self.assertNotIn("#}", html, f"comentário vazando em {url}")
 
     def test_menu_tem_o_item(self):
         r = self.client.get(reverse("core:aniversarios"))

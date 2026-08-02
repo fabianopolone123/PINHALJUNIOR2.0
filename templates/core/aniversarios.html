@@ -124,6 +124,7 @@
                                 {{ p.detalhe }}
                                 {% if p.tambem_em %}<em class="aniv-tambem">(também é {% for t in p.tambem_em %}{{ t }}{% if not forloop.last %}, {% endif %}{% endfor %})</em>{% endif %}
                             </span>
+                            {% include "core/_aniv_acoes.html" %}
                         </li>
                         {% endfor %}
                     </ul>

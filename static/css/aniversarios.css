@@ -1,15 +1,20 @@
 /* =========================================================
    Aniversariantes — lista por mês e mensagens por perfil.
    Segue a paleta azul/verde do resto do sistema.
+
+   Responsividade em 3 faixas:
+   - ≥760px  : tudo numa linha (dia | nome | idade | ações)
+   - 560-760 : as ações caem para a 2ª linha, junto do detalhe
+   - <560px  : empilha (dia+nome / idade / detalhe / ações)
    ========================================================= */
 
-/* Seletor de mês: pílulas que quebram linha no mobile. */
+/* --------------------------- Seletor de mês --------------------------- */
 .aniv-meses { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 14px; }
 .aniv-mes {
     display:inline-flex; align-items:center; gap:5px;
     padding:6px 11px; border:1px solid #cbd5e1; border-radius:999px;
     font-size:0.85rem; font-weight:600; color:#334155; text-decoration:none;
-    background:#fff; min-height:34px;
+    background:#fff; min-height:38px;   /* alvo de toque confortável */
 }
 .aniv-mes:hover { border-color:#0f4c81; color:#0f4c81; }
 .aniv-mes-ativo { background:#0f4c81; border-color:#0f4c81; color:#fff; }
@@ -19,22 +24,35 @@
 }
 .aniv-mes-ativo .aniv-mes-qtd { background:rgba(255,255,255,.22); color:#fff; }
 
-/* Lista */
+/* --------------------------------- Lista ------------------------------ */
 .aniv-lista { list-style:none; margin:0; padding:0; }
+
 .aniv-item {
     display:grid;
-    grid-template-columns:62px 1fr auto;
-    grid-template-areas:"dia nome idade" ".  detalhe detalhe";
+    grid-template-columns:62px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+        "dia nome    idade   acoes"
+        ".   detalhe detalhe detalhe";
     gap:2px 10px; align-items:center;
     padding:10px 4px; border-bottom:1px solid #eef2f7;
 }
 .aniv-item:last-child { border-bottom:none; }
+
 .aniv-dia {
-    grid-area:dia; font-weight:700; color:#0f4c81; font-variant-numeric:tabular-nums;
+    grid-area:dia; font-weight:700; color:#0f4c81;
+    font-variant-numeric:tabular-nums; white-space:nowrap;
 }
-.aniv-nome { grid-area:nome; font-weight:600; color:#1e293b; }
+/* `min-width:0` + quebra: sem isso um nome comprido empurra a grade e cria
+   rolagem horizontal na página inteira. */
+.aniv-nome {
+    grid-area:nome; font-weight:600; color:#1e293b;
+    min-width:0; overflow-wrap:anywhere;
+}
 .aniv-idade { grid-area:idade; font-size:0.85rem; color:#64748b; white-space:nowrap; }
-.aniv-detalhe { grid-area:detalhe; font-size:0.82rem; color:#64748b; }
+.aniv-detalhe {
+    grid-area:detalhe; font-size:0.82rem; color:#64748b;
+    min-width:0; overflow-wrap:anywhere;
+}
 .aniv-tambem { color:#8a6d1a; font-style:italic; }
 
 /* Destaque de quem faz aniversário hoje */
@@ -42,31 +60,65 @@
 .aniv-item-hoje .aniv-dia { color:#1e7d34; }
 .aniv-hoje { border-left:4px solid #1e7d34; }
 
-/* Painel de status do envio */
+/* ---------------------- Painel de status do envio --------------------- */
 .aniv-painel { display:flex; flex-direction:column; gap:4px; padding:12px 16px; margin-bottom:12px; }
 .aniv-painel-txt { font-size:0.9rem; font-weight:600; color:#334155; }
 .aniv-painel-dica { font-size:0.82rem; color:#64748b; }
 
-/* Selos de "já enviado" + botão de envio manual */
-.aniv-acoes { grid-area:acoes; display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-self:end; }
+/* ------------------- Selos "já enviado" + botão de envio -------------- */
+.aniv-acoes {
+    grid-area:acoes; display:flex; align-items:center; gap:6px;
+    flex-wrap:wrap; justify-self:end;
+}
 .aniv-selo {
-    font-size:0.78rem; font-weight:700; padding:2px 8px; border-radius:999px;
+    font-size:0.78rem; font-weight:700; padding:3px 8px; border-radius:999px;
     background:#e6f4ea; color:#1e7d34; border:1px solid #bfe3c8; white-space:nowrap;
 }
-.aniv-enviar { padding:5px 12px; font-size:0.82rem; min-height:34px; white-space:nowrap; }
+.aniv-enviar {
+    padding:6px 12px; font-size:0.82rem; min-height:40px;  /* alvo de toque */
+    white-space:nowrap;
+}
 .aniv-enviar:disabled { opacity:.6; cursor:default; }
 
-/* A linha ganha uma 4ª coluna para as ações. */
-.aniv-item {
-    grid-template-columns:62px 1fr auto auto;
-    grid-template-areas:"dia nome idade acoes" ".  detalhe detalhe detalhe";
+/* ---- Faixa intermediária: tablet e telas estreitas de desktop ---- */
+@media (max-width:760px) {
+    /* Nome, idade e detalhe empilham numa coluna só; o botão fica à direita,
+       centralizado nas três linhas. */
+    .aniv-item {
+        grid-template-columns:58px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "dia nome    acoes"
+            ".   idade   acoes"
+            ".   detalhe acoes";
+    }
+    .aniv-dia { align-self:start; padding-top:2px; }
+    .aniv-acoes { align-self:center; }
+    .aniv-idade { justify-self:start; }
 }
 
+/* ------------------------- Celular: empilha --------------------------- */
 @media (max-width:560px) {
     .aniv-item {
-        grid-template-columns:54px 1fr;
-        grid-template-areas:"dia nome" ". idade" ". detalhe" ". acoes";
+        grid-template-columns:54px minmax(0, 1fr);
+        grid-template-areas:
+            "dia nome"
+            ".   idade"
+            ".   detalhe"
+            ".   acoes";
+        gap:3px 8px;
+        padding:12px 4px;
     }
     .aniv-idade { justify-self:start; }
-    .aniv-acoes { justify-self:start; margin-top:6px; }
+    .aniv-acoes { justify-self:start; margin-top:8px; }
+    .aniv-enviar { flex:1 1 auto; min-width:120px; }
+    /* Pílulas de mês ocupam melhor a largura disponível. */
+    .aniv-mes { flex:1 1 auto; justify-content:center; }
+}
+
+/* --------------------- Telas muito estreitas (≤380px) ----------------- */
+@media (max-width:380px) {
+    .aniv-item { grid-template-columns:48px minmax(0, 1fr); }
+    .aniv-dia { font-size:0.9rem; }
+    .aniv-mes { padding:6px 9px; font-size:0.8rem; }
+    .aniv-painel { padding:10px 12px; }
 }

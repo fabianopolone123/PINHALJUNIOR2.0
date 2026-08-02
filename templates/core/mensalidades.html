@@ -323,9 +323,11 @@
                     <div class="card mens-cobranca-barra">
                         <span><strong>{{ cobrancas|length }}</strong> família(s) com mensalidade em aberto.</span>
                         <label class="mens-chk">Enviar por
-                            {# NÃO usar a classe `mens-cob-tel-sel` aqui: ela é o gancho do
-                               handler que troca o telefone de cobrança da família, e faria
-                               a troca de canal disparar um POST indevido. #}
+                            {% comment %}
+                            NÃO usar a classe `mens-cob-tel-sel` aqui: ela é o gancho do
+                            handler que troca o telefone de cobrança da família, e faria
+                            a troca de canal disparar um POST indevido.
+                            {% endcomment %}
                             <select id="cobrancaCanal" class="mens-cob-canal-sel">
                                 <option value="whatsapp">💬 WhatsApp</option>
                                 <option value="email"{% if not email_configurado %} disabled{% endif %}>✉️ E-mail{% if not email_configurado %} (não configurado){% endif %}</option>
