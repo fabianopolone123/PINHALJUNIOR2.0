@@ -101,37 +101,40 @@ def configurar_webhook_recebido(config, url):
     )
 
 
-# Nomes candidatos do endpoint que aponta o **webhook de entrega/status**. A doc
-# pública não abre o nome, e sondar por GET não resolve: a W-API responde
-# `Cannot GET /v1/webhook/...` para TODA rota de webhook, inclusive a que
-# funciona com PUT. Então tenta-se um a um, e um 404 só descarta aquele nome.
-# Todos os candidatos têm semântica de entrega/status — se um deles pegar, o valor
-# gravado é a nossa URL, que é exatamente o que se quer.
+# São **dois** webhooks diferentes, e o sistema precisa dos dois para saber o que
+# aconteceu com a mensagem (confirmado na instância real do clube — a doc pública
+# não lista nenhum dos nomes):
+#   /webhook/update-webhook-delivery        → "Webhook de envio atualizado."
+#   /webhook/update-webhook-message-status  → "Webhook de status atualizado."
+# Nota para quem for procurar outros: **sondar por GET não descobre nada** — a
+# W-API responde `Cannot GET /v1/webhook/<qualquer coisa>` mesmo para as rotas que
+# existem com PUT. Só o PUT distingue 404 de rota válida.
 CAMINHOS_WEBHOOK_ENTREGA = (
-    "/webhook/update-webhook-delivery",
-    "/webhook/update-webhook-message-status",
-    "/webhook/update-webhook-status",
-    "/webhook/update-delivery-webhook",
+    ("/webhook/update-webhook-delivery", "envio"),
+    ("/webhook/update-webhook-message-status", "status"),
 )
 
 
 def configurar_webhook_entrega(config, url):
-    """Aponta o webhook de **entrega/status** para `url`.
+    """Aponta os webhooks de **envio** e de **status** para `url`.
 
-    Devolve `(ok, caminho_que_funcionou|erro)`. Quando nenhum candidato pega, o
-    erro já vem pronto para a tela: a configuração tem de ser feita à mão no
-    painel da W-API (o receptor do sistema funciona igual — só a configuração
-    é que muda de lugar)."""
-    erros = []
-    for caminho in CAMINHOS_WEBHOOK_ENTREGA:
+    Devolve `(ok, resumo|erro)`. Configura os dois porque eles são separados na
+    W-API: um avisa que a mensagem saiu, o outro que chegou/foi lida. Se um falhar
+    e o outro não, ainda é sucesso parcial — o erro volta descrito para a tela."""
+    feitos, erros = [], []
+    for caminho, rotulo in CAMINHOS_WEBHOOK_ENTREGA:
         ok, dados = _requisitar(config, "PUT", caminho, corpo={"value": url})
         if ok and not (isinstance(dados, dict) and dados.get("error")):
-            return True, caminho
-        erros.append(f"{caminho.rsplit('/', 1)[-1]}: {dados}")
+            feitos.append(rotulo)
+        else:
+            erros.append(f"{rotulo}: {dados}")
+    if feitos and not erros:
+        return True, " e ".join(feitos)
+    if feitos:
+        return True, f"{' e '.join(feitos)} (falhou: {'; '.join(erros)})"
     return False, (
-        "A W-API não aceitou nenhum dos nomes de endpoint conhecidos para o webhook "
-        "de entrega. Configure a URL à mão no painel da W-API (campo de webhook de "
-        "entrega/status) — o resto do sistema já está pronto para receber. "
+        "A W-API não aceitou o registro do webhook de entrega. Configure a URL à mão "
+        "no painel da W-API — o resto do sistema já está pronto para receber. "
         "Detalhe: " + " | ".join(erros)
     )
 
