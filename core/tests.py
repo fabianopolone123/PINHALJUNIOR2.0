@@ -2409,6 +2409,55 @@ class ExtratoWhatsappTests(TestCase):
         ids, status, _ = wapi_parser.extrair_status({"event": "webhookDelivery", "status": "READ"})
         self.assertEqual((ids, status), ([], ""))
 
+    # --- formato REAL da instancia (visto no webhook em producao) ---
+    # A W-API manda DOIS eventos: `webhookDelivery` (eco da saida, SEM campo de
+    # status) e `webhookStatus` (com status SERVER/DELIVERY/READ). Numeros aqui
+    # sao ficticios de proposito — o repositorio e publico.
+
+    def test_payload_real_webhook_status_server(self):
+        self._envio("3EB0REAL1")
+        self._postar({
+            "event": "webhookStatus", "instanceId": "LITE-XXXX", "status": "SERVER",
+            "messageId": "3EB0REAL1", "fromMe": True, "moment": 1786568130,
+            "chat": {"id": "5599999999999"}, "isGroup": False,
+        })
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_ENVIADA)
+        self.assertEqual(WhatsappWebhookEvent.objects.count(), 0)
+
+    def test_payload_real_webhook_status_delivery_e_read(self):
+        self._envio("3EB0REAL2")
+        base = {"event": "webhookStatus", "messageId": "3EB0REAL2", "fromMe": True}
+        self._postar({**base, "status": "DELIVERY"})
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_ENTREGUE)
+        self._postar({**base, "status": "READ"})
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_LIDA)
+
+    def test_payload_real_webhook_delivery_sem_campo_de_status(self):
+        """`webhookDelivery` chega sem `status`: vale como ENVIADA (saiu), nunca
+        como entregue — quem confirma a chegada e o `webhookStatus` DELIVERY."""
+        self._envio("3EB0REAL3")
+        self._postar({
+            "event": "webhookDelivery", "instanceId": "LITE-XXXX", "isGroup": False,
+            "messageId": "3EB0REAL3", "fromMe": True,
+            "chat": {"id": "5599999999999"}, "sender": {"id": "5599999999999"},
+        })
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_ENVIADA)
+        self.assertEqual(WhatsappWebhookEvent.objects.count(), 0)
+
+    def test_evento_sem_status_e_sem_fromMe_nao_e_tratado_como_status(self):
+        """Trava contra o pior caso: engolir uma mensagem RECEBIDA como se fosse
+        aviso de entrega faria o clube perder a mensagem (e a autorizacao nela)."""
+        ids, status, _ = wapi_parser.extrair_status({
+            "event": "webhookDelivery", "messageId": "X1", "fromMe": False,
+        })
+        self.assertEqual((ids, status), ([], ""))
+
+    def test_status_pendente_e_reconhecido_mas_nao_muda_nada(self):
+        self._envio("3EB0REAL4")
+        self._postar({"event": "webhookStatus", "messageId": "3EB0REAL4", "status": "PENDING"})
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_ACEITA)
+        self.assertEqual(WhatsappWebhookEvent.objects.count(), 0)
+
     def test_parser_entende_ack_numerico(self):
         ids, status, _ = wapi_parser.extrair_status({"messageId": "X", "ack": 3})
         self.assertEqual((ids, status), (["X"], wapi_parser.STATUS_LIDA))

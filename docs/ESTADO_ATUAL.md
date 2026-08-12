@@ -20,11 +20,16 @@ entrega"** na aba 🔔 Webhook. Pontos de desenho: **o status é tratado ANTES d
 de entrega entrasse como "mensagem recebida", marcaria contato e até **autorização** de quem não escreveu nada
 (termômetro verde falso); há teste de regressão disso. O status **não retrocede** (o WhatsApp manda os avisos
 fora de ordem e o `READ` chega antes do `RECEIVED` com frequência), mas o **FAILED sempre vale**. Um aviso pode
-trazer **lista de ids** (o `READ` costuma vir em lote). **Pendência:** a W-API não documenta o nome do endpoint
-que aponta o webhook de entrega e **sondar por GET não resolve** (ela responde `Cannot GET /v1/webhook/...`
-para toda rota de webhook, inclusive a que funciona com PUT), então `wapi.configurar_webhook_entrega` tenta 4
-nomes candidatos e, se nenhum pegar, a tela manda configurar a URL **à mão no painel da W-API** — o receptor
-funciona igual. Suíte: **212 testes OK** (196 + 16). Antes: Top 10 de quem deve mais.
+trazer **lista de ids** (o `READ` costuma vir em lote). **Formato real, medido na instância do clube** (a doc
+pública não abre nada disso): são **dois** endpoints de configuração e ambos existem —
+`/webhook/update-webhook-delivery` ("Webhook de envio") e `/webhook/update-webhook-message-status` ("Webhook de
+status") —, e chegam **dois eventos**: `webhookDelivery`, que vem **sem campo de status** (é o eco da saída, e
+por isso vale como *enviada*, nunca como *entregue*), e `webhookStatus`, cujo vocabulário é
+**`SERVER`/`DELIVERY`/`READ`** — não `SENT`/`RECEIVED`, que era o que a doc sugeria. O evento sem status só é
+aceito com **`fromMe=true`**: sem essa trava, um evento de conversa de nome parecido seria engolido como status
+e o clube **perderia a mensagem recebida** (e a autorização que ela pode carregar). Nota de método: **sondar
+por GET não descobre rota na W-API** — ela responde `Cannot GET /v1/webhook/<qualquer coisa>` mesmo para as
+rotas que funcionam com PUT. Suíte: **217 testes OK** (196 + 21). Antes: Top 10 de quem deve mais.
 
 **Anterior (Mensalidades: Top 10 de quem deve mais):** a aba **Resumo** ganhou o
 bloco **"Top 10 — quem está devendo mais"**, entre o gráfico mês a mês e o detalhe por mês: ranking com

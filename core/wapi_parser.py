@@ -348,17 +348,33 @@ STATUS_ENVIADA = 'sent'
 STATUS_ENTREGUE = 'received'
 STATUS_LIDA = 'read'
 STATUS_FALHOU = 'failed'
+STATUS_PENDENTE = 'pending'   # reconhecido, mas não muda nada no extrato
 
+# O vocabulário REAL da instância (visto no webhook `webhookStatus`) é
+# SERVER / DELIVERY / READ — não SENT/RECEIVED, que é o que a doc sugere. Os
+# outros nomes ficam como sinônimo porque o WhatsApp/Baileys usa vários para a
+# mesma coisa e a W-API pode mudar sem avisar.
 _STATUS_SINONIMOS = {
-    'sent': STATUS_ENVIADA, 'server_ack': STATUS_ENVIADA, 'serverack': STATUS_ENVIADA,
-    'enviada': STATUS_ENVIADA, 'enviado': STATUS_ENVIADA, '1': STATUS_ENVIADA,
-    'received': STATUS_ENTREGUE, 'delivery_ack': STATUS_ENTREGUE,
-    'deliveryack': STATUS_ENTREGUE, 'delivered': STATUS_ENTREGUE,
-    'entregue': STATUS_ENTREGUE, '2': STATUS_ENTREGUE,
+    'sent': STATUS_ENVIADA, 'server': STATUS_ENVIADA, 'server_ack': STATUS_ENVIADA,
+    'serverack': STATUS_ENVIADA, 'enviada': STATUS_ENVIADA, 'enviado': STATUS_ENVIADA,
+    '1': STATUS_ENVIADA,
+    'delivery': STATUS_ENTREGUE, 'received': STATUS_ENTREGUE,
+    'delivery_ack': STATUS_ENTREGUE, 'deliveryack': STATUS_ENTREGUE,
+    'delivered': STATUS_ENTREGUE, 'entregue': STATUS_ENTREGUE, '2': STATUS_ENTREGUE,
     'read': STATUS_LIDA, 'read_self': STATUS_LIDA, 'readself': STATUS_LIDA,
     'played': STATUS_LIDA, 'lida': STATUS_LIDA, '3': STATUS_LIDA, '4': STATUS_LIDA,
     'failed': STATUS_FALHOU, 'error': STATUS_FALHOU, 'falhou': STATUS_FALHOU,
     'undelivered': STATUS_FALHOU, 'not_delivered': STATUS_FALHOU, '5': STATUS_FALHOU,
+    'pending': STATUS_PENDENTE, '0': STATUS_PENDENTE,
+}
+
+# Eventos que, sozinhos, já dizem o que aconteceu — o `webhookDelivery` da W-API
+# chega **sem** campo de status: é o eco da mensagem que saiu. Mapeia para
+# "enviada" e não para "entregue": ele confirma a saída, não a chegada (quem
+# confirma a chegada é o `webhookStatus` com DELIVERY).
+_STATUS_POR_EVENTO = {
+    'webhookdelivery': STATUS_ENVIADA,
+    'webhookdeliverystatus': STATUS_ENVIADA,
 }
 
 # Nomes de evento que indicam "isto é um aviso de status", não uma conversa.
@@ -429,7 +445,15 @@ def extrair_status(payload):
         if status:
             break
     if not status:
-        return [], '', ''
+        # Sem campo de status: só vale se o EVENTO já disser o que houve e a
+        # mensagem for **nossa** (`fromMe`). Sem essa trava, um evento de conversa
+        # de nome parecido seria engolido como status e o clube perderia a
+        # mensagem recebida (junto com a autorização que ela pode carregar).
+        status = _STATUS_POR_EVENTO.get(evento, '')
+        if not status or not _as_bool(_safe_get(
+            payload, ('fromMe',), ('from_me',), ('data', 'fromMe'), ('key', 'fromMe')
+        )):
+            return [], '', ''
     # Evento de conversa que só carrega um "status" solto não é aviso de entrega.
     if evento and 'received' in evento and evento not in _EVENTOS_STATUS:
         return [], '', ''

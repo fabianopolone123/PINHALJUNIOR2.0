@@ -63,11 +63,24 @@ alimenta a situação real de cada mensagem: entregue, lida ou não entregue.
 - **A tela avisa quando o webhook de entrega não está confirmando nada**, senão a coluna toda em "sem
   confirmação" pareceria que ninguém recebeu.
 
+### O formato real da W-API (medido, não documentado)
+Ligado o webhook em produção e feito um envio de teste para o próprio número do clube, o que chega é:
+
+- **Dois endpoints de configuração**, ambos válidos e com papéis diferentes:
+  `/webhook/update-webhook-delivery` → *"Webhook de envio atualizado"*; e
+  `/webhook/update-webhook-message-status` → *"Webhook de status atualizado"*. O sistema registra **os dois**.
+- **`webhookDelivery`**: chega **sem campo `status`** — é o eco da mensagem que saiu (`fromMe: true`, com
+  `messageId`). Mapeado para **enviada**, nunca para "entregue": ele confirma a saída, não a chegada.
+- **`webhookStatus`**: traz `status` com o vocabulário **`SERVER` / `DELIVERY` / `READ`** — e não
+  `SENT`/`RECEIVED`, que era o que a doc sugeria. Os dois conjuntos ficam como sinônimo no parser.
+- **Método:** *sondar por GET não descobre rota na W-API* — ela responde `Cannot GET /v1/webhook/<qualquer
+  coisa>` mesmo para as rotas que existem com PUT. Só o PUT distingue.
+
+Trava importante: o evento **sem** campo de status só é aceito como aviso de entrega quando tem `fromMe=true`.
+Sem isso, um evento de conversa com nome parecido seria engolido como status e o clube **perderia a mensagem
+recebida** — junto com a autorização que ela pode carregar. Há teste.
+
 ### Pendências
-- **Nome do endpoint de configuração do webhook de entrega.** A doc pública não abre, e **sondar por GET não
-  funciona**: a W-API responde `Cannot GET /v1/webhook/<qualquer coisa>` mesmo para a rota que existe com PUT
-  (confirmado no servidor). `configurar_webhook_entrega` tenta 4 candidatos e, se nenhum pegar, a tela orienta
-  a configurar no painel da W-API. Descobrindo o nome certo, deixar só ele.
 - Casar o extrato com a família/aventureiro (hoje guarda o nome como texto), para o Diretor filtrar por pessoa.
 
 ---
