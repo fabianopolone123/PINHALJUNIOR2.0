@@ -22,6 +22,48 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-12 - Formas de pagamento online por evento (Pix, cartão ou os dois)
+
+### Resumo
+O Diretor passa a escolher, **por evento**, o que o site aceita: **só Pix**, **só cartão** ou **os dois**
+(padrão). Vale para a **inscrição** e para a **lojinha** daquele evento. O **PDV/balcão não muda** — lá o
+operador continua com dinheiro, cortesia e o resto, porque quem cobra presencialmente é o clube.
+
+Novo campo `Evento.formas_pagamento_online` (`ambos`/`pix`/`cartao`, padrão `ambos`) + migration **0062**.
+Como o padrão é `ambos`, **os eventos existentes continuam exatamente como estavam**.
+
+### Arquivos criados/alterados
+- `core/models.py`: constantes `FORMAS_PAGAMENTO_ONLINE` (movida da `views.py`, agora fonte única) e
+  `FORMAS_ONLINE_EVENTO_CHOICES`; campo `Evento.formas_pagamento_online`; métodos `Evento.formas_online()`
+  (lista `(valor, rótulo)` filtrada) e `Evento.aceita_forma_online(forma)` (validação).
+- `core/migrations/0062_evento_formas_pagamento_online.py`: campo novo, com default.
+- `core/forms.py`: `EventoInscricaoConfigForm` ganha o campo + texto de ajuda.
+- `core/views.py`: `FORMAS_PAGAMENTO_ONLINE` agora vem do models (sem duplicar); `evento_loja_view` valida
+  por `aceita_forma_online` e manda `evento.formas_online()` ao template; `evento_inscrever_view` idem, com
+  fallback para a 1ª forma permitida; helper `_erro_forma_pagamento` para a mensagem citar só o que o evento
+  aceita.
+- `templates/core/evento_inscrever.html`: os rádios eram **chumbados** (Pix + cartão fixos); agora iteram
+  `formas_pagamento`.
+- `templates/core/evento_painel.html`: o campo novo na aba de configuração da inscrição.
+- `core/tests.py`: `FormasPagamentoEventoTests` (8 testes).
+
+### Decisões tomadas
+- **Validar no servidor, não só esconder o rádio.** Esconder a opção no HTML não impede um POST forjado —
+  `aceita_forma_online` é chamada no POST da lojinha e da inscrição. Há teste de regressão para isso.
+- **Na inscrição, forma inválida cai na 1ª permitida** em vez de derrubar o formulário: o padrão antigo do
+  código era `or "pix"` fixo, que num evento só-cartão cobraria pelo caminho que o Diretor desligou.
+- **A lista canônica saiu da `views.py` para a `models.py`** — o model precisa dela para filtrar, e duas
+  cópias iam divergir. As telas fora de evento (Loja do Clube, mensalidades) seguem importando o mesmo nome.
+- **PDV intocado de propósito**: usa a variável `formas` (outra lista, com dinheiro/cortesia).
+- Mensagem de erro citando só as formas do evento — "escolha Pix ou cartão" numa tela que só mostra Pix é
+  confuso.
+
+### Pendências
+- A escolha vale para **evento**. Loja do Clube e mensalidades continuam com as duas formas fixas; se for
+  preciso o mesmo controle lá, o caminho é repetir o padrão (campo + `formas_online()`).
+
+---
+
 ## 2026-08-02 - Aniversários: abas com o padrão visual do projeto
 
 ### Resumo

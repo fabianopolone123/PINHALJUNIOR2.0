@@ -90,10 +90,20 @@
                     </div>
 
                     {% if mp_configurado %}
+                    {% comment %}
+                    As formas vêm do próprio evento (Diretor escolhe na configuração
+                    da inscrição): pode ser só Pix, só cartão ou os dois.
+                    {% endcomment %}
                     <div class="insc-forma-pagamento" data-insc-forma>
-                        <span class="insc-forma-titulo">Forma de pagamento (quando houver valor)</span>
-                        <label class="insc-forma-opt"><input type="radio" name="forma_pagamento" value="pix" checked> 💠 Pix</label>
-                        <label class="insc-forma-opt"><input type="radio" name="forma_pagamento" value="cartao"> 💳 Cartão de crédito <small>(até 12x, juros por conta do titular)</small></label>
+                        <span class="insc-forma-titulo">
+                            {% if formas_pagamento|length == 1 %}Forma de pagamento{% else %}Forma de pagamento (quando houver valor){% endif %}
+                        </span>
+                        {% for f in formas_pagamento %}
+                        <label class="insc-forma-opt">
+                            <input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forloop.first %} checked{% endif %}>
+                            {% if f.0 == "pix" %}💠 Pix{% else %}💳 {{ f.1 }} <small>(até 12x, juros por conta do titular)</small>{% endif %}
+                        </label>
+                        {% endfor %}
                     </div>
                     {% endif %}
 

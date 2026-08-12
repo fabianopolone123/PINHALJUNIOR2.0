@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-02 (**Aniversários: abas com o padrão visual do projeto**): as abas eram
+**Última atualização:** 2026-08-12 (**Formas de pagamento online por evento**): o Diretor escolhe, **por
+evento**, o que o site aceita — **só Pix**, **só cartão** ou **os dois** (padrão). Novo campo
+`Evento.formas_pagamento_online` (migration **0062**) na aba de configuração da inscrição do painel do evento.
+Vale para a **inscrição** e para a **lojinha** daquele evento; o **PDV/balcão não muda** (lá o operador segue
+com dinheiro, cortesia etc., variável `formas`). Os rádios do `evento_inscrever.html` eram **chumbados** e
+agora iteram `formas_pagamento`; a lojinha já iterava. A validação é **no servidor**
+(`Evento.aceita_forma_online`) — esconder o rádio não impede POST forjado, e há teste de regressão disso. Na
+inscrição, forma não permitida **cai na 1ª liberada** em vez de usar o antigo `or "pix"` fixo, que num evento
+só-cartão cobraria pelo caminho desligado. A lista canônica `FORMAS_PAGAMENTO_ONLINE` **saiu da `views.py`
+para a `models.py`** (o model precisa dela para filtrar; duas cópias divergiriam). Como o padrão é `ambos`,
+**nenhum evento existente muda de comportamento**. Suíte: **169 testes OK** (161 + 8). Antes: abas de
+Aniversários.
+
+**Anterior (Aniversários: abas com o padrão visual do projeto):** as abas eram
 **links sublinhados soltos** — nasceram com as classes `abas`/`aba`/`aba-ativa`, que **não existiam em CSS
 nenhum** (inventadas na criação da tela). Refeitas no mesmo padrão de `loja.css`/`mensalidades.css`: trilho com
 fundo suave, pílula de **44px** (alvo de toque), **ativa em gradiente azul** com sombra e **badge** verde de

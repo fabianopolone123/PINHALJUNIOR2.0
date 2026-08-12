@@ -418,7 +418,10 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
 
     class Meta:
         model = Evento
-        fields = ["local", "inscricao_aberta_publico", "inscricao_limite", "valor_diretoria"]
+        fields = [
+            "local", "inscricao_aberta_publico", "inscricao_limite",
+            "valor_diretoria", "formas_pagamento_online",
+        ]
         widgets = {
             "inscricao_limite": forms.DateTimeInput(
                 attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
@@ -431,6 +434,10 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
             "inscricao_aberta_publico": "Se desmarcado, só membros do clube podem se inscrever.",
             "inscricao_limite": "Depois desta data/hora as inscrições travam. Vazio = até o fim do evento.",
             "valor_diretoria": "Valor que a diretoria paga. Vazio = sem valor especial; 0 = grátis.",
+            "formas_pagamento_online": (
+                "O que a pessoa vê na inscrição e na lojinha deste evento. "
+                "No balcão (PDV) o operador continua com todas as formas."
+            ),
         }
 
     def __init__(self, *args, **kwargs):

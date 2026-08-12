@@ -62,6 +62,7 @@ from . import wapi
 from . import wapi_parser
 from .models import (
     FORMA_PAGAMENTO_CHOICES,
+    FORMAS_PAGAMENTO_ONLINE,
     MESES_PT,
     AssinaturaDocumento,
     Aventureiro,
@@ -2002,7 +2003,13 @@ def evento_inscrever_view(request, pk):
                 payload["itens"] = itens_disp
                 comprador_pg = {"nome": form.cleaned_data["responsavel_nome"],
                                 "email": form.cleaned_data["responsavel_email"]}
-                forma_inscr = request.POST.get("forma_pagamento") or "pix"
+                # Respeita as formas liberadas NESTE evento. Se vier algo que o
+                # evento não aceita (POST forjado, ou o padrão "pix" num evento
+                # só-cartão), cai na primeira forma permitida em vez de cobrar
+                # por um caminho que o Diretor desligou.
+                forma_inscr = request.POST.get("forma_pagamento") or ""
+                if not evento.aceita_forma_online(forma_inscr):
+                    forma_inscr = evento.formas_online()[0][0]
                 if forma_inscr == "cartao":
                     pagamento, init_point, erro = _criar_pagamento_cartao(
                         request, tipo="inscricao", valor=grand_total,
@@ -2056,6 +2063,7 @@ def evento_inscrever_view(request, pk):
         "diretoria_json": (
             str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
         ),
+        "formas_pagamento": evento.formas_online(),
         "mp_configurado": _mp_config().configurado,
         # Evento aberto ao público: convida a autorizar notificações antes do checkout.
         "mostrar_autorizar": bool(
@@ -2386,12 +2394,19 @@ def _pix_copia_cola(total, codigo):
     )
 
 
-# Formas de pagamento do cliente final na loja online (só as que a pessoa
-# consegue fazer sozinha pelo site). Dinheiro/cortesia ficam no PDV/balcão.
-FORMAS_PAGAMENTO_ONLINE = [
-    ("pix", "Pix"),
-    ("cartao", "Cartão de crédito"),
-]
+# A lista canônica vive em `core/models.py` (o `Evento` precisa dela para
+# filtrar as formas do próprio evento). Mantido o nome aqui porque as telas que
+# não são de evento (Loja do Clube, mensalidades) já importavam daqui.
+
+
+def _erro_forma_pagamento(evento):
+    """Mensagem de forma inválida, citando só o que o evento aceita — senão a
+    pessoa lê 'escolha Pix ou cartão' numa tela que só mostra Pix."""
+    formas = evento.formas_online()
+    if len(formas) == 1:
+        return f"Este evento aceita pagamento apenas por {formas[0][1]}."
+    nomes = " ou ".join(f[1] for f in formas)
+    return f"Escolha a forma de pagamento ({nomes})."
 
 
 def evento_loja_view(request, pk):
@@ -2432,8 +2447,8 @@ def evento_loja_view(request, pk):
             erros.append("Informe o WhatsApp para contato.")
         if not desejados:
             erros.append("Escolha ao menos um item (quantidade maior que zero).")
-        if forma not in dict(FORMAS_PAGAMENTO_ONLINE):
-            erros.append("Escolha a forma de pagamento (Pix ou cartão de crédito).")
+        if not evento.aceita_forma_online(forma):
+            erros.append(_erro_forma_pagamento(evento))
 
         if not erros:
             # Guarda o pedido na sessão e leva para o pagamento (simulado).
@@ -2454,7 +2469,7 @@ def evento_loja_view(request, pk):
         "produtos_loja": produtos,
         "comprador": comprador,
         "erros": erros,
-        "formas_pagamento": FORMAS_PAGAMENTO_ONLINE,
+        "formas_pagamento": evento.formas_online(),
         "forma_sel": forma,
     }
     return render(request, "core/evento_loja.html", contexto)

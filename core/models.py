@@ -465,6 +465,23 @@ TIPO_EVENTO_CHOICES = [
     ("inscricao", "Evento com inscrição"),
 ]
 
+# Formas de pagamento que o cliente final consegue fazer sozinho pelo site.
+# Fonte única: as telas online (lojinha de evento, inscrição, Loja do Clube e
+# mensalidades) leem daqui. Dinheiro/cortesia não entram — são do PDV/balcão.
+FORMAS_PAGAMENTO_ONLINE = [
+    ("pix", "Pix"),
+    ("cartao", "Cartão de crédito"),
+]
+
+# O que um evento aceita no site. "Ambos" é o padrão (comportamento de sempre);
+# as outras duas opções escondem uma das formas na inscrição e na lojinha.
+FORMAS_ONLINE_AMBOS = "ambos"
+FORMAS_ONLINE_EVENTO_CHOICES = [
+    (FORMAS_ONLINE_AMBOS, "Pix e cartão de crédito"),
+    ("pix", "Somente Pix"),
+    ("cartao", "Somente cartão de crédito"),
+]
+
 
 class Evento(models.Model):
     """Evento do clube (reunião, acampamento, festa, venda de alimentos, etc.).
@@ -509,6 +526,15 @@ class Evento(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
+    )
+    # Quais formas de pagamento ONLINE a pessoa vê na inscrição e na lojinha
+    # deste evento. Só afeta o site: no PDV/balcão o operador continua com
+    # todas as formas (dinheiro, cortesia, etc.).
+    formas_pagamento_online = models.CharField(
+        "Formas de pagamento no site",
+        max_length=10,
+        choices=FORMAS_ONLINE_EVENTO_CHOICES,
+        default=FORMAS_ONLINE_AMBOS,
     )
 
     criado_por = models.ForeignKey(
@@ -566,6 +592,23 @@ class Evento(models.Model):
         """A lojinha vende enquanto o evento não terminou (independe do prazo de
         inscrição — dá para comprar no dia do evento)."""
         return not self.ja_terminou()
+
+    def formas_online(self):
+        """Formas de pagamento que o site oferece NESTE evento, como lista de
+        `(valor, rótulo)` — o mesmo formato de `FORMAS_PAGAMENTO_ONLINE`.
+
+        Vale para a inscrição e para a lojinha do evento. O PDV/balcão não usa
+        isto: lá o operador continua com dinheiro, cortesia e o resto.
+        """
+        if self.formas_pagamento_online == FORMAS_ONLINE_AMBOS:
+            return list(FORMAS_PAGAMENTO_ONLINE)
+        return [f for f in FORMAS_PAGAMENTO_ONLINE
+                if f[0] == self.formas_pagamento_online]
+
+    def aceita_forma_online(self, forma):
+        """True se `forma` está liberada no site deste evento. Usar SEMPRE na
+        validação do POST — esconder o rádio no HTML não impede o envio."""
+        return forma in dict(self.formas_online())
 
     def preco_participante(self, idade, eh_diretoria, faixas=None):
         """(valor, faixa) de um participante: valor da diretoria (se marcado e

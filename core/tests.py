@@ -2175,3 +2175,96 @@ class LogEmailTests(TestCase):
     def test_tela_sem_envios_mostra_aviso(self):
         r = self.client.get(reverse("core:email"))
         self.assertContains(r, "Nenhum e-mail enviado ainda")
+
+
+class FormasPagamentoEventoTests(TestCase):
+    """Cada evento escolhe o que aceita no site: so Pix, so cartao ou os dois."""
+
+    def setUp(self):
+        self.evento = Evento.objects.create(
+            tipo="inscricao",
+            nome="Acampamento",
+            local="Sede",
+            data=timezone.localdate() + datetime.timedelta(days=10),
+            inscricao_aberta_publico=True,
+        )
+        self.produto = ProdutoEvento.objects.create(evento=self.evento, nome="Lanche")
+        self.var = VariacaoProduto.objects.create(
+            produto=self.produto, nome="Unidade", valor=Decimal("20.00")
+        )
+        self.loja_url = reverse("core:evento_loja", args=[self.evento.id])
+
+    def _comprar(self, forma):
+        return self.client.post(self.loja_url, {
+            "comprador_nome": "Fulano",
+            "comprador_whatsapp": "16999990000",
+            "comprador_email": "f@exemplo.com",
+            "forma_pagamento": forma,
+            f"qtd_{self.var.id}": "1",
+        })
+
+    # --- o padrao nao muda o comportamento antigo ---
+
+    def test_padrao_e_ambas_as_formas(self):
+        self.assertEqual(self.evento.formas_pagamento_online, "ambos")
+        self.assertEqual(
+            [f[0] for f in self.evento.formas_online()], ["pix", "cartao"]
+        )
+
+    # --- filtragem por evento ---
+
+    def test_somente_pix_esconde_o_cartao(self):
+        self.evento.formas_pagamento_online = "pix"
+        self.evento.save()
+        self.assertEqual([f[0] for f in self.evento.formas_online()], ["pix"])
+        self.assertTrue(self.evento.aceita_forma_online("pix"))
+        self.assertFalse(self.evento.aceita_forma_online("cartao"))
+
+    def test_somente_cartao_esconde_o_pix(self):
+        self.evento.formas_pagamento_online = "cartao"
+        self.evento.save()
+        self.assertEqual([f[0] for f in self.evento.formas_online()], ["cartao"])
+        self.assertFalse(self.evento.aceita_forma_online("pix"))
+
+    # --- a tela reflete a escolha ---
+
+    def test_lojinha_so_mostra_a_forma_liberada(self):
+        self.evento.formas_pagamento_online = "pix"
+        self.evento.save()
+        r = self.client.get(self.loja_url)
+        self.assertContains(r, 'value="pix"')
+        self.assertNotContains(r, 'value="cartao"')
+
+    def test_lojinha_com_ambos_mostra_as_duas(self):
+        r = self.client.get(self.loja_url)
+        self.assertContains(r, 'value="pix"')
+        self.assertContains(r, 'value="cartao"')
+
+    # --- o servidor nao confia no HTML ---
+
+    def test_post_com_forma_bloqueada_nao_fecha_o_pedido(self):
+        """Esconder o radio nao basta: o POST forjado tem que ser recusado."""
+        self.evento.formas_pagamento_online = "pix"
+        self.evento.save()
+        resp = self._comprar("cartao")
+        self.assertEqual(resp.status_code, 200)  # voltou para o formulario
+        self.assertNotIn("loja_checkout", self.client.session)
+        self.assertContains(resp, "apenas por Pix")
+
+    def test_post_com_forma_liberada_segue_para_o_pagamento(self):
+        self.evento.formas_pagamento_online = "pix"
+        self.evento.save()
+        resp = self._comprar("pix")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("loja_checkout", self.client.session)
+
+    # --- configuracao pelo Diretor ---
+
+    def test_config_do_evento_tem_o_campo(self):
+        diretor = User.objects.create_user("diretor_formas", password="x")
+        grupo, _ = Group.objects.get_or_create(name="Diretor")
+        diretor.groups.add(grupo)
+        self.client.force_login(diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
+        self.assertContains(r, "formas_pagamento_online")
+        self.assertContains(r, "Somente Pix")
