@@ -50,7 +50,7 @@
                         <h1 class="cabecalho-titulo">{{ evento.nome }}</h1>
                         <div class="painel-meta">
                             <span class="pill pill-verde">Evento com inscrição</span>
-                            {% if not evento.ativo %}<span class="evento-selo-inativo"><span aria-hidden="true">⏸️</span> Inativo</span>{% endif %}
+                            {% if not evento.ativo %}<span class="evento-selo-inativo">Inativo</span>{% endif %}
                             <span class="evento-info">📆 {{ evento.data|date:"d/m/Y" }}{% if evento.data_fim %} – {{ evento.data_fim|date:"d/m/Y" }}{% endif %}</span>
                             {% if evento.horario_inicio %}<span class="evento-info">🕒 {{ evento.horario_inicio|time:"H:i" }}{% if evento.horario_fim %} – {{ evento.horario_fim|time:"H:i" }}{% endif %}</span>{% endif %}
                             {% if evento.local %}<span class="evento-info">📍 {{ evento.local }}</span>{% endif %}

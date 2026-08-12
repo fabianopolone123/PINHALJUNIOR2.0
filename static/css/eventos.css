@@ -125,25 +125,45 @@
 .btn-excluir-evento:hover { background: #f9d9d4; transform: translateY(-2px); }
 
 /* ---------- Evento inativo (ligado/desligado pelo Diretor) ---------- */
-/* Selo "Inativo" no card da lista e no cabeçalho do painel. Cinza de propósito:
-   inativo não é erro nem alerta — é um evento desligado. */
+/* Selo "INATIVO" no card da lista e no cabeçalho do painel. Cinza de propósito
+   (inativo não é erro nem alerta — é um evento desligado), mas em cinza ESCURO
+   com texto branco: tem de bater o olho e saber, sem ler o card todo. */
 .evento-selo-inativo {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 11px;
+    padding: 4px 12px;
     border-radius: 999px;
-    background: rgba(120, 120, 120, 0.16);
-    color: #6b6b6b;
-    font-size: 0.78rem;
-    font-weight: 700;
+    background: #6b7683;
+    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     white-space: nowrap;
 }
 
-/* O card do evento inativo fica "apagado", mas legível (e volta ao normal no
-   hover, para não parecer desabilitado). */
-.evento-card-inativo { opacity: 0.72; }
-.evento-card-inativo:hover { opacity: 1; }
+/* Card do evento inativo: cinza de verdade, não só translúcido. `opacity` no
+   card inteiro apagava também os botões (que precisam continuar clicáveis e
+   legíveis), então o cinza é aplicado peça por peça. */
+.evento-card.evento-card-inativo {
+    background: #eef1f5;
+    border-color: #d3dae2;
+    box-shadow: none;
+}
+.evento-card-inativo .evento-nome { color: #5f6a77; }
+.evento-card-inativo .evento-desc,
+.evento-card-inativo .evento-info { color: #7b8593; }
+.evento-card-inativo .evento-tipo {
+    color: #5f6a77;
+    background: rgba(120, 120, 120, 0.14);
+}
+/* Tira a cor dos emojis do conteúdo (data, local, tipo). As AÇÕES ficam fora:
+   "Reativar"/"Excluir" continuam coloridos e com contraste normal. */
+.evento-card-inativo .evento-topo,
+.evento-card-inativo .evento-meta { filter: grayscale(1); }
+/* A faixa cinza do selo não deve ser afetada pelo grayscale do bloco. */
+.evento-card-inativo .evento-selo-inativo { filter: none; }
 
 /* Botão Inativar/Reativar: neutro, ao lado do "Abrir painel"/"Duplicar". */
 .form-ativar-evento { display: contents; }

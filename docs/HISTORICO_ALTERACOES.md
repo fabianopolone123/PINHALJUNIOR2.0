@@ -61,6 +61,15 @@ Reativar devolve tudo. Nada do que já aconteceu é apagado ou escondido.
 - **Padrão `True`** e alternância por POST: nenhum evento existente muda de comportamento, e um GET (link ou
   prefetch do navegador) nunca desliga um evento — há teste para o 405.
 
+### Ajuste 2 (mesmo dia, a pedido): o inativo tem de se ver de longe
+O card do evento inativo ficou **cinza de verdade**, não só translúcido: fundo `#eef1f5`, borda cinza, sem
+sombra, título/data/local em tons de cinza e `filter: grayscale(1)` no topo e na linha de meta (apaga a cor dos
+emojis). O selo virou **pílula cinza-escura com texto branco em caixa alta** ("INATIVO"), que se lê batendo o
+olho. Duas decisões: (1) saiu o `opacity: 0.72` do card inteiro — ele apagava também os **botões**, que
+precisam continuar legíveis e clicáveis, então o cinza é aplicado peça por peça e as ações ficam com a cor
+normal; (2) o **emoji ⏸️ saiu do selo** — dentro da pílula escura ele desaparecia (continua nos botões e na
+faixa de aviso, onde o fundo é claro). Conferido em 380/520/1400px: zero overflow.
+
 ### Ajuste (mesmo dia, a pedido)
 O botão **não aparece em evento que já terminou**: ele já saiu do menu sozinho e não aceita mais inscrição, e a
 lojinha fecha por `ja_terminou()` — "Inativar" ali seria um botão que não faz nada. Condição nos dois

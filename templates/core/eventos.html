@@ -81,7 +81,8 @@
                             {% comment %}O selo fica AQUI, e não no topo: em `.evento-topo` (flex de 3
                             itens) ele espremia o nome do evento em telas médias.{% endcomment %}
                             {% if not e.ativo %}
-                            <span class="evento-selo-inativo"><span aria-hidden="true">⏸️</span> Inativo</span>
+                            {% comment %}Sem emoji: a pílula é cinza-escura, e o ⏸️ nela some.{% endcomment %}
+                            <span class="evento-selo-inativo">Inativo</span>
                             {% endif %}
                             <span class="evento-info">📆 {{ e.data|date:"d/m/Y" }}{% if e.data_fim %} – {{ e.data_fim|date:"d/m/Y" }}{% endif %}</span>
                             {% if e.horario_inicio %}
