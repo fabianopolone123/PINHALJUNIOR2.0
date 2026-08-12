@@ -2,7 +2,22 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-12 (**Inativar um evento**): o Diretor agora **liga e desliga** um evento.
+**Última atualização:** 2026-08-12 (**Mensalidades: Top 10 de quem deve mais**): a aba **Resumo** ganhou o
+bloco **"Top 10 — quem está devendo mais"**, entre o gráfico mês a mês e o detalhe por mês: ranking com
+posição (os 3 primeiros em vermelho), nome do aventureiro, responsável, quantos meses em aberto, barra
+proporcional a quem deve mais e o valor. Helper `_top_devedores(ano)` — **uma** consulta agregada
+(`Sum`/`Count` com `filter=Q(ano=ano)`). Decisão principal: o ranking soma **toda** a dívida em aberto, de
+**qualquer ano**, porque "quem deve mais" ignorando o ano anterior daria ordem errada; para o número conversar
+com os KPIs (que são do ano selecionado), cada linha mostra **quanto vem de outros anos**. Respeita as regras
+do clube: **aventureiro inativo não entra** (inativo não é cobrado) e `demo` nunca entra; isento e pago não
+contam. Sem devedor, o card diz "🎉 Ninguém com mensalidade em aberto". **Bug pré-existente corrigido de
+passagem:** a tela de Mensalidades tinha **rolagem horizontal na página** em telas estreitas — o
+`.mens-resumo-topo` usava `1fr` (que tem `min-width: auto` e não encolhe abaixo do conteúdo), então o gráfico
+de 12 meses esticava a grade e o `.mens-grafico-scroll` **não conseguia rolar por dentro**; virou
+`minmax(0, 1fr)` nas duas media queries. Conferido em 380/520/800/1400px: `scrollWidth == clientWidth` em
+todas. Suíte: **196 testes OK** (188 + 8). Antes: inativar um evento.
+
+**Anterior (Inativar um evento):** o Diretor agora **liga e desliga** um evento.
 Novo campo `Evento.ativo` (migration **0063**, padrão `True` — nenhum evento existente muda) com botão
 **⏸️ Inativar / ▶️ Reativar** na lista de eventos e no cabeçalho do painel (POST `/eventos/<id>/ativar/`).
 Inativo, o evento **sai do menu** de todos os perfis (o rótulo do menu já dizia "Eventos ativos") e as telas

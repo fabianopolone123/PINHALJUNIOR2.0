@@ -7214,6 +7214,49 @@ def _resumo_mensalidades(meses):
     }
 
 
+def _top_devedores(ano, limite=10):
+    """Os aventureiros que mais devem, do maior para o menor (aba Resumo).
+
+    Soma **toda** a dívida em aberto, não só a do ano escolhido na tela: quem
+    deve mais é quem deve mais no total, e ignorar o ano anterior daria um
+    ranking errado. O detalhe de cada linha separa quanto é do ano selecionado
+    e quanto vem de outros anos, para o número conversar com os KPIs da tela.
+
+    Segue as regras do clube: **aventureiro inativo não é cobrado** (fica fora,
+    mesmo com mês em aberto) e `demo` nunca entra em estatística do clube.
+    """
+    linhas = list(
+        Mensalidade.objects.filter(
+            status="aberta", isento=False,
+            aventureiro__ativo=True, aventureiro__demo=False,
+        )
+        .values("aventureiro_id", "aventureiro__nome_completo", "aventureiro__resp_nome")
+        .annotate(
+            total=Sum("valor"),
+            meses=Count("id"),
+            no_ano=Sum("valor", filter=Q(ano=ano)),
+            meses_ano=Count("id", filter=Q(ano=ano)),
+        )
+        .order_by("-total", "aventureiro__nome_completo")[:limite]
+    )
+    maior = max((l["total"] for l in linhas), default=Decimal("0")) or Decimal("1")
+    return [
+        {
+            "id": l["aventureiro_id"],
+            "nome": l["aventureiro__nome_completo"],
+            "resp": l["aventureiro__resp_nome"],
+            "total": l["total"],
+            "meses": l["meses"],
+            "no_ano": l["no_ano"] or Decimal("0"),
+            "meses_ano": l["meses_ano"] or 0,
+            "outros_anos": l["total"] - (l["no_ano"] or Decimal("0")),
+            # Largura da barra (0-100), relativa a quem deve mais.
+            "pct": int(l["total"] / maior * 100),
+        }
+        for l in linhas
+    ]
+
+
 @login_required
 def mensalidades_view(request):
     """Tela "Mensalidades". O Diretor vê o painel completo; o Responsável (ou o
@@ -7285,6 +7328,7 @@ def mensalidades_view(request):
         "totais": tot,
         "taxa": taxa,
         "dashboard": _mensalidades_dashboard(mens),
+        "top_devedores": _top_devedores(ano),
         "aba": request.GET.get("aba", "resumo"),
         "meses": [(i, MESES_PT[i]) for i in range(1, 13)],
         "mes_atual": timezone.localdate().month,

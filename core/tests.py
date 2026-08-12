@@ -2270,6 +2270,105 @@ class FormasPagamentoEventoTests(TestCase):
         self.assertContains(r, "Somente Pix")
 
 
+class TopDevedoresTests(TestCase):
+    """Aba Resumo de Mensalidades: os 10 aventureiros que mais devem."""
+
+    def setUp(self):
+        grupo_dir, _ = Group.objects.get_or_create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_devedores", password="x")
+        self.diretor.groups.add(grupo_dir)
+        self.ano = timezone.localdate().year
+        self.resp = User.objects.create_user("resp_devedores", password="x")
+
+    def _aventureiro(self, nome, cpf, ativo=True, demo=False):
+        return Aventureiro.objects.create(
+            usuario=self.resp, nome_completo=nome, sexo="M",
+            data_nascimento=datetime.date(2015, 1, 1), cpf=cpf,
+            resp_nome="Mae " + nome, resp_cpf="r" + cpf, resp_whatsapp="4799",
+            resp_email="m@exemplo.com", ativo=ativo, demo=demo,
+        )
+
+    def _deve(self, av, meses, valor="30.00", ano=None, isento=False, status="aberta"):
+        for mes in meses:
+            Mensalidade.objects.create(
+                aventureiro=av, ano=ano or self.ano, mes=mes,
+                valor=Decimal(valor), isento=isento, status=status,
+            )
+
+    # --- ranking ---
+
+    def test_ordena_do_maior_para_o_menor(self):
+        pouco = self._aventureiro("Ana Pouco", "1")
+        muito = self._aventureiro("Bruno Muito", "2")
+        self._deve(pouco, [1])
+        self._deve(muito, [1, 2, 3])
+        top = views._top_devedores(self.ano)
+        self.assertEqual([d["nome"] for d in top], ["Bruno Muito", "Ana Pouco"])
+        self.assertEqual(top[0]["total"], Decimal("90.00"))
+        self.assertEqual(top[0]["meses"], 3)
+        # A barra é relativa a quem deve mais.
+        self.assertEqual(top[0]["pct"], 100)
+        self.assertEqual(top[1]["pct"], 33)
+
+    def test_limita_a_dez(self):
+        for i in range(12):
+            av = self._aventureiro(f"Aventureiro {i}", str(100 + i))
+            self._deve(av, range(1, i + 2))
+        self.assertEqual(len(views._top_devedores(self.ano)), 10)
+
+    # --- regras do clube ---
+
+    def test_inativo_nao_entra(self):
+        """Regra do clube: aventureiro inativo nao e cobrado."""
+        inativo = self._aventureiro("Carla Saiu", "3", ativo=False)
+        self._deve(inativo, [1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertEqual(views._top_devedores(self.ano), [])
+
+    def test_demo_nao_entra(self):
+        demo = self._aventureiro("Fake Demo", "4", demo=True)
+        self._deve(demo, [1, 2, 3])
+        self.assertEqual(views._top_devedores(self.ano), [])
+
+    def test_isento_e_paga_nao_contam(self):
+        av = self._aventureiro("Davi Isento", "5")
+        self._deve(av, [1], isento=True)
+        self._deve(av, [2], status="paga")
+        self._deve(av, [3])
+        top = views._top_devedores(self.ano)
+        self.assertEqual(len(top), 1)
+        self.assertEqual(top[0]["total"], Decimal("30.00"))
+        self.assertEqual(top[0]["meses"], 1)
+
+    # --- divida de outros anos ---
+
+    def test_soma_outros_anos_e_separa_no_detalhe(self):
+        """Quem deve mais e quem deve mais NO TOTAL — ignorar o ano anterior daria
+        um ranking errado —, mas a linha separa o que e de outro ano."""
+        av = self._aventureiro("Elisa Atrasada", "6")
+        self._deve(av, [11, 12], ano=self.ano - 1)
+        self._deve(av, [1])
+        top = views._top_devedores(self.ano)
+        self.assertEqual(top[0]["total"], Decimal("90.00"))
+        self.assertEqual(top[0]["no_ano"], Decimal("30.00"))
+        self.assertEqual(top[0]["outros_anos"], Decimal("60.00"))
+
+    # --- tela ---
+
+    def test_resumo_mostra_o_bloco(self):
+        av = self._aventureiro("Fabio Devedor", "7")
+        self._deve(av, [1, 2])
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:mensalidades"))
+        self.assertContains(r, "quem está devendo mais")
+        self.assertContains(r, "Fabio Devedor")
+        self.assertContains(r, "2 meses em aberto")
+
+    def test_sem_devedor_mostra_mensagem_boa(self):
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:mensalidades"))
+        self.assertContains(r, "Ninguém com mensalidade em aberto")
+
+
 class EventoInativoTests(TestCase):
     """Inativar um evento: sai do menu e fecha as telas publicas, mesmo dentro
     da data. O Diretor continua com painel/balco e nada do que ja aconteceu

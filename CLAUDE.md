@@ -263,6 +263,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   públicos** (`/webhooks/mercadopago/`, `/webhooks/whatsapp/`) são `@csrf_exempt`, idempotentes e **nunca** devolvem
   erro/traceback ao chamador. **Envio em lote** (cobrança e reengajamento do WhatsApp) tem **pausa de 10s entre
   cada** (front-end faz o pacing com barra+cancelar; comando de cron usa `time.sleep`) — evita bloqueio por spam.
+- **Coluna de grade com conteúdo largo usa `minmax(0, 1fr)`, nunca `1fr`**: `1fr` tem `min-width: auto` e não
+  encolhe abaixo do conteúdo, então gráfico/tabela/nome comprido **estica a grade e cria rolagem horizontal na
+  página** — e um wrapper de rolagem interna (`*-scroll`) nunca entra em ação. Já aconteceu em Aniversários e
+  em Mensalidades (`.mens-resumo-topo`).
 - **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless

@@ -22,6 +22,47 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-12 - Mensalidades: Top 10 de quem está devendo mais
+
+### Resumo
+A aba **Resumo** só mostrava totais e o mês a mês — para saber **quem** deve era preciso abrir a lista de
+aventureiros e somar a olho. Agora há um bloco **"Top 10 — quem está devendo mais"**, entre o gráfico e o
+detalhe por mês: posição (3 primeiros em vermelho), nome, responsável, meses em aberto, barra proporcional e
+o valor devido.
+
+### Arquivos criados/alterados
+- `core/views.py`: helper **`_top_devedores(ano, limite=10)`** + `top_devedores` no contexto de
+  `mensalidades_view`.
+- `templates/core/mensalidades.html`: bloco na aba Resumo (com estado vazio "🎉 Ninguém com mensalidade em
+  aberto").
+- `static/css/mensalidades.css`: `.mens-devedores`/`.mdev-*` e a correção do `.mens-resumo-topo`.
+- `core/tests.py`: `TopDevedoresTests` (8 testes). Suíte: **196 testes OK**.
+
+### Decisões tomadas
+- **O ranking soma toda a dívida em aberto, de qualquer ano.** "Quem deve mais" olhando só o ano selecionado
+  daria ordem errada (quem arrastou meses do ano anterior apareceria abaixo de quem deve pouco). Para o número
+  não brigar com os KPIs — que são do ano da tela —, cada linha mostra **quanto vem de outros anos**.
+- **Uma consulta só**: `values(...).annotate(Sum, Count, Sum(filter=Q(ano=ano)))`, ordenada no banco e cortada
+  em 10. Nada de somar em Python por aventureiro.
+- **Regras do clube aplicadas**: `aventureiro__ativo=True` (inativo não é cobrado, nem aparece devendo) e
+  `demo=False`; isento e pago fora. Há teste para cada uma — é o tipo de filtro que se esquece.
+- **Por aventureiro, não por família.** A aba é por aventureiro; a cobrança é que vai por família, e o bloco
+  aponta para a aba 📣 Cobranças em vez de duplicar o botão de cobrar.
+
+### Bug pré-existente corrigido de passagem
+A tela de Mensalidades tinha **rolagem horizontal na página inteira** em telas estreitas (sonda: `scrollWidth`
+572 × `clientWidth` 489). Causa: `.mens-resumo-topo` com `grid-template-columns: 1fr` — `1fr` tem
+`min-width: auto` e **não encolhe abaixo do conteúdo**, então o gráfico de 12 meses esticava a grade e o
+wrapper `.mens-grafico-scroll` (que existe justamente para rolar por dentro) nunca entrava em ação. Virou
+`minmax(0, 1fr)` nas duas media queries. É o **mesmo defeito** já visto em Aniversários — vale como regra:
+coluna de grade que recebe conteúdo largo usa `minmax(0, 1fr)`.
+
+### Verificação visual
+Chrome headless em 380/520/800/1400px: `scrollWidth == clientWidth` em todas, e o gráfico agora rola dentro do
+próprio card (com a legenda inteira visível no celular).
+
+---
+
 ## 2026-08-12 - Inativar um evento (liga/desliga para o público)
 
 ### Resumo

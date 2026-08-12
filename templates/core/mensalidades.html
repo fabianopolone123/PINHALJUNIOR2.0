@@ -145,6 +145,40 @@
                         </div>
                     </div>
 
+                    {% comment %}Top devedores: soma TODA a dívida em aberto (qualquer ano), por isso o
+                    total de uma linha pode passar do "Em aberto" do ano selecionado — o detalhe mostra
+                    quanto vem de outros anos. Só aventureiro ativo (inativo não é cobrado).{% endcomment %}
+                    <div class="secao-cabecalho">
+                        <h2 class="secao-titulo">Top 10 — quem está devendo mais</h2>
+                        <span class="mens-detalhe-nota">Dívida em aberto de qualquer ano · só aventureiros ativos</span>
+                    </div>
+                    <section class="card mens-devedores">
+                        {% if top_devedores %}
+                        <ol class="mdev-lista">
+                            {% for d in top_devedores %}
+                            <li class="mdev-item">
+                                <span class="mdev-pos">{{ forloop.counter }}</span>
+                                <div class="mdev-info">
+                                    <span class="mdev-nome">{{ d.nome }}</span>
+                                    <span class="mdev-detalhe">
+                                        {% if d.meses == 1 %}1 mês em aberto{% else %}{{ d.meses }} meses em aberto{% endif %}
+                                        {% if d.outros_anos %} · R$ {{ d.outros_anos|moeda }} de outros anos{% endif %}
+                                        {% if d.resp %} · resp. {{ d.resp }}{% endif %}
+                                    </span>
+                                    <div class="mdev-barra"><div class="mdev-barra-fill" style="width: {{ d.pct }}%"></div></div>
+                                </div>
+                                <span class="mdev-valor">R$ {{ d.total|moeda }}</span>
+                            </li>
+                            {% endfor %}
+                        </ol>
+                        <p class="mens-detalhe-nota mdev-nota">
+                            Para cobrar, use a aba <strong>📣 Cobranças</strong> (a cobrança vai por família).
+                        </p>
+                        {% else %}
+                        <p class="mdev-vazio"><span aria-hidden="true">🎉</span> Ninguém com mensalidade em aberto.</p>
+                        {% endif %}
+                    </section>
+
                     <div class="secao-cabecalho">
                         <h2 class="secao-titulo">Detalhe por mês</h2>
                         <span class="mens-detalhe-nota">Conta inscrições + mensalidades</span>

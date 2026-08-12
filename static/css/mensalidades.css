@@ -41,7 +41,11 @@
 .cor-aberto { background: #e0a800; }
 
 /* Dashboard: donut + gráfico */
-.mens-resumo-topo { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+/* `minmax(0, 1fr)` e não `1fr`: a coluna `1fr` tem `min-width: auto` e não
+   encolhe abaixo do conteúdo, então o gráfico de 12 meses esticava a grade e
+   criava rolagem horizontal na PÁGINA (o `.mens-grafico-scroll` só consegue
+   rolar por dentro se a coluna puder ser menor que o conteúdo). */
+.mens-resumo-topo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 14px; }
 .mens-donut-card { display: flex; align-items: center; gap: 18px; padding: 18px; }
 .mens-donut {
     --pct: 0;
@@ -208,7 +212,7 @@
 
 @media (min-width: 720px) {
     .mens-kpis { grid-template-columns: repeat(4, 1fr); }
-    .mens-resumo-topo { grid-template-columns: 320px 1fr; align-items: stretch; }
+    .mens-resumo-topo { grid-template-columns: 320px minmax(0, 1fr); align-items: stretch; }
 }
 @media (max-width: 560px) {
     .mens-av-resumo { margin-left: 0; flex-basis: 100%; }
@@ -310,3 +314,44 @@
 .mens-resp-btn { width:100%; margin-top:8px; }
 .mens-resp-btn:disabled { opacity:.5; cursor:not-allowed; }
 .mens-resp-adiantar { margin:14px 0; text-align:center; }
+
+/* ---------- Top 10 devedores (aba Resumo) ---------- */
+.mens-devedores { padding: 14px 16px; margin-bottom: 16px; }
+.mdev-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mdev-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--borda, #e2e9f1);
+}
+.mdev-item:last-child { border-bottom: 0; }
+/* Posição no ranking: os 3 primeiros em destaque (é quem o Diretor cobra antes). */
+.mdev-pos {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 999px;
+    background: rgba(15, 76, 129, 0.1); color: var(--azul-escuro, #0f4c81);
+    font-size: 0.8rem; font-weight: 800;
+}
+.mdev-item:nth-child(-n+3) .mdev-pos { background: #c0392b; color: #fff; }
+.mdev-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mdev-nome {
+    font-weight: 700; color: var(--azul-escuro, #0f4c81);
+    overflow-wrap: anywhere;   /* nome comprido não estoura a linha */
+}
+.mdev-detalhe { font-size: 0.82rem; color: #777; overflow-wrap: anywhere; }
+.mdev-barra {
+    height: 6px; border-radius: 999px; margin-top: 3px;
+    background: rgba(15, 76, 129, 0.08); overflow: hidden;
+}
+.mdev-barra-fill { height: 100%; border-radius: 999px; background: #e0a800; }
+.mdev-valor { font-weight: 800; font-size: 1.05rem; color: #c0392b; white-space: nowrap; }
+.mdev-nota { display: block; margin: 10px 0 0; }
+.mdev-vazio { margin: 0; color: #1f6b1f; font-weight: 600; }
+
+/* No celular o valor desce para a linha de baixo, alinhado à direita. */
+@media (max-width: 480px) {
+    .mdev-item { grid-template-columns: auto minmax(0, 1fr); }
+    .mdev-valor { grid-column: 2; justify-self: end; }
+}
