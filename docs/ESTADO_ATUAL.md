@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-12 (**Formas de pagamento online por evento**): o Diretor escolhe, **por
+**Última atualização:** 2026-08-12 (**Cookies de sessão/CSRF só por HTTPS**): `SESSION_COOKIE_SECURE` e
+`CSRF_COOKIE_SECURE` não estavam definidos e o cookie saía **sem a flag `Secure`** — confirmado em produção
+com `curl`. O 301 do Nginx **não protege**: quando ele chega, o cookie já foi enviado em texto puro na
+requisição `http://`. Ambos agora são `not DEBUG` (em `http://127.0.0.1` o navegador não guarda cookie
+`Secure` e o login local quebraria). **`SECURE_SSL_REDIRECT` fica desligado de propósito** — quem redireciona
+é o Nginx, antes do Django; ligar duplicaria e arriscaria laço, e o aviso `security.W008` do `check --deploy`
+é **esperado**. Novo `SegurancaCookiesTests` (4 testes) trava os dois lados (produção exige, desenvolvimento
+não), mais o `SECURE_PROXY_SSL_HEADER` — sem ele o Django não reconhece HTTPS e nem mandaria o cookie.
+**Pendente:** `SECURE_HSTS_SECONDS` (HSTS mal configurado é irreversível por meses; começar baixo e sem
+`includeSubDomains`) e a **divergência de ambiente** — produção roda **Django 5.2.15 / Python 3.12.3** e a
+máquina de desenvolvimento **6.0.5 / 3.14.3**; no VPS **cada app tem venv própria** (de 5.2.11 a 6.1 lado a
+lado, sem Django no Python do sistema), então o certo é **igualar o local**, não mexer no servidor.
+Antes: formas de pagamento por evento.
+
+**Anterior (Formas de pagamento online por evento):** o Diretor escolhe, **por
 evento**, o que o site aceita — **só Pix**, **só cartão** ou **os dois** (padrão). Novo campo
 `Evento.formas_pagamento_online` (migration **0062**) na aba de configuração da inscrição do painel do evento.
 Vale para a **inscrição** e para a **lojinha** daquele evento; o **PDV/balcão não muda** (lá o operador segue

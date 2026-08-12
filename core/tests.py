@@ -2268,3 +2268,82 @@ class FormasPagamentoEventoTests(TestCase):
         r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
         self.assertContains(r, "formas_pagamento_online")
         self.assertContains(r, "Somente Pix")
+
+
+class SegurancaCookiesTests(TestCase):
+    """Cookie de sessao e de CSRF so podem trafegar por HTTPS em producao.
+
+    O 301 do Nginx NAO resolve isso: quando o redirecionamento chega, o cookie
+    JA foi enviado em texto puro na requisicao http://. Estes testes travam a
+    regressao (alguem fixar em False, ou o vinculo com o DEBUG se perder).
+    """
+
+    def test_nao_comparar_com_settings_debug_aqui(self):
+        """Nota de manutenção — já custou um teste vermelho.
+
+        NÃO escreva `assertEqual(settings.SESSION_COOKIE_SECURE, not
+        settings.DEBUG)`: o test runner do Django força `DEBUG = False`
+        **depois** que o `settings.py` foi importado. O cookie, porém, foi
+        calculado no import, com o DEBUG de verdade — então os dois valores
+        não batem e o teste falha sem haver defeito nenhum no código.
+
+        Quem vale são os dois testes abaixo, que recarregam o módulo com o
+        `DJANGO_DEBUG` explícito e conferem cada cenário de verdade.
+        """
+        from django.conf import settings
+        self.assertFalse(settings.DEBUG)  # o runner sempre desliga
+
+    def test_producao_exige_cookie_secure(self):
+        """Recarrega o settings com DEBUG desligado — o caso do VPS."""
+        import importlib
+        import os
+
+        from config import settings as s
+
+        anterior = os.environ.get("DJANGO_DEBUG")
+        os.environ["DJANGO_DEBUG"] = "0"
+        try:
+            importlib.reload(s)
+            self.assertFalse(s.DEBUG)
+            self.assertTrue(s.SESSION_COOKIE_SECURE)
+            self.assertTrue(s.CSRF_COOKIE_SECURE)
+        finally:
+            # Devolve o ambiente e o modulo ao estado original, senao o proximo
+            # teste da suite herda um settings recarregado.
+            if anterior is None:
+                os.environ.pop("DJANGO_DEBUG", None)
+            else:
+                os.environ["DJANGO_DEBUG"] = anterior
+            importlib.reload(s)
+
+    def test_desenvolvimento_local_nao_exige_https(self):
+        """Em DEBUG o cookie precisa continuar simples: o navegador nao guarda
+        cookie `Secure` em http://127.0.0.1 e o login pararia de funcionar."""
+        import importlib
+        import os
+
+        from config import settings as s
+
+        anterior = os.environ.get("DJANGO_DEBUG")
+        os.environ["DJANGO_DEBUG"] = "1"
+        try:
+            importlib.reload(s)
+            self.assertTrue(s.DEBUG)
+            self.assertFalse(s.SESSION_COOKIE_SECURE)
+            self.assertFalse(s.CSRF_COOKIE_SECURE)
+        finally:
+            if anterior is None:
+                os.environ.pop("DJANGO_DEBUG", None)
+            else:
+                os.environ["DJANGO_DEBUG"] = anterior
+            importlib.reload(s)
+
+    def test_ssl_redirect_fica_com_o_nginx(self):
+        """Nao ligar no Django: o proxy ja faz o 301, e duplicar arrisca laco.
+        Mas o header de proxy PRECISA existir — sem ele o Django nao sabe que a
+        requisicao chegou por HTTPS e nem mandaria o cookie `Secure`."""
+        from django.conf import settings
+        self.assertFalse(getattr(settings, "SECURE_SSL_REDIRECT", False))
+        self.assertEqual(
+            settings.SECURE_PROXY_SSL_HEADER, ("HTTP_X_FORWARDED_PROTO", "https")
+        )

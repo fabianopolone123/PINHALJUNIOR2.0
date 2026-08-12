@@ -22,6 +22,42 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-12 - Cookies de sessão e CSRF só por HTTPS em produção
+
+### Resumo
+`SESSION_COOKIE_SECURE` e `CSRF_COOKIE_SECURE` não estavam definidos — o navegador mandava o cookie em
+**texto puro** numa requisição `http://`. Confirmado em produção com `curl`:
+
+```
+Set-Cookie: pinhaljunior2_csrftoken=...; Path=/; SameSite=Lax     ← sem Secure
+```
+
+O 301 do Nginx **não protege**: quando o redirecionamento chega, o cookie **já foi transmitido**. Bastava
+alguém digitar o endereço sem `https://` numa rede pública para o token vazar. Agora ambos seguem `not DEBUG`.
+
+### Arquivos criados/alterados
+- `config/settings.py`: `SESSION_COOKIE_SECURE` e `CSRF_COOKIE_SECURE` = `not DEBUG`, com o porquê no
+  comentário; e uma nota explicando que `SECURE_SSL_REDIRECT` fica **de propósito** com o Nginx.
+- `core/tests.py`: `SegurancaCookiesTests` (4 testes).
+
+### Decisões tomadas
+- **Amarrado ao `DEBUG`, não fixo em `True`.** Em `http://127.0.0.1` o navegador não guarda cookie `Secure`
+  e o login local pararia de funcionar. Há teste para os dois lados (produção exige, desenvolvimento não).
+- **`SECURE_SSL_REDIRECT` continua desligado.** Quem redireciona HTTP→HTTPS é o Nginx (`return 301`), antes
+  de chegar ao Django; ligar aqui duplicaria e arriscaria laço. O aviso `security.W008` do `check --deploy`
+  é **esperado** — o teste `test_ssl_redirect_fica_com_o_nginx` documenta isso para ninguém "consertar" depois.
+- O teste também trava o `SECURE_PROXY_SSL_HEADER`: sem ele o Django não reconhece a requisição como HTTPS
+  e não mandaria o cookie `Secure` — as duas configurações só funcionam juntas.
+
+### Pendências
+- `SECURE_HSTS_SECONDS` continua sem valor. HSTS mal configurado é **irreversível por meses** no navegador
+  de quem já visitou; se for ligar, começar com valor baixo e **sem** `includeSubDomains`.
+- Divergência de ambiente: produção roda **Django 5.2.15 / Python 3.12.3**, a máquina de desenvolvimento
+  **6.0.5 / 3.14.3**. No VPS **cada app tem venv própria** (rodam de 5.2.11 a 6.1 lado a lado, sem Django no
+  Python do sistema), então o certo é **igualar o local**, não mexer no servidor.
+
+---
+
 ## 2026-08-12 - Formas de pagamento online por evento (Pix, cartão ou os dois)
 
 ### Resumo

@@ -51,6 +51,24 @@ CSRF_COOKIE_NAME = os.environ.get(
     "DJANGO_CSRF_COOKIE_NAME", "pinhaljunior2_csrftoken"
 )
 
+# Cookies só por HTTPS em produção.
+#
+# Sem isso o navegador manda o cookie em TEXTO PURO numa requisição `http://`.
+# O redirecionamento 301 do Nginx não salva: quando ele chega, o cookie JÁ foi
+# transmitido. Basta alguém digitar o endereço sem "https://" numa rede pública
+# para o token de sessão vazar.
+#
+# Amarrado ao DEBUG para não quebrar o desenvolvimento local, que roda em
+# `http://127.0.0.1` — lá o navegador simplesmente não guardaria um cookie
+# marcado como `Secure`, e o login pararia de funcionar.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+# NÃO ligar `SECURE_SSL_REDIRECT`: quem já faz o redirecionamento HTTP→HTTPS é
+# o Nginx (`return 301`), antes da requisição chegar ao Django. Ligar aqui só
+# duplicaria o trabalho e criaria risco de laço de redirecionamento. O aviso
+# `security.W008` do `check --deploy` é esperado e está coberto pelo proxy.
+
 
 # Aplicações instaladas
 INSTALLED_APPS = [
