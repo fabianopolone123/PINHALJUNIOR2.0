@@ -52,8 +52,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** `/presenca/` **ramifica por perfil**: Diretor marca presença (`/presenca/<id>/`,
   `/presenca/<id>/marcar/`); **Responsável** vê um **relatório só-leitura** da frequência dos próprios filhos.
-- **WhatsApp** (Diretor): `/whatsapp/` com abas **Configurações/Grupos/Webhook/Autorização/Liberação**;
+- **WhatsApp** (Diretor): `/whatsapp/` com abas **Configurações/Grupos/Webhook/Autorização/Liberação/Templates/Envios**;
   `/whatsapp/config/`, `/whatsapp/enviar/`, `/whatsapp/grupos/sincronizar/`, `/whatsapp/webhook/configurar|eventos/`,
+  `/whatsapp/webhook/entrega/` (liga o webhook de entrega: entregue/lida/falhou → aba 📨 Envios),
   `/whatsapp/autorizacao/`, `/whatsapp/reengajar/config/`, `/whatsapp/reengajar/` (envia 1 por request; JS faz 10s
   entre cada). **Webhook público** de recebidas `/webhooks/whatsapp/`. **Link curto público** `/autorizar/`
   (redireciona pro `wa.me` de autorização). Comando `reengajar_inativos` (cron).
@@ -111,6 +112,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `confirmacao_autorizacao_em` **só quando a W-API confirma o envio**; falha é **logada** e fica **pendente**,
   e a próxima mensagem da pessoa tenta de novo. Ao mexer nesse fluxo, não volte a ignorar o retorno de
   `_enviar_whatsapp` — o `except: pass` anterior fazia autorização virar silêncio.
+- **Extrato de envios do WhatsApp**: `MensagemWhatsapp` (migration **0064**) grava **toda** mensagem que sai —
+  o registro está **dentro do `_enviar_whatsapp`** (que é casca de `_wapi_post_texto`), então nenhum ponto de
+  envio escapa; passe `origem=`/`nome=` ao chamar. **Nunca o texto**, como no `LogEmail`. `ok=True` do envio só
+  diz que a **W-API aceitou**: quem confirma entrega é o **webhook de entrega**, casado pelo `message_id`
+  (`wapi_parser.extrair_status` → `MensagemWhatsapp.atualizar_status`). No webhook público o **status é tratado
+  antes de tudo** — se virar "mensagem recebida", marca contato/autorização de quem não escreveu nada (há teste).
+  O status **não retrocede** (avisos chegam fora de ordem), mas `FAILED` sempre vale. Tela: aba **📨 Envios**.
 - **Configurações IA (OpenAI/GPT)**: `OpenAIConfig` (singleton; só `api_key` + contadores de tokens
   `chamadas`/`tokens_prompt`/`tokens_cache`/`tokens_completion`). Modelo/URL fixos em `core/openai_ia.py`
   (`gpt-4.1-nano`; `conversar`/`enviar_prompt` devolvem `(ok, texto, uso)`). Todo uso deve chamar `registrar_uso`.

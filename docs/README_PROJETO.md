@@ -297,6 +297,8 @@ PINHALJUNIOR2.0/
 - **Aventureiro** — ficha de inscrição + dados dos responsáveis; FK `usuario` (um usuário pode ter vários).
 - **FichaMedica** — OneToOne com Aventureiro (dados médicos).
 - **AutorizacaoImagem** — OneToOne com Aventureiro (dados do termo de imagem).
+- **MensagemWhatsapp** — extrato de saída do WhatsApp: uma linha por mensagem enviada, com a situação
+  (falhou / sem confirmação / enviada / entregue / lida / não entregue) vinda do webhook de entrega.
 - **Evento** — evento do clube (`tipo` simples/inscrição; datas/horários; config de inscrição:
   aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público).
 - **CustoEvento** — custo/despesa de um evento.

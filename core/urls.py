@@ -137,6 +137,7 @@ urlpatterns = [
     path("whatsapp/enviar/", views.whatsapp_enviar_view, name="whatsapp_enviar"),
     path("whatsapp/grupos/sincronizar/", views.whatsapp_grupos_sync_view, name="whatsapp_grupos_sync"),
     path("whatsapp/webhook/configurar/", views.whatsapp_webhook_config_view, name="whatsapp_webhook_config"),
+    path("whatsapp/webhook/entrega/", views.whatsapp_webhook_entrega_view, name="whatsapp_webhook_entrega"),
     path("whatsapp/webhook/eventos/", views.whatsapp_webhook_eventos_view, name="whatsapp_webhook_eventos"),
     path("whatsapp/autorizacao/", views.whatsapp_autorizacao_config_view, name="whatsapp_autorizacao_config"),
     path("whatsapp/templates/salvar/", views.whatsapp_templates_view, name="whatsapp_templates"),

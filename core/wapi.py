@@ -101,6 +101,41 @@ def configurar_webhook_recebido(config, url):
     )
 
 
+# Nomes candidatos do endpoint que aponta o **webhook de entrega/status**. A doc
+# pública não abre o nome, e sondar por GET não resolve: a W-API responde
+# `Cannot GET /v1/webhook/...` para TODA rota de webhook, inclusive a que
+# funciona com PUT. Então tenta-se um a um, e um 404 só descarta aquele nome.
+# Todos os candidatos têm semântica de entrega/status — se um deles pegar, o valor
+# gravado é a nossa URL, que é exatamente o que se quer.
+CAMINHOS_WEBHOOK_ENTREGA = (
+    "/webhook/update-webhook-delivery",
+    "/webhook/update-webhook-message-status",
+    "/webhook/update-webhook-status",
+    "/webhook/update-delivery-webhook",
+)
+
+
+def configurar_webhook_entrega(config, url):
+    """Aponta o webhook de **entrega/status** para `url`.
+
+    Devolve `(ok, caminho_que_funcionou|erro)`. Quando nenhum candidato pega, o
+    erro já vem pronto para a tela: a configuração tem de ser feita à mão no
+    painel da W-API (o receptor do sistema funciona igual — só a configuração
+    é que muda de lugar)."""
+    erros = []
+    for caminho in CAMINHOS_WEBHOOK_ENTREGA:
+        ok, dados = _requisitar(config, "PUT", caminho, corpo={"value": url})
+        if ok and not (isinstance(dados, dict) and dados.get("error")):
+            return True, caminho
+        erros.append(f"{caminho.rsplit('/', 1)[-1]}: {dados}")
+    return False, (
+        "A W-API não aceitou nenhum dos nomes de endpoint conhecidos para o webhook "
+        "de entrega. Configure a URL à mão no painel da W-API (campo de webhook de "
+        "entrega/status) — o resto do sistema já está pronto para receber. "
+        "Detalhe: " + " | ".join(erros)
+    )
+
+
 def enviar_texto(config, destino, mensagem):
     """Envia texto para um número OU grupo (`...@g.us`). `(ok, message_id|erro)`."""
     ok, dados = _requisitar(

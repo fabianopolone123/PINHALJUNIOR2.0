@@ -149,6 +149,31 @@
                 });
             });
         }
+        // Ligar o webhook de ENTREGA (status das mensagens que o clube enviou).
+        // A W-API não documenta o nome do endpoint, então o back-end tenta os
+        // candidatos conhecidos; se nenhum pegar, o erro já explica o que fazer.
+        var btnEnt = document.getElementById("waWebhookEntrega");
+        if (btnEnt && painelWebhook.dataset.entregaUrl) {
+            btnEnt.addEventListener("click", function () {
+                if (btnEnt.dataset.ok) return;
+                btnEnt.dataset.ok = "1"; btnEnt.disabled = true;
+                var t = btnEnt.textContent; btnEnt.textContent = "Ligando…";
+                fetch(painelWebhook.dataset.entregaUrl, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": csrfWh, "X-Requested-With": "XMLHttpRequest",
+                        "Content-Type": "application/x-www-form-urlencoded" },
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                    if (window.mostrarToast) window.mostrarToast(
+                        d.ok ? "Webhook de entrega ligado! Os status vão aparecer na aba 📨 Envios. ✅"
+                             : (d.erro || "Não foi possível ligar."),
+                        d.ok ? "success" : "error");
+                }).catch(function () {
+                    if (window.mostrarToast) window.mostrarToast("Falha de conexão.", "error");
+                }).finally(function () {
+                    delete btnEnt.dataset.ok; btnEnt.disabled = false; btnEnt.textContent = t;
+                });
+            });
+        }
         // Últimas mensagens recebidas
         var listaEv = document.getElementById("waEventosLista");
         var vazioEv = document.getElementById("waEventosVazio");

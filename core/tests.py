@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import json
 import hmac
 from decimal import Decimal
 from unittest import mock
@@ -14,6 +15,7 @@ from django.utils import timezone
 from . import email_envio
 from . import mercadopago as mp
 from . import views
+from . import wapi_parser
 from .models import (
     Aventureiro,
     CobrancaEnviada,
@@ -26,6 +28,14 @@ from .models import (
     Evento,
     LogEmail,
     MembroDiretoria,
+    MensagemWhatsapp,
+    MSG_WA_ACEITA,
+    MSG_WA_ENTREGUE,
+    MSG_WA_ENVIADA,
+    MSG_WA_FALHOU,
+    MSG_WA_LIDA,
+    MSG_WA_NAO_ENTREGUE,
+    WhatsappWebhookEvent,
     TemplateAniversario,
     TemplateNotificacao,
     FaixaEtariaPreco,
@@ -2268,6 +2278,174 @@ class FormasPagamentoEventoTests(TestCase):
         r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
         self.assertContains(r, "formas_pagamento_online")
         self.assertContains(r, "Somente Pix")
+
+
+class ExtratoWhatsappTests(TestCase):
+    """Extrato de saida do WhatsApp: quem recebeu e quem nao (aba 📨 Envios).
+
+    A resposta do envio so diz que a W-API ACEITOU a mensagem; quem conta se ela
+    chegou e o webhook de entrega, casado pelo messageId."""
+
+    def setUp(self):
+        grupo_dir, _ = Group.objects.get_or_create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_envios", password="x")
+        self.diretor.groups.add(grupo_dir)
+        cfg = WhatsappConfig.get_solo()
+        cfg.instance_id = "INST"; cfg.token = "TOK"; cfg.save()
+        self.cfg = cfg
+        self.webhook_url = reverse("core:whatsapp_webhook")
+
+    def _envio(self, message_id="MSG1", status=MSG_WA_ACEITA, numero="5516999990000"):
+        return MensagemWhatsapp.objects.create(
+            numero=numero, message_id=message_id, status=status, origem="cobranca",
+            nome="Fulano de Tal",
+        )
+
+    def _status_payload(self, message_id, status, **extra):
+        payload = {"event": "webhookDelivery", "messageId": message_id, "status": status}
+        payload.update(extra)
+        return payload
+
+    def _postar(self, payload):
+        return self.client.post(
+            self.webhook_url, data=json.dumps(payload), content_type="application/json"
+        )
+
+    # --- registro no envio (ponto unico) ---
+
+    def test_envio_com_sucesso_vira_linha_aceita_com_message_id(self):
+        with mock.patch.object(views, "_wapi_post_texto", return_value=(True, "WAMID1")):
+            ok, detalhe = views._enviar_whatsapp(self.cfg, "5516999990000", "oi", origem="teste")
+        self.assertTrue(ok)
+        linha = MensagemWhatsapp.objects.get()
+        self.assertEqual(linha.status, MSG_WA_ACEITA)
+        self.assertEqual(linha.message_id, "WAMID1")
+        self.assertEqual(linha.origem, "teste")
+
+    def test_falha_da_api_vira_linha_com_o_motivo(self):
+        with mock.patch.object(
+            views, "_wapi_post_texto", return_value=(False, "Erro 401: Whatsapp não conectado")
+        ):
+            ok, _ = views._enviar_whatsapp(self.cfg, "5516999990000", "oi", origem="cobranca")
+        self.assertFalse(ok)
+        linha = MensagemWhatsapp.objects.get()
+        self.assertEqual(linha.status, MSG_WA_FALHOU)
+        self.assertIn("401", linha.detalhe)
+        self.assertTrue(linha.problema)
+
+    def test_texto_da_mensagem_nunca_e_gravado(self):
+        """Mesma regra do LogEmail: nao acumular dado pessoal a toa."""
+        with mock.patch.object(views, "_wapi_post_texto", return_value=(True, "WAMID2")):
+            views._enviar_whatsapp(self.cfg, "5516999990000", "segredo do aventureiro")
+        campos = " ".join(
+            str(v) for v in MensagemWhatsapp.objects.values().first().values()
+        )
+        self.assertNotIn("segredo", campos)
+
+    # --- webhook de entrega ---
+
+    def test_webhook_marca_entregue_e_depois_lida(self):
+        self._envio("WAMID3")
+        self._postar(self._status_payload("WAMID3", "RECEIVED"))
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_ENTREGUE)
+        self._postar(self._status_payload("WAMID3", "READ"))
+        linha = MensagemWhatsapp.objects.get()
+        self.assertEqual(linha.status, MSG_WA_LIDA)
+        self.assertTrue(linha.chegou)
+        self.assertIsNotNone(linha.status_em)
+
+    def test_status_nao_retrocede(self):
+        """O WhatsApp manda os avisos fora de ordem; 'lida' nao pode virar 'entregue'."""
+        self._envio("WAMID4", status=MSG_WA_LIDA)
+        self._postar(self._status_payload("WAMID4", "DELIVERY_ACK"))
+        self.assertEqual(MensagemWhatsapp.objects.get().status, MSG_WA_LIDA)
+
+    def test_falha_do_whatsapp_vale_mesmo_depois(self):
+        self._envio("WAMID5", status=MSG_WA_ENVIADA)
+        self._postar(self._status_payload("WAMID5", "FAILED", reason="numero inexistente"))
+        linha = MensagemWhatsapp.objects.get()
+        self.assertEqual(linha.status, MSG_WA_NAO_ENTREGUE)
+        self.assertIn("inexistente", linha.detalhe)
+
+    def test_um_aviso_pode_atualizar_varias_mensagens(self):
+        """O 'READ' costuma vir com uma lista de ids."""
+        self._envio("A1"); self._envio("A2")
+        self._postar({"event": "webhookDelivery", "ids": ["A1", "A2"], "status": "READ"})
+        self.assertEqual(
+            list(MensagemWhatsapp.objects.values_list("status", flat=True)),
+            [MSG_WA_LIDA, MSG_WA_LIDA],
+        )
+
+    def test_status_de_mensagem_desconhecida_nao_quebra(self):
+        r = self._postar(self._status_payload("NAO-EXISTE", "READ"))
+        self.assertEqual(r.status_code, 200)
+
+    # --- o ponto perigoso: status NAO pode virar "mensagem recebida" ---
+
+    def test_aviso_de_status_nao_marca_contato_nem_autorizacao(self):
+        """Se um payload de status entrasse como conversa, o termometro ficaria
+        verde e a pessoa seria dada como autorizada sem ter escrito nada."""
+        self._envio("WAMID6", numero="5516991112222")
+        self._postar({
+            "event": "webhookDelivery", "messageId": "WAMID6", "status": "READ",
+            "phone": "5516991112222", "chat": {"id": "5516991112222"},
+        })
+        self.assertEqual(WhatsappWebhookEvent.objects.count(), 0)
+        self.assertEqual(ContatoWhatsapp.objects.count(), 0)
+
+    def test_mensagem_recebida_normal_continua_funcionando(self):
+        """Regressao: o payload de conversa nao pode ser confundido com status."""
+        self._postar({
+            "event": "webhookReceived", "messageId": "R1", "fromMe": False,
+            "isGroup": False, "chat": {"id": "5516993334444"},
+            "sender": {"id": "5516993334444", "pushName": "Alguem"},
+            "msgContent": {"conversation": "oi"},
+        })
+        self.assertEqual(WhatsappWebhookEvent.objects.count(), 1)
+
+    # --- parser ---
+
+    def test_parser_ignora_payload_sem_id_de_mensagem(self):
+        ids, status, _ = wapi_parser.extrair_status({"event": "webhookDelivery", "status": "READ"})
+        self.assertEqual((ids, status), ([], ""))
+
+    def test_parser_entende_ack_numerico(self):
+        ids, status, _ = wapi_parser.extrair_status({"messageId": "X", "ack": 3})
+        self.assertEqual((ids, status), (["X"], wapi_parser.STATUS_LIDA))
+
+    # --- tela ---
+
+    def test_aba_envios_mostra_quem_recebeu_e_quem_nao(self):
+        self._envio("OK1", status=MSG_WA_ENTREGUE)
+        MensagemWhatsapp.objects.create(
+            numero="5516988887777", status=MSG_WA_FALHOU, origem="cobranca",
+            nome="Sem Whats", detalhe="Erro 400: número inválido",
+        )
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:whatsapp") + "?aba=envios")
+        self.assertContains(r, "quem recebeu e quem não")
+        self.assertContains(r, "Entregue")
+        self.assertContains(r, "Falhou")
+        self.assertContains(r, "número inválido")
+
+    def test_filtro_mostra_so_quem_nao_recebeu(self):
+        self._envio("OK2", status=MSG_WA_ENTREGUE, numero="5516900000001")
+        MensagemWhatsapp.objects.create(numero="5516900000002", status=MSG_WA_NAO_ENTREGUE)
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:whatsapp") + "?aba=envios&filtro=problema")
+        self.assertContains(r, "5516900000002")
+        self.assertNotContains(r, "5516900000001")
+
+    def test_avisa_quando_o_webhook_de_entrega_nao_confirma_nada(self):
+        self._envio("SEM1")
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:whatsapp") + "?aba=envios")
+        self.assertContains(r, "webhook de entrega ainda não está confirmando")
+
+    def test_poda_mantem_o_limite(self):
+        for i in range(MensagemWhatsapp.LIMITE + 60):
+            MensagemWhatsapp.registrar(f"55169000{i:05d}", True, f"ID{i}")
+        self.assertLessEqual(MensagemWhatsapp.objects.count(), MensagemWhatsapp.LIMITE + 50)
 
 
 class TopDevedoresTests(TestCase):

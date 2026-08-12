@@ -2,7 +2,31 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-12 (**Mensalidades: Top 10 de quem deve mais**): a aba **Resumo** ganhou o
+**Última atualização:** 2026-08-12 (**WhatsApp: quem recebeu e quem não — extrato de envios + webhook de
+entrega**): até aqui o sistema só sabia que a **W-API aceitou** a mensagem; número sem WhatsApp, número errado
+ou pessoa que bloqueou o clube devolvem sucesso e a mensagem morre no caminho — e nas **notificações
+automáticas** (que rodam em thread) a falha sumia em silêncio, porque ninguém lia o retorno. Agora: (1) novo
+model **`MensagemWhatsapp`** (migration **0064**) — o par do `LogEmail`, uma linha por mensagem que o sistema
+tentou mandar, com destino, nome, origem, `message_id`, situação e motivo da falha; **o texto NÃO é gravado**
+(mesma regra do e-mail) e guarda as últimas **300**. (2) O registro fica **dentro do `_enviar_whatsapp`**, que
+virou casca de `_wapi_post_texto` — assim **nenhum** dos 7 pontos de envio escapa do extrato; cada um passa a
+sua `origem` (cobrança, notificação, aniversário, reengajamento, autorização, avulsa, recuperação).
+(3) **Webhook de entrega**: `wapi_parser.extrair_status` reconhece o aviso de status (SENT/RECEIVED/READ/FAILED,
+incluindo os sinônimos `SERVER_ACK`/`DELIVERY_ACK`/`PLAYED` e os **ACKs numéricos 1..5**) e o webhook público
+aplica em `MensagemWhatsapp.atualizar_status`, casando pelo `message_id`. (4) Nova aba **📨 Envios** na tela
+`/whatsapp/`: KPIs (enviadas / chegaram / lidas / não chegaram), filtro **"só as que não chegaram"**, tabela com
+selo por situação e o motivo da falha, e badge de problemas na própria aba. (5) Botão **"Ligar webhook de
+entrega"** na aba 🔔 Webhook. Pontos de desenho: **o status é tratado ANTES de tudo no webhook** — se um payload
+de entrega entrasse como "mensagem recebida", marcaria contato e até **autorização** de quem não escreveu nada
+(termômetro verde falso); há teste de regressão disso. O status **não retrocede** (o WhatsApp manda os avisos
+fora de ordem e o `READ` chega antes do `RECEIVED` com frequência), mas o **FAILED sempre vale**. Um aviso pode
+trazer **lista de ids** (o `READ` costuma vir em lote). **Pendência:** a W-API não documenta o nome do endpoint
+que aponta o webhook de entrega e **sondar por GET não resolve** (ela responde `Cannot GET /v1/webhook/...`
+para toda rota de webhook, inclusive a que funciona com PUT), então `wapi.configurar_webhook_entrega` tenta 4
+nomes candidatos e, se nenhum pegar, a tela manda configurar a URL **à mão no painel da W-API** — o receptor
+funciona igual. Suíte: **212 testes OK** (196 + 16). Antes: Top 10 de quem deve mais.
+
+**Anterior (Mensalidades: Top 10 de quem deve mais):** a aba **Resumo** ganhou o
 bloco **"Top 10 — quem está devendo mais"**, entre o gráfico mês a mês e o detalhe por mês: ranking com
 posição (os 3 primeiros em vermelho), nome do aventureiro, responsável, quantos meses em aberto, barra
 proporcional a quem deve mais e o valor. Helper `_top_devedores(ano)` — **uma** consulta agregada

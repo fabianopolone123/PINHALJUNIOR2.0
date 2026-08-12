@@ -58,15 +58,16 @@
                 {% endif %}
 
                 <div class="wa-abas" role="tablist">
-                    <button type="button" class="wa-aba{% if aba != 'grupos' and aba != 'webhook' and aba != 'autorizacao' and aba != 'liberacao' and aba != 'templates' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
+                    <button type="button" class="wa-aba{% if aba != 'grupos' and aba != 'webhook' and aba != 'autorizacao' and aba != 'liberacao' and aba != 'templates' and aba != 'envios' %} ativa{% endif %}" data-aba="config" role="tab">⚙️ Configurações</button>
                     <button type="button" class="wa-aba{% if aba == 'grupos' %} ativa{% endif %}" data-aba="grupos" role="tab">👥 Grupos</button>
                     <button type="button" class="wa-aba{% if aba == 'webhook' %} ativa{% endif %}" data-aba="webhook" role="tab">🔔 Webhook</button>
                     <button type="button" class="wa-aba{% if aba == 'autorizacao' %} ativa{% endif %}" data-aba="autorizacao" role="tab">✍️ Autorização</button>
                     <button type="button" class="wa-aba{% if aba == 'liberacao' %} ativa{% endif %}" data-aba="liberacao" role="tab">🚦 Liberação</button>
                     <button type="button" class="wa-aba{% if aba == 'templates' %} ativa{% endif %}" data-aba="templates" role="tab">🧩 Templates</button>
+                    <button type="button" class="wa-aba{% if aba == 'envios' %} ativa{% endif %}" data-aba="envios" role="tab">📨 Envios{% if envios_problema %} <span class="wa-aba-badge">{{ envios_problema }}</span>{% endif %}</button>
                 </div>
 
-                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' or aba == 'autorizacao' or aba == 'liberacao' or aba == 'templates' %} hidden{% endif %}>
+                <div class="wa-painel" data-painel="config"{% if aba == 'grupos' or aba == 'webhook' or aba == 'autorizacao' or aba == 'liberacao' or aba == 'templates' or aba == 'envios' %} hidden{% endif %}>
 
                 <!-- ===================== Configuração da instância ===================== -->
                 <section class="card wa-card">
@@ -203,7 +204,8 @@
 
                 <div class="wa-painel" data-painel="webhook"{% if aba != 'webhook' %} hidden{% endif %}
                      data-eventos-url="{% url 'core:whatsapp_webhook_eventos' %}"
-                     data-config-url="{% url 'core:whatsapp_webhook_config' %}" data-csrf="{{ csrf_token }}">
+                     data-config-url="{% url 'core:whatsapp_webhook_config' %}"
+                     data-entrega-url="{% url 'core:whatsapp_webhook_entrega' %}" data-csrf="{{ csrf_token }}">
                     <section class="card wa-card">
                         <div class="wa-card-topo">
                             <h2 class="wa-titulo">🔔 Webhook de mensagens recebidas</h2>
@@ -218,6 +220,17 @@
                         <div class="wa-acoes">
                             <button type="button" class="btn-acao" id="waWebhookConfig"
                                     {% if not config.configurado %}disabled{% endif %}>🔗 Configurar webhook na W-API</button>
+                        </div>
+                        {% comment %}Mesma URL, outro webhook: o de ENTREGA avisa o que aconteceu com o
+                        que o clube mandou (entregue/lida/falhou) e alimenta a aba 📨 Envios.{% endcomment %}
+                        <p class="wa-ajuda wa-env-sep">
+                            <strong>📨 Webhook de entrega.</strong> A mesma URL serve para a W-API avisar o
+                            que aconteceu com as mensagens que o clube <em>enviou</em>. Sem ele, o sistema só
+                            sabe que a API aceitou a mensagem — não se ela chegou.
+                        </p>
+                        <div class="wa-acoes">
+                            <button type="button" class="btn-secundario" id="waWebhookEntrega"
+                                    {% if not config.configurado %}disabled{% endif %}>📨 Ligar webhook de entrega</button>
                         </div>
                         {% if not config.configurado %}
                         <p class="wa-aviso">Configure a instância na aba Configurações para poder registrar o webhook.</p>
@@ -485,6 +498,86 @@
                     </section>
                     {% endfor %}
                 </div><!-- /painel templates -->
+
+                <div class="wa-painel" data-painel="envios"{% if aba != 'envios' %} hidden{% endif %}>
+                {% comment %}Extrato de SAÍDA. Uma linha por mensagem que o sistema tentou mandar; o
+                status vem do webhook de entrega da W-API, casado pelo messageId. O texto da mensagem
+                não é guardado (mesma regra do LogEmail).{% endcomment %}
+                <section class="card wa-card wa-card-largo">
+                    <div class="wa-card-topo">
+                        <h2 class="wa-titulo">📨 Envios — quem recebeu e quem não</h2>
+                        <span class="wa-status {% if envios_problema %}wa-status-off{% else %}wa-status-ok{% endif %}">
+                            {% if envios_problema %}{{ envios_problema }} sem chegar{% else %}nenhuma falha{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="wa-env-kpis">
+                        <div class="wa-env-kpi"><strong>{{ envios_total }}</strong><span>enviadas</span></div>
+                        <div class="wa-env-kpi ok"><strong>{{ envios_chegaram }}</strong><span>chegaram</span></div>
+                        <div class="wa-env-kpi lida"><strong>{{ envios_lidos }}</strong><span>lidas</span></div>
+                        <div class="wa-env-kpi ruim"><strong>{{ envios_problema }}</strong><span>não chegaram</span></div>
+                    </div>
+
+                    {% if envios_sem_status %}
+                    <p class="wa-ajuda wa-env-aviso">
+                        <strong>⚠️ O webhook de entrega ainda não está confirmando nada.</strong>
+                        Sem ele, a W-API só diz que <em>aceitou</em> a mensagem — o que aparece aqui como
+                        “enviada (sem confirmação)”. Ligue na aba <strong>🔔 Webhook</strong>, no botão
+                        “Ligar webhook de entrega”, para saber entregue/lida de verdade.
+                    </p>
+                    {% endif %}
+
+                    <div class="wa-env-filtros">
+                        <a href="?aba=envios" class="wa-env-filtro{% if not envios_filtro %} ativo{% endif %}">Todas</a>
+                        <a href="?aba=envios&filtro=problema" class="wa-env-filtro{% if envios_filtro == 'problema' %} ativo{% endif %}">Só as que não chegaram</a>
+                    </div>
+
+                    {% if envios %}
+                    <div class="wa-env-scroll">
+                        <table class="wa-env-tabela">
+                            <thead>
+                                <tr>
+                                    <th>Quando</th><th>Para</th><th class="wa-env-col-origem">Origem</th><th>Situação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for e in envios %}
+                                <tr>
+                                    <td class="wa-env-quando">{{ e.criado_em|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        {% if e.nome %}<span class="wa-env-nome">{{ e.nome }}</span>{% endif %}
+                                        <span class="wa-env-numero">{{ e.numero }}</span>
+                                        {% comment %}No celular a coluna Origem some (para caber a Situação,
+                                        que é o que importa) e o valor reaparece aqui.{% endcomment %}
+                                        <span class="wa-env-origem-mob">{{ e.rotulo_origem }}</span>
+                                    </td>
+                                    <td class="wa-env-col-origem"><span class="wa-env-origem">{{ e.rotulo_origem }}</span></td>
+                                    <td>
+                                        {% if e.status == 'lida' %}<span class="wa-env-selo lida">👁️ Lida</span>
+                                        {% elif e.status == 'entregue' %}<span class="wa-env-selo ok">✅ Entregue</span>
+                                        {% elif e.status == 'enviada' %}<span class="wa-env-selo enviada">📤 Enviada</span>
+                                        {% elif e.status == 'aceita' %}<span class="wa-env-selo aceita">⏳ Sem confirmação</span>
+                                        {% elif e.status == 'nao_entregue' %}<span class="wa-env-selo ruim">❌ Não entregue</span>
+                                        {% else %}<span class="wa-env-selo ruim">❌ Falhou</span>
+                                        {% endif %}
+                                        {% if e.detalhe %}<span class="wa-env-motivo">{{ e.detalhe }}</span>{% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="wa-ajuda">
+                        Guarda as últimas {{ envios_total }} de no máximo 300 mensagens. O <strong>texto
+                        enviado não é gravado</strong> — só destino, origem e resultado.
+                    </p>
+                    {% else %}
+                    <p class="wa-vazio">
+                        {% if envios_filtro %}Nenhuma mensagem deixou de chegar. 🎉{% else %}Nenhuma mensagem enviada ainda.{% endif %}
+                    </p>
+                    {% endif %}
+                </section>
+                </div><!-- /painel envios -->
             </div>
         </main>
     </div>

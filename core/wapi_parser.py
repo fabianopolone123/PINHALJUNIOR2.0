@@ -331,3 +331,110 @@ def parse_webhook_payload(payload):
         'is_group': is_group,
         'chat_id': chat_id,
     }
+
+
+# ---------------------------------------------------------------------------
+# Status de ENTREGA das mensagens que o clube enviou (webhook de entrega).
+#
+# A resposta do envio só diz que a W-API aceitou a mensagem; quem conta se ela
+# chegou é este webhook. O formato exato não está na doc pública, e o WhatsApp
+# tem historicamente vários nomes para a mesma coisa (SENT/SERVER_ACK,
+# RECEIVED/DELIVERY_ACK/DELIVERED, READ/PLAYED, e os ACKs numéricos 1..5), então
+# o reconhecimento aqui é largo de propósito. Devolve tokens canônicos e deixa a
+# tradução para o model, para o parser continuar sem depender do Django.
+# ---------------------------------------------------------------------------
+
+STATUS_ENVIADA = 'sent'
+STATUS_ENTREGUE = 'received'
+STATUS_LIDA = 'read'
+STATUS_FALHOU = 'failed'
+
+_STATUS_SINONIMOS = {
+    'sent': STATUS_ENVIADA, 'server_ack': STATUS_ENVIADA, 'serverack': STATUS_ENVIADA,
+    'enviada': STATUS_ENVIADA, 'enviado': STATUS_ENVIADA, '1': STATUS_ENVIADA,
+    'received': STATUS_ENTREGUE, 'delivery_ack': STATUS_ENTREGUE,
+    'deliveryack': STATUS_ENTREGUE, 'delivered': STATUS_ENTREGUE,
+    'entregue': STATUS_ENTREGUE, '2': STATUS_ENTREGUE,
+    'read': STATUS_LIDA, 'read_self': STATUS_LIDA, 'readself': STATUS_LIDA,
+    'played': STATUS_LIDA, 'lida': STATUS_LIDA, '3': STATUS_LIDA, '4': STATUS_LIDA,
+    'failed': STATUS_FALHOU, 'error': STATUS_FALHOU, 'falhou': STATUS_FALHOU,
+    'undelivered': STATUS_FALHOU, 'not_delivered': STATUS_FALHOU, '5': STATUS_FALHOU,
+}
+
+# Nomes de evento que indicam "isto é um aviso de status", não uma conversa.
+_EVENTOS_STATUS = (
+    'webhookdelivery', 'webhookdeliverystatus', 'webhookstatus',
+    'webhookmessagestatus', 'messagestatus', 'message_status', 'message-status',
+    'deliverystatus', 'delivery', 'status', 'ack', 'messageack', 'message_ack',
+)
+
+_STATUS_VALOR_PATHS = (
+    ('status',), ('data', 'status'), ('messageStatus',), ('data', 'messageStatus'),
+    ('ack',), ('data', 'ack'), ('type',), ('data', 'type'), ('state',),
+)
+
+_MOTIVO_PATHS = (
+    ('reason',), ('data', 'reason'), ('error',), ('data', 'error'),
+    ('message',), ('data', 'message'), ('description',), ('errorMessage',),
+)
+
+
+def _normalizar_status(valor):
+    """Traduz o que vier ('READ', 'DELIVERY_ACK', 3, …) para um token canônico."""
+    texto = _as_text(valor).strip().lower().replace('-', '_')
+    if not texto:
+        return ''
+    return _STATUS_SINONIMOS.get(texto, '')
+
+
+def _ids_de_mensagem(payload):
+    """IDs da(s) mensagem(ns) a que o aviso se refere. O WhatsApp costuma mandar
+    o `READ` de várias mensagens de uma vez, daí aceitar lista."""
+    ids = []
+    for caminho in (('ids',), ('data', 'ids'), ('messageIds',), ('data', 'messageIds')):
+        bruto = payload
+        for chave in caminho:
+            bruto = bruto.get(chave) if isinstance(bruto, dict) else None
+        if isinstance(bruto, (list, tuple)):
+            ids.extend(_as_text(x) for x in bruto if _as_text(x))
+    unico = _as_text(_safe_get(
+        payload,
+        ('messageId',), ('data', 'messageId'), ('message_id',), ('data', 'message_id'),
+        ('id',), ('data', 'id'), ('key', 'id'), ('data', 'key', 'id'),
+    ))
+    if unico:
+        ids.append(unico)
+    vistos, saida = set(), []
+    for i in ids:
+        if i and i not in vistos:
+            vistos.add(i)
+            saida.append(i)
+    return saida
+
+
+def extrair_status(payload):
+    """`(ids, status, motivo)` quando o payload é um aviso de **status de entrega**;
+    `([], '', '')` quando não é (aí segue o fluxo normal de mensagem recebida).
+
+    Exige **as duas** coisas — um status reconhecido e ao menos um id de mensagem —
+    porque confundir um aviso de status com uma mensagem recebida marcaria contato
+    e até autorização de quem não escreveu nada."""
+    if not isinstance(payload, dict):
+        return [], '', ''
+    evento = _as_text(_safe_get(payload, *[(k,) for k in EVENT_KEYS])).lower()
+    evento = evento.replace('-', '').replace('_', '')
+    status = ''
+    for caminho in _STATUS_VALOR_PATHS:
+        status = _normalizar_status(_safe_get(payload, caminho))
+        if status:
+            break
+    if not status:
+        return [], '', ''
+    # Evento de conversa que só carrega um "status" solto não é aviso de entrega.
+    if evento and 'received' in evento and evento not in _EVENTOS_STATUS:
+        return [], '', ''
+    ids = _ids_de_mensagem(payload)
+    if not ids:
+        return [], '', ''
+    motivo = _as_text(_safe_get(payload, *_MOTIVO_PATHS)) if status == STATUS_FALHOU else ''
+    return ids, status, motivo

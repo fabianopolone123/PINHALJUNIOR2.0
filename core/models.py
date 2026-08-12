@@ -2136,6 +2136,144 @@ class LogEmail(models.Model):
             return None
 
 
+# Situação de uma mensagem enviada pelo WhatsApp. Os quatro primeiros são o que a
+# W-API responde/avisa; `aceita` é o estado intermediário — a API pegou a mensagem
+# mas ainda não confirmou nada, que é tudo o que se sabia antes do webhook de status.
+MSG_WA_FALHOU = "falhou"          # a W-API recusou o envio (403/401/conexão)
+MSG_WA_ACEITA = "aceita"          # API aceitou; sem confirmação ainda
+MSG_WA_ENVIADA = "enviada"        # SENT — saiu do celular do clube
+MSG_WA_ENTREGUE = "entregue"      # RECEIVED — chegou no aparelho da pessoa
+MSG_WA_LIDA = "lida"              # READ
+MSG_WA_NAO_ENTREGUE = "nao_entregue"  # FAILED — o WhatsApp devolveu falha
+STATUS_MSG_WA_CHOICES = [
+    (MSG_WA_FALHOU, "Falhou no envio"),
+    (MSG_WA_ACEITA, "Enviada (sem confirmação)"),
+    (MSG_WA_ENVIADA, "Enviada"),
+    (MSG_WA_ENTREGUE, "Entregue"),
+    (MSG_WA_LIDA, "Lida"),
+    (MSG_WA_NAO_ENTREGUE, "Não entregue"),
+]
+
+
+class MensagemWhatsapp(models.Model):
+    """Registro de UMA mensagem que o sistema tentou enviar pelo WhatsApp — o
+    "extrato" da aba 📨 Envios, e o par do `LogEmail` (que o e-mail já tinha).
+
+    Existe por causa de um buraco real: a resposta do `POST /message/send-text`
+    só diz que a **W-API aceitou** a mensagem. Número sem WhatsApp, número errado
+    ou pessoa que bloqueou o clube devolvem sucesso e a mensagem morre no caminho.
+    Quem fecha essa lacuna é o **webhook de status** da W-API, que avisa
+    SENT/RECEIVED/READ e falha; o casamento é pelo **`message_id`** devolvido no
+    envio, por isso ele é indexado.
+
+    Como no `LogEmail`, **o texto da mensagem NÃO é gravado** — evita acumular
+    dado pessoal à toa; guarda destino, origem e resultado.
+    """
+
+    LIMITE = 300
+
+    numero = models.CharField("Número (destino)", max_length=30)
+    nome = models.CharField(
+        "Para quem", max_length=120, blank=True, default="",
+        help_text="Nome conhecido na hora do envio (snapshot).",
+    )
+    origem = models.CharField(
+        "Origem", max_length=40, blank=True, default="",
+        help_text="Tipo da notificação, 'cobranca', 'reengajamento', 'teste'…",
+    )
+    message_id = models.CharField(
+        "ID da mensagem (W-API)", max_length=120, blank=True, default="", db_index=True,
+    )
+    status = models.CharField(
+        "Situação", max_length=15, choices=STATUS_MSG_WA_CHOICES,
+        default=MSG_WA_ACEITA, db_index=True,
+    )
+    detalhe = models.CharField("Detalhe / erro", max_length=300, blank=True, default="")
+    criado_em = models.DateTimeField("Quando", auto_now_add=True)
+    status_em = models.DateTimeField("Última atualização de status", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Mensagem de WhatsApp"
+        verbose_name_plural = "Mensagens de WhatsApp"
+        ordering = ["-criado_em"]
+        indexes = [models.Index(fields=["-criado_em"])]
+
+    def __str__(self):
+        return f"{self.get_status_display()} — {self.numero}"
+
+    @property
+    def rotulo_origem(self):
+        """Nome amigável da origem (o valor gravado é o tipo técnico)."""
+        rotulos = {
+            "teste": "Teste", "cobranca": "Cobrança",
+            "reengajamento": "Reengajamento", "autorizacao": "Autorização",
+            "aniversario": "Aniversário", "avulsa": "Envio avulso",
+        }
+        d = TEMPLATES_NOTIFICACAO.get(self.origem)
+        if d:
+            return d[0]
+        return rotulos.get(self.origem, self.origem or "—")
+
+    @property
+    def chegou(self):
+        """True quando há confirmação de que a mensagem chegou ao aparelho."""
+        return self.status in (MSG_WA_ENTREGUE, MSG_WA_LIDA)
+
+    @property
+    def problema(self):
+        """True quando se sabe que NÃO chegou (recusa da API ou falha do WhatsApp)."""
+        return self.status in (MSG_WA_FALHOU, MSG_WA_NAO_ENTREGUE)
+
+    @classmethod
+    def registrar(cls, numero, ok, detalhe="", origem="", nome=""):
+        """Grava o resultado imediato do envio e apara o excedente. **Nunca levanta
+        exceção** — o extrato não pode derrubar o envio. Em caso de sucesso,
+        `detalhe` é o `message_id` devolvido pela W-API."""
+        try:
+            msg_id = (detalhe or "") if ok else ""
+            obj = cls.objects.create(
+                numero=(numero or "")[:30], nome=(nome or "")[:120],
+                origem=(origem or "")[:40], message_id=msg_id[:120],
+                status=MSG_WA_ACEITA if ok else MSG_WA_FALHOU,
+                detalhe="" if ok else (detalhe or "")[:300],
+            )
+            if cls.objects.count() > cls.LIMITE + 50:   # apara em lote, não a cada envio
+                antigos = cls.objects.order_by("-criado_em").values_list("id", flat=True)[cls.LIMITE:]
+                cls.objects.filter(id__in=list(antigos)).delete()
+            return obj
+        except Exception:  # noqa: BLE001
+            return None
+
+    @classmethod
+    def atualizar_status(cls, message_id, status, detalhe=""):
+        """Aplica o status vindo do webhook à mensagem correspondente.
+
+        **Não retrocede**: o WhatsApp manda os avisos fora de ordem com alguma
+        frequência (o `READ` pode chegar antes do `RECEIVED`), e sobrescrever
+        "lida" com "entregue" apagaria a informação melhor. Devolve o objeto
+        atualizado ou `None` quando não há mensagem com aquele id (ex.: enviada
+        por fora do sistema, ou já aparada do extrato)."""
+        if not message_id or status not in dict(STATUS_MSG_WA_CHOICES):
+            return None
+        obj = cls.objects.filter(message_id=message_id).order_by("-criado_em").first()
+        if obj is None:
+            return None
+        ordem = {
+            MSG_WA_FALHOU: 0, MSG_WA_ACEITA: 1, MSG_WA_ENVIADA: 2,
+            MSG_WA_ENTREGUE: 3, MSG_WA_LIDA: 4,
+        }
+        # A falha do WhatsApp (FAILED) sempre vale: é a informação que o Diretor
+        # precisa, mesmo chegando depois de um "enviada".
+        if status != MSG_WA_NAO_ENTREGUE and ordem.get(status, 0) <= ordem.get(obj.status, 0):
+            return obj
+        obj.status = status
+        obj.status_em = timezone.now()
+        if detalhe:
+            obj.detalhe = detalhe[:300]
+        obj.save(update_fields=["status", "status_em", "detalhe"])
+        return obj
+
+
 # Canais de envio, compartilhados por cobrança e aniversário.
 CANAL_WHATSAPP = "whatsapp"
 CANAL_EMAIL = "email"

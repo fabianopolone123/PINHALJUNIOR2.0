@@ -305,3 +305,131 @@
 .wa-notif-form textarea { width:100%; font-family:inherit; font-size:0.95rem; }
 .wa-notif-form code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:0.85rem; }
 .wa-janela-form { margin-bottom:4px; }
+
+/* ===================== Aba 📨 Envios (extrato de saída) ===================== */
+/* O `.wa-card` limita a 640px (bom para formulário, ruim para tabela) — este
+   modificador solta a largura, igual ao `.aniv-largo` de Aniversários. */
+.wa-card-largo { max-width: none; }
+
+/* Contador de problemas na pílula da aba. */
+.wa-aba-badge {
+    display: inline-block;
+    min-width: 18px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #c0392b;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.wa-env-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0;
+}
+.wa-env-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--borda, #e2e9f1);
+    border-radius: var(--raio-item, 12px);
+    background: #f7f9fc;
+}
+.wa-env-kpi strong { font-size: 1.3rem; color: var(--azul-escuro, #0f4c81); }
+.wa-env-kpi span { font-size: 0.8rem; color: var(--texto-suave, #6b7683); }
+.wa-env-kpi.ok strong { color: #1f6b1f; }
+.wa-env-kpi.lida strong { color: #0f4c81; }
+.wa-env-kpi.ruim strong { color: #c0392b; }
+
+.wa-env-aviso {
+    padding: 10px 12px;
+    border: 1.5px solid #e6d29a;
+    border-left-width: 5px;
+    border-radius: var(--raio-item, 12px);
+    background: #fdf6e3;
+    color: #7a5c00;
+}
+
+.wa-env-filtros { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.wa-env-filtro {
+    padding: 7px 14px;
+    border: 1.5px solid var(--borda, #e2e9f1);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--texto, #1c2733);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+.wa-env-filtro.ativo {
+    background: linear-gradient(135deg, #0f4c81, #1b6ca8);
+    border-color: transparent;
+    color: #fff;
+}
+
+/* A tabela rola DENTRO do card em tela estreita (a página nunca desliza). */
+.wa-env-scroll { overflow-x: auto; }
+.wa-env-tabela { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.wa-env-tabela th,
+.wa-env-tabela td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--borda, #e2e9f1);
+    vertical-align: top;
+}
+.wa-env-tabela th {
+    color: var(--texto-suave, #6b7683);
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.wa-env-quando { white-space: nowrap; color: var(--texto-suave, #6b7683); }
+.wa-env-nome { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.wa-env-numero { font-size: 0.82rem; color: var(--texto-suave, #6b7683); }
+.wa-env-origem { font-size: 0.85rem; }
+.wa-env-selo {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.wa-env-selo.lida { background: rgba(15, 76, 129, 0.14); color: #0f4c81; }
+.wa-env-selo.ok { background: rgba(58, 157, 58, 0.16); color: #1f6b1f; }
+.wa-env-selo.enviada { background: rgba(120, 120, 120, 0.16); color: #5f6a77; }
+.wa-env-selo.aceita { background: rgba(224, 168, 0, 0.18); color: #8a6d00; }
+.wa-env-selo.ruim { background: #fdecea; color: #c0392b; }
+.wa-env-motivo {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    color: #c0392b;
+    overflow-wrap: anywhere;
+}
+.wa-vazio { margin: 10px 0 0; color: var(--texto-suave, #6b7683); }
+
+@media (min-width: 720px) {
+    .wa-env-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Separador do bloco do webhook de entrega, dentro do mesmo card. */
+.wa-env-sep { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borda, #e2e9f1); }
+
+/* No celular a coluna Origem sai (a Situação é o que o Diretor veio ver) e o
+   valor reaparece embaixo do nome — some da tabela, não da tela. */
+.wa-env-origem-mob { display: none; }
+@media (max-width: 560px) {
+    .wa-env-col-origem { display: none; }
+    .wa-env-origem-mob {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.78rem;
+        color: var(--texto-suave, #6b7683);
+    }
+    .wa-env-quando { font-size: 0.8rem; }
+}

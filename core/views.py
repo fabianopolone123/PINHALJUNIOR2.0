@@ -74,6 +74,13 @@ from .models import (
     ContatoEmail,
     ContatoWhatsapp,
     LogEmail,
+    MensagemWhatsapp,
+    MSG_WA_ENTREGUE,
+    MSG_WA_LIDA,
+    MSG_WA_FALHOU,
+    MSG_WA_ENVIADA,
+    MSG_WA_NAO_ENTREGUE,
+    MSG_WA_ACEITA,
     TemplateAniversario,
     TEMPLATES_ANIVERSARIO,
     ANIV_AVENTUREIRO,
@@ -3454,10 +3461,24 @@ def normalizar_telefone(bruto):
     return digitos
 
 
-def _enviar_whatsapp(config, phone, message):
+def _enviar_whatsapp(config, phone, message, origem="", nome=""):
     """Faz o POST na W-API para enviar um texto. Usa só a stdlib (urllib).
     Retorna (ok: bool, detalhe: str). `detalhe` é a mensagem de erro ou o
-    messageId em caso de sucesso."""
+    messageId em caso de sucesso.
+
+    **Ponto único de envio**: toda mensagem que sai daqui vira uma linha em
+    `MensagemWhatsapp` (o extrato da aba 📨 Envios) — sucesso e falha. `origem` e
+    `nome` só enfeitam a linha; quem chama deve passar quando souber. Atenção: um
+    `ok=True` aqui significa apenas que **a W-API aceitou** a mensagem; quem diz se
+    ela chegou é o webhook de status, que casa pelo `messageId` devolvido."""
+    ok, detalhe = _wapi_post_texto(config, phone, message)
+    MensagemWhatsapp.registrar(phone, ok, detalhe, origem=origem, nome=nome)
+    return ok, detalhe
+
+
+def _wapi_post_texto(config, phone, message):
+    """POST cru na W-API, sem registrar nada. Não chame direto: use
+    `_enviar_whatsapp`, que é o ponto único e alimenta o extrato de envios."""
     base = (config.base_url or "https://api.w-api.app/v1").rstrip("/")
     url = f"{base}/message/send-text?instanceId={urllib.parse.quote(config.instance_id)}"
     corpo = json.dumps({"phone": phone, "message": message}).encode("utf-8")
@@ -3569,7 +3590,35 @@ def whatsapp_view(request):
         "ia_configurada": OpenAIConfig.get_solo().configurado,
         "email_configurado": EmailConfig.get_solo().configurado,
         "aba": request.GET.get("aba", "config"),
+        **_envios_whatsapp_ctx(request.GET.get("filtro", "")),
     })
+
+
+def _envios_whatsapp_ctx(filtro=""):
+    """Contexto da aba 📨 Envios: o extrato de saída com quem recebeu e quem não.
+
+    `filtro="problema"` mostra só o que se sabe que **não chegou** (recusa da API
+    ou falha do WhatsApp) — é a pergunta prática do Diretor, "quem ficou sem?"."""
+    qs = MensagemWhatsapp.objects.all()
+    if filtro == "problema":
+        qs = qs.filter(status__in=[MSG_WA_FALHOU, MSG_WA_NAO_ENTREGUE])
+    envios = list(qs[:100])
+    todos = MensagemWhatsapp.objects.all()
+    return {
+        "envios": envios,
+        "envios_filtro": filtro,
+        "envios_total": todos.count(),
+        "envios_chegaram": todos.filter(status__in=[MSG_WA_ENTREGUE, MSG_WA_LIDA]).count(),
+        "envios_lidos": todos.filter(status=MSG_WA_LIDA).count(),
+        "envios_problema": todos.filter(
+            status__in=[MSG_WA_FALHOU, MSG_WA_NAO_ENTREGUE]
+        ).count(),
+        # Sem o webhook de status ligado, tudo fica em "aceita" e a tela precisa
+        # dizer isso — senão parece que ninguém recebeu.
+        "envios_sem_status": not todos.exclude(
+            status__in=[MSG_WA_ACEITA, MSG_WA_FALHOU]
+        ).exists(),
+    }
 
 
 @diretor_required
@@ -3714,7 +3763,10 @@ def _reengajar_um(config, usuario_id):
     numero = _numero_do_contato(user)
     if not numero:
         return False, "sem WhatsApp"
-    ok, detalhe = _enviar_whatsapp(config, numero, msg)
+    ok, detalhe = _enviar_whatsapp(
+        config, numero, msg, origem="reengajamento",
+        nome=(user.get_full_name() or user.username),
+    )
     if ok:
         PerfilUsuario.objects.filter(usuario=user).update(reengajado_em=timezone.now())
     return ok, detalhe
@@ -3862,7 +3914,7 @@ def _confirmar_autorizacao(perfil, numero, cfg=None):
     if not cfg.configurado:
         return False, "whatsapp_nao_configurado"
     try:
-        ok, detalhe = _enviar_whatsapp(cfg, numero, resposta)
+        ok, detalhe = _enviar_whatsapp(cfg, numero, resposta, origem="autorizacao")
     except Exception as exc:  # noqa: BLE001 — nunca derrubar o webhook
         logger.warning(
             "Confirmação de autorização falhou para %s (fica pendente): %s", numero, exc
@@ -3982,7 +4034,7 @@ def _notificar_whatsapp(tpl, tipo, numero, texto, *, forcar=False):
     aplica_gate = not forcar and tipo not in NOTIF_TRANSACIONAIS
     if aplica_gate and not _pode_notificar(alvo):
         return False, "nao_liberado"
-    ok, detalhe = _enviar_whatsapp(cfg, alvo, texto)
+    ok, detalhe = _enviar_whatsapp(cfg, alvo, texto, origem=tipo)
     return (bool(ok), "enviado" if ok else f"falha:{detalhe}")
 
 
@@ -4167,6 +4219,23 @@ def whatsapp_webhook_config_view(request):
 
 
 @diretor_required
+@require_POST
+def whatsapp_webhook_entrega_view(request):
+    """Aponta o webhook de **entrega/status** da W-API para o nosso endpoint — é o
+    que faz o extrato de envios saber quem realmente recebeu."""
+    config = WhatsappConfig.get_solo()
+    if not config.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Configure a instância do WhatsApp primeiro."}, status=400
+        )
+    url = _webhook_whatsapp_url(request)
+    ok, resultado = wapi.configurar_webhook_entrega(config, url)
+    if not ok:
+        return JsonResponse({"ok": False, "erro": resultado}, status=502)
+    return JsonResponse({"ok": True, "url": url, "endpoint": resultado})
+
+
+@diretor_required
 def whatsapp_webhook_eventos_view(request):
     """Últimos eventos recebidos pelo webhook (para a atualização ao vivo na tela)."""
     eventos = [
@@ -4185,6 +4254,38 @@ def whatsapp_webhook_eventos_view(request):
     return JsonResponse({"ok": True, "eventos": eventos})
 
 
+_STATUS_WA_PARA_MODEL = {
+    wapi_parser.STATUS_ENVIADA: MSG_WA_ENVIADA,
+    wapi_parser.STATUS_ENTREGUE: MSG_WA_ENTREGUE,
+    wapi_parser.STATUS_LIDA: MSG_WA_LIDA,
+    wapi_parser.STATUS_FALHOU: MSG_WA_NAO_ENTREGUE,
+}
+
+
+def _registrar_status_whatsapp(payload):
+    """Aplica um aviso de entrega ao extrato de envios. `True` se o payload **era**
+    um aviso de status (e portanto não deve seguir como mensagem recebida).
+
+    Devolve `True` mesmo quando nenhuma linha é atualizada: o aviso pode ser de uma
+    mensagem enviada por fora do sistema (pelo celular do clube) ou já aparada do
+    extrato — continua não sendo conversa. Nunca levanta exceção."""
+    try:
+        ids, status, motivo = wapi_parser.extrair_status(payload)
+    except Exception:  # noqa: BLE001 — parser defensivo, mas o webhook vem antes
+        return False
+    if not ids or not status:
+        return False
+    alvo = _STATUS_WA_PARA_MODEL.get(status)
+    if not alvo:
+        return True
+    for message_id in ids:
+        try:
+            MensagemWhatsapp.atualizar_status(message_id, alvo, motivo)
+        except Exception:  # noqa: BLE001 — um id ruim não derruba os outros
+            continue
+    return True
+
+
 @csrf_exempt
 @require_POST
 def whatsapp_webhook_view(request):
@@ -4196,7 +4297,12 @@ def whatsapp_webhook_view(request):
         payload = json.loads(request.body.decode("utf-8") or "{}")
     except (UnicodeDecodeError, ValueError):
         payload = {}
-    # Ignora atualizações de Status/transmissão (não são conversa).
+    # 1º: aviso de ENTREGA de uma mensagem que o clube mandou (webhook de status).
+    # Tem de vir antes de tudo: tratado como "mensagem recebida", marcaria contato
+    # e até autorização de quem não escreveu nada, e sujaria o termômetro.
+    if _registrar_status_whatsapp(payload):
+        return JsonResponse({"ok": True, "status": True})
+    # Ignora atualizações de Status/transmissão do WhatsApp (não são conversa).
     if wapi_parser.is_status_or_broadcast(payload):
         return JsonResponse({"ok": True, "ignorado": "status"})
     try:
@@ -4265,7 +4371,7 @@ def whatsapp_enviar_view(request):
             {"ok": False, "erro": "Número de telefone inválido. Verifique o DDD."},
             status=400,
         )
-    ok, detalhe = _enviar_whatsapp(config, telefone, mensagem)
+    ok, detalhe = _enviar_whatsapp(config, telefone, mensagem, origem="avulsa")
     if ok:
         return JsonResponse({"ok": True, "telefone": telefone, "message_id": detalhe})
     return JsonResponse({"ok": False, "erro": detalhe, "telefone": telefone}, status=502)
@@ -4537,7 +4643,9 @@ def _enviar_aniversario(pessoa, *, ano=None, manual=False, usuario=None, forcar=
                 if not _pode_notificar(destino):
                     resultado[canal] = (False, "nao_liberado")
                     continue
-                ok, detalhe = _enviar_whatsapp(cfg, destino, texto)
+                ok, detalhe = _enviar_whatsapp(
+                    cfg, destino, texto, origem="aniversario", nome=pessoa.get("nome") or ""
+                )
             else:
                 destino = (pessoa.get("email") or "").strip()
                 if not destino:
@@ -5885,7 +5993,9 @@ def mensalidade_cobranca_enviar_view(request):
                 detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
                 rotulo = "e-mail"
             else:
-                ok, detalhe = _enviar_whatsapp(wa, f["numero"], msg)
+                ok, detalhe = _enviar_whatsapp(
+                    wa, f["numero"], msg, origem="cobranca", nome=f["resp_nome"] or ""
+                )
                 rotulo = "WhatsApp"
 
             if ok:
@@ -6114,7 +6224,7 @@ def _recup_gerar_e_enviar(usuario, destino):
         f"Seu código para redefinir a senha é: {codigo}\n"
         f"Ele vale por {RECUP_TTL_MIN} minutos. Se não foi você, ignore esta mensagem."
     )
-    ok, detalhe = _enviar_whatsapp(config, destino, mensagem)
+    ok, detalhe = _enviar_whatsapp(config, destino, mensagem, origem="recuperacao")
     if not ok:
         return False, "Não foi possível enviar o código agora. Tente novamente em instantes."
     agora = timezone.now()

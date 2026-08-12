@@ -22,6 +22,56 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-12 - WhatsApp: extrato de envios + webhook de entrega (quem recebeu e quem não)
+
+### Resumo
+A resposta do `POST /message/send-text` só diz que a **W-API aceitou** a mensagem. Número sem WhatsApp, número
+digitado errado ou pessoa que bloqueou o clube devolvem sucesso e a mensagem nunca chega — e nas notificações
+automáticas, que rodam em thread, a falha **sumia em silêncio** (ninguém lia o retorno do `_notificar`). Agora
+existe o extrato de saída (o par do `LogEmail`, que o e-mail já tinha) e o **webhook de entrega** da W-API
+alimenta a situação real de cada mensagem: entregue, lida ou não entregue.
+
+### Arquivos criados/alterados
+- `core/models.py`: model **`MensagemWhatsapp`** (+ constantes `MSG_WA_*`), com `registrar` e
+  `atualizar_status`.
+- `core/migrations/0064_mensagemwhatsapp.py`.
+- `core/wapi_parser.py`: **`extrair_status`** + tabela de sinônimos de status.
+- `core/wapi.py`: **`configurar_webhook_entrega`** (tenta os nomes candidatos do endpoint).
+- `core/views.py`: `_enviar_whatsapp` virou casca de `_wapi_post_texto` e grava o extrato; helper
+  `_registrar_status_whatsapp` no webhook; `_envios_whatsapp_ctx`; view `whatsapp_webhook_entrega_view`; os 7
+  pontos de envio passaram a informar a `origem`.
+- `core/urls.py`: `whatsapp/webhook/entrega/`.
+- `templates/core/whatsapp.html`: aba **📨 Envios** + bloco do webhook de entrega na aba 🔔 Webhook.
+- `static/css/whatsapp.css`, `static/js/whatsapp.js`.
+- `core/tests.py`: `ExtratoWhatsappTests` (16 testes). Suíte: **212 testes OK**.
+
+### Decisões tomadas
+- **O status é tratado ANTES de tudo no webhook.** Se um aviso de entrega entrasse pelo caminho de "mensagem
+  recebida", o sistema marcaria contato e até **autorização** de quem não escreveu nada — termômetro verde
+  falso e gate anti-bloqueio liberado indevidamente. Tem teste de regressão nos dois sentidos (status não vira
+  conversa; conversa não vira status).
+- **Reconhecimento de status largo de propósito.** O formato não está na doc pública e o WhatsApp tem vários
+  nomes para a mesma coisa: `SENT`/`SERVER_ACK`, `RECEIVED`/`DELIVERY_ACK`/`DELIVERED`, `READ`/`PLAYED`,
+  `FAILED`, mais os ACKs numéricos 1..5. Exige **status reconhecido + ao menos um id** para classificar como
+  aviso — sem os dois, segue o fluxo normal.
+- **O status não retrocede**, porque os avisos chegam fora de ordem e "lida" virar "entregue" apagaria a
+  informação melhor. A exceção é o **FAILED**, que sempre vale: é o que o Diretor precisa ver.
+- **Registro no ponto único.** `_enviar_whatsapp` passou a ser uma casca que grava o extrato e delega o POST
+  para `_wapi_post_texto`. Assim não existe caminho de envio que escape — foi a lição do `LogEmail`.
+- **O texto enviado não é gravado** (só destino, origem e resultado), mesma regra do `LogEmail`: não acumular
+  dado pessoal à toa. Há teste.
+- **A tela avisa quando o webhook de entrega não está confirmando nada**, senão a coluna toda em "sem
+  confirmação" pareceria que ninguém recebeu.
+
+### Pendências
+- **Nome do endpoint de configuração do webhook de entrega.** A doc pública não abre, e **sondar por GET não
+  funciona**: a W-API responde `Cannot GET /v1/webhook/<qualquer coisa>` mesmo para a rota que existe com PUT
+  (confirmado no servidor). `configurar_webhook_entrega` tenta 4 candidatos e, se nenhum pegar, a tela orienta
+  a configurar no painel da W-API. Descobrindo o nome certo, deixar só ele.
+- Casar o extrato com a família/aventureiro (hoje guarda o nome como texto), para o Diretor filtrar por pessoa.
+
+---
+
 ## 2026-08-12 - Mensalidades: Top 10 de quem está devendo mais
 
 ### Resumo
