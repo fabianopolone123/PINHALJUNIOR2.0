@@ -17,12 +17,13 @@ from .permissoes import eh_diretor
 def _eventos_menu(user):
     """Eventos com inscrição ainda **não encerrados** (data futura ou em
     andamento), para aparecerem no menu de todos os perfis logados. Eventos
-    passados somem sozinhos."""
+    passados somem sozinhos; eventos **inativos** também (o Diretor desligou o
+    evento — ver `Evento.ativo`)."""
     if not getattr(user, "is_authenticated", False):
         return []
     hoje = timezone.localdate()
     return list(
-        Evento.objects.filter(tipo="inscricao", demo=False)
+        Evento.objects.filter(tipo="inscricao", demo=False, ativo=True)
         .filter(Q(data_fim__gte=hoje) | Q(data_fim__isnull=True, data__gte=hoje))
         .order_by("data", "horario_inicio")
     )

@@ -506,6 +506,12 @@ class Evento(models.Model):
     # responsável do Diretor). NUNCA entra na lista de eventos, no menu, na
     # presença do Diretor nem no financeiro do clube.
     demo = models.BooleanField("Fictício (dados de teste)", default=False)
+    # Evento LIGADO/DESLIGADO. Inativo = some do menu e das telas públicas
+    # (página, inscrição e lojinha), mesmo dentro da data — serve para
+    # suspender/adiar um evento sem excluí-lo. Diferente de `demo`: o Diretor
+    # continua com painel, balcão, presença e financeiro, e as inscrições e o
+    # dinheiro que já entraram continuam contando.
+    ativo = models.BooleanField("Evento ativo", default=True)
 
     # --- Configuração de inscrição (só usada em eventos "com inscrição") ---
     # Se True, qualquer pessoa pode se inscrever; se False, apenas membros do
@@ -577,7 +583,12 @@ class Evento(models.Model):
         return self.inscricao_limite or self.fim_datetime()
 
     def inscricoes_abertas(self):
-        """True se ainda dá para se inscrever (prazo não passou)."""
+        """True se ainda dá para se inscrever (evento ativo e prazo não passou).
+
+        Evento inativo nunca aceita inscrição, mesmo dentro do prazo — é a trava
+        de servidor do "inativar evento" (esconder o botão não impede POST)."""
+        if not self.ativo:
+            return False
         prazo = self.prazo_inscricao()
         if prazo is None:
             return True
@@ -589,9 +600,9 @@ class Evento(models.Model):
         return fim is not None and timezone.now() > fim
 
     def loja_aberta(self):
-        """A lojinha vende enquanto o evento não terminou (independe do prazo de
-        inscrição — dá para comprar no dia do evento)."""
-        return not self.ja_terminou()
+        """A lojinha vende enquanto o evento está ativo e não terminou (independe
+        do prazo de inscrição — dá para comprar no dia do evento)."""
+        return self.ativo and not self.ja_terminou()
 
     def formas_online(self):
         """Formas de pagamento que o site oferece NESTE evento, como lista de

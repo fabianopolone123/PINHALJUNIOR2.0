@@ -33,6 +33,7 @@ urlpatterns = [
     path("eventos/novo/", views.evento_novo_view, name="evento_novo"),
     path("eventos/complexo/novo/", views.evento_complexo_novo_view, name="evento_complexo_novo"),
     path("eventos/<int:pk>/excluir/", views.evento_excluir_view, name="evento_excluir"),
+    path("eventos/<int:pk>/ativar/", views.evento_ativar_view, name="evento_ativar"),
     path("eventos/<int:pk>/", views.evento_painel_view, name="evento_painel"),
     path("eventos/<int:pk>/pagina/", views.evento_pagina_view, name="evento_pagina"),
     path("eventos/<int:pk>/inscrever/", views.evento_inscrever_view, name="evento_inscrever"),

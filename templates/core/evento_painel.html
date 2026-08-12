@@ -50,12 +50,29 @@
                         <h1 class="cabecalho-titulo">{{ evento.nome }}</h1>
                         <div class="painel-meta">
                             <span class="pill pill-verde">Evento com inscrição</span>
+                            {% if not evento.ativo %}<span class="evento-selo-inativo"><span aria-hidden="true">⏸️</span> Inativo</span>{% endif %}
                             <span class="evento-info">📆 {{ evento.data|date:"d/m/Y" }}{% if evento.data_fim %} – {{ evento.data_fim|date:"d/m/Y" }}{% endif %}</span>
                             {% if evento.horario_inicio %}<span class="evento-info">🕒 {{ evento.horario_inicio|time:"H:i" }}{% if evento.horario_fim %} – {{ evento.horario_fim|time:"H:i" }}{% endif %}</span>{% endif %}
                             {% if evento.local %}<span class="evento-info">📍 {{ evento.local }}</span>{% endif %}
                         </div>
                     </div>
+                    <form method="post" action="{% url 'core:evento_ativar' evento.id %}" class="form-ativar-evento"
+                          {% if evento.ativo %}data-confirmar="Inativar o evento “{{ evento.nome }}”? Ele sai do menu dos responsáveis e não aceita novas inscrições. Nada do que já foi registrado é apagado."{% endif %}>
+                        {% csrf_token %}
+                        <input type="hidden" name="voltar" value="painel">
+                        <button type="submit" class="btn-acao btn-acao-pequeno btn-acao-neutro">
+                            {% if evento.ativo %}<span aria-hidden="true">⏸️</span> Inativar evento{% else %}<span aria-hidden="true">▶️</span> Reativar evento{% endif %}
+                        </button>
+                    </form>
                 </header>
+
+                {% if not evento.ativo %}
+                <div class="aviso-inativo" role="status">
+                    <strong>⏸️ Evento inativo.</strong> Ele não aparece no menu dos responsáveis e as telas
+                    públicas (página, inscrição e lojinha) estão fechadas, mesmo dentro da data. Este painel,
+                    o balcão e o financeiro continuam funcionando normalmente.
+                </div>
+                {% endif %}
 
                 {% if messages %}
                 <div class="mensagens">

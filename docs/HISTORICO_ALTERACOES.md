@@ -22,6 +22,59 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-12 - Inativar um evento (liga/desliga para o público)
+
+### Resumo
+Faltava um jeito de **suspender** um evento já criado: dentro da data ele aparecia no menu de todos os perfis
+e aceitava inscrição/compra, e excluir só é possível em evento vazio (por regra, evento com inscrição, pedido
+ou presença nunca é apagado). Agora o Diretor **inativa** o evento: ele sai do menu, e a página, a inscrição,
+a lojinha e a tela de pagamento param de abrir para responsáveis e público — **mesmo dentro da data**.
+Reativar devolve tudo. Nada do que já aconteceu é apagado ou escondido.
+
+### Arquivos criados/alterados
+- `core/models.py`: campo **`Evento.ativo`** (padrão `True`); `inscricoes_abertas()` e `loja_aberta()` passam
+  a devolver `False` quando o evento está inativo.
+- `core/migrations/0063_evento_ativo.py`.
+- `core/context_processors.py`: `_eventos_menu` filtra `ativo=True`.
+- `core/views.py`: helper **`_evento_inativo_bloqueio`** (usado em `evento_pagina`, `evento_inscrever`,
+  `evento_loja` e `evento_pagamento`) e a view **`evento_ativar_view`** (POST, Diretor, alterna).
+- `core/urls.py`: rota `eventos/<int:pk>/ativar/` (`core:evento_ativar`).
+- `templates/core/eventos.html`: selo "⏸️ Inativo", botão **Inativar/Reativar** e a linha "Situação" no modal.
+- `templates/core/evento_painel.html`: selo no cabeçalho, botão **Inativar evento** e faixa de aviso.
+- `static/css/eventos.css`: `.evento-selo-inativo`, `.evento-card-inativo`, `.btn-acao-neutro`,
+  `.aviso-inativo` e o `.painel-cabecalho` (que era usado no HTML **sem regra em CSS nenhum**).
+- `static/js/evento_painel.js`: handler genérico de `data-confirmar` (o painel não carrega o `eventos.js`).
+- `core/tests.py`: `EventoInativoTests` (13 testes). Suíte: **186 testes OK**.
+
+### Decisões tomadas
+- **Três camadas, não uma.** Menu (filtra `ativo=True`) + views públicas (bloqueio na entrada) + **model**
+  (`inscricoes_abertas`/`loja_aberta` em `False`). A terceira é a que importa: esconder o botão no HTML não é
+  validação — mesmo erro que já apareceu nas formas de pagamento, e há teste de POST forjado nos dois fluxos.
+- **404 para visitante anônimo, `/inicio/` com aviso para quem está logado.** Para quem tem o link público, o
+  evento inativo simplesmente não existe; para o responsável logado, um 404 seco seria confuso.
+- **O Diretor não perde nada.** Painel, balcão/PDV, presença, operadores e financeiro continuam idênticos —
+  inativar é sobre a **porta pública**, não sobre os dados. Inscrições, pedidos e dinheiro seguem contando.
+- **O PDV/balcão fica de fora do bloqueio** de propósito: é ferramenta do Diretor/operador, não o canal que se
+  quer fechar. Se um dia for preciso travar o balcão também, é uma decisão separada.
+- **Não é `demo`.** `demo` marca dado fictício e sai de tudo (contagens, menu, financeiro); `ativo=False` é um
+  evento real, desligado só para o público.
+- **Padrão `True`** e alternância por POST: nenhum evento existente muda de comportamento, e um GET (link ou
+  prefetch do navegador) nunca desliga um evento — há teste para o 405.
+
+### Verificação visual
+Chrome headless em 380/520/1400px nas duas telas, com sonda de overflow: **zero overflow** em todas
+(`scrollWidth == clientWidth`). **Um defeito achado e corrigido na captura:** o selo "Inativo" tinha nascido
+dentro de `.evento-topo` — um flex de 3 itens — e **espremia o nome do evento** ("Festa Junina do Clube
+(adiada)" virava "Festa Juni…", porque `.evento-nome` tem `line-clamp: 2`). O selo foi para `.evento-meta`,
+que já quebra linha, igual ao que o painel faz com o `.painel-meta`.
+
+### Pendências
+- Avaliar se o **evento simples** inativo deve sair também da tela de **Presença** do Diretor (hoje continua,
+  porque presença é registro interno e histórico).
+- Avaliar travar o **balcão/PDV** de evento inativo, se algum dia a intenção for fechar o evento por completo.
+
+---
+
 ## 2026-08-12 - Cookies de sessão e CSRF só por HTTPS em produção
 
 ### Resumo

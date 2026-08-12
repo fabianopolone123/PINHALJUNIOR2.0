@@ -25,7 +25,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import Group, User
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -1125,6 +1125,36 @@ def evento_excluir_view(request, pk):
 
 
 @diretor_required
+@require_POST
+def evento_ativar_view(request, pk):
+    """Liga/desliga um evento (Diretor) — o "inativar evento".
+
+    Inativo, o evento **some do menu** dos responsáveis e as telas públicas
+    (página, inscrição e lojinha) param de abrir, mesmo dentro da data; serve
+    para suspender/adiar sem excluir. Nada do que já aconteceu é apagado:
+    inscrições, pedidos, presença e financeiro continuam, e o Diretor segue com
+    painel e balcão. Reativar devolve tudo. Alterna o valor atual (POST).
+    """
+    evento = get_object_or_404(Evento, pk=pk)
+    evento.ativo = not evento.ativo
+    evento.save(update_fields=["ativo"])
+    if evento.ativo:
+        messages.success(
+            request, f"Evento “{evento.nome}” reativado — voltou ao menu e às inscrições."
+        )
+    else:
+        messages.success(
+            request,
+            f"Evento “{evento.nome}” inativado — saiu do menu e não aceita novas "
+            "inscrições. Os dados já registrados continuam salvos.",
+        )
+    # Destino fixo (nunca a URL crua do POST — evitaria redirecionamento forjado).
+    if request.POST.get("voltar") == "painel":
+        return redirect("core:evento_painel", pk=evento.pk)
+    return redirect("core:eventos")
+
+
+@diretor_required
 def evento_novo_view(request):
     """
     Cadastra um evento simples (restrito ao Diretor).
@@ -1690,6 +1720,25 @@ def evento_cupom_excluir_view(request, pk, cupom_id):
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#descontos")
 
 
+def _evento_inativo_bloqueio(request, evento):
+    """Resposta a devolver quando o evento está **inativo** e quem acessa não é
+    o Diretor; `None` quando pode seguir.
+
+    Evento inativo (`Evento.ativo=False`) é como se não existisse para
+    responsáveis e público: sai do menu e **nenhuma tela pública abre** (página,
+    inscrição, lojinha, cupom), mesmo dentro da data. Para o Diretor nada muda —
+    painel, balcão, presença e financeiro continuam, porque inativar não apaga
+    inscrição nem dinheiro que já entrou. Use SEMPRE no início da view pública:
+    esconder o link no menu não impede quem tem a URL.
+    """
+    if evento.ativo or eh_diretor(request.user):
+        return None
+    if request.user.is_authenticated:
+        messages.info(request, "Este evento não está disponível no momento.")
+        return redirect("core:inicio")
+    raise Http404("Evento inativo")
+
+
 def evento_pagina_view(request, pk):
     """
     Página do evento com inscrição (Fase 2.3).
@@ -1702,6 +1751,9 @@ def evento_pagina_view(request, pk):
     if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
         login_url = reverse("core:login")
         return redirect(f"{login_url}?next={request.path}")
+    bloqueio = _evento_inativo_bloqueio(request, evento)
+    if bloqueio:
+        return bloqueio
 
     contexto = {
         "evento": evento,
@@ -1903,6 +1955,9 @@ def evento_inscrever_view(request, pk):
     evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
     if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
         return redirect(f"{reverse('core:login')}?next={request.path}")
+    bloqueio = _evento_inativo_bloqueio(request, evento)
+    if bloqueio:
+        return bloqueio
     if not evento.inscricoes_abertas():
         messages.error(request, "As inscrições para este evento estão encerradas.")
         return redirect("core:evento_pagina", pk=evento.pk)
@@ -2419,6 +2474,9 @@ def evento_loja_view(request, pk):
     evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
     if not evento.inscricao_aberta_publico and not request.user.is_authenticated:
         return redirect(f"{reverse('core:login')}?next={request.path}")
+    bloqueio = _evento_inativo_bloqueio(request, evento)
+    if bloqueio:
+        return bloqueio
     if evento.ja_terminou():
         messages.error(request, "Este evento já terminou; a lojinha está fechada.")
         return redirect("core:evento_pagina", pk=evento.pk)
@@ -2485,6 +2543,10 @@ def evento_pagamento_view(request, pk):
     tela de sucesso. Baixa o estoque só aqui (revalidando antes).
     """
     evento = get_object_or_404(Evento, pk=pk, tipo="inscricao")
+    bloqueio = _evento_inativo_bloqueio(request, evento)
+    if bloqueio:
+        # Evento desligado no meio do checkout: não cria pedido nem baixa estoque.
+        return bloqueio
     dados = request.session.get("loja_checkout")
     if not dados or not dados.get("itens"):
         return redirect("core:evento_loja", pk=evento.pk)

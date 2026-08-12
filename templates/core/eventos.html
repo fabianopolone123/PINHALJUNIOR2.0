@@ -70,7 +70,7 @@
                 {% if eventos %}
                 <section class="eventos-lista">
                     {% for e in eventos %}
-                    <article class="card evento-card evento-clicavel" data-evento="{{ e.id }}">
+                    <article class="card evento-card evento-clicavel{% if not e.ativo %} evento-card-inativo{% endif %}" data-evento="{{ e.id }}">
                         <div class="evento-topo">
                             <h3 class="evento-nome">{{ e.nome }}</h3>
                             <span class="evento-tipo evento-tipo-{{ e.tipo }}">
@@ -78,6 +78,11 @@
                             </span>
                         </div>
                         <div class="evento-meta">
+                            {% comment %}O selo fica AQUI, e não no topo: em `.evento-topo` (flex de 3
+                            itens) ele espremia o nome do evento em telas médias.{% endcomment %}
+                            {% if not e.ativo %}
+                            <span class="evento-selo-inativo"><span aria-hidden="true">⏸️</span> Inativo</span>
+                            {% endif %}
                             <span class="evento-info">📆 {{ e.data|date:"d/m/Y" }}{% if e.data_fim %} – {{ e.data_fim|date:"d/m/Y" }}{% endif %}</span>
                             {% if e.horario_inicio %}
                             <span class="evento-info">🕒 {{ e.horario_inicio|time:"H:i" }}{% if e.horario_fim %} – {{ e.horario_fim|time:"H:i" }}{% endif %}</span>
@@ -95,6 +100,13 @@
                                 <span aria-hidden="true">📋</span> Duplicar
                             </a>
                             {% endif %}
+                            <form method="post" action="{% url 'core:evento_ativar' e.id %}" class="form-ativar-evento"
+                                  {% if e.ativo %}data-confirmar="Inativar o evento “{{ e.nome }}”? Ele sai do menu dos responsáveis e não aceita novas inscrições. Nada do que já foi registrado é apagado."{% endif %}>
+                                {% csrf_token %}
+                                <button type="submit" class="btn-acao btn-acao-pequeno btn-acao-neutro">
+                                    {% if e.ativo %}<span aria-hidden="true">⏸️</span> Inativar{% else %}<span aria-hidden="true">▶️</span> Reativar{% endif %}
+                                </button>
+                            </form>
                             {% if e.pode_excluir %}
                             <form method="post" action="{% url 'core:evento_excluir' e.id %}" class="form-excluir-evento"
                                   data-confirmar="Excluir o evento “{{ e.nome }}”? Esta ação não pode ser desfeita.">
@@ -154,6 +166,7 @@
                     <div class="dado"><span class="dado-rotulo">Data</span><span class="dado-valor">{{ e.data|date:"d/m/Y" }}{% if e.data_fim %} – {{ e.data_fim|date:"d/m/Y" }}{% endif %}</span></div>
                     <div class="dado"><span class="dado-rotulo">Horário</span><span class="dado-valor">{% if e.horario_inicio %}{{ e.horario_inicio|time:"H:i" }}{% if e.horario_fim %} – {{ e.horario_fim|time:"H:i" }}{% endif %}{% else %}—{% endif %}</span></div>
                     <div class="dado"><span class="dado-rotulo">Local</span><span class="dado-valor">{{ e.local|default:"—" }}</span></div>
+                    <div class="dado"><span class="dado-rotulo">Situação</span><span class="dado-valor">{% if e.ativo %}Ativo{% else %}Inativo (fora do menu e sem inscrições){% endif %}</span></div>
                 </div>
                 <h4 class="bloco-rotulo">Descrição</h4>
                 <p class="evento-modal-desc">{{ e.descricao|default:"Sem descrição."|linebreaksbr }}</p>

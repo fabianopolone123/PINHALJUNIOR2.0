@@ -48,6 +48,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/cadastro/` **tela de escolha** (Aventureiro / Diretoria / Diretoria+Aventureiro) · `/cadastro/aventureiro/` conta+1º aventureiro · `/cadastro/diretoria/` cadastro de diretoria (`?com_aventureiro=1` emenda no aventureiro → 2 perfis) · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
 - **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
+  `/eventos/<id>/ativar/` (POST: inativa/reativa o evento — sai do menu e fecha inscrição/lojinha),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** `/presenca/` **ramifica por perfil**: Diretor marca presença (`/presenca/<id>/`,
   `/presenca/<id>/marcar/`); **Responsável** vê um **relatório só-leitura** da frequência dos próprios filhos.
@@ -191,6 +192,14 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
   (migrations até `0062`). Detalhes em ESTADO_ATUAL.
+- **Evento ligado/desligado**: `Evento.ativo` (padrão `True`, migration **0063**) é o "inativar evento".
+  Inativo, o evento **sai do menu** (`_eventos_menu` filtra `ativo=True`) e as telas públicas **não abrem**
+  (`_evento_inativo_bloqueio` em `views.py`: 404 para visitante, volta ao `/inicio/` para quem está logado; o
+  Diretor passa). A trava de verdade está no **model** — `inscricoes_abertas()` e `loja_aberta()` devolvem
+  `False` com `ativo=False`, então POST forjado também é barrado. **Não confundir com `demo`**: `demo` tira o
+  evento de tudo (contagens/financeiro); `ativo=False` só fecha o lado público — painel, balcão, presença e
+  financeiro do Diretor continuam, e inscrição/pedido/dinheiro já registrados permanecem. Ao criar tela
+  pública nova de evento, **chame o bloqueio no início da view**.
 - **Formas de pagamento por evento**: `Evento.formas_pagamento_online` (`ambos`/`pix`/`cartao`, padrão
   `ambos`) define o que o **site** aceita naquele evento — vale para a inscrição e para a lojinha. Use
   `evento.formas_online()` para montar a tela e **`evento.aceita_forma_online(forma)` para validar o POST**:

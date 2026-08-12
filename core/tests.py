@@ -2270,6 +2270,152 @@ class FormasPagamentoEventoTests(TestCase):
         self.assertContains(r, "Somente Pix")
 
 
+class EventoInativoTests(TestCase):
+    """Inativar um evento: sai do menu e fecha as telas publicas, mesmo dentro
+    da data. O Diretor continua com painel/balco e nada do que ja aconteceu
+    (inscricoes, pedidos, presenca, financeiro) e apagado."""
+
+    def setUp(self):
+        grupo_dir, _ = Group.objects.get_or_create(name="Diretor")
+        self.diretor = User.objects.create_user("dir_inativo", password="x")
+        self.diretor.groups.add(grupo_dir)
+
+        self.resp = User.objects.create_user("resp_inativo", password="x")
+        Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Ana Souza", sexo="F",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="91",
+            resp_nome="Mae Souza", resp_cpf="92", resp_whatsapp="4799",
+            resp_email="mae@exemplo.com",
+        )
+
+        # Evento FUTURO e aberto ao publico: sem o campo `ativo`, tudo estaria aberto.
+        self.evento = Evento.objects.create(
+            tipo="inscricao",
+            nome="Acampamento de Julho",
+            local="Sede",
+            data=timezone.localdate() + datetime.timedelta(days=10),
+            inscricao_aberta_publico=True,
+        )
+        produto = ProdutoEvento.objects.create(evento=self.evento, nome="Lanche")
+        self.var = VariacaoProduto.objects.create(
+            produto=produto, nome="Unidade", valor=Decimal("20.00")
+        )
+        self.pagina_url = reverse("core:evento_pagina", args=[self.evento.id])
+        self.inscrever_url = reverse("core:evento_inscrever", args=[self.evento.id])
+        self.loja_url = reverse("core:evento_loja", args=[self.evento.id])
+        self.ativar_url = reverse("core:evento_ativar", args=[self.evento.id])
+
+    def _inativar(self):
+        self.evento.ativo = False
+        self.evento.save(update_fields=["ativo"])
+
+    # --- o padrao nao muda o comportamento antigo ---
+
+    def test_evento_nasce_ativo(self):
+        self.assertTrue(self.evento.ativo)
+        self.assertTrue(self.evento.inscricoes_abertas())
+        self.assertTrue(self.evento.loja_aberta())
+
+    # --- trava no model (vale para qualquer caminho, inclusive POST forjado) ---
+
+    def test_inativo_fecha_inscricao_e_lojinha_mesmo_no_prazo(self):
+        self._inativar()
+        self.assertFalse(self.evento.inscricoes_abertas())
+        self.assertFalse(self.evento.loja_aberta())
+
+    # --- menu dos responsaveis ---
+
+    def test_menu_esconde_o_evento_inativo(self):
+        self.client.force_login(self.resp)
+        r = self.client.get(reverse("core:inicio"))
+        self.assertContains(r, "Acampamento de Julho")
+        self._inativar()
+        r = self.client.get(reverse("core:inicio"))
+        self.assertNotContains(r, "Acampamento de Julho")
+
+    def test_reativar_devolve_o_evento_ao_menu(self):
+        self._inativar()
+        self.evento.ativo = True
+        self.evento.save(update_fields=["ativo"])
+        self.client.force_login(self.resp)
+        self.assertContains(self.client.get(reverse("core:inicio")), "Acampamento de Julho")
+
+    # --- telas publicas ---
+
+    def test_pagina_do_inativo_da_404_para_visitante(self):
+        self._inativar()
+        self.assertEqual(self.client.get(self.pagina_url).status_code, 404)
+
+    def test_responsavel_com_link_antigo_volta_ao_inicio(self):
+        self._inativar()
+        self.client.force_login(self.resp)
+        r = self.client.get(self.pagina_url)
+        self.assertRedirects(r, reverse("core:inicio"))
+
+    def test_diretor_continua_vendo_a_pagina_e_o_painel(self):
+        self._inativar()
+        self.client.force_login(self.diretor)
+        self.assertEqual(self.client.get(self.pagina_url).status_code, 200)
+        r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Evento inativo")
+
+    # --- o servidor nao confia no HTML: POST forjado tambem e barrado ---
+
+    def test_post_de_inscricao_em_evento_inativo_nao_cria_inscricao(self):
+        self._inativar()
+        self.client.post(self.inscrever_url, {
+            "responsavel_nome": "Fulano", "responsavel_whatsapp": "16999990000",
+            "part_idx": "0", "nome_0": "Fulano", "idade_0": "10",
+        })
+        self.assertEqual(Inscricao.objects.count(), 0)
+
+    def test_post_na_lojinha_de_evento_inativo_nao_abre_checkout(self):
+        self._inativar()
+        self.client.post(self.loja_url, {
+            "comprador_nome": "Fulano",
+            "comprador_whatsapp": "16999990000",
+            "comprador_email": "f@exemplo.com",
+            "forma_pagamento": "pix",
+            f"qtd_{self.var.id}": "1",
+        })
+        self.assertNotIn("loja_checkout", self.client.session)
+        self.assertEqual(PedidoLoja.objects.count(), 0)
+
+    # --- o botao do Diretor ---
+
+    def test_diretor_alterna_o_evento(self):
+        self.client.force_login(self.diretor)
+        self.client.post(self.ativar_url)
+        self.evento.refresh_from_db()
+        self.assertFalse(self.evento.ativo)
+        self.client.post(self.ativar_url)
+        self.evento.refresh_from_db()
+        self.assertTrue(self.evento.ativo)
+
+    def test_responsavel_nao_pode_inativar(self):
+        self.client.force_login(self.resp)
+        self.client.post(self.ativar_url)
+        self.evento.refresh_from_db()
+        self.assertTrue(self.evento.ativo)
+
+    def test_get_nao_alterna(self):
+        """Alternar e acao de POST: link/prefetch nunca pode desligar um evento."""
+        self.client.force_login(self.diretor)
+        self.assertEqual(self.client.get(self.ativar_url).status_code, 405)
+        self.evento.refresh_from_db()
+        self.assertTrue(self.evento.ativo)
+
+    def test_lista_de_eventos_mostra_o_selo_e_o_botao(self):
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:eventos"))
+        self.assertContains(r, "Inativar")
+        self._inativar()
+        r = self.client.get(reverse("core:eventos"))
+        self.assertContains(r, "Inativo")
+        self.assertContains(r, "Reativar")
+
+
 class SegurancaCookiesTests(TestCase):
     """Cookie de sessao e de CSRF so podem trafegar por HTTPS em producao.
 

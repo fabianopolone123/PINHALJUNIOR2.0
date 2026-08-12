@@ -282,6 +282,8 @@ PINHALJUNIOR2.0/
 - `/eventos/novo/` — cadastro de evento simples (nome `core:evento_novo`; aceita `?duplicar=<id>`).
 - `/eventos/complexo/novo/` — cria evento complexo (nome `core:evento_complexo_novo`).
 - `/eventos/<id>/` — painel do evento complexo (nome `core:evento_painel`); `/eventos/<id>/custos/...` adiciona/remove custos.
+- `/eventos/<id>/ativar/` — **liga/desliga o evento** (POST, Diretor; nome `core:evento_ativar`). Inativo,
+  o evento sai do menu e as telas públicas fecham, mesmo dentro da data; nada já registrado é apagado.
 - `/cadastro/` — tela **"Cadastre-se"**: escolha do tipo (Aventureiro / Diretoria / Diretoria + Aventureiro) (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/aventureiro/` — cadastro inicial de aventureiro: cria a conta + o primeiro aventureiro (view `core.views.cadastro_aventureiro_view`, nome `core:cadastro_aventureiro`).
 - `/cadastro/diretoria/` — cadastro de **diretoria** (Compromisso para Voluntários); `?com_aventureiro=1` emenda no cadastro de aventureiro (view `core.views.cadastro_diretoria_view`, nome `core:cadastro_diretoria`).
@@ -296,7 +298,7 @@ PINHALJUNIOR2.0/
 - **FichaMedica** — OneToOne com Aventureiro (dados médicos).
 - **AutorizacaoImagem** — OneToOne com Aventureiro (dados do termo de imagem).
 - **Evento** — evento do clube (`tipo` simples/inscrição; datas/horários; config de inscrição:
-  aberto ao público, prazo, valor da diretoria).
+  aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
 - **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem).

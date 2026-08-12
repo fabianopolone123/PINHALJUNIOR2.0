@@ -124,6 +124,66 @@
 }
 .btn-excluir-evento:hover { background: #f9d9d4; transform: translateY(-2px); }
 
+/* ---------- Evento inativo (ligado/desligado pelo Diretor) ---------- */
+/* Selo "Inativo" no card da lista e no cabeçalho do painel. Cinza de propósito:
+   inativo não é erro nem alerta — é um evento desligado. */
+.evento-selo-inativo {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    background: rgba(120, 120, 120, 0.16);
+    color: #6b6b6b;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* O card do evento inativo fica "apagado", mas legível (e volta ao normal no
+   hover, para não parecer desabilitado). */
+.evento-card-inativo { opacity: 0.72; }
+.evento-card-inativo:hover { opacity: 1; }
+
+/* Botão Inativar/Reativar: neutro, ao lado do "Abrir painel"/"Duplicar". */
+.form-ativar-evento { display: contents; }
+.btn-acao-neutro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1.5px solid var(--borda);
+    background: #f4f6f9;
+    color: var(--texto);
+    font-weight: 700;
+    box-shadow: none;
+}
+.btn-acao-neutro:hover { background: #e8edf4; transform: translateY(-2px); }
+
+/* Cabeçalho do painel: título/meta à esquerda, ação (Inativar) à direita. */
+.painel-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+/* Dentro do painel o botão volta a ser um item de flex normal (o `display:
+   contents` do form serviria à lista de cards, não aqui). */
+.painel-cabecalho .form-ativar-evento { display: block; }
+
+/* Faixa de aviso no painel de um evento inativo. */
+.aviso-inativo {
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 1.5px solid #e6d29a;
+    border-left-width: 5px;
+    border-radius: var(--raio-item);
+    background: #fdf6e3;
+    color: #7a5c00;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
 /* Descrição completa no modal de visualização do evento. */
 .evento-modal-desc {
     color: var(--texto);

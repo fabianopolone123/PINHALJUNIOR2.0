@@ -205,3 +205,18 @@
         });
     }
 })();
+
+/* =========================================================
+   Confirmação de ações sensíveis: qualquer <form data-confirmar="...">
+   pede confirmação antes de enviar (ex.: inativar o evento). Mesmo
+   padrão do eventos.js — este painel não carrega aquele arquivo.
+   ========================================================= */
+(function () {
+    "use strict";
+    document.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (form && form.dataset && form.dataset.confirmar) {
+            if (!window.confirm(form.dataset.confirmar)) e.preventDefault();
+        }
+    });
+})();

@@ -2,7 +2,26 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-12 (**Cookies de sessão/CSRF só por HTTPS**): `SESSION_COOKIE_SECURE` e
+**Última atualização:** 2026-08-12 (**Inativar um evento**): o Diretor agora **liga e desliga** um evento.
+Novo campo `Evento.ativo` (migration **0063**, padrão `True` — nenhum evento existente muda) com botão
+**⏸️ Inativar / ▶️ Reativar** na lista de eventos e no cabeçalho do painel (POST `/eventos/<id>/ativar/`).
+Inativo, o evento **sai do menu** de todos os perfis (o rótulo do menu já dizia "Eventos ativos") e as telas
+públicas **param de abrir** — página, inscrição, lojinha e a tela de pagamento —, **mesmo dentro da data**;
+serve para suspender ou adiar sem excluir (excluir só funciona em evento vazio, e por regra não apaga evento
+com inscrição/pedido/presença). Três camadas, de propósito: (1) o **menu** filtra `ativo=True`; (2)
+`_evento_inativo_bloqueio` fecha as views públicas — **404** para visitante anônimo (o evento simplesmente
+não existe para quem tem o link) e volta ao `/inicio/` com aviso para quem está logado; (3) a trava real fica
+no **model** — `inscricoes_abertas()` e `loja_aberta()` devolvem `False`, então **POST forjado também é
+recusado** (a lição das formas de pagamento: esconder o botão no HTML não é validação). **Para o Diretor nada
+fecha**: painel, balcão/PDV, presença, operadores e financeiro seguem iguais, com selo "⏸️ Inativo" e faixa de
+aviso no painel — inativar **não apaga nem esconde** inscrição, pedido, presença nem dinheiro que já entrou.
+Foi escolhido **não** mexer no PDV: o balcão é ferramenta do Diretor/operador, não a porta pública que se quer
+fechar. Não confundir com `demo` (dado fictício, que sai de tudo). Suíte: **186 testes OK** (173 + 13).
+Conferido em 380/520/1400px com sonda: **zero overflow**; a captura pegou um defeito já corrigido — o selo
+"Inativo" no `.evento-topo` (flex de 3 itens) **espremia o nome do evento**, e foi para o `.evento-meta`, que
+quebra linha. Antes: cookies de sessão/CSRF só por HTTPS.
+
+**Anterior (Cookies de sessão/CSRF só por HTTPS):** `SESSION_COOKIE_SECURE` e
 `CSRF_COOKIE_SECURE` não estavam definidos e o cookie saía **sem a flag `Secure`** — confirmado em produção
 com `curl`. O 301 do Nginx **não protege**: quando ele chega, o cookie já foi enviado em texto puro na
 requisição `http://`. Ambos agora são `not DEBUG` (em `http://127.0.0.1` o navegador não guarda cookie
