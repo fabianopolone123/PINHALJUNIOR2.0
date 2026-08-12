@@ -363,7 +363,10 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 - Manter o foco em **responsividade mobile first**.
 - Preservar o padrão visual já criado (paleta azul/verde inspirada no logo).
 - A `SECRET_KEY` em `config/settings.py` é de desenvolvimento; trocar em produção.
-- `DEBUG = True` e `ALLOWED_HOSTS = []` são configurações de desenvolvimento.
+- `DEBUG` e `ALLOWED_HOSTS` **vêm de variáveis de ambiente** (ver seção acima); não estão fixos no código.
+  Sem `DJANGO_ALLOWED_HOSTS` definido, o projeto assume máquina local e liga o DEBUG.
+- Os **cookies de sessão e CSRF exigem HTTPS** quando `DEBUG=False` (produção). O redirecionamento
+  HTTP→HTTPS é feito pelo **Nginx**, não pelo Django — não ligar `SECURE_SSL_REDIRECT`.
 - Ao criar models, lembrar de gerar as migrations correspondentes.
 - Sempre atualizar a documentação em `docs/` após qualquer alteração
   (ver `CODEX.md` e `docs/REGRAS_CODEX.md`).

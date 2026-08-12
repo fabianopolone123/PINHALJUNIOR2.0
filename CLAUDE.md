@@ -190,7 +190,16 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0052`). Detalhes em ESTADO_ATUAL.
+  (migrations até `0062`). Detalhes em ESTADO_ATUAL.
+- **Formas de pagamento por evento**: `Evento.formas_pagamento_online` (`ambos`/`pix`/`cartao`, padrão
+  `ambos`) define o que o **site** aceita naquele evento — vale para a inscrição e para a lojinha. Use
+  `evento.formas_online()` para montar a tela e **`evento.aceita_forma_online(forma)` para validar o POST**:
+  esconder o rádio no HTML não impede envio forjado. O **PDV/balcão não usa isso** (lá o operador segue com
+  dinheiro/cortesia, na variável `formas`). A lista canônica `FORMAS_PAGAMENTO_ONLINE` fica em `models.py`.
+- **Cookies de sessão/CSRF só por HTTPS**: `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` = `not DEBUG`.
+  **Não ligar `SECURE_SSL_REDIRECT`** — o Nginx já faz o 301; o aviso `security.W008` é esperado (há teste
+  documentando). Ao mexer em settings, lembre que o test runner do Django força `DEBUG=False` **depois** do
+  import, então não dá para comparar o cookie com `settings.DEBUG` num teste.
 
 ## Regras inegociáveis
 - **Após CADA alteração**: atualizar `docs/ESTADO_ATUAL.md` e `docs/HISTORICO_ALTERACOES.md`

@@ -1252,8 +1252,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `AutorizacaoImagem` — OneToOne com `Aventureiro` (dados do menor e do responsável para o termo).
 - `Evento` — evento do clube (`tipo` simples/inscrição, nome, local, descrição, data, **data_fim**,
   horário de início/término, `criado_por` FK User, `criado_em`). Campos de inscrição (evento complexo):
-  **`inscricao_aberta_publico`**, **`inscricao_limite`** (prazo) e **`valor_diretoria`**. Métodos
-  `fim_datetime()`, `prazo_inscricao()` e `inscricoes_abertas()`. Migrations `0002`, `0003`, `0004`.
+  **`inscricao_aberta_publico`**, **`inscricao_limite`** (prazo), **`valor_diretoria`** e
+  **`formas_pagamento_online`** (`ambos`/`pix`/`cartao`, padrão `ambos` — o que o **site** aceita neste
+  evento; migration **`0062`**). Métodos `fim_datetime()`, `prazo_inscricao()`, `inscricoes_abertas()`,
+  **`formas_online()`** (lista `(valor, rótulo)` filtrada, para montar a tela) e
+  **`aceita_forma_online(forma)`** (validação do POST — esconder o rádio no HTML não impede envio forjado).
+  O **PDV/balcão não usa** essas duas últimas: lá o operador segue com dinheiro/cortesia (variável `formas`).
+  Migrations `0002`, `0003`, `0004`, `0062`.
 - `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
 - `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,
@@ -1313,9 +1318,21 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos).
   Falta permitir que o **responsável logado** altere o próprio WhatsApp principal (hoje só o Diretor).
 - Edição dos dados do aventureiro pela área logada — hoje "Meus Dados" é somente visualização.
-- Permissões / perfis de usuário — NÃO implementados.
 - Validação avançada de CPF — NÃO implementada (deixada para o futuro).
-- Envio de e-mail — NÃO implementado.
+
+> **Corrigido em 2026-08-12:** esta lista dizia que **perfis de usuário** e **envio de e-mail** não estavam
+> implementados. Os dois estão prontos há tempo — perfis (5 grupos, `core/menus.py`, seletor "Ver como") e
+> e-mail (`core/email_envio.py`, tela `/email/`, gate anti-spam, `LogEmail`). A seção tinha ficado para trás.
+
+### Dívida técnica conhecida (levantada em 2026-08-12)
+- **Sem proteção contra brute force**: o login não tem throttle; e a **etapa 1 da recuperação de senha**
+  dispara **um WhatsApp real por POST**, sem limite — risco de a W-API bloquear o número do clube.
+- **`SECURE_HSTS_SECONDS`** ainda sem valor (ver "Configurações importantes").
+- **Ambiente local diferente do de produção** (Django 6.0.5/Python 3.14 aqui × 5.2.15/3.12 no VPS) — testar
+  local não garante o comportamento em produção.
+- `core/middleware.py`: `request.path.startswith("/static")` ignora o `FORCE_SCRIPT_NAME`. Hoje não morde
+  porque o Nginx serve os estáticos, mas é latente.
+- `core/views.py` com ~7.000 linhas; vale dividir por domínio quando houver folga.
 
 ## Próximas etapas previstas
 - **🎉 Lojinha (Fase 4) concluída** (produtos, comprar na página, junto da inscrição, PDV de vendas,
@@ -1511,8 +1528,19 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - Em DEBUG, o Django serve os arquivos de mídia em `/media/`.
 
 ## Configurações importantes
-- `DEBUG = True` (desenvolvimento).
-- `ALLOWED_HOSTS = []` (desenvolvimento).
+- **`DEBUG` e `ALLOWED_HOSTS` vêm do ambiente**, não estão fixos no código. Se `DJANGO_DEBUG` não for
+  definido, o padrão é seguro: liga o DEBUG só quando **não há** `DJANGO_ALLOWED_HOSTS` (= máquina local).
+  Em produção (VPS) o `/etc/pinhaljunior2.env` define os dois — `DEBUG=0`.
+- **Cookies só por HTTPS em produção**: `SESSION_COOKIE_SECURE` e `CSRF_COOKIE_SECURE` = `not DEBUG`.
+  Fixar em `True` quebraria o desenvolvimento local (`http://127.0.0.1` não guarda cookie `Secure`).
+- **`SECURE_SSL_REDIRECT` fica desligado de propósito** — quem redireciona HTTP→HTTPS é o Nginx, antes do
+  Django. O aviso `security.W008` do `check --deploy` é **esperado**; não "consertar".
+  Já `SECURE_PROXY_SSL_HEADER` **precisa** existir: sem ele o Django não reconhece a requisição como HTTPS.
+- **Pendente:** `SECURE_HSTS_SECONDS` sem valor (`security.W004`). HSTS mal configurado é irreversível por
+  meses no navegador de quem já visitou — se ligar, começar baixo e **sem** `includeSubDomains`.
+- **Ambiente divergente:** produção roda **Django 5.2.15 / Python 3.12.3**; a máquina de desenvolvimento
+  está em **6.0.5 / 3.14.3**. O `requirements.txt` (`>=5.2,<6.0`) casa com produção. No VPS cada aplicação
+  tem venv própria (rodam de 5.2.11 a 6.1 lado a lado), então o certo é **igualar o local**, não o servidor.
 - Idioma: `pt-br`. Fuso horário: `America/Sao_Paulo`.
 - Banco: SQLite (`db.sqlite3`), já com os models de cadastro migrados.
 - `STATICFILES_DIRS` aponta para a pasta `static/`.
