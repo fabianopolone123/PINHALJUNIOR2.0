@@ -16,7 +16,10 @@ recusado** (a lição das formas de pagamento: esconder o botão no HTML não é
 fecha**: painel, balcão/PDV, presença, operadores e financeiro seguem iguais, com selo "⏸️ Inativo" e faixa de
 aviso no painel — inativar **não apaga nem esconde** inscrição, pedido, presença nem dinheiro que já entrou.
 Foi escolhido **não** mexer no PDV: o balcão é ferramenta do Diretor/operador, não a porta pública que se quer
-fechar. Não confundir com `demo` (dado fictício, que sai de tudo). Suíte: **186 testes OK** (173 + 13).
+fechar. Não confundir com `demo` (dado fictício, que sai de tudo). **O botão não aparece em evento que já
+terminou** — ele já saiu do menu e não aceita inscrição, então inativar não faria nada; se o evento passado
+estiver inativo, o **"Reativar" continua** (senão o selo "Inativo" ficaria preso para sempre). Suíte:
+**188 testes OK** (173 + 15).
 Conferido em 380/520/1400px com sonda: **zero overflow**; a captura pegou um defeito já corrigido — o selo
 "Inativo" no `.evento-topo` (flex de 3 itens) **espremia o nome do evento**, e foi para o `.evento-meta`, que
 quebra linha. Antes: cookies de sessão/CSRF só por HTTPS.

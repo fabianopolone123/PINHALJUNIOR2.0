@@ -100,6 +100,11 @@
                                 <span aria-hidden="true">📋</span> Duplicar
                             </a>
                             {% endif %}
+                            {% comment %}Só aparece quando ainda há o que ligar/desligar: evento que já
+                            terminou saiu do menu sozinho e não aceita mais inscrição, então "Inativar" ali
+                            não faria nada. Se estiver inativo, o "Reativar" continua (para desfazer).
+                            {% endcomment %}
+                            {% if not e.ja_terminou or not e.ativo %}
                             <form method="post" action="{% url 'core:evento_ativar' e.id %}" class="form-ativar-evento"
                                   {% if e.ativo %}data-confirmar="Inativar o evento “{{ e.nome }}”? Ele sai do menu dos responsáveis e não aceita novas inscrições. Nada do que já foi registrado é apagado."{% endif %}>
                                 {% csrf_token %}
@@ -107,6 +112,7 @@
                                     {% if e.ativo %}<span aria-hidden="true">⏸️</span> Inativar{% else %}<span aria-hidden="true">▶️</span> Reativar{% endif %}
                                 </button>
                             </form>
+                            {% endif %}
                             {% if e.pode_excluir %}
                             <form method="post" action="{% url 'core:evento_excluir' e.id %}" class="form-excluir-evento"
                                   data-confirmar="Excluir o evento “{{ e.nome }}”? Esta ação não pode ser desfeita.">

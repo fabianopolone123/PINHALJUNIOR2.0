@@ -199,7 +199,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `False` com `ativo=False`, então POST forjado também é barrado. **Não confundir com `demo`**: `demo` tira o
   evento de tudo (contagens/financeiro); `ativo=False` só fecha o lado público — painel, balcão, presença e
   financeiro do Diretor continuam, e inscrição/pedido/dinheiro já registrados permanecem. Ao criar tela
-  pública nova de evento, **chame o bloqueio no início da view**.
+  pública nova de evento, **chame o bloqueio no início da view**. O botão Inativar/Reativar **não aparece em
+  evento que já terminou** (`ja_terminou()`) — lá não faria nada; só sobra o "Reativar" se estiver inativo.
 - **Formas de pagamento por evento**: `Evento.formas_pagamento_online` (`ambos`/`pix`/`cartao`, padrão
   `ambos`) define o que o **site** aceita naquele evento — vale para a inscrição e para a lojinha. Use
   `evento.formas_online()` para montar a tela e **`evento.aceita_forma_online(forma)` para validar o POST**:

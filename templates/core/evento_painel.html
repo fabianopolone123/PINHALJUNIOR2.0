@@ -56,6 +56,9 @@
                             {% if evento.local %}<span class="evento-info">📍 {{ evento.local }}</span>{% endif %}
                         </div>
                     </div>
+                    {% comment %}Igual à lista: evento que já terminou não tem o que inativar (já saiu do
+                    menu e não aceita inscrição); o "Reativar" fica se estiver inativo.{% endcomment %}
+                    {% if not evento.ja_terminou or not evento.ativo %}
                     <form method="post" action="{% url 'core:evento_ativar' evento.id %}" class="form-ativar-evento"
                           {% if evento.ativo %}data-confirmar="Inativar o evento “{{ evento.nome }}”? Ele sai do menu dos responsáveis e não aceita novas inscrições. Nada do que já foi registrado é apagado."{% endif %}>
                         {% csrf_token %}
@@ -64,6 +67,7 @@
                             {% if evento.ativo %}<span aria-hidden="true">⏸️</span> Inativar evento{% else %}<span aria-hidden="true">▶️</span> Reativar evento{% endif %}
                         </button>
                     </form>
+                    {% endif %}
                 </header>
 
                 {% if not evento.ativo %}

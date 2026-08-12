@@ -2406,6 +2406,32 @@ class EventoInativoTests(TestCase):
         self.evento.refresh_from_db()
         self.assertTrue(self.evento.ativo)
 
+    # --- evento que ja passou nao tem o que desligar ---
+
+    def _evento_passado(self, ativo=True):
+        return Evento.objects.create(
+            tipo="inscricao", nome="Acampamento do ano passado", local="Sede",
+            data=timezone.localdate() - datetime.timedelta(days=30), ativo=ativo,
+        )
+
+    def test_evento_que_ja_passou_nao_oferece_inativar(self):
+        """Ja saiu do menu e nao aceita inscricao: o botao nao faria nada."""
+        passado = self._evento_passado()
+        url_ativar = reverse("core:evento_ativar", args=[passado.id])
+        self.client.force_login(self.diretor)
+        self.assertNotContains(self.client.get(reverse("core:eventos")), url_ativar)
+        r = self.client.get(reverse("core:evento_painel", args=[passado.id]))
+        self.assertNotContains(r, url_ativar)
+
+    def test_evento_passado_e_inativo_ainda_pode_ser_reativado(self):
+        """Desfazer continua possivel — senao o selo 'Inativo' ficaria para sempre."""
+        passado = self._evento_passado(ativo=False)
+        url_ativar = reverse("core:evento_ativar", args=[passado.id])
+        self.client.force_login(self.diretor)
+        self.assertContains(self.client.get(reverse("core:eventos")), url_ativar)
+        r = self.client.get(reverse("core:evento_painel", args=[passado.id]))
+        self.assertContains(r, "Reativar evento")
+
     def test_lista_de_eventos_mostra_o_selo_e_o_botao(self):
         self.client.force_login(self.diretor)
         r = self.client.get(reverse("core:eventos"))

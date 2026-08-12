@@ -61,6 +61,14 @@ Reativar devolve tudo. Nada do que já aconteceu é apagado ou escondido.
 - **Padrão `True`** e alternância por POST: nenhum evento existente muda de comportamento, e um GET (link ou
   prefetch do navegador) nunca desliga um evento — há teste para o 405.
 
+### Ajuste (mesmo dia, a pedido)
+O botão **não aparece em evento que já terminou**: ele já saiu do menu sozinho e não aceita mais inscrição, e a
+lojinha fecha por `ja_terminou()` — "Inativar" ali seria um botão que não faz nada. Condição nos dois
+templates: `{% if not evento.ja_terminou or not evento.ativo %}`. O **"Reativar" continua** em evento passado
+que esteja inativo, senão o selo "Inativo" ficaria preso sem forma de desfazer. A **view não passou a recusar**
+esse POST de propósito: inativar evento passado é inócuo (não há nada a proteger), e travar por travar só
+criaria um caminho para erro. Mais 2 testes (**188 no total**).
+
 ### Verificação visual
 Chrome headless em 380/520/1400px nas duas telas, com sonda de overflow: **zero overflow** em todas
 (`scrollWidth == clientWidth`). **Um defeito achado e corrigido na captura:** o selo "Inativo" tinha nascido
