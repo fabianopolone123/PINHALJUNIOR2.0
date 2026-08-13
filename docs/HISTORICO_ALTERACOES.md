@@ -22,6 +22,59 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-13 - Eventos: inscrição paga direto ao evento (fora do caixa)
+
+### Resumo
+Alguns eventos (caso do **Aventuri**) são pagos **direto para a organização do evento**, não para o clube — mas
+a inscrição é feita e controlada aqui. O evento ganhou uma chave: **o pagamento é acertado direto com o evento**.
+Com ela ligada, quem se inscreve **não passa pela tela de fatura** — a inscrição é confirmada na hora, com
+**pagamento pendente**, e vê a **orientação cadastrada**. O Diretor dá a **baixa manual** na lista de inscrições.
+Esse dinheiro **não entra em nenhum financeiro** — nem no resultado do evento, nem no do clube.
+
+### Arquivos criados/alterados
+- `core/models.py`: `Evento` += `pagamento_por_fora` e `instrucoes_pagamento_fora`; `Inscricao` +=
+  `pagamento_externo`, `pago_externo_em`, `pago_externo_por` e as propriedades `pagamento_pendente`/
+  `situacao_pagamento`; `PedidoLoja` += `pagamento_externo`.
+- `core/migrations/0065_evento_instrucoes_pagamento_fora_and_more.py`: migration.
+- `core/forms.py`: os dois campos novos no `EventoInscricaoConfigForm` (mesmo formulário do seletor de formas).
+- `core/views.py`: `evento_inscrever_view` desvia para a criação imediata quando `pagamento_por_fora`;
+  `_criar_inscricao_de_payload` aceita `forma_pagamento=`/`pagamento_externo=`; nova view
+  `evento_inscricao_pago_view` (baixa manual, liga/desliga); `evento_painel_view`, `_montar_financeiro`,
+  `_montar_dashboard` e `financeiro_view` passaram a excluir o pago por fora dos totais de caixa.
+- `core/urls.py`: `eventos/<id>/inscricoes/<id>/pago/`.
+- `templates/core/evento_painel.html`: os dois campos na aba Configuração, selo de situação + botão "Marcar como
+  pago" na lista, card "Fora do caixa" no Financeiro e selo no extrato.
+- `templates/core/evento_inscrever.html` e `evento_inscricao_sucesso.html`: aviso + orientação.
+- `static/css/eventos.css`: `.insc-forma-*` (que **não tinham CSS**), `.sucesso-pendente*`, `.fin-card-fora`,
+  `.fin-card-acao`, `.lanc-fora`, `.lanc-selo-fora`, `.inscrito-acoes`, `.btn-marcar-pago`, `.pill-pendente`.
+- `core/tests.py`: nova classe `PagamentoPorForaTests` (11 testes).
+- `CLAUDE.md`, `docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`.
+
+### Decisões tomadas
+- **Aproveita o `formas_pagamento_online` de 12/08 em vez de criar outro seletor.** A primeira versão desta
+  feature (branch `backup/pagamento-por-fora-v1`) foi escrita sobre uma base desatualizada e criou um model
+  `FormaPagamentoEvento` com a sua própria lista de formas — dois seletores de pagamento na mesma aba. Foi
+  refeita: a escolha das formas continua sendo a que já existia e o "por fora" é **uma chave do evento**.
+- **Fora dos dois financeiros** (escolha do usuário): o dinheiro nunca passou pelo clube, então somá-lo no
+  resultado do evento faria o evento mostrar um lucro que não existe. A **baixa manual não joga valor no
+  caixa** — ela só registra que a pessoa acertou com o evento. O controle vira um card à parte.
+- **Status continua `confirmada`**: a pessoa **está inscrita**; a pendência é do pagamento, não da inscrição.
+  Por isso a situação é campo separado, e não um novo valor de `status` (que tiraria a pessoa das contagens).
+- **A lojinha levada junto herda o `pagamento_externo`**: sem isso uma camiseta comprada numa inscrição por fora
+  entraria no caixa sem nunca ter sido cobrada.
+
+### Validação
+- **229 testes OK** (218 + 11). Os novos cobrem: confirma sem fatura, orientação nas duas telas, exclusão dos
+  dois financeiros, baixa manual (liga/desliga) sem mexer no caixa, recusa de baixa em inscrição normal, lojinha
+  herdando a flag, forma forjada, evento sem a chave (regressão), grátis não vira pendente, campos na
+  configuração e **classes novas presentes no CSS**.
+- Chrome headless em 1400/520/380px com sonda de overflow: **zero overflow de página**.
+
+### Pendências
+- A orientação aparece nas telas, não na notificação de WhatsApp/e-mail. Se for útil mandar a chave Pix junto,
+  dá para criar um marcador `{pagamento}` no template `inscricao_evento`.
+- O branch `backup/pagamento-por-fora-v1` guarda a versão descartada; pode ser apagado quando não for mais útil.
+
 ## 2026-08-12 - WhatsApp: extrato de envios + webhook de entrega (quem recebeu e quem não)
 
 ### Resumo

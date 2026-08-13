@@ -388,6 +388,7 @@
                                 <span class="inscrito-codigo">{{ i.codigo }}</span>
                                 <span class="pill {% if i.status == 'confirmada' %}pill-verde{% else %}pill-cinza{% endif %}">{{ i.get_status_display }}</span>
                                 {% if i.origem == "pdv" %}<span class="pill">🎟️ Balcão · {{ i.get_forma_pagamento_display }}</span>{% endif %}
+                                {% if i.pagamento_externo %}<span class="pill {% if i.pago_externo_em %}pill-verde{% else %}pill-pendente{% endif %}" title="Pago direto ao evento — fora do caixa do clube">{% if i.pago_externo_em %}✅{% else %}⏳{% endif %} {{ i.situacao_pagamento }} · {{ i.get_forma_pagamento_display }}</span>{% endif %}
                                 {% if i.total_compras %}<span class="pill pill-loja">🛒 R$ {{ i.total_compras|moeda }}</span>{% endif %}
                                 {% for cp in i.cupons_aplicados %}<span class="pill pill-cupom">🏷️ {{ cp.codigo }} · −R$ {{ cp.valor_desconto|moeda }}</span>{% endfor %}
                                 <span class="inscrito-valor">R$ {{ i.valor_total|moeda }}</span>
@@ -434,10 +435,18 @@
                                 {% endif %}
                             </details>
                             {% if i.status == 'confirmada' %}
-                            <form method="post" action="{% url 'core:evento_inscricao_cancelar' evento.id i.id %}" class="inscrito-cancelar-form" onsubmit="return confirm('Cancelar a inscrição {{ i.codigo }}?');">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-secundario btn-cancelar-inscricao">Cancelar inscrição</button>
-                            </form>
+                            <div class="inscrito-acoes">
+                                {% if i.pagamento_externo %}
+                                <form method="post" action="{% url 'core:evento_inscricao_pago' evento.id i.id %}" onsubmit="return confirm('{% if i.pago_externo_em %}Voltar a inscrição {{ i.codigo }} para pagamento pendente?{% else %}Confirmar que a inscrição {{ i.codigo }} foi paga direto ao evento?{% endif %}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-secundario btn-marcar-pago">{% if i.pago_externo_em %}↩️ Desmarcar pago{% else %}✅ Marcar como pago{% endif %}</button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{% url 'core:evento_inscricao_cancelar' evento.id i.id %}" class="inscrito-cancelar-form" onsubmit="return confirm('Cancelar a inscrição {{ i.codigo }}?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-secundario btn-cancelar-inscricao">Cancelar inscrição</button>
+                                </form>
+                            </div>
                             {% endif %}
                         </li>
                         {% endfor %}
@@ -466,6 +475,14 @@
                             {% include "core/_campo.html" with campo=config_form.inscricao_limite %}
                             {% include "core/_campo.html" with campo=config_form.valor_diretoria %}
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_online %}
+                            <div class="campo">
+                                <div class="campo-checkbox">
+                                    {{ config_form.pagamento_por_fora }}
+                                    <label for="{{ config_form.pagamento_por_fora.id_for_label }}">{{ config_form.pagamento_por_fora.label }}</label>
+                                </div>
+                                {% if config_form.pagamento_por_fora.help_text %}<small class="ajuda">{{ config_form.pagamento_por_fora.help_text }}</small>{% endif %}
+                            </div>
+                            {% include "core/_campo.html" with campo=config_form.instrucoes_pagamento_fora %}
                             <div class="form-acoes">
                                 <button type="submit" class="btn-acao">
                                     <span aria-hidden="true">💾</span> Salvar configuração
@@ -767,7 +784,7 @@
                 <!-- ===================== Financeiro ===================== -->
                 <section class="painel-secao" data-secao="financeiro" hidden>
                     <h2 class="secao-titulo">Financeiro do evento</h2>
-                    <p class="painel-nota">Extrato completo: tudo que entra, tudo que sai e o resultado. Os cancelados aparecem no extrato (riscados), mas não entram nos totais.</p>
+                    <p class="painel-nota">Extrato completo: tudo que entra, tudo que sai e o resultado. Os cancelados aparecem no extrato (riscados) e o que foi pago direto ao evento aparece marcado como <strong>fora do caixa</strong> — nenhum dos dois entra nos totais.</p>
 
                     <!-- Resultado em destaque -->
                     <div class="fin-resultado {% if financeiro.resultado < 0 %}fin-neg{% elif financeiro.resultado > 0 %}fin-pos{% endif %}">
@@ -830,6 +847,19 @@
                             </ul>
                             <button type="button" class="btn-secundario fin-ir-custos" data-aba-ir="custos">Gerenciar custos →</button>
                         </div>
+
+                        {% if externo.total %}
+                        <div class="fin-card fin-card-fora">
+                            <h3 class="fin-card-titulo">Fora do caixa (pago direto ao evento)</h3>
+                            <ul class="fin-linhas">
+                                <li><span>✅ Já acertado ({{ externo.qtd_pago }})</span><strong>R$ {{ externo.pago|moeda }}</strong></li>
+                                <li><span>⏳ A acertar ({{ externo.qtd_pendente }})</span><strong>R$ {{ externo.pendente|moeda }}</strong></li>
+                                <li class="fin-linha-total"><span>Total</span><strong>R$ {{ externo.total|moeda }}</strong></li>
+                            </ul>
+                            <p class="painel-nota">Esse dinheiro <strong>não entra</strong> nos totais acima nem no Financeiro do clube — quem recebe é o próprio evento. É só controle.</p>
+                            <button type="button" class="btn-secundario fin-card-acao" data-aba-ir="inscricoes">Ver inscrições →</button>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <!-- Vendidos por produto -->
@@ -871,12 +901,13 @@
                             </thead>
                             <tbody>
                                 {% for l in financeiro.extrato %}
-                                <tr class="{% if l.cancelado %}lanc-cancelado{% endif %}">
+                                <tr class="{% if l.cancelado %}lanc-cancelado{% elif l.fora_caixa %}lanc-fora{% endif %}">
                                     <td class="lanc-data">{{ l.data|date:"d/m/Y H:i" }}</td>
                                     <td>
                                         <span class="lanc-tipo lanc-tipo-{{ l.tipo|slugify }}">{{ l.tipo }}</span>
                                         {% if l.codigo %}<span class="lanc-cod">{{ l.codigo }}</span>{% endif %}
                                         {% if l.cancelado %}<span class="lanc-selo">cancelado</span>{% endif %}
+                                        {% if l.fora_caixa and not l.cancelado %}<span class="lanc-selo lanc-selo-fora">fora do caixa</span>{% endif %}
                                     </td>
                                     <td class="lanc-desc">{{ l.descricao }}{% if l.canal %} <small class="lanc-canal">· {{ l.canal }}</small>{% endif %}</td>
                                     <td>{{ l.forma|default:"—" }}</td>

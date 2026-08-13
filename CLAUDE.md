@@ -47,7 +47,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `/usuarios/aventureiro/<id>/termos/` termos assinados (Diretor; página pra imprimir/salvar PDF)
 - `/cadastro/` **tela de escolha** (Aventureiro / Diretoria / Diretoria+Aventureiro) · `/cadastro/aventureiro/` conta+1º aventureiro · `/cadastro/diretoria/` cadastro de diretoria (`?com_aventureiro=1` emenda no aventureiro → 2 perfis) · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
-- **Eventos** (Diretor; PDV/operar também por operadores): `/eventos/`, `/eventos/<id>/` (painel),
+- **Eventos** (Diretor; PDV/operar também por operadores; baixa do pagamento por fora em
+  `/eventos/<id>/inscricoes/<id>/pago/`): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/ativar/` (POST: inativa/reativa o evento — sai do menu e fecha inscrição/lojinha),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** `/presenca/` **ramifica por perfil**: Diretor marca presença (`/presenca/<id>/`,
@@ -214,6 +215,14 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `evento.formas_online()` para montar a tela e **`evento.aceita_forma_online(forma)` para validar o POST**:
   esconder o rádio no HTML não impede envio forjado. O **PDV/balcão não usa isso** (lá o operador segue com
   dinheiro/cortesia, na variável `formas`). A lista canônica `FORMAS_PAGAMENTO_ONLINE` fica em `models.py`.
+- **Inscrição paga direto ao evento**: `Evento.pagamento_por_fora` (+ `instrucoes_pagamento_fora`) desliga a
+  cobrança pelo site naquele evento — a inscrição é criada **na hora** (`Inscricao.pagamento_externo=True`, sem
+  passar pelo Mercado Pago) e fica **pendente** até a baixa manual do Diretor (`pago_externo_em`, rota
+  `/eventos/<id>/inscricoes/<id>/pago/`). **Esse dinheiro nunca entra no caixa** — nem no resultado do evento,
+  nem no Financeiro do clube, **nem depois da baixa** (a baixa só registra que a pessoa acertou com o evento).
+  Toda soma de caixa nova precisa excluir `pagamento_externo=True` (já feito em `evento_painel_view`,
+  `_montar_financeiro`, `_montar_dashboard` e `financeiro_view`); item de lojinha levado junto herda a flag
+  (`PedidoLoja.pagamento_externo`). A forma escolhida vira só o registro de **como** será o acerto.
 - **Cookies de sessão/CSRF só por HTTPS**: `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` = `not DEBUG`.
   **Não ligar `SECURE_SSL_REDIRECT`** — o Nginx já faz o 301; o aviso `security.W008` é esperado (há teste
   documentando). Ao mexer em settings, lembre que o test runner do Django força `DEBUG=False` **depois** do

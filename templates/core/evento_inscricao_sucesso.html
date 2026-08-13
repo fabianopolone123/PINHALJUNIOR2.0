@@ -51,7 +51,17 @@
                 </div>
                 {% endif %}
 
+                {% if inscricao.pagamento_externo %}
+                <div class="sucesso-pendente">
+                    <p class="sucesso-pendente-titulo">💰 Pagamento pendente — acertado direto com o evento</p>
+                    <p class="sucesso-pendente-txt">A inscrição já está <strong>confirmada</strong>. Falta só acertar o pagamento de <strong>R$ {{ inscricao.total_com_loja|moeda }}</strong>{% if evento.instrucoes_pagamento_fora %} conforme a orientação abaixo{% endif %}.</p>
+                    {% if evento.instrucoes_pagamento_fora %}
+                    <p class="sucesso-pendente-instrucoes">{{ evento.instrucoes_pagamento_fora|linebreaksbr }}</p>
+                    {% endif %}
+                </div>
+                {% else %}
                 <p class="painel-nota">Pagamento simulado — a inscrição já consta como confirmada.</p>
+                {% endif %}
 
                 <div class="evento-publico-acao">
                     {% if tem_loja %}

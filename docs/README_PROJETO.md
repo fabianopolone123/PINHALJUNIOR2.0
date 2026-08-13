@@ -300,10 +300,12 @@ PINHALJUNIOR2.0/
 - **MensagemWhatsapp** — extrato de saída do WhatsApp: uma linha por mensagem enviada, com a situação
   (falhou / sem confirmação / enviada / entregue / lida / não entregue) vinda do webhook de entrega.
 - **Evento** — evento do clube (`tipo` simples/inscrição; datas/horários; config de inscrição:
-  aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público).
+  aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público;
+  **`pagamento_por_fora`** = a inscrição é confirmada sem cobrar e o acerto é direto com o evento).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
-- **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem).
+- **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem;
+  `pagamento_externo` = paga direto ao evento, fora do caixa do clube).
 - **ProdutoEvento**, **VariacaoProduto**, **PedidoLoja**, **ItemPedidoLoja** — lojinha e pedidos.
 - **OperadorEvento** e **PerfilUsuario** — operadores do PDV e a flag de troca de senha.
 

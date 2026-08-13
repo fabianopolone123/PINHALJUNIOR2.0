@@ -2280,6 +2280,212 @@ class FormasPagamentoEventoTests(TestCase):
         self.assertContains(r, "Somente Pix")
 
 
+class PagamentoPorForaTests(TestCase):
+    """Evento pago direto ao evento (ex.: Aventuri): a inscricao e confirmada sem
+    cobrar, fica como pagamento pendente e o valor NAO entra em caixa nenhum."""
+
+    def setUp(self):
+        self.diretor = User.objects.create_user("dir_fora", password="x")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"
+        cfg.access_token_teste = "TEST-abc"
+        cfg.webhook_secret_teste = "s"
+        cfg.save()
+        self.ev = Evento.objects.create(
+            tipo="inscricao", nome="Aventuri", local="Campo",
+            data=timezone.localdate() + datetime.timedelta(days=10),
+            inscricao_aberta_publico=True, formas_pagamento_online="pix",
+        )
+        FaixaEtariaPreco.objects.create(
+            evento=self.ev, idade_min=1, idade_max=99, valor=Decimal("50.00")
+        )
+
+    def _ligar_por_fora(self, instrucoes="Pix direto para a organizacao."):
+        self.ev.pagamento_por_fora = True
+        self.ev.instrucoes_pagamento_fora = instrucoes
+        self.ev.save(update_fields=["pagamento_por_fora", "instrucoes_pagamento_fora"])
+
+    def _post(self):
+        return {
+            "responsavel_nome": "Mae", "responsavel_whatsapp": "4799",
+            "responsavel_email": "m@exemplo.com", "responsavel_cpf": "111",
+            "part_idx": ["0"], "part_nome_0": "Crianca", "part_idade_0": "10",
+            "forma_pagamento": "pix",
+        }
+
+    def _inscrever(self):
+        resp = self.client.post(
+            reverse("core:evento_inscrever", args=[self.ev.id]), self._post()
+        )
+        self.assertEqual(resp.status_code, 302)
+        return Inscricao.objects.get()
+
+    def test_confirma_na_hora_sem_passar_pela_fatura(self):
+        self._ligar_por_fora()
+        insc = self._inscrever()
+        self.assertEqual(insc.status, "confirmada")
+        self.assertTrue(insc.pagamento_externo)
+        self.assertIsNone(insc.pago_externo_em)      # nasce pendente
+        self.assertEqual(insc.forma_pagamento, "pix")
+        self.assertEqual(insc.valor_total, Decimal("50.00"))
+        self.assertEqual(Pagamento.objects.count(), 0)   # nao passou pelo MP
+
+    def test_sucesso_mostra_a_orientacao_cadastrada(self):
+        self._ligar_por_fora("Pix para a chave do Aventuri.")
+        self._inscrever()
+        html = self.client.get(
+            reverse("core:evento_inscricao_sucesso", args=[self.ev.id])
+        ).content.decode()
+        self.assertIn("Pix para a chave do Aventuri.", html)
+        self.assertIn("Pagamento pendente", html)
+
+    def test_pagina_de_inscricao_avisa_e_orienta(self):
+        self._ligar_por_fora("Envie o comprovante no grupo.")
+        html = self.client.get(
+            reverse("core:evento_inscrever", args=[self.ev.id])
+        ).content.decode()
+        self.assertIn("pagamento é feito direto ao evento", html)
+        self.assertIn("Envie o comprovante no grupo.", html)
+
+    def test_fica_fora_do_caixa_do_evento_e_do_clube(self):
+        self._ligar_por_fora()
+        self._inscrever()
+        self.client.force_login(self.diretor)
+
+        painel = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
+        self.assertEqual(painel.context["resumo"]["arrecadacao_inscricoes"], Decimal("0"))
+        self.assertEqual(painel.context["resumo"]["receitas"], Decimal("0"))
+        self.assertEqual(painel.context["resumo"]["inscritos"], 1)   # a pessoa conta
+        self.assertEqual(painel.context["externo"]["pendente"], Decimal("50.00"))
+        self.assertEqual(painel.context["externo"]["pago"], Decimal("0"))
+
+        fin = self.client.get(reverse("core:financeiro"))
+        self.assertEqual(fin.context["resumo"]["eventos"]["inscricoes"], Decimal("0"))
+
+    def test_marcar_pago_nao_joga_o_valor_no_caixa(self):
+        self._ligar_por_fora()
+        insc = self._inscrever()
+        self.client.force_login(self.diretor)
+        url = reverse("core:evento_inscricao_pago", args=[self.ev.id, insc.id])
+
+        self.client.post(url)
+        insc.refresh_from_db()
+        self.assertIsNotNone(insc.pago_externo_em)
+        self.assertEqual(insc.pago_externo_por_id, self.diretor.id)
+
+        painel = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
+        self.assertEqual(painel.context["resumo"]["arrecadacao_inscricoes"], Decimal("0"))
+        self.assertEqual(painel.context["externo"]["pago"], Decimal("50.00"))
+        self.assertEqual(painel.context["externo"]["pendente"], Decimal("0"))
+
+        # O mesmo botao desfaz a baixa.
+        self.client.post(url)
+        insc.refresh_from_db()
+        self.assertIsNone(insc.pago_externo_em)
+        self.assertIsNone(insc.pago_externo_por_id)
+
+    def test_marcar_pago_recusa_inscricao_normal(self):
+        """So inscricao paga por fora tem baixa manual — a normal ja foi cobrada."""
+        insc = Inscricao.objects.create(
+            evento=self.ev, responsavel_nome="Pai",
+            codigo=Inscricao.gerar_codigo_unico(), valor_total=Decimal("50.00"),
+        )
+        self.client.force_login(self.diretor)
+        self.client.post(
+            reverse("core:evento_inscricao_pago", args=[self.ev.id, insc.id])
+        )
+        insc.refresh_from_db()
+        self.assertIsNone(insc.pago_externo_em)
+
+    def test_lojinha_junto_herda_o_fora_do_caixa(self):
+        """Camiseta levada na inscricao por fora tambem nao foi cobrada."""
+        self._ligar_por_fora()
+        produto = ProdutoEvento.objects.create(evento=self.ev, nome="Camiseta")
+        var = VariacaoProduto.objects.create(
+            produto=produto, nome="M", valor=Decimal("30.00")
+        )
+        dados = self._post()
+        dados[f"qtd_{var.id}"] = "1"
+        self.client.post(reverse("core:evento_inscrever", args=[self.ev.id]), dados)
+        pedido = PedidoLoja.objects.get()
+        self.assertTrue(pedido.pagamento_externo)
+
+        self.client.force_login(self.diretor)
+        painel = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
+        self.assertEqual(painel.context["resumo"]["vendas_loja"], Decimal("0"))
+        self.assertEqual(painel.context["externo"]["total"], Decimal("80.00"))
+
+    def test_forma_forjada_cai_na_liberada(self):
+        """POST com forma que o evento nao aceita nao muda o registro."""
+        self._ligar_por_fora()
+        dados = self._post()
+        dados["forma_pagamento"] = "cartao"     # evento e "somente Pix"
+        self.client.post(reverse("core:evento_inscrever", args=[self.ev.id]), dados)
+        insc = Inscricao.objects.get()
+        self.assertTrue(insc.pagamento_externo)
+        self.assertEqual(insc.forma_pagamento, "pix")
+        self.assertEqual(Pagamento.objects.count(), 0)
+
+    def test_evento_sem_a_opcao_continua_cobrando_pelo_site(self):
+        """Regressao: quem nao ligar a chave segue cobrando pelo Mercado Pago."""
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-X", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            self.client.post(
+                reverse("core:evento_inscrever", args=[self.ev.id]), self._post()
+            )
+        self.assertEqual(Pagamento.objects.count(), 1)
+        self.assertEqual(Inscricao.objects.count(), 0)   # so cria ao aprovar
+
+    def test_gratis_nao_vira_pagamento_pendente(self):
+        """Sem valor nao ha o que pagar por fora — segue confirmando na hora."""
+        self.ev.faixas_preco.all().delete()
+        self._ligar_por_fora()
+        insc = self._inscrever()
+        self.assertFalse(insc.pagamento_externo)
+        self.assertEqual(insc.valor_total, Decimal("0.00"))
+
+    def test_config_do_evento_tem_os_campos(self):
+        self.client.force_login(self.diretor)
+        html = self.client.get(
+            reverse("core:evento_painel", args=[self.ev.id])
+        ).content.decode()
+        self.assertIn("pagamento_por_fora", html)
+        self.assertIn("instrucoes_pagamento_fora", html)
+
+    def test_classes_novas_existem_no_css(self):
+        """Regressao do defeito de Aniversarios: classe usada no HTML sem regra
+        em CSS nenhum nao quebra teste — so renderiza feio."""
+        from pathlib import Path
+
+        from django.conf import settings
+
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "eventos.css").read_text(
+            encoding="utf-8"
+        )
+        self._ligar_por_fora()
+        self._inscrever()
+        self.client.force_login(self.diretor)
+        paginas = {
+            reverse("core:evento_inscrever", args=[self.ev.id]): (
+                "insc-forma-pagamento", "insc-forma-titulo", "insc-forma-opt",
+                "insc-forma-instrucoes",
+            ),
+            reverse("core:evento_painel", args=[self.ev.id]): (
+                "inscrito-acoes", "btn-marcar-pago", "pill-pendente",
+                "fin-card-fora", "fin-card-acao", "lanc-fora", "lanc-selo-fora",
+            ),
+        }
+        for url, classes in paginas.items():
+            html = self.client.get(url).content.decode()
+            for classe in classes:
+                self.assertIn(classe, html, f"{classe} nao esta no HTML de {url}")
+                self.assertIn(f".{classe}", css, f"{classe} ausente do CSS")
+
+
 class ExtratoWhatsappTests(TestCase):
     """Extrato de saida do WhatsApp: quem recebeu e quem nao (aba 📨 Envios).
 

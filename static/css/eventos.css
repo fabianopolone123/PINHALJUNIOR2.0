@@ -673,6 +673,31 @@ a.tipo-card:hover {
 .insc-total-linha strong { color: var(--azul-escuro); }
 .insc-total-desc { font-size: 0.9rem; font-weight: 700; color: #8a6d00; }
 
+/* Forma de pagamento na inscrição pública (as opções vêm da configuração do
+   evento). Com "pagamento por fora" ligado, a orientação aparece no destaque
+   âmbar — é onde a pessoa fica sabendo como e para quem pagar. */
+.insc-forma-pagamento {
+    display: flex; flex-direction: column; gap: 8px;
+    margin: 14px 0; padding: 14px 16px;
+    background: var(--fundo-conteudo, #eef3f9);
+    border: 1px solid var(--borda); border-radius: 12px;
+}
+.insc-forma-titulo { font-weight: 700; color: var(--azul-escuro); font-size: 0.92rem; }
+.insc-forma-opt {
+    display: flex; align-items: flex-start; gap: 10px;
+    min-height: 40px; padding: 6px 8px; border-radius: 10px;
+    background: var(--branco); border: 1px solid var(--borda);
+    cursor: pointer; font-size: 0.95rem;
+}
+.insc-forma-opt:has(input:checked) { border-color: var(--azul); box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.18); }
+.insc-forma-opt input { margin-top: 4px; }
+.insc-forma-opt small { display: block; color: var(--texto-suave); font-size: 0.8rem; }
+.insc-forma-instrucoes {
+    margin: 0; padding: 10px 12px;
+    background: #fff8e1; border: 1px solid #f0d98c; border-radius: 10px;
+    font-size: 0.88rem; color: #6b5300; overflow-wrap: anywhere;
+}
+
 .campo-escopo { font-size: 0.72rem; }
 
 .btn-mapa {
@@ -851,6 +876,10 @@ a.tipo-card:hover {
 .inscrito-respostas dd { margin: 0; color: var(--texto); overflow-wrap: anywhere; }
 .inscrito-cancelar-form { margin-top: 6px; }
 .btn-cancelar-inscricao { color: #c0392b; }
+.inscrito-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Baixa manual da inscrição paga direto ao evento (não mexe no caixa). */
+.btn-marcar-pago { margin-top: 6px; color: #1b7a45; }
+.pill-pendente { color: #8a6d00; background: rgba(224, 168, 0, 0.18); }
 .pill-loja { color: #6a4fb3; background: rgba(106, 79, 179, 0.14); }
 .inscrito-compras { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--borda); }
 .inscrito-compras-titulo { display: block; font-size: 0.88rem; color: var(--azul-escuro); margin-bottom: 4px; }
@@ -869,6 +898,18 @@ a.tipo-card:hover {
 .sucesso-card .inscrito-parts { display: inline-block; text-align: left; }
 .sucesso-total { font-size: 1.1rem; margin-top: 8px; }
 .sucesso-card .evento-publico-acao a { margin: 4px; }
+/* Inscrição confirmada com pagamento por fora: a orientação cadastrada é a
+   única coisa que diz à pessoa como pagar — precisa saltar aos olhos. */
+.sucesso-pendente {
+    margin: 14px 0 4px; padding: 14px 16px; text-align: left;
+    background: #fff8e1; border: 1px solid #f0d98c; border-radius: 12px;
+}
+.sucesso-pendente-titulo { margin: 0 0 6px; font-weight: 700; color: #6b5300; }
+.sucesso-pendente-txt { margin: 0; font-size: 0.92rem; color: #6b5300; }
+.sucesso-pendente-instrucoes {
+    margin: 10px 0 0; padding-top: 10px; border-top: 1px dashed #e0c97a;
+    font-size: 0.95rem; color: var(--texto); overflow-wrap: anywhere;
+}
 
 /* ===== Loja: forma de pagamento (cliente final) ===== */
 .pagamento-metodos { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 6px; }
@@ -1005,7 +1046,13 @@ a.tipo-card:hover {
 .fin-linha-total span, .fin-linha-total strong { color: var(--azul-escuro); }
 .fin-qtd { color: var(--texto-suave); }
 .fin-card-saida .fin-linha-total strong { color: #c0392b; }
+/* Controle do que foi pago direto ao evento: fica fora de TODO total do caixa,
+   por isso o card é visualmente separado (âmbar) dos cards de dinheiro real. */
+.fin-card-fora { border-color: #f0d98c; background: #fffdf5; }
+.fin-card-fora .fin-card-titulo { color: #8a6d00; }
+.fin-card-fora .fin-linha-total strong { color: #8a6d00; }
 .fin-ir-custos { margin-top: 12px; }
+.fin-card-acao { margin-top: 12px; }
 
 @media (min-width: 640px) {
     .fin-cards { grid-template-columns: repeat(2, 1fr); }
@@ -1040,6 +1087,11 @@ a.tipo-card:hover {
 }
 .lanc-cancelado { opacity: 0.55; }
 .lanc-cancelado .lanc-valor { text-decoration: line-through; }
+/* Pago direto ao evento: o lançamento existe (auditoria), mas não é caixa —
+   destacado em âmbar, sem riscar (o valor é real, só não passou pelo clube). */
+.lanc-fora { background: #fffdf5; }
+.lanc-fora .lanc-valor { color: #8a6d00; }
+.lanc-selo-fora { background: rgba(224, 168, 0, 0.22); color: #8a6d00; }
 
 /* ===== Resumo / Dashboard (Fase 5.2) ===== */
 .kpi-card { position: relative; transition: transform var(--transicao), box-shadow var(--transicao); }

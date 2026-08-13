@@ -89,10 +89,12 @@
                         <span class="insc-total-linha"><span class="insc-total-label">Total:</span> <strong data-insc-total id="inscTotal">R$ 0,00</strong></span>
                     </div>
 
-                    {% if mp_configurado %}
+                    {% if mp_configurado or evento.pagamento_por_fora %}
                     {% comment %}
                     As formas vêm do próprio evento (Diretor escolhe na configuração
-                    da inscrição): pode ser só Pix, só cartão ou os dois.
+                    da inscrição): pode ser só Pix, só cartão ou os dois. Com
+                    "pagamento por fora" ligado, elas viram só o registro de como o
+                    acerto será feito — a cobrança não passa pelo site.
                     {% endcomment %}
                     <div class="insc-forma-pagamento" data-insc-forma>
                         <span class="insc-forma-titulo">
@@ -101,9 +103,15 @@
                         {% for f in formas_pagamento %}
                         <label class="insc-forma-opt">
                             <input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forloop.first %} checked{% endif %}>
-                            {% if f.0 == "pix" %}💠 Pix{% else %}💳 {{ f.1 }} <small>(até 12x, juros por conta do titular)</small>{% endif %}
+                            {% if f.0 == "pix" %}💠 Pix{% else %}💳 {{ f.1 }}{% if not evento.pagamento_por_fora %} <small>(até 12x, juros por conta do titular)</small>{% endif %}{% endif %}
                         </label>
                         {% endfor %}
+                        {% if evento.pagamento_por_fora %}
+                        <p class="insc-forma-instrucoes">
+                            <strong>O pagamento é feito direto ao evento</strong> — a inscrição é confirmada na hora e o acerto fica pendente.
+                            {% if evento.instrucoes_pagamento_fora %}<br>{{ evento.instrucoes_pagamento_fora|linebreaksbr }}{% endif %}
+                        </p>
+                        {% endif %}
                     </div>
                     {% endif %}
 
@@ -112,7 +120,9 @@
                             <span aria-hidden="true">🎟️</span> Confirmar inscrição
                         </button>
                     </div>
-                    {% if mp_configurado %}
+                    {% if evento.pagamento_por_fora %}
+                    <p class="painel-nota" style="text-align:center;">A inscrição é confirmada na hora. O pagamento é acertado direto com o evento, conforme a orientação acima.</p>
+                    {% elif mp_configurado %}
                     <p class="painel-nota" style="text-align:center;">Inscrições gratuitas são confirmadas na hora. Havendo valor, você paga por Pix ou cartão para confirmar.</p>
                     {% else %}
                     <p class="painel-nota" style="text-align:center;">Pagamento simulado nesta etapa — a inscrição é confirmada na hora.</p>

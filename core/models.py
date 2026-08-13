@@ -542,6 +542,20 @@ class Evento(models.Model):
         choices=FORMAS_ONLINE_EVENTO_CHOICES,
         default=FORMAS_ONLINE_AMBOS,
     )
+    # "Pago direto ao evento": as formas escolhidas acima NÃO são cobradas pelo
+    # site. Quem se inscreve não passa pela tela de fatura — a inscrição é
+    # confirmada na hora com o pagamento PENDENTE, e o acerto é feito direto com
+    # a organização do evento (caso dos eventos regionais, ex.: Aventuri).
+    # Consequência contábil: esse dinheiro NUNCA entra no caixa do clube.
+    pagamento_por_fora = models.BooleanField(
+        "Pagamento é feito direto ao evento (não entra no caixa do clube)",
+        default=False,
+    )
+    # Texto mostrado a quem se inscreve (como e para quem pagar). Só aparece
+    # quando `pagamento_por_fora` está ligado.
+    instrucoes_pagamento_fora = models.TextField(
+        "Orientação de pagamento", blank=True
+    )
 
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -833,6 +847,25 @@ class Inscricao(models.Model):
     valor_recebido = models.DecimalField(
         "Valor recebido", max_digits=10, decimal_places=2, null=True, blank=True
     )
+    # Inscrição fechada num evento com `pagamento_por_fora`: está confirmada,
+    # mas o dinheiro NÃO passa pelo clube — fica FORA do caixa (Financeiro do
+    # clube e resultado do evento). `pago_externo_em` é a baixa manual do
+    # Diretor: registra que a pessoa acertou com o evento; NÃO joga o valor no
+    # caixa, nem depois de marcada.
+    pagamento_externo = models.BooleanField(
+        "Pago direto ao evento (fora do caixa)", default=False
+    )
+    pago_externo_em = models.DateTimeField(
+        "Pagamento confirmado em", null=True, blank=True
+    )
+    pago_externo_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inscricoes_baixadas",
+        verbose_name="Baixa registrada por",
+    )
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -879,6 +912,19 @@ class Inscricao(models.Model):
         if self.valor_recebido is None:
             return None
         return self.valor_recebido - self.total_com_loja
+
+    @property
+    def pagamento_pendente(self):
+        """Inscrição paga por fora que ainda não foi acertada."""
+        return self.pagamento_externo and self.pago_externo_em is None
+
+    @property
+    def situacao_pagamento(self):
+        """Rótulo da situação do pagamento por fora ("" no fluxo normal, em que
+        a inscrição só existe depois de o pagamento aprovar)."""
+        if not self.pagamento_externo:
+            return ""
+        return "Pago por fora" if self.pago_externo_em else "Pagamento pendente"
 
     @staticmethod
     def gerar_codigo_unico():
@@ -1043,6 +1089,11 @@ class PedidoLoja(models.Model):
     # Só para pagamento em dinheiro (para calcular/registrar o troco).
     valor_recebido = models.DecimalField(
         "Valor recebido", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    # Pedido fechado junto de uma inscrição paga direto ao evento: como não
+    # houve cobrança pelo site, o valor fica FORA do caixa, igual à inscrição.
+    pagamento_externo = models.BooleanField(
+        "Pago direto ao evento (fora do caixa)", default=False
     )
     # Atendente que registrou a venda no balcão (PDV).
     registrado_por = models.ForeignKey(

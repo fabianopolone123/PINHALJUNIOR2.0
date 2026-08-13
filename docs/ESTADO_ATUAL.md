@@ -2,8 +2,28 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-12 (**WhatsApp: quem recebeu e quem não — extrato de envios + webhook de
-entrega**): até aqui o sistema só sabia que a **W-API aceitou** a mensagem; número sem WhatsApp, número errado
+**Última atualização:** 2026-08-13 (**Eventos: inscrição paga direto ao evento**): alguns eventos (caso do
+**Aventuri**) são pagos **direto para a organização**, não para o clube — mas a inscrição precisa ser feita e
+controlada aqui. Em cima do seletor de formas já existente (`formas_pagamento_online`, de 12/08), o evento
+ganhou a chave **`pagamento_por_fora`** + **`instrucoes_pagamento_fora`** (migration **0065**), no mesmo
+formulário "Configuração da inscrição". Com ela ligada, quem se inscreve **não passa pela tela de fatura**: a
+inscrição é criada na hora como **confirmada**, com `Inscricao.pagamento_externo=True` e **pagamento pendente**,
+a notificação de inscrição sai igual e a **orientação cadastrada aparece** na página de inscrição e na de
+sucesso. Na lista do painel a linha ganha o selo **⏳ Pagamento pendente / ✅ Pago por fora** e o botão **"Marcar
+como pago"** (reversível, só Diretor). **O dinheiro fica fora dos dois financeiros** — nem no resultado do
+evento nem no Financeiro do clube; a baixa manual **não** joga valor no caixa, só registra que a pessoa acertou
+com o evento. No painel isso vira um card à parte (**"Fora do caixa"**: já acertado × a acertar) e no extrato do
+evento o lançamento aparece marcado **"fora do caixa"** (como os cancelados: visível para auditoria, fora dos
+totais). Pontos de desenho: (1) **evento que não ligar a chave continua idêntico** (cobra pelo Mercado Pago);
+(2) a forma escolhida vira só o **registro de como será o acerto** — POST forjado cai na forma liberada, como no
+fluxo cobrado; (3) inscrição **grátis não vira pendente** (não há o que pagar); (4) item de lojinha levado junto
+herda o `pagamento_externo` (campo novo em `PedidoLoja`) — sem isso, uma camiseta comprada numa inscrição por
+fora entraria no caixa sem nunca ter sido cobrada. As classes `.insc-forma-*` (usadas desde a criação da tela)
+**não tinham CSS nenhum** e ganharam estilo agora. Suíte: **229 testes OK** (218 + 11). Conferido em
+1400/520/380px, zero overflow de página. Antes: WhatsApp — extrato de envios + webhook de entrega.
+
+**Anterior (WhatsApp: quem recebeu e quem não — extrato de envios + webhook de
+entrega):** até aqui o sistema só sabia que a **W-API aceitou** a mensagem; número sem WhatsApp, número errado
 ou pessoa que bloqueou o clube devolvem sucesso e a mensagem morre no caminho — e nas **notificações
 automáticas** (que rodam em thread) a falha sumia em silêncio, porque ninguém lia o retorno. Agora: (1) novo
 model **`MensagemWhatsapp`** (migration **0064**) — o par do `LogEmail`, uma linha por mensagem que o sistema

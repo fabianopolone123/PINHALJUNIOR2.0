@@ -48,6 +48,11 @@ urlpatterns = [
         name="evento_inscricao_cancelar",
     ),
     path(
+        "eventos/<int:pk>/inscricoes/<int:inscricao_id>/pago/",
+        views.evento_inscricao_pago_view,
+        name="evento_inscricao_pago",
+    ),
+    path(
         "eventos/<int:pk>/produtos/novo/",
         views.evento_produto_novo_view,
         name="evento_produto_novo",

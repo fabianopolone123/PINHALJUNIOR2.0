@@ -1229,7 +1229,11 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
     resultado, agrupamentos (por fonte, por forma de pagamento e por canal) e um
     **extrato** cronológico com TODOS os lançamentos — inclusive os cancelados
     (mostrados para auditoria, mas **fora** dos totais). Só entra nos totais o que
-    está confirmado. Cortesia soma R$ 0 (mas conta como transação)."""
+    está confirmado. Cortesia soma R$ 0 (mas conta como transação).
+
+    `confirmadas`/`pedidos_confirmados` chegam **já sem** o que foi pago direto ao
+    evento (fora do caixa); esses lançamentos ainda aparecem no extrato, marcados
+    com `fora_caixa`, como os cancelados."""
     receitas = arrecadacao_inscricoes + vendas_loja
     # Taxa do gateway (Mercado Pago) deste evento: soma sobre os Pagamentos DISTINTOS
     # ligados às inscrições/pedidos confirmados (uma inscrição e o pedido de lojinha
@@ -1277,6 +1281,7 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
             "canal": "Balcão" if i.origem == "pdv" else "Online",
             "valor": i.valor_total, "entrada": True,
             "cancelado": i.status == "cancelada",
+            "fora_caixa": i.pagamento_externo,
         })
     for p in pedidos:
         extrato.append({
@@ -1286,18 +1291,21 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
             "canal": "Balcão" if p.origem == "pdv" else "Online",
             "valor": p.valor_total, "entrada": True,
             "cancelado": p.status == "cancelado",
+            "fora_caixa": p.pagamento_externo,
         })
     for c in custos:
         extrato.append({
             "data": c.criado_em, "tipo": "Custo", "codigo": "",
             "descricao": c.nome, "forma": "", "canal": "",
             "valor": c.valor, "entrada": False, "cancelado": False,
+            "fora_caixa": False,
         })
     for pg in Pagamento.objects.filter(id__in=pag_ids, status="aprovado").exclude(taxa=0):
         extrato.append({
             "data": pg.pago_em or pg.criado_em, "tipo": "Taxa Mercado Pago",
             "codigo": "", "descricao": pg.get_forma_display(), "forma": "", "canal": "",
             "valor": pg.taxa, "entrada": False, "cancelado": False,
+            "fora_caixa": False,
         })
     extrato.sort(key=lambda x: x["data"], reverse=True)
 
@@ -1428,18 +1436,22 @@ def _montar_dashboard(confirmadas, pedidos_confirmados, custos, faixas, receitas
                  "parts": [p.nome for p in i.participantes.all()]}
                 for i in confirmadas
             ],
+            # Listas de DINHEIRO: fora o que foi pago direto ao evento (não entrou
+            # no caixa), senão não fecham com os KPIs. As de pessoas, acima, contam
+            # todo mundo.
             "arrecadacao": [
-                {"nome": i.responsavel_nome, "valor": i.valor_total} for i in confirmadas
+                {"nome": i.responsavel_nome, "valor": i.valor_total}
+                for i in confirmadas if not i.pagamento_externo
             ],
             "vendas": [
                 {"nome": p.comprador_nome, "valor": p.valor_total}
-                for p in pedidos_confirmados
+                for p in pedidos_confirmados if not p.pagamento_externo
             ],
             "receitas": (
                 [{"tipo": "Inscrição", "nome": i.responsavel_nome, "valor": i.valor_total}
-                 for i in confirmadas]
+                 for i in confirmadas if not i.pagamento_externo]
                 + [{"tipo": "Lojinha", "nome": p.comprador_nome, "valor": p.valor_total}
-                   for p in pedidos_confirmados]
+                   for p in pedidos_confirmados if not p.pagamento_externo]
             ),
             "custos": [{"nome": c.nome, "valor": c.valor} for c in custos],
         },
@@ -1475,13 +1487,20 @@ def evento_painel_view(request, pk):
     for i in inscricoes:
         i.respostas_gerais = [r for r in i.respostas.all() if r.participante_id is None]
     confirmadas = [i for i in inscricoes if i.status == "confirmada"]
+    # "Pago direto ao evento" (`Evento.pagamento_por_fora`): a inscrição vale e a
+    # pessoa conta como inscrita, mas o dinheiro NUNCA passou pelo clube — fica
+    # fora de toda soma de caixa (aqui e no Financeiro do clube). Vira um
+    # controle à parte, com o que já foi acertado e o que falta.
+    confirmadas_caixa = [i for i in confirmadas if not i.pagamento_externo]
+    externas = [i for i in confirmadas if i.pagamento_externo]
     # "Inscritos" = pessoas (participantes) das inscrições confirmadas.
     inscritos = sum(len(i.participantes.all()) for i in confirmadas)
-    arrecadacao_inscricoes = sum((i.valor_total for i in confirmadas), Decimal("0"))
+    arrecadacao_inscricoes = sum((i.valor_total for i in confirmadas_caixa), Decimal("0"))
 
     pedidos = list(evento.pedidos.prefetch_related("itens").all())
     pedidos_confirmados = [p for p in pedidos if p.status == "confirmado"]
-    vendas_loja = sum((p.valor_total for p in pedidos_confirmados), Decimal("0"))
+    pedidos_caixa = [p for p in pedidos_confirmados if not p.pagamento_externo]
+    vendas_loja = sum((p.valor_total for p in pedidos_caixa), Decimal("0"))
     receitas = arrecadacao_inscricoes + vendas_loja
 
     # Relatório "Vendidos por produto": Qtd conta tudo (inclusive cortesia),
@@ -1528,8 +1547,21 @@ def evento_painel_view(request, pk):
         i.total_geral = i.valor_total + i.total_compras
         i.cupons_aplicados = cupons_por_insc.get(i.id, [])
 
+    # Controle do que é pago direto ao evento (fora do caixa): já acertado × a
+    # acertar. Usa `total_geral` (inscrição + lojinha levada junto), calculado
+    # no laço acima.
+    externo = {
+        "pago": sum((i.total_geral for i in externas if i.pago_externo_em), Decimal("0")),
+        "pendente": sum(
+            (i.total_geral for i in externas if not i.pago_externo_em), Decimal("0")
+        ),
+        "qtd_pago": sum(1 for i in externas if i.pago_externo_em),
+        "qtd_pendente": sum(1 for i in externas if not i.pago_externo_em),
+    }
+    externo["total"] = externo["pago"] + externo["pendente"]
+
     financeiro = _montar_financeiro(
-        inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
+        inscricoes, confirmadas_caixa, pedidos, pedidos_caixa, custos,
         arrecadacao_inscricoes, vendas_loja, total_custos,
     )
     dashboard = _montar_dashboard(
@@ -1554,6 +1586,7 @@ def evento_painel_view(request, pk):
         "campo_form": CampoInscricaoForm(prefix="campo"),
         "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
+        "externo": externo,
         "resumo": {
             "inscritos": inscritos,
             "arrecadacao_inscricoes": arrecadacao_inscricoes,
@@ -2050,6 +2083,21 @@ def evento_inscrever_view(request, pk):
             grand_total = inscr_total + loja_total
 
             config = _mp_config()
+            if evento.pagamento_por_fora and grand_total > 0:
+                # Pago direto ao evento: pula a tela de fatura, confirma na hora
+                # e nasce com o pagamento PENDENTE — fora do caixa do clube.
+                # A forma escolhida vira só o registro de como será acertado.
+                forma_fora = request.POST.get("forma_pagamento") or ""
+                if not evento.aceita_forma_online(forma_fora):
+                    forma_fora = evento.formas_online()[0][0]
+                with transaction.atomic():
+                    inscricao = _criar_inscricao_de_payload(
+                        evento, payload, request.user,
+                        forma_pagamento=forma_fora, pagamento_externo=True,
+                    )
+                request.session["inscricao_codigo"] = inscricao.codigo
+                return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
+
             if config.configurado and grand_total > 0:
                 itens_disp = [
                     {"nome": p.nome or "Participante", "valor": str(p.valor)}
@@ -2152,6 +2200,31 @@ def evento_inscricao_sucesso_view(request, pk):
         "tem_loja": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
     }
     return render(request, "core/evento_inscricao_sucesso.html", contexto)
+
+
+@diretor_required
+@require_POST
+def evento_inscricao_pago_view(request, pk, inscricao_id):
+    """Baixa manual da inscrição paga direto ao evento (liga/desliga).
+
+    Registra apenas que a pessoa acertou com o evento — o valor **continua fora**
+    do caixa do clube (quem recebeu foi o evento, não o clube)."""
+    evento = get_object_or_404(Evento, pk=pk)
+    inscricao = evento.inscricoes.filter(pk=inscricao_id, pagamento_externo=True).first()
+    if inscricao is None:
+        messages.error(request, "Inscrição não encontrada ou sem pagamento por fora.")
+        return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+    if inscricao.pago_externo_em:
+        inscricao.pago_externo_em = None
+        inscricao.pago_externo_por = None
+        aviso = f"Inscrição {inscricao.codigo} voltou para pagamento pendente."
+    else:
+        inscricao.pago_externo_em = timezone.now()
+        inscricao.pago_externo_por = request.user
+        aviso = f"Inscrição {inscricao.codigo} marcada como paga."
+    inscricao.save(update_fields=["pago_externo_em", "pago_externo_por"])
+    messages.success(request, aviso)
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
 
 @diretor_required
@@ -5244,13 +5317,19 @@ def _finalizar_inscricao(pagamento):
     pagamento.payload = dados
 
 
-def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
+def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None,
+                                forma_pagamento="", pagamento_externo=False):
     """Cria a Inscrição (+ participantes, respostas, pedido de lojinha e marca os
     cupons) a partir do payload serializado. Usado na criação imediata (grátis / sem
-    MP) e na finalização do Pix. Os preços já vêm no payload (com desconto de cupom
-    aplicado no ato); os cupons são marcados aqui (uso único revalidado)."""
+    MP), na finalização do Pix e no **pagamento por fora**. Os preços já vêm no
+    payload (com desconto de cupom aplicado no ato); os cupons são marcados aqui
+    (uso único revalidado).
+
+    `pagamento_externo=True` marca a inscrição (e o pedido de lojinha que venha
+    junto) como paga direto ao evento: confirmada, mas fora do caixa do clube."""
     resp = payload.get("responsavel", {})
     logado = usuario if (usuario and getattr(usuario, "is_authenticated", False)) else None
+    forma = forma_pagamento or (pagamento.forma if pagamento else "online")
     inscricao = Inscricao(
         evento=evento,
         usuario=logado,
@@ -5260,7 +5339,8 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
         responsavel_cpf=resp.get("cpf", ""),
         codigo=Inscricao.gerar_codigo_unico(),
         status="confirmada",
-        forma_pagamento=(pagamento.forma if pagamento else "online"),
+        forma_pagamento=forma,
+        pagamento_externo=pagamento_externo,
         pagamento=pagamento,
     )
     inscricao.valor_total = sum(
@@ -5320,11 +5400,16 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None):
                 {"nome": inscricao.responsavel_nome, "whatsapp": inscricao.responsavel_whatsapp,
                  "email": inscricao.responsavel_email},
                 usuario=logado, inscricao=inscricao,
-                forma_pagamento=(pagamento.forma if pagamento else "online"),
+                forma_pagamento=forma,
             )
             if pagamento and pedido is not None:
                 pedido.pagamento = pagamento
                 pedido.save(update_fields=["pagamento"])
+            # Comprado junto de uma inscrição paga por fora: também não passou
+            # pelo caixa (não houve cobrança), então fica fora dos totais.
+            if pagamento_externo and pedido is not None:
+                pedido.pagamento_externo = True
+                pedido.save(update_fields=["pagamento_externo"])
     # Confirmação ao inscrito/responsável (após o commit; respeita o gate).
     ctx = {
         "nome": (inscricao.responsavel_nome or "").split(" ")[0] or "aventureiro(a)",
@@ -7824,8 +7909,17 @@ def financeiro_view(request):
         .select_related("aventureiro")
     )
     compras = list(CompraLoja.objects.filter(status="confirmado"))
-    inscricoes = list(Inscricao.objects.exclude(status="cancelada").select_related("evento"))
-    pedidos_ev = list(PedidoLoja.objects.filter(status="confirmado").select_related("evento"))
+    # Inscrição/pedido "pago direto ao evento" fica de fora: o dinheiro nunca
+    # passou pelo clube (quem recebeu foi o evento). O controle de quem já
+    # acertou fica no painel do próprio evento.
+    inscricoes = list(
+        Inscricao.objects.exclude(status="cancelada")
+        .filter(pagamento_externo=False).select_related("evento")
+    )
+    pedidos_ev = list(
+        PedidoLoja.objects.filter(status="confirmado", pagamento_externo=False)
+        .select_related("evento")
+    )
     custos_ev = list(CustoEvento.objects.select_related("evento"))
     custos_clube = list(CustoClube.objects.prefetch_related("comprovantes"))
 
