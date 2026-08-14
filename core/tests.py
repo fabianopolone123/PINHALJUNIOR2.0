@@ -2301,10 +2301,10 @@ class PagamentoPorForaTests(TestCase):
             evento=self.ev, idade_min=1, idade_max=99, valor=Decimal("50.00")
         )
 
-    def _ligar_por_fora(self, instrucoes="Pix direto para a organizacao."):
-        self.ev.pagamento_por_fora = True
+    def _ligar_por_fora(self, formas="pix", instrucoes="Pix direto para a organizacao."):
+        self.ev.formas_pagamento_fora = formas
         self.ev.instrucoes_pagamento_fora = instrucoes
-        self.ev.save(update_fields=["pagamento_por_fora", "instrucoes_pagamento_fora"])
+        self.ev.save(update_fields=["formas_pagamento_fora", "instrucoes_pagamento_fora"])
 
     def _post(self):
         return {
@@ -2332,7 +2332,7 @@ class PagamentoPorForaTests(TestCase):
         self.assertEqual(Pagamento.objects.count(), 0)   # nao passou pelo MP
 
     def test_sucesso_mostra_a_orientacao_cadastrada(self):
-        self._ligar_por_fora("Pix para a chave do Aventuri.")
+        self._ligar_por_fora(instrucoes="Pix para a chave do Aventuri.")
         self._inscrever()
         html = self.client.get(
             reverse("core:evento_inscricao_sucesso", args=[self.ev.id])
@@ -2341,12 +2341,64 @@ class PagamentoPorForaTests(TestCase):
         self.assertIn("Pagamento pendente", html)
 
     def test_pagina_de_inscricao_avisa_e_orienta(self):
-        self._ligar_por_fora("Envie o comprovante no grupo.")
+        self._ligar_por_fora(instrucoes="Envie o comprovante no grupo.")
         html = self.client.get(
             reverse("core:evento_inscrever", args=[self.ev.id])
         ).content.decode()
         self.assertIn("pagamento é feito direto ao evento", html)
         self.assertIn("Envie o comprovante no grupo.", html)
+
+    # --- é POR FORMA: dá para cobrar uma e deixar a outra por fora ---
+
+    def test_so_a_forma_marcada_confirma_sem_cobrar(self):
+        """Evento com as duas formas: Pix por fora, cartão cobrado pelo site."""
+        self.ev.formas_pagamento_online = "ambos"
+        self.ev.save(update_fields=["formas_pagamento_online"])
+        self._ligar_por_fora("pix")
+
+        # Pix: confirma na hora, sem passar pelo Mercado Pago.
+        insc = self._inscrever()
+        self.assertTrue(insc.pagamento_externo)
+        self.assertEqual(Pagamento.objects.count(), 0)
+        Inscricao.objects.all().delete()
+
+        # Cartão: continua indo para a cobrança (nada de inscrição antes de pagar).
+        dados = self._post()
+        dados["forma_pagamento"] = "cartao"
+        fake_pref = {"ok": True, "preference_id": "P", "init_point": "https://mp/co/I"}
+        with mock.patch.object(mp, "criar_preferencia", return_value=fake_pref):
+            resp = self.client.post(
+                reverse("core:evento_inscrever", args=[self.ev.id]), dados
+            )
+        self.assertEqual(resp["Location"], "https://mp/co/I")
+        self.assertEqual(Inscricao.objects.count(), 0)
+        self.assertEqual(Pagamento.objects.get(tipo="inscricao").forma, "cartao")
+
+    def test_marca_so_a_opcao_por_fora_na_tela(self):
+        self.ev.formas_pagamento_online = "ambos"
+        self.ev.save(update_fields=["formas_pagamento_online"])
+        self._ligar_por_fora("pix")
+        r = self.client.get(reverse("core:evento_inscrever", args=[self.ev.id]))
+        self.assertEqual(r.context["formas_fora"], ["pix"])
+        self.assertFalse(r.context["todas_por_fora"])
+        self.assertContains(r, "Escolhendo Pix, o pagamento é feito direto ao evento")
+        self.assertContains(r, "até 12x")     # o cartão segue com o texto de cobrança
+
+    def test_forma_por_fora_que_o_evento_nao_oferece_nao_faz_nada(self):
+        """Evento é "somente Pix" e o cartão foi marcado por fora: não há cartão
+        para escolher, então nada muda — o Pix continua sendo cobrado."""
+        self._ligar_por_fora("cartao")   # evento oferece só Pix
+        self.assertEqual(self.ev.formas_fora(), [])
+        self.assertFalse(self.ev.tem_pagamento_por_fora)
+        fake_pix = {
+            "ok": True, "mp_payment_id": "MP-Y", "status": "pendente",
+            "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+        }
+        with mock.patch.object(mp, "criar_pix", return_value=fake_pix):
+            self.client.post(
+                reverse("core:evento_inscrever", args=[self.ev.id]), self._post()
+            )
+        self.assertEqual(Pagamento.objects.count(), 1)
 
     def test_fica_fora_do_caixa_do_evento_e_do_clube(self):
         self._ligar_por_fora()
@@ -2453,8 +2505,19 @@ class PagamentoPorForaTests(TestCase):
         html = self.client.get(
             reverse("core:evento_painel", args=[self.ev.id])
         ).content.decode()
-        self.assertIn("pagamento_por_fora", html)
+        self.assertIn("formas_pagamento_fora", html)
         self.assertIn("instrucoes_pagamento_fora", html)
+        self.assertIn("Nenhuma — tudo cobrado pelo site", html)
+
+    def test_padrao_e_nao_ter_forma_por_fora(self):
+        """Regressão: evento novo cobra tudo pelo site, como sempre."""
+        novo = Evento.objects.create(
+            tipo="inscricao", nome="Reuniao",
+            data=timezone.localdate() + datetime.timedelta(days=5),
+        )
+        self.assertEqual(novo.formas_pagamento_fora, "nenhuma")
+        self.assertEqual(novo.formas_fora(), [])
+        self.assertFalse(novo.forma_paga_por_fora("pix"))
 
     def test_classes_novas_existem_no_css(self):
         """Regressao do defeito de Aniversarios: classe usada no HTML sem regra

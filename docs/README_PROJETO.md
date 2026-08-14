@@ -301,7 +301,8 @@ PINHALJUNIOR2.0/
   (falhou / sem confirmação / enviada / entregue / lida / não entregue) vinda do webhook de entrega.
 - **Evento** — evento do clube (`tipo` simples/inscrição; datas/horários; config de inscrição:
   aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público;
-  **`pagamento_por_fora`** = a inscrição é confirmada sem cobrar e o acerto é direto com o evento).
+  **`formas_pagamento_fora`** = quais formas confirmam a inscrição sem cobrar, com o acerto direto
+  com o evento).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
 - **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem;

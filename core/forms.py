@@ -421,7 +421,7 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         fields = [
             "local", "inscricao_aberta_publico", "inscricao_limite",
             "valor_diretoria", "formas_pagamento_online",
-            "pagamento_por_fora", "instrucoes_pagamento_fora",
+            "formas_pagamento_fora", "instrucoes_pagamento_fora",
         ]
         widgets = {
             "inscricao_limite": forms.DateTimeInput(
@@ -439,14 +439,15 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
                 "O que a pessoa vê na inscrição e na lojinha deste evento. "
                 "No balcão (PDV) o operador continua com todas as formas."
             ),
-            "pagamento_por_fora": (
-                "A inscrição é confirmada na hora, sem cobrar pelo site, e fica como "
-                "pagamento pendente até você dar a baixa na lista. O valor NÃO entra "
-                "no caixa do clube nem no resultado do evento."
+            "formas_pagamento_fora": (
+                "Quem escolher uma destas formas fecha a inscrição SEM pagar pelo site: "
+                "ela é confirmada na hora e fica como pagamento pendente até você dar a "
+                "baixa na lista. O valor NÃO entra no caixa do clube nem no resultado do "
+                "evento. As demais formas continuam sendo cobradas normalmente."
             ),
             "instrucoes_pagamento_fora": (
                 "Como e para quem pagar. Aparece para quem se inscreve. "
-                "Só é usada quando a opção acima está marcada."
+                "Só é usada quando alguma forma acima está marcada."
             ),
         }
 

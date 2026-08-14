@@ -482,6 +482,18 @@ FORMAS_ONLINE_EVENTO_CHOICES = [
     ("cartao", "Somente cartão de crédito"),
 ]
 
+# Quais das formas aceitas são **pagas direto ao evento**: quem escolher uma
+# delas não passa pela tela de fatura — a inscrição é confirmada na hora, com o
+# pagamento pendente, e o dinheiro nunca entra no caixa do clube. É por FORMA
+# (dá para cobrar cartão pelo site e deixar o Pix por fora, por exemplo).
+FORMAS_FORA_NENHUMA = "nenhuma"
+FORMAS_FORA_CHOICES = [
+    (FORMAS_FORA_NENHUMA, "Nenhuma — tudo cobrado pelo site"),
+    ("pix", "Pix"),
+    ("cartao", "Cartão de crédito"),
+    (FORMAS_ONLINE_AMBOS, "Pix e cartão de crédito"),
+]
+
 
 class Evento(models.Model):
     """Evento do clube (reunião, acampamento, festa, venda de alimentos, etc.).
@@ -542,17 +554,20 @@ class Evento(models.Model):
         choices=FORMAS_ONLINE_EVENTO_CHOICES,
         default=FORMAS_ONLINE_AMBOS,
     )
-    # "Pago direto ao evento": as formas escolhidas acima NÃO são cobradas pelo
-    # site. Quem se inscreve não passa pela tela de fatura — a inscrição é
+    # Quais das formas aceitas acima são "pagas direto ao evento": quem escolher
+    # uma delas na inscrição não passa pela tela de fatura — a inscrição é
     # confirmada na hora com o pagamento PENDENTE, e o acerto é feito direto com
     # a organização do evento (caso dos eventos regionais, ex.: Aventuri).
     # Consequência contábil: esse dinheiro NUNCA entra no caixa do clube.
-    pagamento_por_fora = models.BooleanField(
-        "Pagamento é feito direto ao evento (não entra no caixa do clube)",
-        default=False,
+    # É por forma: dá para cobrar o cartão pelo site e deixar só o Pix por fora.
+    formas_pagamento_fora = models.CharField(
+        "Formas pagas direto ao evento",
+        max_length=10,
+        choices=FORMAS_FORA_CHOICES,
+        default=FORMAS_FORA_NENHUMA,
     )
     # Texto mostrado a quem se inscreve (como e para quem pagar). Só aparece
-    # quando `pagamento_por_fora` está ligado.
+    # quando alguma forma está marcada como paga direto ao evento.
     instrucoes_pagamento_fora = models.TextField(
         "Orientação de pagamento", blank=True
     )
@@ -634,6 +649,31 @@ class Evento(models.Model):
         """True se `forma` está liberada no site deste evento. Usar SEMPRE na
         validação do POST — esconder o rádio no HTML não impede o envio."""
         return forma in dict(self.formas_online())
+
+    def formas_fora(self):
+        """Formas **pagas direto ao evento** — as que confirmam a inscrição sem
+        cobrar pelo site. Sempre a interseção com `formas_online()`: marcar como
+        "por fora" uma forma que o evento nem oferece não faz nada.
+
+        Vale só para a **inscrição**. Na lojinha do evento a compra continua
+        sendo cobrada normalmente (lá não há o que "acertar depois"); o item
+        levado junto de uma inscrição por fora é que herda a marca.
+        """
+        if self.formas_pagamento_fora == FORMAS_FORA_NENHUMA:
+            return []
+        if self.formas_pagamento_fora == FORMAS_ONLINE_AMBOS:
+            return self.formas_online()
+        return [f for f in self.formas_online()
+                if f[0] == self.formas_pagamento_fora]
+
+    def forma_paga_por_fora(self, forma):
+        """True se quem escolher `forma` fecha a inscrição sem pagar pelo site."""
+        return forma in dict(self.formas_fora())
+
+    @property
+    def tem_pagamento_por_fora(self):
+        """True se ao menos uma das formas oferecidas é paga direto ao evento."""
+        return bool(self.formas_fora())
 
     def preco_participante(self, idade, eh_diretoria, faixas=None):
         """(valor, faixa) de um participante: valor da diretoria (se marcado e

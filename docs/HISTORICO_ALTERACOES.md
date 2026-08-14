@@ -22,6 +22,41 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-13 - Pagamento por fora passa a ser POR FORMA de pagamento
+
+### Resumo
+Ajuste pedido logo após o deploy da versão anterior: o "pago direto ao evento" era uma **chave do evento
+inteiro** (ligou, todas as formas confirmavam sem cobrar). Passou a ser **por forma de pagamento** — dá para
+**cobrar o cartão pelo site e deixar só o Pix por fora** no mesmo evento.
+
+### Arquivos alterados
+- `core/models.py`: `Evento.pagamento_por_fora` (bool) → **`formas_pagamento_fora`** (`nenhuma`/`pix`/`cartao`/
+  `ambos`, padrão `nenhuma`), com `FORMAS_FORA_CHOICES`; métodos **`formas_fora()`**,
+  **`forma_paga_por_fora(forma)`** e a propriedade **`tem_pagamento_por_fora`**.
+- `core/migrations/0066_formas_pagamento_fora.py`: cria o campo novo, **converte** quem tinha a chave ligada
+  (`ambos` = o que a chave significava) e só então remove a antiga. Reversível.
+- `core/forms.py`: o campo novo no lugar do checkbox, com o texto de ajuda reescrito.
+- `core/views.py`: a forma escolhida é validada **uma vez** e decide o caminho —
+  `evento.forma_paga_por_fora(forma)` manda para a criação imediata, o resto segue para o Mercado Pago.
+  Contexto novo para a tela: `formas_fora`, `rotulo_fora` e `todas_por_fora`.
+- `templates/core/evento_inscrever.html`: **cada opção** sai marcada conforme o seu caminho — "(pago direto ao
+  evento…)" ou "(até 12x…)" —, e a orientação diz de qual forma se trata ("Escolhendo Pix, …").
+- `templates/core/evento_painel.html`: o checkbox virou o seletor (`_campo.html`).
+- `core/tests.py`: `PagamentoPorForaTests` adaptada + 4 testes novos (caso misto nos dois caminhos, marcação por
+  opção na tela, forma marcada que o evento não oferece, padrão do evento novo).
+
+### Decisões tomadas
+- **Um campo com 4 opções**, espelhando o `formas_pagamento_online` que já existe, em vez de um checkbox por
+  forma: fica igual ao seletor vizinho e cabe numa linha do formulário.
+- **`formas_fora()` interseta com `formas_online()`**: se o evento é "somente Pix" e alguém marcar o cartão como
+  por fora, não acontece nada — não há cartão para escolher. Evita configuração que parece ligada e não é.
+- **A lojinha avulsa do evento não muda**: lá a compra é fechada na hora e não há acerto posterior; só o item
+  levado *dentro* de uma inscrição por fora herda a marca.
+
+### Validação
+- **233 testes OK** (229 + 4). Conferido o caso misto por captura: Pix marcado como "pago direto ao evento" e
+  cartão com o texto de parcelamento, na mesma tela.
+
 ## 2026-08-13 - Eventos: inscrição paga direto ao evento (fora do caixa)
 
 ### Resumo

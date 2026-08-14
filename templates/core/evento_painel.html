@@ -475,13 +475,7 @@
                             {% include "core/_campo.html" with campo=config_form.inscricao_limite %}
                             {% include "core/_campo.html" with campo=config_form.valor_diretoria %}
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_online %}
-                            <div class="campo">
-                                <div class="campo-checkbox">
-                                    {{ config_form.pagamento_por_fora }}
-                                    <label for="{{ config_form.pagamento_por_fora.id_for_label }}">{{ config_form.pagamento_por_fora.label }}</label>
-                                </div>
-                                {% if config_form.pagamento_por_fora.help_text %}<small class="ajuda">{{ config_form.pagamento_por_fora.help_text }}</small>{% endif %}
-                            </div>
+                            {% include "core/_campo.html" with campo=config_form.formas_pagamento_fora %}
                             {% include "core/_campo.html" with campo=config_form.instrucoes_pagamento_fora %}
                             <div class="form-acoes">
                                 <button type="submit" class="btn-acao">

@@ -2083,17 +2083,20 @@ def evento_inscrever_view(request, pk):
             grand_total = inscr_total + loja_total
 
             config = _mp_config()
-            if evento.pagamento_por_fora and grand_total > 0:
-                # Pago direto ao evento: pula a tela de fatura, confirma na hora
-                # e nasce com o pagamento PENDENTE — fora do caixa do clube.
-                # A forma escolhida vira só o registro de como será acertado.
-                forma_fora = request.POST.get("forma_pagamento") or ""
-                if not evento.aceita_forma_online(forma_fora):
-                    forma_fora = evento.formas_online()[0][0]
+            # Forma escolhida, validada contra o que o evento aceita (POST
+            # forjado cai na primeira liberada — mesma regra do fluxo cobrado).
+            forma_escolhida = request.POST.get("forma_pagamento") or ""
+            if not evento.aceita_forma_online(forma_escolhida):
+                forma_escolhida = evento.formas_online()[0][0]
+
+            if grand_total > 0 and evento.forma_paga_por_fora(forma_escolhida):
+                # Forma paga direto ao evento: pula a tela de fatura, confirma na
+                # hora e nasce com o pagamento PENDENTE — fora do caixa do clube.
+                # As outras formas do mesmo evento seguem sendo cobradas.
                 with transaction.atomic():
                     inscricao = _criar_inscricao_de_payload(
                         evento, payload, request.user,
-                        forma_pagamento=forma_fora, pagamento_externo=True,
+                        forma_pagamento=forma_escolhida, pagamento_externo=True,
                     )
                 request.session["inscricao_codigo"] = inscricao.codigo
                 return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
@@ -2113,13 +2116,10 @@ def evento_inscrever_view(request, pk):
                 payload["itens"] = itens_disp
                 comprador_pg = {"nome": form.cleaned_data["responsavel_nome"],
                                 "email": form.cleaned_data["responsavel_email"]}
-                # Respeita as formas liberadas NESTE evento. Se vier algo que o
-                # evento não aceita (POST forjado, ou o padrão "pix" num evento
-                # só-cartão), cai na primeira forma permitida em vez de cobrar
-                # por um caminho que o Diretor desligou.
-                forma_inscr = request.POST.get("forma_pagamento") or ""
-                if not evento.aceita_forma_online(forma_inscr):
-                    forma_inscr = evento.formas_online()[0][0]
+                # Já validada acima contra as formas liberadas NESTE evento (POST
+                # forjado, ou o padrão "pix" num evento só-cartão, cai na
+                # primeira permitida em vez de cobrar por um caminho desligado).
+                forma_inscr = forma_escolhida
                 if forma_inscr == "cartao":
                     pagamento, init_point, erro = _criar_pagamento_cartao(
                         request, tipo="inscricao", valor=grand_total,
@@ -2174,6 +2174,14 @@ def evento_inscrever_view(request, pk):
             str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
         ),
         "formas_pagamento": evento.formas_online(),
+        # Quais das formas acima confirmam sem cobrar (o template marca cada
+        # opção) e o rótulo delas, para a orientação dizer de qual se trata.
+        "formas_fora": [f[0] for f in evento.formas_fora()],
+        "rotulo_fora": " e ".join(f[1] for f in evento.formas_fora()),
+        "todas_por_fora": (
+            bool(evento.formas_fora())
+            and len(evento.formas_fora()) == len(evento.formas_online())
+        ),
         "mp_configurado": _mp_config().configurado,
         # Evento aberto ao público: convida a autorizar notificações antes do checkout.
         "mostrar_autorizar": bool(

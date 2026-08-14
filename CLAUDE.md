@@ -215,8 +215,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `evento.formas_online()` para montar a tela e **`evento.aceita_forma_online(forma)` para validar o POST**:
   esconder o rádio no HTML não impede envio forjado. O **PDV/balcão não usa isso** (lá o operador segue com
   dinheiro/cortesia, na variável `formas`). A lista canônica `FORMAS_PAGAMENTO_ONLINE` fica em `models.py`.
-- **Inscrição paga direto ao evento**: `Evento.pagamento_por_fora` (+ `instrucoes_pagamento_fora`) desliga a
-  cobrança pelo site naquele evento — a inscrição é criada **na hora** (`Inscricao.pagamento_externo=True`, sem
+- **Inscrição paga direto ao evento**: `Evento.formas_pagamento_fora` (`nenhuma`/`pix`/`cartao`/`ambos`, padrão
+  `nenhuma`) + `instrucoes_pagamento_fora` dizem **quais formas** confirmam sem cobrar — é **por forma** (dá
+  para cobrar cartão pelo site e deixar o Pix por fora). Use **`evento.forma_paga_por_fora(forma)`** para
+  decidir o caminho; `formas_fora()` já interseta com `formas_online()` (marcar forma não oferecida não faz
+  nada). Escolhida uma delas, a inscrição é criada **na hora** (`Inscricao.pagamento_externo=True`, sem
   passar pelo Mercado Pago) e fica **pendente** até a baixa manual do Diretor (`pago_externo_em`, rota
   `/eventos/<id>/inscricoes/<id>/pago/`). **Esse dinheiro nunca entra no caixa** — nem no resultado do evento,
   nem no Financeiro do clube, **nem depois da baixa** (a baixa só registra que a pessoa acertou com o evento).
