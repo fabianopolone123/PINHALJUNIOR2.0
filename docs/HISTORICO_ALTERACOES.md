@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-15 - Doc: listas canônicas de rotas e models atualizadas
+
+### Resumo
+Passagem de documentação depois das duas entregas do dia. Os resumos do topo do `ESTADO_ATUAL.md` já tinham
+sido escritos, mas as **listas canônicas** do fim do arquivo (rotas e models) e o `README_PROJETO.md` ainda
+descreviam o estado anterior. Sem código.
+
+### Arquivos alterados
+- `docs/ESTADO_ATUAL.md`: no model `Evento`, os campos que faltavam (`ativo`, `formas_pagamento_fora`/
+  `instrucoes_pagamento_fora`, `notificar_inscricoes`/`notificar_inscricoes_para`) e as migrations até
+  **0067**; nas rotas, `/eventos/avisar-inscritos/` e `/eventos/<id>/inscricoes/<id>/pago/`; na etapa 2 da
+  recuperação, o usuário de acesso; e a dívida técnica do throttle, que ficou mais séria com essa exibição.
+- `docs/README_PROJETO.md`: mesma coisa no nível de resumo — model `Evento`, rota do aviso de inscritos e o
+  item de recuperação de senha.
+
 ## 2026-08-15 - Aviso de inscrição: lista completa, enviada em partes
 
 ### Resumo

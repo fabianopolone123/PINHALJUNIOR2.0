@@ -284,6 +284,9 @@ PINHALJUNIOR2.0/
 - `/eventos/<id>/` — painel do evento complexo (nome `core:evento_painel`); `/eventos/<id>/custos/...` adiciona/remove custos.
 - `/eventos/<id>/ativar/` — **liga/desliga o evento** (POST, Diretor; nome `core:evento_ativar`). Inativo,
   o evento sai do menu e as telas públicas fecham, mesmo dentro da data; nada já registrado é apagado.
+- `/eventos/avisar-inscritos/` — envia na hora a **lista de inscritos** do evento (informado no POST) ao
+  integrante da diretoria escolhido nele (POST, Diretor; nome `core:evento_avisar_inscritos`). O envio
+  automático a cada inscrição liga na aba **Inscrições → Configuração** do painel do evento.
 - `/cadastro/` — tela **"Cadastre-se"**: escolha do tipo (Aventureiro / Diretoria / Diretoria + Aventureiro) (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/aventureiro/` — cadastro inicial de aventureiro: cria a conta + o primeiro aventureiro (view `core.views.cadastro_aventureiro_view`, nome `core:cadastro_aventureiro`).
 - `/cadastro/diretoria/` — cadastro de **diretoria** (Compromisso para Voluntários); `?com_aventureiro=1` emenda no cadastro de aventureiro (view `core.views.cadastro_diretoria_view`, nome `core:cadastro_diretoria`).
@@ -302,7 +305,8 @@ PINHALJUNIOR2.0/
 - **Evento** — evento do clube (`tipo` simples/inscrição; datas/horários; config de inscrição:
   aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público;
   **`formas_pagamento_fora`** = quais formas confirmam a inscrição sem cobrar, com o acerto direto
-  com o evento).
+  com o evento; **`notificar_inscricoes`** + **`notificar_inscricoes_para`** = manda a lista de
+  inscritos, a cada inscrição, para um integrante da diretoria).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
 - **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem;
@@ -349,8 +353,10 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 
 ## Funcionalidades ainda NÃO implementadas
 
-- Recuperação de senha ("Esqueci minha senha") — **implementada** pelo WhatsApp (código de 4 dígitos);
-  falta o responsável logado poder escolher o próprio WhatsApp principal (hoje só o Diretor).
+- Recuperação de senha ("Esqueci minha senha") — **implementada** pelo WhatsApp (código de 4 dígitos), e a
+  tela do código **mostra o usuário de acesso** da conta (quem esquece o login também resolve por lá);
+  falta o responsável logado poder escolher o próprio WhatsApp principal (hoje só o Diretor) e um
+  **throttle** nessa tela (cada POST válido dispara um WhatsApp real e revela um login).
 - Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
 - Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Diretoria/Professor/
   Tesoureiro/Secretário existem com acesso mínimo). **Alternância de perfil** (Diretoria ↔ Responsável) já

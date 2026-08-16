@@ -1396,7 +1396,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **`formas_online()`** (lista `(valor, rótulo)` filtrada, para montar a tela) e
   **`aceita_forma_online(forma)`** (validação do POST — esconder o rádio no HTML não impede envio forjado).
   O **PDV/balcão não usa** essas duas últimas: lá o operador segue com dinheiro/cortesia (variável `formas`).
-  Migrations `0002`, `0003`, `0004`, `0062`.
+  Também: **`ativo`** (liga/desliga o evento para o público, mig. **0063**); **`formas_pagamento_fora`** +
+  **`instrucoes_pagamento_fora`** (formas pagas direto ao evento, mig. **0065**/**0066**; métodos
+  `formas_fora()`, `forma_paga_por_fora(forma)` e a property `tem_pagamento_por_fora`); e o aviso interno de
+  inscrição **`notificar_inscricoes`** + **`notificar_inscricoes_para`** (FK User da diretoria que recebe a
+  lista de inscritos a cada inscrição, mig. **0067**).
+  Migrations `0002`, `0003`, `0004`, `0062`, `0063`, `0065`, `0066`, `0067`.
 - `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
 - `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,
@@ -1465,6 +1470,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 ### Dívida técnica conhecida (levantada em 2026-08-12)
 - **Sem proteção contra brute force**: o login não tem throttle; e a **etapa 1 da recuperação de senha**
   dispara **um WhatsApp real por POST**, sem limite — risco de a W-API bloquear o número do clube.
+  **Ficou mais caro em 15/08**: como a etapa 2 passou a mostrar o **usuário de acesso**, quem tiver o CPF de
+  um responsável também descobre o login. Um limite por IP/CPF nessa tela é a próxima coisa a fazer ali.
 - **`SECURE_HSTS_SECONDS`** ainda sem valor (ver "Configurações importantes").
 - **Ambiente local diferente do de produção** (Django 6.0.5/Python 3.14 aqui × 5.2.15/3.12 no VPS) — testar
   local não garante o comportamento em produção.
@@ -1637,6 +1644,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/trocar-senha/` — troca de senha (obrigatória no 1º acesso das contas temporárias) (`core:trocar_senha`).
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
+- `/eventos/<id>/inscricoes/<id>/pago/` — baixa manual do pagamento por fora (POST, Diretor; reversível).
+- `/eventos/avisar-inscritos/` — envia AGORA a lista de inscritos ao integrante escolhido no evento
+  (POST, Diretor; `core:evento_avisar_inscritos`). **Sem pk na URL de propósito**: o evento vem no POST,
+  porque o mesmo botão é usado no painel do evento e na aba Templates do WhatsApp (com seletor de evento).
 - `/eventos/<id>/inscricoes/faixa/novo/` e `/eventos/<id>/inscricoes/faixa/<id>/excluir/` — adicionar/remover faixa etária (POST).
 - `/eventos/<id>/inscricoes/campo/novo/`, `.../campo/<id>/excluir/` e `.../campo/<id>/mover/` — adicionar/remover/reordenar campo do formulário (POST).
 - `/eventos/<id>/descontos/novo/` e `/eventos/<id>/descontos/<id>/excluir/` — gerar (com quantidade/faixa) / remover cupom de desconto (POST, Diretor).
@@ -1652,6 +1663,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
 - `/recuperar-senha/` — recuperação de senha, etapa 1: CPF do responsável legal (`core:recuperar_senha`).
 - `/recuperar-senha/codigo/` — etapa 2: digitar o código de 4 dígitos (`core:recuperar_senha_codigo`).
+  Mostra também o **usuário de acesso** da conta achada pelo CPF (o mesmo vai na mensagem do WhatsApp) —
+  quem esquece o login resolve aqui.
 - `/recuperar-senha/reenviar/` — reenvia o código (POST, espera de 60 s) (`core:recuperar_senha_reenviar`).
 - `/recuperar-senha/nova-senha/` — etapa 3: definir a nova senha 2× (`core:recuperar_senha_nova`).
 - **Loja do Clube** (Diretor no menu; vitrine/carrinho `@login_required`):
