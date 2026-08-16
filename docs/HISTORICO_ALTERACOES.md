@@ -22,6 +22,55 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-15 - Eventos: aviso interno de inscrição para a diretoria
+
+### Resumo
+Por evento, dá para ligar **"Avisar a diretoria a cada inscrição"** e escolher **um integrante** que passa a
+receber, a cada nova inscrição, a **lista de inscritos** pelo WhatsApp — agrupada por inscrição (responsável +
+WhatsApp, e abaixo cada participante com nome e idade), com **separação de quem vai pagar por fora** e ainda
+precisa ser cobrado. Tem também **envio manual** da lista atual.
+
+### Arquivos criados/alterados
+- `core/models.py`: `Evento.notificar_inscricoes` + `notificar_inscricoes_para` (FK User); novo tipo de
+  notificação **`NOTIF_INSCRICAO_INTERNA`** em `TEMPLATES_NOTIFICACAO` (texto padrão + prompt de IA que manda
+  reproduzir a lista sem resumir).
+- `core/migrations/0067_aviso_inscricao_evento.py`: os dois campos (padrão desligado/nulo — nenhum evento
+  existente muda).
+- `core/views.py`: `_texto_inscritos_evento` (monta lista + bloco de pendências), `_resumo_novo_inscrito`,
+  `_notificar_inscricao_interna`, `_agendar_aviso_inscricao` (gancho único), `_usuarios_diretoria_aviso`,
+  `_eventos_com_aviso_inscricao`, `_nome_destinatario_aviso` e a view **`evento_avisar_inscritos_view`**
+  (envio manual). Ganchos em `_criar_inscricao_de_payload` (site) e no PDV de inscrição (balcão).
+- `core/urls.py`: rota `eventos/avisar-inscritos/` — **sem pk**, porque o mesmo botão é usado no painel do
+  evento e na aba Templates (com seletor de evento).
+- `core/forms.py`: os dois campos em `EventoInscricaoConfigForm`; o seletor lista **só** integrantes da
+  diretoria ativos/não-demo e mostra o **nome da ficha**, não o login.
+- `templates/core/evento_painel.html`, `templates/core/whatsapp.html`, `static/css/eventos.css`,
+  `static/css/whatsapp.css`: liga/desliga + seletor + botões de envio manual (`.config-aviso`,
+  `.wa-lista-form`), e `<select>` entrou no estilo dos campos do `wa-form`.
+- `core/tests.py`: `AvisoInscricaoEventoTests` (13 testes).
+
+### Decisões tomadas
+- **Destinatário no evento, texto no template**: cada evento costuma ter um responsável diferente, então o
+  checklist global da aba Templates não serviria. Consequência: este é o único aviso interno em que o POST da
+  aba Templates **não** mexe na M2M `avisos_internos_para` (mexer zeraria a lista de outro aviso).
+- **Gancho nos dois caminhos de inscrição** (site e balcão): o PDV cria a inscrição fora do payload; sem isso
+  a lista enviada divergiria da lista do painel.
+- **Teto de 2800 caracteres na lista** (`LIMITE_TEXTO_LISTA`): a mensagem cresce a cada inscrição e a W-API
+  recusa texto muito longo. As inscrições mais antigas saem (com aviso); o bloco de pagamento por fora fica
+  **sempre inteiro** — é o que exige ação.
+- **Envio manual independe do automático**: quem deixou o gatilho desligado ainda consegue mandar a lista.
+
+### Validação
+- **250 testes OK** (237 + 13), incluindo: agrupamento por inscrição com idade, separação/limpeza do bloco
+  "por fora", disparo pelo site, disparo pelo balcão, evento sem aviso não incomoda ninguém, botão manual,
+  erro sem destinatário, exigência de Diretor e o aparo da lista gigante.
+- Conferido em 520/1400px com sonda de overflow (zero) e pela mensagem renderizada de ponta a ponta.
+
+### Pendências
+- O aviso sai **por WhatsApp**; o canal de e-mail funciona pelo mesmo template, mas o texto é pensado para o
+  WhatsApp (a lista fica longa num e-mail).
+- Não há histórico de "quando avisei pela última vez" — se for útil, dá para gravar como no `CobrancaEnviada`.
+
 ## 2026-08-15 - Recuperação de senha mostra o usuário de acesso
 
 ### Resumo

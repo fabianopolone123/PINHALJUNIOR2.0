@@ -94,6 +94,7 @@ from .models import (
     NOTIF_MENSALIDADE_PAGA,
     NOTIF_CADASTRO_NOVO,
     NOTIF_INSCRICAO_EVENTO,
+    NOTIF_INSCRICAO_INTERNA,
     MENSAGEM_APELO_PADRAO,
     MENSAGEM_COBRANCA_PADRAO,
     ASSUNTO_COBRANCA_PADRAO,
@@ -1581,6 +1582,7 @@ def evento_painel_view(request, pk):
         "pedidos": pedidos,
         "vendas_por_produto": vendas_por_produto,
         "config_form": EventoInscricaoConfigForm(instance=evento),
+        "destinatario_aviso": _nome_destinatario_aviso(evento),
         # Prefixos evitam colisão de IDs entre os modais na mesma página.
         "faixa_form": FaixaEtariaPrecoForm(prefix="faixa"),
         "campo_form": CampoInscricaoForm(prefix="campo"),
@@ -1617,6 +1619,52 @@ def evento_inscricao_config_view(request, pk):
             request, "Não foi possível salvar a configuração. Verifique os campos."
         )
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+_MOTIVO_AVISO = {
+    "evento_nao_encontrado": "Evento não encontrado.",
+    "sem_destinatario": "Escolha quem recebe o aviso na configuração da inscrição.",
+    "sem_contato": "O integrante escolhido não tem WhatsApp nem e-mail cadastrado.",
+    "template_inativo": "Ative a notificação “Nova inscrição em evento (aviso interno)” na aba Templates do WhatsApp.",
+    "sem_canal": "O template não está marcado para enviar por WhatsApp nem por e-mail.",
+    "whatsapp_nao_configurado": "Configure a instância do WhatsApp antes.",
+    "numero_invalido": "O WhatsApp do integrante escolhido é inválido.",
+}
+
+
+@diretor_required
+@require_POST
+def evento_avisar_inscritos_view(request):
+    """Envia AGORA a lista de inscritos ao integrante escolhido no evento.
+
+    É o botão manual — existe no painel do evento e na aba Templates do módulo
+    WhatsApp (que manda o `evento_id` do seletor). Não depende do liga/desliga
+    automático: o Diretor pode disparar a lista quando quiser, desde que o
+    evento tenha destinatário e o template esteja ativo."""
+    evento = get_object_or_404(Evento, pk=request.POST.get("evento_id") or 0)
+    ok, motivo = _notificar_inscricao_interna(evento.pk)
+    if ok:
+        messages.success(
+            request, f"Lista de inscritos enviada para {_nome_destinatario_aviso(evento)}."
+        )
+    else:
+        chave = (motivo or "").split(":")[0].split(" ")[0]
+        messages.error(
+            request,
+            _MOTIVO_AVISO.get(chave, f"Não foi possível enviar a lista ({motivo})."),
+        )
+    if request.POST.get("de") == "whatsapp":
+        return redirect(reverse("core:whatsapp") + "?aba=templates")
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+def _nome_destinatario_aviso(evento):
+    """Nome de quem recebe o aviso interno do evento (para o toast/tela)."""
+    user = evento.notificar_inscricoes_para
+    if user is None:
+        return ""
+    membro = MembroDiretoria.objects.filter(usuario=user).first()
+    return (membro.nome_completo if membro else "") or user.get_full_name() or user.username
 
 
 @diretor_required
@@ -3024,6 +3072,8 @@ def evento_pdv_inscricao_view(request, pk):
                     entregar_agora=entregar_agora,
                 )
                 _marcar_cupons_usados(aplicados, inscricao)
+            # Inscrição de balcão também avisa a diretoria (a lista é a mesma).
+            _agendar_aviso_inscricao(evento, inscricao)
             msg = f"Inscrição {inscricao.codigo} registrada."
             if forma == "dinheiro" and inscricao.troco is not None:
                 msg += " Troco: R$ " + f"{inscricao.troco:.2f}".replace(".", ",")
@@ -3594,7 +3644,7 @@ def _wapi_post_texto(config, phone, message):
 
 _ORDEM_NOTIFICACOES = [
     NOTIF_LOJA_COMPRA, NOTIF_LOJA_PEDIDO, NOTIF_MENSALIDADE_PAGA,
-    NOTIF_CADASTRO_NOVO, NOTIF_INSCRICAO_EVENTO,
+    NOTIF_CADASTRO_NOVO, NOTIF_INSCRICAO_EVENTO, NOTIF_INSCRICAO_INTERNA,
 ]
 
 
@@ -3605,6 +3655,28 @@ def _diretoria_membros():
         usuario__isnull=False, ativo=True, demo=False
     ).order_by("nome_completo")
     return [{"id": m.usuario_id, "nome": m.nome_completo} for m in membros]
+
+
+def _eventos_com_aviso_inscricao():
+    """Eventos com inscrição que já têm alguém escolhido para receber o aviso —
+    é a lista do seletor do envio manual na aba Templates. Sem destinatário não
+    há para quem mandar, então o evento nem aparece."""
+    eventos = (
+        Evento.objects.filter(
+            tipo="inscricao", demo=False, notificar_inscricoes_para__isnull=False
+        )
+        .select_related("notificar_inscricoes_para")
+        .order_by("-data", "-id")
+    )
+    return [
+        {
+            "id": e.id,
+            "nome": e.nome,
+            "destinatario": _nome_destinatario_aviso(e),
+            "automatico": e.notificar_inscricoes,
+        }
+        for e in eventos
+    ]
 
 
 def _notif_templates_ctx():
@@ -3626,6 +3698,9 @@ def _notif_templates_ctx():
             "tipo": tipo,
             "rotulo": tpl.get_rotulo(),
             "interno": tpl.interno,
+            # Aviso interno cujo destinatário NÃO é o checklist daqui: é escolhido
+            # evento a evento (cada evento tem o seu responsável).
+            "por_evento": tipo == NOTIF_INSCRICAO_INTERNA,
             "marcadores": tpl.marcadores,
             "ativo": tpl.ativo,
             "usar_ia": tpl.usar_ia,
@@ -3667,6 +3742,7 @@ def whatsapp_view(request):
         "reengajar_alvos": reengajar_alvos,
         "reengajar_inativos_n": len(reengajar_alvos),
         "notif_templates": _notif_templates_ctx(),
+        "eventos_aviso": _eventos_com_aviso_inscricao(),
         "notif_janela_dias": config.notificar_janela_dias,
         "ia_configurada": OpenAIConfig.get_solo().configurado,
         "email_configurado": EmailConfig.get_solo().configurado,
@@ -3742,7 +3818,9 @@ def whatsapp_templates_view(request):
     )
     tpl.atualizado_por = request.user
     tpl.save()
-    if tpl.interno:
+    # O aviso de inscrição é interno, mas o destinatário dele é escolhido no
+    # evento — não tem checklist aqui e não pode ter a lista zerada pelo POST.
+    if tpl.interno and tipo != NOTIF_INSCRICAO_INTERNA:
         ids = [i for i in request.POST.getlist("membros") if i.isdigit()]
         tpl.avisos_internos_para.set(User.objects.filter(id__in=ids))
     messages.success(request, f"Notificação “{tpl.get_rotulo()}” salva.")
@@ -5325,6 +5403,152 @@ def _finalizar_inscricao(pagamento):
     pagamento.payload = dados
 
 
+# ---------------------------------------------------------------------------
+# Aviso interno de inscrição: a cada inscrição, a lista de inscritos vai para UM
+# integrante da diretoria — quem acompanha aquele evento.
+#
+# O liga/desliga e o destinatário ficam **no evento** (`notificar_inscricoes` /
+# `notificar_inscricoes_para`), porque cada evento costuma ter um responsável
+# diferente; o texto e os canais vêm do template `inscricao_evento_interno`
+# (aba 🧩 Templates do módulo WhatsApp), como os demais avisos.
+# ---------------------------------------------------------------------------
+# Teto do texto da lista. A mensagem cresce a cada inscrição e um evento grande
+# (80 inscrições) estouraria o limite da W-API — passando disso, as inscrições
+# MAIS ANTIGAS saem e viram uma linha de resumo. O bloco de pagamento por fora
+# fica sempre inteiro: é a parte acionável do aviso.
+LIMITE_TEXTO_LISTA = 2800
+
+
+def _usuarios_diretoria_aviso():
+    """Contas de integrantes da diretoria que podem receber o aviso interno
+    (ativos, não-demo e com login), já com o nome da ficha para exibir."""
+    return (
+        User.objects.filter(
+            membro_diretoria__ativo=True, membro_diretoria__demo=False
+        )
+        .annotate(nome_diretoria=F("membro_diretoria__nome_completo"))
+        .order_by("nome_diretoria")
+    )
+
+
+def _participantes_txt(inscricao, prefixo="   • "):
+    """Participantes de uma inscrição, um por linha: nome e idade."""
+    linhas = []
+    for p in inscricao.participantes.all():
+        idade = f", {p.idade} anos" if p.idade is not None else ""
+        linhas.append(f"{prefixo}{p.nome}{idade}")
+    return "\n".join(linhas)
+
+
+def _resumo_novo_inscrito(inscricao):
+    """Uma linha com quem acabou de se inscrever (para abrir o aviso)."""
+    contato = (inscricao.responsavel_whatsapp or "").strip()
+    nomes = ", ".join(p.nome for p in inscricao.participantes.all() if p.nome)
+    partes = [inscricao.responsavel_nome or "—"]
+    if contato:
+        partes.append(contato)
+    if nomes:
+        partes.append(f"({nomes})")
+    return " — ".join(partes[:2]) + (f" {partes[2]}" if len(partes) > 2 else "")
+
+
+def _texto_inscritos_evento(evento):
+    """Lista de inscritos do evento em texto, para o aviso interno.
+
+    Agrupada **por inscrição** — responsável + WhatsApp numa linha e abaixo cada
+    participante com nome e idade —, que é como a diretoria fala com a família:
+    um contato por inscrição, não um por criança.
+
+    Devolve `(lista, por_fora, total, pendentes)`. `por_fora` é o bloco das
+    inscrições **pagas direto ao evento que ainda não foram acertadas** — quem
+    escolheu essa forma fechou a inscrição sem pagar, então alguém precisa
+    combinar o acerto. Vem vazio quando não há nenhuma."""
+    inscricoes = (
+        evento.inscricoes.filter(status="confirmada")
+        .prefetch_related("participantes")
+        .order_by("criado_em")
+    )
+    rotulos = dict(FORMA_PAGAMENTO_CHOICES)
+    blocos, pendentes = [], []
+    for n, insc in enumerate(inscricoes, start=1):
+        contato = (insc.responsavel_whatsapp or "").strip() or "sem WhatsApp"
+        forma = rotulos.get(insc.forma_pagamento, insc.forma_pagamento or "—")
+        marca = " ⚠️ pagar por fora" if insc.pagamento_pendente else ""
+        bloco = f"{n}) {insc.responsavel_nome or '—'} — {contato} — {forma}{marca}"
+        corpo = _participantes_txt(insc)
+        blocos.append(f"{bloco}\n{corpo}" if corpo else bloco)
+        if insc.pagamento_pendente:
+            pendentes.append(f"• {insc.responsavel_nome or '—'} — {contato} — {forma}")
+
+    total = len(blocos)
+    cortadas = 0
+    while len(blocos) > 1 and len("\n".join(blocos)) > LIMITE_TEXTO_LISTA:
+        blocos.pop(0)
+        cortadas += 1
+    lista = "\n".join(blocos) if blocos else "Nenhuma inscrição confirmada ainda."
+    if cortadas:
+        lista = (
+            f"(as {cortadas} inscrições mais antigas ficaram de fora desta mensagem — "
+            f"a lista completa está no painel do evento)\n" + lista
+        )
+
+    por_fora = ""
+    if pendentes:
+        por_fora = (
+            f"\n⚠️ *Pagamento por fora — falta acertar ({len(pendentes)}):*\n"
+            + "\n".join(pendentes)
+            + "\n\nEstas pessoas escolheram uma forma que o evento recebe direto, "
+            "então a inscrição está confirmada mas o pagamento ainda NÃO foi feito. "
+            "Entre em contato para combinar e depois marque como pago no painel."
+        )
+    return lista, por_fora, total, len(pendentes)
+
+
+def _notificar_inscricao_interna(evento_id, novo=""):
+    """Manda a lista de inscritos ao integrante escolhido no evento. Usado pelo
+    gatilho automático (a cada inscrição) e pelo botão de envio manual.
+
+    É aviso interno: vai com `forcar=True` (não passa pelo gate anti-bloqueio,
+    como o aviso de pedido da loja). Nunca levanta exceção — devolve
+    `(ok, motivo)`."""
+    evento = (
+        Evento.objects.filter(pk=evento_id)
+        .select_related("notificar_inscricoes_para")
+        .first()
+    )
+    if evento is None:
+        return False, "evento_nao_encontrado"
+    destino = evento.notificar_inscricoes_para
+    if destino is None:
+        return False, "sem_destinatario"
+    lista, por_fora, total, pendentes = _texto_inscritos_evento(evento)
+    numero = _whatsapp_membro_diretoria(destino)
+    email = _email_do_usuario(destino)
+    if not numero and not email:
+        return False, "sem_contato"
+    return _notificar(NOTIF_INSCRICAO_INTERNA, numero, {
+        "evento": evento.nome,
+        "novo": novo or "—",
+        "total_inscritos": total,
+        "lista": lista,
+        "por_fora": por_fora,
+        "pendentes": pendentes,
+    }, forcar=True, email=email)
+
+
+def _agendar_aviso_inscricao(evento, inscricao):
+    """Dispara o aviso interno depois do commit, em thread (a chamada da W-API/IA
+    não pode segurar o request nem o webhook do Mercado Pago).
+
+    Ponto único dos **dois** caminhos de inscrição: site (payload) e balcão/PDV."""
+    if not evento.notificar_inscricoes or not evento.notificar_inscricoes_para_id:
+        return
+    novo = _resumo_novo_inscrito(inscricao)
+    transaction.on_commit(
+        lambda: _em_thread(_notificar_inscricao_interna, evento.pk, novo)
+    )
+
+
 def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None,
                                 forma_pagamento="", pagamento_externo=False):
     """Cria a Inscrição (+ participantes, respostas, pedido de lojinha e marca os
@@ -5430,6 +5654,8 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None,
     transaction.on_commit(
         lambda: _em_thread(_notificar, NOTIF_INSCRICAO_EVENTO, numero, ctx, email=email)
     )
+    # Aviso interno para a diretoria (lista de inscritos), se ligado no evento.
+    _agendar_aviso_inscricao(evento, inscricao)
     return inscricao
 
 

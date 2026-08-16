@@ -571,6 +571,21 @@ class Evento(models.Model):
     instrucoes_pagamento_fora = models.TextField(
         "Orientação de pagamento", blank=True
     )
+    # Aviso interno: a cada inscrição neste evento, manda a lista de inscritos
+    # para UM integrante da diretoria (o responsável por acompanhar o evento).
+    # O texto/canais são do template `inscricao_evento_interno` (aba Templates);
+    # aqui fica só o liga/desliga e quem recebe — cada evento tem o seu.
+    notificar_inscricoes = models.BooleanField(
+        "Avisar a diretoria a cada inscrição", default=False
+    )
+    notificar_inscricoes_para = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_avisos_inscricao",
+        verbose_name="Quem recebe o aviso",
+    )
 
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1677,6 +1692,7 @@ NOTIF_LOJA_PEDIDO = "loja_pedido"
 NOTIF_MENSALIDADE_PAGA = "mensalidade_paga"
 NOTIF_CADASTRO_NOVO = "cadastro_novo"
 NOTIF_INSCRICAO_EVENTO = "inscricao_evento"
+NOTIF_INSCRICAO_INTERNA = "inscricao_evento_interno"
 
 # tipo -> (rótulo, interno?, marcadores, mensagem_padrão, prompt_padrão, assunto_padrão)
 TEMPLATES_NOTIFICACAO = {
@@ -1763,6 +1779,28 @@ TEMPLATES_NOTIFICACAO = {
             "Evento: {evento}. Código: {codigo}. Total: R$ {total}. Máximo 3 linhas, sem inventar dados."
         ),
         "Inscrição confirmada — {evento}",
+    ),
+    NOTIF_INSCRICAO_INTERNA: (
+        # Sem "(aviso interno)" no rótulo: a tela já acrescenta esse sufixo nos
+        # templates internos, e o texto saía duplicado.
+        "Nova inscrição em evento",
+        True,
+        "{evento} {novo} {total_inscritos} {lista} {por_fora}",
+        (
+            "📋 Nova inscrição em \"{evento}\"\n"
+            "Acabou de se inscrever: {novo}\n\n"
+            "*Inscritos até agora ({total_inscritos}):*\n"
+            "{lista}\n"
+            "{por_fora}"
+        ),
+        (
+            "Escreva um aviso interno de WhatsApp para a diretoria do Clube de Aventureiros "
+            "Pinhal Júnior sobre uma nova inscrição no evento \"{evento}\". Quem acabou de se "
+            "inscrever: {novo}. Total de inscritos: {total_inscritos}. Escreva no máximo 2 linhas "
+            "de abertura e então REPRODUZA EXATAMENTE, sem resumir, reordenar nem inventar nada, "
+            "a lista abaixo e o aviso de pagamento que vem depois dela:\n\n{lista}\n{por_fora}"
+        ),
+        "Nova inscrição — {evento}",
     ),
 }
 

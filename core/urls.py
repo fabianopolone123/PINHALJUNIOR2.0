@@ -112,6 +112,13 @@ urlpatterns = [
         views.evento_inscricao_config_view,
         name="evento_inscricao_config",
     ),
+    # Sem o pk na URL: o evento vem no POST, porque o mesmo botão é usado no
+    # painel do evento e na aba Templates do WhatsApp (com seletor de evento).
+    path(
+        "eventos/avisar-inscritos/",
+        views.evento_avisar_inscritos_view,
+        name="evento_avisar_inscritos",
+    ),
     path(
         "eventos/<int:pk>/inscricoes/faixa/novo/",
         views.evento_faixa_nova_view,

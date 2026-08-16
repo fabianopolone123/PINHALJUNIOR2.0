@@ -462,7 +462,16 @@
                                 <small class="ajuda">Aceita os mesmos marcadores do texto.</small>
                             </div>
 
-                            {% if t.interno %}
+                            {% if t.por_evento %}
+                            <div class="campo">
+                                <label>Quem da diretoria recebe este aviso</label>
+                                <small class="ajuda">
+                                    Este aviso é <strong>por evento</strong>: quem recebe (e o liga/desliga
+                                    automático) fica no painel do evento, aba <strong>Inscrições →
+                                    Configuração</strong>. Aqui você define só o texto e os canais.
+                                </small>
+                            </div>
+                            {% elif t.interno %}
                             <div class="campo">
                                 <label>Quem da diretoria recebe este aviso</label>
                                 {% if t.membros %}
@@ -495,6 +504,34 @@
                                 <button type="submit" class="btn-acao"><span aria-hidden="true">💾</span> Salvar</button>
                             </div>
                         </form>
+
+                        {% comment %}
+                        Envio manual da lista atual de inscritos. Form separado (não
+                        existe form dentro de form) e fora do "Salvar" de propósito:
+                        mandar a lista não deve depender de salvar o texto.
+                        {% endcomment %}
+                        {% if t.por_evento %}
+                        <form method="post" action="{% url 'core:evento_avisar_inscritos' %}" class="wa-form wa-lista-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="de" value="whatsapp">
+                            <div class="campo">
+                                <label for="evento_lista">📤 Enviar a lista de inscritos agora</label>
+                                {% if eventos_aviso %}
+                                <select id="evento_lista" name="evento_id">
+                                    {% for e in eventos_aviso %}
+                                    <option value="{{ e.id }}">{{ e.nome }} → {{ e.destinatario }}{% if not e.automatico %} (automático desligado){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="ajuda">Manda na hora a lista completa de inscritos para quem está escolhido naquele evento.</small>
+                                <div class="wa-acoes">
+                                    <button type="submit" class="btn-secundario">Enviar lista agora</button>
+                                </div>
+                                {% else %}
+                                <small class="ajuda">Nenhum evento com destinatário escolhido ainda. Abra o painel de um evento com inscrição, aba <strong>Inscrições → Configuração</strong>, e escolha quem recebe.</small>
+                                {% endif %}
+                            </div>
+                        </form>
+                        {% endif %}
                     </section>
                     {% endfor %}
                 </div><!-- /painel templates -->

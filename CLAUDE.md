@@ -136,6 +136,16 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   — Gmail/Outlook fazem POST One-Click, RFC 8058), reversível. Todo e-mail leva rodapé de identificação; os
   não-transacionais levam também `List-Unsubscribe`. Só recusa **5xx** marca bounce (4xx/conexão é problema
   nosso). Ao criar envio novo de e-mail, **use `_enviar_email`** — nunca `email_envio.enviar` direto.
+- **Aviso interno de inscrição**: `Evento.notificar_inscricoes` + `notificar_inscricoes_para` (migration
+  **0067**) ligam, **por evento**, o envio da **lista de inscritos** a UM integrante da diretoria a cada
+  inscrição. Template `inscricao_evento_interno` (aba Templates) só define texto/canais — o destinatário vem
+  do evento, então o POST daquela aba **não** mexe na M2M `avisos_internos_para` desse tipo. O gancho é
+  `_agendar_aviso_inscricao`, chamado nos **dois** caminhos de inscrição (site `_criar_inscricao_de_payload`
+  **e** balcão/PDV) — inscrição nova por outro caminho precisa chamá-lo também. A lista é agrupada por
+  inscrição (responsável + WhatsApp; participantes com nome e idade) e separa quem tem `pagamento_externo`
+  pendente, que é a parte acionável. Tem teto de texto (`LIMITE_TEXTO_LISTA`) porque a W-API recusa mensagem
+  muito longa; o bloco de pendências nunca é cortado. Envio manual: rota `/eventos/avisar-inscritos/` (evento
+  no POST), usada pelo painel do evento e pela aba Templates.
 - **Notificações são multicanal**: `_notificar(tipo, numero, ctx, *, forcar=False, email="")` é o ponto único e
   **despacha** para WhatsApp e/ou e-mail conforme `TemplateNotificacao.enviar_whatsapp`/`enviar_email`. O texto é
   renderizado **uma vez** (a IA é chamada 1× por notificação) e no e-mail passa por `texto_para_email`, que tira

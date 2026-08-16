@@ -505,6 +505,16 @@ a.tipo-card:hover {
     color: var(--azul-escuro);
 }
 
+/* Envio manual do aviso de inscritos: ação separada do "Salvar configuração"
+   (mandar a lista não depende de salvar o formulário). */
+.config-aviso {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed #d6dde6;
+}
+
+.config-aviso .painel-nota { margin: 0 0 10px; }
+
 .faixas-lista { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .faixa-item {
     display: flex;

@@ -477,12 +477,41 @@
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_online %}
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_fora %}
                             {% include "core/_campo.html" with campo=config_form.instrucoes_pagamento_fora %}
+                            <div class="campo">
+                                <div class="campo-checkbox">
+                                    {{ config_form.notificar_inscricoes }}
+                                    <label for="{{ config_form.notificar_inscricoes.id_for_label }}">{{ config_form.notificar_inscricoes.label }}</label>
+                                </div>
+                                {% if config_form.notificar_inscricoes.help_text %}<small class="ajuda">{{ config_form.notificar_inscricoes.help_text }}</small>{% endif %}
+                            </div>
+                            {% include "core/_campo.html" with campo=config_form.notificar_inscricoes_para %}
                             <div class="form-acoes">
                                 <button type="submit" class="btn-acao">
                                     <span aria-hidden="true">💾</span> Salvar configuração
                                 </button>
                             </div>
                         </form>
+
+                        {% comment %}
+                        Envio manual da lista. Fica fora do <form> de cima (form
+                        aninhado não existe em HTML) e só aparece quando já há
+                        alguém escolhido para receber.
+                        {% endcomment %}
+                        {% if evento.notificar_inscricoes_para_id %}
+                        <div class="config-aviso">
+                            <p class="painel-nota">
+                                Quem recebe o aviso: <strong>{{ destinatario_aviso }}</strong>.
+                                {% if not evento.notificar_inscricoes %}O envio automático está <strong>desligado</strong> — o botão abaixo continua funcionando.{% endif %}
+                            </p>
+                            <form method="post" action="{% url 'core:evento_avisar_inscritos' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="evento_id" value="{{ evento.id }}">
+                                <button type="submit" class="btn-acao btn-acao-pequeno">
+                                    <span aria-hidden="true">📤</span> Enviar a lista agora
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
                     </div><!-- /sub-aba config -->
 

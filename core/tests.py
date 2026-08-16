@@ -44,6 +44,7 @@ from .models import (
     Mensalidade,
     MercadoPagoConfig,
     Pagamento,
+    ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
     ProdutoEvento,
@@ -3164,3 +3165,190 @@ class RecuperarUsuarioTests(TestCase):
         css = Path("static/css/recuperar.css").read_text(encoding="utf-8")
         for classe in (".recup-usuario", ".recup-usuario-rotulo", ".recup-usuario-nome"):
             self.assertIn(classe, css)
+
+
+class AvisoInscricaoEventoTests(TestCase):
+    """Aviso interno de inscrição: a cada inscrição no evento, a lista de
+    inscritos vai para o integrante da diretoria escolhido NAQUELE evento."""
+
+    def setUp(self):
+        self.diretor = User.objects.create_user("dir_aviso", password="x")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.membro_user = User.objects.create_user("tesoureira", password="x")
+        MembroDiretoria.objects.create(
+            usuario=self.membro_user, nome_completo="Fulana da Diretoria",
+            cpf="99988877766", whatsapp="5516991110009", email="dir@exemplo.com",
+        )
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "I"
+        wa.token = "T"
+        wa.save()
+        tpl = TemplateNotificacao.get_tipo("inscricao_evento_interno")
+        tpl.ativo = True
+        tpl.save(update_fields=["ativo"])
+        self.ev = Evento.objects.create(
+            tipo="inscricao", nome="Acampamento", local="Chacara",
+            data=timezone.localdate() + datetime.timedelta(days=10),
+            inscricao_aberta_publico=True, formas_pagamento_online="pix",
+            notificar_inscricoes=True, notificar_inscricoes_para=self.membro_user,
+        )
+        FaixaEtariaPreco.objects.create(
+            evento=self.ev, idade_min=1, idade_max=99, valor=Decimal("50.00")
+        )
+
+    def _inscricao(self, nome_resp, whatsapp, participantes, **kw):
+        insc = Inscricao.objects.create(
+            evento=self.ev, responsavel_nome=nome_resp, responsavel_whatsapp=whatsapp,
+            codigo=Inscricao.gerar_codigo_unico(), status="confirmada",
+            forma_pagamento=kw.pop("forma", "pix"), valor_total=Decimal("50.00"), **kw,
+        )
+        for nome, idade in participantes:
+            ParticipanteInscricao.objects.create(
+                inscricao=insc, nome=nome, idade=idade, valor=Decimal("50.00")
+            )
+        return insc
+
+    def _dados_inscricao(self):
+        return {
+            "responsavel_nome": "Mae Nova", "responsavel_whatsapp": "5516990000000",
+            "responsavel_email": "m@exemplo.com", "responsavel_cpf": "111",
+            "part_idx": ["0"], "part_nome_0": "Filha", "part_idade_0": "9",
+            "forma_pagamento": "pix",
+        }
+
+    def test_lista_agrupa_por_inscricao_com_idade_e_contato(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)])
+        lista, por_fora, total, pendentes = views._texto_inscritos_evento(self.ev)
+        self.assertEqual((total, pendentes), (2, 0))
+        self.assertIn("1) Mae Um — (16) 99999-1111", lista)
+        self.assertIn("• Ana, 8 anos", lista)
+        self.assertIn("• Pedro, 11 anos", lista)
+        self.assertIn("2) Pai Dois — (16) 98888-2222", lista)
+        self.assertEqual(por_fora, "")
+
+    def test_separa_quem_vai_pagar_por_fora(self):
+        """A parte acionável: quem escolheu a forma paga direto ao evento ainda
+        não pagou, e alguém precisa combinar o acerto."""
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)],
+                        pagamento_externo=True)
+        lista, por_fora, _, pendentes = views._texto_inscritos_evento(self.ev)
+        self.assertEqual(pendentes, 1)
+        self.assertIn("pagar por fora", lista)
+        self.assertIn("Pai Dois", por_fora)
+        self.assertNotIn("Mae Um", por_fora)
+        self.assertIn("marque como pago", por_fora)
+
+    def test_quem_ja_acertou_sai_do_bloco_de_pendencia(self):
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)],
+                        pagamento_externo=True, pago_externo_em=timezone.now())
+        _, por_fora, _, pendentes = views._texto_inscritos_evento(self.ev)
+        self.assertEqual(pendentes, 0)
+        self.assertEqual(por_fora, "")
+
+    def _inscrever_pelo_site(self):
+        """Faz a inscrição pelo site executando o que ficou pendente para depois do
+        commit: o aviso sai em `on_commit` + thread (para não segurar o request)."""
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "id")) as env, \
+                mock.patch("core.views._em_thread",
+                           side_effect=lambda f, *a, **k: f(*a, **k)), \
+                self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(
+                reverse("core:evento_inscrever", args=[self.ev.id]), self._dados_inscricao()
+            )
+        return r, env
+
+    def test_inscricao_pelo_site_dispara_o_aviso(self):
+        r, env = self._inscrever_pelo_site()
+        self.assertEqual(r.status_code, 302)
+        destinos = [c[0][1] for c in env.call_args_list]
+        self.assertIn("5516991110009", destinos)
+        texto = [c[0][2] for c in env.call_args_list if c[0][1] == "5516991110009"][0]
+        self.assertIn("Acampamento", texto)
+        self.assertIn("Filha, 9 anos", texto)
+
+    def test_evento_sem_aviso_nao_incomoda_a_diretoria(self):
+        self.ev.notificar_inscricoes = False
+        self.ev.save(update_fields=["notificar_inscricoes"])
+        _, env = self._inscrever_pelo_site()
+        destinos = [c[0][1] for c in env.call_args_list]
+        self.assertNotIn("5516991110009", destinos)
+
+    def test_inscricao_no_balcao_tambem_avisa(self):
+        """O balcão cria a inscrição por outro caminho (não passa pelo payload);
+        sem o gancho lá, a lista do WhatsApp ficaria diferente da do painel."""
+        self.client.force_login(self.diretor)
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "id")) as env, \
+                mock.patch("core.views._em_thread",
+                           side_effect=lambda f, *a, **k: f(*a, **k)), \
+                self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("core:evento_pdv_inscricao", args=[self.ev.id]), {
+                "responsavel_nome": "Mae Balcao", "responsavel_whatsapp": "5516990000001",
+                "responsavel_email": "b@exemplo.com", "responsavel_cpf": "222",
+                "part_idx": ["0"], "part_nome_0": "Filho Balcao", "part_idade_0": "7",
+                "forma_pagamento": "dinheiro", "valor_recebido": "50,00",
+            })
+        textos = [c[0][2] for c in env.call_args_list if c[0][1] == "5516991110009"]
+        self.assertTrue(textos, "o balcão não disparou o aviso interno")
+        self.assertIn("Filho Balcao, 7 anos", textos[0])
+
+    def test_botao_manual_envia_a_lista_atual(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self.client.force_login(self.diretor)
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "id")) as env:
+            r = self.client.post(reverse("core:evento_avisar_inscritos"),
+                                 {"evento_id": self.ev.id})
+        self.assertEqual(r.status_code, 302)
+        env.assert_called_once()
+        self.assertEqual(env.call_args[0][1], "5516991110009")
+        self.assertIn("Mae Um", env.call_args[0][2])
+
+    def test_manual_sem_destinatario_avisa_e_nao_envia(self):
+        self.ev.notificar_inscricoes_para = None
+        self.ev.save(update_fields=["notificar_inscricoes_para"])
+        self.client.force_login(self.diretor)
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "id")) as env:
+            r = self.client.post(reverse("core:evento_avisar_inscritos"),
+                                 {"evento_id": self.ev.id}, follow=True)
+        env.assert_not_called()
+        self.assertContains(r, "Escolha quem recebe")
+
+    def test_manual_exige_diretor(self):
+        r = self.client.post(reverse("core:evento_avisar_inscritos"),
+                             {"evento_id": self.ev.id})
+        self.assertEqual(r.status_code, 302)
+        self.assertNotIn("inscricoes", r["Location"])
+
+    def test_lista_gigante_e_aparada_mas_pendencia_fica_inteira(self):
+        """A mensagem cresce a cada inscrição; sem teto, a W-API recusaria o texto.
+        As mais antigas saem — as pendências de pagamento, nunca."""
+        for i in range(120):
+            self._inscricao(f"Responsavel Numero {i}", "(16) 99999-0000",
+                            [(f"Participante Numero {i}", 10)])
+        self._inscricao("Deve Pagar", "(16) 97777-7777", [("Filho", 7)],
+                        pagamento_externo=True)
+        lista, por_fora, total, pendentes = views._texto_inscritos_evento(self.ev)
+        self.assertEqual((total, pendentes), (121, 1))
+        self.assertLessEqual(len(lista), views.LIMITE_TEXTO_LISTA + 200)
+        self.assertIn("mais antigas ficaram de fora", lista)
+        self.assertIn("Deve Pagar", por_fora)
+
+    def test_aba_templates_mostra_o_novo_aviso_e_o_envio_manual(self):
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:whatsapp") + "?aba=templates")
+        self.assertContains(r, "Nova inscrição em evento")
+        self.assertContains(r, "Enviar a lista de inscritos agora")
+        self.assertContains(r, "Fulana da Diretoria")
+
+    def test_painel_do_evento_tem_o_seletor_e_o_botao(self):
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
+        self.assertContains(r, "Avisar a diretoria a cada inscrição")
+        self.assertContains(r, "Fulana da Diretoria")
+        self.assertContains(r, "Enviar a lista agora")
+
+    def test_classes_novas_tem_estilo(self):
+        from pathlib import Path
+        self.assertIn(".config-aviso", Path("static/css/eventos.css").read_text(encoding="utf-8"))
+        self.assertIn(".wa-lista-form", Path("static/css/whatsapp.css").read_text(encoding="utf-8"))

@@ -10,6 +10,7 @@ São quatro formulários combinados no mesmo envio (com prefixos diferentes):
 
 from django import forms
 from django.contrib.auth.models import User
+from django.db.models import F
 
 from .models import (
     Aventureiro,
@@ -422,6 +423,7 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
             "local", "inscricao_aberta_publico", "inscricao_limite",
             "valor_diretoria", "formas_pagamento_online",
             "formas_pagamento_fora", "instrucoes_pagamento_fora",
+            "notificar_inscricoes", "notificar_inscricoes_para",
         ]
         widgets = {
             "inscricao_limite": forms.DateTimeInput(
@@ -449,6 +451,15 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
                 "Como e para quem pagar. Aparece para quem se inscreve. "
                 "Só é usada quando alguma forma acima está marcada."
             ),
+            "notificar_inscricoes": (
+                "A cada inscrição neste evento, manda pelo WhatsApp a lista de "
+                "inscritos (com os participantes e o contato de cada responsável) "
+                "para o integrante escolhido abaixo."
+            ),
+            "notificar_inscricoes_para": (
+                "Integrante da diretoria que acompanha este evento. O texto da "
+                "mensagem fica em WhatsApp → Templates → “Nova inscrição em evento”."
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -457,6 +468,20 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         self.fields["inscricao_limite"].input_formats = [
             "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M",
         ]
+        # Só integrantes da diretoria (ativos, não-demo) podem receber o aviso —
+        # e o seletor mostra o nome da ficha, não o login (que costuma ser apelido).
+        campo = self.fields["notificar_inscricoes_para"]
+        campo.queryset = (
+            User.objects.filter(
+                membro_diretoria__ativo=True, membro_diretoria__demo=False
+            )
+            .annotate(nome_diretoria=F("membro_diretoria__nome_completo"))
+            .order_by("nome_diretoria")
+        )
+        campo.label_from_instance = (
+            lambda u: getattr(u, "nome_diretoria", "") or u.get_full_name() or u.username
+        )
+        campo.empty_label = "— escolha um integrante —"
         self._aplicar_estilo()
 
 

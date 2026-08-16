@@ -72,6 +72,7 @@
 .wa-form input[type="text"],
 .wa-form input[type="password"],
 .wa-form input[type="tel"],
+.wa-form select,
 .wa-form textarea {
     width: 100%;
     padding: 12px 14px;
@@ -91,6 +92,7 @@
 }
 
 .wa-form input:focus,
+.wa-form select:focus,
 .wa-form textarea:focus {
     outline: none;
     border-color: var(--azul-claro, #4a90d9);
@@ -102,6 +104,18 @@
     background: #f3f5f8;
     color: #999;
     cursor: not-allowed;
+}
+
+/* Envio manual da lista de inscritos (aba Templates): ação separada do
+   "Salvar" do template, por isso o traço divisório acima. */
+.wa-lista-form {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed #d6dde6;
+}
+
+.wa-lista-form .wa-acoes {
+    margin-top: 10px;
 }
 
 .wa-opcional {

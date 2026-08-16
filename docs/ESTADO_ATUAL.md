@@ -2,7 +2,34 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-15 (**Recuperação de senha mostra o usuário de acesso**): quem procura o
+**Última atualização:** 2026-08-15 (**Eventos: aviso interno de inscrição para a diretoria**): quem organiza um
+evento precisava abrir o painel para saber quem se inscreveu. Agora, **por evento**, dá para ligar
+**"Avisar a diretoria a cada inscrição"** e escolher **um integrante** que recebe, a cada nova inscrição, a
+**lista de inscritos** pelo WhatsApp (campos `Evento.notificar_inscricoes` e `notificar_inscricoes_para`,
+migration **0067**, na aba Inscrições → Configuração). A lista é **agrupada por inscrição** — responsável +
+WhatsApp numa linha, e abaixo cada participante com **nome e idade** —, que é como a diretoria fala com a
+família: um contato por inscrição, não um por criança. Ela **cresce** a cada inscrição, sempre com o total.
+**A separação por pagamento é a parte acionável**: quem escolheu uma forma marcada como **paga direto ao
+evento** (`Inscricao.pagamento_externo`) fechou a inscrição **sem pagar**, então a mensagem marca a linha com
+**⚠️ pagar por fora** e traz, no fim, o bloco **"Pagamento por fora — falta acertar (N)"** com nome, telefone
+e forma de cada um, explicando que é preciso entrar em contato e depois **marcar como pago no painel**; quem
+já foi baixado (`pago_externo_em`) sai do bloco. Novo template **`inscricao_evento_interno`** ("Nova inscrição
+em evento") na aba 🧩 **Templates**, com os marcadores `{evento} {novo} {total_inscritos} {lista} {por_fora}`;
+é o único aviso interno cujo **destinatário não é o checklist** de lá — vem do evento —, então a tela explica
+isso e o POST **não zera** a M2M. **Envio manual** nos dois lugares: botão "📤 Enviar a lista agora" no painel
+do evento e, na aba Templates, um seletor dos eventos com destinatário + "Enviar lista agora" (rota única
+`/eventos/avisar-inscritos/`, que recebe o evento no POST). Pontos de desenho: (1) o gancho está nos **dois**
+caminhos de inscrição — site (`_criar_inscricao_de_payload`) e **balcão/PDV**, que cria a inscrição por fora
+do payload; sem isso a lista do WhatsApp divergiria da do painel (há teste); (2) sai em `on_commit` + thread,
+como as demais notificações, para a chamada da W-API não segurar o request nem o webhook do Mercado Pago;
+(3) é aviso interno → `forcar=True` (não passa pelo gate anti-bloqueio), como o "Novo pedido da loja";
+(4) **teto de texto** (`LIMITE_TEXTO_LISTA`, 2800 caracteres): a mensagem cresce e um evento grande estouraria
+o limite da W-API, então as inscrições **mais antigas** saem com uma linha de resumo — o bloco de pagamento
+por fora **nunca** é cortado; (5) o botão manual funciona **mesmo com o automático desligado**. Suíte:
+**250 testes OK** (237 + 13). Conferido em 520/1400px com sonda: zero overflow. Antes: recuperação de senha
+mostra o usuário.
+
+**Anterior (Recuperação de senha mostra o usuário de acesso):** quem procura o
 "Esqueci minha senha" muitas vezes não esqueceu a senha — esqueceu **o login**, e o fluxo antigo não dizia
 qual era em lugar nenhum: a pessoa redefinia a senha e continuava sem conseguir entrar. Agora, depois de
 digitar o CPF do responsável legal, a **tela do código** mostra o **usuário de acesso** da conta encontrada,
