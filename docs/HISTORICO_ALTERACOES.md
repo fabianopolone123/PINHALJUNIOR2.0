@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-15 - Aviso de inscrição: lista completa, enviada em partes
+
+### Resumo
+Correção de rumo logo após a entrega anterior. O aviso tinha um **teto de texto** que aparava as inscrições
+mais antigas quando a mensagem crescia — ou seja, **inscrito sumia da lista**. A regra é o contrário:
+**quem se inscreveu nunca sai da lista de inscritos**, tenha pago na hora ou por fora. O teto saiu; quando o
+texto não cabe numa mensagem do WhatsApp, ele agora é **enviado em partes numeradas**.
+
+### Arquivos alterados
+- `core/views.py`: removido o `LIMITE_TEXTO_LISTA` e o aparo em `_texto_inscritos_evento`. Novo
+  **`_partir_texto_whatsapp`** (corta só em quebra de linha, numera "(i de N)", parte à força linha que
+  sozinha não caberia) e `_notificar_whatsapp` passou a enviar as partes em ordem, parando na primeira falha
+  e devolvendo a posição dela.
+- `core/tests.py`: o teste do aparo virou **`test_evento_grande_nao_perde_ninguem_da_lista`** (o mais antigo e
+  o mais novo continuam na lista), mais 3 testes novos (envio em partes numeradas com todo mundo presente,
+  corte respeitando as linhas, texto curto que não vira parte).
+
+### Decisões tomadas
+- **Partir em vez de cortar**: numa lista de pessoas, o que "não cabe" é gente — resumir seria perder a
+  informação que motivou o aviso. Dividir mantém tudo e é transparente para quem recebe.
+- **A divisão mora no `_notificar_whatsapp`**, não no aviso de inscrição: qualquer notificação longa passa a
+  ser tratada igual, e o extrato 📨 Envios grava uma linha por parte (é o que de fato saiu).
+- Limite de **3500 caracteres** por mensagem, com folga sob o limite da API.
+
+### Validação
+- **253 testes OK** (237 + 16 do aviso).
+
 ## 2026-08-15 - Eventos: aviso interno de inscrição para a diretoria
 
 ### Resumo

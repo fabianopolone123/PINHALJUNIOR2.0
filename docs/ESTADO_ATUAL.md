@@ -23,11 +23,13 @@ caminhos de inscrição — site (`_criar_inscricao_de_payload`) e **balcão/PDV
 do payload; sem isso a lista do WhatsApp divergiria da do painel (há teste); (2) sai em `on_commit` + thread,
 como as demais notificações, para a chamada da W-API não segurar o request nem o webhook do Mercado Pago;
 (3) é aviso interno → `forcar=True` (não passa pelo gate anti-bloqueio), como o "Novo pedido da loja";
-(4) **teto de texto** (`LIMITE_TEXTO_LISTA`, 2800 caracteres): a mensagem cresce e um evento grande estouraria
-o limite da W-API, então as inscrições **mais antigas** saem com uma linha de resumo — o bloco de pagamento
-por fora **nunca** é cortado; (5) o botão manual funciona **mesmo com o automático desligado**. Suíte:
-**250 testes OK** (237 + 13). Conferido em 520/1400px com sonda: zero overflow. Antes: recuperação de senha
-mostra o usuário.
+(4) **inscrito nunca sai da lista** — nem quem pagou na hora, nem quem vai pagar por fora (a primeira versão
+aparava as inscrições mais antigas para caber na mensagem, e isso foi **abandonado**: o que sumia era gente).
+Quando o texto não cabe numa mensagem do WhatsApp, quem resolve é o **`_partir_texto_whatsapp`**, que divide
+em **partes numeradas** ("(1 de 3)") cortando **só em quebra de linha** — vale para **todas** as notificações,
+já que vive no `_notificar_whatsapp`; falha numa parte volta com a posição dela e o extrato 📨 Envios grava uma
+linha por parte; (5) o botão manual funciona **mesmo com o automático desligado**. Suíte: **253 testes OK**
+(237 + 16). Conferido em 520/1400px com sonda: zero overflow. Antes: recuperação de senha mostra o usuário.
 
 **Anterior (Recuperação de senha mostra o usuário de acesso):** quem procura o
 "Esqueci minha senha" muitas vezes não esqueceu a senha — esqueceu **o login**, e o fluxo antigo não dizia

@@ -3320,9 +3320,9 @@ class AvisoInscricaoEventoTests(TestCase):
         self.assertEqual(r.status_code, 302)
         self.assertNotIn("inscricoes", r["Location"])
 
-    def test_lista_gigante_e_aparada_mas_pendencia_fica_inteira(self):
-        """A mensagem cresce a cada inscrição; sem teto, a W-API recusaria o texto.
-        As mais antigas saem — as pendências de pagamento, nunca."""
+    def test_evento_grande_nao_perde_ninguem_da_lista(self):
+        """Regra do clube: inscrito NUNCA sai da lista de inscritos. A mensagem
+        cresce e é enviada em partes; nada é descartado para caber."""
         for i in range(120):
             self._inscricao(f"Responsavel Numero {i}", "(16) 99999-0000",
                             [(f"Participante Numero {i}", 10)])
@@ -3330,9 +3330,40 @@ class AvisoInscricaoEventoTests(TestCase):
                         pagamento_externo=True)
         lista, por_fora, total, pendentes = views._texto_inscritos_evento(self.ev)
         self.assertEqual((total, pendentes), (121, 1))
-        self.assertLessEqual(len(lista), views.LIMITE_TEXTO_LISTA + 200)
-        self.assertIn("mais antigas ficaram de fora", lista)
+        self.assertIn("1) Responsavel Numero 0", lista)      # o mais antigo continua
+        self.assertIn("121) Deve Pagar", lista)              # e o mais novo também
         self.assertIn("Deve Pagar", por_fora)
+
+    def test_lista_grande_sai_em_partes_numeradas(self):
+        for i in range(120):
+            self._inscricao(f"Responsavel Numero {i}", "(16) 99999-0000",
+                            [(f"Participante Numero {i}", 10)])
+        self.client.force_login(self.diretor)
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "id")) as env:
+            self.client.post(reverse("core:evento_avisar_inscritos"),
+                             {"evento_id": self.ev.id})
+        textos = [c[0][2] for c in env.call_args_list]
+        self.assertGreater(len(textos), 1, "a lista longa deveria sair em partes")
+        self.assertTrue(textos[0].startswith(f"(1 de {len(textos)})"))
+        for t in textos:
+            self.assertLessEqual(len(t), views.LIMITE_MSG_WHATSAPP)
+        # Ninguém pode ter ficado de fora: todo mundo está em alguma das partes.
+        junto = "\n".join(textos)
+        for i in (0, 59, 119):
+            self.assertIn(f"Responsavel Numero {i} ", junto + " ")
+
+    def test_partir_texto_respeita_as_linhas(self):
+        """Cortar no meio de uma linha separaria o nome do telefone."""
+        linhas = [f"{i}) Responsavel {i} — (16) 99999-0000" for i in range(300)]
+        partes = views._partir_texto_whatsapp("\n".join(linhas))
+        self.assertGreater(len(partes), 1)
+        for p in partes:
+            corpo = p.split("\n", 1)[1]            # tira o "(i de N)"
+            for linha in corpo.split("\n"):
+                self.assertRegex(linha, r"^\d+\) Responsavel \d+ — \(16\) 99999-0000$")
+
+    def test_texto_curto_nao_vira_parte(self):
+        self.assertEqual(views._partir_texto_whatsapp("oi"), ["oi"])
 
     def test_aba_templates_mostra_o_novo_aviso_e_o_envio_manual(self):
         self.client.force_login(self.diretor)

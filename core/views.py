@@ -4182,8 +4182,50 @@ def texto_para_email(texto):
     return _RX_NEGRITO_WA.sub(r"\1", texto or "")
 
 
+# Tamanho máximo de UMA mensagem de texto do WhatsApp (com folga sob o limite
+# da API). Notificação maior que isso é enviada em partes numeradas — cortar o
+# conteúdo seria pior: numa lista de inscritos, o que sumisse era gente.
+LIMITE_MSG_WHATSAPP = 3500
+
+
+def _partir_texto_whatsapp(texto, limite=LIMITE_MSG_WHATSAPP):
+    """Divide um texto comprido em mensagens que cabem no WhatsApp.
+
+    Corta **em quebras de linha**, para não partir uma linha no meio (numa lista,
+    isso separaria o nome do contato). Linha sozinha maior que o limite é partida
+    à força, senão nunca caberia. Cada parte ganha o rótulo "(parte i de N)".
+    Texto que já cabe volta inteiro, numa lista de um item só."""
+    if len(texto) <= limite:
+        return [texto]
+    # Reserva espaço para o rótulo que será acrescentado a cada parte.
+    util = max(limite - 24, 200)
+    partes, atual = [], ""
+    for linha in texto.split("\n"):
+        while len(linha) > util:            # linha gigante: parte à força
+            if atual:
+                partes.append(atual)
+                atual = ""
+            partes.append(linha[:util])
+            linha = linha[util:]
+        if not atual:
+            atual = linha
+        elif len(atual) + 1 + len(linha) <= util:
+            atual += "\n" + linha
+        else:
+            partes.append(atual)
+            atual = linha
+    if atual:
+        partes.append(atual)
+    total = len(partes)
+    return [f"({i} de {total})\n{p}" for i, p in enumerate(partes, start=1)]
+
+
 def _notificar_whatsapp(tpl, tipo, numero, texto, *, forcar=False):
-    """Envia UMA notificação já renderizada pelo WhatsApp, com o gate anti-bloqueio."""
+    """Envia UMA notificação já renderizada pelo WhatsApp, com o gate anti-bloqueio.
+
+    Texto muito longo (lista de inscritos de um evento grande) sai em **partes
+    numeradas**, na ordem — nada é descartado. Se uma parte falhar, o motivo
+    volta com a posição dela."""
     cfg = WhatsappConfig.get_solo()
     if not cfg.configurado:
         return False, "whatsapp_nao_configurado"
@@ -4193,8 +4235,13 @@ def _notificar_whatsapp(tpl, tipo, numero, texto, *, forcar=False):
     aplica_gate = not forcar and tipo not in NOTIF_TRANSACIONAIS
     if aplica_gate and not _pode_notificar(alvo):
         return False, "nao_liberado"
-    ok, detalhe = _enviar_whatsapp(cfg, alvo, texto, origem=tipo)
-    return (bool(ok), "enviado" if ok else f"falha:{detalhe}")
+    partes = _partir_texto_whatsapp(texto)
+    for i, parte in enumerate(partes, start=1):
+        ok, detalhe = _enviar_whatsapp(cfg, alvo, parte, origem=tipo)
+        if not ok:
+            sufixo = f" (parte {i} de {len(partes)})" if len(partes) > 1 else ""
+            return False, f"falha:{detalhe}{sufixo}"
+    return True, "enviado" if len(partes) == 1 else f"enviado_em_{len(partes)}_partes"
 
 
 def _notificar_email(tpl, tipo, email, texto, contexto, *, forcar=False):
@@ -5412,11 +5459,10 @@ def _finalizar_inscricao(pagamento):
 # diferente; o texto e os canais vêm do template `inscricao_evento_interno`
 # (aba 🧩 Templates do módulo WhatsApp), como os demais avisos.
 # ---------------------------------------------------------------------------
-# Teto do texto da lista. A mensagem cresce a cada inscrição e um evento grande
-# (80 inscrições) estouraria o limite da W-API — passando disso, as inscrições
-# MAIS ANTIGAS saem e viram uma linha de resumo. O bloco de pagamento por fora
-# fica sempre inteiro: é a parte acionável do aviso.
-LIMITE_TEXTO_LISTA = 2800
+# A lista NÃO tem teto: inscrito nunca sai da lista de inscritos, tenha pago na
+# hora ou por fora. Se o texto não couber numa mensagem do WhatsApp, quem resolve
+# é o `_partir_texto_whatsapp` (envia em partes numeradas) — cortar a lista
+# faria gente sumir do aviso, que é justamente o que ele serve para evitar.
 
 
 def _usuarios_diretoria_aviso():
@@ -5481,16 +5527,7 @@ def _texto_inscritos_evento(evento):
             pendentes.append(f"• {insc.responsavel_nome or '—'} — {contato} — {forma}")
 
     total = len(blocos)
-    cortadas = 0
-    while len(blocos) > 1 and len("\n".join(blocos)) > LIMITE_TEXTO_LISTA:
-        blocos.pop(0)
-        cortadas += 1
     lista = "\n".join(blocos) if blocos else "Nenhuma inscrição confirmada ainda."
-    if cortadas:
-        lista = (
-            f"(as {cortadas} inscrições mais antigas ficaram de fora desta mensagem — "
-            f"a lista completa está no painel do evento)\n" + lista
-        )
 
     por_fora = ""
     if pendentes:

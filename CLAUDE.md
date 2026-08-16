@@ -143,9 +143,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `_agendar_aviso_inscricao`, chamado nos **dois** caminhos de inscrição (site `_criar_inscricao_de_payload`
   **e** balcão/PDV) — inscrição nova por outro caminho precisa chamá-lo também. A lista é agrupada por
   inscrição (responsável + WhatsApp; participantes com nome e idade) e separa quem tem `pagamento_externo`
-  pendente, que é a parte acionável. Tem teto de texto (`LIMITE_TEXTO_LISTA`) porque a W-API recusa mensagem
-  muito longa; o bloco de pendências nunca é cortado. Envio manual: rota `/eventos/avisar-inscritos/` (evento
-  no POST), usada pelo painel do evento e pela aba Templates.
+  pendente, que é a parte acionável. **Inscrito nunca sai da lista** (pagou na hora ou por fora, tanto faz):
+  se o texto não cabe numa mensagem, `_partir_texto_whatsapp` (dentro do `_notificar_whatsapp`, portanto vale
+  para toda notificação) manda em **partes numeradas** — nunca aparar a lista. Envio manual: rota
+  `/eventos/avisar-inscritos/` (evento no POST), usada pelo painel do evento e pela aba Templates.
 - **Notificações são multicanal**: `_notificar(tipo, numero, ctx, *, forcar=False, email="")` é o ponto único e
   **despacha** para WhatsApp e/ou e-mail conforme `TemplateNotificacao.enviar_whatsapp`/`enviar_email`. O texto é
   renderizado **uma vez** (a IA é chamada 1× por notificação) e no e-mail passa por `texto_para_email`, que tira

@@ -450,6 +450,10 @@ internas ou no fluxo de login, seguir estas regras:
   espaços/traços/parênteses/`+55`/`00…` → DDI 55 + dígitos). O JS só **espelha** essa lógica para a
   **prévia ao vivo**; a validação real é no back-end. Envio é **AJAX** e usa o **toast padrão**
   (`window.mostrarToast`).
+- **Mensagem longa é dividida, nunca cortada**: `_partir_texto_whatsapp` (usado dentro do
+  `_notificar_whatsapp`) quebra o texto que passa de `LIMITE_MSG_WHATSAPP` em **partes numeradas**, cortando
+  só em quebra de linha. Ao montar mensagem que cresce com o tempo (ex.: lista de inscritos de um evento),
+  **não invente um teto que descarta conteúdo** — numa lista de pessoas, o que "não cabe" é gente.
 - **Não enviar mensagens reais em testes automatizados** nem versionar tokens/IDs reais.
 
 ## Recuperação de senha pelo WhatsApp
