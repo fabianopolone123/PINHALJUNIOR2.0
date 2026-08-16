@@ -64,6 +64,37 @@
     line-height: 1.4;
 }
 
+/* Usuário de acesso da conta encontrada pelo CPF (etapa do código).
+   Muita gente esquece o login, não só a senha — por isso vem em destaque. */
+.recup-usuario {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+    margin: 0 0 18px;
+    padding: 14px 12px;
+    border: 1px solid rgba(23, 105, 170, 0.22);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(23, 105, 170, 0.07), rgba(58, 157, 58, 0.09));
+}
+
+.recup-usuario-rotulo {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--azul-escuro, #0f4c81);
+}
+
+.recup-usuario-nome {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--azul-escuro, #0f4c81);
+    line-height: 1.2;
+    /* Login comprido não pode esticar o card nem criar rolagem horizontal. */
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
 /* Campo do código: grande e centralizado. */
 .campo-codigo {
     text-align: center;

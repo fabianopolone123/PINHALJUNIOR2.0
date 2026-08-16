@@ -29,6 +29,14 @@
                 <li>Nova senha</li>
             </ol>
 
+            {% if usuario_login %}
+            <div class="recup-usuario">
+                <span class="recup-usuario-rotulo">👤 Seu usuário de acesso</span>
+                <strong class="recup-usuario-nome selecionavel">{{ usuario_login }}</strong>
+                <small class="recup-ajuda">Anote: é com ele que você entra no sistema. Também enviamos junto do código no WhatsApp.</small>
+            </div>
+            {% endif %}
+
             {% if messages %}
             <div class="mensagens">
                 {% for m in messages %}

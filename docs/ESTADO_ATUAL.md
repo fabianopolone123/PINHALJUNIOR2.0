@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-13 (**Eventos: inscrição paga direto ao evento**): alguns eventos (caso do
+**Última atualização:** 2026-08-15 (**Recuperação de senha mostra o usuário de acesso**): quem procura o
+"Esqueci minha senha" muitas vezes não esqueceu a senha — esqueceu **o login**, e o fluxo antigo não dizia
+qual era em lugar nenhum: a pessoa redefinia a senha e continuava sem conseguir entrar. Agora, depois de
+digitar o CPF do responsável legal, a **tela do código** mostra o **usuário de acesso** da conta encontrada,
+em destaque (card `.recup-usuario`, com `.selecionavel` para dar copiar), e a **mensagem do WhatsApp** leva o
+usuário junto do código ("Seu usuário de acesso é: …"). O login vai na sessão do fluxo (`recup["usuario"]`),
+gravado pelo `_recup_gerar_e_enviar` — então o **reenvio** também repete o usuário, sem consulta extra. Ponto
+de desenho (decisão do usuário, com o custo explicado): mostrar **na tela**, e não só no WhatsApp, significa
+que **quem souber o CPF de um responsável descobre o login** sem ter o celular da família; escolhido assim
+porque o caso real é a mãe que não lembra o próprio usuário e precisa da resposta na hora. Como o CPF
+continua sendo a chave de entrada, **CPF desconhecido não abre a etapa do código nem vazia nada** (há teste).
+Isso **aumenta** o peso da dívida técnica já registrada de **falta de throttle** nesta tela (cada POST
+válido dispara um WhatsApp real) — vale ligar um limite por IP/CPF antes de divulgar o recurso. Sem
+migration. Suíte: **237 testes OK** (233 + 4; o fluxo de recuperação não tinha nenhum teste até hoje).
+Conferido em 485/800/1400px com sonda, inclusive com login comprido: `scrollWidth == clientWidth` em todas.
+Antes: Eventos — inscrição paga direto ao evento.
+
+**Anterior (Eventos: inscrição paga direto ao evento):** alguns eventos (caso do
 **Aventuri**) são pagos **direto para a organização**, não para o clube — mas a inscrição precisa ser feita e
 controlada aqui. Em cima do seletor de formas já existente (`formas_pagamento_online`, de 12/08), o evento
 ganhou **`formas_pagamento_fora`** + **`instrucoes_pagamento_fora`** (migrations **0065** e **0066**), no mesmo

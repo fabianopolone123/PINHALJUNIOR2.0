@@ -6314,6 +6314,7 @@ def _recup_gerar_e_enviar(usuario, destino):
     codigo = f"{secrets.randbelow(10000):04d}"
     mensagem = (
         "Clube de Aventureiros Pinhal Júnior\n"
+        f"Seu usuário de acesso é: {usuario.username}\n"
         f"Seu código para redefinir a senha é: {codigo}\n"
         f"Ele vale por {RECUP_TTL_MIN} minutos. Se não foi você, ignore esta mensagem."
     )
@@ -6323,6 +6324,7 @@ def _recup_gerar_e_enviar(usuario, destino):
     agora = timezone.now()
     sessao = {
         "user_id": usuario.id,
+        "usuario": usuario.username,
         "codigo_hash": make_password(codigo),
         "telefone": destino,
         "expira": (agora + datetime.timedelta(minutes=RECUP_TTL_MIN)).isoformat(),
@@ -6431,7 +6433,12 @@ def recuperar_senha_codigo_view(request):
             return _ajax_toast(erro)
         messages.error(request, erro)
 
-    contexto = {"mascara": _mascara_telefone(sessao.get("telefone", ""))}
+    contexto = {
+        "mascara": _mascara_telefone(sessao.get("telefone", "")),
+        # Muita gente esquece o próprio usuário, não só a senha: mostramos o login
+        # da conta achada pelo CPF (o mesmo vai na mensagem do WhatsApp).
+        "usuario_login": sessao.get("usuario", ""),
+    }
     return render(request, "core/recuperar_codigo.html", contexto)
 
 

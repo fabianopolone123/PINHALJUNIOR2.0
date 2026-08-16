@@ -3114,3 +3114,53 @@ class SegurancaCookiesTests(TestCase):
         self.assertEqual(
             settings.SECURE_PROXY_SSL_HEADER, ("HTTP_X_FORWARDED_PROTO", "https")
         )
+
+
+class RecuperarUsuarioTests(TestCase):
+    """Recuperação de senha: além do código, a pessoa descobre QUAL é o usuário
+    de acesso dela — o esquecimento mais comum não é a senha, é o login."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("maria.silva", password="x")
+        Aventureiro.objects.create(
+            usuario=self.user, nome_completo="Filha Teste", sexo="F",
+            data_nascimento=datetime.date(2016, 5, 4), cpf="10",
+            resp_nome="Mae Teste", resp_cpf="529.982.247-25",
+            resp_whatsapp="47999998888", resp_email="mae@exemplo.com",
+        )
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "I"; wa.token = "T"; wa.save()
+
+    def _pedir_codigo(self):
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "msgid")) as env:
+            r = self.client.post(reverse("core:recuperar_senha"), {"cpf": "529.982.247-25"})
+        return r, env
+
+    def test_tela_do_codigo_mostra_o_usuario(self):
+        self._pedir_codigo()
+        r = self.client.get(reverse("core:recuperar_senha_codigo"))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Seu usuário de acesso")
+        self.assertContains(r, "maria.silva")
+
+    def test_mensagem_do_whatsapp_leva_o_usuario(self):
+        _, env = self._pedir_codigo()
+        texto = env.call_args[0][2]
+        self.assertIn("maria.silva", texto)
+        self.assertIn("código para redefinir a senha", texto)
+
+    def test_cpf_desconhecido_nao_revela_usuario(self):
+        """CPF que não existe não pode abrir a etapa do código (nem vazar login)."""
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "x")) as env:
+            r = self.client.post(reverse("core:recuperar_senha"), {"cpf": "111.444.777-35"})
+        env.assert_not_called()
+        self.assertNotContains(r, "maria.silva")
+        self.assertNotIn("recup", self.client.session)
+
+    def test_classe_do_usuario_tem_estilo(self):
+        """Classe usada no HTML sem regra em CSS nenhum não quebra nada e não
+        falha teste — só renderiza feio. Já aconteceu (abas de Aniversários)."""
+        from pathlib import Path
+        css = Path("static/css/recuperar.css").read_text(encoding="utf-8")
+        for classe in (".recup-usuario", ".recup-usuario-rotulo", ".recup-usuario-nome"):
+            self.assertIn(classe, css)

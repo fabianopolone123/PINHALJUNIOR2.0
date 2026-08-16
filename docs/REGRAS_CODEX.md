@@ -461,6 +461,12 @@ internas ou no fluxo de login, seguir estas regras:
   (`_so_digitos`). Prefere conta **ativa**. **Destino** do código = **WhatsApp principal** da conta
   (`PerfilUsuario.whatsapp_principal_origem`, definido pelo Diretor em Usuários), com **fallback** para o
   WhatsApp do **responsável legal** (`_whatsapp_principal`).
+- **A tela do código mostra o usuário de acesso** da conta encontrada (card `.recup-usuario`), e a mensagem
+  do WhatsApp leva o login junto do código — o esquecimento comum é o **usuário**, não a senha. O login é
+  guardado na sessão do fluxo (`recup["usuario"]`) por quem gera o código, para o **reenvio** repetir sem
+  consulta extra. **Consequência aceita:** quem souber o CPF de um responsável descobre o login sem ter o
+  celular da família — por isso a etapa 1 **nunca** pode revelar nada quando o CPF não existe, e um
+  **throttle** aqui é ainda mais necessário (cada POST válido dispara um WhatsApp real).
 - **Código de 4 dígitos** gerado com `secrets.randbelow`, guardado **com hash** na sessão (`make_password`
   /`check_password`) — **nunca** em texto puro. Constantes: `RECUP_TTL_MIN=10`, `RECUP_MAX_TENTATIVAS=5`,
   `RECUP_REENVIO_ESPERA=60`. Número exibido sempre **mascarado** (`_mascara_telefone`).

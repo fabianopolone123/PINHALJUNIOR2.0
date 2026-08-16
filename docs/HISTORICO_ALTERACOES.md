@@ -22,6 +22,43 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-15 - Recuperação de senha mostra o usuário de acesso
+
+### Resumo
+Quem clica em "Esqueci minha senha" muitas vezes esqueceu **o login**, não a senha — e o fluxo não dizia qual
+era em lugar nenhum. Depois de digitar o CPF do responsável legal, a **tela do código** passa a mostrar o
+**usuário de acesso** da conta, e a **mensagem do WhatsApp** leva o usuário junto do código.
+
+### Arquivos alterados
+- `core/views.py`: `_recup_gerar_e_enviar` acrescenta "Seu usuário de acesso é: …" na mensagem e grava
+  `usuario` na sessão do fluxo; `recuperar_senha_codigo_view` passa `usuario_login` ao contexto.
+- `templates/core/recuperar_codigo.html`: card com o usuário em destaque (`.recup-usuario`), copiável
+  (`.selecionavel`, já que o `base.css` desliga a seleção do texto de interface).
+- `templates/core/recuperar_cpf.html`: o texto de ajuda avisa que o usuário será mostrado.
+- `static/css/recuperar.css`: `.recup-usuario` / `-rotulo` / `-nome`, com `overflow-wrap: anywhere` para
+  login comprido não esticar o card.
+- `core/tests.py`: `RecuperarUsuarioTests` (4 testes) — o fluxo de recuperação não tinha **nenhum** teste.
+
+### Decisões tomadas
+- **Mostrar na tela, não só no WhatsApp** (escolha do usuário, com o custo explicado): quem souber o CPF de
+  um responsável passa a descobrir o login sem ter o celular da família. Aceito porque o caso real é a pessoa
+  que não lembra o próprio usuário e precisa da resposta na hora; o CPF continua sendo a chave de entrada e
+  **CPF desconhecido não abre a etapa do código** (há teste).
+- **O login vai na sessão** (`recup["usuario"]`), gravado onde o código é gerado — assim o **reenvio** repete
+  o usuário sem consulta extra. Sessão em andamento criada antes do deploy simplesmente não mostra o card
+  (expira em 10 min).
+- Sem migration: nada de novo no banco.
+
+### Validação
+- **237 testes OK** (233 + 4). Sonda de overflow em 485/800/1400px, com login normal e comprido:
+  `scrollWidth == clientWidth` em todas.
+
+### Pendências
+- **Throttle** na etapa 1 (dívida técnica já conhecida): cada POST válido dispara um WhatsApp real e agora
+  também revela um login. Vale limitar por IP/CPF antes de divulgar o recurso.
+- O link da tela de login continua dizendo só "Esqueci minha senha" — se quiser, virar "Esqueci minha senha
+  ou meu usuário" para quem procura o login achar o caminho.
+
 ## 2026-08-13 - Pagamento por fora passa a ser POR FORMA de pagamento
 
 ### Resumo

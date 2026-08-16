@@ -43,7 +43,7 @@
                     <label for="cpf">CPF do responsável legal</label>
                     <input type="text" id="cpf" name="cpf" inputmode="numeric" autocomplete="off"
                            placeholder="000.000.000-00" value="{{ cpf_digitado }}" required>
-                    <small class="recup-ajuda">Digite o CPF do responsável legal cadastrado. Enviaremos um código de 4 dígitos para o WhatsApp principal da conta.</small>
+                    <small class="recup-ajuda">Digite o CPF do responsável legal cadastrado. Mostramos o seu usuário de acesso e enviamos um código de 4 dígitos para o WhatsApp principal da conta.</small>
                 </div>
                 <button type="submit" class="botao-entrar">Enviar código</button>
                 <a href="{% url 'core:login' %}" class="link-esqueci">Voltar para o login</a>

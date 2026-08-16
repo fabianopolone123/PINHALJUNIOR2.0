@@ -46,7 +46,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos ·
   `/usuarios/aventureiro/<id>/termos/` termos assinados (Diretor; página pra imprimir/salvar PDF)
 - `/cadastro/` **tela de escolha** (Aventureiro / Diretoria / Diretoria+Aventureiro) · `/cadastro/aventureiro/` conta+1º aventureiro · `/cadastro/diretoria/` cadastro de diretoria (`?com_aventureiro=1` emenda no aventureiro → 2 perfis) · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
-- **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`
+- **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`. A tela do código **mostra o usuário de acesso** da conta (e a mensagem do WhatsApp também) — quem esquece o login resolve aqui; ver REGRAS_CODEX.
 - **Eventos** (Diretor; PDV/operar também por operadores; baixa do pagamento por fora em
   `/eventos/<id>/inscricoes/<id>/pago/`): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/ativar/` (POST: inativa/reativa o evento — sai do menu e fecha inscrição/lojinha),
