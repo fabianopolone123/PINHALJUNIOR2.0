@@ -1,0 +1,97 @@
+{% load static formato %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f4c81">
+    <title>Parcelas da inscrição — Clube de Aventureiros Pinhal Júnior</title>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'css/eventos.css' %}">
+</head>
+<body>
+    <div class="evento-publico">
+        <header class="evento-publico-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Logo do Clube de Aventureiros Pinhal Júnior" class="evento-publico-logo">
+            <span class="evento-publico-clube">Clube de Aventureiros Pinhal Júnior</span>
+        </header>
+
+        <main class="evento-publico-main">
+            <article class="card evento-publico-card">
+                {% if invalido %}
+                <h1 class="evento-publico-titulo">Link inválido</h1>
+                <p class="evento-publico-desc">Este link de parcelas não é válido. Fale com a diretoria do clube.</p>
+                {% else %}
+                {% if messages %}
+                <div class="erros">{% for m in messages %}<div>{{ m }}</div>{% endfor %}</div>
+                {% endif %}
+
+                {% if quitado %}
+                <div class="sucesso-check" aria-hidden="true">✅</div>
+                <h1 class="evento-publico-titulo">Tudo pago!</h1>
+                <p class="evento-publico-desc">{% if primeiro_nome %}{{ primeiro_nome }}, t{% else %}T{% endif %}odas as parcelas da inscrição em <strong>{{ evento.nome }}</strong> estão quitadas. Obrigado! 💚</p>
+                {% else %}
+                <h1 class="evento-publico-titulo">Parcelas da inscrição</h1>
+                <p class="evento-publico-desc">{% if primeiro_nome %}Olá, <strong>{{ primeiro_nome }}</strong>! {% endif %}Inscrição <strong>{{ inscricao.codigo }}</strong> em {{ evento.nome }}.</p>
+                {% endif %}
+
+                <div class="pagamento-resumo">
+                    <ul class="pagamento-itens">
+                        {% for p in parcelas %}
+                        <li class="{% if p.status == 'paga' %}parcela-linha-paga{% endif %}">
+                            <span class="pag-item-nome">
+                                <span aria-hidden="true">{% if p.status == "paga" %}✅{% elif p.vencida %}⚠️{% else %}📆{% endif %}</span>
+                                Parcela {{ p.rotulo }}
+                                <small>{% if p.status == "paga" %}· paga em {{ p.pago_em|date:"d/m/Y" }}{% elif p.vencida %}· venceu em {{ p.vencimento|date:"d/m/Y" }}{% else %}· vence em {{ p.vencimento|date:"d/m/Y" }}{% endif %}</small>
+                            </span>
+                            <span class="pag-item-valor">R$ {{ p.valor|moeda }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if not quitado %}
+                    <p class="pagamento-total">Falta pagar: <strong>R$ {{ total_aberto|moeda }}</strong></p>
+                    {% endif %}
+                </div>
+
+                {% if not quitado %}
+                {% if mp_configurado %}
+                {% comment %}
+                Um seletor de forma só, e um botão por parcela em aberto (o `name` vai
+                no próprio botão, então o submit já diz qual parcela é). Repetir o
+                seletor por parcela ficaria ilegível num evento em 12x.
+                Uma parcela por cobrança: a baixa e a taxa do gateway ficam individuais.
+                {% endcomment %}
+                <form method="post" action="{% url 'core:inscricao_parcela_pagar' token %}" class="pagamento-form">
+                    {% csrf_token %}
+                    <div class="insc-forma-pagamento">
+                        <span class="insc-forma-titulo">Como você quer pagar?</span>
+                        {% for f in formas_pagamento %}
+                        <label class="insc-forma-opt">
+                            <input type="radio" name="forma_pagamento" value="{{ f.0 }}"{% if forloop.first %} checked{% endif %}>
+                            <span>{% if f.0 == "pix" %}💠 Pix{% else %}💳 {{ f.1 }}{% endif %}
+                            {% if f.0 == "cartao" %}<small>(até 12x, juros por conta do titular)</small>{% endif %}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="parcela-botoes">
+                        {% for p in abertas %}
+                        <button type="submit" name="parcela_id" value="{{ p.id }}" class="{% if forloop.first %}btn-acao{% else %}btn-secundario{% endif %} pagamento-confirmar">
+                            <span aria-hidden="true">💳</span> Pagar a parcela {{ p.rotulo }} — R$ {{ p.valor|moeda }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </form>
+                <p class="painel-nota" style="text-align:center;">Uma parcela por vez. A cobrança é gerada na hora — se você pagar em outro dia, é só abrir este link de novo.</p>
+                {% else %}
+                <p class="painel-nota" style="text-align:center;">Pagamento online indisponível no momento. Fale com a diretoria para acertar.</p>
+                {% endif %}
+                {% endif %}
+                {% endif %}
+            </article>
+        </main>
+
+        <footer class="evento-publico-rodape">© {% now "Y" %} Clube de Aventureiros Pinhal Júnior</footer>
+    </div>
+</body>
+</html>

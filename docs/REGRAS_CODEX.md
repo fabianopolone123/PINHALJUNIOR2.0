@@ -393,6 +393,18 @@ internas ou no fluxo de login, seguir estas regras:
   auditoria) mas ficam **fora** dos totais. **Cortesia** conta como transação com valor **R$ 0**.
 - **Custos** continuam sendo **cadastrados na aba Custos** (com comprovante); o Financeiro só
   **consolida** (não duplicar o CRUD de custos).
+- **Entrada é o que ENTROU, não o que foi vendido.** Uma inscrição pode valer mais do que já foi recebido
+  (parcelamento do valor da diretoria), então **toda soma de caixa de inscrição usa
+  `Inscricao.valor_no_caixa`** (`valor_total` − parcelas em aberto), nunca `valor_total`. Já aplicado em
+  `evento_painel_view`, `_montar_financeiro` e `financeiro_view` — **soma nova precisa fazer o mesmo**.
+- **No extrato, cada lançamento vale o que caiu naquela data.** A linha da inscrição usa `valor_no_ato` (o
+  total menos **todas** as parcelas 2..N) e **cada parcela paga vira um lançamento próprio**, na data do
+  pagamento. Usar `valor_no_caixa` na linha da inscrição contaria a parcela **duas vezes** (uma na
+  inscrição, outra no lançamento dela). Há teste que soma o extrato e compara com a arrecadação —
+  mantê-lo passando é a garantia dessa regra.
+- **Dinheiro a receber não é dinheiro fora do caixa.** São dois controles diferentes, com cards separados:
+  **"Fora do caixa"** = pago direto ao evento, o clube **nunca** recebe (âmbar); **"Parcelas da diretoria"**
+  = é do clube, só **ainda não chegou** (azul). Não juntar os dois nem somar o "a receber" nas entradas.
 
 ##### Gráficos e dashboard (Resumo) — regras
 
@@ -414,6 +426,12 @@ internas ou no fluxo de login, seguir estas regras:
   classe `.busca-oculto` (`display:none !important`), NUNCA com o atributo `hidden`** — itens com
   `display:flex`/`grid` ignoram o `[hidden]` do UA stylesheet e não somem. Mostra "nada encontrado"
   quando zera. Sem AJAX.
+- **Regra geral desse mesmo tropeço** (já custou duas vezes): um elemento com `display:flex`/`grid`
+  **não desaparece** com o atributo `hidden` — a declaração da classe ganha do `[hidden]` do UA
+  stylesheet. Ao esconder um bloco flex/grid pelo `hidden` (padrão de "só aparece quando o JS decide",
+  ex.: `.insc-parcelar` do parcelamento), **escreva também `.classe[hidden] { display: none; }`**.
+  Nenhum teste Python pega isso: só se vê renderizando — conferir com a sonda do Chrome headless,
+  medindo `getBoundingClientRect().height` do bloco que deveria estar escondido.
 
 ### Pagamentos (simulados) — lojinha pública
 

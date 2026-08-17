@@ -10,7 +10,7 @@ import datetime
 import random
 import string
 import uuid
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from email.utils import formataddr
 
 from django.conf import settings
@@ -545,6 +545,14 @@ class Evento(models.Model):
         null=True,
         blank=True,
     )
+    # Em quantas vezes o valor da DIRETORIA pode ser pago, no estilo das
+    # mensalidades: o clube recebe parcelado (a 1ª parcela no ato da inscrição, as
+    # seguintes mês a mês). 1 = à vista, como sempre. Vale só para a parte da
+    # diretoria: o que os outros participantes devem e a lojinha continuam sendo
+    # cobrados integralmente no ato.
+    parcelas_diretoria = models.PositiveSmallIntegerField(
+        "Parcelas para a diretoria", default=1
+    )
     # Quais formas de pagamento ONLINE a pessoa vê na inscrição e na lojinha
     # deste evento. Só afeta o site: no PDV/balcão o operador continua com
     # todas as formas (dinheiro, cortesia, etc.).
@@ -702,6 +710,33 @@ class Evento(models.Model):
                 if faixa.idade_min <= idade <= faixa.idade_max:
                     return faixa.valor, faixa
         return Decimal("0"), None
+
+    def permite_parcelar_diretoria(self):
+        """True se este evento oferece o pagamento parcelado da parte da diretoria.
+
+        Exige as duas coisas: mais de uma parcela configurada E um valor de
+        diretoria definido (sem valor de diretoria não existe participante de
+        diretoria na tela, logo não há o que parcelar)."""
+        return self.parcelas_diretoria > 1 and self.valor_diretoria is not None
+
+    def dividir_parcelas(self, total, parcelas=None):
+        """Divide `total` em `parcelas` valores que somam exatamente o total.
+
+        A sobra dos centavos vai na **primeira** parcela (paga no ato), então as
+        seguintes ficam sempre redondas e iguais — é o que a pessoa confere depois.
+        Ex.: 100,00 em 3× → [33,34, 33,33, 33,33]."""
+        total = Decimal(total or 0)
+        n = int(parcelas or self.parcelas_diretoria or 1)
+        if n <= 1 or total <= 0:
+            return [total]
+        base = (total / n).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        if base <= 0:
+            # Valor tão pequeno que a divisão geraria parcela de R$ 0,00 — e
+            # cobrança de zero no gateway não existe. Fica à vista.
+            return [total]
+        valores = [base] * n
+        valores[0] = total - base * (n - 1)
+        return valores
 
 
 class CustoEvento(models.Model):
@@ -942,6 +977,13 @@ class Inscricao(models.Model):
         related_name="inscricoes",
         verbose_name="Pagamento (gateway)",
     )
+    # Token secreto e FIXO do link das parcelas (mesmo mecanismo do `token_acerto`
+    # da família): a pessoa volta por ele para pagar as parcelas que faltam, sem
+    # precisar de login — a inscrição pode ter sido feita por quem não tem conta.
+    # Só existe em inscrição parcelada.
+    token_parcelas = models.CharField(
+        "Token das parcelas", max_length=40, blank=True, db_index=True
+    )
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:
@@ -990,6 +1032,53 @@ class Inscricao(models.Model):
             if not Inscricao.objects.filter(codigo=codigo).exists():
                 return codigo
 
+    def get_token_parcelas(self):
+        """Token do link das parcelas, criando um (uuid) na primeira vez."""
+        if not self.token_parcelas:
+            self.token_parcelas = uuid.uuid4().hex
+            self.save(update_fields=["token_parcelas"])
+        return self.token_parcelas
+
+    @property
+    def parcelado(self):
+        """True se o valor da diretoria desta inscrição foi dividido em parcelas.
+
+        `bool(...all())`, não `.exists()`: o painel chama isto por inscrição, e o
+        `exists()` iria ao banco mesmo com o `prefetch_related("parcelas")` feito
+        na view (uma query por linha da lista)."""
+        return bool(self.parcelas.all())
+
+    @property
+    def parcelas_abertas(self):
+        return [p for p in self.parcelas.all() if p.em_aberto]
+
+    @property
+    def total_parcelas_aberto(self):
+        """Quanto desta inscrição AINDA não foi recebido (parcelas em aberto)."""
+        return sum((p.valor for p in self.parcelas_abertas), Decimal("0"))
+
+    @property
+    def valor_no_ato(self):
+        """Quanto entrou no caixa **no dia da inscrição**: o total menos TODAS as
+        parcelas futuras (pagas depois ou não), porque a 1ª parcela é a única que
+        foi cobrada junto. É o valor da linha da inscrição no extrato — cada
+        parcela paga depois entra como lançamento próprio, na data em que caiu."""
+        futuras = sum(
+            (p.valor for p in self.parcelas.all() if p.numero > 1), Decimal("0")
+        )
+        return self.valor_total - futuras
+
+    @property
+    def valor_no_caixa(self):
+        """Quanto desta inscrição de fato ENTROU no caixa do clube.
+
+        Igual ao `valor_total` na inscrição à vista (o caso normal). Na parcelada,
+        desconta o que ainda está em aberto: a inscrição vale pelo total, mas o
+        dinheiro das parcelas futuras ainda não existe — usar `valor_total` numa
+        soma de caixa infla a arrecadação com dinheiro que não chegou.
+        **Toda soma de caixa de inscrição deve usar esta propriedade.**"""
+        return self.valor_total - self.total_parcelas_aberto
+
 
 class ParticipanteInscricao(models.Model):
     """Cada participante (pessoa) de uma inscrição, com o valor aplicado."""
@@ -1033,6 +1122,92 @@ class ParticipanteInscricao(models.Model):
 
     def __str__(self):
         return f"{self.nome} — {self.inscricao.codigo}"
+
+
+STATUS_PARCELA_CHOICES = [
+    ("aberta", "Em aberto"),
+    ("paga", "Paga"),
+    ("cancelada", "Cancelada"),
+]
+
+
+class ParcelaInscricao(models.Model):
+    """Uma parcela do valor da DIRETORIA numa inscrição de evento.
+
+    Existe só quando o evento oferece parcelamento (`Evento.parcelas_diretoria`
+    > 1) e a pessoa escolheu parcelar. A **parcela 1 nasce paga** (é cobrada no
+    ato, junto do que os outros participantes devem e da lojinha); as seguintes
+    nascem em aberto, vencendo mês a mês, e são pagas pelo link do token da
+    inscrição ou baixadas na mão pelo Diretor.
+
+    Só a parte da diretoria é parcelada. O resto da inscrição é cobrado
+    integralmente no ato, pela forma tradicional do evento.
+    """
+
+    inscricao = models.ForeignKey(
+        Inscricao,
+        on_delete=models.CASCADE,
+        related_name="parcelas",
+        verbose_name="Inscrição",
+    )
+    numero = models.PositiveSmallIntegerField("Parcela")
+    total = models.PositiveSmallIntegerField("De (total de parcelas)", default=1)
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    vencimento = models.DateField("Vencimento", null=True, blank=True)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_PARCELA_CHOICES, default="aberta",
+        db_index=True,
+    )
+    forma_pagamento = models.CharField(
+        "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES, blank=True
+    )
+    valor_pago = models.DecimalField(
+        "Valor pago", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    pago_em = models.DateTimeField("Pago em", null=True, blank=True)
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelas_inscricao_registradas",
+        verbose_name="Baixa registrada por",
+    )
+    # Cobrança online que quitou ESTA parcela (nulo na baixa manual do Diretor).
+    # Cada parcela tem o seu: a taxa do gateway é por cobrança.
+    pagamento = models.ForeignKey(
+        "Pagamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelas_inscricao",
+        verbose_name="Pagamento (gateway)",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Parcela da inscrição"
+        verbose_name_plural = "Parcelas da inscrição"
+        unique_together = [("inscricao", "numero")]
+        ordering = ["numero"]
+
+    def __str__(self):
+        return f"{self.inscricao.codigo} — parcela {self.numero}/{self.total}"
+
+    @property
+    def rotulo(self):
+        return f"{self.numero}/{self.total}"
+
+    @property
+    def em_aberto(self):
+        return self.status == "aberta"
+
+    @property
+    def vencida(self):
+        """Em aberto e com o vencimento já passado."""
+        if not self.em_aberto or self.vencimento is None:
+            return False
+        return self.vencimento < timezone.localdate()
 
 
 class ProdutoEvento(models.Model):
@@ -2694,6 +2869,7 @@ TIPO_PAGAMENTO_CHOICES = [
     ("loja_clube", "Loja do Clube"),
     ("mensalidade", "Mensalidades"),
     ("inscricao", "Inscrição de evento"),
+    ("parcela_inscricao", "Parcela de inscrição"),
 ]
 
 

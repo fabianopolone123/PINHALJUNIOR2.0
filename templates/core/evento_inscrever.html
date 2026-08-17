@@ -89,6 +89,25 @@
                         <span class="insc-total-linha"><span class="insc-total-label">Total:</span> <strong data-insc-total id="inscTotal">R$ 0,00</strong></span>
                     </div>
 
+                    {% if pode_parcelar_diretoria %}
+                    {% comment %}
+                    Parcelamento da parte da DIRETORIA. O bloco só aparece (via JS)
+                    quando há algum participante marcado como diretoria — em
+                    inscrição sem diretoria não há o que parcelar. O que os outros
+                    participantes devem e a lojinha continuam integrais no ato.
+                    {% endcomment %}
+                    <div class="insc-parcelar" data-insc-parcelar data-parcelas="{{ parcelas_diretoria }}" hidden>
+                        <label class="insc-parcelar-opt">
+                            <input type="checkbox" name="parcelar_diretoria" value="1" data-insc-parcelar-check{% if parcelar_marcado %} checked{% endif %}>
+                            <span>
+                                <strong>Dividir o valor da diretoria em {{ parcelas_diretoria }}x</strong>
+                                <small>A 1ª parcela você paga agora; as outras vencem mês a mês e ficam num link só seu.</small>
+                            </span>
+                        </label>
+                        <p class="insc-parcelar-resumo" data-insc-parcelar-resumo hidden></p>
+                    </div>
+                    {% endif %}
+
                     {% if mp_configurado or formas_fora %}
                     {% comment %}
                     As formas vêm do próprio evento (Diretor escolhe na configuração

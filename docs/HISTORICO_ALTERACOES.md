@@ -22,6 +22,86 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-17 - Eventos: valor da diretoria parcelado (estilo mensalidade)
+
+### Resumo
+A parte da inscrição que **a diretoria** paga passa a poder ser dividida em parcelas cobradas **pelo clube**
+(não é parcelamento de cartão): a **1ª parcela é cobrada no ato** da inscrição e as seguintes vencem **mês a
+mês**, pagas por um link próprio da inscrição. Quantas parcelas é **configurável por evento**
+(`Evento.parcelas_diretoria`, 1 = à vista). Motivação: eventos regionais caros (Aventuri) em que o valor da
+diretoria pesa de uma vez só.
+
+**Só a parte da diretoria é parcelada.** Numa inscrição mista (um integrante da diretoria + os filhos), no ato
+a família paga **1ª parcela da diretoria + o valor integral dos outros participantes + a lojinha**; as parcelas
+restantes cobrem apenas o valor da diretoria.
+
+### Arquivos criados/alterados
+- `core/models.py`: `Evento.parcelas_diretoria` + `permite_parcelar_diretoria()` e `dividir_parcelas()`
+  (a sobra dos centavos vai na 1ª parcela, então as seguintes ficam iguais e redondas); model novo
+  **`ParcelaInscricao`** (número/total, valor, vencimento, situação, forma, baixa e FK do `Pagamento`);
+  em `Inscricao`, o `token_parcelas` (link público, mesmo mecanismo do `token_acerto` da família) e as
+  propriedades **`valor_no_ato`** e **`valor_no_caixa`**; `parcela_inscricao` entra em
+  `TIPO_PAGAMENTO_CHOICES`.
+- `core/migrations/0068_parcelamento_diretoria_evento.py`.
+- `core/forms.py`: `parcelas_diretoria` no `EventoInscricaoConfigForm`, campo vazio = à vista, teto de 12, e
+  validação cruzada — parcelar exige um `valor_diretoria` definido.
+- `core/views.py`: na inscrição, o total da diretoria é separado e, se a pessoa marcar parcelar, a cobrança do
+  ato passa a ser `total − parcelas futuras`; `_criar_parcelas_inscricao` (1ª paga, as outras abertas) e
+  `_somar_meses`; `_finalizar_parcela_inscricao` no dispatch do pagamento; página pública
+  `inscricao_parcelas_view` + `inscricao_parcela_pagar_view` (uma parcela por cobrança); baixa manual do
+  Diretor em `evento_parcela_pago_view`; e as somas de caixa passando a usar `valor_no_caixa`.
+- `core/urls.py`: `/eventos/<id>/parcelas/<id>/pago/`, `/inscricao/<token>/parcelas/` e `.../pagar/`.
+- `templates/core/inscricao_parcelas.html` (nova, pública), `evento_inscrever.html` (opção de parcelar),
+  `evento_inscricao_sucesso.html` (parcelas + link para guardar) e `evento_painel.html` (config, parcelas por
+  inscrição com baixa manual e o card "Parcelas da diretoria" no Financeiro).
+- `static/js/evento_insc_cupom.js`: prévia do parcelamento (mostra a opção só quando há participante de
+  diretoria; o total passa a exibir "a pagar agora").
+- `static/css/eventos.css`: blocos do parcelamento, das parcelas e do card do financeiro.
+- `core/tests.py`: 27 testes novos (`ParcelamentoDiretoriaTests`). Suíte: **280 testes OK** (253 + 27).
+
+### Decisões tomadas
+- **É o clube que parcela, não o cartão.** O checkout do Mercado Pago já oferecia até 12x no cartão (juros do
+  titular, clube recebe tudo na hora); isso é outra coisa — aqui o clube **recebe em 3 vezes**, como as
+  mensalidades. As duas coisas convivem: a 1ª parcela ainda pode ser paga no cartão em 12x.
+- **A inscrição é confirmada com a 1ª parcela paga**, não depois de quitar tudo — a pessoa fica inscrita e o
+  Diretor vê o que falta. Mantém a regra do sistema de que a inscrição só existe após um pagamento aprovar.
+- **Numa inscrição mista, uma única cobrança no ato** (1ª parcela + os outros participantes + lojinha), não
+  duas. Dois pagamentos deixariam a inscrição confirmada pela metade se um falhasse.
+- **Caixa só conta o que entrou.** `Inscricao.valor_total` continua sendo o valor da inscrição, mas **toda soma
+  de caixa passou a usar `valor_no_caixa`** (total − parcelas em aberto). Sem isso a arrecadação do evento e o
+  Financeiro do clube mostrariam dinheiro que não chegou. No **extrato**, a linha da inscrição vale o
+  `valor_no_ato` e cada parcela paga depois é um lançamento próprio, na data em que caiu — assim o extrato soma
+  exatamente a arrecadação, sem contar a mesma parcela duas vezes (há teste que compara os dois).
+- **Uma cobrança por parcela**, e não uma que quita várias: a baixa fica individual e a taxa do gateway cai na
+  parcela certa.
+- **Link público por token**, como o acerto de mensalidades: quem se inscreve pode não ter conta no sistema.
+- **Parcelar não se combina com "pago direto ao evento"**: naquele fluxo o dinheiro nunca passa pelo clube, e
+  já existe o controle de pendência próprio. Sem Mercado Pago configurado também não há parcelamento (não há
+  cobrança nenhuma).
+- A trava é no **servidor**: `permite_parcelar_diretoria()` é reavaliado no POST, então esconder o campo (ou
+  forjar `parcelar_diretoria=1`) não parcela nada — há teste.
+- A **baixa manual** do Diretor (parcela acertada em dinheiro) **entra** no caixa, ao contrário da baixa do
+  "pago direto ao evento". Reabrir uma parcela solta o vínculo com o `Pagamento`, para a taxa não ficar somada
+  a uma parcela que voltou a contar como em aberto.
+- Na página pública, **um seletor de forma de pagamento só** e **um botão por parcela** (o `name="parcela_id"`
+  vai no próprio botão). A primeira versão repetia o seletor inteiro por parcela — legível em 3x, ilegível em
+  12x. A cobrança continua sendo **uma parcela por vez**.
+- Achado na verificação visual: o bloco do parcelamento é `display:flex` e nasce com `hidden`, e **`[hidden]`
+  não esconde flex** — ele aparecia (80px de altura) em toda inscrição sem diretoria. Corrigido com
+  `.insc-parcelar[hidden] { display: none; }`. É o mesmo tropeço da lista de busca; a regra foi
+  **generalizada** no `REGRAS_CODEX.md`, porque nenhum teste Python pega isso.
+
+### Pendências
+- **Não há cobrança automática das parcelas.** Nada avisa a família quando a parcela 2 vence — o Diretor
+  manda o link na mão. O gancho natural é o `_notificar` com um template novo, no padrão da cobrança de
+  mensalidades (respeitando os gates e o 1-por-request com 10s).
+- O **PDV/balcão não parcela**: o parcelamento existe só na inscrição pelo site.
+- O parcelamento não é oferecido em inscrição **gratuita** nem quando o valor da diretoria é 0 (não há o que
+  dividir).
+- Os vencimentos são mês a mês a partir da inscrição, **sem travar na data do evento**: quem parcela em 3x num
+  evento que acontece em 30 dias fica com parcelas vencendo depois do evento. É escolha do Diretor ao definir
+  o número de parcelas.
+
 ## 2026-08-15 - Doc: listas canônicas de rotas e models atualizadas
 
 ### Resumo

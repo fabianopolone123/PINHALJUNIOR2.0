@@ -390,6 +390,7 @@
                                 {% if i.origem == "pdv" %}<span class="pill">🎟️ Balcão · {{ i.get_forma_pagamento_display }}</span>{% endif %}
                                 {% if i.pagamento_externo %}<span class="pill {% if i.pago_externo_em %}pill-verde{% else %}pill-pendente{% endif %}" title="Pago direto ao evento — fora do caixa do clube">{% if i.pago_externo_em %}✅{% else %}⏳{% endif %} {{ i.situacao_pagamento }} · {{ i.get_forma_pagamento_display }}</span>{% endif %}
                                 {% if i.total_compras %}<span class="pill pill-loja">🛒 R$ {{ i.total_compras|moeda }}</span>{% endif %}
+                                {% if i.parcelado %}<span class="pill {% if i.total_parcelas_aberto %}pill-pendente{% else %}pill-verde{% endif %}" title="Valor da diretoria parcelado">📆 {% if i.total_parcelas_aberto %}Falta R$ {{ i.total_parcelas_aberto|moeda }}{% else %}Parcelas quitadas{% endif %}</span>{% endif %}
                                 {% for cp in i.cupons_aplicados %}<span class="pill pill-cupom">🏷️ {{ cp.codigo }} · −R$ {{ cp.valor_desconto|moeda }}</span>{% endfor %}
                                 <span class="inscrito-valor">R$ {{ i.valor_total|moeda }}</span>
                             </div>
@@ -415,6 +416,39 @@
                                 <dl class="inscrito-respostas">
                                     {% for r in i.respostas_gerais %}<dt>{{ r.campo_rotulo }}</dt><dd>{{ r.valor|default:"—" }}</dd>{% endfor %}
                                 </dl>
+                                {% endif %}
+                                {% if i.parcelado %}
+                                {% comment %}
+                                Parcelas do valor da diretoria. A baixa manual serve
+                                para quem acertou a parcela fora do site (dinheiro,
+                                transferência) — e aqui o valor ENTRA no caixa, ao
+                                contrário do "pago direto ao evento".
+                                {% endcomment %}
+                                <div class="inscrito-parcelas">
+                                    <strong class="inscrito-compras-titulo">📆 Parcelas do valor da diretoria</strong>
+                                    <ul class="inscrito-parts">
+                                        {% for pa in i.parcelas.all %}
+                                        <li>
+                                            Parcela {{ pa.rotulo }} — R$ {{ pa.valor|moeda }}
+                                            {% if pa.status == "paga" %}
+                                            <span class="parcela-tag">paga {{ pa.pago_em|date:"d/m/Y" }} · {{ pa.get_forma_pagamento_display }}</span>
+                                            {% else %}
+                                            <span class="parcela-tag {% if pa.vencida %}selo-vencido{% else %}parcela-tag-aberta{% endif %}">{% if pa.vencida %}venceu{% else %}vence{% endif %} {{ pa.vencimento|date:"d/m/Y" }}</span>
+                                            {% endif %}
+                                            {% if pa.numero > 1 %}
+                                            <form method="post" action="{% url 'core:evento_parcela_pago' evento.id pa.id %}" class="parcela-baixa-form" onsubmit="return confirm('{% if pa.status == "paga" %}Voltar a parcela {{ pa.rotulo }} para em aberto?{% else %}Confirmar o recebimento da parcela {{ pa.rotulo }} (R$ {{ pa.valor|moeda }})?{% endif %}');">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn-secundario btn-marcar-pago">{% if pa.status == "paga" %}↩️ Reabrir{% else %}✅ Recebi{% endif %}</button>
+                                            </form>
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    <p class="inscrito-total-geral">
+                                        Link de pagamento da família:
+                                        <a href="{% url 'core:inscricao_parcelas' i.get_token_parcelas %}" class="selecionavel">{{ request.scheme }}://{{ request.get_host }}{% url 'core:inscricao_parcelas' i.get_token_parcelas %}</a>
+                                    </p>
+                                </div>
                                 {% endif %}
                                 {% if i.compras %}
                                 <div class="inscrito-compras">
@@ -474,6 +508,7 @@
                             </div>
                             {% include "core/_campo.html" with campo=config_form.inscricao_limite %}
                             {% include "core/_campo.html" with campo=config_form.valor_diretoria %}
+                            {% include "core/_campo.html" with campo=config_form.parcelas_diretoria %}
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_online %}
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_fora %}
                             {% include "core/_campo.html" with campo=config_form.instrucoes_pagamento_fora %}
@@ -880,6 +915,24 @@
                                 <li class="fin-linha-total"><span>Total</span><strong>R$ {{ externo.total|moeda }}</strong></li>
                             </ul>
                             <p class="painel-nota">Esse dinheiro <strong>não entra</strong> nos totais acima nem no Financeiro do clube — quem recebe é o próprio evento. É só controle.</p>
+                            <button type="button" class="btn-secundario fin-card-acao" data-aba-ir="inscricoes">Ver inscrições →</button>
+                        </div>
+                        {% endif %}
+
+                        {% if parcelado.qtd_inscricoes %}
+                        {% comment %}
+                        Parcelas do valor da diretoria. Diferente do "fora do caixa":
+                        aqui o dinheiro É do clube — só ainda não chegou. O recebido
+                        já está somado nas entradas acima; o aberto, não.
+                        {% endcomment %}
+                        <div class="fin-card fin-card-parcelas">
+                            <h3 class="fin-card-titulo">Parcelas da diretoria ({{ parcelado.qtd_inscricoes }} inscriç{{ parcelado.qtd_inscricoes|pluralize:"ão,ões" }})</h3>
+                            <ul class="fin-linhas">
+                                <li><span>✅ Já recebido</span><strong>R$ {{ parcelado.recebido|moeda }}</strong></li>
+                                <li><span>⏳ A receber ({{ parcelado.qtd_aberto }})</span><strong>R$ {{ parcelado.aberto|moeda }}</strong></li>
+                                {% if parcelado.qtd_vencido %}<li class="fin-linha-alerta"><span>⚠️ Vencido ({{ parcelado.qtd_vencido }})</span><strong>R$ {{ parcelado.vencido|moeda }}</strong></li>{% endif %}
+                            </ul>
+                            <p class="painel-nota">O <strong>recebido</strong> já está nas entradas acima. O <strong>a receber</strong> entra no caixa quando cada parcela for paga.</p>
                             <button type="button" class="btn-secundario fin-card-acao" data-aba-ir="inscricoes">Ver inscrições →</button>
                         </div>
                         {% endif %}

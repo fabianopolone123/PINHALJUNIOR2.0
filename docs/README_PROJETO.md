@@ -287,6 +287,9 @@ PINHALJUNIOR2.0/
 - `/eventos/avisar-inscritos/` — envia na hora a **lista de inscritos** do evento (informado no POST) ao
   integrante da diretoria escolhido nele (POST, Diretor; nome `core:evento_avisar_inscritos`). O envio
   automático a cada inscrição liga na aba **Inscrições → Configuração** do painel do evento.
+- `/inscricao/<token>/parcelas/` — página **pública** das parcelas do valor da diretoria de uma inscrição:
+  mostra o que já foi pago e o que falta, e cobra **uma parcela por vez** (nome `core:inscricao_parcelas`).
+  O link é o mesmo que aparece na tela de sucesso da inscrição e no painel do Diretor.
 - `/cadastro/` — tela **"Cadastre-se"**: escolha do tipo (Aventureiro / Diretoria / Diretoria + Aventureiro) (view `core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/aventureiro/` — cadastro inicial de aventureiro: cria a conta + o primeiro aventureiro (view `core.views.cadastro_aventureiro_view`, nome `core:cadastro_aventureiro`).
 - `/cadastro/diretoria/` — cadastro de **diretoria** (Compromisso para Voluntários); `?com_aventureiro=1` emenda no cadastro de aventureiro (view `core.views.cadastro_diretoria_view`, nome `core:cadastro_diretoria`).
@@ -306,11 +309,15 @@ PINHALJUNIOR2.0/
   aberto ao público, prazo, valor da diretoria; **`ativo`** liga/desliga o evento para o público;
   **`formas_pagamento_fora`** = quais formas confirmam a inscrição sem cobrar, com o acerto direto
   com o evento; **`notificar_inscricoes`** + **`notificar_inscricoes_para`** = manda a lista de
-  inscritos, a cada inscrição, para um integrante da diretoria).
+  inscritos, a cada inscrição, para um integrante da diretoria; **`parcelas_diretoria`** = em quantas
+  vezes o valor da diretoria pode ser pago, `1` = à vista).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
 - **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem;
   `pagamento_externo` = paga direto ao evento, fora do caixa do clube).
+- **ParcelaInscricao** — parcelas do valor da **diretoria** numa inscrição: a 1ª é cobrada no ato e as
+  seguintes vencem mês a mês, pagas pela família num link próprio da inscrição ou baixadas na mão pelo
+  Diretor. Só o que já foi pago conta como entrada no caixa.
 - **ProdutoEvento**, **VariacaoProduto**, **PedidoLoja**, **ItemPedidoLoja** — lojinha e pedidos.
 - **OperadorEvento** e **PerfilUsuario** — operadores do PDV e a flag de troca de senha.
 

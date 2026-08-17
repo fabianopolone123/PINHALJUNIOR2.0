@@ -44,6 +44,7 @@ from .models import (
     Mensalidade,
     MercadoPagoConfig,
     Pagamento,
+    ParcelaInscricao,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
@@ -3383,3 +3384,339 @@ class AvisoInscricaoEventoTests(TestCase):
         from pathlib import Path
         self.assertIn(".config-aviso", Path("static/css/eventos.css").read_text(encoding="utf-8"))
         self.assertIn(".wa-lista-form", Path("static/css/whatsapp.css").read_text(encoding="utf-8"))
+
+
+class ParcelamentoDiretoriaTests(TestCase):
+    """Parcelamento do valor da DIRETORIA na inscrição de evento.
+
+    Regras testadas: só a parte da diretoria é parcelada (o resto vai integral no
+    ato), a 1ª parcela nasce paga, as seguintes viram cobranças próprias, e o
+    caixa só conta o que de fato entrou.
+    """
+
+    def setUp(self):
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"
+        cfg.access_token_teste = "TEST-abc"
+        cfg.webhook_secret_teste = "s"
+        cfg.save()
+        self.diretor = User.objects.create_user(username="dir", password="123456")
+        self.diretor.groups.add(Group.objects.create(name="Diretor"))
+        self.evento = Evento.objects.create(
+            tipo="inscricao", nome="Aventuri",
+            data=timezone.localdate() + datetime.timedelta(days=30),
+            inscricao_aberta_publico=True,
+            valor_diretoria=Decimal("450.00"),
+            parcelas_diretoria=3,
+        )
+        FaixaEtariaPreco.objects.create(
+            evento=self.evento, idade_min=1, idade_max=99, valor=Decimal("300.00")
+        )
+        self.url = reverse("core:evento_inscrever", args=[self.evento.id])
+
+    FAKE_PIX = {
+        "ok": True, "mp_payment_id": "MP-P", "status": "pendente",
+        "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+    }
+
+    def _post(self, **extra):
+        dados = {
+            "responsavel_nome": "Fulano Teste", "responsavel_whatsapp": "4799",
+            "responsavel_email": "f@exemplo.com", "responsavel_cpf": "111",
+            "part_idx": ["0"], "part_nome_0": "Fulano Teste",
+            "part_idade_0": "40", "part_diretoria_0": "1",
+        }
+        dados.update(extra)
+        return dados
+
+    def _inscrever(self, dados):
+        """Faz o POST da inscrição e devolve o Pagamento gerado (sem aprovar)."""
+        with mock.patch.object(mp, "criar_pix", return_value=self.FAKE_PIX):
+            resp = self.client.post(self.url, dados)
+        self.assertEqual(resp.status_code, 302)
+        return Pagamento.objects.get(tipo="inscricao")
+
+    def _aprovar(self, pagamento):
+        self.client.post(reverse("core:pagamento_simular", args=[pagamento.referencia]))
+
+    # --- divisão dos valores ---
+
+    def test_divide_com_a_sobra_dos_centavos_na_primeira(self):
+        self.assertEqual(
+            self.evento.dividir_parcelas(Decimal("100.00")),
+            [Decimal("33.34"), Decimal("33.33"), Decimal("33.33")],
+        )
+
+    def test_parcelas_somam_exatamente_o_total(self):
+        for total in ["450.00", "100.00", "0.05", "999.99"]:
+            valores = self.evento.dividir_parcelas(Decimal(total))
+            self.assertEqual(sum(valores), Decimal(total), total)
+
+    def test_valor_pequeno_demais_fica_a_vista(self):
+        """R$ 0,02 em 3x daria parcela de R$ 0,00 — cobrança de zero não existe."""
+        self.assertEqual(self.evento.dividir_parcelas(Decimal("0.02")), [Decimal("0.02")])
+
+    def test_evento_sem_valor_de_diretoria_nao_parcela(self):
+        self.evento.valor_diretoria = None
+        self.assertFalse(self.evento.permite_parcelar_diretoria())
+
+    # --- cobrança do ato ---
+
+    def test_cobra_so_a_primeira_parcela_quando_e_so_diretoria(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self.assertEqual(pag.valor_bruto, Decimal("150.00"))
+
+    def test_sem_marcar_parcelar_cobra_o_valor_cheio(self):
+        pag = self._inscrever(self._post())
+        self.assertEqual(pag.valor_bruto, Decimal("450.00"))
+
+    def test_inscricao_mista_cobra_primeira_parcela_mais_os_outros_integrais(self):
+        """Diretoria em 3x + um aventureiro: no ato paga 150 (1ª parcela) + 300."""
+        dados = self._post(
+            parcelar_diretoria="1",
+            part_idx=["0", "1"], part_nome_1="Filho Teste", part_idade_1="10",
+        )
+        pag = self._inscrever(dados)
+        self.assertEqual(pag.valor_bruto, Decimal("450.00"))  # 150 + 300
+
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        self.assertEqual(insc.valor_total, Decimal("750.00"))  # 450 + 300
+        # Só o valor da diretoria foi dividido: parcelas de 150.
+        self.assertEqual(
+            [p.valor for p in insc.parcelas.all()],
+            [Decimal("150.00"), Decimal("150.00"), Decimal("150.00")],
+        )
+
+    def test_participante_sem_diretoria_nao_gera_parcela(self):
+        dados = self._post(part_nome_0="Filho Teste", part_idade_0="10")
+        dados.pop("part_diretoria_0")
+        dados["parcelar_diretoria"] = "1"  # marcado, mas não há diretoria
+        pag = self._inscrever(dados)
+        self.assertEqual(pag.valor_bruto, Decimal("300.00"))
+        self._aprovar(pag)
+        self.assertEqual(ParcelaInscricao.objects.count(), 0)
+
+    def test_evento_que_nao_permite_parcelar_ignora_o_post_forjado(self):
+        """Esconder o campo não impede o POST: a trava é no servidor."""
+        self.evento.parcelas_diretoria = 1
+        self.evento.save(update_fields=["parcelas_diretoria"])
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self.assertEqual(pag.valor_bruto, Decimal("450.00"))
+        self._aprovar(pag)
+        self.assertEqual(ParcelaInscricao.objects.count(), 0)
+
+    # --- parcelas criadas ---
+
+    def test_primeira_parcela_nasce_paga_e_as_outras_abertas(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        parcelas = list(insc.parcelas.all())
+        self.assertEqual(len(parcelas), 3)
+        self.assertEqual(parcelas[0].status, "paga")
+        self.assertEqual(parcelas[0].pagamento_id, pag.id)
+        self.assertEqual(parcelas[0].valor_pago, Decimal("150.00"))
+        self.assertEqual([p.status for p in parcelas[1:]], ["aberta", "aberta"])
+        self.assertTrue(all(p.total == 3 for p in parcelas))
+
+    def test_vencimentos_caem_mes_a_mes(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        parcelas = list(Inscricao.objects.get().parcelas.all())
+        hoje = timezone.localdate()
+        self.assertEqual(parcelas[0].vencimento, hoje)
+        self.assertEqual(parcelas[1].vencimento, views._somar_meses(hoje, 1))
+        self.assertEqual(parcelas[2].vencimento, views._somar_meses(hoje, 2))
+
+    def test_somar_meses_gruda_no_ultimo_dia_do_mes(self):
+        self.assertEqual(
+            views._somar_meses(datetime.date(2026, 1, 31), 1),
+            datetime.date(2026, 2, 28),
+        )
+
+    # --- o que entrou no caixa ---
+
+    def test_caixa_conta_so_a_parcela_paga(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        self.assertEqual(insc.valor_total, Decimal("450.00"))
+        self.assertEqual(insc.valor_no_caixa, Decimal("150.00"))
+        self.assertEqual(insc.total_parcelas_aberto, Decimal("300.00"))
+
+    def test_painel_do_evento_nao_conta_parcela_em_aberto_na_arrecadacao(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
+        self.assertEqual(r.context["resumo"]["arrecadacao_inscricoes"], Decimal("150.00"))
+        self.assertEqual(r.context["parcelado"]["aberto"], Decimal("300.00"))
+        self.assertEqual(r.context["parcelado"]["recebido"], Decimal("150.00"))
+
+    def test_financeiro_do_clube_nao_conta_parcela_em_aberto(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:financeiro"))
+        self.assertEqual(r.context["resumo"]["eventos"]["inscricoes"], Decimal("150.00"))
+        self.assertEqual(r.context["resumo"]["eventos"]["aberto"], Decimal("300.00"))
+
+    def test_extrato_do_evento_nao_duplica_a_parcela_paga(self):
+        """A linha da inscrição vale o que entrou no ato; a parcela paga depois é
+        um lançamento próprio. Somados, batem com a arrecadação."""
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        parcela2 = insc.parcelas.get(numero=2)
+        self._pagar_parcela(insc, parcela2)
+
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
+        entradas = [
+            e for e in r.context["financeiro"]["extrato"]
+            if e["entrada"] and not e["cancelado"]
+        ]
+        self.assertEqual(
+            sum(e["valor"] for e in entradas),
+            r.context["resumo"]["arrecadacao_inscricoes"],
+        )
+
+    def _pagar_parcela(self, inscricao, parcela):
+        """Paga uma parcela pelo link público (Pix) e aprova."""
+        url = reverse("core:inscricao_parcela_pagar", args=[inscricao.token_parcelas])
+        with mock.patch.object(mp, "criar_pix", return_value=self.FAKE_PIX):
+            self.client.post(url, {"parcela_id": parcela.id, "forma_pagamento": "pix"})
+        pag = Pagamento.objects.filter(tipo="parcela_inscricao").latest("id")
+        self._aprovar(pag)
+        return pag
+
+    # --- página pública das parcelas ---
+
+    def test_link_publico_lista_as_parcelas_e_paga_uma(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        self.assertTrue(insc.token_parcelas)
+
+        url = reverse("core:inscricao_parcelas", args=[insc.token_parcelas])
+        r = self.client.get(url)  # sem login: a pessoa pode não ter conta
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Parcelas da inscrição")
+        self.assertEqual(r.context["total_aberto"], Decimal("300.00"))
+
+        parcela2 = insc.parcelas.get(numero=2)
+        self._pagar_parcela(insc, parcela2)
+        parcela2.refresh_from_db()
+        self.assertEqual(parcela2.status, "paga")
+        self.assertEqual(parcela2.valor_pago, Decimal("150.00"))
+        insc.refresh_from_db()
+        self.assertEqual(insc.valor_no_caixa, Decimal("300.00"))
+
+    def test_token_invalido_nao_vaza_nada(self):
+        r = self.client.get(reverse("core:inscricao_parcelas", args=["naoexiste"]))
+        self.assertContains(r, "Link inválido")
+
+    def test_nao_paga_parcela_que_ja_esta_paga(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        paga = insc.parcelas.get(numero=1)
+        url = reverse("core:inscricao_parcela_pagar", args=[insc.token_parcelas])
+        r = self.client.post(url, {"parcela_id": paga.id, "forma_pagamento": "pix"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Pagamento.objects.filter(tipo="parcela_inscricao").count(), 0)
+
+    def test_webhook_repetido_nao_paga_a_parcela_duas_vezes(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        parcela2 = insc.parcelas.get(numero=2)
+        pag2 = self._pagar_parcela(insc, parcela2)
+        parcela2.refresh_from_db()
+        primeiro_pago_em = parcela2.pago_em
+        # Reprocessar o mesmo pagamento não muda nada (idempotente).
+        views._finalizar_parcela_inscricao(pag2)
+        parcela2.refresh_from_db()
+        self.assertEqual(parcela2.pago_em, primeiro_pago_em)
+
+    def test_todas_pagas_mostra_quitado(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        for n in (2, 3):
+            self._pagar_parcela(insc, insc.parcelas.get(numero=n))
+        r = self.client.get(reverse("core:inscricao_parcelas", args=[insc.token_parcelas]))
+        self.assertTrue(r.context["quitado"])
+        self.assertContains(r, "Tudo pago!")
+        insc.refresh_from_db()
+        self.assertEqual(insc.valor_no_caixa, insc.valor_total)
+
+    # --- baixa manual do Diretor ---
+
+    def test_diretor_da_baixa_manual_e_o_valor_entra_no_caixa(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        parcela2 = insc.parcelas.get(numero=2)
+        self.client.force_login(self.diretor)
+        url = reverse("core:evento_parcela_pago", args=[self.evento.id, parcela2.id])
+        self.client.post(url)
+        parcela2.refresh_from_db()
+        self.assertEqual(parcela2.status, "paga")
+        self.assertEqual(parcela2.forma_pagamento, "dinheiro")
+        self.assertEqual(parcela2.registrado_por_id, self.diretor.id)
+        insc.refresh_from_db()
+        self.assertEqual(insc.valor_no_caixa, Decimal("300.00"))
+
+    def test_baixa_manual_e_liga_desliga(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        insc = Inscricao.objects.get()
+        parcela2 = insc.parcelas.get(numero=2)
+        self.client.force_login(self.diretor)
+        url = reverse("core:evento_parcela_pago", args=[self.evento.id, parcela2.id])
+        self.client.post(url)
+        self.client.post(url)  # desmarca
+        parcela2.refresh_from_db()
+        self.assertEqual(parcela2.status, "aberta")
+        self.assertIsNone(parcela2.pago_em)
+        self.assertIsNone(parcela2.valor_pago)
+
+    def test_baixa_manual_exige_diretor(self):
+        pag = self._inscrever(self._post(parcelar_diretoria="1"))
+        self._aprovar(pag)
+        parcela2 = Inscricao.objects.get().parcelas.get(numero=2)
+        url = reverse("core:evento_parcela_pago", args=[self.evento.id, parcela2.id])
+        r = self.client.post(url)
+        self.assertNotEqual(r.status_code, 200)
+        parcela2.refresh_from_db()
+        self.assertEqual(parcela2.status, "aberta")
+
+    # --- configuração ---
+
+    def test_config_exige_valor_de_diretoria_para_parcelar(self):
+        from .forms import EventoInscricaoConfigForm
+        form = EventoInscricaoConfigForm(
+            data={"local": "Sede", "parcelas_diretoria": "3",
+                  "formas_pagamento_online": "ambos", "formas_pagamento_fora": "nenhuma"},
+            instance=self.evento,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("parcelas_diretoria", form.errors)
+
+    def test_config_vazia_vira_a_vista(self):
+        from .forms import EventoInscricaoConfigForm
+        form = EventoInscricaoConfigForm(
+            data={"local": "Sede", "valor_diretoria": "450.00", "parcelas_diretoria": "",
+                  "formas_pagamento_online": "ambos", "formas_pagamento_fora": "nenhuma"},
+            instance=self.evento,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["parcelas_diretoria"], 1)
+
+    def test_tela_de_inscricao_oferece_o_parcelamento(self):
+        r = self.client.get(self.url)
+        self.assertTrue(r.context["pode_parcelar_diretoria"])
+        self.assertContains(r, "Dividir o valor da diretoria em 3x")
+

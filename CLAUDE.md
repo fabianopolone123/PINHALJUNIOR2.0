@@ -48,7 +48,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/cadastro/` **tela de escolha** (Aventureiro / Diretoria / Diretoria+Aventureiro) · `/cadastro/aventureiro/` conta+1º aventureiro · `/cadastro/diretoria/` cadastro de diretoria (`?com_aventureiro=1` emenda no aventureiro → 2 perfis) · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
 - **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`. A tela do código **mostra o usuário de acesso** da conta (e a mensagem do WhatsApp também) — quem esquece o login resolve aqui; ver REGRAS_CODEX.
 - **Eventos** (Diretor; PDV/operar também por operadores; baixa do pagamento por fora em
-  `/eventos/<id>/inscricoes/<id>/pago/`): `/eventos/`, `/eventos/<id>/` (painel),
+  `/eventos/<id>/inscricoes/<id>/pago/`; baixa de parcela da diretoria em
+  `/eventos/<id>/parcelas/<id>/pago/`): `/eventos/`, `/eventos/<id>/` (painel),
   `/eventos/<id>/ativar/` (POST: inativa/reativa o evento — sai do menu e fecha inscrição/lojinha),
   `/eventos/<id>/pagina|inscrever|loja|pdv|pdv/inscricao|operar|operadores/` etc. — lista completa em `docs/ESTADO_ATUAL.md`.
 - **Presença** `/presenca/` **ramifica por perfil**: Diretor marca presença (`/presenca/<id>/`,
@@ -237,6 +238,20 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   Toda soma de caixa nova precisa excluir `pagamento_externo=True` (já feito em `evento_painel_view`,
   `_montar_financeiro`, `_montar_dashboard` e `financeiro_view`); item de lojinha levado junto herda a flag
   (`PedidoLoja.pagamento_externo`). A forma escolhida vira só o registro de **como** será o acerto.
+- **Valor da diretoria parcelado**: `Evento.parcelas_diretoria` (mig. **0068**; `1` = à vista) divide **só a
+  parte da diretoria** em parcelas cobradas **pelo clube** (estilo mensalidade — não é o parcelamento do cartão,
+  que o MP já oferece em cima da 1ª parcela). A 1ª parcela é cobrada **no ato**, junto do valor **integral** dos
+  outros participantes e da lojinha, numa **única** cobrança; as demais viram `ParcelaInscricao` vencendo mês a
+  mês. Use **`evento.permite_parcelar_diretoria()` no POST** — forjar `parcelar_diretoria=1` não parcela nada.
+  Não existe com "pago direto ao evento" nem sem MP configurado (não há cobrança para dividir).
+  **A regra financeira é a que mais pega**: `Inscricao.valor_total` é o valor da inscrição, não o que entrou —
+  **toda soma de caixa usa `valor_no_caixa`** (total − parcelas em aberto), e o **extrato** usa `valor_no_ato`
+  mais **um lançamento por parcela paga** (senão a mesma parcela conta duas vezes; há teste que soma o extrato
+  e compara com a arrecadação). Cada parcela paga online tem o **seu** `Pagamento` (`tipo="parcela_inscricao"`,
+  finalizado por `_finalizar_parcela_inscricao`, idempotente). A família paga pela página pública
+  `/inscricao/<token>/parcelas/` (token da inscrição, como o `token_acerto` da família). A **baixa manual** do
+  Diretor **entra** no caixa — ao contrário da baixa do pagamento por fora; reabrir solta o `pagamento` para a
+  taxa não ficar presa a uma parcela em aberto. **Ainda não há cobrança automática** das parcelas seguintes.
 - **Cookies de sessão/CSRF só por HTTPS**: `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` = `not DEBUG`.
   **Não ligar `SECURE_SSL_REDIRECT`** — o Nginx já faz o 301; o aviso `security.W008` é esperado (há teste
   documentando). Ao mexer em settings, lembre que o test runner do Django força `DEBUG=False` **depois** do

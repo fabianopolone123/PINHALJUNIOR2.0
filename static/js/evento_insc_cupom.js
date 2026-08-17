@@ -25,6 +25,12 @@
 
     var totalEl = document.querySelector("[data-insc-total]");
     var descEl = document.querySelector("[data-insc-descontos]");
+    // Parcelamento da parte da diretoria (só na inscrição online, e só quando o
+    // evento permite). O servidor recalcula tudo ao confirmar — isto é a prévia.
+    var parcBox = document.querySelector("[data-insc-parcelar]");
+    var parcCheck = document.querySelector("[data-insc-parcelar-check]");
+    var parcResumo = document.querySelector("[data-insc-parcelar-resumo]");
+    var parcQtd = parcBox ? parseInt(parcBox.dataset.parcelas, 10) : 0;
     // PDV (opcionais — só existem no balcão).
     var dinheiroBox = document.getElementById("pdvDinheiro");
     var recebidoEl = document.getElementById("valor_recebido");
@@ -63,9 +69,20 @@
         return t;
     }
 
+    // Divide `total` em `n`, com a sobra dos centavos na 1ª parcela — mesma regra
+    // do `Evento.dividir_parcelas` no servidor.
+    function dividir(total, n) {
+        if (n <= 1 || total <= 0) return [total];
+        var base = Math.floor((total / n) * 100) / 100;
+        var valores = [];
+        for (var i = 0; i < n; i++) valores.push(base);
+        valores[0] = Math.round((total - base * (n - 1)) * 100) / 100;
+        return valores;
+    }
+
     function recalcular() {
         var cortesia = formaSelecionada() === "cortesia";
-        var totalInsc = 0, totalDesc = 0;
+        var totalInsc = 0, totalDesc = 0, totalDir = 0;
         linhas().forEach(function (l) {
             var nomeI = l.querySelector('input[name^="part_nome_"]');
             if (!nomeI || !nomeI.value.trim()) return;
@@ -79,11 +96,38 @@
             if (desc > preco) desc = preco;
             totalInsc += preco;
             totalDesc += desc;
+            if (ehDir) totalDir += preco - desc;
         });
         var grand = cortesia ? 0 : (totalInsc - totalDesc + lojaTotal());
 
+        // ---- Parcelamento da diretoria: só com valor de diretoria na inscrição ----
+        if (parcBox) {
+            var podeParcelar = !cortesia && totalDir > 0 && parcQtd > 1;
+            parcBox.hidden = !podeParcelar;
+            if (!podeParcelar && parcCheck) parcCheck.checked = false;
+            var parcelando = podeParcelar && parcCheck && parcCheck.checked;
+            if (parcelando) {
+                var vals = dividir(totalDir, parcQtd);
+                var diferido = Math.round((totalDir - vals[0]) * 100) / 100;
+                grand = Math.round((grand - diferido) * 100) / 100;
+                if (parcResumo) {
+                    parcResumo.hidden = false;
+                    parcResumo.textContent =
+                        "Diretoria: " + parcQtd + "× de " + moeda(vals[1]) +
+                        " (1ª de " + moeda(vals[0]) + ", agora). Falta pagar depois: " +
+                        moeda(diferido) + ".";
+                }
+            } else if (parcResumo) {
+                parcResumo.hidden = true;
+                parcResumo.textContent = "";
+            }
+        }
+
         if (totalEl) {
-            totalEl.textContent = moeda(grand) + (cortesia ? " (cortesia)" : "");
+            var sufixo = "";
+            if (cortesia) sufixo = " (cortesia)";
+            else if (parcelando) sufixo = " (a pagar agora)";
+            totalEl.textContent = moeda(grand) + sufixo;
         }
         if (descEl) {
             if (!cortesia && totalDesc > 0) {

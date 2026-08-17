@@ -1,5 +1,6 @@
 import base64
 import binascii
+import calendar
 import datetime
 import hashlib
 import json
@@ -121,6 +122,7 @@ from .models import (
     OpenAIConfig,
     OperadorEvento,
     Pagamento,
+    ParcelaInscricao,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
@@ -1241,6 +1243,12 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
     # que veio junto compartilham o MESMO Pagamento — o set evita contagem dupla).
     pag_ids = {i.pagamento_id for i in confirmadas if i.pagamento_id}
     pag_ids |= {p.pagamento_id for p in pedidos_confirmados if p.pagamento_id}
+    # Cada parcela paga online tem a SUA cobrança (e a sua taxa) — a 1ª parcela
+    # compartilha o pagamento da inscrição, e o set cuida da contagem dupla.
+    pag_ids |= {
+        parc.pagamento_id for i in confirmadas for parc in i.parcelas.all()
+        if parc.pagamento_id
+    }
     taxa_total = (
         Pagamento.objects.filter(id__in=pag_ids, status="aprovado").aggregate(
             t=Sum("taxa"))["t"] or Decimal("0")
@@ -1255,7 +1263,7 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
         b["valor"] += valor
         b["qtd"] += 1
     for i in confirmadas:
-        _add_forma(i.forma_pagamento, i.valor_total)
+        _add_forma(i.forma_pagamento, i.valor_no_caixa)
     for p in pedidos_confirmados:
         _add_forma(p.forma_pagamento, p.valor_total)
     entradas_por_forma = [
@@ -1267,23 +1275,43 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
     canal_online = Decimal("0")
     canal_pdv = Decimal("0")
     for reg in list(confirmadas) + list(pedidos_confirmados):
+        # Inscrição usa o que entrou no caixa (desconta parcela em aberto); pedido
+        # da lojinha não parcela, então `valor_no_caixa` nem existe nele.
+        valor = getattr(reg, "valor_no_caixa", reg.valor_total)
         if reg.origem == "pdv":
-            canal_pdv += reg.valor_total
+            canal_pdv += valor
         else:
-            canal_online += reg.valor_total
+            canal_online += valor
 
     # --- Extrato: todos os lançamentos (inclusive cancelados) ---
     extrato = []
     for i in inscricoes:
+        # Na inscrição parcelada, a linha da inscrição vale o que entrou NAQUELE
+        # dia (`valor_no_ato`); cada parcela paga depois entra como lançamento
+        # próprio, logo abaixo, na data em que caiu. Assim o extrato soma o mesmo
+        # que a arrecadação, sem contar a mesma parcela duas vezes.
         extrato.append({
             "data": i.criado_em, "tipo": "Inscrição", "codigo": i.codigo,
             "descricao": i.responsavel_nome or "—",
             "forma": formas_labels.get(i.forma_pagamento, ""),
             "canal": "Balcão" if i.origem == "pdv" else "Online",
-            "valor": i.valor_total, "entrada": True,
+            "valor": i.valor_no_ato, "entrada": True,
             "cancelado": i.status == "cancelada",
             "fora_caixa": i.pagamento_externo,
         })
+        for parc in i.parcelas.all():
+            if parc.numero == 1 or parc.status != "paga":
+                continue
+            extrato.append({
+                "data": parc.pago_em or parc.criado_em,
+                "tipo": f"Parcela {parc.rotulo}", "codigo": i.codigo,
+                "descricao": i.responsavel_nome or "—",
+                "forma": formas_labels.get(parc.forma_pagamento, ""),
+                "canal": "Online",
+                "valor": parc.valor_pago or parc.valor, "entrada": True,
+                "cancelado": i.status == "cancelada",
+                "fora_caixa": i.pagamento_externo,
+            })
     for p in pedidos:
         extrato.append({
             "data": p.criado_em, "tipo": "Lojinha", "codigo": p.codigo,
@@ -1481,7 +1509,7 @@ def evento_painel_view(request, pk):
 
     inscricoes = list(
         evento.inscricoes.prefetch_related(
-            "participantes", "participantes__respostas", "respostas"
+            "participantes", "participantes__respostas", "respostas", "parcelas"
         ).all()
     )
     # Respostas da inscrição (não ligadas a um participante) vs. por participante.
@@ -1496,7 +1524,26 @@ def evento_painel_view(request, pk):
     externas = [i for i in confirmadas if i.pagamento_externo]
     # "Inscritos" = pessoas (participantes) das inscrições confirmadas.
     inscritos = sum(len(i.participantes.all()) for i in confirmadas)
-    arrecadacao_inscricoes = sum((i.valor_total for i in confirmadas_caixa), Decimal("0"))
+    # `valor_no_caixa`, não `valor_total`: numa inscrição parcelada as parcelas
+    # futuras ainda não entraram, e somar o total infla a arrecadação com dinheiro
+    # que não chegou. Na inscrição à vista (o caso normal) os dois são iguais.
+    arrecadacao_inscricoes = sum(
+        (i.valor_no_caixa for i in confirmadas_caixa), Decimal("0")
+    )
+    # Parcelas da diretoria ainda em aberto (o que o clube tem a receber deste
+    # evento). Fica num controle próprio, como o "pago direto ao evento".
+    parcelas_ev = [p for i in confirmadas_caixa for p in i.parcelas.all()]
+    parcelado = {
+        "recebido": sum(
+            (p.valor_pago or Decimal("0") for p in parcelas_ev if p.status == "paga"),
+            Decimal("0"),
+        ),
+        "aberto": sum((p.valor for p in parcelas_ev if p.em_aberto), Decimal("0")),
+        "vencido": sum((p.valor for p in parcelas_ev if p.vencida), Decimal("0")),
+        "qtd_aberto": sum(1 for p in parcelas_ev if p.em_aberto),
+        "qtd_vencido": sum(1 for p in parcelas_ev if p.vencida),
+        "qtd_inscricoes": sum(1 for i in confirmadas_caixa if i.parcelas.all()),
+    }
 
     pedidos = list(evento.pedidos.prefetch_related("itens").all())
     pedidos_confirmados = [p for p in pedidos if p.status == "confirmado"]
@@ -1589,6 +1636,7 @@ def evento_painel_view(request, pk):
         "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
         "externo": externo,
+        "parcelado": parcelado,
         "resumo": {
             "inscritos": inscritos,
             "arrecadacao_inscricoes": arrecadacao_inscricoes,
@@ -2129,6 +2177,12 @@ def evento_inscrever_view(request, pk):
             inscr_total = sum((p.valor for p, _ in dados), Decimal("0"))
             loja_total = sum((v.valor * qtd for v, qtd in desejados_loja), Decimal("0"))
             grand_total = inscr_total + loja_total
+            # Parte da diretoria (já com o cupom de cada um aplicado): é a ÚNICA
+            # que pode ser parcelada. O que os outros participantes devem e a
+            # lojinha vão integralmente na cobrança do ato.
+            total_diretoria = sum(
+                (p.valor for p, _ in dados if p.eh_diretoria), Decimal("0")
+            )
 
             config = _mp_config()
             # Forma escolhida, validada contra o que o evento aceita (POST
@@ -2162,6 +2216,24 @@ def evento_inscrever_view(request, pk):
                 ]
                 payload["titulo"] = f"Inscrição — {evento.nome}"
                 payload["itens"] = itens_disp
+                # --- Parcelamento da parte da diretoria ---
+                # Só chega aqui a cobrança de verdade (MP configurado, valor > 0 e
+                # forma que NÃO é paga por fora), que é a única situação em que
+                # parcelar quer dizer algo: a 1ª parcela entra nesta cobrança e as
+                # seguintes ficam registradas para depois.
+                quer_parcelar = request.POST.get("parcelar_diretoria") == "1"
+                diferido = Decimal("0")
+                if (quer_parcelar and total_diretoria > 0
+                        and evento.permite_parcelar_diretoria()):
+                    valores_parc = evento.dividir_parcelas(total_diretoria)
+                    # Fica para depois tudo o que não é a 1ª parcela.
+                    diferido = total_diretoria - valores_parc[0]
+                    payload["parcelamento"] = {
+                        "parcelas": len(valores_parc),
+                        "valores": [str(v) for v in valores_parc],
+                    }
+                # O que se paga AGORA: total − parcelas futuras da diretoria.
+                a_pagar_agora = grand_total - diferido
                 comprador_pg = {"nome": form.cleaned_data["responsavel_nome"],
                                 "email": form.cleaned_data["responsavel_email"]}
                 # Já validada acima contra as formas liberadas NESTE evento (POST
@@ -2170,7 +2242,7 @@ def evento_inscrever_view(request, pk):
                 forma_inscr = forma_escolhida
                 if forma_inscr == "cartao":
                     pagamento, init_point, erro = _criar_pagamento_cartao(
-                        request, tipo="inscricao", valor=grand_total,
+                        request, tipo="inscricao", valor=a_pagar_agora,
                         descricao=f"Inscrição — {evento.nome}", payload=payload,
                         comprador=comprador_pg, usuario=request.user,
                     )
@@ -2180,7 +2252,7 @@ def evento_inscrever_view(request, pk):
                         return redirect(init_point)
                 else:
                     pagamento, erro = _criar_pagamento_pix(
-                        request, tipo="inscricao", valor=grand_total,
+                        request, tipo="inscricao", valor=a_pagar_agora,
                         descricao=f"Inscrição — {evento.nome}", payload=payload,
                         comprador=comprador_pg, usuario=request.user,
                     )
@@ -2221,6 +2293,14 @@ def evento_inscrever_view(request, pk):
         "diretoria_json": (
             str(evento.valor_diretoria) if evento.valor_diretoria is not None else None
         ),
+        # Parcelamento da parte da diretoria: a opção só aparece se o evento
+        # permite E o Mercado Pago está configurado (sem cobrança não há parcela).
+        # O JS mostra/esconde conforme haja participante de diretoria marcado.
+        "pode_parcelar_diretoria": (
+            evento.permite_parcelar_diretoria() and _mp_config().configurado
+        ),
+        "parcelas_diretoria": evento.parcelas_diretoria,
+        "parcelar_marcado": request.POST.get("parcelar_diretoria") == "1",
         "formas_pagamento": evento.formas_online(),
         # Quais das formas acima confirmam sem cobrar (o template marca cada
         # opção) e o rótulo delas, para a orientação dizer de qual se trata.
@@ -2279,6 +2359,47 @@ def evento_inscricao_pago_view(request, pk, inscricao_id):
         inscricao.pago_externo_por = request.user
         aviso = f"Inscrição {inscricao.codigo} marcada como paga."
     inscricao.save(update_fields=["pago_externo_em", "pago_externo_por"])
+    messages.success(request, aviso)
+    return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+
+
+@diretor_required
+@require_POST
+def evento_parcela_pago_view(request, pk, parcela_id):
+    """Baixa manual de uma parcela da inscrição (liga/desliga), pelo Diretor.
+
+    Serve para quem acertou a parcela fora do site (dinheiro, transferência). Aqui
+    o valor **entra** no caixa do clube — ao contrário da baixa do "pago direto ao
+    evento", em que o dinheiro nunca passou pelo clube."""
+    evento = get_object_or_404(Evento, pk=pk)
+    parcela = ParcelaInscricao.objects.filter(
+        pk=parcela_id, inscricao__evento=evento
+    ).select_related("inscricao").first()
+    if parcela is None:
+        messages.error(request, "Parcela não encontrada.")
+        return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
+    if parcela.status == "paga":
+        parcela.status = "aberta"
+        parcela.valor_pago = None
+        parcela.pago_em = None
+        parcela.registrado_por = None
+        # Solta o vínculo com a cobrança online, se havia: reabrir uma parcela
+        # que foi paga no gateway é correção de erro, e deixar o Pagamento preso
+        # somaria a taxa de uma parcela que voltou a ser considerada em aberto.
+        parcela.pagamento = None
+        parcela.forma_pagamento = ""
+        aviso = f"Parcela {parcela.rotulo} de {parcela.inscricao.codigo} voltou para aberta."
+    else:
+        parcela.status = "paga"
+        parcela.valor_pago = parcela.valor
+        parcela.pago_em = timezone.now()
+        parcela.registrado_por = request.user
+        parcela.forma_pagamento = "dinheiro"
+        aviso = f"Parcela {parcela.rotulo} de {parcela.inscricao.codigo} marcada como paga."
+    parcela.save(update_fields=[
+        "status", "valor_pago", "pago_em", "registrado_por", "pagamento",
+        "forma_pagamento",
+    ])
     messages.success(request, aviso)
     return redirect(reverse("core:evento_painel", args=[evento.pk]) + "#inscricoes")
 
@@ -5435,6 +5556,8 @@ def _finalizar_pagamento(pagamento):
         _finalizar_loja_clube(pagamento)
     elif pagamento.tipo == "inscricao":
         _finalizar_inscricao(pagamento)
+    elif pagamento.tipo == "parcela_inscricao":
+        _finalizar_parcela_inscricao(pagamento)
 
 
 def _finalizar_inscricao(pagamento):
@@ -5448,6 +5571,26 @@ def _finalizar_inscricao(pagamento):
     inscricao = _criar_inscricao_de_payload(evento, dados, pagamento.usuario, pagamento=pagamento)
     dados["inscricao_codigo"] = inscricao.codigo
     pagamento.payload = dados
+
+
+def _finalizar_parcela_inscricao(pagamento):
+    """Dá baixa na parcela que este pagamento quitou. Idempotente: parcela já paga
+    não é mexida (webhook do MP repete o aviso)."""
+    dados = pagamento.payload or {}
+    parcela = ParcelaInscricao.objects.filter(pk=dados.get("parcela_id")).first()
+    if parcela is None:
+        pagamento.detalhe = "Parcela não encontrada ao finalizar o pagamento."
+        return
+    if parcela.status == "paga":
+        return
+    parcela.status = "paga"
+    parcela.valor_pago = pagamento.valor_bruto
+    parcela.pago_em = timezone.now()
+    parcela.forma_pagamento = pagamento.forma
+    parcela.pagamento = pagamento
+    parcela.save(update_fields=[
+        "status", "valor_pago", "pago_em", "forma_pagamento", "pagamento",
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -5586,6 +5729,52 @@ def _agendar_aviso_inscricao(evento, inscricao):
     )
 
 
+def _somar_meses(data, meses):
+    """`data` + `meses` meses, grudando no último dia do mês quando o dia não
+    existe (31/01 + 1 mês = 28/02). Evita uma dependência só para isso."""
+    mes = data.month - 1 + meses
+    ano = data.year + mes // 12
+    mes = mes % 12 + 1
+    ultimo = calendar.monthrange(ano, mes)[1]
+    return datetime.date(ano, mes, min(data.day, ultimo))
+
+
+def _criar_parcelas_inscricao(inscricao, parcelamento, pagamento=None):
+    """Cria as parcelas do valor da diretoria de uma inscrição parcelada.
+
+    A **1ª nasce paga** — ela foi cobrada junto do resto no ato da inscrição, e é
+    o pagamento dela que confirmou tudo. As seguintes nascem em aberto vencendo
+    mês a mês a partir de hoje. Sem `parcelamento` no payload (o caso normal,
+    à vista) não cria nada."""
+    if not parcelamento:
+        return []
+    valores = [Decimal(str(v)) for v in parcelamento.get("valores") or []]
+    if len(valores) < 2:
+        return []
+    hoje = timezone.localdate()
+    agora = timezone.now()
+    total = len(valores)
+    criadas = []
+    for i, valor in enumerate(valores, start=1):
+        primeira = i == 1
+        criadas.append(ParcelaInscricao.objects.create(
+            inscricao=inscricao,
+            numero=i,
+            total=total,
+            valor=valor,
+            vencimento=hoje if primeira else _somar_meses(hoje, i - 1),
+            status="paga" if primeira else "aberta",
+            forma_pagamento=(pagamento.forma if (primeira and pagamento)
+                             else (inscricao.forma_pagamento if primeira else "")),
+            valor_pago=valor if primeira else None,
+            pago_em=agora if primeira else None,
+            pagamento=pagamento if primeira else None,
+        ))
+    # Garante o token do link em que a pessoa volta para pagar o que falta.
+    inscricao.get_token_parcelas()
+    return criadas
+
+
 def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None,
                                 forma_pagamento="", pagamento_externo=False):
     """Cria a Inscrição (+ participantes, respostas, pedido de lojinha e marca os
@@ -5651,6 +5840,9 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None,
                 inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
                 valor=c.get("texto", ""),
             )
+    # Parcelamento da parte da diretoria: a 1ª parcela já foi paga nesta cobrança
+    # (é o que entrou no caixa agora); as seguintes nascem em aberto, mês a mês.
+    _criar_parcelas_inscricao(inscricao, payload.get("parcelamento"), pagamento)
     # Itens da lojinha comprados junto (opcional).
     itens = payload.get("loja_itens", [])
     if itens:
@@ -5839,6 +6031,12 @@ def _sucesso_url_e_sessao(request, pagamento):
         if codigo:
             request.session["inscricao_codigo"] = codigo
         return reverse("core:evento_inscricao_sucesso", args=[dados.get("evento_id")])
+    if pagamento.tipo == "parcela_inscricao":
+        # Volta para a própria página de parcelas: a parcela paga já aparece
+        # quitada e as que faltam continuam à mão.
+        inscricao = Inscricao.objects.filter(pk=dados.get("inscricao_id")).first()
+        if inscricao is not None and inscricao.token_parcelas:
+            return reverse("core:inscricao_parcelas", args=[inscricao.token_parcelas])
     # Demais tipos usam a tela de sucesso genérica (por referência do pagamento).
     return reverse("core:pagamento_sucesso", args=[pagamento.referencia])
 
@@ -6472,6 +6670,96 @@ def acerto_cobrar_view(request, token):
     )
     if erro:
         return redirect("core:acerto", token=token)
+    return redirect("core:pagamento", ref=pagamento.referencia)
+
+
+# ---------------------------------------------------------------------------
+# Página pública das PARCELAS de uma inscrição (link do token da inscrição).
+#
+# Mesma ideia do acerto de mensalidades: sem login, porque quem se inscreveu pode
+# não ter conta no sistema. O token identifica a inscrição; a página mostra as
+# parcelas e gera o Pix/cartão só no clique, uma parcela por vez.
+# ---------------------------------------------------------------------------
+def _inscricao_por_token(token):
+    """Inscrição do token (só as parceladas têm token). None se não casar."""
+    if not token:
+        return None
+    return (
+        Inscricao.objects.filter(token_parcelas=token)
+        .select_related("evento").prefetch_related("parcelas").first()
+    )
+
+
+def inscricao_parcelas_view(request, token):
+    """Página pública das parcelas de uma inscrição: o que já foi pago e o que falta."""
+    inscricao = _inscricao_por_token(token)
+    if inscricao is None:
+        return render(request, "core/inscricao_parcelas.html", {"invalido": True})
+    parcelas = list(inscricao.parcelas.all())
+    abertas = [p for p in parcelas if p.em_aberto]
+    return render(request, "core/inscricao_parcelas.html", {
+        "token": token,
+        "inscricao": inscricao,
+        "evento": inscricao.evento,
+        "parcelas": parcelas,
+        "abertas": abertas,
+        "total_aberto": sum((p.valor for p in abertas), Decimal("0")),
+        "pago": sum(
+            (p.valor_pago or Decimal("0") for p in parcelas if p.status == "paga"),
+            Decimal("0"),
+        ),
+        "quitado": not abertas,
+        "primeiro_nome": (inscricao.responsavel_nome or "").split(" ")[0],
+        "formas_pagamento": inscricao.evento.formas_online(),
+        "mp_configurado": _mp_config().configurado,
+    })
+
+
+@require_POST
+def inscricao_parcela_pagar_view(request, token):
+    """Gera a cobrança (Pix/cartão) de UMA parcela da inscrição.
+
+    Uma por vez de propósito: cada parcela vira um `Pagamento` próprio, então a
+    baixa é individual e a taxa do gateway fica onde deve. A forma é validada
+    contra o que o evento aceita — a parcela segue a regra do evento."""
+    inscricao = _inscricao_por_token(token)
+    if inscricao is None:
+        return redirect("core:login")
+    parcela = inscricao.parcelas.filter(
+        pk=request.POST.get("parcela_id"), status="aberta"
+    ).first()
+    if parcela is None:
+        messages.error(request, "Essa parcela não está em aberto.")
+        return redirect("core:inscricao_parcelas", token=token)
+    evento = inscricao.evento
+    forma = request.POST.get("forma_pagamento") or ""
+    if not evento.aceita_forma_online(forma):
+        forma = evento.formas_online()[0][0]
+    payload = {
+        "parcela_id": parcela.id,
+        "inscricao_id": inscricao.id,
+        "titulo": f"Parcela {parcela.rotulo} — {evento.nome}",
+        "itens": [{"nome": f"Parcela {parcela.rotulo} da inscrição {inscricao.codigo}",
+                   "valor": f"{parcela.valor:.2f}"}],
+    }
+    comprador = {"nome": inscricao.responsavel_nome, "email": inscricao.responsavel_email}
+    descricao = f"Parcela {parcela.rotulo} — {evento.nome}"
+    if forma == "cartao":
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="parcela_inscricao", valor=parcela.valor, descricao=descricao,
+            payload=payload, comprador=comprador, usuario=inscricao.usuario,
+        )
+        if erro:
+            messages.error(request, f"Não foi possível iniciar o cartão: {erro}")
+            return redirect("core:inscricao_parcelas", token=token)
+        return redirect(init_point)
+    pagamento, erro = _criar_pagamento_pix(
+        request, tipo="parcela_inscricao", valor=parcela.valor, descricao=descricao,
+        payload=payload, comprador=comprador, usuario=inscricao.usuario,
+    )
+    if erro:
+        messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+        return redirect("core:inscricao_parcelas", token=token)
     return redirect("core:pagamento", ref=pagamento.referencia)
 
 
@@ -8193,6 +8481,7 @@ def financeiro_view(request):
     inscricoes = list(
         Inscricao.objects.exclude(status="cancelada")
         .filter(pagamento_externo=False).select_related("evento")
+        .prefetch_related("parcelas")
     )
     pedidos_ev = list(
         PedidoLoja.objects.filter(status="confirmado", pagamento_externo=False)
@@ -8208,7 +8497,10 @@ def financeiro_view(request):
         Decimal("0"),
     )
     loja_total = sum((c.valor_total for c in compras), Decimal("0"))
-    inscr_total = sum((i.valor_total for i in inscricoes), Decimal("0"))
+    # `valor_no_caixa`: parcela de inscrição ainda em aberto não é entrada (ver
+    # `Inscricao.valor_no_caixa`). O que falta receber aparece como "a receber".
+    inscr_total = sum((i.valor_no_caixa for i in inscricoes), Decimal("0"))
+    inscr_aberto = sum((i.total_parcelas_aberto for i in inscricoes), Decimal("0"))
     pedidos_total = sum((p.valor_total for p in pedidos_ev), Decimal("0"))
     eventos_entradas = inscr_total + pedidos_total
     custos_ev_total = sum((c.valor for c in custos_ev), Decimal("0"))
@@ -8225,7 +8517,7 @@ def financeiro_view(request):
             t=Sum("taxa"))["t"] or Decimal("0")
     taxa_mens = _soma_taxa(["mensalidade"])
     taxa_loja = _soma_taxa(["loja_clube"])
-    taxa_eventos = _soma_taxa(["loja_evento", "inscricao"])
+    taxa_eventos = _soma_taxa(["loja_evento", "inscricao", "parcela_inscricao"])
     taxa_total = taxa_mens + taxa_loja + taxa_eventos
 
     entradas = mens_recebido + loja_total + eventos_entradas
@@ -8243,6 +8535,8 @@ def financeiro_view(request):
             "entradas": eventos_entradas, "inscricoes": inscr_total,
             "pedidos": pedidos_total, "custos": custos_ev_total, "taxa": taxa_eventos,
             "liquido": eventos_entradas - custos_ev_total - taxa_eventos,
+            # Parcelas de inscrição da diretoria ainda não recebidas.
+            "aberto": inscr_aberto,
         },
         "custos_clube": {"total": custos_geral_total,
                          "n": sum(1 for c in custos_clube if c.destino != "loja")},
@@ -8272,9 +8566,19 @@ def financeiro_view(request):
                         "desc": f"{c.comprador_nome} — {c.codigo}", "valor": c.valor_total,
                         "saida": False, "comprovante": None})
     for i in inscricoes:
+        # Parcelada: a linha da inscrição vale o que entrou no ato e cada parcela
+        # paga depois vira lançamento próprio (mesma regra do extrato do evento).
         extrato.append({"data": _dt_data(i.criado_em), "fonte": "eventos", "tipo": "Inscrição",
-                        "desc": f"{i.evento.nome} — {i.responsavel_nome}", "valor": i.valor_total,
+                        "desc": f"{i.evento.nome} — {i.responsavel_nome}", "valor": i.valor_no_ato,
                         "saida": False, "comprovante": None})
+        for parc in i.parcelas.all():
+            if parc.numero == 1 or parc.status != "paga":
+                continue
+            extrato.append({"data": _dt_data(parc.pago_em or parc.criado_em),
+                            "fonte": "eventos", "tipo": f"Parcela {parc.rotulo}",
+                            "desc": f"{i.evento.nome} — {i.responsavel_nome}",
+                            "valor": parc.valor_pago or parc.valor,
+                            "saida": False, "comprovante": None})
     for p in pedidos_ev:
         extrato.append({"data": _dt_data(p.criado_em), "fonte": "eventos", "tipo": "Lojinha do evento",
                         "desc": f"{p.evento.nome} — {p.comprador_nome}", "valor": p.valor_total,

@@ -421,7 +421,7 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         model = Evento
         fields = [
             "local", "inscricao_aberta_publico", "inscricao_limite",
-            "valor_diretoria", "formas_pagamento_online",
+            "valor_diretoria", "parcelas_diretoria", "formas_pagamento_online",
             "formas_pagamento_fora", "instrucoes_pagamento_fora",
             "notificar_inscricoes", "notificar_inscricoes_para",
         ]
@@ -432,11 +432,23 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
             "valor_diretoria": forms.TextInput(
                 attrs={"data-moeda": True, "inputmode": "decimal", "placeholder": "0,00"}
             ),
+            # Quantidade de parcelas: número inteiro, não é valor em R$ (por isso
+            # sem a máscara de moeda).
+            "parcelas_diretoria": forms.NumberInput(
+                attrs={"min": 1, "max": 12, "inputmode": "numeric"}
+            ),
         }
         help_texts = {
             "inscricao_aberta_publico": "Se desmarcado, só membros do clube podem se inscrever.",
             "inscricao_limite": "Depois desta data/hora as inscrições travam. Vazio = até o fim do evento.",
             "valor_diretoria": "Valor que a diretoria paga. Vazio = sem valor especial; 0 = grátis.",
+            "parcelas_diretoria": (
+                "Em quantas vezes a diretoria pode pagar o valor acima (1 = só à "
+                "vista; 3 = pode dividir em três). A 1ª parcela é cobrada no ato da "
+                "inscrição e as outras vencem mês a mês. Vale SÓ para a parte da "
+                "diretoria: os demais participantes e a lojinha continuam sendo "
+                "cobrados por inteiro na hora."
+            ),
             "formas_pagamento_online": (
                 "O que a pessoa vê na inscrição e na lojinha deste evento. "
                 "No balcão (PDV) o operador continua com todas as formas."
@@ -482,7 +494,31 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
             lambda u: getattr(u, "nome_diretoria", "") or u.get_full_name() or u.username
         )
         campo.empty_label = "— escolha um integrante —"
+        # Vazio = à vista (1). Sem isso o campo obrigaria digitar "1" em todo
+        # evento que não parcela, que é a maioria.
+        self.fields["parcelas_diretoria"].required = False
         self._aplicar_estilo()
+
+    def clean_parcelas_diretoria(self):
+        """Vazio/0 = à vista (1). Teto de 12 — acima disso a última parcela cairia
+        num mês tão distante que o evento já teria acabado."""
+        n = self.cleaned_data.get("parcelas_diretoria")
+        if not n:
+            return 1
+        if n > 12:
+            raise forms.ValidationError("No máximo 12 parcelas.")
+        return n
+
+    def clean(self):
+        """Parcelar exige um valor de diretoria: sem ele o checkbox 'diretoria' nem
+        aparece na inscrição, então não haveria o que dividir."""
+        dados = super().clean()
+        if dados.get("parcelas_diretoria", 1) > 1 and dados.get("valor_diretoria") is None:
+            self.add_error(
+                "parcelas_diretoria",
+                "Para parcelar, defina antes o valor que a diretoria paga.",
+            )
+        return dados
 
 
 class FaixaEtariaPrecoForm(EstiloFormMixin, forms.ModelForm):

@@ -2,7 +2,38 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-15 (**Eventos: aviso interno de inscrição para a diretoria**): quem organiza um
+**Última atualização:** 2026-08-17 (**Eventos: valor da diretoria parcelado**): em evento caro (caso do
+**Aventuri**) o valor que **a diretoria** paga pesa de uma vez só. Agora ele pode ser **dividido em parcelas
+cobradas pelo clube** — no estilo das mensalidades, **não** é parcelamento de cartão: o clube **recebe em N
+vezes**. Quantas parcelas é **por evento** (`Evento.parcelas_diretoria`, migration **0068**; `1` = à vista, que
+é o padrão e o comportamento de todos os eventos existentes), no mesmo formulário "Configuração da inscrição".
+Na tela de inscrição, a opção **"Dividir o valor da diretoria em Nx"** só aparece quando há participante
+marcado como **diretoria**; marcando, o total passa a mostrar **"a pagar agora"**. **Só a parte da diretoria é
+parcelada** — e é aqui que está o desenho principal: numa **inscrição mista** (o pai que é da diretoria
+inscrevendo os filhos), no ato sai **uma única cobrança** com a **1ª parcela da diretoria + o valor integral dos
+outros participantes + a lojinha**, e as parcelas restantes cobrem **apenas** o valor da diretoria. Uma cobrança
+só, não duas: com dois pagamentos, um falhar deixaria a inscrição confirmada pela metade. A **1ª parcela nasce
+paga** (é o pagamento dela que confirma a inscrição, como em todo o resto do sistema) e as seguintes **vencem
+mês a mês**, em `ParcelaInscricao`. A família volta a pagar por uma **página pública com token**
+(`/inscricao/<token>/parcelas/`, mesmo mecanismo do acerto de mensalidades — quem se inscreve pode não ter
+conta), **uma parcela por cobrança**, para a baixa e a taxa do gateway ficarem individuais; o link aparece na
+tela de sucesso e no painel do Diretor, que também tem **baixa manual** por parcela (parcela acertada em
+dinheiro — e aqui o valor **entra** no caixa, ao contrário do "pago direto ao evento"). **A parte financeira é o
+ponto delicado**: `Inscricao.valor_total` continua sendo o valor da inscrição, mas **toda soma de caixa passou a
+usar `valor_no_caixa`** (total − parcelas em aberto), senão a arrecadação do evento e o Financeiro do clube
+mostrariam dinheiro que não chegou; no **extrato**, a linha da inscrição vale o **`valor_no_ato`** e cada parcela
+paga depois é um **lançamento próprio na data em que caiu**, então o extrato soma exatamente a arrecadação sem
+contar a mesma parcela duas vezes (há teste comparando os dois). No painel, um card **"Parcelas da diretoria"**
+(recebido × a receber × vencido) deixa claro que é dinheiro **do** clube que ainda não chegou — diferente do
+card "Fora do caixa", que é dinheiro que nunca passa por aqui. Outros pontos: (1) a trava é no **servidor**
+(`permite_parcelar_diretoria()` reavaliado no POST: forjar `parcelar_diretoria=1` num evento à vista não
+parcela nada); (2) parcelar **não se combina** com "pago direto ao evento" nem existe sem Mercado Pago
+configurado — nos dois casos não há cobrança para dividir; (3) a sobra dos centavos vai na **1ª** parcela, então
+as seguintes ficam iguais e redondas; (4) **não há cobrança automática** das parcelas seguintes ainda (o Diretor
+manda o link) — pendência registrada. Suíte: **280 testes OK** (253 + 27). Conferido em 520/800/1400px com
+sonda: zero overflow. Antes: Eventos — aviso interno de inscrição para a diretoria.
+
+**Anterior (Eventos: aviso interno de inscrição para a diretoria):** quem organiza um
 evento precisava abrir o painel para saber quem se inscreveu. Agora, **por evento**, dá para ligar
 **"Avisar a diretoria a cada inscrição"** e escolher **um integrante** que recebe, a cada nova inscrição, a
 **lista de inscritos** pelo WhatsApp (campos `Evento.notificar_inscricoes` e `notificar_inscricoes_para`,
@@ -1400,8 +1431,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **`instrucoes_pagamento_fora`** (formas pagas direto ao evento, mig. **0065**/**0066**; métodos
   `formas_fora()`, `forma_paga_por_fora(forma)` e a property `tem_pagamento_por_fora`); e o aviso interno de
   inscrição **`notificar_inscricoes`** + **`notificar_inscricoes_para`** (FK User da diretoria que recebe a
-  lista de inscritos a cada inscrição, mig. **0067**).
-  Migrations `0002`, `0003`, `0004`, `0062`, `0063`, `0065`, `0066`, `0067`.
+  lista de inscritos a cada inscrição, mig. **0067**); e **`parcelas_diretoria`** (em quantas vezes a parte da
+  diretoria pode ser paga, mig. **0068**; `1` = à vista, padrão) com os métodos
+  **`permite_parcelar_diretoria()`** (exige `parcelas_diretoria > 1` **e** `valor_diretoria` definido) e
+  **`dividir_parcelas(total)`** (divide somando exatamente o total, com a sobra dos centavos na 1ª parcela).
+  Migrations `0002`, `0003`, `0004`, `0062`, `0063`, `0065`, `0066`, `0067`, `0068`.
 - `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
 - `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,
@@ -1413,10 +1447,21 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **0020**). E `OperadorEvento` — quem opera o PDV de um evento (FK `evento`, FK `usuario`, `externo`). Migration `0013`.
 - `Inscricao` — inscrição num evento (FK `evento`, FK `usuario` opcional, dados do responsável, código
   único, status, **origem** online/pdv, **forma_pagamento**, **valor_recebido**, **registrado_por**,
-  valor_total; props `total_com_loja`/`troco`). Migration `0012`. `ParticipanteInscricao` (nome, idade, eh_diretoria,
+  valor_total; props `total_com_loja`/`troco`). Migration `0012`. Também **`token_parcelas`** (token do link
+  público das parcelas, mig. **0068**, criado por `get_token_parcelas()`) e as props do parcelamento:
+  **`parcelado`**, **`parcelas_abertas`**, **`total_parcelas_aberto`**, **`valor_no_ato`** (o que entrou no dia
+  da inscrição — total menos TODAS as parcelas 2..N) e **`valor_no_caixa`** (total menos as parcelas **em
+  aberto**). **Toda soma de caixa de inscrição usa `valor_no_caixa`**; o extrato usa `valor_no_ato` mais um
+  lançamento por parcela paga. `ParticipanteInscricao` (nome, idade, eh_diretoria,
   faixa, valor + **check-in**: `presente`/`presente_em`/`presente_por`, mig. `0016`) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
   snapshot + valor). Migrations `0006`, `0007`. Respostas de campos "por participante" têm
   `participante` preenchido; as de campos "uma vez" ficam com `participante` nulo.
+- `ParcelaInscricao` — uma parcela do valor da **diretoria** numa inscrição (FK `inscricao`, `numero`/`total`,
+  valor, `vencimento`, status aberta/paga/cancelada, `forma_pagamento`, `valor_pago`, `pago_em`,
+  `registrado_por`, FK `pagamento`; props `rotulo`, `em_aberto`, `vencida`; único por inscrição+número).
+  Migration **0068**. Só existe em inscrição parcelada: a **1ª nasce paga** (cobrada no ato junto do resto) e as
+  seguintes vencem mês a mês. Cada parcela paga online tem **o seu** `Pagamento` (tipo `parcela_inscricao`),
+  então a baixa e a taxa do gateway ficam individuais.
 - `ProdutoEvento` — produto da lojinha do evento (FK `evento`, nome, descrição, foto, controla_estoque,
   ativo, ordem) e `VariacaoProduto` (FK `produto`, nome, valor, estoque, ordem). Migration `0008`.
   O preço fica em cada variação; estoque só conta quando `controla_estoque` está ligado.
@@ -1645,6 +1690,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/eventos/<id>/custos/novo/` e `/eventos/<id>/custos/<id>/excluir/` — adicionar/remover custo (POST).
 - `/eventos/<id>/inscricoes/config/` — salva a configuração da inscrição (POST, `core:evento_inscricao_config`).
 - `/eventos/<id>/inscricoes/<id>/pago/` — baixa manual do pagamento por fora (POST, Diretor; reversível).
+- `/eventos/<id>/parcelas/<id>/pago/` — baixa manual de uma **parcela da diretoria** (POST, Diretor;
+  reversível). Diferente da baixa acima: aqui o valor **entra** no caixa do clube.
+- `/inscricao/<token>/parcelas/` e `/inscricao/<token>/parcelas/pagar/` — **públicas** (sem login): a família
+  vê as parcelas da inscrição e paga **uma por vez** (Pix/cartão). O token vem de
+  `Inscricao.get_token_parcelas()`; quem se inscreve pode não ter conta no sistema.
 - `/eventos/avisar-inscritos/` — envia AGORA a lista de inscritos ao integrante escolhido no evento
   (POST, Diretor; `core:evento_avisar_inscritos`). **Sem pk na URL de propósito**: o evento vem no POST,
   porque o mesmo botão é usado no painel do evento e na aba Templates do WhatsApp (com seletor de evento).

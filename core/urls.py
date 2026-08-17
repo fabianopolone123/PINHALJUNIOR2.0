@@ -53,6 +53,23 @@ urlpatterns = [
         name="evento_inscricao_pago",
     ),
     path(
+        "eventos/<int:pk>/parcelas/<int:parcela_id>/pago/",
+        views.evento_parcela_pago_view,
+        name="evento_parcela_pago",
+    ),
+    # Públicas (sem login): a pessoa volta pelo token para pagar as parcelas que
+    # faltam da parte da diretoria — quem se inscreveu pode não ter conta.
+    path(
+        "inscricao/<str:token>/parcelas/",
+        views.inscricao_parcelas_view,
+        name="inscricao_parcelas",
+    ),
+    path(
+        "inscricao/<str:token>/parcelas/pagar/",
+        views.inscricao_parcela_pagar_view,
+        name="inscricao_parcela_pagar",
+    ),
+    path(
         "eventos/<int:pk>/produtos/novo/",
         views.evento_produto_novo_view,
         name="evento_produto_novo",

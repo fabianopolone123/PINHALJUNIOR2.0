@@ -51,6 +51,30 @@
                 </div>
                 {% endif %}
 
+                {% if inscricao.parcelado %}
+                {% comment %}
+                Inscrição com a parte da diretoria parcelada: a 1ª parcela já foi
+                paga junto do resto. Aqui a pessoa guarda o link das próximas —
+                é por ele que ela volta a pagar, sem precisar de login.
+                {% endcomment %}
+                <div class="sucesso-parcelas">
+                    <p class="sucesso-parcelas-titulo">📆 Valor da diretoria parcelado</p>
+                    <ul class="sucesso-parcelas-lista">
+                        {% for p in inscricao.parcelas.all %}
+                        <li class="{% if p.status == 'paga' %}parcela-paga{% else %}parcela-aberta{% endif %}">
+                            Parcela {{ p.rotulo }} — <strong>R$ {{ p.valor|moeda }}</strong>
+                            {% if p.status == "paga" %}<span class="parcela-tag">paga</span>
+                            {% else %}<span class="parcela-tag parcela-tag-aberta">vence {{ p.vencimento|date:"d/m/Y" }}</span>{% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="sucesso-parcelas-link">
+                        Guarde este link para pagar as próximas parcelas:<br>
+                        <a href="{% url 'core:inscricao_parcelas' inscricao.get_token_parcelas %}" class="selecionavel">{{ request.scheme }}://{{ request.get_host }}{% url 'core:inscricao_parcelas' inscricao.get_token_parcelas %}</a>
+                    </p>
+                </div>
+                {% endif %}
+
                 {% if inscricao.pagamento_externo %}
                 <div class="sucesso-pendente">
                     <p class="sucesso-pendente-titulo">💰 Pagamento pendente — acertado direto com o evento</p>
