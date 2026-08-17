@@ -31,6 +31,22 @@
             <article class="card evento-publico-card">
                 <h1 class="evento-publico-titulo">Inscrição — {{ evento.nome }}</h1>
 
+                {% if so_diretoria %}
+                {% comment %}
+                O prazo comum venceu e só a janela da diretoria está de pé. A tela
+                abre (senão a diretoria não chegaria até aqui), mas avisa a regra: a
+                inscrição precisa ter alguém marcado como diretoria — e aí os outros
+                participantes dela entram junto, mesmo fora do prazo comum.
+                {% endcomment %}
+                <div class="insc-aviso-prazo">
+                    <strong>⛺ O prazo geral de inscrição já encerrou.</strong>
+                    Só a <strong>diretoria</strong> ainda pode se inscrever, até
+                    <strong>{{ prazo_diretoria|date:"d/m/Y H:i" }}</strong>. Marque
+                    “diretoria” na linha do integrante — os outros participantes desta
+                    mesma inscrição entram junto.
+                </div>
+                {% endif %}
+
                 {% if faixas or evento.valor_diretoria is not None %}
                 <div class="valores-resumo">
                     <strong>Valores:</strong>

@@ -3720,3 +3720,167 @@ class ParcelamentoDiretoriaTests(TestCase):
         self.assertTrue(r.context["pode_parcelar_diretoria"])
         self.assertContains(r, "Dividir o valor da diretoria em 3x")
 
+
+class PrazoDiretoriaTests(TestCase):
+    """Prazo de inscrição próprio da DIRETORIA.
+
+    Regra: o prazo da diretoria **só estende, nunca restringe**. Numa inscrição
+    que inclui alguém de diretoria vale esse prazo INTEIRO — o aventureiro que
+    entra junto aproveita a mesma janela.
+    """
+
+    def setUp(self):
+        self.diretor = User.objects.create_user(username="dir", password="123456")
+        self.diretor.groups.add(Group.objects.create(name="Diretor"))
+        self.agora = timezone.now()
+        self.evento = Evento.objects.create(
+            tipo="inscricao", nome="Aventuri",
+            data=timezone.localdate() + datetime.timedelta(days=60),
+            inscricao_aberta_publico=True,
+            valor_diretoria=Decimal("450.00"),
+            # Prazo comum JÁ VENCIDO; o da diretoria ainda de pé.
+            inscricao_limite=self.agora - datetime.timedelta(days=1),
+            inscricao_limite_diretoria=self.agora + datetime.timedelta(days=10),
+        )
+        FaixaEtariaPreco.objects.create(
+            evento=self.evento, idade_min=1, idade_max=99, valor=Decimal("0")
+        )
+        self.url = reverse("core:evento_inscrever", args=[self.evento.id])
+
+    def _post(self, **extra):
+        dados = {
+            "responsavel_nome": "Fulano Teste", "responsavel_whatsapp": "4799",
+            "responsavel_email": "f@exemplo.com", "responsavel_cpf": "111",
+            "part_idx": ["0"], "part_nome_0": "Fulano Teste", "part_idade_0": "40",
+        }
+        dados.update(extra)
+        return dados
+
+    # --- o cálculo do prazo ---
+
+    def test_prazo_da_diretoria_estende(self):
+        self.assertEqual(
+            self.evento.prazo_inscricao_diretoria(),
+            self.evento.inscricao_limite_diretoria,
+        )
+        self.assertTrue(self.evento.tem_prazo_diretoria)
+
+    def test_prazo_da_diretoria_nunca_restringe(self):
+        """Data da diretoria ANTERIOR à geral não encurta o prazo de ninguém."""
+        self.evento.inscricao_limite = self.agora + datetime.timedelta(days=10)
+        self.evento.inscricao_limite_diretoria = self.agora + datetime.timedelta(days=2)
+        self.assertEqual(
+            self.evento.prazo_inscricao_diretoria(), self.evento.inscricao_limite
+        )
+        self.assertFalse(self.evento.tem_prazo_diretoria)
+        self.assertTrue(self.evento.inscricoes_abertas(tem_diretoria=True))
+
+    def test_sem_prazo_proprio_usa_o_geral(self):
+        self.evento.inscricao_limite_diretoria = None
+        self.assertEqual(
+            self.evento.prazo_inscricao_diretoria(), self.evento.prazo_inscricao()
+        )
+        self.assertFalse(self.evento.tem_prazo_diretoria)
+        self.assertFalse(self.evento.inscricoes_abertas(tem_diretoria=True))
+
+    def test_abertas_conforme_o_tipo(self):
+        self.assertFalse(self.evento.inscricoes_abertas())
+        self.assertTrue(self.evento.inscricoes_abertas(tem_diretoria=True))
+        self.assertTrue(self.evento.so_diretoria_pode_inscrever)
+
+    def test_evento_inativo_fecha_tudo(self):
+        """A trava do 'inativar evento' vale também para a janela da diretoria."""
+        self.evento.ativo = False
+        self.assertFalse(self.evento.inscricoes_abertas(tem_diretoria=True))
+        self.assertFalse(self.evento.so_diretoria_pode_inscrever)
+
+    # --- a tela ---
+
+    def test_tela_abre_na_janela_da_diretoria_e_avisa(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["so_diretoria"])
+        self.assertContains(r, "O prazo geral de inscrição já encerrou")
+
+    def test_tela_fecha_quando_os_dois_prazos_venceram(self):
+        self.evento.inscricao_limite_diretoria = self.agora - datetime.timedelta(hours=1)
+        self.evento.save(update_fields=["inscricao_limite_diretoria"])
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 302)
+
+    def test_pagina_do_evento_mostra_so_diretoria(self):
+        r = self.client.get(reverse("core:evento_pagina", args=[self.evento.id]))
+        self.assertTrue(r.context["so_diretoria"])
+        self.assertContains(r, "só diretoria")
+        # O botão de inscrever continua à mostra: é por ele que a diretoria entra.
+        self.assertContains(r, reverse("core:evento_inscrever", args=[self.evento.id]))
+
+    # --- o POST: a regra de verdade ---
+
+    def test_fora_do_prazo_sem_diretoria_e_recusado(self):
+        r = self.client.post(self.url, self._post())
+        self.assertEqual(r.status_code, 200)  # volta com erro, não cria
+        self.assertEqual(Inscricao.objects.count(), 0)
+        self.assertContains(r, "Só a diretoria ainda pode se inscrever")
+
+    def test_fora_do_prazo_com_diretoria_e_aceito(self):
+        r = self.client.post(self.url, self._post(part_diretoria_0="1"))
+        self.assertEqual(r.status_code, 302)
+        insc = Inscricao.objects.get()
+        self.assertEqual(insc.status, "confirmada")
+
+    def test_aventureiro_entra_junto_da_diretoria_fora_do_prazo(self):
+        """O caso que motivou a regra: prazo comum vencido, mas a inscrição tem um
+        integrante da diretoria — o aventureiro dela entra na mesma janela."""
+        dados = self._post(
+            part_idx=["0", "1"],
+            part_nome_0="Fulano Teste", part_idade_0="40", part_diretoria_0="1",
+            part_nome_1="Filho Teste", part_idade_1="10",
+        )
+        r = self.client.post(self.url, dados)
+        self.assertEqual(r.status_code, 302)
+        insc = Inscricao.objects.get()
+        nomes = sorted(p.nome for p in insc.participantes.all())
+        self.assertEqual(nomes, ["Filho Teste", "Fulano Teste"])
+
+    def test_post_forjado_depois_dos_dois_prazos_nao_cria_nada(self):
+        """Sem diretoria aberta, marcar 'diretoria' no POST não fura o prazo."""
+        self.evento.inscricao_limite_diretoria = self.agora - datetime.timedelta(hours=1)
+        self.evento.save(update_fields=["inscricao_limite_diretoria"])
+        r = self.client.post(self.url, self._post(part_diretoria_0="1"))
+        self.assertEqual(r.status_code, 302)  # a própria tela já barra
+        self.assertEqual(Inscricao.objects.count(), 0)
+
+    def test_dentro_do_prazo_comum_todos_se_inscrevem(self):
+        """Com o prazo comum aberto, nada muda para quem não é diretoria."""
+        self.evento.inscricao_limite = self.agora + datetime.timedelta(days=5)
+        self.evento.save(update_fields=["inscricao_limite"])
+        r = self.client.post(self.url, self._post(part_nome_0="Filho Teste",
+                                                 part_idade_0="10"))
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Inscricao.objects.count(), 1)
+
+    def test_painel_mostra_a_janela_da_diretoria(self):
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.evento.id]))
+        self.assertTrue(r.context["tem_prazo_diretoria"])
+        self.assertTrue(r.context["diretoria_ainda_aberta"])
+        self.assertFalse(r.context["inscricoes_abertas"])
+        self.assertContains(r, "Só diretoria")
+
+    def test_config_salva_o_prazo_da_diretoria(self):
+        self.client.force_login(self.diretor)
+        quando = (self.agora + datetime.timedelta(days=20)).strftime("%Y-%m-%dT%H:%M")
+        self.client.post(
+            reverse("core:evento_inscricao_config", args=[self.evento.id]),
+            {"local": "Sede", "valor_diretoria": "450.00", "parcelas_diretoria": "1",
+             "inscricao_limite_diretoria": quando,
+             "formas_pagamento_online": "ambos", "formas_pagamento_fora": "nenhuma"},
+        )
+        self.evento.refresh_from_db()
+        self.assertEqual(
+            timezone.localtime(self.evento.inscricao_limite_diretoria).strftime(
+                "%Y-%m-%dT%H:%M"),
+            quando,
+        )
+

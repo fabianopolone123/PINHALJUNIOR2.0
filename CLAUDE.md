@@ -238,6 +238,15 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   Toda soma de caixa nova precisa excluir `pagamento_externo=True` (já feito em `evento_painel_view`,
   `_montar_financeiro`, `_montar_dashboard` e `financeiro_view`); item de lojinha levado junto herda a flag
   (`PedidoLoja.pagamento_externo`). A forma escolhida vira só o registro de **como** será o acerto.
+- **Prazo de inscrição próprio da diretoria**: `Evento.inscricao_limite_diretoria` (mig. **0069**; vazio = o
+  prazo de todos). **Só estende, nunca restringe** — `prazo_inscricao_diretoria()` devolve o `max` entre ele e
+  o prazo comum, e uma inscrição com diretoria vale por ele **inteira** (o aventureiro que entra junto aproveita
+  a janela). `inscricoes_abertas(tem_diretoria=False)`: chame com **`True` para decidir se a tela abre** (senão
+  a diretoria não chega ao formulário na janela extra) e valide o **POST pela composição real** da inscrição —
+  é lá que a regra vale, com a trava final no model. Quem é "diretoria" é **quem marca a caixinha**, como já
+  vale para o valor (o sistema não confere o cadastro). O **PDV não checa prazo** (presencial). Use
+  `tem_prazo_diretoria` para exibir a janela só quando ela existe de fato, e `so_diretoria_pode_inscrever` para
+  o aviso/terceiro estado visual (`.parcial`, âmbar — verde/vermelho enganam metade de quem lê).
 - **Valor da diretoria parcelado**: `Evento.parcelas_diretoria` (mig. **0068**; `1` = à vista) divide **só a
   parte da diretoria** em parcelas cobradas **pelo clube** (estilo mensalidade — não é o parcelamento do cartão,
   que o MP já oferece em cima da 1ª parcela). A 1ª parcela é cobrada **no ato**, junto do valor **integral** dos

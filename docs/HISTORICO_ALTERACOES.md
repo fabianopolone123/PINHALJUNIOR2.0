@@ -22,6 +22,58 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-17 - Eventos: prazo de inscrição próprio da diretoria
+
+### Resumo
+O evento passa a ter um **segundo prazo de inscrição, só para a diretoria**
+(`Evento.inscricao_limite_diretoria`, migration **0069**), normalmente mais longo — a diretoria fecha a lista
+depois das famílias. A regra combinada: **uma inscrição que inclua alguém da diretoria vale por esse prazo
+INTEIRA**, então o aventureiro que entra na mesma inscrição aproveita a janela extra, mesmo com o prazo comum
+já vencido. É o caso que motivou o pedido.
+
+O prazo da diretoria **só estende, nunca restringe**: o prazo de uma inscrição com diretoria é sempre o **mais
+generoso** entre os dois. Assim ninguém perde uma janela que já tinha — se o prazo da diretoria vencer antes do
+comum, a diretoria continua se inscrevendo no prazo comum.
+
+### Arquivos alterados
+- `core/models.py`: campo `inscricao_limite_diretoria`; `prazo_inscricao_diretoria()` (o máximo entre os dois),
+  `prazo_inscricao_efetivo(tem_diretoria)`, a property `tem_prazo_diretoria` (só True quando de fato estende) e
+  `so_diretoria_pode_inscrever`. **`inscricoes_abertas()` ganhou o parâmetro `tem_diretoria=False`** —
+  compatível com todas as chamadas antigas.
+- `core/migrations/0069_prazo_inscricao_diretoria.py`.
+- `core/forms.py`: o campo no `EventoInscricaoConfigForm` (com `input_formats` do `datetime-local`, como o
+  prazo comum) e a explicação de que ele só estende.
+- `core/views.py`: `evento_inscrever_view` abre a tela pelo prazo **mais generoso** e valida o POST pela
+  **composição real** da inscrição; `evento_pagina_view` e `evento_painel_view` publicam o estado da janela.
+- `templates/core/evento_pagina.html`, `evento_inscrever.html`, `evento_painel.html`; `static/css/eventos.css`.
+- `core/tests.py`: 15 testes novos (`PrazoDiretoriaTests`). Suíte: **295 testes OK** (280 + 15).
+
+### Decisões tomadas
+- **"Só estende, nunca restringe"** (escolha do usuário, entre as duas regras possíveis): o prazo da diretoria
+  é sempre comparado com o comum e vale o maior. A alternativa — "o prazo da diretoria manda, para bem ou para
+  mal" — recusaria uma inscrição com diretoria depois do prazo dela, mesmo que o aventureiro ainda estivesse no
+  prazo próprio; é mais simples de explicar, mas barra inscrição que seria válida.
+- **A tela abre pelo prazo mais generoso; o POST valida pela composição real.** Se a tela fechasse pelo prazo
+  comum, a diretoria nunca chegaria ao formulário na janela extra. A regra de verdade está na validação do POST
+  (`any(l["diretoria"] for l in linhas)`), e a trava final no model — POST forjado com `part_diretoria_1`
+  depois dos **dois** prazos não cria nada (há teste).
+- **Basta marcar a caixinha "diretoria"** (decisão do usuário), como já vale para o **valor** da diretoria: o
+  sistema não confere se a pessoa consta na diretoria do clube. Consistente com o que existe, e a inscrição
+  aceita nome livre até de quem não tem conta. Fica a brecha conhecida: alguém marcar "diretoria" para se
+  inscrever fora do prazo — hoje ela já existe para pagar o valor da diretoria.
+- **Terceiro estado visual na página do evento** (classe `.parcial`, âmbar): a faixa verde dizia "aberto" e a
+  vermelha "encerrado", e nenhuma das duas descreve "encerrado para as famílias, aberto para a diretoria".
+  Achado na verificação visual — a faixa saía **verde** com o texto "Inscrições encerradas".
+- **O PDV/balcão continua sem checar prazo** (só se o evento terminou): é inscrição presencial feita pela
+  própria diretoria, e travá-la por prazo atrapalharia o atendimento no dia.
+
+### Pendências
+- A brecha do "marcar diretoria sem ser": fechar exigiria casar a pessoa com o `MembroDiretoria` cadastrado, o
+  que hoje não dá (a inscrição guarda **nome livre** e nem exige login). Vale junto do vínculo exato de
+  participante × aventureiro, que já é dívida antiga.
+- O prazo da diretoria **não afeta a lojinha** do evento (que segue aberta até o evento terminar) nem o
+  cancelamento de inscrição — cancelar continua sendo ação só do Diretor, sem prazo.
+
 ## 2026-08-17 - Eventos: valor da diretoria parcelado (estilo mensalidade)
 
 ### Resumo

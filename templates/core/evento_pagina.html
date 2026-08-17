@@ -46,13 +46,23 @@
                 </a>
                 {% endif %}
 
-                <div class="evento-publico-status {% if inscricoes_abertas %}aberto{% else %}fechado{% endif %}">
-                    {% if inscricoes_abertas %}
+                {% comment %}
+                `inscricoes_abertas` aqui já considera o prazo MAIS GENEROSO (o da
+                diretoria), senão o botão de inscrição sumiria justamente na janela
+                extra dela. Quando só essa janela está de pé, o status diz isso.
+                {% endcomment %}
+                <div class="evento-publico-status {% if so_diretoria %}parcial{% elif inscricoes_abertas %}aberto{% else %}fechado{% endif %}">
+                    {% if so_diretoria %}
+                        ⛺ Inscrições encerradas — <strong>só diretoria</strong>{% if prazo_diretoria %}, até {{ prazo_diretoria|date:"d/m/Y H:i" }}{% endif %}
+                    {% elif inscricoes_abertas %}
                         ✅ Inscrições abertas{% if prazo_inscricao %} até {{ prazo_inscricao|date:"d/m/Y H:i" }}{% endif %}
                     {% else %}
                         ⛔ Inscrições encerradas
                     {% endif %}
                 </div>
+                {% if not so_diretoria and tem_prazo_diretoria %}
+                <p class="evento-publico-desc"><small>⛺ Inscrição <strong>com diretoria</strong> vai até {{ prazo_diretoria|date:"d/m/Y H:i" }} — quem entrar na mesma inscrição aproveita esse prazo.</small></p>
+                {% endif %}
 
                 {% if evento.descricao %}
                 <p class="evento-publico-desc">{{ evento.descricao|linebreaksbr }}</p>
@@ -84,7 +94,7 @@
                         <a href="{% url 'core:evento_inscrever' evento.id %}" class="btn-acao">
                             <span aria-hidden="true">🎟️</span> Inscrever-se no evento
                         </a>
-                        <span class="evento-acao-dica">Para fazer a inscrição dos participantes.</span>
+                        <span class="evento-acao-dica">{% if so_diretoria %}A inscrição precisa incluir alguém da diretoria.{% else %}Para fazer a inscrição dos participantes.{% endif %}</span>
                     </div>
                     {% else %}
                     <p class="painel-nota">As inscrições para este evento estão encerradas.</p>

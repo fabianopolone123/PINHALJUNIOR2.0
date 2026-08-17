@@ -1635,6 +1635,10 @@ def evento_painel_view(request, pk):
         "campo_form": CampoInscricaoForm(prefix="campo"),
         "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
+        # Janela extra da diretoria: mostrada só quando de fato estende o prazo.
+        "tem_prazo_diretoria": evento.tem_prazo_diretoria,
+        "prazo_diretoria": evento.prazo_inscricao_diretoria(),
+        "diretoria_ainda_aberta": evento.inscricoes_abertas(tem_diretoria=True),
         "externo": externo,
         "parcelado": parcelado,
         "resumo": {
@@ -1895,8 +1899,13 @@ def evento_pagina_view(request, pk):
         "evento": evento,
         "faixas": list(evento.faixas_preco.all()),
         "campos": list(evento.campos_inscricao.all()),
-        "inscricoes_abertas": evento.inscricoes_abertas(),
+        # Aberto = pelo prazo mais generoso, senão o botão desaparecia justamente
+        # na janela extra da diretoria. O aviso abaixo diz de quem é a janela.
+        "inscricoes_abertas": evento.inscricoes_abertas(tem_diretoria=True),
         "prazo_inscricao": evento.prazo_inscricao(),
+        "so_diretoria": evento.so_diretoria_pode_inscrever,
+        "prazo_diretoria": evento.prazo_inscricao_diretoria(),
+        "tem_prazo_diretoria": evento.tem_prazo_diretoria,
         "tem_loja": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
     }
     return render(request, "core/evento_pagina.html", contexto)
@@ -2094,7 +2103,11 @@ def evento_inscrever_view(request, pk):
     bloqueio = _evento_inativo_bloqueio(request, evento)
     if bloqueio:
         return bloqueio
-    if not evento.inscricoes_abertas():
+    # A tela abre pelo prazo MAIS GENEROSO (o da diretoria): fechá-la pelo prazo
+    # comum impediria a diretoria de chegar ao formulário na janela extra dela.
+    # Quem decide de fato é a validação do POST, mais abaixo, que olha se a
+    # inscrição tem realmente alguém de diretoria.
+    if not evento.inscricoes_abertas(tem_diretoria=True):
         messages.error(request, "As inscrições para este evento estão encerradas.")
         return redirect("core:evento_pagina", pk=evento.pk)
 
@@ -2126,6 +2139,23 @@ def evento_inscrever_view(request, pk):
             linhas.append(linha)
         if not linhas:
             erros_part.append("Adicione ao menos um participante.")
+
+        # Prazo conforme a composição REAL da inscrição: havendo alguém de
+        # diretoria vale o prazo dela (que só estende), e os outros participantes
+        # da mesma inscrição entram na mesma janela. Sem diretoria, vale o prazo
+        # comum. A validação de verdade é aqui — a tela abriu pelo prazo maior.
+        inscr_tem_diretoria = any(l["diretoria"] for l in linhas)
+        if linhas and not evento.inscricoes_abertas(tem_diretoria=inscr_tem_diretoria):
+            if evento.inscricoes_abertas(tem_diretoria=True):
+                prazo_dir = timezone.localtime(evento.prazo_inscricao_diretoria())
+                erros_part.append(
+                    "O prazo de inscrição já encerrou. Só a diretoria ainda pode se "
+                    f"inscrever (até {prazo_dir.strftime('%d/%m/%Y às %H:%M')}) — "
+                    "marque “diretoria” na linha do integrante, e os outros "
+                    "participantes desta inscrição entram junto."
+                )
+            else:
+                erros_part.append("As inscrições para este evento estão encerradas.")
 
         # Monta os participantes com o preço da faixa/diretoria e aplica o cupom
         # digitado na linha de cada um (o desconto vale para AQUELE participante).
@@ -2301,6 +2331,10 @@ def evento_inscrever_view(request, pk):
         ),
         "parcelas_diretoria": evento.parcelas_diretoria,
         "parcelar_marcado": request.POST.get("parcelar_diretoria") == "1",
+        # Prazo comum já venceu e só a janela da diretoria está de pé: a tela
+        # abre, mas avisa que a inscrição precisa incluir alguém da diretoria.
+        "so_diretoria": evento.so_diretoria_pode_inscrever,
+        "prazo_diretoria": evento.prazo_inscricao_diretoria(),
         "formas_pagamento": evento.formas_online(),
         # Quais das formas acima confirmam sem cobrar (o template marca cada
         # opção) e o rótulo delas, para a orientação dizer de qual se trata.

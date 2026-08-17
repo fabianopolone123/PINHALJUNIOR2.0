@@ -607,6 +607,9 @@ a.tipo-card:hover {
 }
 .evento-publico-status.aberto { color: #226b22; background: rgba(58, 157, 58, 0.14); }
 .evento-publico-status.fechado { color: #c0392b; background: rgba(192, 57, 43, 0.12); }
+/* Terceiro estado: prazo comum encerrado, janela da diretoria ainda de pé. Verde
+   diria "aberto" e vermelho diria "encerrado" — os dois enganam metade de quem lê. */
+.evento-publico-status.parcial { color: #8a6d00; background: rgba(224, 168, 0, 0.18); }
 .evento-publico-desc {
     color: var(--texto);
     line-height: 1.6;
@@ -707,6 +710,15 @@ a.tipo-card:hover {
     background: #fff8e1; border: 1px solid #f0d98c; border-radius: 10px;
     font-size: 0.88rem; color: #6b5300; overflow-wrap: anywhere;
 }
+
+/* Prazo só da diretoria: âmbar, porque é aviso de janela se fechando (mesma
+   linguagem do "pagamento pendente"), não um caminho normal. */
+.insc-aviso-prazo {
+    margin: 0 0 16px; padding: 12px 14px;
+    background: #fff8e1; border: 1px solid #f0d98c; border-radius: 12px;
+    font-size: 0.9rem; color: #6b5300;
+}
+.prazo-diretoria { color: #8a6d00; }
 
 /* ===== Parcelar o valor da diretoria (inscrição) =====
    Azul, não âmbar: parcelar é um caminho normal de pagamento, não uma pendência

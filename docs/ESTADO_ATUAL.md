@@ -2,7 +2,31 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-17 (**Eventos: valor da diretoria parcelado**): em evento caro (caso do
+**Última atualização:** 2026-08-17 (**Eventos: prazo de inscrição próprio da diretoria**): o evento ganhou um
+**segundo prazo de inscrição, só para quem inclui alguém da diretoria**
+(`Evento.inscricao_limite_diretoria`, migration **0069**), na mesma "Configuração da inscrição". Serve ao caso
+real: a diretoria fecha a lista **depois** das famílias. A regra combinada é o ponto central — **uma inscrição
+que inclua alguém da diretoria vale por esse prazo INTEIRA**, então o aventureiro que entra na mesma inscrição
+aproveita a janela extra mesmo com o prazo comum já vencido (foi exatamente o pedido: "se inscrever uma
+diretoria e na hora adicionar um aventureiro, o que vale é o prazo da diretoria"). E o prazo da diretoria **só
+estende, nunca restringe**: o prazo de uma inscrição com diretoria é sempre o **mais generoso** dos dois, então
+ninguém perde uma janela que já tinha — vencendo o prazo da diretoria antes do comum, ela continua se
+inscrevendo no prazo comum (`prazo_inscricao_diretoria()` devolve o `max` dos dois; `tem_prazo_diretoria` só é
+True quando de fato estende, para uma data inútil não virar informação na tela). Desenho que importa: **a tela
+abre pelo prazo mais generoso** (`inscricoes_abertas(tem_diretoria=True)`) — fechá-la pelo prazo comum
+impediria a diretoria de chegar ao formulário —, e **quem decide é a validação do POST**, pela composição real
+da inscrição; a trava final está no model, então POST forjado depois dos **dois** prazos não cria nada (há
+teste). Quem é "diretoria" continua sendo **quem marca a caixinha** (decisão do usuário), igual ao que já vale
+para o **valor** da diretoria: o sistema não confere o cadastro — a brecha conhecida (marcar para furar prazo)
+é a mesma que já existe para pagar menos, e fechá-la depende do vínculo exato participante × aventureiro, que é
+dívida antiga. Nas telas: a página do evento ganhou um **terceiro estado** (faixa **âmbar** "Inscrições
+encerradas — só diretoria"; verde diria "aberto" e vermelho "encerrado", e as duas enganam metade de quem lê),
+a tela de inscrição abre com um aviso explicando a regra, e o painel mostra o selo **⛺ Só diretoria** com a
+data da janela. O **PDV/balcão segue sem checar prazo** (inscrição presencial feita pela própria diretoria).
+Suíte: **295 testes OK** (280 + 15). Conferido em 520/800/1400px com sonda: zero overflow. Antes: valor da
+diretoria parcelado.
+
+**Anterior (Eventos: valor da diretoria parcelado):** em evento caro (caso do
 **Aventuri**) o valor que **a diretoria** paga pesa de uma vez só. Agora ele pode ser **dividido em parcelas
 cobradas pelo clube** — no estilo das mensalidades, **não** é parcelamento de cartão: o clube **recebe em N
 vezes**. Quantas parcelas é **por evento** (`Evento.parcelas_diretoria`, migration **0068**; `1` = à vista, que
@@ -30,8 +54,8 @@ card "Fora do caixa", que é dinheiro que nunca passa por aqui. Outros pontos: (
 parcela nada); (2) parcelar **não se combina** com "pago direto ao evento" nem existe sem Mercado Pago
 configurado — nos dois casos não há cobrança para dividir; (3) a sobra dos centavos vai na **1ª** parcela, então
 as seguintes ficam iguais e redondas; (4) **não há cobrança automática** das parcelas seguintes ainda (o Diretor
-manda o link) — pendência registrada. Suíte: **280 testes OK** (253 + 27). Conferido em 520/800/1400px com
-sonda: zero overflow. Antes: Eventos — aviso interno de inscrição para a diretoria.
+manda o link) — pendência registrada. Suíte na época: **280 testes OK** (253 + 27). Conferido em
+520/800/1400px com sonda: zero overflow. Antes: Eventos — aviso interno de inscrição para a diretoria.
 
 **Anterior (Eventos: aviso interno de inscrição para a diretoria):** quem organiza um
 evento precisava abrir o painel para saber quem se inscreveu. Agora, **por evento**, dá para ligar
@@ -1435,7 +1459,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   diretoria pode ser paga, mig. **0068**; `1` = à vista, padrão) com os métodos
   **`permite_parcelar_diretoria()`** (exige `parcelas_diretoria > 1` **e** `valor_diretoria` definido) e
   **`dividir_parcelas(total)`** (divide somando exatamente o total, com a sobra dos centavos na 1ª parcela).
-  Migrations `0002`, `0003`, `0004`, `0062`, `0063`, `0065`, `0066`, `0067`, `0068`.
+  E o prazo próprio da diretoria: **`inscricao_limite_diretoria`** (mig. **0069**) + os métodos
+  **`prazo_inscricao_diretoria()`** (o `max` entre ele e o prazo comum — **só estende, nunca restringe**),
+  **`prazo_inscricao_efetivo(tem_diretoria)`**, **`inscricoes_abertas(tem_diretoria=False)`** e as properties
+  **`tem_prazo_diretoria`** (True só quando estende de fato) e **`so_diretoria_pode_inscrever`**. Uma inscrição
+  com diretoria vale por esse prazo **inteira** (o aventureiro que entra junto aproveita a janela).
+  Migrations `0002`, `0003`, `0004`, `0062`, `0063`, `0065`, `0066`, `0067`, `0068`, `0069`.
 - `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
 - `FaixaEtariaPreco` — faixa etária com valor de inscrição, por evento (FK `evento`, rótulo,

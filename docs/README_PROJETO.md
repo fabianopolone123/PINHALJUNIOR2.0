@@ -310,7 +310,8 @@ PINHALJUNIOR2.0/
   **`formas_pagamento_fora`** = quais formas confirmam a inscrição sem cobrar, com o acerto direto
   com o evento; **`notificar_inscricoes`** + **`notificar_inscricoes_para`** = manda a lista de
   inscritos, a cada inscrição, para um integrante da diretoria; **`parcelas_diretoria`** = em quantas
-  vezes o valor da diretoria pode ser pago, `1` = à vista).
+  vezes o valor da diretoria pode ser pago, `1` = à vista; **`inscricao_limite_diretoria`** = prazo de
+  inscrição só para quem inclui alguém da diretoria, que **só estende** o prazo comum).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
 - **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem;

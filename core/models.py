@@ -536,6 +536,14 @@ class Evento(models.Model):
     inscricao_limite = models.DateTimeField(
         "Prazo limite de inscrição", null=True, blank=True
     )
+    # Prazo próprio das inscrições que incluem alguém da DIRETORIA — costuma ser
+    # mais longo (a diretoria fecha a lista depois das famílias). Vazio = usa o
+    # prazo acima. Ele só ESTENDE: um valor anterior ao prazo geral não restringe
+    # nada (ver `prazo_inscricao_diretoria`). Uma inscrição com diretoria vale por
+    # este prazo INTEIRA — o aventureiro que entra junto aproveita a mesma janela.
+    inscricao_limite_diretoria = models.DateTimeField(
+        "Prazo limite para a diretoria", null=True, blank=True
+    )
     # Valor único que a diretoria paga na inscrição (independe da faixa etária).
     # Vazio = sem valor especial para a diretoria.
     valor_diretoria = models.DecimalField(
@@ -634,17 +642,60 @@ class Evento(models.Model):
         o término do evento."""
         return self.inscricao_limite or self.fim_datetime()
 
-    def inscricoes_abertas(self):
+    def prazo_inscricao_diretoria(self):
+        """Prazo de uma inscrição que **inclui alguém da diretoria**.
+
+        O prazo da diretoria **só estende, nunca restringe**: o resultado é sempre
+        o mais generoso entre ele e o prazo geral. Assim ninguém perde a janela que
+        já tinha — a diretoria continua podendo se inscrever no prazo comum se o
+        próprio prazo dela vencer antes, e um aventureiro que entra junto de um
+        integrante da diretoria aproveita o prazo maior.
+
+        `None` significa "sem limite", que é o mais generoso de todos."""
+        if self.inscricao_limite_diretoria is None:
+            return self.prazo_inscricao()
+        geral = self.prazo_inscricao()
+        if geral is None:
+            return None
+        return max(geral, self.inscricao_limite_diretoria)
+
+    def prazo_inscricao_efetivo(self, tem_diretoria=False):
+        """Prazo que vale para esta inscrição, conforme ela tenha diretoria ou não."""
+        if tem_diretoria:
+            return self.prazo_inscricao_diretoria()
+        return self.prazo_inscricao()
+
+    @property
+    def tem_prazo_diretoria(self):
+        """True se o prazo da diretoria de fato estende o prazo comum (um valor
+        anterior ao prazo geral não muda nada — ver `prazo_inscricao_diretoria`)."""
+        if self.inscricao_limite_diretoria is None:
+            return False
+        geral = self.prazo_inscricao()
+        return geral is not None and self.inscricao_limite_diretoria > geral
+
+    def inscricoes_abertas(self, tem_diretoria=False):
         """True se ainda dá para se inscrever (evento ativo e prazo não passou).
+
+        `tem_diretoria=True` avalia pelo prazo da diretoria (o mais generoso).
+        Chame com `True` para decidir se a **tela** abre — senão a diretoria não
+        chegaria ao formulário depois do prazo comum — e valide o POST com o valor
+        real da inscrição, que é o que decide de fato.
 
         Evento inativo nunca aceita inscrição, mesmo dentro do prazo — é a trava
         de servidor do "inativar evento" (esconder o botão não impede POST)."""
         if not self.ativo:
             return False
-        prazo = self.prazo_inscricao()
+        prazo = self.prazo_inscricao_efetivo(tem_diretoria)
         if prazo is None:
             return True
         return timezone.now() <= prazo
+
+    @property
+    def so_diretoria_pode_inscrever(self):
+        """True quando o prazo comum já venceu mas o da diretoria ainda está de pé:
+        a tela continua aberta, só que apenas para inscrição com diretoria."""
+        return self.inscricoes_abertas(tem_diretoria=True) and not self.inscricoes_abertas()
 
     def ja_terminou(self):
         """True se o evento já acabou (passou o término)."""

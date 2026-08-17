@@ -344,6 +344,9 @@
                             <span class="pill {% if inscricoes_abertas %}pill-verde{% else %}pill-cinza{% endif %}">
                                 {% if inscricoes_abertas %}✅ Abertas{% else %}⛔ Encerradas{% endif %}
                             </span>
+                            {% if not inscricoes_abertas and diretoria_ainda_aberta %}
+                            <span class="pill pill-pendente" title="O prazo comum encerrou, mas a janela da diretoria continua">⛺ Só diretoria</span>
+                            {% endif %}
                             {% if not evento.ja_terminou %}
                             <a href="{% url 'core:evento_pdv_inscricao' evento.id %}" class="btn-acao btn-acao-pequeno">
                                 <span aria-hidden="true">🎟️</span> Nova inscrição (balcão)
@@ -360,6 +363,14 @@
                             O prazo de inscrição encerrou em <strong>{{ prazo_inscricao|date:"d/m/Y H:i" }}</strong>.
                         {% endif %}
                         {% if not evento.inscricao_limite %}<br><small>(sem prazo próprio — usando o fim do evento como limite)</small>{% endif %}
+                        {% if tem_prazo_diretoria %}
+                        {% comment %}
+                        Janela extra da diretoria. Só aparece quando de fato estende
+                        o prazo comum (`tem_prazo_diretoria`): uma data anterior à
+                        geral não muda nada e não deve virar informação na tela.
+                        {% endcomment %}
+                        <br><span class="prazo-diretoria">⛺ Inscrição <strong>com diretoria</strong>{% if diretoria_ainda_aberta %} vai até{% else %} foi até{% endif %} <strong>{{ prazo_diretoria|date:"d/m/Y H:i" }}</strong> — e o aventureiro que entrar na mesma inscrição aproveita esse prazo.</span>
+                        {% endif %}
                     </p>
                     {% endif %}
 
@@ -507,6 +518,7 @@
                                 {% if config_form.inscricao_aberta_publico.help_text %}<small class="ajuda">{{ config_form.inscricao_aberta_publico.help_text }}</small>{% endif %}
                             </div>
                             {% include "core/_campo.html" with campo=config_form.inscricao_limite %}
+                            {% include "core/_campo.html" with campo=config_form.inscricao_limite_diretoria %}
                             {% include "core/_campo.html" with campo=config_form.valor_diretoria %}
                             {% include "core/_campo.html" with campo=config_form.parcelas_diretoria %}
                             {% include "core/_campo.html" with campo=config_form.formas_pagamento_online %}

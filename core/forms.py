@@ -421,12 +421,16 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         model = Evento
         fields = [
             "local", "inscricao_aberta_publico", "inscricao_limite",
+            "inscricao_limite_diretoria",
             "valor_diretoria", "parcelas_diretoria", "formas_pagamento_online",
             "formas_pagamento_fora", "instrucoes_pagamento_fora",
             "notificar_inscricoes", "notificar_inscricoes_para",
         ]
         widgets = {
             "inscricao_limite": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            ),
+            "inscricao_limite_diretoria": forms.DateTimeInput(
                 attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
             ),
             "valor_diretoria": forms.TextInput(
@@ -441,6 +445,13 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         help_texts = {
             "inscricao_aberta_publico": "Se desmarcado, só membros do clube podem se inscrever.",
             "inscricao_limite": "Depois desta data/hora as inscrições travam. Vazio = até o fim do evento.",
+            "inscricao_limite_diretoria": (
+                "Prazo só para inscrição que inclua alguém da diretoria — normalmente "
+                "mais longo que o de cima. Vazio = mesmo prazo de todos. Ele só "
+                "ESTENDE o prazo (uma data anterior à de cima não muda nada), e a "
+                "inscrição com diretoria vale por ele INTEIRA: o aventureiro que "
+                "entrar junto aproveita a mesma janela."
+            ),
             "valor_diretoria": "Valor que a diretoria paga. Vazio = sem valor especial; 0 = grátis.",
             "parcelas_diretoria": (
                 "Em quantas vezes a diretoria pode pagar o valor acima (1 = só à "
@@ -477,9 +488,10 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["local"].required = True
-        self.fields["inscricao_limite"].input_formats = [
-            "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M",
-        ]
+        for nome in ("inscricao_limite", "inscricao_limite_diretoria"):
+            self.fields[nome].input_formats = [
+                "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M",
+            ]
         # Só integrantes da diretoria (ativos, não-demo) podem receber o aviso —
         # e o seletor mostra o nome da ficha, não o login (que costuma ser apelido).
         campo = self.fields["notificar_inscricoes_para"]
