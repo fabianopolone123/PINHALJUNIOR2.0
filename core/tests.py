@@ -4069,22 +4069,94 @@ class CopiarListaInscritosTests(TestCase):
         for dado in ("Mae Um", "Ana", "99999-1111"):
             self.assertNotIn(dado, resumo)
 
-    def test_resumo_separa_diretoria_de_aventureiros(self):
-        self._inscricao("Pai Diretor", "(16) 99999-1111",
-                        [("Pai Diretor", 40), ("Filho", 9)])
-        insc = self.ev.inscricoes.first()
-        p = insc.participantes.get(nome="Pai Diretor")
-        p.eh_diretoria = True
-        p.save(update_fields=["eh_diretoria"])
+    def test_resumo_nao_inventa_categoria_de_aventureiros(self):
+        """Não existe "aventureiros = total − diretoria": esse resto junta
+        aventureiro, pai/responsável e filho de diretoria, que são categorias
+        diferentes (o Aventuri 2026 tem as três). Quem categoriza é a faixa."""
+        crianca, adultos = self._faixas()
+        insc = self._inscricao("Pai Diretor", "(16) 99999-1111",
+                               [("Pai Diretor", 40), ("Mae", 38), ("Filho", 8)])
+        insc.participantes.filter(nome="Pai Diretor").update(eh_diretoria=True)
+        insc.participantes.filter(nome="Mae").update(faixa=adultos)
+        insc.participantes.filter(nome="Filho").update(faixa=crianca)
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertNotIn("Aventureiros", resumo)
+        # 3 pessoas: 1 diretoria + 1 na faixa dos adultos + 1 na das crianças.
+        self.assertIn("*👥 3 inscritos*", resumo)
+        self.assertIn("⛺ Diretoria", resumo)
+
+    def test_resumo_diretoria_diz_o_valor_fixo_que_ela_paga(self):
+        """"Diretoria" sem explicação virou pergunta ("diretoria de quê?"): a
+        caixinha faz a pessoa pagar o valor fixo do evento, que independe da
+        idade — então a linha diz o valor."""
+        self.ev.valor_diretoria = Decimal("200.00")
+        self.ev.save(update_fields=["valor_diretoria"])
+        insc = self._inscricao("Pai Diretor", "(16) 99999-1111", [("Pai", 40)])
+        insc.participantes.update(eh_diretoria=True)
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("⛺ Diretoria (valor fixo R$ 200,00): 1", resumo)
+
+    def test_resumo_diretoria_sem_valor_no_evento_nao_inventa_preco(self):
+        insc = self._inscricao("Pai Diretor", "(16) 99999-1111", [("Pai", 40)])
+        insc.participantes.update(eh_diretoria=True)
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
         self.assertIn("⛺ Diretoria: 1", resumo)
-        self.assertIn("🧒 Aventureiros: 1", resumo)
+        self.assertNotIn("valor fixo", resumo)
+
+    def test_resumo_desambigua_faixas_com_o_mesmo_rotulo(self):
+        """O Aventuri 2026 tem TRÊS faixas "Filho de diretoria" (0-3, 4-5 e
+        10-17 anos). Sem a idade ao lado, duas linhas iguais no resumo parecem
+        erro de contagem — foi o que o usuário estranhou."""
+        bebe = FaixaEtariaPreco.objects.create(
+            evento=self.ev, rotulo="Filho de diretoria", idade_min=0, idade_max=3,
+            valor=Decimal("0"), ordem=1,
+        )
+        grande = FaixaEtariaPreco.objects.create(
+            evento=self.ev, rotulo="Filho de diretoria", idade_min=10, idade_max=17,
+            valor=Decimal("450"), ordem=2,
+        )
+        insc = self._inscricao("Mae Um", "(16) 99999-1111",
+                               [("Bebe", 2), ("Grande", 11), ("Outro", 12)])
+        insc.participantes.filter(nome="Bebe").update(faixa=bebe)
+        insc.participantes.filter(nome__in=["Grande", "Outro"]).update(faixa=grande)
+        corpo = views._export_inscritos_evento(self.ev)["resumo"].split("*Por faixa:*")[1]
+        self.assertIn("Filho de diretoria (0 a 3 anos): 1", corpo)
+        self.assertIn("Filho de diretoria (10 a 17 anos): 2", corpo)
+
+    def test_resumo_nao_poe_idade_em_rotulo_que_nao_repete(self):
+        crianca, _ = self._faixas()
+        insc = self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        insc.participantes.update(faixa=crianca)
+        corpo = views._export_inscritos_evento(self.ev)["resumo"].split("*Por faixa:*")[1]
+        self.assertIn("6 a 9 anos: 1", corpo)      # faixa sem rótulo: a idade é o nome
+        self.assertNotIn("anos) ", corpo)          # e ninguém ganhou "(x a y anos)"
+
+    def test_resumo_por_faixa_fecha_no_total(self):
+        """Invariante que faz o bloco servir de conferência: a soma das linhas
+        por faixa (com diretoria e "sem faixa") é o total de inscritos."""
+        crianca, adultos = self._faixas()
+        insc = self._inscricao("Mae Um", "(16) 99999-1111",
+                               [("Ana", 8), ("Mae", 40), ("Dir", 38), ("Bebe", 2)])
+        insc.participantes.filter(nome="Ana").update(faixa=crianca)
+        insc.participantes.filter(nome="Mae").update(faixa=adultos)
+        insc.participantes.filter(nome="Dir").update(eh_diretoria=True)
+        dados = views._export_inscritos_evento(self.ev)
+        # Só o bloco das faixas: as linhas de *Pagamento* também têm ": ".
+        corpo = dados["resumo"].split("*Por faixa:*")[1].split("*Pagamento:*")[0]
+        somados = sum(
+            int(linha.rsplit(": ", 1)[1])
+            for linha in corpo.strip().split("\n")
+            if linha.strip() and ": " in linha
+        )
+        self.assertEqual(somados, dados["total"])
+        self.assertEqual(somados, 4)
 
     def test_resumo_sem_diretoria_nao_mostra_a_linha(self):
+        """Evento sem ninguém marcado como diretoria não ganha linha nenhuma de
+        diretoria — nem com zero."""
         self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
         self.assertNotIn("Diretoria", resumo)
-        self.assertNotIn("Aventureiros", resumo)
 
     def test_resumo_agrupa_pelas_faixas_do_evento_na_ordem_cadastrada(self):
         crianca, juvenil = self._faixas()
@@ -4110,7 +4182,7 @@ class CopiarListaInscritosTests(TestCase):
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
         corpo = resumo.split("*Por faixa:*")[1]
         self.assertIn("6 a 9 anos: 1", corpo)
-        self.assertIn("Diretoria (valor próprio): 1", corpo)
+        self.assertIn("⛺ Diretoria: 1", corpo)
         self.assertNotIn("Sem faixa", corpo)
 
     def test_resumo_mostra_quem_ficou_fora_das_faixas(self):

@@ -12,9 +12,13 @@ evento e contagem, e **três linhas curtas por família** — nome em **negrito*
 participantes com a idade entre parênteses; o desenho é curto de propósito, porque o WhatsApp quebra linha por
 volta de **35 caracteres** e uma linha longa parte no meio. **📈 Copiar resumo** copia só os **números e nenhum
 nome** — pode ir para o grupo da diretoria onde a lista de crianças não pode: **total de pessoas** (o pedido foi
-explícito: "inscritos" é gente, não inscrição) e em quantas inscrições, **diretoria × aventureiros**, **quantos
-por faixa de preço** do evento, **quantos por forma de pagamento**, **quanto falta acertar** de quem paga por
-fora e **quantas parcelas em aberto** (com o que venceu). Decisões que importam: o **texto é montado no
+explícito: "inscritos" é gente, não inscrição) e em quantas inscrições, **quantos por faixa de preço** do evento
+(com a **diretoria** na mesma lista, porque quem paga o valor fixo não tem faixa — e assim o bloco **fecha no
+total**, servindo de conferência), **quantos por forma de pagamento**, **quanto falta acertar** de quem paga por
+fora e **quantas parcelas em aberto** (com o que venceu). **Não** existe linha de "aventureiros": tentar
+`total − diretoria` juntava aventureiro, pai/responsável e filho de diretoria — três categorias diferentes (o
+Aventuri 2026 tem as três), e foi bug corrigido no mesmo dia. **Rótulo de faixa repetido ganha a idade ao lado**
+(`Filho de diretoria (0 a 3 anos)`): o evento pode ter várias faixas com o mesmo nome e preços diferentes. Decisões que importam: o **texto é montado no
 servidor** (`_export_inscritos_evento` + `_resumo_inscritos_txt`) e **não raspado do DOM** — a lista da tela tem
 pills, selos e `<details>`, e um texto tirado do HTML quebraria no próximo ajuste visual, então **o JS só
 copia**; as três contagens saem do **mesmo laço** que monta os textos (nenhuma varredura extra; a faixa de cada
@@ -1240,11 +1244,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   `📱 contato · 🎟️ código`, participantes com a idade entre parênteses) — usa o negrito do próprio
   WhatsApp, e linha curta porque o app quebra por volta de 35 caracteres no celular. **📈 Copiar resumo**
   copia só os **números e nenhum nome** (pode ir para o grupo da diretoria): total de **pessoas** e de
-  inscrições, diretoria × aventureiros, quantos **por faixa de preço**, quantos **por forma de pagamento**,
+  inscrições, quantos **por faixa de preço** (a categoria de verdade do evento — com a diretoria na mesma
+  lista, de modo que o bloco **fecha no total**; rótulo repetido ganha a idade ao lado), quantos **por forma
+  de pagamento**,
   quanto **falta acertar** de quem paga por fora (usa o `total_com_loja`, como o painel) e quantas
   **parcelas em aberto** (com as vencidas). Pagamento contado **em pessoas** — a família de três no Pix são
-  três pessoas no Pix —, exceto parcelas, que são por inscrição; quem paga o valor da **diretoria fica fora
-  da contagem por faixa** (senão a mesma pessoa contaria duas vezes); linha sem número não é escrita. Só
+  três pessoas no Pix —, exceto parcelas, que são por inscrição; a linha da diretoria diz o **valor fixo** que
+  ela paga (`Evento.valor_diretoria`); linha sem número não é escrita. Só
   inscrição **confirmada** entra (cancelada fica fora; quem vai pagar por fora entra, porque está inscrito) e
   os botões só aparecem quando há alguém confirmado. O texto é montado no **servidor**
   (`_export_inscritos_evento`) e vai no HTML em `<textarea class="copiar-fonte">` fora da tela; o JS só copia,

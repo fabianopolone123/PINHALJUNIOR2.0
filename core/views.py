@@ -5850,20 +5850,40 @@ def _resumo_inscritos_txt(evento, total, qtd, plural_insc, diretoria, sem_faixa,
         "",
         f"*👥 {total} inscrito{'' if total == 1 else 's'}* em {qtd} {plural_insc}",
     ]
-    # "Aventureiros" aqui é "todo o resto": participante que não é da diretoria.
-    if diretoria:
-        linhas.append(f"⛺ Diretoria: {diretoria}")
-        linhas.append(f"🧒 Aventureiros: {total - diretoria}")
+    # NÃO existe "aventureiros = total − diretoria": esse resto junta aventureiro,
+    # pai/responsável e filho de diretoria, que são categorias DIFERENTES no
+    # evento (o Aventuri 2026 tem as três). Quem responde "quantos de cada tipo"
+    # é o bloco por faixa, onde a categoria de verdade está cadastrada — e ele
+    # fecha no total, então serve de conferência.
 
     # Faixas na ordem cadastrada no evento, e só as que têm gente — faixa vazia
     # não é informação, é ruído.
+    com_gente = [
+        (faixa, por_faixa[faixa.id])
+        for faixa in evento.faixas_preco.all()
+        if por_faixa.get(faixa.id)
+    ]
+    # Rótulo repetido ganha a idade ao lado: o evento pode ter várias faixas com
+    # o mesmo nome e preços diferentes (ex.: três "Filho de diretoria", 0-3, 4-5
+    # e 10-17 anos), e duas linhas iguais no resumo parecem erro de contagem.
+    nomes = [f.rotulo or f.faixa_txt for f, _ in com_gente]
     faixas = []
-    for faixa in evento.faixas_preco.all():
-        quantos = por_faixa.get(faixa.id, 0)
-        if quantos:
-            faixas.append(f"{faixa.rotulo or faixa.faixa_txt}: {quantos}")
+    for faixa, quantos in com_gente:
+        nome = faixa.rotulo or faixa.faixa_txt
+        if faixa.rotulo and nomes.count(nome) > 1:
+            nome = f"{nome} ({faixa.faixa_txt})"
+        faixas.append(f"{nome}: {quantos}")
     if diretoria:
-        faixas.append(f"Diretoria (valor próprio): {diretoria}")
+        # Estes não têm faixa: a caixinha "diretoria" na inscrição faz a pessoa
+        # pagar o valor fixo do evento, que independe da idade. Dizer o valor na
+        # linha evita a pergunta "diretoria de quê?".
+        if evento.valor_diretoria is None:
+            faixas.append(f"⛺ Diretoria: {diretoria}")
+        else:
+            faixas.append(
+                f"⛺ Diretoria (valor fixo {_fmt_moeda(evento.valor_diretoria)}): "
+                f"{diretoria}"
+            )
     if sem_faixa:
         # Idade fora de todas as faixas do evento (ou sem idade informada):
         # aparece porque é quase sempre erro de cadastro que alguém tem de ver.

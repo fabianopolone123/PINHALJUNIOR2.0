@@ -22,6 +22,69 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-18 - Correção: o resumo dizia "Aventureiros" para gente que não é aventureiro
+
+### Resumo
+Bug de **rótulo, não de contagem**, encontrado pelo usuário no primeiro uso real (Aventuri 2026): o resumo
+mostrava `🧒 Aventureiros: 31` quando os aventureiros do evento são **13**. A linha não era uma contagem, era
+uma **subtração** — `total − marcados como diretoria` —, e nesse "resto" cabiam três categorias diferentes:
+aventureiro (13), "Diretoria / Pais / Responsável" (15) e filho de diretoria (3). A linha saiu: **quem
+categoriza é a faixa de preço**, que é onde o evento cadastra a categoria de verdade, e o bloco "Por faixa"
+agora **fecha no total**, servindo de conferência.
+
+Na mesma passada, duas coisas que o usuário estranhou no mesmo texto:
+
+- **"Filho de diretoria" aparecia duas vezes.** O evento tem **três faixas com esse mesmo rótulo** (0-3, 4-5 e
+  10-17 anos, preços diferentes); duas tinham gente. Rótulo repetido agora ganha a idade ao lado:
+  `Filho de diretoria (0 a 3 anos): 1`.
+- **"Diretoria (valor próprio): 4"** não explicava nada ("valor próprio de quê?"). Virou
+  `⛺ Diretoria (valor fixo R$ 200,00): 4` — diz o valor que a caixinha "diretoria" faz a pessoa pagar,
+  lido do `Evento.valor_diretoria`.
+
+Antes e depois, com os números reais do Aventuri:
+
+```
+ANTES                                   DEPOIS
+⛺ Diretoria: 4                          *Por faixa:*
+🧒 Aventureiros: 31   ← errado           Filho de diretoria (0 a 3 anos): 1
+                                        Diretoria / Pais / Responsável: 15
+*Por faixa:*                            Filho de diretoria (10 a 17 anos): 2
+Filho de diretoria: 1                   Aventureiro: 13
+Diretoria / Pais / Responsável: 15       ⛺ Diretoria (valor fixo R$ 200,00): 4
+Filho de diretoria: 2                                        (soma = 35 = total)
+Aventureiro: 13
+Diretoria (valor próprio): 4
+```
+
+### Arquivos alterados
+- `core/views.py` (`_resumo_inscritos_txt`): saíram as linhas `⛺ Diretoria` / `🧒 Aventureiros` do topo; a
+  contagem de diretoria passou para dentro do bloco por faixa (é o que faz o bloco fechar no total); rótulo
+  duplicado ganha `(x a y anos)`; a linha da diretoria mostra o `valor_diretoria` do evento quando existe.
+- `core/tests.py`: `CopiarListaInscritosTests` de 30 para **35 testes**. Saiu o
+  `test_resumo_separa_diretoria_de_aventureiros` (afirmava o comportamento errado) e entraram: não inventa
+  categoria de aventureiros, a linha da diretoria diz o valor fixo, evento sem `valor_diretoria` não inventa
+  preço, desambiguação de rótulos iguais, rótulo único **não** ganha idade, e o invariante
+  **"por faixa fecha no total"**.
+
+### Decisões tomadas
+- **Não inventar categoria**: "aventureiros" não é "todo o resto". Nem tentei adivinhar pela faixa (procurar a
+  palavra "aventureiro" no rótulo) — o rótulo é texto livre do Diretor, e adivinhar erraria de novo, calado.
+- **A soma do bloco por faixa = total** virou invariante com teste. É o que permite bater o olho e confiar:
+  se as linhas não somam o total, tem gente numa categoria que ninguém está vendo.
+- **A idade só aparece quando o rótulo repete.** Colocar sempre encheria a linha (o WhatsApp quebra por volta
+  de 35 caracteres) num evento com faixas bem nomeadas.
+- **Nada de renomear as faixas do usuário**: a alternativa era pedir para ele renomear as três "Filho de
+  diretoria" no painel. Resolver no resumo é melhor — o sistema deixa de depender de o cadastro estar
+  perfeito, e o cadastro dele não está errado (três faixas de preço com o mesmo nome é legítimo).
+
+### Pendências
+- A linha `Diretoria / Pais / Responsável: 15` × `⛺ Diretoria (valor fixo): 4` continua podendo confundir:
+  são coisas diferentes (a **faixa** de adulto × a **caixinha** que dá o valor fixo). O resumo agora diz o
+  valor de cada uma, mas quem lê rápido pode somar errado. Só resolve de verdade quando "diretoria" for um
+  vínculo real (participante × cadastro), que é dívida antiga.
+- **Vale conferir no evento 67**: 15 pessoas na faixa de adulto (R$ 450) e 4 na diretoria (R$ 200) — se a
+  intenção era que os 15 fossem diretoria, quem está pagando R$ 450 deveria estar pagando R$ 200.
+
 ## 2026-08-18 - Eventos: botão "Copiar resumo" (números do evento, sem nomes)
 
 ### Resumo
