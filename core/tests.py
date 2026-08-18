@@ -3884,3 +3884,140 @@ class PrazoDiretoriaTests(TestCase):
             quando,
         )
 
+
+
+class CopiarListaInscritosTests(TestCase):
+    """Botão "copiar a lista de inscritos" no painel do evento.
+
+    São dois textos montados no servidor: `tabela` (uma linha por PESSOA, em
+    colunas separadas por TAB, para colar em planilha) e `grupos` (agrupada por
+    inscrição, para ler no WhatsApp). Cancelada não é inscrito e fica fora dos
+    dois.
+    """
+
+    def setUp(self):
+        self.diretor = User.objects.create_user("dir_copia", password="x")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.ev = Evento.objects.create(
+            tipo="inscricao", nome="Aventuri", local="Campo",
+            data=timezone.localdate() + datetime.timedelta(days=30),
+            inscricao_aberta_publico=True,
+        )
+        FaixaEtariaPreco.objects.create(
+            evento=self.ev, idade_min=1, idade_max=99, valor=Decimal("50.00")
+        )
+
+    def _inscricao(self, nome, whatsapp, participantes, **kw):
+        insc = Inscricao.objects.create(
+            evento=self.ev, responsavel_nome=nome, responsavel_whatsapp=whatsapp,
+            codigo=Inscricao.gerar_codigo_unico(),
+            status=kw.pop("status", "confirmada"), forma_pagamento="pix",
+            valor_total=Decimal("50.00"), **kw,
+        )
+        for p_nome, idade in participantes:
+            ParticipanteInscricao.objects.create(
+                inscricao=insc, nome=p_nome, idade=idade, valor=Decimal("50.00")
+            )
+        return insc
+
+    # --- o texto em colunas (planilha) ---
+
+    def test_tabela_tem_uma_linha_por_pessoa_com_cabecalho(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)])
+        dados = views._export_inscritos_evento(self.ev)
+        linhas = dados["tabela"].split("\n")
+        self.assertEqual(dados["total"], 3)
+        self.assertEqual(dados["qtd_inscricoes"], 2)
+        self.assertEqual(len(linhas), 4)  # cabeçalho + 3 pessoas
+        self.assertEqual(
+            linhas[0], "Nº\tParticipante\tIdade\tWhatsApp\tInscrição\tResponsável"
+        )
+        self.assertTrue(linhas[1].startswith("1\tAna\t8\t(16) 99999-1111\t"))
+        self.assertTrue(linhas[3].startswith("3\tLia\t6\t(16) 98888-2222\t"))
+
+    def test_tabela_repete_o_telefone_em_cada_participante_da_familia(self):
+        """Na planilha cada linha tem de se sustentar sozinha: célula vazia
+        estragaria filtro e ordenação."""
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
+        linhas = views._export_inscritos_evento(self.ev)["tabela"].split("\n")[1:]
+        self.assertEqual(len(linhas), 2)
+        for linha in linhas:
+            self.assertEqual(linha.split("\t")[3], "(16) 99999-1111")
+            self.assertEqual(linha.split("\t")[5], "Mae Um")
+
+    def test_colunas_de_todas_as_linhas_tem_o_mesmo_tamanho(self):
+        """Sem isso a planilha desalinha na hora de colar."""
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self._inscricao("Pai Dois", "", [("Lia", None)])
+        linhas = views._export_inscritos_evento(self.ev)["tabela"].split("\n")
+        self.assertTrue(all(len(linha.split("\t")) == 6 for linha in linhas))
+
+    def test_idade_vazia_nao_vira_none_na_planilha(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", None)])
+        linha = views._export_inscritos_evento(self.ev)["tabela"].split("\n")[1]
+        self.assertEqual(linha.split("\t")[2], "")
+        self.assertNotIn("None", linha)
+
+    def test_sem_whatsapp_avisa_em_vez_de_deixar_em_branco(self):
+        self._inscricao("Mae Um", "   ", [("Ana", 8)])
+        dados = views._export_inscritos_evento(self.ev)
+        self.assertEqual(dados["tabela"].split("\n")[1].split("\t")[3], "sem WhatsApp")
+        self.assertIn("sem WhatsApp", dados["grupos"])
+
+    # --- o texto agrupado (WhatsApp) ---
+
+    def test_grupos_juntam_responsavel_contato_e_codigo(self):
+        insc = self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
+        grupos = views._export_inscritos_evento(self.ev)["grupos"]
+        self.assertIn(f"1) Mae Um — (16) 99999-1111 — {insc.codigo}", grupos)
+        self.assertIn("• Ana, 8 anos", grupos)
+        self.assertIn("• Pedro, 11 anos", grupos)
+
+    def test_numeracao_segue_a_ordem_de_inscricao_nos_dois_textos(self):
+        """O "nº 3" da planilha e o "3)" do agrupado têm de falar da mesma
+        gente — a ordem é a de inscrição, como no aviso da diretoria."""
+        self._inscricao("Primeira", "(16) 90000-0001", [("Um", 7)])
+        self._inscricao("Segunda", "(16) 90000-0002", [("Dois", 8)])
+        self._inscricao("Terceira", "(16) 90000-0003", [("Tres", 9)])
+        dados = views._export_inscritos_evento(self.ev)
+        self.assertTrue(dados["tabela"].split("\n")[3].startswith("3\tTres\t"))
+        self.assertIn("3) Terceira", dados["grupos"])
+
+    # --- o que fica de fora ---
+
+    def test_cancelada_fica_fora_das_duas_listas(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self._inscricao("Desistiu", "(16) 97777-3333", [("Zeca", 9)],
+                        status="cancelada")
+        dados = views._export_inscritos_evento(self.ev)
+        self.assertEqual(dados["total"], 1)
+        self.assertNotIn("Zeca", dados["tabela"])
+        self.assertNotIn("Zeca", dados["grupos"])
+
+    def test_evento_sem_inscricao_nao_gera_lista(self):
+        dados = views._export_inscritos_evento(self.ev)
+        self.assertEqual((dados["total"], dados["qtd_inscricoes"]), (0, 0))
+        self.assertEqual(dados["grupos"], "")
+
+    # --- o painel ---
+
+    def test_painel_mostra_os_dois_botoes_com_o_texto_pronto(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
+        self.assertEqual(r.status_code, 200)
+        corpo = r.content.decode()
+        self.assertIn("Copiar lista", corpo)
+        self.assertIn("Copiar por inscrição", corpo)
+        self.assertIn('id="exportListaTabela"', corpo)
+        self.assertIn('id="exportListaGrupos"', corpo)
+        # O texto vai no HTML (o JS só copia), então o inscrito tem de estar lá.
+        self.assertIn("Ana", corpo)
+
+    def test_painel_sem_inscricao_confirmada_nao_mostra_botao(self):
+        self._inscricao("Desistiu", "(16) 97777-3333", [("Zeca", 9)],
+                        status="cancelada")
+        self.client.force_login(self.diretor)
+        r = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
+        self.assertNotIn("Copiar por inscrição", r.content.decode())

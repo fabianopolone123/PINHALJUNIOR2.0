@@ -904,6 +904,18 @@ a.tipo-card:hover {
     border-radius: 999px; padding: 3px 10px; font-size: 0.82rem;
 }
 
+/* ===== Painel: copiar a lista de inscritos ===== */
+/* As duas textarea com o texto pronto ficam FORA DA TELA em vez de
+   `hidden`/`display:none`: a cópia de reserva (navegador sem
+   navigator.clipboard) precisa de select() num campo que exista de fato. */
+.copiar-lista-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.copiar-lista-acoes .btn-secundario { margin-top: 0; white-space: nowrap; }
+.copiar-lista-nota { margin: -6px 0 12px; }
+.copiar-fonte {
+    position: absolute; left: -9999px; top: 0;
+    width: 1px; height: 1px; opacity: 0; border: 0; padding: 0;
+}
+
 /* ===== Painel: lista de inscritos (Parte 2.4) ===== */
 .secao-divisor { border: none; border-top: 1px solid var(--borda); margin: 24px 0; }
 .inscritos-lista { display: flex; flex-direction: column; gap: 12px; margin-bottom: 6px; }

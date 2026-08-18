@@ -1626,6 +1626,8 @@ def evento_painel_view(request, pk):
         "campos_inscricao": campos_inscricao,
         "produtos": produtos,
         "inscricoes": inscricoes,
+        # Lista de inscritos pronta para copiar (planilha e por inscrição).
+        "export_inscritos": _export_inscritos_evento(evento),
         "pedidos": pedidos,
         "vendas_por_produto": vendas_por_produto,
         "config_form": EventoInscricaoConfigForm(instance=evento),
@@ -5716,6 +5718,54 @@ def _texto_inscritos_evento(evento):
             "Entre em contato para combinar e depois marque como pago no painel."
         )
     return lista, por_fora, total, len(pendentes)
+
+
+def _export_inscritos_evento(evento):
+    """Os dois textos do "copiar a lista de inscritos" no painel do evento.
+
+    Serve para levar a lista para fora do sistema sem gerar arquivo: o Diretor
+    copia e cola onde precisa. São dois formatos porque são dois usos:
+
+    - `tabela`: uma linha por PESSOA inscrita, colunas separadas por TAB
+      (nº, participante, idade, WhatsApp, código da inscrição, responsável).
+      TAB porque Excel e Google Sheets, ao colar, quebram em colunas pela
+      tabulação — colado no lugar errado ainda se lê como lista. O WhatsApp
+      **repete** em cada participante da mesma inscrição: a lista existe para
+      contatar a família de cada inscrito, e uma célula vazia atrapalharia
+      filtro e ordenação na planilha.
+    - `grupos`: agrupado por inscrição (responsável + WhatsApp + código numa
+      linha, participantes abaixo), no mesmo desenho do aviso interno — é o
+      formato que se lê no WhatsApp, um contato por inscrição.
+
+    Só inscrição **confirmada**: cancelada não é inscrito. A ordem é a de
+    inscrição (`criado_em`), a mesma numeração do aviso, para as duas listas
+    falarem do mesmo "nº 3".
+    """
+    inscricoes = (
+        evento.inscricoes.filter(status="confirmada")
+        .prefetch_related("participantes")
+        .order_by("criado_em")
+    )
+    linhas = ["Nº\tParticipante\tIdade\tWhatsApp\tInscrição\tResponsável"]
+    blocos = []
+    for n, insc in enumerate(inscricoes, start=1):
+        contato = (insc.responsavel_whatsapp or "").strip() or "sem WhatsApp"
+        resp = insc.responsavel_nome or "—"
+        cabecalho = f"{n}) {resp} — {contato} — {insc.codigo}"
+        corpo = _participantes_txt(insc)
+        blocos.append(f"{cabecalho}\n{corpo}" if corpo else cabecalho)
+        for p in insc.participantes.all():
+            idade = "" if p.idade is None else str(p.idade)
+            linhas.append(
+                f"{len(linhas)}\t{p.nome}\t{idade}\t{contato}\t{insc.codigo}\t{resp}"
+            )
+    return {
+        # `len(linhas) - 1` porque a primeira linha é o cabeçalho das colunas.
+        "total": len(linhas) - 1,
+        "qtd_inscricoes": len(blocos),
+        "tabela": "\n".join(linhas),
+        "grupos": "\n\n".join(blocos),
+    }
 
 
 def _notificar_inscricao_interna(evento_id, novo=""):

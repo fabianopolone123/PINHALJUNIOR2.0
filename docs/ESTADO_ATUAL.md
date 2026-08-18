@@ -2,7 +2,27 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-17 (**Eventos: prazo de inscrição próprio da diretoria**): o evento ganhou um
+**Última atualização:** 2026-08-18 (**Eventos: copiar a lista de inscritos**): a aba **Inscrições** do painel
+ganhou dois botões de cópia — **📋 Copiar lista** e **📋 Copiar por inscrição** —, que era o que faltava para
+levar a lista de inscritos **para fora do sistema** com **telefone** e **número (código) da inscrição**. São
+dois formatos porque são dois usos: a versão em **colunas separadas por TAB** (cabeçalho + uma linha por
+**pessoa**: nº, participante, idade, WhatsApp, inscrição, responsável) cola direto em **planilha** — Excel e
+Google Sheets quebram em colunas ao colar texto tabulado, sem passar por importação de CSV —, e a versão
+**agrupada por inscrição** (responsável + WhatsApp + código numa linha, participantes com idade abaixo) é a que
+se lê no **WhatsApp**, um contato por família. Decisões que importam: **copiar em vez de baixar arquivo** (foi o
+pedido, e evita rota nova e o "onde foi salvo?" no celular); o **texto é montado no servidor**
+(`_export_inscritos_evento`, que reaproveita o `_participantes_txt` do aviso interno) e não raspado do DOM — a
+lista da tela tem pills, selos e `<details>`, e um texto tirado do HTML quebraria no próximo ajuste visual, então
+**o JS só copia**; na versão em colunas o **WhatsApp repete em cada participante** da mesma inscrição, porque na
+planilha cada linha tem de se sustentar sozinha (célula vazia estragaria filtro e ordenação); a **numeração é a
+do aviso interno** (ordem de `criado_em`), então o "nº 3" da planilha e o "3)" do texto agrupado falam da mesma
+gente. **Só inscrição confirmada** entra — cancelada não é inscrito —, inclusive quem vai **pagar por fora**:
+para contato o que importa é estar inscrito (a lista de pendência de pagamento continua sendo o aviso interno). O
+texto pronto vai no HTML em duas `<textarea>` **fora da tela** (não `hidden`: a cópia de reserva precisa de
+`select()` num campo que exista de fato) e os botões só aparecem quando há alguém confirmado. Nada de model,
+migration ou rota nova. Suíte: **306 testes OK** (295 + 11). Antes: prazo de inscrição próprio da diretoria.
+
+**Anterior (Eventos: prazo de inscrição próprio da diretoria):** o evento ganhou um
 **segundo prazo de inscrição, só para quem inclui alguém da diretoria**
 (`Evento.inscricao_limite_diretoria`, migration **0069**), na mesma "Configuração da inscrição". Serve ao caso
 real: a diretoria fecha a lista **depois** das famílias. A regra combinada é o ponto central — **uma inscrição
@@ -1201,6 +1221,16 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   "Inscrições" tem a **lista de inscritos** (com participantes/valores, respostas e ação **Cancelar**)
   e o **Resumo** conta **inscritos** (participantes confirmados) e **arrecadação** de verdade. Acesso:
   público sem login se aberto ao público, senão exige login; após o prazo, o formulário trava.
+- **Evento complexo — copiar a lista de inscritos**: no cabeçalho da sub-aba "Lista de inscrições", dois
+  botões levam a lista para fora do sistema, sem gerar arquivo. **📋 Copiar lista** copia uma linha por
+  **pessoa** inscrita, em **colunas separadas por TAB** (nº, participante, idade, WhatsApp, inscrição,
+  responsável) — cola direto em planilha (Excel/Sheets quebram em colunas ao colar texto tabulado). **📋
+  Copiar por inscrição** copia a lista **agrupada por família** (responsável + WhatsApp + código numa linha,
+  participantes com idade abaixo), no mesmo desenho do aviso interno — é o formato de colar no WhatsApp. Só
+  inscrição **confirmada** entra (cancelada fica fora; quem vai pagar por fora entra, porque está inscrito) e
+  os botões só aparecem quando há alguém confirmado. O texto é montado no **servidor**
+  (`_export_inscritos_evento`) e vai no HTML em `<textarea class="copiar-fonte">` fora da tela; o JS só copia,
+  com toast padrão e "✅ Copiado!" no botão (fallback de `select()` + `execCommand` como no código Pix).
 - **Evento complexo — Lojinha Fase 4.1 (cadastro de produtos)**: a aba **"Lojinha"** do painel permite
   cadastrar **produtos** com **variações** (cada uma com seu **preço**) e **controle de estoque
   opcional** por produto (quando ligado, cada variação tem quantidade). Produto tem nome, descrição,
@@ -1651,7 +1681,8 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `static/js/eventos.js` — abre/fecha o modal de escolha do tipo de evento (X/fora/Esc).
 - `static/js/evento_painel.js` — abas do painel do evento complexo + modais (custo, faixa, campo);
   botões `[data-aba-ir]` (trocar de aba); e a **busca em tempo real** da cobertura do clube e da lista de
-  inscrições (helper `ligarBusca`, padrão do `usuarios.js`).
+  inscrições (helper `ligarBusca`, padrão do `usuarios.js`); e a **cópia da lista de inscritos**
+  (`.btn-copiar-lista` → `<textarea class="copiar-fonte">` indicada em `data-fonte`).
 - `static/js/evento_inscrever.js` — linhas de participante (adicionar/remover) + campos por participante.
 - `static/js/evento_produto.js` — linhas de variação (adicionar/remover) + mostrar/ocultar estoque.
 - `static/js/qtd_stepper.js` — botões +/- de quantidade nas telas de compra (dispara o recálculo).

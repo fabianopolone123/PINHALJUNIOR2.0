@@ -22,6 +22,52 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-18 - Eventos: copiar a lista de inscritos (planilha e por inscrição)
+
+### Resumo
+A aba **Inscrições** do painel do evento ganhou dois botões de cópia: **📋 Copiar lista** (uma linha por
+**pessoa** inscrita, em colunas separadas por TAB — cola direto em planilha) e **📋 Copiar por inscrição**
+(agrupada por família, responsável + WhatsApp + código numa linha e os participantes abaixo — o formato que se
+lê no WhatsApp). Os dois trazem o **telefone** e o **número (código) da inscrição** de cada inscrito, que era o
+que faltava para levar a lista para fora do sistema. Só entra inscrição **confirmada**.
+
+### Arquivos criados/alterados
+- `core/views.py`: novo **`_export_inscritos_evento(evento)`**, que devolve `{total, qtd_inscricoes, tabela,
+  grupos}` — `tabela` com cabeçalho de colunas e uma linha por participante, `grupos` reaproveitando o
+  `_participantes_txt` do aviso interno. Entrou no contexto do `evento_painel_view` como `export_inscritos`.
+- `templates/core/evento_painel.html`: os dois botões no cabeçalho da sub-aba "Lista de inscrições", a nota com
+  a contagem (inscritos × inscrições confirmadas) e as duas `<textarea class="copiar-fonte">` com o texto
+  pronto. Tudo dentro de `{% if export_inscritos.total %}`.
+- `static/js/evento_painel.js`: módulo que copia o texto da `textarea` correspondente ao botão
+  (`data-fonte`), com toast padrão do sistema e "✅ Copiado!" no próprio botão.
+- `static/css/eventos.css`: `.copiar-lista-acoes`, `.copiar-lista-nota` e `.copiar-fonte`.
+- `core/tests.py`: `CopiarListaInscritosTests` (11 testes).
+
+### Decisões tomadas
+- **Copiar, não exportar arquivo**: pedido do usuário. Evita rota nova, download e a dúvida de "onde foi salvo
+  o arquivo" no celular — e o destino real da lista é colar no WhatsApp ou na planilha.
+- **Texto montado no servidor, não no JS a partir do DOM**: a lista da tela tem selos, pills e detalhes em
+  `<details>`; raspar o HTML daria um texto frágil, que quebraria no próximo ajuste visual. O JS só copia.
+- **TAB como separador** (e não vírgula ou ponto e vírgula): Excel e Google Sheets quebram em colunas ao colar
+  texto tabulado, sem passar por importação de CSV. Colado num lugar que não é planilha, ainda se lê.
+- **O WhatsApp repete em cada participante da mesma inscrição** na versão em colunas: na planilha cada linha
+  tem de se sustentar sozinha — célula vazia estragaria filtro e ordenação. Um teste garante isso.
+- **`<textarea>` fora da tela em vez de `hidden`**: a cópia de reserva (navegador antigo, ou `clipboard` negado
+  pelo navegador) precisa de `select()` num campo que exista de fato; `display:none` impede a seleção.
+- **Cancelada fica fora**, confirmada entra — inclusive a que vai **pagar por fora**: para contato, o que
+  importa é que a pessoa está inscrita. Quem quer a lista de pendência de pagamento tem o aviso interno.
+- **Numeração igual à do aviso interno** (ordem de `criado_em`): o "nº 3" da planilha e o "3)" do texto
+  agrupado falam da mesma gente.
+- A lógica de cópia ficou **repetida** em relação ao `evento_pagamento.js` (código Pix). Extrair um utilitário
+  comum mexeria em pagamento, loja e WhatsApp de uma vez — ficou anotado como dívida, não foi feito agora.
+
+### Pendências
+- A lista sai com o WhatsApp **como foi digitado** na inscrição (o painel mostra igual); não há normalização de
+  formato entre uma inscrição e outra.
+- Sem coluna de valor, forma de pagamento ou situação — a lista é de **contato**. Se precisar do financeiro em
+  planilha, é outro formato (e aí um CSV de verdade compensa).
+- Não há filtro por faixa/unidade na cópia: sai a lista inteira do evento.
+
 ## 2026-08-17 - Eventos: prazo de inscrição próprio da diretoria
 
 ### Resumo

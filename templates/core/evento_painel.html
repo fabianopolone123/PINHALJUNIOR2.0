@@ -386,7 +386,35 @@
                     <div class="sub-secao" data-subsecao="lista">
                     <div class="secao-cabecalho">
                         <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
+                        {% if export_inscritos.total %}
+                        {% comment %}
+                        Levar a lista para fora do sistema: "Copiar lista" sai em colunas
+                        (uma linha por pessoa, separada por TAB — cola direto em planilha) e
+                        "Copiar por inscrição" sai agrupada por família, do jeito que se lê no
+                        WhatsApp. Os dois textos vêm prontos do servidor nas textarea abaixo,
+                        que ficam fora da tela (ver .copiar-fonte em eventos.css).
+                        {% endcomment %}
+                        <div class="copiar-lista-acoes">
+                            <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaTabela"
+                                    title="Uma linha por inscrito, em colunas (nº, participante, idade, WhatsApp, inscrição, responsável) — cola em planilha.">
+                                <span aria-hidden="true">📋</span> Copiar lista
+                            </button>
+                            <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaGrupos"
+                                    title="Agrupada por inscrição: responsável, WhatsApp e código numa linha, participantes abaixo.">
+                                <span aria-hidden="true">📋</span> Copiar por inscrição
+                            </button>
+                        </div>
+                        {% endif %}
                     </div>
+                    {% if export_inscritos.total %}
+                    <p class="painel-nota copiar-lista-nota">
+                        {{ export_inscritos.total }} inscrito{{ export_inscritos.total|pluralize }} em
+                        {{ export_inscritos.qtd_inscricoes }} inscriç{{ export_inscritos.qtd_inscricoes|pluralize:"ão,ões" }}
+                        confirmada{{ export_inscritos.qtd_inscricoes|pluralize }} — canceladas ficam fora da cópia.
+                    </p>
+                    <textarea id="exportListaTabela" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.tabela }}</textarea>
+                    <textarea id="exportListaGrupos" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.grupos }}</textarea>
+                    {% endif %}
                     {% if inscricoes %}
                     <div class="busca-box">
                         <svg class="busca-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>

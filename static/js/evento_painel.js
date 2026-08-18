@@ -207,6 +207,56 @@
 })();
 
 /* =========================================================
+   Copiar a lista de inscritos (aba Inscrições): "Copiar lista" (colunas,
+   uma linha por pessoa) e "Copiar por inscrição" (agrupada por família).
+   O texto já vem montado do servidor numa <textarea class="copiar-fonte">;
+   aqui só se copia. Mesmo caminho do "Copiar" do código Pix
+   (evento_pagamento.js): clipboard quando existe, seleção + execCommand
+   como reserva, e o toast padrão do sistema como aviso.
+   ========================================================= */
+(function () {
+    "use strict";
+
+    var botoes = Array.prototype.slice.call(
+        document.querySelectorAll(".btn-copiar-lista")
+    );
+    if (!botoes.length) return;
+
+    botoes.forEach(function (btn) {
+        var fonte = document.getElementById(btn.dataset.fonte);
+        if (!fonte) return;
+
+        function feedback() {
+            if (typeof window.mostrarToast === "function") {
+                window.mostrarToast("Lista copiada! Já pode colar.", "success");
+            }
+            // Confirmação também no próprio botão, para quem clicou olhando ali.
+            var antes = btn.innerHTML;
+            btn.innerHTML = "✅ Copiado!";
+            setTimeout(function () { btn.innerHTML = antes; }, 2500);
+        }
+
+        function copiarManual() {
+            fonte.removeAttribute("readonly");
+            fonte.focus();
+            fonte.select();
+            try { document.execCommand("copy"); } catch (e) { /* ignora */ }
+            fonte.setAttribute("readonly", "readonly");
+            btn.focus();  // o foco não pode ficar num campo fora da tela
+            feedback();
+        }
+
+        btn.addEventListener("click", function () {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(fonte.value).then(feedback, copiarManual);
+            } else {
+                copiarManual();
+            }
+        });
+    });
+})();
+
+/* =========================================================
    Confirmação de ações sensíveis: qualquer <form data-confirmar="...">
    pede confirmação antes de enviar (ex.: inativar o evento). Mesmo
    padrão do eventos.js — este painel não carrega aquele arquivo.
