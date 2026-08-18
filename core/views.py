@@ -5721,10 +5721,10 @@ def _texto_inscritos_evento(evento):
 
 
 def _export_inscritos_evento(evento):
-    """Os dois textos do "copiar a lista de inscritos" no painel do evento.
+    """Os três textos do "copiar" na aba Inscrições do painel do evento.
 
     Serve para levar a lista para fora do sistema sem gerar arquivo: o Diretor
-    copia e cola onde precisa. São dois formatos porque são dois destinos:
+    copia e cola onde precisa. São três porque são três destinos:
 
     - `tabela`: uma linha por PESSOA inscrita, colunas separadas por TAB
       (nº, participante, idade, WhatsApp, código da inscrição, responsável).
@@ -5732,12 +5732,16 @@ def _export_inscritos_evento(evento):
       tabulação. O WhatsApp **repete** em cada participante da mesma inscrição:
       a lista existe para contatar a família de cada inscrito, e uma célula
       vazia atrapalharia filtro e ordenação na planilha.
-    - `whatsapp`: o destino de verdade da lista. Formatado para a **tela do
+    - `whatsapp`: o destino mais comum da lista. Formatado para a **tela do
       celular**, onde o WhatsApp quebra linha por volta de 35 caracteres — daí
       **três linhas curtas por família** (nome em negrito, contato + código,
       participantes) em vez de uma linha longa que parte no meio. Usa o negrito
       (`*nome*`) e o itálico (`_resumo_`) do próprio WhatsApp, que fora dele
       aparecem como asterisco e sublinhado mesmo.
+    - `resumo`: só os **números**, sem nome de ninguém — quantas pessoas (não
+      inscrições), quantas por faixa de preço, quantas da diretoria e como está
+      o pagamento. É o que se manda no grupo da diretoria sem expor dados das
+      famílias, e o que serve para prestar contas à associação.
 
     Só inscrição **confirmada**: cancelada não é inscrito. A ordem é a de
     inscrição (`criado_em`), a mesma numeração do aviso interno, para as duas
@@ -5745,44 +5749,154 @@ def _export_inscritos_evento(evento):
     """
     inscricoes = (
         evento.inscricoes.filter(status="confirmada")
-        .prefetch_related("participantes")
+        .prefetch_related(
+            # `participantes__faixa` e `pedidos` são para o resumo: a faixa de
+            # cada pessoa e o `total_com_loja` de quem vai pagar por fora (a
+            # lojinha levada junto entra no que falta acertar, como no painel).
+            "participantes", "participantes__faixa", "parcelas", "pedidos",
+        )
         .order_by("criado_em")
     )
     linhas = ["Nº\tParticipante\tIdade\tWhatsApp\tInscrição\tResponsável"]
     familias = []
+    por_faixa = defaultdict(int)   # faixa_id -> pessoas
+    por_forma = defaultdict(int)   # forma de pagamento -> pessoas
+    diretoria = sem_faixa = 0
+    fora_pessoas, fora_valor = 0, Decimal("0")
+    parc_inscricoes, parc_valor, parc_vencidas = 0, Decimal("0"), 0
+
     for n, insc in enumerate(inscricoes, start=1):
         contato = (insc.responsavel_whatsapp or "").strip() or "sem WhatsApp"
         resp = insc.responsavel_nome or "—"
         pessoas = []
-        for p in insc.participantes.all():
+        participantes = list(insc.participantes.all())
+        for p in participantes:
             idade = "" if p.idade is None else str(p.idade)
             linhas.append(
                 f"{len(linhas)}\t{p.nome}\t{idade}\t{contato}\t{insc.codigo}\t{resp}"
             )
             pessoas.append(f"{p.nome} ({idade})" if idade else p.nome)
+            # Diretoria antes da faixa: quem paga o valor da diretoria não tem
+            # faixa (o valor independe da idade), então contar pelas duas
+            # dimensões somaria a mesma pessoa duas vezes.
+            if p.eh_diretoria:
+                diretoria += 1
+            elif p.faixa_id:
+                por_faixa[p.faixa_id] += 1
+            else:
+                sem_faixa += 1
         bloco = [f"*{n}. {resp}*", f"📱 {contato} · 🎟️ {insc.codigo}"]
         if pessoas:
             bloco.append("👤 " + ", ".join(pessoas))
         familias.append("\n".join(bloco))
 
+        # Pagamento contado em PESSOAS, não em inscrições: se a família de três
+        # pagou no Pix, são três pessoas pagas no Pix. A exceção são as parcelas,
+        # que existem por inscrição (é o valor da diretoria que se divide).
+        por_forma[insc.forma_pagamento] += len(participantes)
+        if insc.pagamento_externo and not insc.pago_externo_em:
+            fora_pessoas += len(participantes)
+            fora_valor += insc.total_com_loja
+        abertas = [pa for pa in insc.parcelas.all() if pa.em_aberto]
+        if abertas:
+            parc_inscricoes += 1
+            parc_valor += sum((pa.valor for pa in abertas), Decimal("0"))
+            parc_vencidas += sum(1 for pa in abertas if pa.vencida)
+
     # `len(linhas) - 1` porque a primeira linha é o cabeçalho das colunas.
     total = len(linhas) - 1
+    qtd = len(familias)
+    plural_insc = "inscrição" if qtd == 1 else "inscrições"
+    contagem = (
+        f"{total} inscrito{'' if total == 1 else 's'} · {qtd} {plural_insc}"
+    )
+
     whatsapp = ""
     if familias:
         # Cabeçalho com o nome do evento e a contagem: quem recebe no WhatsApp
         # não tem o painel na frente para saber de que lista se trata.
-        abertura = (
-            f"*📋 Inscritos — {evento.nome}*\n"
-            f"_{total} inscrito{'' if total == 1 else 's'} · "
-            f"{len(familias)} inscriç{'ão' if len(familias) == 1 else 'ões'}_"
-        )
+        abertura = f"*📋 Inscritos — {evento.nome}*\n_{contagem}_"
         whatsapp = "\n\n".join([abertura] + familias)
+
     return {
         "total": total,
-        "qtd_inscricoes": len(familias),
+        "qtd_inscricoes": qtd,
         "tabela": "\n".join(linhas),
         "whatsapp": whatsapp,
+        "resumo": _resumo_inscritos_txt(
+            evento, total, qtd, plural_insc, diretoria, sem_faixa,
+            por_faixa, por_forma,
+            (fora_pessoas, fora_valor),
+            (parc_inscricoes, parc_valor, parc_vencidas),
+        ) if familias else "",
     }
+
+
+def _resumo_inscritos_txt(evento, total, qtd, plural_insc, diretoria, sem_faixa,
+                          por_faixa, por_forma, fora, parcelas):
+    """O texto do botão "Copiar resumo": os números do evento, sem nome de
+    ninguém (dá para mandar no grupo da diretoria sem expor as famílias).
+
+    Uma informação por linha, e não separadas por "·": a linha de uma faixa com
+    rótulo longo ou de quatro formas de pagamento passaria dos ~35 caracteres em
+    que o WhatsApp quebra no celular, e o corte cairia no meio de um número.
+
+    Recebe as contagens já feitas pelo `_export_inscritos_evento` — quem varre
+    as inscrições é ele, uma vez só."""
+    fora_pessoas, fora_valor = fora
+    parc_inscricoes, parc_valor, parc_vencidas = parcelas
+    linhas = [
+        f"*📊 Resumo — {evento.nome}*",
+        "",
+        f"*👥 {total} inscrito{'' if total == 1 else 's'}* em {qtd} {plural_insc}",
+    ]
+    # "Aventureiros" aqui é "todo o resto": participante que não é da diretoria.
+    if diretoria:
+        linhas.append(f"⛺ Diretoria: {diretoria}")
+        linhas.append(f"🧒 Aventureiros: {total - diretoria}")
+
+    # Faixas na ordem cadastrada no evento, e só as que têm gente — faixa vazia
+    # não é informação, é ruído.
+    faixas = []
+    for faixa in evento.faixas_preco.all():
+        quantos = por_faixa.get(faixa.id, 0)
+        if quantos:
+            faixas.append(f"{faixa.rotulo or faixa.faixa_txt}: {quantos}")
+    if diretoria:
+        faixas.append(f"Diretoria (valor próprio): {diretoria}")
+    if sem_faixa:
+        # Idade fora de todas as faixas do evento (ou sem idade informada):
+        # aparece porque é quase sempre erro de cadastro que alguém tem de ver.
+        faixas.append(f"Sem faixa: {sem_faixa}")
+    if faixas:
+        linhas += ["", "*Por faixa:*"] + faixas
+
+    pagamento = []
+    rotulos = dict(FORMA_PAGAMENTO_CHOICES)
+    emoji = {
+        "online": "🌐", "dinheiro": "💵", "pix": "💠",
+        "cartao": "💳", "cortesia": "🎁",
+    }
+    for chave, _rotulo in FORMA_PAGAMENTO_CHOICES:
+        quantos = por_forma.get(chave, 0)
+        if quantos:
+            pagamento.append(f"{emoji.get(chave, '•')} {rotulos[chave]}: {quantos}")
+    if fora_pessoas:
+        pagamento.append(
+            f"⚠️ Falta acertar (pago por fora): {fora_pessoas} "
+            f"pessoa{'' if fora_pessoas == 1 else 's'} — {_fmt_moeda(fora_valor)}"
+        )
+    if parc_inscricoes:
+        vencidas = f" ({parc_vencidas} vencida{'' if parc_vencidas == 1 else 's'})" if parc_vencidas else ""
+        pagamento.append(
+            f"📆 Parcelas em aberto: {parc_inscricoes} "
+            f"{'inscrição' if parc_inscricoes == 1 else 'inscrições'} — "
+            f"{_fmt_moeda(parc_valor)}{vencidas}"
+        )
+    if pagamento:
+        linhas += ["", "*Pagamento:*"] + pagamento
+
+    return "\n".join(linhas)
 
 def _notificar_inscricao_interna(evento_id, novo=""):
     """Manda a lista de inscritos ao integrante escolhido no evento. Usado pelo

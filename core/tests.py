@@ -3911,7 +3911,8 @@ class CopiarListaInscritosTests(TestCase):
         insc = Inscricao.objects.create(
             evento=self.ev, responsavel_nome=nome, responsavel_whatsapp=whatsapp,
             codigo=Inscricao.gerar_codigo_unico(),
-            status=kw.pop("status", "confirmada"), forma_pagamento="pix",
+            status=kw.pop("status", "confirmada"),
+            forma_pagamento=kw.pop("forma", "pix"),
             valor_total=Decimal("50.00"), **kw,
         )
         for p_nome, idade in participantes:
@@ -4032,6 +4033,161 @@ class CopiarListaInscritosTests(TestCase):
         self.assertEqual((dados["total"], dados["qtd_inscricoes"]), (0, 0))
         self.assertEqual(dados["whatsapp"], "")
 
+    # --- o resumo (só números, sem nomes) ---
+
+    def _faixas(self):
+        """Duas faixas na ordem cadastrada: a segunda com rótulo próprio."""
+        crianca = FaixaEtariaPreco.objects.create(
+            evento=self.ev, idade_min=6, idade_max=9, valor=Decimal("450"), ordem=1
+        )
+        juvenil = FaixaEtariaPreco.objects.create(
+            evento=self.ev, rotulo="Juvenis", idade_min=10, idade_max=15,
+            valor=Decimal("450"), ordem=2,
+        )
+        return crianca, juvenil
+
+    def test_resumo_conta_pessoas_e_nao_inscricoes(self):
+        """O ponto do pedido: "inscritos" é gente, não inscrição."""
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("*📊 Resumo — Aventuri*", resumo)
+        self.assertIn("*👥 3 inscritos* em 2 inscrições", resumo)
+
+    def test_resumo_no_singular(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self.assertIn(
+            "*👥 1 inscrito* em 1 inscrição",
+            views._export_inscritos_evento(self.ev)["resumo"],
+        )
+
+    def test_resumo_nao_leva_nome_de_ninguem(self):
+        """É o motivo de o resumo ser um botão separado: pode ir para um grupo
+        sem expor dados das famílias."""
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        for dado in ("Mae Um", "Ana", "99999-1111"):
+            self.assertNotIn(dado, resumo)
+
+    def test_resumo_separa_diretoria_de_aventureiros(self):
+        self._inscricao("Pai Diretor", "(16) 99999-1111",
+                        [("Pai Diretor", 40), ("Filho", 9)])
+        insc = self.ev.inscricoes.first()
+        p = insc.participantes.get(nome="Pai Diretor")
+        p.eh_diretoria = True
+        p.save(update_fields=["eh_diretoria"])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("⛺ Diretoria: 1", resumo)
+        self.assertIn("🧒 Aventureiros: 1", resumo)
+
+    def test_resumo_sem_diretoria_nao_mostra_a_linha(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertNotIn("Diretoria", resumo)
+        self.assertNotIn("Aventureiros", resumo)
+
+    def test_resumo_agrupa_pelas_faixas_do_evento_na_ordem_cadastrada(self):
+        crianca, juvenil = self._faixas()
+        insc = self._inscricao("Mae Um", "(16) 99999-1111",
+                               [("Ana", 8), ("Bruno", 12), ("Cris", 7)])
+        for nome, faixa in (("Ana", crianca), ("Bruno", juvenil), ("Cris", crianca)):
+            insc.participantes.filter(nome=nome).update(faixa=faixa)
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        corpo = resumo.split("*Por faixa:*")[1]
+        # Rótulo quando existe; senão a faixa de idades. E na ordem do evento.
+        self.assertIn("6 a 9 anos: 2", corpo)
+        self.assertIn("Juvenis: 1", corpo)
+        self.assertLess(corpo.index("6 a 9 anos"), corpo.index("Juvenis"))
+
+    def test_resumo_nao_conta_diretoria_dentro_de_faixa(self):
+        """Quem paga o valor da diretoria não tem faixa (o valor independe da
+        idade); contar nas duas somaria a mesma pessoa duas vezes."""
+        crianca, _ = self._faixas()
+        insc = self._inscricao("Pai Diretor", "(16) 99999-1111",
+                               [("Pai Diretor", 40), ("Filho", 8)])
+        insc.participantes.filter(nome="Pai Diretor").update(eh_diretoria=True)
+        insc.participantes.filter(nome="Filho").update(faixa=crianca)
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        corpo = resumo.split("*Por faixa:*")[1]
+        self.assertIn("6 a 9 anos: 1", corpo)
+        self.assertIn("Diretoria (valor próprio): 1", corpo)
+        self.assertNotIn("Sem faixa", corpo)
+
+    def test_resumo_mostra_quem_ficou_fora_das_faixas(self):
+        """Idade fora de todas as faixas é quase sempre erro de cadastro, e
+        alguém tem de ver."""
+        self._faixas()
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Bebe", 2)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("Sem faixa: 1", resumo)
+
+    def test_resumo_conta_pagamento_por_pessoa(self):
+        """A família de três que pagou no Pix são três pessoas pagas no Pix."""
+        self._inscricao("Mae Um", "(16) 99999-1111",
+                        [("Ana", 8), ("Bruno", 9), ("Cris", 10)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)],
+                        forma="cartao")
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("💠 Pix: 3", resumo)
+        self.assertIn("💳 Cartão: 1", resumo)
+        self.assertNotIn("Dinheiro", resumo)  # forma sem ninguém não aparece
+
+    def test_resumo_mostra_o_que_falta_acertar_por_fora_com_valor(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Bruno", 9)],
+                        pagamento_externo=True)
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("⚠️ Falta acertar (pago por fora): 2 pessoas — R$ 50,00", resumo)
+
+    def test_resumo_soma_a_lojinha_no_que_falta_acertar(self):
+        """Mesmo número do painel: o que falta acertar inclui a lojinha levada
+        junto da inscrição."""
+        insc = self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)],
+                               pagamento_externo=True)
+        PedidoLoja.objects.create(
+            evento=self.ev, inscricao=insc, comprador_nome="Mae Um",
+            codigo="PED001", status="confirmado", valor_total=Decimal("30.00"),
+        )
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("1 pessoa — R$ 80,00", resumo)
+
+    def test_resumo_nao_mostra_por_fora_ja_acertado(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)],
+                       pagamento_externo=True, pago_externo_em=timezone.now())
+        self.assertNotIn(
+            "Falta acertar", views._export_inscritos_evento(self.ev)["resumo"]
+        )
+
+    def test_resumo_conta_parcelas_em_aberto_e_vencidas(self):
+        """Parcela é por inscrição (é o valor da diretoria que se divide), então
+        esta linha é a única que não conta pessoas."""
+        insc = self._inscricao("Pai Diretor", "(16) 99999-1111", [("Pai", 40)])
+        hoje = timezone.localdate()
+        for numero, status, dias in ((1, "paga", -60), (2, "aberta", -10),
+                                     (3, "aberta", 20)):
+            ParcelaInscricao.objects.create(
+                inscricao=insc, numero=numero, total=3, valor=Decimal("112.50"),
+                vencimento=hoje + datetime.timedelta(days=dias), status=status,
+            )
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn(
+            "📆 Parcelas em aberto: 1 inscrição — R$ 225,00 (1 vencida)", resumo
+        )
+
+    def test_resumo_sem_pendencia_nao_inventa_linha(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertNotIn("Falta acertar", resumo)
+        self.assertNotIn("Parcelas em aberto", resumo)
+
+    def test_resumo_uma_informacao_por_linha(self):
+        """Linha curta é o que o WhatsApp do celular aceita sem quebrar no meio
+        de um número."""
+        self._faixas()
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertNotIn(" · ", resumo)
+        self.assertTrue(all(len(linha) <= 60 for linha in resumo.split("\n")))
+
     # --- o painel ---
 
     def test_painel_mostra_os_dois_botoes_com_o_texto_pronto(self):
@@ -4044,6 +4200,8 @@ class CopiarListaInscritosTests(TestCase):
         self.assertIn("Copiar para o WhatsApp", corpo)
         self.assertIn('id="exportListaTabela"', corpo)
         self.assertIn('id="exportListaWhatsapp"', corpo)
+        self.assertIn("Copiar resumo", corpo)
+        self.assertIn('id="exportListaResumo"', corpo)
         # O texto vai no HTML (o JS só copia), então o inscrito tem de estar lá.
         self.assertIn("Ana", corpo)
 

@@ -22,6 +22,80 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-18 - Eventos: botão "Copiar resumo" (números do evento, sem nomes)
+
+### Resumo
+Terceiro botão de cópia na aba **Inscrições**: **📈 Copiar resumo** leva só os **números** do evento e **nenhum
+nome** — dá para mandar no grupo da diretoria sem expor dados das famílias, e é o que serve para prestar contas
+à associação. O pedido do usuário foi explícito num ponto: **"inscritos" é gente, não inscrição** — o resumo
+conta **participantes**. Traz: total de pessoas (e em quantas inscrições), **diretoria × aventureiros**,
+**quantos por faixa de preço** do evento, **quantos por forma de pagamento**, **quanto falta acertar** de quem
+paga por fora e **quantas parcelas em aberto** (com o que venceu).
+
+Como fica:
+
+```
+*📊 Resumo — XVIII Aventuri APO 2026*
+
+*👥 8 inscritos* em 6 inscrições
+⛺ Diretoria: 2
+🧒 Aventureiros: 6
+
+*Por faixa:*
+6 a 9 anos: 3
+Juvenis: 2
+Diretoria (valor próprio): 2
+Sem faixa: 1
+
+*Pagamento:*
+🌐 Online (site): 3
+💵 Dinheiro: 1
+💠 Pix: 2
+💳 Cartão: 1
+🎁 Cortesia: 1
+⚠️ Falta acertar (pago por fora): 1 pessoa — R$ 450,00
+📆 Parcelas em aberto: 1 inscrição — R$ 337,50
+```
+
+### Arquivos alterados
+- `core/views.py`: `_export_inscritos_evento` passou a acumular as contagens no **mesmo laço** que já monta a
+  planilha e o texto do WhatsApp (nenhuma varredura extra) e devolve a chave **`resumo`**; o texto em si é
+  montado pelo novo **`_resumo_inscritos_txt`**. O `prefetch_related` ganhou `participantes__faixa` e
+  `pedidos`.
+- `templates/core/evento_painel.html`: terceiro botão + a `<textarea id="exportListaResumo">`.
+- `core/tests.py`: `CopiarListaInscritosTests` foi de 15 para **30 testes** (15 novos, só do resumo).
+- `static/js/evento_painel.js`: **nada** — o módulo já copia qualquer `.btn-copiar-lista`.
+
+### Decisões tomadas
+- **Botão separado, não resumo no topo da lista** (escolha do usuário entre as opções apresentadas): o resumo
+  sem nomes pode ir para um grupo onde a lista de crianças não pode ir. Um teste garante que nome de
+  responsável, de participante e telefone **não aparecem** no resumo.
+- **Pagamento contado em pessoas**, não em inscrições: se a família de três pagou no Pix, são três pessoas
+  pagas no Pix. A **exceção são as parcelas**, que existem por inscrição — é o valor da diretoria que se
+  divide —, e a linha diz "inscrições" para não confundir.
+- **Faixas do evento em vez de idade exata** (escolha do usuário): é mais curto e é o que casa com o dinheiro.
+  Usa o `rotulo` quando existe, senão a faixa de idades; **faixa sem ninguém não aparece** (ruído).
+- **Diretoria fora da contagem por faixa**: quem paga o valor da diretoria não tem faixa (o valor independe da
+  idade), então contar nas duas dimensões somaria a mesma pessoa duas vezes. Aparece na própria linha.
+- **"Sem faixa" aparece quando existe**: idade fora de todas as faixas (ou sem idade) é quase sempre erro de
+  cadastro, e alguém tem de ver.
+- **O que falta acertar usa `total_com_loja`** (inscrição + lojinha levada junto), o mesmo número que o painel
+  mostra no controle de "pago direto ao evento" — divergir do painel seria pior que não ter o número.
+- **Uma informação por linha**, sem juntar com "·": a linha de uma faixa com rótulo longo ou de quatro formas
+  de pagamento passaria dos ~35 caracteres em que o WhatsApp quebra no celular, e o corte cairia no meio de um
+  número. Um teste trava o tamanho das linhas em 60 caracteres.
+- **Linha que não tem número não é escrita**: sem diretoria, sem "⛺ Diretoria: 0"; sem pendência, sem "Falta
+  acertar". Resumo que mente por omissão de zero é melhor que resumo cheio de zeros.
+- **Nada de nova query**: as contagens saem do laço que já existia, e o que faltava (faixa de cada
+  participante, pedidos da lojinha) entrou no `prefetch_related`.
+
+### Pendências
+- **Não tem contagem por unidade** (as unidades do clube não estão ligadas ao participante da inscrição — o
+  vínculo participante × aventureiro é dívida antiga, a mesma que impede conferir quem é "diretoria" de fato).
+- **Check-in não entra** no resumo (existe `ParticipanteInscricao.presente`, e o painel já tem os contadores do
+  dia na aba própria).
+- Não há contagem de **idade exata** — ficou pela faixa. Se um dia a associação pedir por idade, é o mesmo laço.
+
 ## 2026-08-18 - Eventos: a cópia da lista sai formatada para o WhatsApp
 
 ### Resumo

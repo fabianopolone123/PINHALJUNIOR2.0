@@ -388,11 +388,13 @@
                         <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
                         {% if export_inscritos.total %}
                         {% comment %}
-                        Levar a lista para fora do sistema: "Copiar para planilha" sai em colunas
-                        (uma linha por pessoa, separada por TAB) e "Copiar para o WhatsApp" sai
-                        agrupada por família, com o negrito e as linhas curtas que a tela do
-                        celular pede. Os dois textos vêm prontos do servidor nas textarea abaixo,
-                        que ficam fora da tela (ver .copiar-fonte em eventos.css).
+                        Levar a lista para fora do sistema, um botão por destino: "Copiar para
+                        planilha" sai em colunas (uma linha por pessoa, separada por TAB);
+                        "Copiar para o WhatsApp" sai agrupada por família, com o negrito e as
+                        linhas curtas que a tela do celular pede; e "Copiar resumo" sai só com os
+                        números (nenhum nome — dá para mandar no grupo da diretoria). Os três
+                        textos vêm prontos do servidor nas textarea abaixo, que ficam fora da
+                        tela (ver .copiar-fonte em eventos.css).
                         {% endcomment %}
                         <div class="copiar-lista-acoes">
                             <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaTabela"
@@ -402,6 +404,10 @@
                             <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaWhatsapp"
                                     title="Agrupada por família e formatada para a tela do celular (negrito do WhatsApp, linhas curtas). É só colar na conversa.">
                                 <span aria-hidden="true">💬</span> Copiar para o WhatsApp
+                            </button>
+                            <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaResumo"
+                                    title="Só os números, sem nome de ninguém: inscritos (pessoas), por faixa, diretoria e situação do pagamento.">
+                                <span aria-hidden="true">📈</span> Copiar resumo
                             </button>
                         </div>
                         {% endif %}
@@ -414,6 +420,7 @@
                     </p>
                     <textarea id="exportListaTabela" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.tabela }}</textarea>
                     <textarea id="exportListaWhatsapp" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.whatsapp }}</textarea>
+                    <textarea id="exportListaResumo" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.resumo }}</textarea>
                     {% endif %}
                     {% if inscricoes %}
                     <div class="busca-box">
