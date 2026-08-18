@@ -1595,8 +1595,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (gateway) e loja oficial do clube (uniformes, separada).
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
 - **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
-- Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição, exportar
-  lista de inscritos, e-mail de confirmação.
+- Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição,
+  e-mail de confirmação. **Levar a lista para fora do sistema saiu em 2026-08-18** pelos botões de
+  cópia (colunas para planilha e agrupada para WhatsApp); exportação por **arquivo** (CSV) não foi
+  feita — só compensa se pedirem a lista com valores e situação de pagamento.
 - **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
   simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
