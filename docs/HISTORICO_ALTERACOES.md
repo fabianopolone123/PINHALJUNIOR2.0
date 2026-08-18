@@ -22,6 +22,49 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-18 - Evento encerrado para a família sai do menu do Responsável
+
+### Resumo
+No perfil **Responsável**, o evento só fica no menu lateral **enquanto ele pode se inscrever**. Vencido o prazo
+comum, o evento sai — inclusive (e principalmente) na janela extra **"só diretoria"**, que era o caso que
+confundia: o pai via "Aventuri" no menu, entrava, preenchia o formulário inteiro e só era recusado **no envio**.
+Os perfis da liderança (Diretor, Diretoria, Tesoureiro, Secretário, Professor) continuam vendo, porque são eles
+que podem inscrever nessa janela.
+
+O caso real que motivou: o **Aventuri 2026** ficou com prazo comum vencido em **16/08 23:59** e prazo da
+diretoria até **18/08 23:59** — dois dias em que a família via um evento em que não podia mais entrar.
+
+### Arquivos alterados
+- `core/context_processors.py`: `_eventos_menu(user)` virou `_eventos_menu(user, perfil)` e, no perfil
+  `PERFIL_RESPONSAVEL`, filtra por `evento.inscricoes_abertas()` (prazo **comum**). A chamada passa o
+  `perfil_ef`, o mesmo do seletor "Ver como" que já manda no resto do menu.
+- `core/tests.py`: `EventoNoMenuPorPerfilTests` (6 testes).
+
+### Decisões tomadas
+- **A regra é "a inscrição dele fechou", não "está na janela da diretoria"** (escolha do usuário entre as
+  opções apresentadas). Com a regra estreita, o evento **reapareceria** no menu no dia seguinte ao fim da
+  janela, já todo encerrado — sai e não volta é mais previsível.
+- **Só o menu muda; a página e o formulário ficam como estão** (decisão explícita do usuário): quem tem o
+  **link direto** abre a página, abre o formulário e se inscreve, sem gating por perfil. Há teste fixando isso
+  (`test_pagina_do_evento_continua_abrindo_por_link_direto`) para ninguém "consertar" por engano depois. A
+  consequência conhecida é a brecha antiga: quem marca "diretoria" passa, porque o sistema não confere.
+- **A regra segue o perfil EFETIVO** (`perfil_efetivo`, o seletor "Ver como"), não os grupos do usuário: sem
+  isso o Diretor que também é pai não conseguiria conferir o que a família vê.
+- **Prazo comum, não o da diretoria**, no filtro: é o prazo que vale para a família — usar
+  `inscricoes_abertas(tem_diretoria=True)` manteria o evento no menu dela durante a janela extra, que é
+  exatamente o que se quis tirar.
+- **Filtro em Python, não no banco**: `inscricoes_abertas()` compara prazo efetivo com fallback para o fim do
+  evento, e reproduzir isso em SQL duplicaria a regra. A lista do menu tem poucos eventos (só os que ainda vão
+  acontecer).
+
+### Pendências
+- **A família já inscrita também perde o atalho** — chega à página do evento só por link, e ela ainda precisa
+  dela (local, mapa, lojinha, informações do dia). A variante "esconde de quem não vai, mantém para quem já tem
+  inscrição no evento" foi apresentada e o usuário preferiu a regra simples; se incomodar quando o Aventuri se
+  aproximar, é uma condição a mais (`Inscricao.usuario`, que só existe em quem se inscreveu logado).
+- Nada muda para **visitante não logado**: o menu não existe para ele, e a página segue pública conforme o
+  evento.
+
 ## 2026-08-18 - O resumo passa a listar os participantes por faixa de preço
 
 ### Resumo

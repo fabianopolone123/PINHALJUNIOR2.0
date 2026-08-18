@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from .menus import (
     ICONE_PERFIL,
+    PERFIL_RESPONSAVEL,
     itens_menu_do_perfil,
     perfil_efetivo,
     perfis_do_usuario,
@@ -14,19 +15,33 @@ from .models import Evento, OperadorEvento
 from .permissoes import eh_diretor
 
 
-def _eventos_menu(user):
+def _eventos_menu(user, perfil=None):
     """Eventos com inscrição ainda **não encerrados** (data futura ou em
-    andamento), para aparecerem no menu de todos os perfis logados. Eventos
-    passados somem sozinhos; eventos **inativos** também (o Diretor desligou o
-    evento — ver `Evento.ativo`)."""
+    andamento), para aparecerem no menu dos perfis logados. Eventos passados
+    somem sozinhos; eventos **inativos** também (o Diretor desligou o evento —
+    ver `Evento.ativo`).
+
+    No perfil **Responsável** o evento também sai quando a inscrição DELE
+    fecha (o prazo comum, `inscricoes_abertas()`): oferecer no menu um evento
+    em que a família não pode mais entrar só gera a viagem perdida de
+    preencher o formulário e ser recusado no envio. Pega inclusive a janela
+    extra **"só diretoria"** — que foi o caso que confundiu — e continua
+    valendo depois dela, para o evento não reaparecer no dia seguinte.
+
+    Os perfis da liderança seguem vendo (podem inscrever nessa janela), e a
+    **página do evento continua acessível por link direto** — quem tem o link
+    ainda se inscreve, sem gating por perfil (decisão do usuário em 18/08)."""
     if not getattr(user, "is_authenticated", False):
         return []
     hoje = timezone.localdate()
-    return list(
+    eventos = list(
         Evento.objects.filter(tipo="inscricao", demo=False, ativo=True)
         .filter(Q(data_fim__gte=hoje) | Q(data_fim__isnull=True, data__gte=hoje))
         .order_by("data", "horario_inicio")
     )
+    if perfil == PERFIL_RESPONSAVEL:
+        eventos = [ev for ev in eventos if ev.inscricoes_abertas()]
+    return eventos
 
 
 def perfis(request):
@@ -45,7 +60,7 @@ def perfis(request):
         "perfil_atual": perfil_ef,
         "menu_itens": itens_menu_do_perfil(perfil_ef),
         "perfis_disponiveis": perfis_sel,   # vazio quando só há 1 perfil
-        "eventos_menu": _eventos_menu(user),
+        "eventos_menu": _eventos_menu(user, perfil_ef),
         "operador_eventos": [],
         "eh_operador_externo": False,
     }

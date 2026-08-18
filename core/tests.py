@@ -4317,3 +4317,105 @@ class CopiarListaInscritosTests(TestCase):
         self.client.force_login(self.diretor)
         r = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
         self.assertNotIn("Copiar para o WhatsApp", r.content.decode())
+
+
+class EventoNoMenuPorPerfilTests(TestCase):
+    """Evento no menu lateral: o Responsável só vê enquanto PODE se inscrever.
+
+    Vencido o prazo comum, o evento sai do menu dele — inclusive na janela extra
+    "só diretoria", que era o que confundia (o pai via o evento, entrava, preenchia
+    e só era recusado no envio). Os perfis da liderança continuam vendo, porque
+    podem inscrever nessa janela. A página do evento segue acessível por link
+    direto: quem tem o link ainda se inscreve, sem gating por perfil.
+    """
+
+    def setUp(self):
+        self.agora = timezone.now()
+        # Responsável "implícito": tem aventureiro, então o perfil padrão é ele.
+        self.pai = User.objects.create_user(username="pai_menu", password="123456")
+        Aventureiro.objects.create(
+            usuario=self.pai, nome_completo="Filho Teste", sexo="M",
+            data_nascimento=datetime.date(2018, 3, 1), cpf="777",
+            resp_nome="Pai Menu", resp_cpf="778", resp_whatsapp="4799",
+            resp_email="pai@exemplo.com",
+        )
+        self.diretor = User.objects.create_user(username="dir_menu", password="123456")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+
+    def _evento(self, **kw):
+        return Evento.objects.create(
+            tipo="inscricao", nome=kw.pop("nome", "Aventuri"), local="Campo",
+            data=timezone.localdate() + datetime.timedelta(days=50),
+            inscricao_aberta_publico=True, **kw,
+        )
+
+    def _menu(self, user):
+        """Nomes dos eventos que aparecem no menu para este usuário."""
+        self.client.force_login(user)
+        r = self.client.get(reverse("core:inicio"))
+        self.assertEqual(r.status_code, 200)
+        return [ev.nome for ev in r.context["eventos_menu"]]
+
+    def test_inscricao_aberta_aparece_para_todos(self):
+        self._evento(inscricao_limite=self.agora + datetime.timedelta(days=2))
+        self.assertIn("Aventuri", self._menu(self.pai))
+        self.assertIn("Aventuri", self._menu(self.diretor))
+
+    def test_janela_so_diretoria_sai_do_menu_do_responsavel(self):
+        """O caso real do Aventuri 2026: prazo comum vencido, o da diretoria de pé."""
+        ev = self._evento(
+            inscricao_limite=self.agora - datetime.timedelta(days=1),
+            inscricao_limite_diretoria=self.agora + datetime.timedelta(days=1),
+        )
+        self.assertTrue(ev.so_diretoria_pode_inscrever)
+        self.assertNotIn("Aventuri", self._menu(self.pai))
+        self.assertIn("Aventuri", self._menu(self.diretor))
+
+    def test_depois_da_janela_o_evento_nao_volta_para_o_responsavel(self):
+        """Sem isto o evento reapareceria no dia seguinte, já todo encerrado."""
+        self._evento(
+            inscricao_limite=self.agora - datetime.timedelta(days=3),
+            inscricao_limite_diretoria=self.agora - datetime.timedelta(days=1),
+        )
+        self.assertNotIn("Aventuri", self._menu(self.pai))
+        self.assertIn("Aventuri", self._menu(self.diretor))
+
+    def test_evento_sem_prazo_proprio_continua_no_menu(self):
+        """Sem prazo cadastrado o limite é o fim do evento, que ainda vem."""
+        self._evento()
+        self.assertIn("Aventuri", self._menu(self.pai))
+
+    def test_diretor_vendo_como_responsavel_tambem_perde_o_evento(self):
+        """O seletor "Ver como" manda no menu — inclusive nisto, senão o Diretor
+        não conseguiria conferir o que a família vê."""
+        self._evento(
+            inscricao_limite=self.agora - datetime.timedelta(days=1),
+            inscricao_limite_diretoria=self.agora + datetime.timedelta(days=1),
+        )
+        from .menus import PERFIL_ATIVO_KEY, PERFIL_RESPONSAVEL
+        # Só quem TEM os dois papéis alterna: o Diretor que também é pai.
+        Aventureiro.objects.create(
+            usuario=self.diretor, nome_completo="Filha do Diretor", sexo="F",
+            data_nascimento=datetime.date(2017, 5, 2), cpf="881",
+            resp_nome="Dir Menu", resp_cpf="882", resp_whatsapp="4788",
+            resp_email="dir@exemplo.com",
+        )
+        self.client.force_login(self.diretor)
+        sessao = self.client.session
+        sessao[PERFIL_ATIVO_KEY] = PERFIL_RESPONSAVEL
+        sessao.save()
+        r = self.client.get(reverse("core:inicio"))
+        self.assertEqual(r.context["perfil_atual"], PERFIL_RESPONSAVEL)
+        self.assertNotIn("Aventuri", [ev.nome for ev in r.context["eventos_menu"]])
+
+    def test_pagina_do_evento_continua_abrindo_por_link_direto(self):
+        """Decisão do usuário: esconder só do menu. Quem tem o link se inscreve."""
+        ev = self._evento(
+            inscricao_limite=self.agora - datetime.timedelta(days=1),
+            inscricao_limite_diretoria=self.agora + datetime.timedelta(days=1),
+        )
+        self.client.force_login(self.pai)
+        r = self.client.get(reverse("core:evento_pagina", args=[ev.id]))
+        self.assertEqual(r.status_code, 200)
+        r2 = self.client.get(reverse("core:evento_inscrever", args=[ev.id]))
+        self.assertEqual(r2.status_code, 200)

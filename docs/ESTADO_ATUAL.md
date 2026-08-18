@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-18 (**Eventos: copiar a lista de inscritos — planilha, WhatsApp e resumo**): a
+**Última atualização:** 2026-08-18 (**Evento encerrado para a família sai do menu do Responsável**): no perfil
+**Responsável**, o evento com inscrição só fica no menu lateral **enquanto ele pode se inscrever** — vencido o
+**prazo comum** (`inscricoes_abertas()`), sai. Pega principalmente a janela extra **"só diretoria"**, que era o
+caso que confundia: no Aventuri 2026 o prazo comum venceu em 16/08 23:59 e o da diretoria ia até 18/08 23:59, e
+nesses dois dias a família via no menu um evento em que não podia mais entrar — entrava, preenchia o formulário
+inteiro e só era recusada **no envio**. A regra é "a inscrição dele fechou", **não** "está na janela da
+diretoria": com a regra estreita o evento **reapareceria** no dia seguinte, já todo encerrado. Segue o perfil
+**efetivo** (o seletor "Ver como"), senão o Diretor que também é pai não conseguiria conferir o que a família vê;
+os perfis da liderança continuam vendo, porque são eles que inscrevem nessa janela. **Só o menu muda** (decisão
+explícita do usuário): a página do evento e o formulário ficam como estão, e **quem tem o link direto se inscreve**
+sem gating por perfil — há teste fixando isso. Consequência aceita: a família **já inscrita** também perde o
+atalho e chega à página só por link. Suíte: **338 testes OK**. Antes: os três botões de cópia da lista de
+inscritos.
+
+**Anterior (Eventos: copiar a lista de inscritos — planilha, WhatsApp e resumo):** a
 aba **Inscrições** do painel ganhou **três botões de cópia**, um por destino, que era o que faltava para levar a
 lista de inscritos **para fora do sistema**. **📊 Copiar para planilha** copia **colunas separadas por TAB**
 (cabeçalho + uma linha por **pessoa**: nº, participante, idade, WhatsApp, inscrição, responsável) — Excel e
@@ -1221,10 +1235,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   (se marcado, o campo é perguntado em cada participante; senão, uma vez, junto do responsável). Os
   campos são adicionados por modal, **reordenáveis** (▲▼) e removíveis.
 - **Evento complexo — Fase 2.3 (evento no menu de todos os perfis + página do evento)**: todo evento
-  com inscrição **ainda não encerrado** aparece numa seção **"Eventos ativos"** no menu lateral de
-  **todos os perfis logados** (responsável, diretor, tesoureiro, secretário, professor), com o nome do
-  evento levando à **página do evento** (`/eventos/<id>/pagina/`). Eventos passados somem do menu
-  sozinhos. A página do evento é uma **página própria** (sem a barra lateral) com nome, descrição,
+  com inscrição **ainda não encerrado** aparece numa seção **"Eventos ativos"** no menu lateral dos
+  perfis logados, com o nome do evento levando à **página do evento** (`/eventos/<id>/pagina/`).
+  Eventos passados somem do menu sozinhos. **No perfil Responsável** o evento sai também quando a
+  inscrição **dele** fecha (prazo comum), o que inclui a janela extra "só diretoria" — os perfis da
+  liderança continuam vendo, e a página segue acessível por **link direto** (só o menu filtra). A página do evento é uma **página própria** (sem a barra lateral) com nome, descrição,
   local (com botão **"Ver no mapa"** que abre o Google Maps no endereço), datas/horários, **status**
   das inscrições (aberto/encerrado + prazo), **valores** (faixas + diretoria) e **preview dos campos**
   do formulário. **Acesso**: evento **aberto ao público** → sem login; **só membros** → exige login.
