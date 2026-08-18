@@ -2,25 +2,29 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-18 (**Eventos: copiar a lista de inscritos**): a aba **Inscrições** do painel
-ganhou dois botões de cópia — **📋 Copiar lista** e **📋 Copiar por inscrição** —, que era o que faltava para
-levar a lista de inscritos **para fora do sistema** com **telefone** e **número (código) da inscrição**. São
-dois formatos porque são dois usos: a versão em **colunas separadas por TAB** (cabeçalho + uma linha por
-**pessoa**: nº, participante, idade, WhatsApp, inscrição, responsável) cola direto em **planilha** — Excel e
-Google Sheets quebram em colunas ao colar texto tabulado, sem passar por importação de CSV —, e a versão
-**agrupada por inscrição** (responsável + WhatsApp + código numa linha, participantes com idade abaixo) é a que
-se lê no **WhatsApp**, um contato por família. Decisões que importam: **copiar em vez de baixar arquivo** (foi o
-pedido, e evita rota nova e o "onde foi salvo?" no celular); o **texto é montado no servidor**
-(`_export_inscritos_evento`, que reaproveita o `_participantes_txt` do aviso interno) e não raspado do DOM — a
-lista da tela tem pills, selos e `<details>`, e um texto tirado do HTML quebraria no próximo ajuste visual, então
-**o JS só copia**; na versão em colunas o **WhatsApp repete em cada participante** da mesma inscrição, porque na
-planilha cada linha tem de se sustentar sozinha (célula vazia estragaria filtro e ordenação); a **numeração é a
-do aviso interno** (ordem de `criado_em`), então o "nº 3" da planilha e o "3)" do texto agrupado falam da mesma
-gente. **Só inscrição confirmada** entra — cancelada não é inscrito —, inclusive quem vai **pagar por fora**:
-para contato o que importa é estar inscrito (a lista de pendência de pagamento continua sendo o aviso interno). O
-texto pronto vai no HTML em duas `<textarea>` **fora da tela** (não `hidden`: a cópia de reserva precisa de
-`select()` num campo que exista de fato) e os botões só aparecem quando há alguém confirmado. Nada de model,
-migration ou rota nova. Suíte: **306 testes OK** (295 + 11). Antes: prazo de inscrição próprio da diretoria.
+**Última atualização:** 2026-08-18 (**Eventos: copiar a lista de inscritos — planilha e WhatsApp**): a aba
+**Inscrições** do painel ganhou dois botões de cópia, que era o que faltava para levar a lista de inscritos
+**para fora do sistema** com **telefone** e **número (código) da inscrição**. São dois porque são dois destinos,
+e o rótulo diz qual: **📊 Copiar para planilha** copia **colunas separadas por TAB** (cabeçalho + uma linha por
+**pessoa**: nº, participante, idade, WhatsApp, inscrição, responsável) — Excel e Google Sheets quebram em colunas
+ao colar texto tabulado, sem passar por importação de CSV; **💬 Copiar para o WhatsApp** copia a lista **agrupada
+por família e formatada para a tela do celular**, que é o destino real da lista (pedido do usuário no mesmo dia):
+cabeçalho com **nome do evento e contagem** (`*📋 Inscritos — evento*` / `_N inscritos · N inscrições_`) e
+**três linhas curtas por família** — nome em **negrito**, `📱 contato · 🎟️ código`, e os participantes com a
+idade entre parênteses. O desenho é curto de propósito: o WhatsApp quebra linha por volta de **35 caracteres**, e
+a versão anterior (`1) Nome — telefone — código`, participantes indentados) partia no meio no celular. Usa o
+negrito e o itálico **do próprio WhatsApp** — fora dele aparecem como asterisco e sublinhado, e isso é aceitável
+porque o botão tem destino declarado. Outras decisões: o **texto é montado no servidor**
+(`_export_inscritos_evento`) e **não raspado do DOM** — a lista da tela tem pills, selos e `<details>`, e um
+texto tirado do HTML quebraria no próximo ajuste visual, então **o JS só copia**; na versão em colunas o
+**WhatsApp repete em cada participante** da mesma inscrição, porque na planilha cada linha tem de se sustentar
+sozinha (célula vazia estragaria filtro e ordenação); a **numeração é a do aviso interno** (ordem de
+`criado_em`), então o "nº 3" da planilha e o "3." do WhatsApp falam da mesma gente. **Só inscrição confirmada**
+entra — cancelada não é inscrito —, inclusive quem vai **pagar por fora**: para contato o que importa é estar
+inscrito (a lista de pendência de pagamento continua sendo o aviso interno). Os dois textos vão prontos no HTML
+em `<textarea>` **fora da tela** (não `hidden`: a cópia de reserva precisa de `select()` num campo que exista de
+fato) e os botões só aparecem quando há alguém confirmado. Nada de model, migration ou rota nova. Suíte: **310
+testes OK** (295 + 15). Antes: prazo de inscrição próprio da diretoria.
 
 **Anterior (Eventos: prazo de inscrição próprio da diretoria):** o evento ganhou um
 **segundo prazo de inscrição, só para quem inclui alguém da diretoria**
@@ -1222,11 +1226,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   e o **Resumo** conta **inscritos** (participantes confirmados) e **arrecadação** de verdade. Acesso:
   público sem login se aberto ao público, senão exige login; após o prazo, o formulário trava.
 - **Evento complexo — copiar a lista de inscritos**: no cabeçalho da sub-aba "Lista de inscrições", dois
-  botões levam a lista para fora do sistema, sem gerar arquivo. **📋 Copiar lista** copia uma linha por
-  **pessoa** inscrita, em **colunas separadas por TAB** (nº, participante, idade, WhatsApp, inscrição,
-  responsável) — cola direto em planilha (Excel/Sheets quebram em colunas ao colar texto tabulado). **📋
-  Copiar por inscrição** copia a lista **agrupada por família** (responsável + WhatsApp + código numa linha,
-  participantes com idade abaixo), no mesmo desenho do aviso interno — é o formato de colar no WhatsApp. Só
+  botões levam a lista para fora do sistema, sem gerar arquivo, e o rótulo diz o destino. **📊 Copiar para
+  planilha** copia uma linha por **pessoa** inscrita, em **colunas separadas por TAB** (nº, participante,
+  idade, WhatsApp, inscrição, responsável) — Excel/Sheets quebram em colunas ao colar texto tabulado. **💬
+  Copiar para o WhatsApp** copia a lista **agrupada por família e formatada para a tela do celular**:
+  cabeçalho com nome do evento e contagem, e três linhas curtas por família (nome em negrito,
+  `📱 contato · 🎟️ código`, participantes com a idade entre parênteses) — usa o negrito do próprio
+  WhatsApp, e linha curta porque o app quebra por volta de 35 caracteres no celular. Só
   inscrição **confirmada** entra (cancelada fica fora; quem vai pagar por fora entra, porque está inscrito) e
   os botões só aparecem quando há alguém confirmado. O texto é montado no **servidor**
   (`_export_inscritos_evento`) e vai no HTML em `<textarea class="copiar-fonte">` fora da tela; o JS só copia,

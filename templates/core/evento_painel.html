@@ -388,20 +388,20 @@
                         <h3 class="secao-titulo">Lista de inscrições ({{ inscricoes|length }})</h3>
                         {% if export_inscritos.total %}
                         {% comment %}
-                        Levar a lista para fora do sistema: "Copiar lista" sai em colunas
-                        (uma linha por pessoa, separada por TAB — cola direto em planilha) e
-                        "Copiar por inscrição" sai agrupada por família, do jeito que se lê no
-                        WhatsApp. Os dois textos vêm prontos do servidor nas textarea abaixo,
+                        Levar a lista para fora do sistema: "Copiar para planilha" sai em colunas
+                        (uma linha por pessoa, separada por TAB) e "Copiar para o WhatsApp" sai
+                        agrupada por família, com o negrito e as linhas curtas que a tela do
+                        celular pede. Os dois textos vêm prontos do servidor nas textarea abaixo,
                         que ficam fora da tela (ver .copiar-fonte em eventos.css).
                         {% endcomment %}
                         <div class="copiar-lista-acoes">
                             <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaTabela"
                                     title="Uma linha por inscrito, em colunas (nº, participante, idade, WhatsApp, inscrição, responsável) — cola em planilha.">
-                                <span aria-hidden="true">📋</span> Copiar lista
+                                <span aria-hidden="true">📊</span> Copiar para planilha
                             </button>
-                            <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaGrupos"
-                                    title="Agrupada por inscrição: responsável, WhatsApp e código numa linha, participantes abaixo.">
-                                <span aria-hidden="true">📋</span> Copiar por inscrição
+                            <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportListaWhatsapp"
+                                    title="Agrupada por família e formatada para a tela do celular (negrito do WhatsApp, linhas curtas). É só colar na conversa.">
+                                <span aria-hidden="true">💬</span> Copiar para o WhatsApp
                             </button>
                         </div>
                         {% endif %}
@@ -413,7 +413,7 @@
                         confirmada{{ export_inscritos.qtd_inscricoes|pluralize }} — canceladas ficam fora da cópia.
                     </p>
                     <textarea id="exportListaTabela" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.tabela }}</textarea>
-                    <textarea id="exportListaGrupos" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.grupos }}</textarea>
+                    <textarea id="exportListaWhatsapp" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ export_inscritos.whatsapp }}</textarea>
                     {% endif %}
                     {% if inscricoes %}
                     <div class="busca-box">

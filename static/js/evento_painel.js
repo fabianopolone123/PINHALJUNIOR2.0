@@ -207,8 +207,9 @@
 })();
 
 /* =========================================================
-   Copiar a lista de inscritos (aba Inscrições): "Copiar lista" (colunas,
-   uma linha por pessoa) e "Copiar por inscrição" (agrupada por família).
+   Copiar a lista de inscritos (aba Inscrições): "Copiar para planilha"
+   (colunas, uma linha por pessoa) e "Copiar para o WhatsApp" (agrupada por
+   família, já formatada para a tela do celular).
    O texto já vem montado do servidor numa <textarea class="copiar-fonte">;
    aqui só se copia. Mesmo caminho do "Copiar" do código Pix
    (evento_pagamento.js): clipboard quando existe, seleção + execCommand

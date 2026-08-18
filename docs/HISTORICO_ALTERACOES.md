@@ -22,6 +22,63 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-18 - Eventos: a cópia da lista sai formatada para o WhatsApp
+
+### Resumo
+Ajuste de rumo no mesmo dia da entrega anterior, a pedido do usuário: **o destino real da lista é o WhatsApp**.
+A cópia agrupada saía num desenho de terminal (`1) Nome — telefone — código`, com os participantes indentados)
+que **parte no meio** na tela do celular, onde o WhatsApp quebra linha por volta de 35 caracteres. Agora sai
+formatada para lá: cabeçalho com o **nome do evento e a contagem**, e **três linhas curtas por família** — nome
+em **negrito**, `📱 contato · 🎟️ código`, e os participantes com a idade entre parênteses. Os botões passaram a
+dizer o destino: **📊 Copiar para planilha** e **💬 Copiar para o WhatsApp**.
+
+Como fica:
+
+```
+*📋 Inscritos — XVIII Aventuri APO 2026*
+_4 inscritos · 3 inscrições_
+
+*1. Marcos Souza*
+📱 (16) 99999-1111 · 🎟️ MN976R
+👤 Ana Souza (12), Bruno Souza (9)
+
+*2. Rita Lima*
+📱 (16) 98888-2222 · 🎟️ 2YRP6Z
+👤 Carla Lima (10)
+```
+
+### Arquivos alterados
+- `core/views.py`: em `_export_inscritos_evento`, a chave `grupos` virou **`whatsapp`** e passou a montar o
+  cabeçalho (`*📋 Inscritos — evento*` + `_N inscritos · N inscrições_`) e o bloco de três linhas por família.
+  Deixou de usar o `_participantes_txt` (que segue servindo o aviso interno, com outro desenho).
+- `templates/core/evento_painel.html`: rótulos e `title` dos dois botões, `id` da textarea
+  (`exportListaGrupos` → `exportListaWhatsapp`) e o comentário da seção.
+- `static/js/evento_painel.js`: só o comentário do módulo (o código não olha o formato, apenas copia).
+- `core/tests.py`: `CopiarListaInscritosTests` foi de 11 para **15 testes** — cabeçalho com evento e contagem,
+  singular/plural do cabeçalho, as três linhas por família, a linha em branco entre famílias, participante sem
+  idade (nada de `()` nem `None`) e a numeração casando entre os dois textos.
+
+### Decisões tomadas
+- **Negrito e itálico do WhatsApp** (`*nome*`, `_resumo_`): fora do WhatsApp aparecem como asterisco e
+  sublinhado mesmo, e isso é aceitável — este botão **tem um destino declarado**. Quem quer texto cru para
+  outro lugar usa o de planilha.
+- **Três linhas curtas em vez de uma longa**: foi a escolha do usuário entre os desenhos apresentados. Numa
+  lista de 50 inscrições, uma linha por participante encheria a tela de rolagem; juntar os participantes numa
+  linha só (`👤 Ana (12), Bruno (9)`) mantém a família legível de um olhar.
+- **Cabeçalho com nome do evento e contagem**: quem recebe a lista no WhatsApp não tem o painel na frente
+  para saber de que evento se trata, nem se a lista chegou inteira.
+- **Idade entre parênteses, sem "anos"**: encurta a linha, que é o recurso escasso no celular.
+- **Rótulos dizem o destino** ("para planilha" / "para o WhatsApp") em vez da forma ("lista" / "por
+  inscrição"): quem abre o painel escolhe pelo lugar onde vai colar, não pelo formato do texto.
+- O botão de **planilha não mudou**: TAB continua sendo o que Excel e Sheets entendem ao colar.
+
+### Pendências
+- As mesmas de antes: WhatsApp sai como foi digitado na inscrição, sem coluna de valor/situação e sem filtro
+  por faixa ou unidade.
+- Lista muito grande **não é partida** em várias mensagens (o WhatsApp aceita bem mais texto colado do que a
+  API envia, então isso só apareceria num evento gigante). Se virar problema, o `_partir_texto_whatsapp` do
+  aviso interno já resolve o mesmo tipo de caso.
+
 ## 2026-08-18 - Eventos: copiar a lista de inscritos (planilha e por inscrição)
 
 ### Resumo

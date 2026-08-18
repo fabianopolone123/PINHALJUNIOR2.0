@@ -3890,9 +3890,9 @@ class CopiarListaInscritosTests(TestCase):
     """Botão "copiar a lista de inscritos" no painel do evento.
 
     São dois textos montados no servidor: `tabela` (uma linha por PESSOA, em
-    colunas separadas por TAB, para colar em planilha) e `grupos` (agrupada por
-    inscrição, para ler no WhatsApp). Cancelada não é inscrito e fica fora dos
-    dois.
+    colunas separadas por TAB, para colar em planilha) e `whatsapp` (agrupada por
+    família e formatada para a tela do celular). Cancelada não é inscrito e fica
+    fora dos dois.
     """
 
     def setUp(self):
@@ -3963,27 +3963,59 @@ class CopiarListaInscritosTests(TestCase):
         self._inscricao("Mae Um", "   ", [("Ana", 8)])
         dados = views._export_inscritos_evento(self.ev)
         self.assertEqual(dados["tabela"].split("\n")[1].split("\t")[3], "sem WhatsApp")
-        self.assertIn("sem WhatsApp", dados["grupos"])
+        self.assertIn("sem WhatsApp", dados["whatsapp"])
 
-    # --- o texto agrupado (WhatsApp) ---
+    # --- o texto do WhatsApp ---
 
-    def test_grupos_juntam_responsavel_contato_e_codigo(self):
+    def test_whatsapp_abre_com_o_evento_e_a_contagem(self):
+        """Quem recebe no WhatsApp não tem o painel na frente para saber de que
+        lista se trata."""
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)])
+        texto = views._export_inscritos_evento(self.ev)["whatsapp"]
+        linhas = texto.split("\n")
+        self.assertEqual(linhas[0], "*📋 Inscritos — Aventuri*")
+        self.assertEqual(linhas[1], "_3 inscritos · 2 inscrições_")
+
+    def test_whatsapp_cabecalho_no_singular_com_um_inscrito(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        texto = views._export_inscritos_evento(self.ev)["whatsapp"]
+        self.assertIn("_1 inscrito · 1 inscrição_", texto)
+
+    def test_whatsapp_tem_tres_linhas_curtas_por_familia(self):
+        """O desenho é para a tela do celular: nome em negrito, contato + código
+        e os participantes — cada um numa linha, que o WhatsApp não parte."""
         insc = self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8), ("Pedro", 11)])
-        grupos = views._export_inscritos_evento(self.ev)["grupos"]
-        self.assertIn(f"1) Mae Um — (16) 99999-1111 — {insc.codigo}", grupos)
-        self.assertIn("• Ana, 8 anos", grupos)
-        self.assertIn("• Pedro, 11 anos", grupos)
+        texto = views._export_inscritos_evento(self.ev)["whatsapp"]
+        familia = texto.split("\n\n")[1].split("\n")
+        self.assertEqual(familia[0], "*1. Mae Um*")
+        self.assertEqual(familia[1], f"📱 (16) 99999-1111 · 🎟️ {insc.codigo}")
+        self.assertEqual(familia[2], "👤 Ana (8), Pedro (11)")
+
+    def test_whatsapp_separa_familias_por_linha_em_branco(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
+        self._inscricao("Pai Dois", "(16) 98888-2222", [("Lia", 6)])
+        blocos = views._export_inscritos_evento(self.ev)["whatsapp"].split("\n\n")
+        self.assertEqual(len(blocos), 3)  # abertura + 2 famílias
+        self.assertTrue(blocos[1].startswith("*1. Mae Um*"))
+        self.assertTrue(blocos[2].startswith("*2. Pai Dois*"))
+
+    def test_whatsapp_sem_idade_nao_mostra_parenteses_vazio(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", None)])
+        texto = views._export_inscritos_evento(self.ev)["whatsapp"]
+        self.assertIn("👤 Ana\n", texto + "\n")
+        self.assertNotIn("()", texto)
+        self.assertNotIn("None", texto)
 
     def test_numeracao_segue_a_ordem_de_inscricao_nos_dois_textos(self):
-        """O "nº 3" da planilha e o "3)" do agrupado têm de falar da mesma
+        """O "nº 3" da planilha e o "3." do WhatsApp têm de falar da mesma
         gente — a ordem é a de inscrição, como no aviso da diretoria."""
         self._inscricao("Primeira", "(16) 90000-0001", [("Um", 7)])
         self._inscricao("Segunda", "(16) 90000-0002", [("Dois", 8)])
         self._inscricao("Terceira", "(16) 90000-0003", [("Tres", 9)])
         dados = views._export_inscritos_evento(self.ev)
         self.assertTrue(dados["tabela"].split("\n")[3].startswith("3\tTres\t"))
-        self.assertIn("3) Terceira", dados["grupos"])
-
+        self.assertIn("*3. Terceira*", dados["whatsapp"])
     # --- o que fica de fora ---
 
     def test_cancelada_fica_fora_das_duas_listas(self):
@@ -3993,12 +4025,12 @@ class CopiarListaInscritosTests(TestCase):
         dados = views._export_inscritos_evento(self.ev)
         self.assertEqual(dados["total"], 1)
         self.assertNotIn("Zeca", dados["tabela"])
-        self.assertNotIn("Zeca", dados["grupos"])
+        self.assertNotIn("Zeca", dados["whatsapp"])
 
     def test_evento_sem_inscricao_nao_gera_lista(self):
         dados = views._export_inscritos_evento(self.ev)
         self.assertEqual((dados["total"], dados["qtd_inscricoes"]), (0, 0))
-        self.assertEqual(dados["grupos"], "")
+        self.assertEqual(dados["whatsapp"], "")
 
     # --- o painel ---
 
@@ -4008,10 +4040,10 @@ class CopiarListaInscritosTests(TestCase):
         r = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
         self.assertEqual(r.status_code, 200)
         corpo = r.content.decode()
-        self.assertIn("Copiar lista", corpo)
-        self.assertIn("Copiar por inscrição", corpo)
+        self.assertIn("Copiar para planilha", corpo)
+        self.assertIn("Copiar para o WhatsApp", corpo)
         self.assertIn('id="exportListaTabela"', corpo)
-        self.assertIn('id="exportListaGrupos"', corpo)
+        self.assertIn('id="exportListaWhatsapp"', corpo)
         # O texto vai no HTML (o JS só copia), então o inscrito tem de estar lá.
         self.assertIn("Ana", corpo)
 
@@ -4020,4 +4052,4 @@ class CopiarListaInscritosTests(TestCase):
                         status="cancelada")
         self.client.force_login(self.diretor)
         r = self.client.get(reverse("core:evento_painel", args=[self.ev.id]))
-        self.assertNotIn("Copiar por inscrição", r.content.decode())
+        self.assertNotIn("Copiar para o WhatsApp", r.content.decode())
