@@ -5760,6 +5760,7 @@ def _export_inscritos_evento(evento):
     linhas = ["Nº\tParticipante\tIdade\tWhatsApp\tInscrição\tResponsável"]
     familias = []
     por_faixa = defaultdict(int)   # faixa_id -> pessoas
+    nomes_por_faixa = defaultdict(list)  # faixa_id -> [(nome, idade)]
     por_forma = defaultdict(int)   # forma de pagamento -> pessoas
     diretoria = sem_faixa = 0
     fora_pessoas, fora_valor = 0, Decimal("0")
@@ -5781,10 +5782,16 @@ def _export_inscritos_evento(evento):
             # dimensões somaria a mesma pessoa duas vezes.
             if p.eh_diretoria:
                 diretoria += 1
+                chave = "_diretoria"
             elif p.faixa_id:
                 por_faixa[p.faixa_id] += 1
+                chave = p.faixa_id
             else:
                 sem_faixa += 1
+                chave = "_sem_faixa"
+            # O resumo lista os nomes dentro de cada faixa, então guarda
+            # quem é quem aqui mesmo — o laço já passa por todo mundo.
+            nomes_por_faixa[chave].append((p.nome, idade))
         bloco = [f"*{n}. {resp}*", f"📱 {contato} · 🎟️ {insc.codigo}"]
         if pessoas:
             bloco.append("👤 " + ", ".join(pessoas))
@@ -5825,7 +5832,7 @@ def _export_inscritos_evento(evento):
         "whatsapp": whatsapp,
         "resumo": _resumo_inscritos_txt(
             evento, total, qtd, plural_insc, diretoria, sem_faixa,
-            por_faixa, por_forma,
+            por_faixa, nomes_por_faixa, por_forma,
             (fora_pessoas, fora_valor),
             (parc_inscricoes, parc_valor, parc_vencidas),
         ) if familias else "",
@@ -5833,16 +5840,30 @@ def _export_inscritos_evento(evento):
 
 
 def _resumo_inscritos_txt(evento, total, qtd, plural_insc, diretoria, sem_faixa,
-                          por_faixa, por_forma, fora, parcelas):
-    """O texto do botão "Copiar resumo": os números do evento, sem nome de
-    ninguém (dá para mandar no grupo da diretoria sem expor as famílias).
+                          por_faixa, nomes_por_faixa, por_forma, fora, parcelas):
+    """O texto do botão "Copiar resumo": os números do evento **e a lista de
+    participantes**, agrupada pela faixa de preço de cada um.
+
+    A faixa é a organização que importa: é onde o evento cadastra a categoria
+    (aventureiro, pai/responsável, filho de diretoria) e o preço. Quem paga o
+    **valor fixo da diretoria** não tem faixa — vira um grupo próprio, e é isso
+    que faz a soma dos grupos fechar no total de inscritos.
+
+    Cada grupo tem o **título com a contagem** e os nomes numerados abaixo, em
+    ordem alfabética (procurar uma pessoa numa lista de 35 é o uso real; a ordem
+    de inscrição fica nos outros dois textos). Contagem e nomes juntos, não em
+    dois blocos: repetir a mesma informação duas vezes numa mensagem de WhatsApp
+    só cansa quem lê.
 
     Uma informação por linha, e não separadas por "·": a linha de uma faixa com
     rótulo longo ou de quatro formas de pagamento passaria dos ~35 caracteres em
     que o WhatsApp quebra no celular, e o corte cairia no meio de um número.
 
-    Recebe as contagens já feitas pelo `_export_inscritos_evento` — quem varre
-    as inscrições é ele, uma vez só."""
+    **Leva nomes** (foi pedido explicitamente), então não é mais o texto "seguro
+    para qualquer grupo" que era quando saía só com números.
+
+    Recebe as contagens já feitas pelo `_export_inscritos_evento` — quem varre as
+    inscrições é ele, uma vez só."""
     fora_pessoas, fora_valor = fora
     parc_inscricoes, parc_valor, parc_vencidas = parcelas
     linhas = [
@@ -5852,9 +5873,7 @@ def _resumo_inscritos_txt(evento, total, qtd, plural_insc, diretoria, sem_faixa,
     ]
     # NÃO existe "aventureiros = total − diretoria": esse resto junta aventureiro,
     # pai/responsável e filho de diretoria, que são categorias DIFERENTES no
-    # evento (o Aventuri 2026 tem as três). Quem responde "quantos de cada tipo"
-    # é o bloco por faixa, onde a categoria de verdade está cadastrada — e ele
-    # fecha no total, então serve de conferência.
+    # evento (o Aventuri 2026 tem as três). Quem categoriza é a faixa.
 
     # Faixas na ordem cadastrada no evento, e só as que têm gente — faixa vazia
     # não é informação, é ruído.
@@ -5865,31 +5884,36 @@ def _resumo_inscritos_txt(evento, total, qtd, plural_insc, diretoria, sem_faixa,
     ]
     # Rótulo repetido ganha a idade ao lado: o evento pode ter várias faixas com
     # o mesmo nome e preços diferentes (ex.: três "Filho de diretoria", 0-3, 4-5
-    # e 10-17 anos), e duas linhas iguais no resumo parecem erro de contagem.
+    # e 10-17 anos), e dois grupos com o mesmo título parecem erro de contagem.
     nomes = [f.rotulo or f.faixa_txt for f, _ in com_gente]
-    faixas = []
+    grupos = []
     for faixa, quantos in com_gente:
-        nome = faixa.rotulo or faixa.faixa_txt
-        if faixa.rotulo and nomes.count(nome) > 1:
-            nome = f"{nome} ({faixa.faixa_txt})"
-        faixas.append(f"{nome}: {quantos}")
+        titulo = faixa.rotulo or faixa.faixa_txt
+        if faixa.rotulo and nomes.count(titulo) > 1:
+            titulo = f"{titulo} ({faixa.faixa_txt})"
+        grupos.append((titulo, quantos, nomes_por_faixa.get(faixa.id, [])))
     if diretoria:
         # Estes não têm faixa: a caixinha "diretoria" na inscrição faz a pessoa
-        # pagar o valor fixo do evento, que independe da idade. Dizer o valor na
-        # linha evita a pergunta "diretoria de quê?".
-        if evento.valor_diretoria is None:
-            faixas.append(f"⛺ Diretoria: {diretoria}")
-        else:
-            faixas.append(
-                f"⛺ Diretoria (valor fixo {_fmt_moeda(evento.valor_diretoria)}): "
-                f"{diretoria}"
-            )
+        # pagar o valor fixo do evento, que independe da idade. Dizer o valor no
+        # título evita a pergunta "diretoria de quê?".
+        titulo = "⛺ Diretoria"
+        if evento.valor_diretoria is not None:
+            titulo += f" (valor fixo {_fmt_moeda(evento.valor_diretoria)})"
+        grupos.append((titulo, diretoria, nomes_por_faixa.get("_diretoria", [])))
     if sem_faixa:
         # Idade fora de todas as faixas do evento (ou sem idade informada):
         # aparece porque é quase sempre erro de cadastro que alguém tem de ver.
-        faixas.append(f"Sem faixa: {sem_faixa}")
-    if faixas:
-        linhas += ["", "*Por faixa:*"] + faixas
+        grupos.append(
+            ("Sem faixa", sem_faixa, nomes_por_faixa.get("_sem_faixa", []))
+        )
+
+    if grupos:
+        linhas += ["", "*Participantes por faixa:*"]
+        for titulo, quantos, pessoas in grupos:
+            linhas += ["", f"*{titulo} — {quantos}*"]
+            ordenadas = sorted(pessoas, key=lambda item: _norm_comparacao(item[0]))
+            for i, (nome, idade) in enumerate(ordenadas, start=1):
+                linhas.append(f"{i}. {nome}" + (f" ({idade})" if idade else ""))
 
     pagamento = []
     rotulos = dict(FORMA_PAGAMENTO_CHOICES)

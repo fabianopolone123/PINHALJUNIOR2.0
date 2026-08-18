@@ -22,6 +22,74 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-18 - O resumo passa a listar os participantes por faixa de preço
+
+### Resumo
+A pedido do usuário, o **📈 Copiar resumo** deixou de ser só números: agora leva **a lista de todos os
+participantes agrupada pela faixa de preço** de cada um — incluindo o grupo da **diretoria** (quem paga o valor
+fixo, que não tem faixa). Cada grupo tem o **título com a contagem** e os nomes numerados abaixo, em ordem
+alfabética.
+
+Como fica:
+
+```
+*📊 Resumo — XVIII AVENTURI APO 2026*
+
+*👥 12 inscritos* em 1 inscrição
+
+*Participantes por faixa:*
+
+*Filho de diretoria (0 a 3 anos) — 1*
+1. Bento Alves (2)
+
+*Diretoria / Pais / Responsável — 3*
+1. Ana Beatriz Cruz (38)
+2. Carlos Dias (45)
+3. Ítalo Prado (40)
+
+*Aventureiro — 4*
+1. Ana Souza (8)
+...
+
+*⛺ Diretoria (valor fixo R$ 200,00) — 2*
+1. Paulo Diretor (41)
+2. Sonia Diretora (39)
+
+*Pagamento:*
+💳 Cartão: 12
+```
+
+### Arquivos alterados
+- `core/views.py`: o laço de `_export_inscritos_evento` passou a guardar `nomes_por_faixa`
+  (`faixa_id` / `"_diretoria"` / `"_sem_faixa"` → `[(nome, idade)]`) — no mesmo laço que já existia, sem
+  varredura nem query nova. `_resumo_inscritos_txt` monta um grupo por faixa: título com a contagem e os nomes
+  numerados, ordenados por `_norm_comparacao` (o mesmo normalizador que a "cobertura do clube" usa).
+- `templates/core/evento_painel.html`: o `title` do botão parou de prometer "sem nome de ninguém" e passou a
+  avisar que leva nomes; comentário da seção atualizado.
+- `core/tests.py`: `CopiarListaInscritosTests` de 35 para **37 testes**. Saíram dois que travavam o
+  comportamento antigo (`test_resumo_nao_leva_nome_de_ninguem` e a versão anterior do "fecha no total");
+  entraram: os nomes dentro de cada faixa, a ordem alfabética ignorando acento e maiúscula, participante sem
+  idade sem `()`, e o "fecha no total" agora conferindo **também** que a quantidade de nomes de cada grupo casa
+  com o número do título.
+
+### Decisões tomadas
+- **Contagem e nomes no mesmo bloco**, não em dois: o número foi para o título do grupo
+  (`*Aventureiro — 4*`). Um bloco de contagens acima e a lista de nomes abaixo repetiria a mesma informação
+  numa mensagem que já é longa. (Se pedirem o compacto de volta, é um bloco a mais no topo.)
+- **Ordem alfabética dentro do grupo**, ignorando acento e maiúscula: o uso é procurar uma pessoa numa lista de
+  35. A ordem de inscrição continua nos outros dois textos.
+- **A soma dos grupos = total** segue sendo invariante testada, e ganhou um segundo trava: a contagem do título
+  tem de casar com a quantidade de nomes listados.
+- **Perda deliberada**: o resumo era o texto sem dados pessoais, o que permitia mandá-lo em qualquer grupo. Com
+  nomes de crianças dentro, não é mais. Foi avisado ao usuário; a decisão é dele, é o dado do clube dele. O
+  `title` do botão agora carrega o aviso para quem for usar depois.
+
+### Pendências
+- Sem **filtro por faixa** na cópia: sai o evento inteiro. Num evento de 300 pessoas o texto fica grande demais
+  para uma mensagem só (o `_partir_texto_whatsapp` do aviso interno resolveria, se virar problema).
+- A lista não diz **quem já pagou** por pessoa — pagamento é por inscrição, e essa visão está no bloco
+  *Pagamento* (em números) e na aba Financeiro.
+
 ## 2026-08-18 - Correção: o resumo dizia "Aventureiros" para gente que não é aventureiro
 
 ### Resumo

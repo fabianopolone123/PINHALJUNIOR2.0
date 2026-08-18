@@ -11,11 +11,14 @@ WhatsApp** copia a lista **agrupada por família e formatada para a tela do celu
 evento e contagem, e **três linhas curtas por família** — nome em **negrito**, `📱 contato · 🎟️ código`, e os
 participantes com a idade entre parênteses; o desenho é curto de propósito, porque o WhatsApp quebra linha por
 volta de **35 caracteres** e uma linha longa parte no meio. **📈 Copiar resumo** copia só os **números e nenhum
-nome** — pode ir para o grupo da diretoria onde a lista de crianças não pode: **total de pessoas** (o pedido foi
-explícito: "inscritos" é gente, não inscrição) e em quantas inscrições, **quantos por faixa de preço** do evento
-(com a **diretoria** na mesma lista, porque quem paga o valor fixo não tem faixa — e assim o bloco **fecha no
-total**, servindo de conferência), **quantos por forma de pagamento**, **quanto falta acertar** de quem paga por
-fora e **quantas parcelas em aberto** (com o que venceu). **Não** existe linha de "aventureiros": tentar
+números do evento **e a lista de todos os participantes agrupada por faixa de preço**: **total de pessoas** (o
+pedido foi explícito: "inscritos" é gente, não inscrição) e em quantas inscrições; um **grupo por faixa** com a
+contagem no título (`*Aventureiro — 4*`) e os nomes numerados abaixo em **ordem alfabética** (ignorando acento e
+maiúscula), incluindo o grupo da **diretoria** — quem paga o valor fixo não tem faixa, e é isso que faz a soma dos
+grupos **fechar no total**, servindo de conferência; e por fim **quantos por forma de pagamento**, **quanto falta
+acertar** de quem paga por fora e **quantas parcelas em aberto** (com o que venceu). O resumo **nasceu sem nomes**
+(para poder ir a qualquer grupo) e **passou a levar nomes a pedido do usuário** no mesmo dia — com nome de criança
+dentro, não é mais texto para grupo aberto, e o `title` do botão carrega esse aviso. **Não** existe linha de "aventureiros": tentar
 `total − diretoria` juntava aventureiro, pai/responsável e filho de diretoria — três categorias diferentes (o
 Aventuri 2026 tem as três), e foi bug corrigido no mesmo dia. **Rótulo de faixa repetido ganha a idade ao lado**
 (`Filho de diretoria (0 a 3 anos)`): o evento pode ter várias faixas com o mesmo nome e preços diferentes. Decisões que importam: o **texto é montado no
@@ -33,7 +36,7 @@ interno** (ordem de `criado_em`), então o "nº 3" da planilha e o "3." do Whats
 inscrição confirmada** entra — cancelada não é inscrito —, inclusive quem vai **pagar por fora**: para contato o
 que importa é estar inscrito. Os três textos vão prontos no HTML em `<textarea>` **fora da tela** (não `hidden`:
 a cópia de reserva precisa de `select()` num campo que exista de fato) e os botões só aparecem quando há alguém
-confirmado. Nada de model, migration ou rota nova. Suíte: **325 testes OK** (295 + 30). Antes: prazo de
+confirmado. Nada de model, migration ou rota nova. Suíte: **332 testes OK** (295 + 37). Antes: prazo de
 inscrição próprio da diretoria.
 
 **Anterior (Eventos: prazo de inscrição próprio da diretoria):** o evento ganhou um
@@ -1243,10 +1246,10 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   cabeçalho com nome do evento e contagem, e três linhas curtas por família (nome em negrito,
   `📱 contato · 🎟️ código`, participantes com a idade entre parênteses) — usa o negrito do próprio
   WhatsApp, e linha curta porque o app quebra por volta de 35 caracteres no celular. **📈 Copiar resumo**
-  copia só os **números e nenhum nome** (pode ir para o grupo da diretoria): total de **pessoas** e de
-  inscrições, quantos **por faixa de preço** (a categoria de verdade do evento — com a diretoria na mesma
-  lista, de modo que o bloco **fecha no total**; rótulo repetido ganha a idade ao lado), quantos **por forma
-  de pagamento**,
+  copia os **números + a lista de participantes agrupada por faixa de preço**: total de **pessoas** e de
+  inscrições, e um **grupo por faixa** (a categoria de verdade do evento) com a contagem no título e os nomes
+  numerados em ordem alfabética — a diretoria entra como grupo próprio, de modo que a soma **fecha no total**;
+  rótulo de faixa repetido ganha a idade ao lado. Também traz quantos **por forma de pagamento**,
   quanto **falta acertar** de quem paga por fora (usa o `total_com_loja`, como o painel) e quantas
   **parcelas em aberto** (com as vencidas). Pagamento contado **em pessoas** — a família de três no Pix são
   três pessoas no Pix —, exceto parcelas, que são por inscrição; a linha da diretoria diz o **valor fixo** que

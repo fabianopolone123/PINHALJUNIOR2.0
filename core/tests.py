@@ -4061,14 +4061,6 @@ class CopiarListaInscritosTests(TestCase):
             views._export_inscritos_evento(self.ev)["resumo"],
         )
 
-    def test_resumo_nao_leva_nome_de_ninguem(self):
-        """É o motivo de o resumo ser um botão separado: pode ir para um grupo
-        sem expor dados das famílias."""
-        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
-        resumo = views._export_inscritos_evento(self.ev)["resumo"]
-        for dado in ("Mae Um", "Ana", "99999-1111"):
-            self.assertNotIn(dado, resumo)
-
     def test_resumo_nao_inventa_categoria_de_aventureiros(self):
         """Não existe "aventureiros = total − diretoria": esse resto junta
         aventureiro, pai/responsável e filho de diretoria, que são categorias
@@ -4094,13 +4086,13 @@ class CopiarListaInscritosTests(TestCase):
         insc = self._inscricao("Pai Diretor", "(16) 99999-1111", [("Pai", 40)])
         insc.participantes.update(eh_diretoria=True)
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
-        self.assertIn("⛺ Diretoria (valor fixo R$ 200,00): 1", resumo)
+        self.assertIn("*⛺ Diretoria (valor fixo R$ 200,00) — 1*", resumo)
 
     def test_resumo_diretoria_sem_valor_no_evento_nao_inventa_preco(self):
         insc = self._inscricao("Pai Diretor", "(16) 99999-1111", [("Pai", 40)])
         insc.participantes.update(eh_diretoria=True)
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
-        self.assertIn("⛺ Diretoria: 1", resumo)
+        self.assertIn("*⛺ Diretoria — 1*", resumo)
         self.assertNotIn("valor fixo", resumo)
 
     def test_resumo_desambigua_faixas_com_o_mesmo_rotulo(self):
@@ -4119,21 +4111,60 @@ class CopiarListaInscritosTests(TestCase):
                                [("Bebe", 2), ("Grande", 11), ("Outro", 12)])
         insc.participantes.filter(nome="Bebe").update(faixa=bebe)
         insc.participantes.filter(nome__in=["Grande", "Outro"]).update(faixa=grande)
-        corpo = views._export_inscritos_evento(self.ev)["resumo"].split("*Por faixa:*")[1]
-        self.assertIn("Filho de diretoria (0 a 3 anos): 1", corpo)
-        self.assertIn("Filho de diretoria (10 a 17 anos): 2", corpo)
+        corpo = views._export_inscritos_evento(self.ev)["resumo"].split("*Participantes por faixa:*")[1]
+        self.assertIn("*Filho de diretoria (0 a 3 anos) — 1*", corpo)
+        self.assertIn("*Filho de diretoria (10 a 17 anos) — 2*", corpo)
 
     def test_resumo_nao_poe_idade_em_rotulo_que_nao_repete(self):
         crianca, _ = self._faixas()
         insc = self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", 8)])
         insc.participantes.update(faixa=crianca)
-        corpo = views._export_inscritos_evento(self.ev)["resumo"].split("*Por faixa:*")[1]
-        self.assertIn("6 a 9 anos: 1", corpo)      # faixa sem rótulo: a idade é o nome
+        corpo = views._export_inscritos_evento(self.ev)["resumo"].split("*Participantes por faixa:*")[1]
+        self.assertIn("*6 a 9 anos — 1*", corpo)   # faixa sem rótulo: a idade é o nome
         self.assertNotIn("anos) ", corpo)          # e ninguém ganhou "(x a y anos)"
 
+    def test_resumo_lista_os_nomes_dentro_de_cada_faixa(self):
+        """O resumo **leva nomes** (pedido do usuário em 18/08): a lista de todos
+        os participantes, agrupada pela faixa de preço de cada um. Antes saía só
+        com números; a troca é deliberada, e tira dele o carimbo de "seguro para
+        qualquer grupo"."""
+        crianca, adultos = self._faixas()
+        insc = self._inscricao("Mae Um", "(16) 99999-1111",
+                               [("Ana Souza", 8), ("Mae Um", 40)])
+        insc.participantes.filter(nome="Ana Souza").update(faixa=crianca)
+        insc.participantes.filter(nome="Mae Um").update(faixa=adultos)
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("*Participantes por faixa:*", resumo)
+        self.assertIn("*6 a 9 anos — 1*\n1. Ana Souza (8)", resumo)
+        self.assertIn("*Juvenis — 1*\n1. Mae Um (40)", resumo)
+
+    def test_resumo_ordena_os_nomes_por_alfabeto_ignorando_acento(self):
+        """Procurar uma pessoa numa lista de 35 é o uso real — a ordem de
+        inscrição fica nos outros dois textos."""
+        crianca, _ = self._faixas()
+        insc = self._inscricao(
+            "Mae Um", "(16) 99999-1111",
+            [("Ítalo", 8), ("Bruno", 9), ("ana", 7), ("Cecília", 6)],
+        )
+        insc.participantes.update(faixa=crianca)
+        corpo = views._export_inscritos_evento(self.ev)["resumo"]
+        corpo = corpo.split("*6 a 9 anos — 4*")[1]
+        self.assertEqual(
+            [l.strip() for l in corpo.strip().split("\n")[:4]],
+            ["1. ana (7)", "2. Bruno (9)", "3. Cecília (6)", "4. Ítalo (8)"],
+        )
+
+    def test_resumo_participante_sem_idade_nao_ganha_parenteses(self):
+        self._inscricao("Mae Um", "(16) 99999-1111", [("Ana", None)])
+        resumo = views._export_inscritos_evento(self.ev)["resumo"]
+        self.assertIn("1. Ana\n", resumo + "\n")
+        self.assertNotIn("()", resumo)
+        self.assertNotIn("None", resumo)
+
     def test_resumo_por_faixa_fecha_no_total(self):
-        """Invariante que faz o bloco servir de conferência: a soma das linhas
-        por faixa (com diretoria e "sem faixa") é o total de inscritos."""
+        """Invariante que faz o bloco servir de conferência: a soma das contagens
+        dos títulos (com diretoria e "sem faixa") é o total de inscritos — e cada
+        grupo tem tantos nomes quanto o seu título diz."""
         crianca, adultos = self._faixas()
         insc = self._inscricao("Mae Um", "(16) 99999-1111",
                                [("Ana", 8), ("Mae", 40), ("Dir", 38), ("Bebe", 2)])
@@ -4141,15 +4172,18 @@ class CopiarListaInscritosTests(TestCase):
         insc.participantes.filter(nome="Mae").update(faixa=adultos)
         insc.participantes.filter(nome="Dir").update(eh_diretoria=True)
         dados = views._export_inscritos_evento(self.ev)
-        # Só o bloco das faixas: as linhas de *Pagamento* também têm ": ".
-        corpo = dados["resumo"].split("*Por faixa:*")[1].split("*Pagamento:*")[0]
-        somados = sum(
-            int(linha.rsplit(": ", 1)[1])
-            for linha in corpo.strip().split("\n")
-            if linha.strip() and ": " in linha
-        )
+        corpo = dados["resumo"].split("*Participantes por faixa:*")[1]
+        corpo = corpo.split("*Pagamento:*")[0]
+        somados, nomes = 0, 0
+        for linha in corpo.strip().split("\n"):
+            linha = linha.strip()
+            if linha.startswith("*") and " — " in linha:
+                somados += int(linha.rsplit(" — ", 1)[1].rstrip("*"))
+            elif linha and linha[0].isdigit():
+                nomes += 1
         self.assertEqual(somados, dados["total"])
         self.assertEqual(somados, 4)
+        self.assertEqual(nomes, 4)  # todo mundo aparece, uma vez só
 
     def test_resumo_sem_diretoria_nao_mostra_a_linha(self):
         """Evento sem ninguém marcado como diretoria não ganha linha nenhuma de
@@ -4165,10 +4199,10 @@ class CopiarListaInscritosTests(TestCase):
         for nome, faixa in (("Ana", crianca), ("Bruno", juvenil), ("Cris", crianca)):
             insc.participantes.filter(nome=nome).update(faixa=faixa)
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
-        corpo = resumo.split("*Por faixa:*")[1]
+        corpo = resumo.split("*Participantes por faixa:*")[1]
         # Rótulo quando existe; senão a faixa de idades. E na ordem do evento.
-        self.assertIn("6 a 9 anos: 2", corpo)
-        self.assertIn("Juvenis: 1", corpo)
+        self.assertIn("*6 a 9 anos — 2*", corpo)
+        self.assertIn("*Juvenis — 1*", corpo)
         self.assertLess(corpo.index("6 a 9 anos"), corpo.index("Juvenis"))
 
     def test_resumo_nao_conta_diretoria_dentro_de_faixa(self):
@@ -4180,9 +4214,9 @@ class CopiarListaInscritosTests(TestCase):
         insc.participantes.filter(nome="Pai Diretor").update(eh_diretoria=True)
         insc.participantes.filter(nome="Filho").update(faixa=crianca)
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
-        corpo = resumo.split("*Por faixa:*")[1]
-        self.assertIn("6 a 9 anos: 1", corpo)
-        self.assertIn("⛺ Diretoria: 1", corpo)
+        corpo = resumo.split("*Participantes por faixa:*")[1]
+        self.assertIn("*6 a 9 anos — 1*", corpo)
+        self.assertIn("*⛺ Diretoria — 1*", corpo)
         self.assertNotIn("Sem faixa", corpo)
 
     def test_resumo_mostra_quem_ficou_fora_das_faixas(self):
@@ -4191,7 +4225,7 @@ class CopiarListaInscritosTests(TestCase):
         self._faixas()
         self._inscricao("Mae Um", "(16) 99999-1111", [("Bebe", 2)])
         resumo = views._export_inscritos_evento(self.ev)["resumo"]
-        self.assertIn("Sem faixa: 1", resumo)
+        self.assertIn("*Sem faixa — 1*", resumo)
 
     def test_resumo_conta_pagamento_por_pessoa(self):
         """A família de três que pagou no Pix são três pessoas pagas no Pix."""
