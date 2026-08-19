@@ -58,6 +58,12 @@ pessoa cairia em "Não há WhatsApp cadastrado para enviar o código".
 - **CPF do responsável legal continua com prioridade** na busca (a ordem de `achados`), para não mudar o
   destino do código de nenhuma família que já usava o fluxo.
 
+### Conferência em produção (19/08, após o deploy)
+Rodado contra a base real (só contagens, nenhum dado pessoal): **11** integrantes da diretoria não-demo, dos
+quais **3** já eram encontrados pelo próprio CPF (são também responsável legal de um aventureiro) e **8 não
+tinham caminho nenhum** de recuperação. Depois da correção, **11 de 11** são encontrados e **11 de 11** têm
+WhatsApp para onde mandar o código. Nenhuma ficha ficou de fora por CPF vazio/inválido.
+
 ### Integração com o que já estava no GitHub
 Ao subir, o `origin/main` tinha **7 commits** de outra máquina (18/08). Rebase por cima deles, com 3 conflitos
 resolvidos: `core/context_processors.py` (ficou a versão de lá — ver acima), `docs/ESTADO_ATUAL.md` e

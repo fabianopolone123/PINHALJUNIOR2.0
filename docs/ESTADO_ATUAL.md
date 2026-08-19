@@ -20,7 +20,10 @@ diretoria, o CPF da sua ficha"; o erro de CPF não encontrado deixou de citar "r
 achatava o diagnóstico de quem tentava com o CPF certo). O que **não** mudou: a etapa 1 continua sem revelar
 nada quando o CPF não existe, o código segue com hash na sessão e o **throttle continua faltando** — dívida
 que só cresce, porque agora há mais CPFs que disparam um WhatsApp real. Sem migration. Suíte: **346 testes
-OK** (338 + 8). Antes: evento encerrado para a família sai do menu do Responsável.
+OK** (338 + 8). **Conferido em produção** depois do deploy, contra a base real: dos **11** integrantes da
+diretoria, só **3** eram encontrados pelo próprio CPF (os que também são responsável legal de um aventureiro);
+os outros **8 estavam sem nenhum caminho de recuperação**. Agora os 11 são encontrados e os 11 têm número para
+receber o código. Antes: evento encerrado para a família sai do menu do Responsável.
 
 **Anterior (Evento encerrado para a família sai do menu do Responsável):** no perfil
 **Responsável**, o evento com inscrição só fica no menu lateral **enquanto ele pode se inscrever** — vencido o
