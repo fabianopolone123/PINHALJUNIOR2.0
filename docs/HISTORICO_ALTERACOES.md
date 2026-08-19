@@ -22,6 +22,57 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-19 - Recuperação de senha encontra quem é da diretoria
+
+### Resumo
+Relato do usuário: integrante da **diretoria** digita o CPF em "Esqueci minha senha" e o sistema responde que
+**não encontrou a conta**. Causa: `_conta_por_cpf_resp` procurava o CPF **só** em `Aventureiro.resp_cpf` — o
+responsável legal de uma criança do clube. Quem é da diretoria e **não tem filho no clube** não existia para
+esse fluxo; quem tem filho cadastrado no nome do **outro** responsável legal, também não.
+
+Havia um segundo bloqueio logo depois: mesmo achando a conta, o destino do código vinha de `_numeros_conta`,
+que lê apenas pai/mãe/responsável **dos aventureiros da conta**. Conta sem aventureiro devolve vazio, e a
+pessoa cairia em "Não há WhatsApp cadastrado para enviar o código".
+
+### Arquivos alterados
+- `core/views.py`:
+  - `_conta_por_cpf_resp` → **`_conta_por_cpf`**, que procura em `Aventureiro.resp_cpf` **e**
+    `MembroDiretoria.cpf` (os dois ignorando `demo`) e devolve `(usuario, via_diretoria)`; segue preferindo
+    conta ativa.
+  - novos **`_whatsapp_diretoria`** (número da ficha, normalizado) e **`_whatsapp_recuperacao(usuario,
+    via_diretoria)`**, que decide o destino do código.
+  - `recuperar_senha_view` usa os dois; o erro de CPF não encontrado deixou de citar "responsável legal".
+- `templates/core/recuperar_cpf.html`: rótulo do campo virou **"CPF"** e a ajuda explica as duas origens.
+- `core/tests.py`: nova classe `RecuperarDiretoriaTests` (5 testes). Suíte: **346 testes OK**.
+- `CLAUDE.md`, `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`, `docs/README_PROJETO.md`.
+
+### Decisões tomadas
+- **Ordem de preferência do destino** (explícita em `_whatsapp_recuperacao`): a **escolha do Diretor**
+  (WhatsApp principal da conta) manda sempre; sem escolha, quem foi achado **pelo CPF da ficha de diretoria**
+  recebe no número **da própria ficha**; a ficha também é **fallback** quando não há número de responsável.
+  O motivo do caso do meio: pedir a recuperação com o próprio CPF e o código cair no celular do cônjuge (o
+  responsável legal do aventureiro) deixa a pessoa sem o código.
+- **Não mexer em `_numeros_conta`**: ele é usado também pela cobrança de mensalidades e pelo seletor do
+  Diretor em "Usuários"; acrescentar ali uma origem "diretoria" mudaria telas que ninguém pediu. A ficha
+  entra só no fluxo de recuperação.
+- **CPF do responsável legal continua com prioridade** na busca (a ordem de `achados`), para não mudar o
+  destino do código de nenhuma família que já usava o fluxo.
+
+### Integração com o que já estava no GitHub
+Ao subir, o `origin/main` tinha **7 commits** de outra máquina (18/08). Rebase por cima deles, com 3 conflitos
+resolvidos: `core/context_processors.py` (ficou a versão de lá — ver acima), `docs/ESTADO_ATUAL.md` e
+`docs/HISTORICO_ALTERACOES.md` (entradas empilhadas por data). A correção da recuperação de senha não tocava em
+nada do que veio de lá. Suíte depois da integração: **346 testes OK**.
+
+### Pendências
+- **Throttle continua faltando** na etapa 1 (cada POST válido dispara um WhatsApp real e revela um login) — e
+  a dívida ficou maior: agora há mais CPFs que abrem o fluxo. É a próxima coisa a fazer nessa tela.
+- Conta **só de diretoria** não tem como escolher o WhatsApp principal: o seletor mora no card do responsável
+  da tela "Usuários", que não existe sem aventureiro. Hoje o número sai direto da ficha, o que resolve o caso
+  comum; se alguém precisar de um número diferente do da ficha, é ali que entra.
+
+---
+
 ## 2026-08-18 - Evento encerrado para a família sai do menu do Responsável
 
 ### Resumo
@@ -372,6 +423,59 @@ que faltava para levar a lista para fora do sistema. Só entra inscrição **con
 - Sem coluna de valor, forma de pagamento ou situação — a lista é de **contato**. Se precisar do financeiro em
   planilha, é outro formato (e aí um CSV de verdade compensa).
 - Não há filtro por faixa/unidade na cópia: sai a lista inteira do evento.
+
+---
+
+## 2026-08-17 - Eventos: a janela da diretoria fica discreta (e some do menu do Responsável)
+
+### Resumo
+Ajuste do prazo de inscrição da diretoria (feito mais cedo no mesmo dia), a pedido do usuário: **nenhuma tela
+pública conta que a diretoria tem prazo diferente**, e **o Responsável deixa de ver o evento assim que o prazo
+do aventureiro vence**.
+
+Passado o **prazo comum**, a página do evento volta ao estado de sempre — "⛔ Inscrições encerradas", **sem o
+botão de inscrever, para todo mundo** (inclusive a própria diretoria e o visitante não logado). A diretoria
+entra pelo **link direto** de `/eventos/<id>/inscrever/`, que a view continua abrindo pelo prazo mais generoso;
+quem decide continua sendo a **validação do POST** pela composição real da inscrição, com a trava no model.
+
+No **menu**, o evento sai da lista do **Responsável** junto com o prazo comum, mesmo faltando dias para
+acontecer. Os demais perfis (Diretor, Diretoria, Professor…) continuam vendo o evento até ele terminar — é por
+ali que a diretoria chega ao link na janela extra.
+
+### Arquivos alterados
+- `templates/core/evento_pagina.html`: some o terceiro estado visual (`.parcial` / "só diretoria"), o parágrafo
+  "Inscrição com diretoria vai até…" e a dica "A inscrição precisa incluir alguém da diretoria". O status e o
+  botão passam a seguir o **prazo comum**.
+- `templates/core/evento_inscrever.html`: some o bloco `insc-aviso-prazo` que explicava a janela extra.
+- `core/views.py`: `evento_pagina_view` publica `inscricoes_abertas` = `evento.inscricoes_abertas()` (prazo
+  comum) e não passa mais `so_diretoria`/`prazo_diretoria`/`tem_prazo_diretoria`; `evento_inscrever_view` perde
+  as mesmas chaves do contexto e o **erro de POST fora do prazo virou genérico** nos dois casos.
+- `core/context_processors.py`: **descartado** na integração de 19/08 — esta parte foi feita, em paralelo e
+  melhor, pelo commit `f24d3a9` de 18/08 ("Esconde do responsavel o evento cuja inscricao ja encerrou para
+  ele"), que usa o **perfil efetivo** (`_eventos_menu(user, perfil)`) em vez de `atua_como_responsavel`. Os 3
+  testes de menu escritos aqui ficaram e passam contra aquela implementação. Vale a versão de 18/08.
+- `static/css/eventos.css`: removidas `.evento-publico-status.parcial` e `.insc-aviso-prazo` (sem uso).
+- `core/models.py`: docstring de `so_diretoria_pode_inscrever` (agora é estado **interno**).
+- `core/tests.py`: 3 testes novos de menu; 3 reescritos (a página esconde o botão, a tela não avisa, o erro é
+  genérico). Suíte: **298 testes OK** (295 + 3).
+- `CLAUDE.md`, `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`.
+
+### Decisões tomadas
+- **O botão some para todos, não só para o Responsável** (escolha do usuário): esconder por perfil exigiria a
+  diretoria estar logada e com o perfil ativo certo — quem estivesse "vendo como Responsável" não acharia o
+  caminho. Com o link direto, o acesso não depende de perfil, e a validação de servidor continua a mesma.
+- **Erro de POST genérico**: manter a mensagem antiga ("só a diretoria ainda pode se inscrever, até…")
+  anularia o efeito — era a instrução mais explícita de todas.
+- **O painel do Diretor não mudou**: lá o selo ⛺ Só diretoria e a data da janela continuam à mostra, porque é
+  a tela de quem configura o prazo.
+
+### Pendências
+- Sem o item de menu, o Responsável perde também o caminho para a **lojinha** daquele evento depois do prazo de
+  inscrição (o link direto continua valendo). Consequência aceita na decisão; se incomodar, o desenho natural é
+  manter no menu só os eventos com lojinha aberta, com um rótulo que não prometa inscrição.
+- Quem já se inscreveu também deixa de ver o evento no menu depois do prazo — hoje o menu não sabe quem está
+  inscrito. Uma futura seção "Minhas inscrições" resolveria isso melhor que o menu de eventos.
+
 
 ## 2026-08-17 - Eventos: prazo de inscrição próprio da diretoria
 

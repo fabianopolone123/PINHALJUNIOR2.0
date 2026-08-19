@@ -46,7 +46,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
 - `/meus-dados/responsavel/editar/` editar responsável · `/usuarios/` responsáveis+aventureiros+vínculos ·
   `/usuarios/aventureiro/<id>/termos/` termos assinados (Diretor; página pra imprimir/salvar PDF)
 - `/cadastro/` **tela de escolha** (Aventureiro / Diretoria / Diretoria+Aventureiro) · `/cadastro/aventureiro/` conta+1º aventureiro · `/cadastro/diretoria/` cadastro de diretoria (`?com_aventureiro=1` emenda no aventureiro → 2 perfis) · `/cadastro/novo-aventureiro/` outro na mesma conta · `/cadastro/sucesso/`
-- **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`. A tela do código **mostra o usuário de acesso** da conta (e a mensagem do WhatsApp também) — quem esquece o login resolve aqui; ver REGRAS_CODEX.
+- **Recuperação de senha** (pública, via WhatsApp): `/recuperar-senha/` (CPF do resp. legal **ou da ficha de diretoria** → código de 4 dígitos → nova senha), `.../codigo/`, `.../reenviar/`, `.../nova-senha/`. A tela do código **mostra o usuário de acesso** da conta (e a mensagem do WhatsApp também) — quem esquece o login resolve aqui; ver REGRAS_CODEX.
 - **Eventos** (Diretor; PDV/operar também por operadores; baixa do pagamento por fora em
   `/eventos/<id>/inscricoes/<id>/pago/`; baixa de parcela da diretoria em
   `/eventos/<id>/parcelas/<id>/pago/`): `/eventos/`, `/eventos/<id>/` (painel),
@@ -207,7 +207,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   calculada) para o card "Onde está o dinheiro". O resto do Financeiro é **consolidação** (lê mensalidades/loja/eventos).
 - **Recuperação de senha**: `PerfilUsuario.whatsapp_principal_origem` (pai/mãe/resp legal) — para onde vai
   o código; código de recuperação fica na **sessão** (não há model novo pra ele). O **telefone de cobrança** é
-  um campo **separado** (`PerfilUsuario.cobranca_whatsapp_origem` — responsável financeiro), independente do principal.
+  um campo **separado** (`PerfilUsuario.cobranca_whatsapp_origem` — responsável financeiro), independente do
+  principal. **A conta é achada por CPF em dois lugares** (`_conta_por_cpf`): `Aventureiro.resp_cpf` **e**
+  `MembroDiretoria.cpf` — procurar só no primeiro deixava a diretoria sem filho no clube sem recuperação
+  nenhuma; cadastro novo com CPF entra aqui também. O destino sai de `_whatsapp_recuperacao`: escolha do
+  Diretor > WhatsApp da **ficha de diretoria** quando o CPF veio dela (quem pede com o próprio CPF recebe no
+  próprio número) > responsável legal > ficha como fallback. `_numeros_conta` **não** basta: ele só lê os
+  aventureiros e devolve vazio numa conta só de diretoria.
 - **Assinatura de documentos**: `AssinaturaDocumento` (aventureiro + tipo de documento + imagem PNG da assinatura
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
@@ -244,9 +250,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   a janela). `inscricoes_abertas(tem_diretoria=False)`: chame com **`True` para decidir se a tela abre** (senão
   a diretoria não chega ao formulário na janela extra) e valide o **POST pela composição real** da inscrição —
   é lá que a regra vale, com a trava final no model. Quem é "diretoria" é **quem marca a caixinha**, como já
-  vale para o valor (o sistema não confere o cadastro). O **PDV não checa prazo** (presencial). Use
-  `tem_prazo_diretoria` para exibir a janela só quando ela existe de fato, e `so_diretoria_pode_inscrever` para
-  o aviso/terceiro estado visual (`.parcial`, âmbar — verde/vermelho enganam metade de quem lê).
+  vale para o valor (o sistema não confere o cadastro). O **PDV não checa prazo** (presencial). A janela extra
+  é **discreta**: **nenhuma tela pública** a menciona — passado o prazo comum, a página do evento diz só
+  "Inscrições encerradas", **o botão some para todos** e o erro de POST é **genérico**; a diretoria entra pelo
+  **link direto** (que a view continua abrindo). O **menu do Responsável** também perde o evento
+  (`_eventos_menu(user, perfil)` filtra por `inscricoes_abertas()` no perfil Responsável — e com ele some o caminho
+  para a lojinha daquele evento). `tem_prazo_diretoria`/`so_diretoria_pode_inscrever` são estado **interno**:
+  use-os só no painel do Diretor. Ao criar tela pública nova de evento, siga o prazo **comum**.
 - **Valor da diretoria parcelado**: `Evento.parcelas_diretoria` (mig. **0068**; `1` = à vista) divide **só a
   parte da diretoria** em parcelas cobradas **pelo clube** (estilo mensalidade — não é o parcelamento do cartão,
   que o MP já oferece em cima da 1ª parcela). A 1ª parcela é cobrada **no ato**, junto do valor **integral** dos

@@ -377,6 +377,16 @@ internas ou no fluxo de login, seguir estas regras:
   o padrão `.sub-abas` > `.sub-aba[data-sub]` + `.sub-secao[data-subsecao]` (a inicial visível, as demais
   com `hidden`). O JS em `evento_painel.js` é **genérico e escopado** à `.painel-secao` pai (cada barra
   só mexe nas próprias sub-seções) — reutilizar para novas seções (ex.: Lojinha → Produtos/Pedidos).
+- **A janela extra da diretoria não é anunciada em tela pública** (`Evento.inscricao_limite_diretoria`).
+  Passado o **prazo comum**, a página do evento diz apenas "Inscrições encerradas", **o botão de inscrever
+  some para todo mundo** e o erro de POST fora do prazo é **genérico** — quem é recusado não fica sabendo
+  que existe janela extra. A diretoria entra pelo **link direto** de `/eventos/<id>/inscrever/`, que a view
+  continua abrindo pelo prazo mais generoso; a regra de verdade é a **validação do POST** pela composição
+  real da inscrição, com a trava final no model. O **menu do Responsável** segue o mesmo prazo comum
+  (`_eventos_menu(user, perfil)` em `core/context_processors.py` filtra por `inscricoes_abertas()` no perfil
+  **Responsável**) — e com o item de menu some também o caminho dele para a **lojinha** daquele
+  evento. `tem_prazo_diretoria` e `so_diretoria_pode_inscrever` são **estado interno**: só o **painel do
+  Diretor** os exibe. **Tela pública nova de evento segue o prazo comum.**
 - **Pagamentos ficam simulados** até a fase específica; nunca integrar gateway sem autorização.
 - Fase 1 (feita): base + painel/resumo (indicadores) + Custos (com comprovante). Próximas: Inscrições,
   Página pública, Lojinha, Financeiro/gráficos; depois, pagamentos reais e mapa.
@@ -479,10 +489,18 @@ internas ou no fluxo de login, seguir estas regras:
 - Fluxo **público** em 3 etapas (`/recuperar-senha/`, `.../codigo/`, `.../nova-senha/`), estado na
   **sessão** (`request.session["recup"]`). Etapas com guarda: código exige sessão; nova senha exige
   `validado=True`. Já logado → redireciona para `/inicio/`.
-- **Identificação por CPF do responsável legal** (`Aventureiro.resp_cpf`), comparando **só dígitos**
-  (`_so_digitos`). Prefere conta **ativa**. **Destino** do código = **WhatsApp principal** da conta
-  (`PerfilUsuario.whatsapp_principal_origem`, definido pelo Diretor em Usuários), com **fallback** para o
-  WhatsApp do **responsável legal** (`_whatsapp_principal`).
+- **Identificação por CPF em DOIS lugares** (`_conta_por_cpf`): o **responsável legal** de um aventureiro
+  (`Aventureiro.resp_cpf`) **e** a **ficha de diretoria** (`MembroDiretoria.cpf`), comparando **só dígitos**
+  (`_so_digitos`) e ignorando `demo`. Prefere conta **ativa**. Procurar só no `resp_cpf` deixava **quem é da
+  diretoria e não tem filho no clube sem nenhum caminho** de recuperação — se aparecer um cadastro novo com
+  CPF (ex.: professor, ajudante), **acrescente-o aqui também**. O helper devolve `(usuario, via_diretoria)`.
+- **Destino do código** (`_whatsapp_recuperacao`), nesta ordem: **escolha do Diretor** (WhatsApp principal,
+  `PerfilUsuario.whatsapp_principal_origem`) > **WhatsApp da ficha de diretoria**, quando o CPF veio dela >
+  **responsável legal** (`_whatsapp_principal`) > ficha de diretoria como **fallback**. O caso do meio é a
+  regra que importa: quem pediu com o próprio CPF **recebe no próprio número** — mandar para o cônjuge
+  (responsável legal do aventureiro) deixa a pessoa sem o código. **Não** resolver o destino por
+  `_numeros_conta` sozinho: ele lê só pai/mãe/responsável **dos aventureiros**, e devolve vazio numa conta que
+  só tem ficha de diretoria (era o segundo bloqueio do mesmo bug).
 - **A tela do código mostra o usuário de acesso** da conta encontrada (card `.recup-usuario`), e a mensagem
   do WhatsApp leva o login junto do código — o esquecimento comum é o **usuário**, não a senha. O login é
   guardado na sessão do fluxo (`recup["usuario"]`) por quem gera o código, para o **reenvio** repetir sem

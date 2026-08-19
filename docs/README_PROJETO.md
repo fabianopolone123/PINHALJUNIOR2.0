@@ -361,10 +361,11 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 
 ## Funcionalidades ainda NÃO implementadas
 
-- Recuperação de senha ("Esqueci minha senha") — **implementada** pelo WhatsApp (código de 4 dígitos), e a
-  tela do código **mostra o usuário de acesso** da conta (quem esquece o login também resolve por lá);
-  falta o responsável logado poder escolher o próprio WhatsApp principal (hoje só o Diretor) e um
-  **throttle** nessa tela (cada POST válido dispara um WhatsApp real e revela um login).
+- Recuperação de senha ("Esqueci minha senha") — **implementada** pelo WhatsApp (código de 4 dígitos), pelo
+  CPF do **responsável legal** ou o da **ficha de diretoria**, e a tela do código **mostra o usuário de
+  acesso** da conta (quem esquece o login também resolve por lá); falta o responsável logado poder escolher o
+  próprio WhatsApp principal (hoje só o Diretor) e um **throttle** nessa tela (cada POST válido dispara um
+  WhatsApp real e revela um login).
 - Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
 - Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Diretoria/Professor/
   Tesoureiro/Secretário existem com acesso mínimo). **Alternância de perfil** (Diretoria ↔ Responsável) já

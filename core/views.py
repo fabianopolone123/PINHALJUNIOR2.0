@@ -1901,13 +1901,12 @@ def evento_pagina_view(request, pk):
         "evento": evento,
         "faixas": list(evento.faixas_preco.all()),
         "campos": list(evento.campos_inscricao.all()),
-        # Aberto = pelo prazo mais generoso, senão o botão desaparecia justamente
-        # na janela extra da diretoria. O aviso abaixo diz de quem é a janela.
-        "inscricoes_abertas": evento.inscricoes_abertas(tem_diretoria=True),
+        # Aberto = pelo prazo COMUM (o do aventureiro). Passado ele, a página diz
+        # "encerradas" e o botão some para todo mundo — a janela extra da
+        # diretoria não é anunciada aqui; a diretoria entra pelo link direto da
+        # inscrição, que a `evento_inscrever_view` continua abrindo.
+        "inscricoes_abertas": evento.inscricoes_abertas(),
         "prazo_inscricao": evento.prazo_inscricao(),
-        "so_diretoria": evento.so_diretoria_pode_inscrever,
-        "prazo_diretoria": evento.prazo_inscricao_diretoria(),
-        "tem_prazo_diretoria": evento.tem_prazo_diretoria,
         "tem_loja": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
     }
     return render(request, "core/evento_pagina.html", contexto)
@@ -2107,8 +2106,10 @@ def evento_inscrever_view(request, pk):
         return bloqueio
     # A tela abre pelo prazo MAIS GENEROSO (o da diretoria): fechá-la pelo prazo
     # comum impediria a diretoria de chegar ao formulário na janela extra dela.
-    # Quem decide de fato é a validação do POST, mais abaixo, que olha se a
-    # inscrição tem realmente alguém de diretoria.
+    # Passado o prazo comum, nenhum botão leva até aqui (nem a página do evento,
+    # nem o menu do Responsável) — a diretoria entra pelo LINK DIRETO. Quem
+    # decide de fato é a validação do POST, mais abaixo, que olha se a inscrição
+    # tem realmente alguém de diretoria.
     if not evento.inscricoes_abertas(tem_diretoria=True):
         messages.error(request, "As inscrições para este evento estão encerradas.")
         return redirect("core:evento_pagina", pk=evento.pk)
@@ -2146,18 +2147,11 @@ def evento_inscrever_view(request, pk):
         # diretoria vale o prazo dela (que só estende), e os outros participantes
         # da mesma inscrição entram na mesma janela. Sem diretoria, vale o prazo
         # comum. A validação de verdade é aqui — a tela abriu pelo prazo maior.
+        # O erro é o MESMO nos dois casos, de propósito: a janela extra da
+        # diretoria não é anunciada a quem não a conhece.
         inscr_tem_diretoria = any(l["diretoria"] for l in linhas)
         if linhas and not evento.inscricoes_abertas(tem_diretoria=inscr_tem_diretoria):
-            if evento.inscricoes_abertas(tem_diretoria=True):
-                prazo_dir = timezone.localtime(evento.prazo_inscricao_diretoria())
-                erros_part.append(
-                    "O prazo de inscrição já encerrou. Só a diretoria ainda pode se "
-                    f"inscrever (até {prazo_dir.strftime('%d/%m/%Y às %H:%M')}) — "
-                    "marque “diretoria” na linha do integrante, e os outros "
-                    "participantes desta inscrição entram junto."
-                )
-            else:
-                erros_part.append("As inscrições para este evento estão encerradas.")
+            erros_part.append("As inscrições para este evento estão encerradas.")
 
         # Monta os participantes com o preço da faixa/diretoria e aplica o cupom
         # digitado na linha de cada um (o desconto vale para AQUELE participante).
@@ -2333,10 +2327,6 @@ def evento_inscrever_view(request, pk):
         ),
         "parcelas_diretoria": evento.parcelas_diretoria,
         "parcelar_marcado": request.POST.get("parcelar_diretoria") == "1",
-        # Prazo comum já venceu e só a janela da diretoria está de pé: a tela
-        # abre, mas avisa que a inscrição precisa incluir alguém da diretoria.
-        "so_diretoria": evento.so_diretoria_pode_inscrever,
-        "prazo_diretoria": evento.prazo_inscricao_diretoria(),
         "formas_pagamento": evento.formas_online(),
         # Quais das formas acima confirmam sem cobrar (o template marca cada
         # opção) e o rótulo delas, para a orientação dizer de qual se trata.
@@ -7025,9 +7015,10 @@ def inscricao_parcela_pagar_view(request, token):
 # Recuperação de senha pelo WhatsApp (público, sem login)
 #
 # Fluxo em 3 etapas guardadas na sessão (`request.session["recup"]`):
-#   1) CPF do responsável legal → identifica a conta e envia um código de 4
-#      dígitos para o WhatsApp principal (definido pelo Diretor em Usuários;
-#      padrão = WhatsApp do responsável legal).
+#   1) CPF → identifica a conta (responsável legal de um aventureiro OU ficha
+#      de diretoria) e envia um código de 4 dígitos para o WhatsApp principal
+#      (definido pelo Diretor em Usuários; padrão = WhatsApp do responsável
+#      legal, ou o da ficha de diretoria quando o CPF veio dela).
 #   2) Código → valida (com limite de tentativas e expiração).
 #   3) Nova senha (2x) → grava e limpa a sessão.
 # O código é guardado **com hash** na sessão (server-side); nunca em texto puro.
@@ -7096,21 +7087,53 @@ def _whatsapp_principal(usuario):
     return _resolver_origem_numero(_numeros_conta(usuario), escolhido)[1]
 
 
-def _conta_por_cpf_resp(cpf):
-    """Acha a conta (User) cujo **responsável legal** tem esse CPF. Prefere conta
-    ativa. Devolve o User ou None."""
+def _whatsapp_diretoria(usuario):
+    """WhatsApp da ficha de diretoria da conta, **normalizado** (ou "")."""
+    membro = getattr(usuario, "membro_diretoria", None)
+    return normalizar_telefone(membro.whatsapp) if membro is not None else ""
+
+
+def _whatsapp_recuperacao(usuario, via_diretoria=False):
+    """Para onde vai o código de recuperação de senha.
+
+    A escolha do Diretor (WhatsApp principal da conta) continua mandando. Sem
+    escolha, quem foi achado pelo CPF da **ficha de diretoria** recebe no número
+    da própria ficha: pedir com o próprio CPF e o código cair no celular do
+    cônjuge (o responsável legal do aventureiro) é resposta errada. E a ficha de
+    diretoria é a única saída de quem não tem aventureiro nenhum na conta — sem
+    ela, a conta existe e não há para onde mandar o código."""
+    perfil = getattr(usuario, "perfil", None)
+    escolhido = (perfil.whatsapp_principal_origem or "") if perfil is not None else ""
+    if via_diretoria and not escolhido:
+        return _whatsapp_diretoria(usuario) or _whatsapp_principal(usuario)
+    return _whatsapp_principal(usuario) or _whatsapp_diretoria(usuario)
+
+
+def _conta_por_cpf(cpf):
+    """Acha a conta (User) por CPF. Devolve `(usuario, via_diretoria)` —
+    `(None, False)` quando não acha. Prefere conta ativa.
+
+    Procura em **dois** lugares: o **responsável legal** de um aventureiro e a
+    **ficha de diretoria**. Só o primeiro existia, e por isso quem é da diretoria
+    e não tem filho no clube (ou cujo filho está cadastrado com o outro
+    responsável legal) não era encontrado e ficava sem recuperar a senha. O
+    `via_diretoria` diz por onde veio o casamento, para o código ir ao número
+    certo (ver `_whatsapp_recuperacao`)."""
     alvo = _so_digitos(cpf)
     if len(alvo) != 11:
-        return None
-    achados = []
+        return None, False
+    achados = []  # [(usuario, via_diretoria)] — o do responsável legal primeiro
     for av in Aventureiro.objects.filter(usuario__isnull=False, demo=False).select_related("usuario"):
         if _so_digitos(av.resp_cpf) == alvo:
-            achados.append(av.usuario)
+            achados.append((av.usuario, False))
+    for membro in MembroDiretoria.objects.filter(demo=False).select_related("usuario"):
+        if _so_digitos(membro.cpf) == alvo:
+            achados.append((membro.usuario, True))
     if not achados:
-        return None
-    for u in achados:
-        if u.is_active:
-            return u
+        return None, False
+    for usuario, via_diretoria in achados:
+        if usuario.is_active:
+            return usuario, via_diretoria
     return achados[0]
 
 
@@ -7167,7 +7190,8 @@ def _ajax_toast(msg, tipo="error"):
 
 
 def recuperar_senha_view(request):
-    """Etapa 1: digitar o CPF do responsável legal para receber o código."""
+    """Etapa 1: digitar o CPF (do responsável legal ou da ficha de diretoria)
+    para receber o código."""
     if request.user.is_authenticated:
         return redirect("core:inicio")
     cpf_digitado = ""
@@ -7178,11 +7202,11 @@ def recuperar_senha_view(request):
         if len(_so_digitos(cpf_digitado)) != 11:
             erro = "Digite um CPF válido (11 dígitos)."
         else:
-            usuario = _conta_por_cpf_resp(cpf_digitado)
+            usuario, via_diretoria = _conta_por_cpf(cpf_digitado)
             if usuario is None:
-                erro = "Não encontramos uma conta com esse CPF de responsável legal."
+                erro = "Não encontramos uma conta com esse CPF."
             else:
-                destino = _whatsapp_principal(usuario)
+                destino = _whatsapp_recuperacao(usuario, via_diretoria)
                 if not destino:
                     erro = "Não há WhatsApp cadastrado para enviar o código. Procure a diretoria."
                 else:

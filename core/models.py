@@ -694,7 +694,9 @@ class Evento(models.Model):
     @property
     def so_diretoria_pode_inscrever(self):
         """True quando o prazo comum já venceu mas o da diretoria ainda está de pé:
-        a tela continua aberta, só que apenas para inscrição com diretoria."""
+        a tela de inscrição continua abrindo (pelo LINK DIRETO — nenhum botão leva
+        até ela), só que apenas para inscrição com diretoria. Estado interno: as
+        telas públicas não o anunciam, só o painel do Diretor."""
         return self.inscricoes_abertas(tem_diretoria=True) and not self.inscricoes_abertas()
 
     def ja_terminou(self):

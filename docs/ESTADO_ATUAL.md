@@ -2,7 +2,27 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-18 (**Evento encerrado para a família sai do menu do Responsável**): no perfil
+**Última atualização:** 2026-08-19 (**Recuperação de senha acha quem é da diretoria**): quem é da diretoria
+digitava o próprio CPF em "Esqueci minha senha" e ouvia **"não encontramos uma conta com esse CPF"**. A busca
+olhava **um lugar só** — o `resp_cpf` (responsável legal) dos aventureiros —, então só era achado quem também
+é responsável legal de uma criança do clube: **diretoria sem filho no clube não tinha caminho nenhum** de
+recuperação, e a diretoria cujo filho está cadastrado no nome do outro responsável legal também não. Agora
+`_conta_por_cpf` procura **nos dois** lugares: `Aventureiro.resp_cpf` **e** `MembroDiretoria.cpf` (ambos
+ignorando `demo`), continuando a preferir conta ativa. O segundo ponto era igualmente travado: mesmo achando a
+conta, o destino do código vinha de `_numeros_conta`, que lê **só** pai/mãe/responsável **dos aventureiros** —
+numa conta sem aventureiro o retorno é vazio e a pessoa cairia em "não há WhatsApp cadastrado". Entrou
+`_whatsapp_recuperacao(usuario, via_diretoria)`, com a ordem de preferência explícita: **a escolha do Diretor
+(WhatsApp principal) manda sempre**; sem escolha, quem foi achado **pelo CPF da ficha de diretoria** recebe no
+**número da própria ficha** — pedir com o próprio CPF e o código cair no celular do cônjuge é resposta errada
+—; e a ficha de diretoria vira **fallback** quando não há número de responsável nenhum. A tela mudou junto: o
+rótulo virou só **"CPF"** e a ajuda diz "o CPF do responsável legal do aventureiro — ou, se você é da
+diretoria, o CPF da sua ficha"; o erro de CPF não encontrado deixou de citar "responsável legal" (citar
+achatava o diagnóstico de quem tentava com o CPF certo). O que **não** mudou: a etapa 1 continua sem revelar
+nada quando o CPF não existe, o código segue com hash na sessão e o **throttle continua faltando** — dívida
+que só cresce, porque agora há mais CPFs que disparam um WhatsApp real. Sem migration. Suíte: **346 testes
+OK** (338 + 8). Antes: evento encerrado para a família sai do menu do Responsável.
+
+**Anterior (Evento encerrado para a família sai do menu do Responsável):** no perfil
 **Responsável**, o evento com inscrição só fica no menu lateral **enquanto ele pode se inscrever** — vencido o
 **prazo comum** (`inscricoes_abertas()`), sai. Pega principalmente a janela extra **"só diretoria"**, que era o
 caso que confundia: no Aventuri 2026 o prazo comum venceu em 16/08 23:59 e o da diretoria ia até 18/08 23:59, e
@@ -52,7 +72,6 @@ que importa é estar inscrito. Os três textos vão prontos no HTML em `<textare
 a cópia de reserva precisa de `select()` num campo que exista de fato) e os botões só aparecem quando há alguém
 confirmado. Nada de model, migration ou rota nova. Suíte: **332 testes OK** (295 + 37). Antes: prazo de
 inscrição próprio da diretoria.
-
 **Anterior (Eventos: prazo de inscrição próprio da diretoria):** o evento ganhou um
 **segundo prazo de inscrição, só para quem inclui alguém da diretoria**
 (`Evento.inscricao_limite_diretoria`, migration **0069**), na mesma "Configuração da inscrição". Serve ao caso
@@ -70,12 +89,18 @@ da inscrição; a trava final está no model, então POST forjado depois dos **d
 teste). Quem é "diretoria" continua sendo **quem marca a caixinha** (decisão do usuário), igual ao que já vale
 para o **valor** da diretoria: o sistema não confere o cadastro — a brecha conhecida (marcar para furar prazo)
 é a mesma que já existe para pagar menos, e fechá-la depende do vínculo exato participante × aventureiro, que é
-dívida antiga. Nas telas: a página do evento ganhou um **terceiro estado** (faixa **âmbar** "Inscrições
-encerradas — só diretoria"; verde diria "aberto" e vermelho "encerrado", e as duas enganam metade de quem lê),
-a tela de inscrição abre com um aviso explicando a regra, e o painel mostra o selo **⛺ Só diretoria** com a
-data da janela. O **PDV/balcão segue sem checar prazo** (inscrição presencial feita pela própria diretoria).
-Suíte: **295 testes OK** (280 + 15). Conferido em 520/800/1400px com sonda: zero overflow. Antes: valor da
-diretoria parcelado.
+dívida antiga. **A janela extra é discreta** (ajuste do mesmo dia, decisão do usuário): **nenhuma tela pública
+diz que a diretoria tem prazo diferente** — nem aviso, nem instrução, nem estado visual próprio. Passado o
+**prazo comum**, a página do evento volta a dizer só "⛔ Inscrições encerradas" e **o botão de inscrever some
+para todo mundo**; a diretoria entra pelo **link direto** da inscrição, que continua abrindo (a validação de
+verdade é o POST). No mesmo espírito, o erro de POST fora do prazo é **genérico** nos dois casos — quem é
+recusado não fica sabendo que existe janela extra. E o **menu do Responsável perde o evento junto com o prazo
+dele** (`_eventos_menu(user, perfil)` filtra por `inscricoes_abertas()` no perfil **Responsável**), mesmo faltando dias
+para o evento; os outros perfis continuam vendo o evento até ele terminar. **Consequência aceita**: sem o item
+de menu, o Responsável também perde o caminho para a **lojinha** daquele evento depois do prazo de inscrição —
+o link direto continua valendo. No painel do Diretor **nada mudou**: lá o selo **⛺ Só diretoria** e a data da
+janela continuam à mostra (é quem configura). O **PDV/balcão segue sem checar prazo** (inscrição presencial
+feita pela própria diretoria). Suíte: **298 testes OK** (295 + 3). Antes: valor da diretoria parcelado.
 
 **Anterior (Eventos: valor da diretoria parcelado):** em evento caro (caso do
 **Aventuri**) o valor que **a diretoria** paga pesa de uma vez só. Agora ele pode ser **dividido em parcelas
@@ -1199,7 +1224,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   para o diretor.
 - **Perfis/permissões**: `core/permissoes.py` (`eh_diretor` + decorator `diretor_required`) e o context
   processor `core/context_processors.py` (`is_diretor` e `eventos_menu` em todos os templates — o
-  primeiro para `{% if is_diretor %}`, o segundo para a seção "Eventos ativos" do menu).
+  primeiro para `{% if is_diretor %}`, o segundo para a seção "Eventos ativos" do menu). O
+  `_eventos_menu(user, perfil)` lista os eventos com inscrição ainda não encerrados, **exceto `demo` e
+  inativos**; no perfil **Responsável** entra ainda o **prazo de inscrição comum** (`inscricoes_abertas()`):
+  vencido ele, o evento sai do menu dessa pessoa — a janela extra da diretoria não o traz de volta (ver
+  REGRAS_CODEX).
 - Módulo **Eventos** (`/eventos/`, **restrito ao Diretor**): lista os eventos do clube em cards
   (nome, tipo, data, horário, local, descrição) e permite **criar evento**. O botão "Criar evento"
   abre um **modal** para escolher o tipo: **Evento simples** (implementado) ou **Evento com inscrição**
@@ -1239,11 +1268,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   perfis logados, com o nome do evento levando à **página do evento** (`/eventos/<id>/pagina/`).
   Eventos passados somem do menu sozinhos. **No perfil Responsável** o evento sai também quando a
   inscrição **dele** fecha (prazo comum), o que inclui a janela extra "só diretoria" — os perfis da
-  liderança continuam vendo, e a página segue acessível por **link direto** (só o menu filtra). A página do evento é uma **página própria** (sem a barra lateral) com nome, descrição,
-  local (com botão **"Ver no mapa"** que abre o Google Maps no endereço), datas/horários, **status**
-  das inscrições (aberto/encerrado + prazo), **valores** (faixas + diretoria) e **preview dos campos**
-  do formulário. **Acesso**: evento **aberto ao público** → sem login; **só membros** → exige login.
-- **Evento complexo — Fase 2.4 (inscrição de fato — Fase 2 CONCLUÍDA)**: na página do evento,
+  liderança continuam vendo, e a página segue acessível por **link direto** (só o menu filtra). A
+  página do evento é uma **página própria** (sem a barra lateral) com nome, descrição, local (com botão
+  **"Ver no mapa"** que abre o Google Maps no endereço), datas/horários, **status** das inscrições (só
+  **dois** estados — aberto/encerrado pelo **prazo comum**, mais o prazo), **valores** (faixas +
+  diretoria) e **preview dos campos** do formulário. Encerrado o prazo comum, **o botão "Inscrever-se"
+  some para todos** e a janela extra da diretoria **não é mencionada** (ver REGRAS_CODEX).
+  **Acesso**: evento **aberto ao público** → sem login; **só membros** → exige login.- **Evento complexo — Fase 2.4 (inscrição de fato — Fase 2 CONCLUÍDA)**: na página do evento,
   "Inscrever-se" abre o **formulário de inscrição** (`/eventos/<id>/inscrever/`) com dados do
   responsável + **participantes** (linhas repetíveis: nome + idade + opção "diretoria") + os **campos
   personalizados** (os "uma vez" junto do responsável; os "por participante" dentro de cada
@@ -1535,7 +1566,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **`prazo_inscricao_diretoria()`** (o `max` entre ele e o prazo comum — **só estende, nunca restringe**),
   **`prazo_inscricao_efetivo(tem_diretoria)`**, **`inscricoes_abertas(tem_diretoria=False)`** e as properties
   **`tem_prazo_diretoria`** (True só quando estende de fato) e **`so_diretoria_pode_inscrever`**. Uma inscrição
-  com diretoria vale por esse prazo **inteira** (o aventureiro que entra junto aproveita a janela).
+  com diretoria vale por esse prazo **inteira** (o aventureiro que entra junto aproveita a janela). As duas
+  properties são **estado interno**: só o **painel do Diretor** as exibe — em tela pública a janela extra não
+  aparece (ver o resumo no topo).
   Migrations `0002`, `0003`, `0004`, `0062`, `0063`, `0065`, `0066`, `0067`, `0068`, `0069`.
 - `CustoEvento` — custo/despesa de um evento (FK `evento`, nome, descrição, valor, comprovante,
   `criado_por`). Migration `0003_evento_data_fim_custoevento`.
@@ -1604,8 +1637,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     via property `ProdutoLoja.capa`). Mig. **0022**. Suporta várias fotos + lightbox na vitrine.
 
 ## Funcionalidades incompletas / não implementadas
-- Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos).
-  Falta permitir que o **responsável logado** altere o próprio WhatsApp principal (hoje só o Diretor).
+- Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos), tanto
+  pelo CPF do **responsável legal** quanto pelo da **ficha de diretoria**. Falta permitir que o **responsável
+  logado** altere o próprio WhatsApp principal (hoje só o Diretor) — e, para a conta **só de diretoria**, nem
+  o Diretor consegue: o seletor de WhatsApp principal mora no card do responsável da tela "Usuários", que não
+  existe para quem não tem aventureiro (lá o número sai direto da ficha).
 - Edição dos dados do aventureiro pela área logada — hoje "Meus Dados" é somente visualização.
 - Validação avançada de CPF — NÃO implementada (deixada para o futuro).
 
@@ -1815,7 +1851,11 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `/cadastro/` — cadastro inicial: conta + primeiro aventureiro (`core.views.cadastro_view`, nome `core:cadastro`).
 - `/cadastro/novo-aventureiro/` — outro aventureiro na mesma conta (`core.views.cadastro_novo_aventureiro_view`, nome `core:cadastro_novo_aventureiro`).
 - `/cadastro/sucesso/` — confirmação (`core.views.cadastro_sucesso_view`, nome `core:cadastro_sucesso`).
-- `/recuperar-senha/` — recuperação de senha, etapa 1: CPF do responsável legal (`core:recuperar_senha`).
+- `/recuperar-senha/` — recuperação de senha, etapa 1: **CPF** (`core:recuperar_senha`). Acha a conta pelo
+  **responsável legal** de um aventureiro (`Aventureiro.resp_cpf`) **ou** pela **ficha de diretoria**
+  (`MembroDiretoria.cpf`) — helper `_conta_por_cpf`, que devolve também por onde veio o casamento. O destino
+  do código sai de `_whatsapp_recuperacao`: escolha do Diretor > WhatsApp da ficha de diretoria (quando o CPF
+  veio dela) > responsável legal > ficha de diretoria como fallback.
 - `/recuperar-senha/codigo/` — etapa 2: digitar o código de 4 dígitos (`core:recuperar_senha_codigo`).
   Mostra também o **usuário de acesso** da conta achada pelo CPF (o mesmo vai na mensagem do WhatsApp) —
   quem esquece o login resolve aqui.

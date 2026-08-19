@@ -3168,6 +3168,94 @@ class RecuperarUsuarioTests(TestCase):
             self.assertIn(classe, css)
 
 
+class RecuperarDiretoriaTests(TestCase):
+    """Recuperação de senha para quem é da DIRETORIA: o CPF da ficha também
+    encontra a conta. Antes só se procurava no responsável legal de um
+    aventureiro, então quem não tem filho no clube (ou cujo filho está
+    cadastrado com o outro responsável legal) digitava o próprio CPF e ouvia
+    "não encontramos" — sem outro caminho de recuperação."""
+
+    CPF_DIRETORIA = "111.222.333-44"
+    CPF_RESP = "555.666.777-88"
+
+    def setUp(self):
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "I"; wa.token = "T"; wa.save()
+
+    def _membro(self, usuario, cpf=None):
+        return MembroDiretoria.objects.create(
+            usuario=usuario, nome_completo="Voluntaria Teste",
+            cpf=cpf or self.CPF_DIRETORIA, whatsapp="47988887777",
+            email="voluntaria@exemplo.com",
+        )
+
+    def _aventureiro(self, usuario, resp_cpf=None):
+        return Aventureiro.objects.create(
+            usuario=usuario, nome_completo="Filho Teste", sexo="M",
+            data_nascimento=datetime.date(2016, 3, 2), cpf="A1",
+            resp_nome="Pai Teste", resp_cpf=resp_cpf or self.CPF_RESP,
+            resp_whatsapp="47911112222", resp_email="pai@exemplo.com",
+        )
+
+    def _pedir(self, cpf):
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "msgid")) as env:
+            r = self.client.post(reverse("core:recuperar_senha"), {"cpf": cpf})
+        return r, env
+
+    def _destino(self, env):
+        """Número para onde o código foi enviado (3º argumento é a mensagem)."""
+        env.assert_called_once()
+        return env.call_args[0][1]
+
+    def test_diretoria_sem_aventureiro_e_encontrada(self):
+        """O caso que motivou a correção: conta só de diretoria, sem nenhum
+        aventureiro. Antes não havia como recuperar a senha dessa conta."""
+        user = User.objects.create_user("voluntaria.teste", password="x")
+        self._membro(user)
+        r, env = self._pedir(self.CPF_DIRETORIA)
+        self.assertRedirects(r, reverse("core:recuperar_senha_codigo"))
+        self.assertEqual(self._destino(env), "5547988887777")
+        self.assertIn("voluntaria.teste", env.call_args[0][2])
+
+    def test_codigo_vai_para_o_numero_da_propria_ficha(self):
+        """Diretoria com filho cadastrado no nome do outro responsável legal:
+        quem pediu foi ela, então o código vai para o WhatsApp DELA — cair no
+        celular do cônjuge deixaria a pessoa sem o código."""
+        user = User.objects.create_user("voluntaria2", password="x")
+        self._membro(user)
+        self._aventureiro(user)
+        _, env = self._pedir(self.CPF_DIRETORIA)
+        self.assertEqual(self._destino(env), "5547988887777")
+
+    def test_cpf_do_responsavel_legal_continua_indo_para_ele(self):
+        """Regressão: a mesma conta achada pelo CPF do responsável legal segue
+        mandando para o número dele, mesmo tendo ficha de diretoria."""
+        user = User.objects.create_user("voluntaria3", password="x")
+        self._membro(user)
+        self._aventureiro(user)
+        _, env = self._pedir(self.CPF_RESP)
+        self.assertEqual(self._destino(env), "5547911112222")
+
+    def test_escolha_do_diretor_manda_mais_que_a_ficha(self):
+        """WhatsApp principal definido pelo Diretor continua sendo o destino."""
+        user = User.objects.create_user("voluntaria4", password="x")
+        self._membro(user)
+        self._aventureiro(user)
+        PerfilUsuario.objects.create(usuario=user, whatsapp_principal_origem="resp")
+        _, env = self._pedir(self.CPF_DIRETORIA)
+        self.assertEqual(self._destino(env), "5547911112222")
+
+    def test_ficha_demo_nao_abre_recuperacao(self):
+        """Dado fictício não entra em nada do clube — nem aqui."""
+        user = User.objects.create_user("voluntaria5", password="x")
+        m = self._membro(user)
+        MembroDiretoria.objects.filter(pk=m.pk).update(demo=True)
+        with mock.patch("core.views._enviar_whatsapp", return_value=(True, "x")) as env:
+            self.client.post(reverse("core:recuperar_senha"), {"cpf": self.CPF_DIRETORIA})
+        env.assert_not_called()
+        self.assertNotIn("recup", self.client.session)
+
+
 class AvisoInscricaoEventoTests(TestCase):
     """Aviso interno de inscrição: a cada inscrição no evento, a lista de
     inscritos vai para o integrante da diretoria escolhido NAQUELE evento."""
@@ -3796,11 +3884,13 @@ class PrazoDiretoriaTests(TestCase):
 
     # --- a tela ---
 
-    def test_tela_abre_na_janela_da_diretoria_e_avisa(self):
+    def test_tela_abre_pelo_link_direto_e_nao_anuncia_a_janela(self):
+        """Passado o prazo comum, a tela continua abrindo por URL direta — é por
+        ela que a diretoria entra —, mas SEM contar que existe janela extra."""
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, 200)
-        self.assertTrue(r.context["so_diretoria"])
-        self.assertContains(r, "O prazo geral de inscrição já encerrou")
+        self.assertNotContains(r, "O prazo geral de inscrição já encerrou")
+        self.assertNotContains(r, "ainda pode se inscrever")
 
     def test_tela_fecha_quando_os_dois_prazos_venceram(self):
         self.evento.inscricao_limite_diretoria = self.agora - datetime.timedelta(hours=1)
@@ -3808,12 +3898,14 @@ class PrazoDiretoriaTests(TestCase):
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, 302)
 
-    def test_pagina_do_evento_mostra_so_diretoria(self):
+    def test_pagina_do_evento_diz_encerrado_e_esconde_o_botao(self):
+        """A página segue o prazo COMUM: encerrado, sem botão e sem mencionar a
+        janela da diretoria (nem para quem chega pelo link público)."""
         r = self.client.get(reverse("core:evento_pagina", args=[self.evento.id]))
-        self.assertTrue(r.context["so_diretoria"])
-        self.assertContains(r, "só diretoria")
-        # O botão de inscrever continua à mostra: é por ele que a diretoria entra.
-        self.assertContains(r, reverse("core:evento_inscrever", args=[self.evento.id]))
+        self.assertFalse(r.context["inscricoes_abertas"])
+        self.assertContains(r, "Inscrições encerradas")
+        self.assertNotContains(r, "só diretoria")
+        self.assertNotContains(r, reverse("core:evento_inscrever", args=[self.evento.id]))
 
     # --- o POST: a regra de verdade ---
 
@@ -3821,7 +3913,9 @@ class PrazoDiretoriaTests(TestCase):
         r = self.client.post(self.url, self._post())
         self.assertEqual(r.status_code, 200)  # volta com erro, não cria
         self.assertEqual(Inscricao.objects.count(), 0)
-        self.assertContains(r, "Só a diretoria ainda pode se inscrever")
+        # Erro genérico: o recusado não fica sabendo da janela da diretoria.
+        self.assertContains(r, "As inscrições para este evento estão encerradas")
+        self.assertNotContains(r, "Só a diretoria ainda pode se inscrever")
 
     def test_fora_do_prazo_com_diretoria_e_aceito(self):
         r = self.client.post(self.url, self._post(part_diretoria_0="1"))
@@ -3867,6 +3961,38 @@ class PrazoDiretoriaTests(TestCase):
         self.assertTrue(r.context["diretoria_ainda_aberta"])
         self.assertFalse(r.context["inscricoes_abertas"])
         self.assertContains(r, "Só diretoria")
+
+    # --- o menu: o Responsável perde o evento junto com o prazo dele ---
+
+    def _responsavel(self):
+        """Usuário com aventureiro real — perfil Responsável implícito."""
+        user = User.objects.create_user(username="fam", password="123456")
+        Aventureiro.objects.create(
+            usuario=user, nome_completo="Filho Teste", sexo="M",
+            data_nascimento=datetime.date(2016, 5, 1), cpf="P1",
+            resp_nome="Mae Teste", resp_cpf="P2", resp_whatsapp="47",
+            resp_email="fam@exemplo.com",
+        )
+        return user
+
+    def _eventos_do_menu(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse("core:inicio")).context["eventos_menu"]
+
+    def test_menu_do_responsavel_perde_o_evento_com_o_prazo_comum(self):
+        """Prazo do aventureiro vencido: fora do menu, mesmo faltando dias para o
+        evento e mesmo com a janela da diretoria de pé."""
+        self.assertEqual(self._eventos_do_menu(self._responsavel()), [])
+
+    def test_menu_do_responsavel_mantem_evento_no_prazo(self):
+        self.evento.inscricao_limite = self.agora + datetime.timedelta(days=5)
+        self.evento.save(update_fields=["inscricao_limite"])
+        self.assertEqual(self._eventos_do_menu(self._responsavel()), [self.evento])
+
+    def test_menu_da_diretoria_mantem_o_evento_na_janela_extra(self):
+        """Quem não é Responsável continua vendo o evento — é assim que a
+        diretoria chega ao link de inscrição na janela extra."""
+        self.assertEqual(self._eventos_do_menu(self.diretor), [self.evento])
 
     def test_config_salva_o_prazo_da_diretoria(self):
         self.client.force_login(self.diretor)
