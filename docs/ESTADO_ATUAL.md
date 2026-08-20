@@ -2,7 +2,31 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-19 (**Recuperação de senha acha quem é da diretoria**): quem é da diretoria
+**Última atualização:** 2026-08-20 (**Eventos: a 1ª parcela da diretoria pode ficar para o mês que vem**):
+o parcelamento do valor da diretoria ganhou uma **opção por evento** para decidir o que acontece com a **1ª
+parcela** (`Evento.parcelas_diretoria_primeira`, migration **0070**): **“Na inscrição”** é o comportamento de
+sempre (ela é cobrada junto do resto, nasce paga e as outras vencem mês a mês) e **“Mês seguinte”** joga a 1ª
+para o **dia 10 do mês que vem** — e aí **nada da parte da diretoria é cobrado na hora**: numa inscrição só de
+diretoria a pessoa **conclui a inscrição sem pagar nada**, sem passar pela tela de pagamento. O caso que pediu
+isso é a diretoria que fecha a inscrição no fim do mês e prefere começar a pagar no mês seguinte, numa data
+fixa. Decisões que importam: o **vencimento é dia fixo e não depende do dia da inscrição** (quem se inscreve
+no dia 1º e quem se inscreve no dia 28 vencem no mesmo dia 10 — data fixa é o que a família guarda), e as
+parcelas seguintes contam **daí** (dia 10 mês a mês); numa **inscrição mista** o que os outros participantes
+devem e a lojinha **continuam sendo cobrados no ato** (só a parte da diretoria sai da cobrança de hoje), então
+a cobrança de hoje pode ir de “tudo” a **zero**; a opção do evento **não parcela sozinha** — quem marca é a
+pessoa, na inscrição —, e continua **sem existir** com “pago direto ao evento” ou sem Mercado Pago configurado
+(não há cobrança para dividir). A regra financeira exigiu um campo novo na parcela: **`ParcelaInscricao.no_ato`**
+(“esta parcela entrou no caixa junto da inscrição”). Antes dava para deduzir pelo número — a 1ª era sempre a do
+ato —, e agora não dá mais: `Inscricao.valor_no_ato` e as duas montagens de **extrato** (evento e clube) passaram
+a olhar a flag, senão a 1ª parcela diferida seria contada **duas vezes** (na linha da inscrição e como lançamento
+próprio). A migration marca `no_ato=True` nas parcelas que já existem — todas foram cobradas no ato. Nas telas:
+o texto do parcelamento na inscrição muda (“Você não paga nada da parte da diretoria agora: a 1ª parcela vence
+em dd/mm/aaaa”), o total ao vivo passa a dizer **“(nada a pagar agora)”** quando zera, e a tela de sucesso avisa
+que nada foi pago e mostra a data da 1ª parcela. O **link público das parcelas** e a **baixa manual** do Diretor
+já funcionavam para parcela em aberto — a 1ª diferida entra neles sem nada de novo. Suíte: **362 testes OK**
+(346 + 16). Antes: recuperação de senha acha quem é da diretoria.
+
+**Anterior (Recuperação de senha acha quem é da diretoria):** quem é da diretoria
 digitava o próprio CPF em "Esqueci minha senha" e ouvia **"não encontramos uma conta com esse CPF"**. A busca
 olhava **um lugar só** — o `resp_cpf` (responsável legal) dos aventureiros —, então só era achado quem também
 é responsável legal de uma criança do clube: **diretoria sem filho no clube não tinha caminho nenhum** de
@@ -1562,9 +1586,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   `formas_fora()`, `forma_paga_por_fora(forma)` e a property `tem_pagamento_por_fora`); e o aviso interno de
   inscrição **`notificar_inscricoes`** + **`notificar_inscricoes_para`** (FK User da diretoria que recebe a
   lista de inscritos a cada inscrição, mig. **0067**); e **`parcelas_diretoria`** (em quantas vezes a parte da
-  diretoria pode ser paga, mig. **0068**; `1` = à vista, padrão) com os métodos
-  **`permite_parcelar_diretoria()`** (exige `parcelas_diretoria > 1` **e** `valor_diretoria` definido) e
-  **`dividir_parcelas(total)`** (divide somando exatamente o total, com a sobra dos centavos na 1ª parcela).
+  diretoria pode ser paga, mig. **0068**; `1` = à vista, padrão) + **`parcelas_diretoria_primeira`** (o que fazer
+  com a **1ª parcela**: `ato` = cobrar na inscrição, padrão; `proximo_mes` = jogar para o dia
+  `DIA_VENCIMENTO_PARCELA` (**10**) do mês seguinte, mig. **0070**) com os métodos
+  **`permite_parcelar_diretoria()`** (exige `parcelas_diretoria > 1` **e** `valor_diretoria` definido),
+  **`primeira_parcela_no_ato()`** (False = a parte da diretoria **inteira** sai da cobrança do ato, e a inscrição
+  é concluída sem pagar essa parte) e **`dividir_parcelas(total)`** (divide somando exatamente o total, com a
+  sobra dos centavos na 1ª parcela).
   E o prazo próprio da diretoria: **`inscricao_limite_diretoria`** (mig. **0069**) + os métodos
   **`prazo_inscricao_diretoria()`** (o `max` entre ele e o prazo comum — **só estende, nunca restringe**),
   **`prazo_inscricao_efetivo(tem_diretoria)`**, **`inscricoes_abertas(tem_diretoria=False)`** e as properties
@@ -1587,18 +1615,22 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   valor_total; props `total_com_loja`/`troco`). Migration `0012`. Também **`token_parcelas`** (token do link
   público das parcelas, mig. **0068**, criado por `get_token_parcelas()`) e as props do parcelamento:
   **`parcelado`**, **`parcelas_abertas`**, **`total_parcelas_aberto`**, **`valor_no_ato`** (o que entrou no dia
-  da inscrição — total menos TODAS as parcelas 2..N) e **`valor_no_caixa`** (total menos as parcelas **em
-  aberto**). **Toda soma de caixa de inscrição usa `valor_no_caixa`**; o extrato usa `valor_no_ato` mais um
+  da inscrição — total menos todas as parcelas com **`no_ato=False`**, e **não** "menos as parcelas 2..N": com a
+  1ª jogada para o mês seguinte, nenhuma parcela foi cobrada no ato) e **`valor_no_caixa`** (total menos as
+  parcelas **em aberto**). **Toda soma de caixa de inscrição usa `valor_no_caixa`**; o extrato usa `valor_no_ato` mais um
   lançamento por parcela paga. `ParticipanteInscricao` (nome, idade, eh_diretoria,
   faixa, valor + **check-in**: `presente`/`presente_em`/`presente_por`, mig. `0016`) e `RespostaInscricao` (FK `inscricao`, FK `participante` opcional, campo + rótulo
   snapshot + valor). Migrations `0006`, `0007`. Respostas de campos "por participante" têm
   `participante` preenchido; as de campos "uma vez" ficam com `participante` nulo.
 - `ParcelaInscricao` — uma parcela do valor da **diretoria** numa inscrição (FK `inscricao`, `numero`/`total`,
-  valor, `vencimento`, status aberta/paga/cancelada, `forma_pagamento`, `valor_pago`, `pago_em`,
+  valor, `vencimento`, **`no_ato`**, status aberta/paga/cancelada, `forma_pagamento`, `valor_pago`, `pago_em`,
   `registrado_por`, FK `pagamento`; props `rotulo`, `em_aberto`, `vencida`; único por inscrição+número).
-  Migration **0068**. Só existe em inscrição parcelada: a **1ª nasce paga** (cobrada no ato junto do resto) e as
-  seguintes vencem mês a mês. Cada parcela paga online tem **o seu** `Pagamento` (tipo `parcela_inscricao`),
-  então a baixa e a taxa do gateway ficam individuais.
+  Migrations **0068**, **0070**. Só existe em inscrição parcelada. Com a 1ª cobrada na inscrição, ela **nasce
+  paga** (cobrada no ato junto do resto) e as seguintes vencem mês a mês; com a 1ª jogada para o mês seguinte,
+  **todas nascem em aberto** e a primeira vence no dia **10** do mês que vem. **`no_ato`** é o que diz se a
+  parcela entrou no caixa junto da inscrição — é essa flag (não o `numero`) que o `valor_no_ato` e o extrato
+  usam para não contar a mesma parcela duas vezes. Cada parcela paga online tem **o seu** `Pagamento` (tipo
+  `parcela_inscricao`), então a baixa e a taxa do gateway ficam individuais.
 - `ProdutoEvento` — produto da lojinha do evento (FK `evento`, nome, descrição, foto, controla_estoque,
   ativo, ordem) e `VariacaoProduto` (FK `produto`, nome, valor, estoque, ordem). Migration `0008`.
   O preço fica em cada variação; estoque só conta quando `controla_estoque` está ligado.

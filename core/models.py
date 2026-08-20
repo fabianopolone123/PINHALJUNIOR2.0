@@ -494,6 +494,20 @@ FORMAS_FORA_CHOICES = [
     (FORMAS_ONLINE_AMBOS, "Pix e cartão de crédito"),
 ]
 
+# Quando o valor da diretoria é parcelado, o que acontece com a 1ª parcela.
+# "ato" = cobrada junto da inscrição (o padrão de sempre); "proximo_mes" = fica
+# para o mês seguinte, sempre no DIA_VENCIMENTO_PARCELA, e nada da parte da
+# diretoria é cobrado na hora — a inscrição é concluída sem pagar essa parte.
+PRIMEIRA_PARCELA_ATO = "ato"
+PRIMEIRA_PARCELA_PROXIMO_MES = "proximo_mes"
+PRIMEIRA_PARCELA_CHOICES = [
+    (PRIMEIRA_PARCELA_ATO, "Cobrar a 1ª parcela na inscrição"),
+    (PRIMEIRA_PARCELA_PROXIMO_MES, "Jogar a 1ª parcela para o mês seguinte (dia 10)"),
+]
+# Dia fixo do vencimento quando a 1ª parcela é jogada para o mês seguinte (as
+# demais seguem mês a mês no mesmo dia). Data fixa é o que a família guarda.
+DIA_VENCIMENTO_PARCELA = 10
+
 
 class Evento(models.Model):
     """Evento do clube (reunião, acampamento, festa, venda de alimentos, etc.).
@@ -560,6 +574,17 @@ class Evento(models.Model):
     # cobrados integralmente no ato.
     parcelas_diretoria = models.PositiveSmallIntegerField(
         "Parcelas para a diretoria", default=1
+    )
+    # O que fazer com a 1ª parcela da diretoria: cobrar junto da inscrição
+    # (padrão) ou jogar para o mês seguinte, no dia DIA_VENCIMENTO_PARCELA.
+    # Jogando para o mês seguinte, a parte da diretoria sai INTEIRA da cobrança
+    # de hoje: a inscrição é concluída sem pagar nada dela (o que os outros
+    # participantes devem e a lojinha continuam sendo cobrados no ato).
+    parcelas_diretoria_primeira = models.CharField(
+        "1ª parcela da diretoria",
+        max_length=12,
+        choices=PRIMEIRA_PARCELA_CHOICES,
+        default=PRIMEIRA_PARCELA_ATO,
     )
     # Quais formas de pagamento ONLINE a pessoa vê na inscrição e na lojinha
     # deste evento. Só afeta o site: no PDV/balcão o operador continua com
@@ -772,11 +797,19 @@ class Evento(models.Model):
         diretoria na tela, logo não há o que parcelar)."""
         return self.parcelas_diretoria > 1 and self.valor_diretoria is not None
 
+    def primeira_parcela_no_ato(self):
+        """True se a 1ª parcela da diretoria é cobrada junto da inscrição.
+
+        False = ela foi jogada para o mês seguinte (dia DIA_VENCIMENTO_PARCELA):
+        aí NADA da parte da diretoria entra na cobrança do ato e a inscrição é
+        concluída sem pagar essa parte."""
+        return self.parcelas_diretoria_primeira != PRIMEIRA_PARCELA_PROXIMO_MES
+
     def dividir_parcelas(self, total, parcelas=None):
         """Divide `total` em `parcelas` valores que somam exatamente o total.
 
-        A sobra dos centavos vai na **primeira** parcela (paga no ato), então as
-        seguintes ficam sempre redondas e iguais — é o que a pessoa confere depois.
+        A sobra dos centavos vai na **primeira** parcela, então as seguintes ficam
+        sempre redondas e iguais — é o que a pessoa confere depois.
         Ex.: 100,00 em 3× → [33,34, 33,33, 33,33]."""
         total = Decimal(total or 0)
         n = int(parcelas or self.parcelas_diretoria or 1)
@@ -1113,11 +1146,15 @@ class Inscricao(models.Model):
     @property
     def valor_no_ato(self):
         """Quanto entrou no caixa **no dia da inscrição**: o total menos TODAS as
-        parcelas futuras (pagas depois ou não), porque a 1ª parcela é a única que
-        foi cobrada junto. É o valor da linha da inscrição no extrato — cada
-        parcela paga depois entra como lançamento próprio, na data em que caiu."""
+        parcelas que ficaram para depois (pagas mais tarde ou não). É o valor da
+        linha da inscrição no extrato — cada parcela paga depois entra como
+        lançamento próprio, na data em que caiu.
+
+        O que separa uma coisa da outra é a flag `ParcelaInscricao.no_ato`, não o
+        número da parcela: quando o evento joga a 1ª parcela para o mês seguinte,
+        **nenhuma** parcela foi cobrada no ato — nem a primeira."""
         futuras = sum(
-            (p.valor for p in self.parcelas.all() if p.numero > 1), Decimal("0")
+            (p.valor for p in self.parcelas.all() if not p.no_ato), Decimal("0")
         )
         return self.valor_total - futuras
 
@@ -1188,10 +1225,14 @@ class ParcelaInscricao(models.Model):
     """Uma parcela do valor da DIRETORIA numa inscrição de evento.
 
     Existe só quando o evento oferece parcelamento (`Evento.parcelas_diretoria`
-    > 1) e a pessoa escolheu parcelar. A **parcela 1 nasce paga** (é cobrada no
-    ato, junto do que os outros participantes devem e da lojinha); as seguintes
-    nascem em aberto, vencendo mês a mês, e são pagas pelo link do token da
-    inscrição ou baixadas na mão pelo Diretor.
+    > 1) e a pessoa escolheu parcelar. Com a 1ª parcela cobrada na inscrição
+    (padrão do evento), a **parcela 1 nasce paga** — ela foi cobrada no ato,
+    junto do que os outros participantes devem e da lojinha — e as seguintes
+    nascem em aberto, vencendo mês a mês. Com a 1ª jogada para o mês seguinte,
+    **todas** nascem em aberto e a primeira vence no dia
+    `DIA_VENCIMENTO_PARCELA` do mês que vem. Em qualquer dos casos, o que está
+    em aberto é pago pelo link do token da inscrição ou baixado na mão pelo
+    Diretor.
 
     Só a parte da diretoria é parcelada. O resto da inscrição é cobrado
     integralmente no ato, pela forma tradicional do evento.
@@ -1205,6 +1246,12 @@ class ParcelaInscricao(models.Model):
     )
     numero = models.PositiveSmallIntegerField("Parcela")
     total = models.PositiveSmallIntegerField("De (total de parcelas)", default=1)
+    # Esta parcela foi cobrada NO ATO da inscrição (entrou no caixa junto do
+    # resto)? Só a 1ª pode ser, e só quando o evento cobra a 1ª na inscrição.
+    # É o que `Inscricao.valor_no_ato` e o extrato usam para não contar a mesma
+    # parcela duas vezes — olhar o `numero` não basta desde que a 1ª pode ter
+    # sido jogada para o mês seguinte.
+    no_ato = models.BooleanField("Cobrada no ato da inscrição", default=False)
     valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
     vencimento = models.DateField("Vencimento", null=True, blank=True)
     status = models.CharField(

@@ -31,6 +31,10 @@
     var parcCheck = document.querySelector("[data-insc-parcelar-check]");
     var parcResumo = document.querySelector("[data-insc-parcelar-resumo]");
     var parcQtd = parcBox ? parseInt(parcBox.dataset.parcelas, 10) : 0;
+    // A 1ª parcela é cobrada agora ou jogada para o mês seguinte (dia fixo)? No
+    // segundo caso a parte da diretoria INTEIRA sai do que se paga hoje.
+    var parcPrimeiraAto = parcBox ? parcBox.dataset.primeiraAto !== "0" : true;
+    var parcVencimento = parcBox ? (parcBox.dataset.primeiroVencimento || "") : "";
     // PDV (opcionais — só existem no balcão).
     var dinheiroBox = document.getElementById("pdvDinheiro");
     var recebidoEl = document.getElementById("valor_recebido");
@@ -108,14 +112,23 @@
             var parcelando = podeParcelar && parcCheck && parcCheck.checked;
             if (parcelando) {
                 var vals = dividir(totalDir, parcQtd);
-                var diferido = Math.round((totalDir - vals[0]) * 100) / 100;
+                // Cobrando a 1ª agora, fica para depois só o resto; jogando a 1ª
+                // para o mês seguinte, fica para depois a parte da diretoria toda.
+                var diferido = parcPrimeiraAto
+                    ? Math.round((totalDir - vals[0]) * 100) / 100
+                    : totalDir;
                 grand = Math.round((grand - diferido) * 100) / 100;
                 if (parcResumo) {
                     parcResumo.hidden = false;
-                    parcResumo.textContent =
-                        "Diretoria: " + parcQtd + "× de " + moeda(vals[1]) +
-                        " (1ª de " + moeda(vals[0]) + ", agora). Falta pagar depois: " +
-                        moeda(diferido) + ".";
+                    parcResumo.textContent = parcPrimeiraAto
+                        ? "Diretoria: " + parcQtd + "× de " + moeda(vals[1]) +
+                          " (1ª de " + moeda(vals[0]) + ", agora). Falta pagar depois: " +
+                          moeda(diferido) + "."
+                        : "Diretoria: " + parcQtd + "× de " + moeda(vals[1]) +
+                          " (1ª de " + moeda(vals[0]) +
+                          (parcVencimento ? ", vence " + parcVencimento : "") +
+                          "). Nada da diretoria a pagar agora: " + moeda(diferido) +
+                          " fica nas parcelas.";
                 }
             } else if (parcResumo) {
                 parcResumo.hidden = true;
@@ -126,7 +139,9 @@
         if (totalEl) {
             var sufixo = "";
             if (cortesia) sufixo = " (cortesia)";
-            else if (parcelando) sufixo = " (a pagar agora)";
+            // Parcelando com a 1ª diferida, o total de hoje pode zerar (inscrição
+            // só de diretoria): aí o rótulo tem de dizer que não se paga nada.
+            else if (parcelando) sufixo = grand > 0 ? " (a pagar agora)" : " (nada a pagar agora)";
             totalEl.textContent = moeda(grand) + sufixo;
         }
         if (descEl) {

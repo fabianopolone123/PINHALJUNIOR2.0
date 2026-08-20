@@ -53,12 +53,17 @@
 
                 {% if inscricao.parcelado %}
                 {% comment %}
-                Inscrição com a parte da diretoria parcelada: a 1ª parcela já foi
-                paga junto do resto. Aqui a pessoa guarda o link das próximas —
-                é por ele que ela volta a pagar, sem precisar de login.
+                Inscrição com a parte da diretoria parcelada. Quando o evento cobra
+                a 1ª parcela na inscrição, ela já foi paga junto do resto; quando a
+                1ª foi jogada para o mês seguinte, NADA da diretoria foi pago aqui —
+                e é isso que o aviso abaixo diz. Nos dois casos a pessoa guarda o
+                link: é por ele que ela volta a pagar, sem precisar de login.
                 {% endcomment %}
                 <div class="sucesso-parcelas">
                     <p class="sucesso-parcelas-titulo">📆 Valor da diretoria parcelado</p>
+                    {% if primeira_parcela_aberta %}
+                    <p class="sucesso-parcelas-aviso">Nada a pagar agora: a 1ª parcela vence em <strong>{{ primeira_parcela_aberta.vencimento|date:"d/m/Y" }}</strong>.</p>
+                    {% endif %}
                     <ul class="sucesso-parcelas-lista">
                         {% for p in inscricao.parcelas.all %}
                         <li class="{% if p.status == 'paga' %}parcela-paga{% else %}parcela-aberta{% endif %}">
@@ -69,7 +74,7 @@
                         {% endfor %}
                     </ul>
                     <p class="sucesso-parcelas-link">
-                        Guarde este link para pagar as próximas parcelas:<br>
+                        Guarde este link para pagar {% if primeira_parcela_aberta %}as parcelas{% else %}as próximas parcelas{% endif %}:<br>
                         <a href="{% url 'core:inscricao_parcelas' inscricao.get_token_parcelas %}" class="selecionavel">{{ request.scheme }}://{{ request.get_host }}{% url 'core:inscricao_parcelas' inscricao.get_token_parcelas %}</a>
                     </p>
                 </div>

@@ -310,15 +310,18 @@ PINHALJUNIOR2.0/
   **`formas_pagamento_fora`** = quais formas confirmam a inscrição sem cobrar, com o acerto direto
   com o evento; **`notificar_inscricoes`** + **`notificar_inscricoes_para`** = manda a lista de
   inscritos, a cada inscrição, para um integrante da diretoria; **`parcelas_diretoria`** = em quantas
-  vezes o valor da diretoria pode ser pago, `1` = à vista; **`inscricao_limite_diretoria`** = prazo de
+  vezes o valor da diretoria pode ser pago, `1` = à vista, com **`parcelas_diretoria_primeira`** = se a 1ª
+  parcela é cobrada na inscrição (padrão) ou jogada para o **dia 10 do mês seguinte** (aí a inscrição é
+  concluída sem pagar nada da parte da diretoria); **`inscricao_limite_diretoria`** = prazo de
   inscrição só para quem inclui alguém da diretoria, que **só estende** o prazo comum).
 - **CustoEvento** — custo/despesa de um evento.
 - **FaixaEtariaPreco** e **CampoInscricao** — faixas de preço e campos do formulário, por evento.
 - **Inscricao**, **ParticipanteInscricao**, **RespostaInscricao** — inscrições (com pagamento/origem;
   `pagamento_externo` = paga direto ao evento, fora do caixa do clube).
-- **ParcelaInscricao** — parcelas do valor da **diretoria** numa inscrição: a 1ª é cobrada no ato e as
-  seguintes vencem mês a mês, pagas pela família num link próprio da inscrição ou baixadas na mão pelo
-  Diretor. Só o que já foi pago conta como entrada no caixa.
+- **ParcelaInscricao** — parcelas do valor da **diretoria** numa inscrição: a 1ª é cobrada no ato (ou vence
+  no dia 10 do mês seguinte, conforme o evento) e as seguintes vencem mês a mês, pagas pela família num link
+  próprio da inscrição ou baixadas na mão pelo Diretor. Só o que já foi pago conta como entrada no caixa; o
+  campo `no_ato` marca a parcela que entrou junto da inscrição.
 - **ProdutoEvento**, **VariacaoProduto**, **PedidoLoja**, **ItemPedidoLoja** — lojinha e pedidos.
 - **OperadorEvento** e **PerfilUsuario** — operadores do PDV e a flag de troca de senha.
 

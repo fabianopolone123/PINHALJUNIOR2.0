@@ -408,10 +408,25 @@ internas ou no fluxo de login, seguir estas regras:
   `Inscricao.valor_no_caixa`** (`valor_total` − parcelas em aberto), nunca `valor_total`. Já aplicado em
   `evento_painel_view`, `_montar_financeiro` e `financeiro_view` — **soma nova precisa fazer o mesmo**.
 - **No extrato, cada lançamento vale o que caiu naquela data.** A linha da inscrição usa `valor_no_ato` (o
-  total menos **todas** as parcelas 2..N) e **cada parcela paga vira um lançamento próprio**, na data do
-  pagamento. Usar `valor_no_caixa` na linha da inscrição contaria a parcela **duas vezes** (uma na
-  inscrição, outra no lançamento dela). Há teste que soma o extrato e compara com a arrecadação —
-  mantê-lo passando é a garantia dessa regra.
+  total menos todas as parcelas que **não** foram cobradas no ato) e **cada parcela paga vira um lançamento
+  próprio**, na data do pagamento. Usar `valor_no_caixa` na linha da inscrição contaria a parcela **duas
+  vezes** (uma na inscrição, outra no lançamento dela). Há teste que soma o extrato e compara com a
+  arrecadação — mantê-lo passando é a garantia dessa regra.
+- **Quem separa as duas coisas é `ParcelaInscricao.no_ato`, NUNCA o número da parcela.** Desde que a 1ª
+  parcela pode ser jogada para o mês seguinte, "parcela 1" não quer mais dizer "parcela cobrada no ato": num
+  evento com a 1ª diferida **nenhuma** parcela entrou no caixa no dia da inscrição, e a 1ª paga depois é
+  lançamento próprio como qualquer outra. Filtro novo de extrato/caixa usa a flag; voltar a filtrar por
+  `numero == 1` faz a 1ª parcela diferida ser contada duas vezes.
+- **1ª parcela da diretoria: cobrar na inscrição ou jogar para o mês seguinte** é opção **por evento**
+  (`Evento.parcelas_diretoria_primeira`; `primeira_parcela_no_ato()`). Jogando para o mês seguinte, ela vence
+  no dia **`DIA_VENCIMENTO_PARCELA` (10)** do mês que vem — **dia fixo, que não depende do dia da inscrição**
+  (é o que a família consegue guardar) — e a parte da diretoria **inteira** sai da cobrança do ato: numa
+  inscrição só de diretoria **não há cobrança nenhuma** e a inscrição é criada na hora, sem passar pela tela
+  de pagamento. O que os outros participantes devem e a lojinha **continuam integrais no ato**. Por isso o
+  fluxo da inscrição decide o parcelamento **antes** de falar com o gateway e só cobra quando
+  `a_pagar_agora > 0`: cobrança de R$ 0,00 não existe. E o `primeira_no_ato` viaja **no payload** do
+  pagamento — entre o POST e a aprovação do Pix a configuração do evento pode mudar, e vale a regra que a
+  pessoa viu na tela.
 - **Dinheiro a receber não é dinheiro fora do caixa.** São dois controles diferentes, com cards separados:
   **"Fora do caixa"** = pago direto ao evento, o clube **nunca** recebe (âmbar); **"Parcelas da diretoria"**
   = é do clube, só **ainda não chegou** (azul). Não juntar os dois nem somar o "a receber" nas entradas.

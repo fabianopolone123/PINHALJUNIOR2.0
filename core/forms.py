@@ -13,6 +13,7 @@ from django.contrib.auth.models import User
 from django.db.models import F
 
 from .models import (
+    PRIMEIRA_PARCELA_ATO,
     Aventureiro,
     AutorizacaoImagem,
     CaixaClube,
@@ -422,7 +423,8 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         fields = [
             "local", "inscricao_aberta_publico", "inscricao_limite",
             "inscricao_limite_diretoria",
-            "valor_diretoria", "parcelas_diretoria", "formas_pagamento_online",
+            "valor_diretoria", "parcelas_diretoria", "parcelas_diretoria_primeira",
+            "formas_pagamento_online",
             "formas_pagamento_fora", "instrucoes_pagamento_fora",
             "notificar_inscricoes", "notificar_inscricoes_para",
         ]
@@ -455,10 +457,16 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
             "valor_diretoria": "Valor que a diretoria paga. Vazio = sem valor especial; 0 = grátis.",
             "parcelas_diretoria": (
                 "Em quantas vezes a diretoria pode pagar o valor acima (1 = só à "
-                "vista; 3 = pode dividir em três). A 1ª parcela é cobrada no ato da "
-                "inscrição e as outras vencem mês a mês. Vale SÓ para a parte da "
-                "diretoria: os demais participantes e a lojinha continuam sendo "
-                "cobrados por inteiro na hora."
+                "vista; 3 = pode dividir em três). As parcelas vencem mês a mês. "
+                "Vale SÓ para a parte da diretoria: os demais participantes e a "
+                "lojinha continuam sendo cobrados por inteiro na hora."
+            ),
+            "parcelas_diretoria_primeira": (
+                "Só é usado quando há mais de uma parcela. “Na inscrição” cobra a "
+                "1ª parcela junto do resto, como sempre. “Mês seguinte” joga a 1ª "
+                "para o dia 10 do mês que vem: aí a inscrição é concluída SEM "
+                "pagar nada da parte da diretoria (o que os outros participantes "
+                "devem e a lojinha continuam sendo cobrados na hora)."
             ),
             "formas_pagamento_online": (
                 "O que a pessoa vê na inscrição e na lojinha deste evento. "
@@ -509,6 +517,9 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         # Vazio = à vista (1). Sem isso o campo obrigaria digitar "1" em todo
         # evento que não parcela, que é a maioria.
         self.fields["parcelas_diretoria"].required = False
+        # Vazio = cobrar a 1ª parcela na inscrição (o padrão de sempre). Só é
+        # usado quando há mais de uma parcela, então não pode ser obrigatório.
+        self.fields["parcelas_diretoria_primeira"].required = False
         self._aplicar_estilo()
 
     def clean_parcelas_diretoria(self):
@@ -520,6 +531,10 @@ class EventoInscricaoConfigForm(EstiloFormMixin, forms.ModelForm):
         if n > 12:
             raise forms.ValidationError("No máximo 12 parcelas.")
         return n
+
+    def clean_parcelas_diretoria_primeira(self):
+        """Vazio = cobrar a 1ª parcela na inscrição (comportamento de sempre)."""
+        return self.cleaned_data.get("parcelas_diretoria_primeira") or PRIMEIRA_PARCELA_ATO
 
     def clean(self):
         """Parcelar exige um valor de diretoria: sem ele o checkbox 'diretoria' nem

@@ -62,6 +62,7 @@ from . import termos
 from . import wapi
 from . import wapi_parser
 from .models import (
+    DIA_VENCIMENTO_PARCELA,
     FORMA_PAGAMENTO_CHOICES,
     FORMAS_PAGAMENTO_ONLINE,
     MESES_PT,
@@ -1300,7 +1301,9 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
             "fora_caixa": i.pagamento_externo,
         })
         for parc in i.parcelas.all():
-            if parc.numero == 1 or parc.status != "paga":
+            # `no_ato` (não o número): a parcela cobrada na inscrição já está na
+            # linha de cima. A 1ª jogada para o mês seguinte é lançamento próprio.
+            if parc.no_ato or parc.status != "paga":
                 continue
             extrato.append({
                 "data": parc.pago_em or parc.criado_em,
@@ -2229,7 +2232,31 @@ def evento_inscrever_view(request, pk):
                 request.session["inscricao_codigo"] = inscricao.codigo
                 return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
 
-            if config.configurado and grand_total > 0:
+            # --- Parcelamento da parte da diretoria ---
+            # Parcelar só faz sentido com cobrança de verdade (MP configurado e
+            # forma que NÃO é paga por fora — esse caso já saiu acima).
+            # Cobrando a 1ª parcela na inscrição, ela entra na cobrança de hoje e
+            # as seguintes ficam registradas para depois. Jogando a 1ª para o mês
+            # seguinte, a parte da diretoria INTEIRA sai da cobrança de hoje — e
+            # numa inscrição só de diretoria não sobra nada a pagar, então ela é
+            # concluída na hora, sem passar pela tela de pagamento.
+            quer_parcelar = request.POST.get("parcelar_diretoria") == "1"
+            diferido = Decimal("0")
+            if (quer_parcelar and total_diretoria > 0 and config.configurado
+                    and evento.permite_parcelar_diretoria()):
+                valores_parc = evento.dividir_parcelas(total_diretoria)
+                primeira_no_ato = evento.primeira_parcela_no_ato()
+                diferido = (total_diretoria - valores_parc[0] if primeira_no_ato
+                            else total_diretoria)
+                payload["parcelamento"] = {
+                    "parcelas": len(valores_parc),
+                    "valores": [str(v) for v in valores_parc],
+                    "primeira_no_ato": primeira_no_ato,
+                }
+            # O que se paga AGORA: total − o que ficou para as parcelas futuras.
+            a_pagar_agora = grand_total - diferido
+
+            if config.configurado and a_pagar_agora > 0:
                 itens_disp = [
                     {"nome": p.nome or "Participante", "valor": str(p.valor)}
                     for p, _ in dados
@@ -2242,24 +2269,6 @@ def evento_inscrever_view(request, pk):
                 ]
                 payload["titulo"] = f"Inscrição — {evento.nome}"
                 payload["itens"] = itens_disp
-                # --- Parcelamento da parte da diretoria ---
-                # Só chega aqui a cobrança de verdade (MP configurado, valor > 0 e
-                # forma que NÃO é paga por fora), que é a única situação em que
-                # parcelar quer dizer algo: a 1ª parcela entra nesta cobrança e as
-                # seguintes ficam registradas para depois.
-                quer_parcelar = request.POST.get("parcelar_diretoria") == "1"
-                diferido = Decimal("0")
-                if (quer_parcelar and total_diretoria > 0
-                        and evento.permite_parcelar_diretoria()):
-                    valores_parc = evento.dividir_parcelas(total_diretoria)
-                    # Fica para depois tudo o que não é a 1ª parcela.
-                    diferido = total_diretoria - valores_parc[0]
-                    payload["parcelamento"] = {
-                        "parcelas": len(valores_parc),
-                        "valores": [str(v) for v in valores_parc],
-                    }
-                # O que se paga AGORA: total − parcelas futuras da diretoria.
-                a_pagar_agora = grand_total - diferido
                 comprador_pg = {"nome": form.cleaned_data["responsavel_nome"],
                                 "email": form.cleaned_data["responsavel_email"]}
                 # Já validada acima contra as formas liberadas NESTE evento (POST
@@ -2287,8 +2296,16 @@ def evento_inscrever_view(request, pk):
                     else:
                         return redirect("core:pagamento", ref=pagamento.referencia)
             else:
+                # Nada a cobrar agora: inscrição grátis, evento sem Mercado Pago
+                # configurado ou parte da diretoria toda jogada para as parcelas.
+                # No último caso a forma escolhida fica registrada (é por ela que
+                # a pessoa vai pagar as parcelas); nos outros, segue "online".
                 with transaction.atomic():
-                    inscricao = _criar_inscricao_de_payload(evento, payload, request.user)
+                    inscricao = _criar_inscricao_de_payload(
+                        evento, payload, request.user,
+                        forma_pagamento=(forma_escolhida
+                                         if payload.get("parcelamento") else ""),
+                    )
                 request.session["inscricao_codigo"] = inscricao.codigo
                 return redirect("core:evento_inscricao_sucesso", pk=evento.pk)
         else:
@@ -2327,6 +2344,11 @@ def evento_inscrever_view(request, pk):
         ),
         "parcelas_diretoria": evento.parcelas_diretoria,
         "parcelar_marcado": request.POST.get("parcelar_diretoria") == "1",
+        # 1ª parcela: cobrada agora ou jogada para o mês seguinte (dia fixo). No
+        # segundo caso a tela precisa dizer que não se paga nada da diretoria
+        # hoje e mostrar quando a primeira vence.
+        "parcelar_primeira_no_ato": evento.primeira_parcela_no_ato(),
+        "parcela_vencimento_diferido": _vencimento_diferido(),
         "formas_pagamento": evento.formas_online(),
         # Quais das formas acima confirmam sem cobrar (o template marca cada
         # opção) e o rótulo delas, para a orientação dizer de qual se trata.
@@ -2360,6 +2382,11 @@ def evento_inscricao_sucesso_view(request, pk):
         "inscricao": inscricao,
         "pedido": inscricao.pedidos.first(),
         "tem_loja": evento.loja_aberta() and evento.produtos.filter(ativo=True).exists(),
+        # 1ª parcela em aberto = o evento jogou a parte da diretoria para o mês
+        # seguinte, então NADA dela foi pago aqui. A tela avisa e mostra a data.
+        "primeira_parcela_aberta": inscricao.parcelas.filter(
+            numero=1, status="aberta"
+        ).first(),
     }
     return render(request, "core/evento_inscricao_sucesso.html", contexto)
 
@@ -5987,13 +6014,29 @@ def _somar_meses(data, meses):
     return datetime.date(ano, mes, min(data.day, ultimo))
 
 
+def _vencimento_diferido(hoje=None):
+    """Dia `DIA_VENCIMENTO_PARCELA` do mês SEGUINTE a `hoje`.
+
+    É o vencimento da 1ª parcela quando o evento joga a parte da diretoria toda
+    para depois. Sempre o mês que vem, num dia fixo — data fixa é o que a família
+    consegue guardar, e não depende do dia em que a pessoa se inscreveu."""
+    hoje = hoje or timezone.localdate()
+    return _somar_meses(hoje.replace(day=1), 1).replace(day=DIA_VENCIMENTO_PARCELA)
+
+
 def _criar_parcelas_inscricao(inscricao, parcelamento, pagamento=None):
     """Cria as parcelas do valor da diretoria de uma inscrição parcelada.
 
-    A **1ª nasce paga** — ela foi cobrada junto do resto no ato da inscrição, e é
-    o pagamento dela que confirmou tudo. As seguintes nascem em aberto vencendo
-    mês a mês a partir de hoje. Sem `parcelamento` no payload (o caso normal,
-    à vista) não cria nada."""
+    Com a 1ª parcela cobrada na inscrição (padrão do evento), ela **nasce paga** —
+    foi cobrada junto do resto no ato, e é o pagamento dela que confirmou tudo — e
+    as seguintes nascem em aberto vencendo mês a mês a partir de hoje. Quando o
+    evento joga a 1ª para o mês seguinte, **nenhuma** nasce paga: a primeira vence
+    no dia `DIA_VENCIMENTO_PARCELA` do mês que vem e as outras seguem mês a mês
+    daí. Sem `parcelamento` no payload (o caso normal, à vista) não cria nada.
+
+    Quem manda é o `primeira_no_ato` do payload, não a configuração atual do
+    evento: entre o POST e a aprovação do Pix o Diretor pode ter mexido na
+    configuração, e a inscrição vale pela regra que a pessoa viu na tela."""
     if not parcelamento:
         return []
     valores = [Decimal(str(v)) for v in parcelamento.get("valores") or []]
@@ -6002,21 +6045,27 @@ def _criar_parcelas_inscricao(inscricao, parcelamento, pagamento=None):
     hoje = timezone.localdate()
     agora = timezone.now()
     total = len(valores)
+    # Cobrada no ato: a 1ª vence hoje (e nasce paga). Diferida: a 1ª vence no dia
+    # fixo do mês que vem, e as demais contam a partir dela.
+    primeira_no_ato = bool(parcelamento.get("primeira_no_ato", True))
+    base = hoje if primeira_no_ato else _vencimento_diferido(hoje)
     criadas = []
     for i, valor in enumerate(valores, start=1):
-        primeira = i == 1
+        # "Paga no ato" é só a 1ª, e só quando o evento cobra a 1ª na inscrição.
+        no_ato = i == 1 and primeira_no_ato
         criadas.append(ParcelaInscricao.objects.create(
             inscricao=inscricao,
             numero=i,
             total=total,
             valor=valor,
-            vencimento=hoje if primeira else _somar_meses(hoje, i - 1),
-            status="paga" if primeira else "aberta",
-            forma_pagamento=(pagamento.forma if (primeira and pagamento)
-                             else (inscricao.forma_pagamento if primeira else "")),
-            valor_pago=valor if primeira else None,
-            pago_em=agora if primeira else None,
-            pagamento=pagamento if primeira else None,
+            vencimento=_somar_meses(base, i - 1),
+            no_ato=no_ato,
+            status="paga" if no_ato else "aberta",
+            forma_pagamento=(pagamento.forma if (no_ato and pagamento)
+                             else (inscricao.forma_pagamento if no_ato else "")),
+            valor_pago=valor if no_ato else None,
+            pago_em=agora if no_ato else None,
+            pagamento=pagamento if no_ato else None,
         ))
     # Garante o token do link em que a pessoa volta para pagar o que falta.
     inscricao.get_token_parcelas()
@@ -6088,8 +6137,10 @@ def _criar_inscricao_de_payload(evento, payload, usuario, pagamento=None,
                 inscricao=inscricao, campo=campo, campo_rotulo=campo.rotulo,
                 valor=c.get("texto", ""),
             )
-    # Parcelamento da parte da diretoria: a 1ª parcela já foi paga nesta cobrança
-    # (é o que entrou no caixa agora); as seguintes nascem em aberto, mês a mês.
+    # Parcelamento da parte da diretoria: com a 1ª cobrada na inscrição, ela já
+    # foi paga nesta cobrança (é o que entrou no caixa agora) e as seguintes
+    # nascem em aberto, mês a mês. Com a 1ª jogada para o mês seguinte, todas
+    # nascem em aberto — nada da diretoria entrou no caixa hoje.
     _criar_parcelas_inscricao(inscricao, payload.get("parcelamento"), pagamento)
     # Itens da lojinha comprados junto (opcional).
     itens = payload.get("loja_itens", [])
@@ -8854,7 +8905,8 @@ def financeiro_view(request):
                         "desc": f"{i.evento.nome} — {i.responsavel_nome}", "valor": i.valor_no_ato,
                         "saida": False, "comprovante": None})
         for parc in i.parcelas.all():
-            if parc.numero == 1 or parc.status != "paga":
+            # Idem: só a parcela cobrada no ato fica fora (já está na inscrição).
+            if parc.no_ato or parc.status != "paga":
                 continue
             extrato.append({"data": _dt_data(parc.pago_em or parc.criado_em),
                             "fonte": "eventos", "tipo": f"Parcela {parc.rotulo}",

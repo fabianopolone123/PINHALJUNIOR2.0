@@ -261,7 +261,16 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   parte da diretoria** em parcelas cobradas **pelo clube** (estilo mensalidade — não é o parcelamento do cartão,
   que o MP já oferece em cima da 1ª parcela). A 1ª parcela é cobrada **no ato**, junto do valor **integral** dos
   outros participantes e da lojinha, numa **única** cobrança; as demais viram `ParcelaInscricao` vencendo mês a
-  mês. Use **`evento.permite_parcelar_diretoria()` no POST** — forjar `parcelar_diretoria=1` não parcela nada.
+  mês. **A 1ª parcela pode ficar para o mês seguinte** (`Evento.parcelas_diretoria_primeira`, mig. **0070**;
+  `primeira_parcela_no_ato()`): aí ela vence no dia **`DIA_VENCIMENTO_PARCELA` (10)** do mês que vem — dia
+  **fixo**, não depende do dia da inscrição — e a parte da diretoria **inteira** sai da cobrança do ato, então
+  numa inscrição só de diretoria **não há cobrança** e a inscrição é concluída na hora (o fluxo decide o
+  parcelamento **antes** do gateway e só cobra quando `a_pagar_agora > 0`; cobrança de R$ 0,00 não existe). O
+  que separa "entrou no caixa hoje" de "ficou para depois" é **`ParcelaInscricao.no_ato`**, **nunca** o
+  `numero` — com a 1ª diferida, nenhuma parcela é do ato, e filtrar por `numero == 1` conta a 1ª parcela duas
+  vezes no extrato. O `primeira_no_ato` viaja no **payload** do pagamento (a configuração do evento pode mudar
+  entre o POST e a aprovação do Pix). Use **`evento.permite_parcelar_diretoria()` no POST** — forjar
+  `parcelar_diretoria=1` não parcela nada.
   Não existe com "pago direto ao evento" nem sem MP configurado (não há cobrança para dividir).
   **A regra financeira é a que mais pega**: `Inscricao.valor_total` é o valor da inscrição, não o que entrou —
   **toda soma de caixa usa `valor_no_caixa`** (total − parcelas em aberto), e o **extrato** usa `valor_no_ato`

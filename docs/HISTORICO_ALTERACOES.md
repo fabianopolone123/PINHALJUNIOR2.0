@@ -22,6 +22,70 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-08-20 - A 1ª parcela do valor da diretoria pode ficar para o mês seguinte
+
+### Resumo
+Pedido do usuário: no parcelamento do valor da diretoria, poder **configurar** se a **1ª parcela** é paga na
+inscrição (como já era) ou **jogada para o mês seguinte, sempre dia 10** — e, nesse caso, a pessoa **conclui a
+inscrição sem precisar pagar** essa parte.
+
+Agora é uma opção **por evento** (`Evento.parcelas_diretoria_primeira`): `ato` (padrão, comportamento de
+sempre) ou `proximo_mes`. Com `proximo_mes`, a parte da diretoria **inteira** sai da cobrança do ato: todas as
+parcelas nascem **em aberto**, a 1ª vence no **dia 10 do mês que vem** e as seguintes seguem mês a mês daí.
+Numa inscrição **só de diretoria** não sobra nada a pagar, então ela é criada na hora e a pessoa nem passa pela
+tela de pagamento. Numa inscrição **mista**, o que os outros participantes devem e a lojinha continuam sendo
+cobrados normalmente no ato.
+
+### Arquivos alterados
+- `core/models.py`: constantes `PRIMEIRA_PARCELA_ATO`/`PRIMEIRA_PARCELA_PROXIMO_MES`/`PRIMEIRA_PARCELA_CHOICES`
+  e `DIA_VENCIMENTO_PARCELA` (= 10); campo `Evento.parcelas_diretoria_primeira` + método
+  `Evento.primeira_parcela_no_ato()`; campo `ParcelaInscricao.no_ato`; `Inscricao.valor_no_ato` passou a somar
+  pela flag `no_ato` (não pelo `numero`).
+- `core/migrations/0070_parcela_primeira_proximo_mes.py`: os dois campos + passo de dados marcando
+  `no_ato=True` nas parcelas nº 1 que já existem (todas foram cobradas no ato).
+- `core/views.py`: novo `_vencimento_diferido(hoje)` (dia 10 do mês seguinte); `_criar_parcelas_inscricao`
+  honra o `primeira_no_ato` do payload (status, vencimento, `no_ato`, pagamento); em `evento_inscrever_view` o
+  bloco do parcelamento **saiu de dentro** do `if MP configurado`, e a cobrança só acontece quando
+  `a_pagar_agora > 0` — senão a inscrição é criada na hora; as duas montagens de **extrato** (evento e clube)
+  passaram a pular a parcela por `no_ato`; contexto novo `parcelar_primeira_no_ato`,
+  `parcela_vencimento_diferido` e `primeira_parcela_aberta` (tela de sucesso).
+- `core/forms.py`: `parcelas_diretoria_primeira` no `EventoInscricaoConfigForm` (não obrigatório; vazio =
+  `ato`), com `clean_parcelas_diretoria_primeira` e ajuda explicando as duas opções.
+- `templates/core/evento_painel.html`: o campo novo na "Configuração da inscrição".
+- `templates/core/evento_inscrever.html`: texto do parcelamento conforme a opção + `data-primeira-ato` e
+  `data-primeiro-vencimento` para o JS.
+- `templates/core/evento_inscricao_sucesso.html`: aviso "Nada a pagar agora" com a data da 1ª parcela.
+- `static/js/evento_insc_cupom.js`: com a 1ª diferida, o diferido é a parte da diretoria **toda**; resumo com a
+  data; total ao vivo com o rótulo "(nada a pagar agora)" quando zera.
+- `static/css/eventos.css`: `.sucesso-parcelas-aviso`.
+- `core/tests.py`: nova classe `PrimeiraParcelaProximoMesTests` (15 testes) + 1 teste novo na
+  `ParcelamentoDiretoriaTests` (o padrão do evento) e a asserção da flag `no_ato` no teste que já
+  existia. Suíte: **362 testes OK**.
+- `CLAUDE.md`, `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`, `docs/README_PROJETO.md`.
+
+### Decisões tomadas
+- **Dia fixo, não "30 dias depois"**: o vencimento é o dia 10 do mês seguinte, independente do dia em que a
+  pessoa se inscreveu (dia 1º e dia 28 vencem no mesmo dia 10). Data fixa é o que a família consegue guardar, e
+  as parcelas seguintes ficam todas no mesmo dia do mês.
+- **A flag `no_ato` na parcela, em vez de deduzir pelo número**: com a 1ª podendo ser diferida, "parcela 1" já
+  não significa "parcela cobrada no ato". Sem a flag, a 1ª parcela diferida seria contada **duas vezes** no
+  extrato (na linha da inscrição e como lançamento próprio). A migration marca as parcelas antigas.
+- **Só a parte da diretoria sai da cobrança**: o resto da inscrição e a lojinha continuam integrais no ato —
+  mesma regra do parcelamento desde o começo. Por isso a cobrança de hoje pode ir de "tudo" a **zero**.
+- **A opção do evento não parcela sozinha**: quem marca "dividir" continua sendo a pessoa, na inscrição. E o
+  parcelamento segue **exigindo Mercado Pago configurado** e **não se combinando** com "pago direto ao evento":
+  sem cobrança não há o que dividir, e é por ela que a família paga as parcelas depois.
+- **Nada de tela nova**: o link público das parcelas (`/inscricao/<token>/parcelas/`) e a baixa manual do
+  Diretor já tratavam parcela em aberto — a 1ª diferida entra nos dois sem código novo.
+- **`primeira_no_ato` vai no payload** do pagamento, não é relido do evento na hora de criar as parcelas: entre
+  o POST e a aprovação do Pix o Diretor pode mexer na configuração, e a inscrição vale pela regra que a pessoa
+  viu na tela.
+
+### Pendências
+- **Cobrança automática das parcelas** continua não existindo (nem da 1ª diferida): a família paga pelo link e
+  o Diretor cobra na mão. Com a 1ª parcela caindo no mês seguinte, isso pesa mais do que antes.
+- O **PDV/balcão** continua sem parcelamento (inscrição presencial é à vista).
+
 ## 2026-08-19 - Recuperação de senha encontra quem é da diretoria
 
 ### Resumo

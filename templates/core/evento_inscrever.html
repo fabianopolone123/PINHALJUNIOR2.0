@@ -103,12 +103,16 @@
                     inscrição sem diretoria não há o que parcelar. O que os outros
                     participantes devem e a lojinha continuam integrais no ato.
                     {% endcomment %}
-                    <div class="insc-parcelar" data-insc-parcelar data-parcelas="{{ parcelas_diretoria }}" hidden>
+                    <div class="insc-parcelar" data-insc-parcelar data-parcelas="{{ parcelas_diretoria }}" data-primeira-ato="{% if parcelar_primeira_no_ato %}1{% else %}0{% endif %}" data-primeiro-vencimento="{{ parcela_vencimento_diferido|date:"d/m/Y" }}" hidden>
                         <label class="insc-parcelar-opt">
                             <input type="checkbox" name="parcelar_diretoria" value="1" data-insc-parcelar-check{% if parcelar_marcado %} checked{% endif %}>
                             <span>
                                 <strong>Dividir o valor da diretoria em {{ parcelas_diretoria }}x</strong>
+                                {% if parcelar_primeira_no_ato %}
                                 <small>A 1ª parcela você paga agora; as outras vencem mês a mês e ficam num link só seu.</small>
+                                {% else %}
+                                <small>Você não paga nada da parte da diretoria agora: a 1ª parcela vence em {{ parcela_vencimento_diferido|date:"d/m/Y" }} e as outras seguem mês a mês, num link só seu.</small>
+                                {% endif %}
                             </span>
                         </label>
                         <p class="insc-parcelar-resumo" data-insc-parcelar-resumo hidden></p>
