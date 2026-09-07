@@ -2,7 +2,36 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-08-20 (**Eventos: a 1ª parcela da diretoria pode ficar para o mês que vem**):
+**Última atualização:** 2026-09-07 (**Parcelamento lançado pelo clube — lançamento manual de parcelas**):
+o parcelamento deixou de existir só dentro da inscrição de evento. Agora o Diretor pode **lançar parcelas na
+mão** (models `ParcelamentoClube`/`ParcelaClube`, migration **0071**): escolhe **para quem** — um aventureiro
+(que já leva a conta do responsável) ou uma **conta de diretoria**, inclusive quem **não tem filho no clube**
+—, digita descrição, **valor total** e **nº de parcelas**, e o sistema divide vencendo no **dia 10** mês a mês,
+a partir do mês escolhido (padrão: o mês seguinte). O caso que pediu isso: quem se inscreveu num evento que
+**não** tinha o parcelamento habilitado, ou combinou o acerto depois — antes não havia caminho nenhum, nem em
+Eventos, nem em Mensalidades, nem no Financeiro. Duas abas novas em **Mensalidades**: **📆 Parcelas** (KPIs
+lançado/recebido/a receber/vencido, lançar, dar baixa, cancelar, link público) e **📨 Cobrar parcelas**
+(mensagem própria com alavanca **padrão × IA**, WhatsApp/e-mail/ambos, envio 1-por-request com 10s no front e
+termômetro). A família paga pelo link público `/parcelas/<token>/` (Pix/cartão, uma parcela por cobrança, baixa
+**automática** pelo webhook) ou o Diretor dá **baixa manual** para quem acertou em dinheiro. Esse link aceita
+**os dois** tokens — o de um lançamento e o da **conta** —, e a cobrança manda o da conta: a mensagem lista as
+parcelas de todos os lançamentos, então o link precisa abrir todos. Decisões que
+importam: **não** é uma `Mensalidade` (ela é uma por aventureiro/ano/mês, não tem vencimento nem descrição e é
+amarrada ao aventureiro — diretoria sem filho no clube não teria onde ser lançada) nem uma `ParcelaInscricao`
+(exige uma `Inscricao` e o dinheiro dela entra pelo evento); o lançamento nasce **100% a receber** (nada é
+cobrado no ato, então não existe aqui a flag `no_ato`); a regra **"aventureiro inativo não é cobrado" NÃO vale
+aqui** — ela é da cobrança recorrente de quem saiu, e um acerto já combinado continua devido, como as parcelas
+de inscrição; e a cobrança tem **histórico próprio** (`CobrancaParcelaEnviada`), porque contar junto com a
+mensalidade faria uma silenciar a outra no filtro "já cobrei este mês". No dinheiro: o **evento é opcional** e
+decide a fonte — **com** evento a parcela paga conta em **Eventos** (e aparece no painel daquele evento, com
+canal próprio "Parcelamento do clube"), **sem** evento cai na fonte nova **📆 Parcelamentos** do Financeiro;
+em qualquer caso **só a parcela PAGA é entrada**, e o extrato leva **uma linha por parcela paga** (o lançamento
+em si não move caixa). A regra da divisão saiu de dentro do `Evento` para a função de módulo
+**`dividir_em_parcelas`**, agora compartilhada pelos dois parcelamentos. Também corrigida uma **rolagem
+horizontal pré-existente** no Financeiro (armadilha do `1fr` sem `minmax`). Suíte: **396 testes OK** (362 + 34).
+Antes: a 1ª parcela da diretoria pode ficar para o mês que vem.
+
+**Anterior (Eventos: a 1ª parcela da diretoria pode ficar para o mês que vem):**
 o parcelamento do valor da diretoria ganhou uma **opção por evento** para decidir o que acontece com a **1ª
 parcela** (`Evento.parcelas_diretoria_primeira`, migration **0070**): **“Na inscrição”** é o comportamento de
 sempre (ela é cobrada junto do resto, nasce paga e as outras vencem mês a mês) e **“Mês seguinte”** joga a 1ª
@@ -1671,6 +1700,17 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   - `FotoProdutoLoja` — foto da **galeria** de um produto (FK `produto`, `imagem`, `ordem`; a 1ª é a capa,
     via property `ProdutoLoja.capa`). Mig. **0022**. Suporta várias fotos + lightbox na vitrine.
 
+  - **Parcelamento lançado pelo clube** (mig. **0071**): `ParcelamentoClube` — o lançamento manual (FK
+    `usuario` = a **conta**, `aventureiro` e `evento` **opcionais**, `descricao`, `observacao`,
+    `valor_total`, `qtd_parcelas`, `status` ativo/cancelado, `token` do link público, `criado_por`). Props
+    `total_recebido`/`total_aberto`/`total_vencido`/`n_abertas`/`n_pagas`/`quitado`/`proximo_vencimento`/
+    `pessoa_nome`. `ParcelaClube` — a parcela (FK `parcelamento`, `numero`/`total`, `valor`, `vencimento`,
+    `status`, `forma_pagamento`, `valor_pago`, `pago_em`, `registrado_por`, FK `pagamento`; props `rotulo`/
+    `em_aberto`/`vencida`). `CobrancaParcelaEnviada` — histórico da cobrança (conta, canal, ano/mês),
+    **separado** do `CobrancaEnviada` das mensalidades. `ConfigMensalidade` ganhou
+    `mensagem_cobranca_parcela`, `assunto_cobranca_parcela_email`, `cobranca_parcela_via_ia` e
+    `prompt_cobranca_parcela_ia`.
+
 ## Funcionalidades incompletas / não implementadas
 - Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos), tanto
   pelo CPF do **responsável legal** quanto pelo da **ficha de diretoria**. Falta permitir que o **responsável
@@ -1714,6 +1754,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   feita — só compensa se pedirem a lista com valores e situação de pagamento.
 - **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
   simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
+- **Cobrança automática das parcelas** (do clube e de inscrição): hoje nada dispara sozinho — o Diretor
+  manda pela aba "Cobrar parcelas". É a continuação natural do parcelamento.
+- **Editar um parcelamento lançado** (valor / nº de parcelas): hoje é cancelar e lançar de novo.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Permitir ao responsável logado escolher o próprio WhatsApp principal (recuperação).
 
@@ -1757,6 +1800,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - `templates/core/cadastro_sucesso.html`
 - `templates/core/_campo.html` e `templates/core/_campo_check.html` (parciais de campo reutilizáveis)
 - `templates/core/_dado.html` (parcial rótulo+valor usada em "Meus Dados")
+
+- `templates/core/parcelas_clube.html` (página pública das parcelas lançadas pelo clube — mesma
+  mecânica do `inscricao_parcelas.html`: um seletor de forma e um botão por parcela em aberto)
 
 ## Arquivos CSS existentes
 - `static/css/base.css` — regras globais de interface (linkado em todas as telas, **antes** do CSS
@@ -1829,6 +1875,13 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   **grupos** e **opções** (índices únicos), mostrar/ocultar estoque e a coluna "obrig." por modo do grupo.
 - `static/js/loja_produto.js` — configurador do produto na vitrine: **subtotal ao vivo**, **aviso soft** de
   itens obrigatórios (modal: continuar/voltar) e rascunho da seleção no localStorage (não perde ao recarregar).
+
+- `static/js/parcelamento.js` — aba Parcelas: modal do novo lançamento, **prévia ao vivo** das parcelas
+  (conta em **centavos**, porque o campo usa a máscara pt-BR) e busca na lista de lançamentos.
+- `static/js/mensalidade_cobranca.js` — **generalizado**: a mesma mecânica de cobrança em lote serve as
+  duas abas (mensalidades e parcelas do clube), ligada duas vezes com painel + prefixo de ids diferentes.
+  O clique do envio individual é ouvido **no painel**, não no document — senão as duas instâncias
+  responderiam ao mesmo clique.
 
 ## Rotas existentes
 - `/` — tela de login com autenticação real (`core.views.login_view`, nome `core:login`).
@@ -1906,6 +1959,16 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
   - `/loja/entrega/` — marca/desmarca entrega de um item (POST/JSON, Diretor). Aba "Vendas" = relatório.
 - `/admin/` — Django admin (models de cadastro registrados).
 - Em DEBUG, o Django serve os arquivos de mídia em `/media/`.
+
+### Parcelamento lançado pelo clube
+- `/mensalidades/parcelas/novo/` (POST, Diretor) — lança o parcelamento.
+- `/mensalidades/parcelas/cancelar/` (POST, Diretor) — cancela o lançamento e as parcelas em aberto.
+- `/mensalidades/parcelas/pago/` (POST, Diretor) — baixa manual / reabre uma parcela.
+- `/mensalidades/parcelas/cobranca/config|modo|enviar/` (POST, Diretor) — mensagem, alavanca IA e envio.
+- `/parcelas/<token>/` e `/parcelas/<token>/pagar/` — **públicas** (sem login): a pessoa vê e paga as
+  parcelas, uma cobrança por parcela. O `<token>` da 1ª aceita **os dois**: o de um lançamento (link do
+  painel do Diretor) e o da **conta** (`token_acerto`, o que a cobrança manda) — este abre **todos** os
+  lançamentos ativos da pessoa, porque a mensagem lista as parcelas de todos.
 
 ## Configurações importantes
 - **`DEBUG` e `ALLOWED_HOSTS` vêm do ambiente**, não estão fixos no código. Se `DJANGO_DEBUG` não for

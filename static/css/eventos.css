@@ -1146,6 +1146,10 @@ a.tipo-card:hover {
 .fin-card-parcelas { border-color: #cddcec; background: #f7fafd; }
 .fin-card-parcelas .fin-card-titulo { color: var(--azul-escuro); }
 .fin-linha-alerta strong { color: #a5281b; }
+/* Detalhe por lançamento dentro do card de parcelamento do clube. */
+.fin-linhas-sub { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--borda); }
+.fin-linhas-sub li { font-size: 0.82rem; color: #666; }
+.fin-linhas-sub li span { overflow-wrap: anywhere; }
 .fin-ir-custos { margin-top: 12px; }
 .fin-card-acao { margin-top: 12px; }
 

@@ -942,6 +942,7 @@
                             <ul class="fin-linhas">
                                 <li><span>🌐 Online (site)</span><strong>R$ {{ financeiro.canal_online|moeda }}</strong></li>
                                 <li><span>🧾 Balcão (PDV)</span><strong>R$ {{ financeiro.canal_pdv|moeda }}</strong></li>
+                                {% if financeiro.canal_clube %}<li><span>📆 Parcelamento do clube</span><strong>R$ {{ financeiro.canal_clube|moeda }}</strong></li>{% endif %}
                             </ul>
                         </div>
 
@@ -983,6 +984,31 @@
                             </ul>
                             <p class="painel-nota">O <strong>recebido</strong> já está nas entradas acima. O <strong>a receber</strong> entra no caixa quando cada parcela for paga.</p>
                             <button type="button" class="btn-secundario fin-card-acao" data-aba-ir="inscricoes">Ver inscrições →</button>
+                        </div>
+                        {% endif %}
+
+                        {% if parc_clube.qtd_lancamentos %}
+                        {% comment %}
+                        Parcelamento lançado À MÃO pelo clube apontando para este
+                        evento — o caminho de quem se inscreveu quando o evento não
+                        oferecia parcelamento. Como as parcelas da diretoria, o
+                        recebido já está nas entradas acima e o aberto ainda não.
+                        A gestão (lançar, dar baixa, cobrar) fica em Mensalidades.
+                        {% endcomment %}
+                        <div class="fin-card fin-card-parcelas">
+                            <h3 class="fin-card-titulo">Parcelamento do clube ({{ parc_clube.qtd_lancamentos }} lançamento{{ parc_clube.qtd_lancamentos|pluralize }})</h3>
+                            <ul class="fin-linhas">
+                                <li><span>✅ Já recebido</span><strong>R$ {{ parc_clube.recebido|moeda }}</strong></li>
+                                <li><span>⏳ A receber ({{ parc_clube.qtd_aberto }})</span><strong>R$ {{ parc_clube.aberto|moeda }}</strong></li>
+                                {% if parc_clube.vencido %}<li class="fin-linha-alerta"><span>⚠️ Vencido</span><strong>R$ {{ parc_clube.vencido|moeda }}</strong></li>{% endif %}
+                            </ul>
+                            <ul class="fin-linhas fin-linhas-sub">
+                                {% for l in parc_clube.lancamentos %}
+                                <li><span>{{ l.pessoa_nome }} — {{ l.descricao }}</span><strong>{{ l.n_pagas }}/{{ l.qtd_parcelas }} pagas</strong></li>
+                                {% endfor %}
+                            </ul>
+                            <p class="painel-nota">O <strong>recebido</strong> já está nas entradas acima. Lançar, dar baixa e cobrar fica em <strong>Mensalidades → Parcelas</strong>.</p>
+                            <a href="{% url 'core:mensalidades' %}?aba=parcelas" class="btn-secundario fin-card-acao">Ver parcelamentos →</a>
                         </div>
                         {% endif %}
                     </div>

@@ -47,7 +47,12 @@ from .models import (
     Mensalidade,
     MercadoPagoConfig,
     Pagamento,
+    ParcelaClube,
     ParcelaInscricao,
+    ParcelamentoClube,
+    CobrancaParcelaEnviada,
+    ConfigMensalidade,
+    dividir_em_parcelas,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
@@ -4812,3 +4817,511 @@ class EventoNoMenuPorPerfilTests(TestCase):
         self.assertEqual(r.status_code, 200)
         r2 = self.client.get(reverse("core:evento_inscrever", args=[ev.id]))
         self.assertEqual(r2.status_code, 200)
+
+
+class ParcelamentoClubeTests(TestCase):
+    """Parcelamento lançado À MÃO pelo clube (Mensalidades → Parcelas).
+
+    Regras testadas: a divisão do valor, o vencimento no dia
+    `DIA_VENCIMENTO_PARCELA` mês a mês, o vínculo com a conta (família ou
+    diretoria), o lançamento nascer 100% a receber e a baixa manual entrar no
+    caixa.
+    """
+
+    def setUp(self):
+        self.diretor = User.objects.create_user(username="dir", password="123456")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.client.login(username="dir", password="123456")
+
+        self.resp = User.objects.create_user(username="resp", password="123456")
+        self.av = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Criança Teste",
+            data_nascimento=datetime.date(2016, 5, 4),
+            resp_nome="Responsável Teste", resp_cpf="000",
+            resp_whatsapp="47999990000", resp_email="resp@exemplo.com",
+        )
+        self.url_novo = reverse("core:parcelamento_novo")
+
+    # --- divisão do valor (função do módulo, compartilhada com o evento) ---
+
+    def test_divisao_joga_a_sobra_na_primeira_parcela(self):
+        valores = dividir_em_parcelas(Decimal("200.00"), 3)
+        self.assertEqual(valores, [Decimal("66.68"), Decimal("66.66"), Decimal("66.66")])
+        self.assertEqual(sum(valores), Decimal("200.00"))
+
+    def test_divisao_de_valor_baixo_demais_volta_a_vista(self):
+        """Sem R$ 0,01 por parcela não há como dividir — cobrança de zero não
+        existe no gateway, então volta uma parcela só."""
+        self.assertEqual(dividir_em_parcelas(Decimal("0.02"), 5), [Decimal("0.02")])
+
+    # --- lançamento ---
+
+    def _lancar(self, **extra):
+        dados = {
+            "alvo": f"av:{self.av.id}",
+            "descricao": "Acampamento — parte da diretoria",
+            "valor_total": "300.00",
+            "qtd_parcelas": "3",
+            "venc_primeiro": self._mes_seguinte(),
+        }
+        dados.update(extra)
+        return self.client.post(self.url_novo, dados)
+
+    def _mes_seguinte(self):
+        d = views._somar_meses(timezone.localdate().replace(day=1), 1)
+        return f"{d.year:04d}-{d.month:02d}"
+
+    def test_lancamento_cria_as_parcelas_vencendo_dia_10_mes_a_mes(self):
+        self._lancar()
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.usuario, self.resp)
+        self.assertEqual(lanc.aventureiro, self.av)
+        self.assertEqual(lanc.valor_total, Decimal("300.00"))
+        parcelas = list(lanc.parcelas.all())
+        self.assertEqual(len(parcelas), 3)
+        primeiro = views._vencimento_diferido()
+        for i, pa in enumerate(parcelas):
+            self.assertEqual(pa.numero, i + 1)
+            self.assertEqual(pa.valor, Decimal("100.00"))
+            self.assertEqual(pa.status, "aberta")
+            self.assertEqual(pa.vencimento.day, DIA_VENCIMENTO_PARCELA)
+            self.assertEqual(pa.vencimento, views._somar_meses(primeiro, i))
+
+    def test_lancamento_nasce_todo_a_receber(self):
+        """Nada é cobrado no ato: recebido = 0 e o total fica em aberto."""
+        self._lancar()
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.total_recebido, Decimal("0"))
+        self.assertEqual(lanc.total_aberto, Decimal("300.00"))
+        self.assertFalse(lanc.quitado)
+        self.assertEqual(Pagamento.objects.count(), 0)
+
+    def test_escolher_aventureiro_vincula_tambem_a_conta(self):
+        self._lancar()
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.usuario_id, self.av.usuario_id)
+
+    def test_lancamento_para_diretoria_sem_filho_no_clube(self):
+        """A ficha de diretoria não tem aventureiro: o alvo é a CONTA."""
+        conta = User.objects.create_user(username="dirmembro", password="123456")
+        MembroDiretoria.objects.create(
+            usuario=conta, nome_completo="Voluntário Teste", cpf="123",
+            data_nascimento=datetime.date(1990, 1, 1),
+        )
+        self._lancar(alvo=f"conta:{conta.id}")
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.usuario, conta)
+        self.assertIsNone(lanc.aventureiro)
+        self.assertEqual(lanc.pessoa_nome, "Voluntário Teste")
+
+    def test_alvo_invalido_nao_cria_nada(self):
+        self._lancar(alvo="av:99999")
+        self.assertFalse(ParcelamentoClube.objects.exists())
+
+    def test_valor_baixo_para_o_numero_de_parcelas_e_recusado(self):
+        """O nº de parcelas foi pedido: cair para 1 silenciosamente seria pior."""
+        self._lancar(valor_total="0.02", qtd_parcelas="5")
+        self.assertFalse(ParcelamentoClube.objects.exists())
+        self.assertFalse(ParcelaClube.objects.exists())
+
+    def test_qtd_de_parcelas_fora_do_limite_e_recusada(self):
+        self._lancar(qtd_parcelas="99")
+        self.assertFalse(ParcelamentoClube.objects.exists())
+
+    def test_mes_da_primeira_parcela_pode_ser_escolhido(self):
+        d = views._somar_meses(timezone.localdate().replace(day=1), 4)
+        self._lancar(venc_primeiro=f"{d.year:04d}-{d.month:02d}")
+        primeira = ParcelamentoClube.objects.get().parcelas.first()
+        self.assertEqual(primeira.vencimento.month, d.month)
+        self.assertEqual(primeira.vencimento.year, d.year)
+        self.assertEqual(primeira.vencimento.day, DIA_VENCIMENTO_PARCELA)
+
+    # --- baixa manual ---
+
+    def test_baixa_manual_marca_paga_e_reabrir_solta_o_pagamento(self):
+        self._lancar()
+        pa = ParcelamentoClube.objects.get().parcelas.first()
+        url = reverse("core:parcela_clube_pago")
+        self.client.post(url, {"parcela_id": pa.id, "forma": "dinheiro"})
+        pa.refresh_from_db()
+        self.assertEqual(pa.status, "paga")
+        self.assertEqual(pa.valor_pago, pa.valor)
+        self.assertEqual(pa.forma_pagamento, "dinheiro")
+        self.assertEqual(pa.registrado_por, self.diretor)
+        # Reabrir: volta a aberta e solta o pagamento (a taxa não fica presa a
+        # uma parcela em aberto).
+        self.client.post(url, {"parcela_id": pa.id})
+        pa.refresh_from_db()
+        self.assertEqual(pa.status, "aberta")
+        self.assertIsNone(pa.valor_pago)
+        self.assertIsNone(pa.pagamento)
+
+    def test_cancelar_lancamento_cancela_so_o_que_esta_em_aberto(self):
+        self._lancar()
+        lanc = ParcelamentoClube.objects.get()
+        primeira = lanc.parcelas.first()
+        self.client.post(
+            reverse("core:parcela_clube_pago"),
+            {"parcela_id": primeira.id, "forma": "pix"},
+        )
+        self.client.post(
+            reverse("core:parcelamento_cancelar"), {"parcelamento_id": lanc.id}
+        )
+        lanc.refresh_from_db()
+        self.assertEqual(lanc.status, "cancelado")
+        situacoes = list(lanc.parcelas.order_by("numero").values_list("status", flat=True))
+        self.assertEqual(situacoes, ["paga", "cancelada", "cancelada"])
+        # O dinheiro que entrou continua contando.
+        self.assertEqual(lanc.total_recebido, Decimal("100.00"))
+
+    # --- acesso ---
+
+    def test_responsavel_nao_lanca_parcelamento(self):
+        self.client.logout()
+        self.client.login(username="resp", password="123456")
+        self._lancar()
+        self.assertFalse(ParcelamentoClube.objects.exists())
+
+
+class ParcelaClubePagamentoTests(TestCase):
+    """Página pública das parcelas do clube + baixa automática pelo gateway."""
+
+    FAKE_PIX = {
+        "ok": True, "mp_payment_id": "MP-C", "status": "pendente",
+        "qr_code": "PIX", "qr_code_base64": "B64", "ticket_url": "http://t",
+    }
+
+    def setUp(self):
+        cfg = MercadoPagoConfig.get_solo()
+        cfg.modo = "teste"
+        cfg.access_token_teste = "TEST-abc"
+        cfg.webhook_secret_teste = "s"
+        cfg.save()
+        self.resp = User.objects.create_user(username="resp", password="123456")
+        self.av = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Criança Teste",
+            data_nascimento=datetime.date(2016, 5, 4),
+            resp_nome="Responsável Teste", resp_cpf="000",
+            resp_whatsapp="47999990000", resp_email="resp@exemplo.com",
+        )
+        self.lanc = ParcelamentoClube.objects.create(
+            usuario=self.resp, aventureiro=self.av, descricao="Acerto de julho",
+            valor_total=Decimal("200.00"), qtd_parcelas=2,
+        )
+        self.lanc.get_token()
+        for i, valor in enumerate(dividir_em_parcelas(Decimal("200.00"), 2)):
+            ParcelaClube.objects.create(
+                parcelamento=self.lanc, numero=i + 1, total=2, valor=valor,
+                vencimento=views._somar_meses(views._vencimento_diferido(), i),
+            )
+
+    def test_pagina_publica_abre_sem_login(self):
+        resp = self.client.get(
+            reverse("core:parcelas_clube", args=[self.lanc.token])
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["total_aberto"], Decimal("200.00"))
+        self.assertEqual(len(resp.context["abertas"]), 2)
+
+    def test_token_invalido_nao_vaza_dado(self):
+        resp = self.client.get(reverse("core:parcelas_clube", args=["xyz"]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context["invalido"])
+        self.assertNotContains(resp, "Acerto de julho")
+
+    def test_pagar_gera_uma_cobranca_por_parcela(self):
+        pa = self.lanc.parcelas.first()
+        with mock.patch.object(mp, "criar_pix", return_value=self.FAKE_PIX):
+            self.client.post(
+                reverse("core:parcela_clube_pagar", args=[self.lanc.token]),
+                {"parcela_id": pa.id, "forma_pagamento": "pix"},
+            )
+        pag = Pagamento.objects.get()
+        self.assertEqual(pag.tipo, "parcela_clube")
+        self.assertEqual(pag.valor_bruto, pa.valor)
+        self.assertEqual(pag.payload["parcela_clube_id"], pa.id)
+
+    def test_aprovacao_da_baixa_na_parcela_e_e_idempotente(self):
+        pa = self.lanc.parcelas.first()
+        with mock.patch.object(mp, "criar_pix", return_value=self.FAKE_PIX):
+            self.client.post(
+                reverse("core:parcela_clube_pagar", args=[self.lanc.token]),
+                {"parcela_id": pa.id, "forma_pagamento": "pix"},
+            )
+        pag = Pagamento.objects.get()
+        url_sim = reverse("core:pagamento_simular", args=[pag.referencia])
+        self.client.post(url_sim)
+        pa.refresh_from_db()
+        self.assertEqual(pa.status, "paga")
+        self.assertEqual(pa.pagamento_id, pag.id)
+        pago_em = pa.pago_em
+        # O webhook do MP repete o aviso: a 2ª vez não pode mexer na parcela.
+        self.client.post(url_sim)
+        pa.refresh_from_db()
+        self.assertEqual(pa.pago_em, pago_em)
+
+    def test_parcela_de_lancamento_cancelado_nao_pode_ser_paga(self):
+        self.lanc.status = "cancelado"
+        self.lanc.save(update_fields=["status"])
+        pa = self.lanc.parcelas.first()
+        with mock.patch.object(mp, "criar_pix", return_value=self.FAKE_PIX):
+            self.client.post(
+                reverse("core:parcela_clube_pagar", args=[self.lanc.token]),
+                {"parcela_id": pa.id, "forma_pagamento": "pix"},
+            )
+        self.assertFalse(Pagamento.objects.exists())
+
+    def test_token_da_conta_abre_todos_os_lancamentos(self):
+        """A cobrança lista as parcelas de todos os lançamentos, então o link
+        que ela manda (o token da conta) precisa mostrar todos — mostrar um só
+        contradiria a própria mensagem."""
+        outro = ParcelamentoClube.objects.create(
+            usuario=self.resp, aventureiro=self.av, descricao="Uniforme",
+            valor_total=Decimal("90.00"), qtd_parcelas=3,
+        )
+        for i, v in enumerate(dividir_em_parcelas(Decimal("90.00"), 3)):
+            ParcelaClube.objects.create(
+                parcelamento=outro, numero=i + 1, total=3, valor=v,
+                vencimento=views._somar_meses(views._vencimento_diferido(), i),
+            )
+        perfil, _ = PerfilUsuario.objects.get_or_create(usuario=self.resp)
+        r = self.client.get(
+            reverse("core:parcelas_clube", args=[perfil.get_token_acerto()])
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.context["blocos"]), 2)
+        self.assertEqual(r.context["total_aberto"], Decimal("290.00"))
+        self.assertContains(r, "Acerto de julho")
+        self.assertContains(r, "Uniforme")
+
+    def test_token_de_um_lancamento_mostra_so_ele(self):
+        """O link do painel do Diretor trata de UM acerto — continua valendo."""
+        ParcelamentoClube.objects.create(
+            usuario=self.resp, descricao="Outro acerto",
+            valor_total=Decimal("50.00"), qtd_parcelas=1,
+        )
+        r = self.client.get(reverse("core:parcelas_clube", args=[self.lanc.token]))
+        self.assertEqual(len(r.context["blocos"]), 1)
+        self.assertNotContains(r, "Outro acerto")
+
+    def test_responsavel_ve_as_proprias_parcelas_na_area_dele(self):
+        self.client.login(username="resp", password="123456")
+        resp = self.client.get(reverse("core:mensalidades"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["parcelas_total"], Decimal("200.00"))
+        self.assertContains(resp, "Acerto de julho")
+
+
+class ParcelamentoClubeFinanceiroTests(TestCase):
+    """O dinheiro do parcelamento no Financeiro do clube e no painel do evento.
+
+    Regra que mais pega: só a parcela PAGA é entrada. O lançamento em si não
+    move caixa nenhum, e cada parcela paga vira UMA linha do extrato — contar o
+    lançamento inteiro contaria dinheiro que ainda não chegou.
+    """
+
+    def setUp(self):
+        self.diretor = User.objects.create_user(username="dir", password="123456")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.client.login(username="dir", password="123456")
+        self.resp = User.objects.create_user(username="resp", password="123456")
+        self.av = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Criança Teste",
+            data_nascimento=datetime.date(2016, 5, 4),
+            resp_nome="Responsável Teste", resp_cpf="000",
+            resp_whatsapp="47999990000", resp_email="resp@exemplo.com",
+        )
+
+    def _lancar(self, evento=None, aventureiro=None, valor="300.00", qtd=3):
+        lanc = ParcelamentoClube.objects.create(
+            usuario=self.resp,
+            aventureiro=self.av if aventureiro is None else aventureiro,
+            evento=evento, descricao="Acerto do acampamento",
+            valor_total=Decimal(valor), qtd_parcelas=qtd,
+        )
+        for i, v in enumerate(dividir_em_parcelas(Decimal(valor), qtd)):
+            ParcelaClube.objects.create(
+                parcelamento=lanc, numero=i + 1, total=qtd, valor=v,
+                vencimento=views._somar_meses(views._vencimento_diferido(), i),
+            )
+        return lanc
+
+    def _baixar(self, parcela):
+        self.client.post(
+            reverse("core:parcela_clube_pago"),
+            {"parcela_id": parcela.id, "forma": "dinheiro"},
+        )
+
+    def test_lancamento_sem_baixa_nao_entra_nas_entradas(self):
+        self._lancar()
+        r = self.client.get(reverse("core:financeiro"))
+        self.assertEqual(r.context["resumo"]["parcelamentos"]["entradas"], Decimal("0"))
+        self.assertEqual(
+            r.context["resumo"]["parcelamentos"]["aberto"], Decimal("300.00")
+        )
+        linhas = [e for e in r.context["extrato"] if e["fonte"] == "parcelamentos"]
+        self.assertEqual(linhas, [])
+
+    def test_parcela_paga_entra_na_fonte_parcelamentos_e_no_extrato(self):
+        lanc = self._lancar()
+        self._baixar(lanc.parcelas.first())
+        r = self.client.get(reverse("core:financeiro"))
+        fonte = r.context["resumo"]["parcelamentos"]
+        self.assertEqual(fonte["entradas"], Decimal("100.00"))
+        self.assertEqual(fonte["aberto"], Decimal("200.00"))
+        linhas = [e for e in r.context["extrato"] if e["fonte"] == "parcelamentos"]
+        self.assertEqual(len(linhas), 1)
+        self.assertEqual(linhas[0]["valor"], Decimal("100.00"))
+
+    def test_lancamento_com_evento_conta_como_entrada_de_eventos(self):
+        evento = Evento.objects.create(
+            tipo="inscricao", nome="Aventuri",
+            data=timezone.localdate() + datetime.timedelta(days=30),
+        )
+        lanc = self._lancar(evento=evento)
+        self._baixar(lanc.parcelas.first())
+        r = self.client.get(reverse("core:financeiro"))
+        self.assertEqual(
+            r.context["resumo"]["eventos"]["parcelas_clube"], Decimal("100.00")
+        )
+        self.assertEqual(r.context["resumo"]["eventos"]["entradas"], Decimal("100.00"))
+        # Não pode aparecer nas DUAS fontes.
+        self.assertEqual(r.context["resumo"]["parcelamentos"]["entradas"], Decimal("0"))
+        linhas = [e for e in r.context["extrato"] if e["fonte"] == "eventos"]
+        self.assertEqual(len(linhas), 1)
+
+    def test_painel_do_evento_soma_o_recebido_e_nao_o_aberto(self):
+        evento = Evento.objects.create(
+            tipo="inscricao", nome="Aventuri",
+            data=timezone.localdate() + datetime.timedelta(days=30),
+        )
+        lanc = self._lancar(evento=evento)
+        self._baixar(lanc.parcelas.first())
+        r = self.client.get(reverse("core:evento_painel", args=[evento.id]))
+        self.assertEqual(r.context["parc_clube"]["recebido"], Decimal("100.00"))
+        self.assertEqual(r.context["parc_clube"]["aberto"], Decimal("200.00"))
+        self.assertEqual(r.context["resumo"]["receitas"], Decimal("100.00"))
+        self.assertEqual(r.context["financeiro"]["canal_clube"], Decimal("100.00"))
+        linhas = [
+            e for e in r.context["financeiro"]["extrato"]
+            if e["tipo"].startswith("Parcela")
+        ]
+        self.assertEqual(len(linhas), 1)
+
+    def test_dado_ficticio_nao_entra_no_financeiro(self):
+        """`demo` nunca entra em estatística do clube."""
+        demo = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Fictício", demo=True,
+            data_nascimento=datetime.date(2016, 5, 4),
+            resp_nome="Responsável Teste", resp_cpf="000",
+        )
+        lanc = self._lancar(aventureiro=demo)
+        lanc.parcelas.update(status="paga", valor_pago=Decimal("100.00"))
+        r = self.client.get(reverse("core:financeiro"))
+        self.assertEqual(r.context["resumo"]["parcelamentos"]["entradas"], Decimal("0"))
+        r2 = self.client.get(reverse("core:mensalidades") + "?aba=parcelas")
+        self.assertEqual(r2.context["parc_totais"]["n"], 0)
+
+
+class CobrancaParcelaClubeTests(TestCase):
+    """Cobrança das parcelas do clube: aba, mensagem e histórico PRÓPRIOS."""
+
+    def setUp(self):
+        self.diretor = User.objects.create_user(username="dir", password="123456")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.client.login(username="dir", password="123456")
+        wa = WhatsappConfig.get_solo()
+        wa.instance_id = "i"
+        wa.token = "t"
+        wa.save()
+        self.resp = User.objects.create_user(username="resp", password="123456")
+        self.av = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Criança Teste",
+            data_nascimento=datetime.date(2016, 5, 4),
+            resp_nome="Responsável Teste", resp_cpf="000",
+            resp_whatsapp="47999990000", resp_email="resp@exemplo.com",
+        )
+        self.lanc = ParcelamentoClube.objects.create(
+            usuario=self.resp, aventureiro=self.av, descricao="Acerto de julho",
+            valor_total=Decimal("200.00"), qtd_parcelas=2,
+        )
+        self.lanc.get_token()
+        for i, v in enumerate(dividir_em_parcelas(Decimal("200.00"), 2)):
+            ParcelaClube.objects.create(
+                parcelamento=self.lanc, numero=i + 1, total=2, valor=v,
+                vencimento=views._somar_meses(views._vencimento_diferido(), i),
+            )
+        self.url = reverse("core:parcela_cobranca_enviar")
+
+    def test_conta_com_parcela_em_aberto_aparece_na_aba(self):
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
+        familias = r.context["cobrancas_parcelas"]
+        self.assertEqual(len(familias), 1)
+        self.assertEqual(familias[0]["total"], Decimal("200.00"))
+        self.assertEqual(familias[0]["n_parcelas"], 2)
+
+    def test_envio_registra_historico_proprio(self):
+        with mock.patch.object(views, "_enviar_whatsapp", return_value=(True, "ok")):
+            r = self.client.post(self.url, {"canal": "whatsapp"})
+        self.assertEqual(r.json()["enviados"], 1)
+        self.assertEqual(CobrancaParcelaEnviada.objects.count(), 1)
+        # E NÃO no histórico da mensalidade — senão uma silenciaria a outra.
+        self.assertEqual(CobrancaEnviada.objects.count(), 0)
+
+    def test_mensagem_leva_as_parcelas_e_o_link_da_conta(self):
+        capturado = {}
+
+        def fake(cfg, numero, texto, **kw):
+            capturado["texto"] = texto
+            return True, "ok"
+
+        with mock.patch.object(views, "_enviar_whatsapp", side_effect=fake):
+            self.client.post(self.url, {"canal": "whatsapp"})
+        texto = capturado["texto"]
+        self.assertIn("Acerto de julho", texto)
+        self.assertIn("200,00", texto)
+        # O link é o da CONTA (o mesmo token do acerto): a mensagem lista as
+        # parcelas de todos os lançamentos, então o link tem de abrir todos.
+        perfil = PerfilUsuario.objects.get(usuario=self.resp)
+        self.assertIn(f"/parcelas/{perfil.token_acerto}/", texto)
+
+    def test_filtro_de_quem_ja_recebeu_e_por_canal(self):
+        CobrancaParcelaEnviada.objects.create(
+            usuario=self.resp, canal="whatsapp",
+            ano=timezone.localdate().year, mes=timezone.localdate().month,
+        )
+        with mock.patch.object(views, "_enviar_whatsapp", return_value=(True, "ok")):
+            r = self.client.post(
+                self.url, {"canal": "whatsapp", "so_nao_enviados": "1"}
+            )
+        self.assertEqual(r.json()["enviados"], 0)
+
+    def test_parcela_paga_tira_a_conta_da_cobranca(self):
+        self.lanc.parcelas.update(status="paga", valor_pago=Decimal("100.00"))
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
+        self.assertEqual(r.context["cobrancas_parcelas"], [])
+
+    def test_lancamento_cancelado_sai_da_cobranca(self):
+        self.lanc.status = "cancelado"
+        self.lanc.save(update_fields=["status"])
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
+        self.assertEqual(r.context["cobrancas_parcelas"], [])
+
+    def test_aventureiro_inativo_continua_devendo_a_parcela(self):
+        """Regra diferente da mensalidade: parcelamento é dívida combinada.
+
+        "Aventureiro inativo não é cobrado" vale para a cobrança recorrente de
+        quem saiu; um acerto já fechado continua devido, como as parcelas de
+        inscrição de evento."""
+        self.av.ativo = False
+        self.av.save(update_fields=["ativo"])
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
+        self.assertEqual(len(r.context["cobrancas_parcelas"]), 1)
+
+    def test_modo_ia_tem_alavanca_propria(self):
+        r = self.client.post(reverse("core:parcela_cobranca_modo"), {"via_ia": "1"})
+        self.assertTrue(r.json()["via_ia"])
+        cfg = ConfigMensalidade.get_solo()
+        self.assertTrue(cfg.cobranca_parcela_via_ia)
+        # A alavanca da mensalidade não foi mexida.
+        self.assertFalse(cfg.cobranca_via_ia)

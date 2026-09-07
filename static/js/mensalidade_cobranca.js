@@ -1,35 +1,47 @@
 /* =========================================================
-   Aba "Cobranças": busca por nome, envio individual e envio em
+   Cobrança em lote: busca por nome, envio individual e envio em
    LOTE (um a um, com 10s entre cada, barra de progresso e
    cancelamento). O aviso de WhatsApp não configurado vem como
    toast na resposta do servidor. JS puro.
+
+   Serve DUAS abas com a mesma mecânica — a cobrança das
+   mensalidades e a das parcelas lançadas pelo clube. O que muda
+   é só o painel, o prefixo dos ids dos controles e as URLs (que
+   vêm nos data-* do próprio painel), então o comportamento é
+   escrito UMA vez e ligado duas: duplicar o arquivo faria
+   qualquer correção precisar ser feita em dois lugares.
+
+   Cada instância só olha para dentro do SEU painel — inclusive o
+   clique do botão de envio individual, que por isso não pode ser
+   ouvido no document (as duas instâncias responderiam ao mesmo
+   clique e mandariam a cobrança duas vezes, uma para cada URL).
    ========================================================= */
 (function () {
     "use strict";
 
-    var painel = document.querySelector('.mens-painel[data-painel="cobrancas"]');
+    function iniciar(painel, pref, textos) {
     if (!painel) return;
 
     var url = painel.dataset.enviarUrl;
     var csrf = painel.dataset.csrf;
     var DELAY_MS = 10000;
 
+    function elo(sufixo) { return document.getElementById(pref + sufixo); }
+
     function toast(msg, tipo) {
         if (typeof window.mostrarToast === "function") window.mostrarToast(msg, tipo);
     }
 
     // ---- Alavanca: mensagem padrão × IA (persiste ao trocar) ----
-    var modoIA = document.getElementById("cobrancaModoIA");
-    var modoSub = document.getElementById("cobrancaModoSub");
-    var iaAviso = document.getElementById("cobrancaIaAviso");
+    var modoIA = elo("ModoIA");
+    var modoSub = elo("ModoSub");
+    var iaAviso = elo("IaAviso");
     var iaConfigurada = painel.dataset.iaConfigurada === "1";
     if (modoIA) {
         modoIA.addEventListener("change", function () {
             var ligado = modoIA.checked;
             if (modoSub) {
-                modoSub.textContent = ligado
-                    ? "🤖 A IA redige uma mensagem personalizada para cada família."
-                    : "📝 Usa a mensagem de cobrança padrão.";
+                modoSub.textContent = ligado ? textos.iaLigada : textos.iaDesligada;
             }
             if (iaAviso && !iaConfigurada) iaAviso.hidden = !ligado;
             fetch(painel.dataset.modoUrl, {
@@ -51,7 +63,7 @@
     // A contagem "cobrado este mês" é POR CANAL: mandar por e-mail não pode fazer
     // o WhatsApp deixar de sair, então cada canal tem o seu dataset e o seu filtro.
     function canalAtual() {
-        var sel = document.getElementById("cobrancaCanal");
+        var sel = elo("Canal");
         return (sel && sel.value) || "whatsapp";
     }
 
@@ -117,7 +129,7 @@
     }
 
     // Ao trocar o canal, revalida quais linhas podem receber.
-    var selCanal = document.getElementById("cobrancaCanal");
+    var selCanal = elo("Canal");
     if (selCanal) {
         var ROTULO_CANAL = {
             whatsapp: "Canal: WhatsApp 💬",
@@ -181,7 +193,7 @@
     function normal(s) {
         return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     }
-    var busca = document.getElementById("cobrancaBusca");
+    var busca = elo("Busca");
     var vazio = painel.querySelector(".mens-cobranca-vazio-busca");
     if (busca) {
         busca.addEventListener("input", function () {
@@ -197,7 +209,9 @@
     }
 
     // ---- Envio individual ----
-    document.addEventListener("click", function (e) {
+    // No PAINEL, não no document: com duas abas de cobrança na mesma tela, o
+    // document faria as duas instâncias responderem ao mesmo clique.
+    painel.addEventListener("click", function (e) {
         var um = e.target.closest(".mens-cobranca-enviar");
         if (!um) return;
         um.disabled = true;
@@ -223,19 +237,19 @@
     });
 
     // ---- Envio em LOTE (10s entre cada, barra + cancelar) ----
-    var btnTodos = document.getElementById("cobrancaEnviarTodos");
-    var prog = document.getElementById("cobrancaProgresso");
-    var fill = document.getElementById("cobrancaProgFill");
-    var txt = document.getElementById("cobrancaProgTxt");
-    var btnCancelar = document.getElementById("cobrancaCancelar");
+    var btnTodos = elo("EnviarTodos");
+    var prog = elo("Progresso");
+    var fill = elo("ProgFill");
+    var txt = elo("ProgTxt");
+    var btnCancelar = elo("Cancelar");
 
     // Estado do lote (compartilhado entre "enviar a todos" e "cancelar").
     var lote = { ativo: false, cancelado: false, timer: null, i: 0, ok: 0, falhas: 0, alvos: [] };
 
     function alvosLote() {
-        var so = document.getElementById("cobrancaSoNaoEnviados");
+        var so = elo("SoNaoEnviados");
         var soNao = so && so.checked;
-        var lib = document.getElementById("cobrancaSoLiberados");
+        var lib = elo("SoLiberados");
         var soLiberados = lib && lib.checked;
         var usaWhatsapp = canaisDoEnvio().indexOf("whatsapp") !== -1;
         return Array.prototype.filter.call(
@@ -322,4 +336,22 @@
             if (lote.timer) { clearTimeout(lote.timer); lote.timer = null; fim(true); }
         });
     }
+    }
+
+    iniciar(
+        document.querySelector('.mens-painel[data-painel="cobrancas"]'),
+        "cobranca",
+        {
+            iaLigada: "🤖 A IA redige uma mensagem personalizada para cada família.",
+            iaDesligada: "📝 Usa a mensagem de cobrança padrão.",
+        }
+    );
+    iniciar(
+        document.querySelector('.mens-painel[data-painel="cobrar-parcelas"]'),
+        "parcCobranca",
+        {
+            iaLigada: "🤖 A IA redige a mensagem das parcelas para cada pessoa.",
+            iaDesligada: "📝 Usa a mensagem de cobrança de parcelas padrão.",
+        }
+    );
 })();

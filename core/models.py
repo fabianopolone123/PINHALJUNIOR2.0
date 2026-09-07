@@ -509,6 +509,29 @@ PRIMEIRA_PARCELA_CHOICES = [
 DIA_VENCIMENTO_PARCELA = 10
 
 
+def dividir_em_parcelas(total, n):
+    """Divide `total` em `n` valores de 2 casas que somam **exatamente** o total.
+
+    A sobra dos centavos vai na **primeira** parcela, então as seguintes ficam
+    redondas e iguais — é o que a pessoa confere depois.
+    Ex.: 100,00 em 3× → [33,34, 33,33, 33,33].
+
+    Devolve **uma** parcela (à vista) quando `n` <= 1, quando o total é zero/
+    negativo ou quando a divisão geraria parcela de R$ 0,00 — cobrança de zero
+    não existe no gateway. Quem chama deve conferir o tamanho da lista se o
+    número de parcelas for uma exigência (o lançamento manual confere)."""
+    total = Decimal(total or 0)
+    n = int(n or 1)
+    if n <= 1 or total <= 0:
+        return [total]
+    base = (total / n).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+    if base <= 0:
+        return [total]
+    valores = [base] * n
+    valores[0] = total - base * (n - 1)
+    return valores
+
+
 class Evento(models.Model):
     """Evento do clube (reunião, acampamento, festa, venda de alimentos, etc.).
 
@@ -806,23 +829,10 @@ class Evento(models.Model):
         return self.parcelas_diretoria_primeira != PRIMEIRA_PARCELA_PROXIMO_MES
 
     def dividir_parcelas(self, total, parcelas=None):
-        """Divide `total` em `parcelas` valores que somam exatamente o total.
-
-        A sobra dos centavos vai na **primeira** parcela, então as seguintes ficam
-        sempre redondas e iguais — é o que a pessoa confere depois.
-        Ex.: 100,00 em 3× → [33,34, 33,33, 33,33]."""
-        total = Decimal(total or 0)
-        n = int(parcelas or self.parcelas_diretoria or 1)
-        if n <= 1 or total <= 0:
-            return [total]
-        base = (total / n).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
-        if base <= 0:
-            # Valor tão pequeno que a divisão geraria parcela de R$ 0,00 — e
-            # cobrança de zero no gateway não existe. Fica à vista.
-            return [total]
-        valores = [base] * n
-        valores[0] = total - base * (n - 1)
-        return valores
+        """Divide o valor da diretoria nas parcelas do evento.
+        A regra da divisão é a de `dividir_em_parcelas` (função do módulo, também
+        usada pelo parcelamento lançado à mão pelo clube)."""
+        return dividir_em_parcelas(total, parcelas or self.parcelas_diretoria or 1)
 
 
 class CustoEvento(models.Model):
@@ -2970,6 +2980,7 @@ TIPO_PAGAMENTO_CHOICES = [
     ("mensalidade", "Mensalidades"),
     ("inscricao", "Inscrição de evento"),
     ("parcela_inscricao", "Parcela de inscrição"),
+    ("parcela_clube", "Parcela lançada pelo clube"),
 ]
 
 
@@ -3449,6 +3460,43 @@ MENSAGEM_APELO_PADRAO = (
 )
 
 
+# Cobrança das PARCELAS lançadas pelo clube (aba própria). Texto separado do da
+# mensalidade de propósito: o que se cobra aqui é um acerto combinado (com valor,
+# nº de parcelas e vencimento), não a contribuição mensal — misturar as duas
+# mensagens confunde quem recebe. Marcadores: {nome}, {itens}, {total}, {link}.
+ASSUNTO_COBRANCA_PARCELA_PADRAO = (
+    "Parcelas em aberto — Clube de Aventureiros Pinhal Júnior"
+)
+
+MENSAGEM_COBRANCA_PARCELA_PADRAO = (
+    "Olá {nome}! 👋 Aqui é do Clube de Aventureiros Pinhal Júnior.\n\n"
+    "Passando para lembrar das parcelas em aberto:\n"
+    "{itens}\n"
+    "*Total: R$ {total}*\n\n"
+    "Para acertar rapidinho (Pix ou cartão), é só acessar:\n"
+    "{link}\n\n"
+    "Qualquer dúvida, estamos à disposição. Obrigado! 💚"
+)
+
+PROMPT_COBRANCA_PARCELA_IA_PADRAO = (
+    "Você é o tesoureiro do Clube de Aventureiros Pinhal Júnior e vai escrever uma "
+    "mensagem de WhatsApp para {nome}, lembrando com gentileza de parcelas em aberto "
+    "de um acerto combinado com o clube.\n\n"
+    "Parcelas em aberto:\n{itens}\n"
+    "Total: R$ {total}\n"
+    "Link para pagar fácil (Pix ou cartão): {link}\n\n"
+    "Escreva uma mensagem CURTA, objetiva e MUITO educada, em português do Brasil.\n\n"
+    "FORMATO (use quebras de linha de verdade, com uma linha em branco entre os blocos):\n"
+    "1) uma saudação inicial;\n"
+    "2) a lista de parcelas em aberto, cada item em sua própria linha, com o vencimento;\n"
+    "3) o total;\n"
+    "4) o link de pagamento;\n"
+    "5) um agradecimento final.\n\n"
+    "Use no máximo 1 ou 2 emojis discretos. NÃO invente valores, datas ou informações além "
+    "das acima. Responda apenas com o texto final da mensagem, sem aspas nem comentários."
+)
+
+
 class ConfigMensalidade(models.Model):
     """Valores padrão das cobranças (linha única/singleton)."""
 
@@ -3479,6 +3527,22 @@ class ConfigMensalidade(models.Model):
     # Texto de apelo mostrado ao responsável na área de mensalidades dele.
     mensagem_apelo = models.TextField(
         "Mensagem de apelo (área do responsável)", blank=True, default=MENSAGEM_APELO_PADRAO
+    )
+    # --- Cobrança das PARCELAS do clube (aba própria; mesma mecânica acima) ---
+    mensagem_cobranca_parcela = models.TextField(
+        "Mensagem de cobrança de parcelas (WhatsApp)", blank=True,
+        default=MENSAGEM_COBRANCA_PARCELA_PADRAO,
+    )
+    assunto_cobranca_parcela_email = models.CharField(
+        "Assunto da cobrança de parcelas (e-mail)", max_length=200, blank=True,
+        default=ASSUNTO_COBRANCA_PARCELA_PADRAO,
+    )
+    cobranca_parcela_via_ia = models.BooleanField(
+        "Cobrança de parcelas gerada pela IA", default=False
+    )
+    prompt_cobranca_parcela_ia = models.TextField(
+        "Prompt da cobrança de parcelas (IA)", blank=True,
+        default=PROMPT_COBRANCA_PARCELA_IA_PADRAO,
     )
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -3603,6 +3667,270 @@ class Mensalidade(models.Model):
     def em_aberto(self):
         """Deve pagar: em aberto, não isenta e não cancelada."""
         return self.status == "aberta" and not self.isento
+
+
+# ===========================================================================
+# Parcelamento lançado PELO CLUBE (manual).
+#
+# Não confundir com `ParcelaInscricao`, que é o parcelamento do valor da
+# DIRETORIA numa inscrição de evento: aquele nasce sozinho, no ato, quando o
+# evento oferece a opção e a pessoa marca. Aqui é o contrário — o Diretor lança
+# na mão um valor já combinado com uma família (ou com um integrante da
+# diretoria) e o sistema divide em N parcelas, sempre vencendo no
+# `DIA_VENCIMENTO_PARCELA` (dia 10) mês a mês. É o caminho de quem se inscreveu
+# num evento que não tinha o parcelamento habilitado, ou combinou o acerto
+# depois.
+#
+# Por que não é uma `Mensalidade`: ela é **uma por (aventureiro, ano, mês)** —
+# um parcelamento cairia em cima da mensalidade normal daqueles meses —, não tem
+# campo de vencimento (só ano/mês) nem descrição, e é amarrada ao `Aventureiro`,
+# então integrante da diretoria **sem filho no clube** não teria onde ser
+# lançado. Por que não é `ParcelaInscricao`: ela exige uma `Inscricao` e o
+# dinheiro dela entra no caixa **pelo evento**.
+#
+# O lançamento é sempre **100% a receber**: nada é cobrado no ato (não há
+# cobrança no momento em que o Diretor lança), então não existe aqui o problema
+# da flag `no_ato` das parcelas de inscrição. Só entra no caixa a parcela PAGA.
+#
+# O vínculo é com a **conta** (`usuario`), não com o aventureiro: é assim que o
+# mesmo lançamento serve para família e para diretoria. O `aventureiro` é
+# opcional e só diz *por quem* é o acerto; o `evento` é opcional e diz de onde
+# veio a dívida — com evento, o dinheiro conta na fonte "Eventos" do Financeiro
+# e aparece no painel daquele evento.
+# ===========================================================================
+
+STATUS_PARCELAMENTO_CHOICES = [
+    ("ativo", "Ativo"),
+    ("cancelado", "Cancelado"),
+]
+
+
+class ParcelamentoClube(models.Model):
+    """Um lançamento de parcelas feito na mão pelo clube, para uma conta."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="parcelamentos",
+        verbose_name="Conta (responsável/diretoria)",
+    )
+    # Por quem é o acerto (opcional): serve para exibir e para o relatório. Um
+    # lançamento de diretoria sem filho no clube fica sem aventureiro.
+    aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelamentos",
+        verbose_name="Aventureiro (opcional)",
+    )
+    # De onde veio a dívida (opcional). Com evento, o dinheiro conta como
+    # entrada de EVENTOS; sem evento, como parcelamento do clube.
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelamentos",
+        verbose_name="Evento (opcional)",
+    )
+    descricao = models.CharField("Descrição", max_length=150)
+    observacao = models.TextField("Observação", blank=True)
+    valor_total = models.DecimalField(
+        "Valor total", max_digits=10, decimal_places=2, default=0
+    )
+    qtd_parcelas = models.PositiveSmallIntegerField("Parcelas", default=1)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_PARCELAMENTO_CHOICES,
+        default="ativo", db_index=True,
+    )
+    # Token secreto e FIXO do link público de pagamento (mesmo mecanismo do
+    # `PerfilUsuario.token_acerto` e do `Inscricao.token_parcelas`): quem recebe
+    # a cobrança pode pagar sem login.
+    token = models.CharField(
+        "Token do link", max_length=40, blank=True, db_index=True
+    )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelamentos_criados",
+        verbose_name="Lançado por",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Parcelamento do clube"
+        verbose_name_plural = "Parcelamentos do clube"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.descricao} — {self.qtd_parcelas}x"
+
+    def get_token(self):
+        """Token do link público, criando um (uuid) na primeira vez."""
+        if not self.token:
+            self.token = uuid.uuid4().hex
+            self.save(update_fields=["token"])
+        return self.token
+
+    # --- Somas. Usam `self.parcelas.all()` para aproveitar o prefetch. ---
+    @property
+    def _vivas(self):
+        return [p for p in self.parcelas.all() if p.status != "cancelada"]
+
+    @property
+    def total_recebido(self):
+        return sum(
+            (p.valor_pago or Decimal("0") for p in self._vivas if p.status == "paga"),
+            Decimal("0"),
+        )
+
+    @property
+    def total_aberto(self):
+        return sum((p.valor for p in self._vivas if p.em_aberto), Decimal("0"))
+
+    @property
+    def total_vencido(self):
+        return sum((p.valor for p in self._vivas if p.vencida), Decimal("0"))
+
+    @property
+    def n_abertas(self):
+        return sum(1 for p in self._vivas if p.em_aberto)
+
+    @property
+    def n_pagas(self):
+        return sum(1 for p in self._vivas if p.status == "paga")
+
+    @property
+    def quitado(self):
+        """Ativo e sem nenhuma parcela em aberto."""
+        return self.status == "ativo" and not self.n_abertas
+
+    @property
+    def proximo_vencimento(self):
+        abertas = [p.vencimento for p in self._vivas if p.em_aberto and p.vencimento]
+        return min(abertas) if abertas else None
+
+    @property
+    def pessoa_nome(self):
+        """Por quem é o acerto: o aventureiro, quando há; senão a conta."""
+        if self.aventureiro_id:
+            return self.aventureiro.nome_completo
+        membro = getattr(self.usuario, "membro_diretoria", None)
+        if membro is not None:
+            return membro.nome_completo
+        return self.usuario.get_full_name() or self.usuario.username
+
+
+class ParcelaClube(models.Model):
+    """Uma parcela de um `ParcelamentoClube`. Vence no dia
+    `DIA_VENCIMENTO_PARCELA` do seu mês; é paga pelo link público (Pix/cartão,
+    com baixa automática pelo webhook) ou baixada na mão pelo Diretor."""
+
+    parcelamento = models.ForeignKey(
+        ParcelamentoClube,
+        on_delete=models.CASCADE,
+        related_name="parcelas",
+        verbose_name="Parcelamento",
+    )
+    numero = models.PositiveSmallIntegerField("Parcela")
+    total = models.PositiveSmallIntegerField("De (total de parcelas)", default=1)
+    valor = models.DecimalField("Valor", max_digits=10, decimal_places=2, default=0)
+    vencimento = models.DateField("Vencimento", null=True, blank=True)
+    status = models.CharField(
+        "Situação", max_length=12, choices=STATUS_PARCELA_CHOICES, default="aberta",
+        db_index=True,
+    )
+    forma_pagamento = models.CharField(
+        "Forma de pagamento", max_length=12, choices=FORMA_PAGAMENTO_CHOICES, blank=True
+    )
+    valor_pago = models.DecimalField(
+        "Valor pago", max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    pago_em = models.DateTimeField("Pago em", null=True, blank=True)
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelas_clube_registradas",
+        verbose_name="Baixa registrada por",
+    )
+    # Cobrança online que quitou ESTA parcela (nulo na baixa manual). Cada
+    # parcela tem o seu: a taxa do gateway é por cobrança.
+    pagamento = models.ForeignKey(
+        "Pagamento",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parcelas_clube",
+        verbose_name="Pagamento (gateway)",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Parcela do clube"
+        verbose_name_plural = "Parcelas do clube"
+        unique_together = [("parcelamento", "numero")]
+        ordering = ["numero"]
+
+    def __str__(self):
+        return f"{self.parcelamento.descricao} — parcela {self.numero}/{self.total}"
+
+    @property
+    def rotulo(self):
+        return f"{self.numero}/{self.total}"
+
+    @property
+    def em_aberto(self):
+        return self.status == "aberta"
+
+    @property
+    def vencida(self):
+        """Em aberto e com o vencimento já passado."""
+        if not self.em_aberto or self.vencimento is None:
+            return False
+        return self.vencimento < timezone.localdate()
+
+
+class CobrancaParcelaEnviada(models.Model):
+    """Registro de uma cobrança de PARCELAS enviada a uma conta.
+
+    Separado do `CobrancaEnviada` (mensalidades) de propósito: são duas
+    cobranças diferentes, e contar as duas juntas faria "já cobrei este mês"
+    de uma silenciar a outra — o mesmo motivo pelo qual o canal faz parte da
+    identidade do registro."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cobrancas_parcela_recebidas",
+        verbose_name="Conta",
+    )
+    canal = models.CharField(
+        "Canal", max_length=10, choices=CANAL_COBRANCA_CHOICES, default=CANAL_WHATSAPP
+    )
+    ano = models.PositiveIntegerField("Ano do envio", db_index=True)
+    mes = models.PositiveSmallIntegerField("Mês do envio")
+    enviada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cobrancas_parcela_enviadas",
+        verbose_name="Enviada por",
+    )
+    criado_em = models.DateTimeField("Enviada em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cobrança de parcelas enviada"
+        verbose_name_plural = "Cobranças de parcelas enviadas"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.usuario} — {self.mes:02d}/{self.ano} ({self.canal})"
 
 
 DESTINO_CUSTO_CHOICES = [

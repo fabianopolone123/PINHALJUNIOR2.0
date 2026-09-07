@@ -30,6 +30,7 @@
 .fin-fonte.fonte-mensalidades { border-left-color: #1f6fb2; }
 .fin-fonte.fonte-loja { border-left-color: #3a9d3a; }
 .fin-fonte.fonte-eventos { border-left-color: #e0a800; }
+.fin-fonte.fonte-parcelamentos { border-left-color: #6a4fb3; }
 .fin-fonte.fonte-custos { border-left-color: #c0392b; }
 .fin-fonte-topo { display: flex; align-items: center; gap: 8px; }
 .fin-fonte-topo h3 { margin: 0; font-size: 1.05rem; color: var(--azul-escuro, #0f4c81); }
@@ -81,7 +82,12 @@
 .fin-caixa-total span:first-child { color: var(--azul-escuro, #0f4c81); }
 
 /* Gráficos */
-.fin-graficos { display: grid; grid-template-columns: 1fr; gap: 12px; }
+/* `minmax(0, 1fr)` e não `1fr`: a coluna `1fr` tem `min-width: auto` e não
+   encolhe abaixo do conteúdo, então o gráfico de 12 meses esticava a grade e
+   criava rolagem horizontal na PÁGINA — o `.fin-fluxo-scroll` só rola por
+   dentro se a coluna puder ser menor que o conteúdo. (Mesma armadilha já
+   corrigida em Aniversários e Mensalidades.) */
+.fin-graficos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .fin-grafico-card { padding: 16px; display: flex; flex-direction: column; }
 .fin-grafico-card .secao-titulo { margin-top: 0; }
 .fin-donut-wrap { display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; flex: 1 1 auto; }
@@ -120,6 +126,7 @@
 .fin-lanc-badge.fonte-mensalidade { background: rgba(31,111,178,.14); color: #0f4c81; }
 .fin-lanc-badge.fonte-loja { background: rgba(58,157,58,.16); color: #1f6b1f; }
 .fin-lanc-badge.fonte-eventos { background: rgba(224,168,0,.2); color: #8a6d00; }
+.fin-lanc-badge.fonte-parcelamentos { background: rgba(106,79,179,.16); color: #4b3690; }
 .fin-lanc-badge.fonte-custos { background: rgba(192,57,43,.14); color: #a5281b; }
 .fin-lanc-desc { flex: 1 1 160px; font-size: 0.9rem; min-width: 0; }
 .fin-lanc-anexo { text-decoration: none; }
@@ -142,7 +149,7 @@
 @media (min-width: 720px) {
     .fin-kpis { grid-template-columns: repeat(3, 1fr); }
     .fin-resumo-fontes { grid-template-columns: repeat(2, 1fr); }
-    .fin-graficos { grid-template-columns: 340px 1fr; align-items: stretch; }
+    .fin-graficos { grid-template-columns: 340px minmax(0, 1fr); align-items: stretch; }
 }
 @media (min-width: 1100px) {
     .fin-resumo-fontes { grid-template-columns: repeat(4, 1fr); }

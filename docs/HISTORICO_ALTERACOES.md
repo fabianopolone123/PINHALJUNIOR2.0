@@ -22,6 +22,91 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-07 - Parcelamento lançado pelo clube (lançamento manual de parcelas)
+
+### Resumo
+Pedido do usuário: "alguns eventos tiveram o parcelamento habilitado na inscrição, mas outros precisam ser
+lançados manual; lá em Mensalidades, ter um botão de fazer lançamento de parcelas pelo clube, digitar os dados,
+selecionar um usuário (que é vinculado a um aventureiro, e diretoria também), e gerar como se fosse uma
+mensalidade, com vencimento dia 10 de cada mês".
+
+Antes desta alteração o parcelamento existia **em um lugar só**: dentro da inscrição de evento
+(`Evento.parcelas_diretoria` + `ParcelaInscricao`), nascendo sozinho quando o evento oferecia a opção e a
+pessoa marcava. Não havia **nenhum** caminho manual — quem se inscreveu num evento sem a opção ligada, ou
+combinou o acerto depois, ficava fora do sistema.
+
+### O que foi feito
+- **Models novos** (migration **0071**): `ParcelamentoClube` (o lançamento: conta, aventureiro opcional,
+  evento opcional, descrição, observação, valor total, nº de parcelas, status, token do link público) e
+  `ParcelaClube` (número/total/valor/vencimento/situação/forma/valor pago/baixa/`pagamento`), mais
+  `CobrancaParcelaEnviada` (histórico da cobrança) e 4 campos em `ConfigMensalidade` (mensagem, assunto,
+  alavanca e prompt da cobrança de parcelas). Tipo de pagamento novo: `parcela_clube`.
+- **Aba 📆 Parcelas** em Mensalidades: KPIs (lançado, já recebido, a receber, vencido), botão **Novo
+  lançamento** (modal com prévia ao vivo das parcelas), lista de lançamentos em `<details>` com baixa manual
+  por parcela, cancelamento e o link público de pagamento.
+- **Aba 📨 Cobrar parcelas**: mensagem/assunto/prompt próprios, alavanca padrão × IA, canal
+  WhatsApp/e-mail/ambos, envio 1-por-request com 10s no front, filtro "só quem não recebeu este mês" por
+  canal, termômetro de contato e busca.
+- **Página pública** `/parcelas/<token>/`: a pessoa vê o que pagou e o que falta e paga **uma parcela por
+  cobrança** (Pix/cartão), com baixa automática pelo webhook (`_finalizar_parcela_clube`, idempotente). O
+  token aceita **um lançamento** (link do painel) **ou a conta** (`token_acerto`), e a cobrança manda o da
+  conta — a mensagem lista as parcelas de todos os lançamentos, então o link tem de abrir todos.
+- **Área do responsável**: bloco "📆 Parcelas combinadas com o clube" na tela de Mensalidades dele.
+- **Financeiro**: fonte nova **Parcelamentos** (card, legenda do donut, chip do extrato) para lançamento sem
+  evento; com evento, a parcela paga conta na fonte **Eventos**.
+- **Painel do evento**: card "Parcelamento do clube" (recebido/a receber/vencido + detalhe por lançamento),
+  linha nova em "Por canal" e as parcelas pagas no extrato e nas receitas do evento.
+- **Reaproveitamento**: `Evento.dividir_parcelas` virou casca da função de módulo `dividir_em_parcelas`
+  (mesma regra: a sobra dos centavos na 1ª parcela); e `mensalidade_cobranca.js` foi **generalizado** para
+  servir as duas abas de cobrança em vez de duplicar ~300 linhas de JS.
+- **Correção de bônus**: rolagem horizontal **pré-existente** no Financeiro (`.fin-graficos` com `1fr` em vez
+  de `minmax(0, 1fr)` — a armadilha que o CLAUDE.md documenta). Conferido com sonda em 485/768/1280px:
+  `scrollWidth == clientWidth` em todas as telas novas e nas alteradas.
+
+### Arquivos criados/alterados
+- `core/models.py`: models novos, campos em `ConfigMensalidade`, `dividir_em_parcelas` extraída,
+  `parcela_clube` em `TIPO_PAGAMENTO_CHOICES`.
+- `core/migrations/0071_parcelamento_clube.py`: migration.
+- `core/views.py`: seção "Parcelamento lançado PELO CLUBE" (lançar, cancelar, baixa manual, cobrança,
+  página pública, finalizador do gateway), contexto das duas abas, bloco do responsável, Financeiro e
+  painel do evento.
+- `core/urls.py`: 6 rotas internas + 2 públicas. `core/admin.py`: os dois models novos.
+- `templates/core/mensalidades.html`: 2 abas + modal. `templates/core/parcelas_clube.html`: página pública.
+- `templates/core/mensalidades_responsavel.html`, `templates/core/financeiro.html`,
+  `templates/core/evento_painel.html`.
+- `static/js/parcelamento.js` (novo: modal + prévia + busca), `static/js/mensalidade_cobranca.js`
+  (generalizado), `static/css/mensalidades.css`, `static/css/financeiro.css`, `static/css/eventos.css`.
+- `core/tests.py`: 34 testes novos (4 classes). Suíte completa: **396 OK**.
+
+### Decisões tomadas
+- **Não reaproveitar `Mensalidade`**: `unique_together (aventureiro, ano, mes)` daria colisão com a
+  mensalidade do mês, ela não tem vencimento nem descrição, e é amarrada ao `Aventureiro` — integrante da
+  diretoria **sem filho no clube** não teria onde ser lançado. O vínculo do parcelamento é com a **conta**.
+- **Não reaproveitar `ParcelaInscricao`**: FK obrigatória de `Inscricao` e o dinheiro dela entra no caixa
+  **pelo evento**; misturar arriscaria a contagem dupla que a flag `no_ato` existe para evitar.
+- **Escolher o aventureiro resolve os dois vínculos** (criança + conta do responsável), que é o que o
+  usuário descreveu; a conta sozinha atende a diretoria.
+- **Nada é cobrado no ato**: o lançamento é 100% a receber. Só a parcela **paga** entra no caixa.
+- **Vencimento sempre no dia 10** (`DIA_VENCIMENTO_PARCELA`, o mesmo do parcelamento de evento), com o
+  **mês** da 1ª parcela escolhido pelo Diretor — data fixa é o que a família guarda.
+- **Valor baixo demais para o nº de parcelas é recusado** com aviso, em vez de virar 1 parcela em silêncio
+  (`dividir_em_parcelas` cai para à vista, e quem chama confere o tamanho da lista).
+- **Aventureiro inativo continua devendo** — diferente da mensalidade. A regra do clube é da cobrança
+  recorrente de quem saiu; um acerto combinado é dívida específica, como as parcelas de inscrição.
+- **Cobrança em aba e histórico separados** da mensalidade: contar as duas juntas faria "já cobrei este mês"
+  de uma silenciar a outra (o mesmo motivo pelo qual o canal faz parte da identidade do registro).
+- **Cancelar** cancela só as parcelas em aberto; as pagas continuam no caixa e no extrato.
+- O **telefone de cobrança** é o mesmo da mensalidade (responsável financeiro da conta), então a rota de
+  trocar o telefone foi reaproveitada em vez de duplicada.
+
+### Pendências
+- **Cobrança automática** das parcelas (as do clube e as de inscrição) — nada dispara sozinho; hoje o
+  Diretor manda pela aba.
+- **Editar** um lançamento (valor/nº de parcelas) — hoje é cancelar e lançar de novo.
+- Ainda **sem throttle** na recuperação de senha (dívida antiga).
+
+---
+
 ## 2026-08-20 - A 1ª parcela do valor da diretoria pode ficar para o mês seguinte
 
 ### Resumo

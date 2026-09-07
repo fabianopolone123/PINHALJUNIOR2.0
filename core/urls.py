@@ -202,6 +202,9 @@ urlpatterns = [
     # --- Acerto de mensalidades (link público do WhatsApp de cobrança) ---
     path("acerto/<str:token>/", views.acerto_view, name="acerto"),
     path("acerto/<str:token>/cobrar/", views.acerto_cobrar_view, name="acerto_cobrar"),
+    # --- Parcelas lançadas pelo clube (link público, sem login) ---
+    path("parcelas/<str:token>/", views.parcelas_clube_view, name="parcelas_clube"),
+    path("parcelas/<str:token>/pagar/", views.parcela_clube_pagar_view, name="parcela_clube_pagar"),
     path("trocar-perfil/", views.trocar_perfil_view, name="trocar_perfil"),
     path("presenca/", views.presenca_view, name="presenca"),
     path("presenca/<int:pk>/", views.presenca_evento_view, name="presenca_evento"),
@@ -274,6 +277,13 @@ urlpatterns = [
     path("mensalidades/cobrancas/enviar/", views.mensalidade_cobranca_enviar_view, name="mensalidade_cobranca_enviar"),
     path("mensalidades/isencao/", views.mensalidade_isencao_view, name="mensalidade_isencao"),
     path("mensalidades/editar/", views.mensalidade_editar_view, name="mensalidade_editar"),
+    # --- Parcelamento lançado pelo clube (aba "Parcelas" das Mensalidades) ---
+    path("mensalidades/parcelas/novo/", views.parcelamento_novo_view, name="parcelamento_novo"),
+    path("mensalidades/parcelas/cancelar/", views.parcelamento_cancelar_view, name="parcelamento_cancelar"),
+    path("mensalidades/parcelas/pago/", views.parcela_clube_pago_view, name="parcela_clube_pago"),
+    path("mensalidades/parcelas/cobranca/config/", views.parcela_cobranca_config_view, name="parcela_cobranca_config"),
+    path("mensalidades/parcelas/cobranca/modo/", views.parcela_cobranca_modo_view, name="parcela_cobranca_modo"),
+    path("mensalidades/parcelas/cobranca/enviar/", views.parcela_cobranca_enviar_view, name="parcela_cobranca_enviar"),
     # --- Financeiro geral ---
     path("financeiro/", views.financeiro_view, name="financeiro"),
     path("financeiro/custo/novo/", views.custo_clube_novo_view, name="custo_clube_novo"),

@@ -19,18 +19,28 @@
 .mens-input-pct { width: 64px; }
 
 /* Abas */
+/* `flex-wrap` e `flex-basis: auto`: com 5 abas a fila não cabe em 485px (o
+   mínimo do headless) e o trilho empurrava a PÁGINA para o lado. Cada pílula
+   fica do tamanho do seu texto e desce para a linha de baixo quando não cabe —
+   encolher com `flex-basis: 0` quebraria o rótulo em duas linhas dentro da
+   pílula. */
 .mens-abas {
-    display: flex; gap: 8px; margin: 4px 0 18px;
+    display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px;
     background: rgba(15, 76, 129, 0.06); border: 1px solid rgba(15, 76, 129, 0.12);
     border-radius: 14px; padding: 6px;
 }
 .mens-aba {
-    flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    white-space: nowrap;
     padding: 10px 12px; border: none; background: transparent; border-radius: 10px;
     font-size: 0.98rem; font-weight: 700; color: var(--azul-escuro, #0f4c81); cursor: pointer;
     transition: background 0.18s, color 0.18s, box-shadow 0.18s;
 }
 .mens-aba:hover { background: rgba(15, 76, 129, 0.1); }
+@media (max-width: 620px) {
+    .mens-abas { gap: 4px; padding: 4px; }
+    .mens-aba { padding: 9px 8px; font-size: 0.88rem; }
+}
 .mens-aba.ativa {
     background: linear-gradient(135deg, var(--azul, #1f6fb2), var(--azul-escuro, #0f4c81));
     color: #fff; box-shadow: 0 6px 16px rgba(15, 76, 129, 0.25);
@@ -355,3 +365,56 @@
     .mdev-item { grid-template-columns: auto minmax(0, 1fr); }
     .mdev-valor { grid-column: 2; justify-self: end; }
 }
+
+/* =========================================================
+   Abas "Parcelas" e "Cobrar parcelas" (parcelamento lançado
+   pelo clube). Segue o padrão de abas do projeto: badge de
+   contagem na pílula e cards de lançamento com <details>.
+   ========================================================= */
+.mens-aba-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    background: var(--verde, #3a9d3a); color: #fff;
+    font-size: 0.75rem; font-weight: 800;
+}
+.mens-aba.ativa .mens-aba-badge { background: rgba(255, 255, 255, 0.24); }
+
+.parc-lista { display: grid; gap: 10px; list-style: none; margin: 12px 0 0; padding: 0; }
+.parc-item { padding: 0; }
+.parc-item.parc-cancelado { opacity: 0.6; }
+.parc-item > details > summary {
+    cursor: pointer; padding: 12px 14px; list-style: none;
+    display: grid; gap: 4px;
+}
+.parc-item > details > summary::-webkit-details-marker { display: none; }
+.parc-item > details[open] > summary { border-bottom: 1px solid var(--borda, #cdd7e1); }
+.parc-pessoa { font-weight: 700; color: var(--azul-escuro, #0f4c81); overflow-wrap: anywhere; }
+.parc-desc { font-size: 0.88rem; color: #555; overflow-wrap: anywhere; }
+.parc-valores { font-size: 0.9rem; color: #444; }
+.parc-selo { display: flex; flex-wrap: wrap; gap: 6px; }
+.parc-corpo { padding: 12px 14px 14px; }
+.parc-meta { margin: 0 0 6px; font-size: 0.82rem; color: #777; overflow-wrap: anywhere; }
+.parc-obs { margin: 0 0 10px; font-size: 0.88rem; color: #555; overflow-wrap: anywhere; }
+.parc-parcelas { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.parc-parcela {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 8px; background: rgba(15, 76, 129, 0.05);
+}
+.parc-parcela-cancelada { opacity: 0.55; text-decoration: line-through; }
+.parc-parcela-num { font-weight: 700; color: var(--azul-escuro, #0f4c81); font-size: 0.88rem; }
+.parc-parcela-valor { font-weight: 800; }
+.parc-forma-sel { padding: 4px 8px; border-radius: 8px; border: 1.5px solid var(--borda, #cdd7e1); font-size: 0.8rem; }
+.parc-link { margin: 12px 0 8px; font-size: 0.84rem; color: #666; overflow-wrap: anywhere; }
+.parc-cancelar-form { margin: 0; }
+.parc-preview {
+    margin: 4px 0 0; padding: 10px 12px; border-radius: 10px;
+    background: rgba(58, 157, 58, 0.1); color: #1f6b1f;
+    font-size: 0.88rem; font-weight: 600;
+}
+.parc-vencido-txt { color: #c0392b; }
+
+/* Página pública das parcelas do clube (sem login). */
+.parc-pub-total { font-size: 1.1rem; font-weight: 800; color: var(--azul-escuro, #0f4c81); }
+.parc-pub-forma { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.mens-resp-parcelas { margin-top: 18px; display: grid; gap: 10px; }
+.mens-resp-parcelas .mens-resp-crianca a { justify-self: start; margin-top: 8px; }

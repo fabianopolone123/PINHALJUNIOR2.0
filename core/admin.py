@@ -16,6 +16,8 @@ from .models import (
     CustoEvento,
     Evento,
     Mensalidade,
+    ParcelaClube,
+    ParcelamentoClube,
     FaixaEtariaPreco,
     FichaMedica,
     FichaMedicaDiretoria,
@@ -228,6 +230,24 @@ class MensalidadeAdmin(admin.ModelAdmin):
     list_display = ("aventureiro", "ano", "mes", "tipo", "valor", "status", "isento", "forma_pagamento")
     search_fields = ("aventureiro__nome_completo",)
     list_filter = ("ano", "tipo", "status", "isento")
+
+
+@admin.register(ParcelamentoClube)
+class ParcelamentoClubeAdmin(admin.ModelAdmin):
+    """Parcelamento lançado à mão pelo clube (Mensalidades → Parcelas)."""
+
+    list_display = ("descricao", "usuario", "aventureiro", "evento", "valor_total",
+                    "qtd_parcelas", "status", "criado_em")
+    search_fields = ("descricao", "usuario__username", "aventureiro__nome_completo")
+    list_filter = ("status", "evento")
+
+
+@admin.register(ParcelaClube)
+class ParcelaClubeAdmin(admin.ModelAdmin):
+    list_display = ("parcelamento", "numero", "total", "valor", "vencimento",
+                    "status", "forma_pagamento")
+    search_fields = ("parcelamento__descricao",)
+    list_filter = ("status",)
 
 
 @admin.register(ConfigMensalidade)

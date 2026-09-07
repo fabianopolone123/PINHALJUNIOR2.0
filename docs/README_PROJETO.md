@@ -12,7 +12,9 @@ médica e autorização de imagem) e uma área interna "Meus Dados" que exibe os
 da conta e dos aventureiros do usuário logado.
 
 Além do cadastro, o sistema tem um **módulo de Eventos** completo (evento simples e evento
-complexo com inscrições, lojinha e PDV/balcão), além de **Presença**, **Mensalidades**, **Loja do Clube**,
+complexo com inscrições, lojinha e PDV/balcão), além de **Presença**, **Mensalidades** (com o
+**parcelamento lançado pelo clube**: um valor combinado dividido em parcelas que vencem no dia 10),
+**Loja do Clube**,
 **Financeiro**, **Pagamentos (Mercado Pago)**, **WhatsApp** (integração W-API: instância, grupos, webhook de
 recebidas e **liberação de números** — autorização por link `wa.me` + reengajamento de inativos) e
 **Configurações IA** (chave do GPT/OpenAI + contador de tokens; usada na cobrança de mensalidades). Ver a seção
@@ -362,6 +364,13 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
   Esse fluxo reaproveita o mesmo usuário (identificado por sessão, temporariamente) e permite preencher
   automaticamente os dados de pai/mãe/responsável legal com base no último cadastro.
 
+- **Parcelamento lançado pelo clube** (Mensalidades → abas 📆 Parcelas e 📨 Cobrar parcelas, só Diretor):
+  o Diretor lança à mão um valor combinado com uma família **ou com alguém da diretoria** (inclusive quem não
+  tem filho no clube), em N parcelas vencendo no **dia 10** mês a mês, opcionalmente ligadas a um **evento**.
+  A pessoa paga pelo link público `/parcelas/<token>/` (Pix/cartão, uma cobrança por parcela, baixa
+  automática) ou o Diretor dá baixa manual. O lançamento nasce **todo a receber**: só a parcela paga entra no
+  caixa. A cobrança tem mensagem, alavanca de IA e histórico próprios, separados da mensalidade.
+
 ## Funcionalidades ainda NÃO implementadas
 
 - Recuperação de senha ("Esqueci minha senha") — **implementada** pelo WhatsApp (código de 4 dígitos), pelo
@@ -369,6 +378,9 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
   acesso** da conta (quem esquece o login também resolve por lá); falta o responsável logado poder escolher o
   próprio WhatsApp principal (hoje só o Diretor) e um **throttle** nessa tela (cada POST válido dispara um
   WhatsApp real e revela um login).
+- **Cobrança automática das parcelas** (do clube e de inscrição): nada dispara sozinho — o Diretor manda
+  pela aba "Cobrar parcelas".
+- **Editar** um parcelamento já lançado (valor / nº de parcelas): hoje é cancelar e lançar de novo.
 - Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
 - Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Diretoria/Professor/
   Tesoureiro/Secretário existem com acesso mínimo). **Alternância de perfil** (Diretoria ↔ Responsável) já

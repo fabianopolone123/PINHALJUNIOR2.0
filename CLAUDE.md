@@ -84,6 +84,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   filtro "só quem já mandou msg") e **termômetro** de contato/autorização por família.
   **Responsável** vê a própria visão (resumo + em aberto + apelo) e paga o que seleciona em
   `/mensalidades/pagar-selecionadas/`.
+- **Parcelamento do clube** (Diretor; abas 📆 Parcelas e 📨 Cobrar parcelas em `/mensalidades/`):
+  `/mensalidades/parcelas/novo|cancelar|pago/`, `/mensalidades/parcelas/cobranca/config|modo|enviar/`;
+  **públicas** `/parcelas/<token>/` e `/parcelas/<token>/pagar/` (a pessoa paga sem login, uma cobrança
+  por parcela).
 - **Financeiro** (Diretor): `/financeiro/` (abas Resumo/Extrato/Custos), `/financeiro/custo/novo|<id>/excluir/`, `/financeiro/caixa/` (editar "Onde está o dinheiro"). Mostra o **líquido** (bruto − custos − **taxa do Mercado Pago**) por fonte e no resultado; a taxa vem de `Pagamento.taxa`. Idem no painel do evento, Mensalidades e Loja/Vendas.
 - `/admin/`
 
@@ -189,9 +193,29 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   chave `av:<id>` — a criança usa telefone/e-mail do responsável e seria engolida por ele. Datas de nascimento:
   `Aventureiro.data_nascimento` (obrigatória), `MembroDiretoria.data_nascimento` e os opcionais
   `pai_/mae_/resp_data_nascimento` (criados em 08/2026; famílias antigas estão sem).
+- **Parcelamento lançado PELO CLUBE**: `ParcelamentoClube` + `ParcelaClube` (mig. **0071**) são o
+  lançamento **manual** de parcelas — o Diretor divide um valor combinado, vencendo no
+  `DIA_VENCIMENTO_PARCELA` (dia 10) mês a mês, a partir do mês que ele escolhe. Não confundir com
+  `ParcelaInscricao` (parcelamento do valor da diretoria **dentro da inscrição**, que nasce sozinho no ato).
+  O vínculo é com a **conta** (`usuario`), não com o aventureiro — é o que faz servir para família **e** para
+  diretoria sem filho no clube; `aventureiro` e `evento` são **opcionais**. **Não** é uma `Mensalidade`
+  (uma por aventureiro/ano/mês, sem vencimento nem descrição, amarrada ao aventureiro) nem uma
+  `ParcelaInscricao` (exige `Inscricao`, e o dinheiro dela entra pelo evento). **O lançamento nasce 100% a
+  receber**: só a parcela **PAGA** é entrada, em toda soma de caixa, e o extrato leva **uma linha por parcela
+  paga** — lançar não move caixa (por isso não existe aqui a flag `no_ato`). A **fonte** sai do `evento`: com
+  evento conta em **Eventos** (e no painel daquele evento, canal "Parcelamento do clube"); sem evento, na
+  fonte **Parcelamentos** do Financeiro — nunca nas duas. A divisão do valor é a função de módulo
+  `dividir_em_parcelas` (sobra dos centavos na 1ª), **compartilhada** com o evento: ela cai para 1 parcela
+  quando o valor não dá R$ 0,01 por parcela, então quem exige um número de parcelas **confere o tamanho da
+  lista**. A **cobrança tem aba, mensagem, alavanca de IA e histórico próprios** (`CobrancaParcelaEnviada`) —
+  contar junto com a mensalidade faria uma silenciar a outra no "já cobrei este mês". Pagamento online:
+  `tipo="parcela_clube"`, finalizado por `_finalizar_parcela_clube` (idempotente). Toda estatística nova
+  passa por `_q_parcelamentos_clube()` (exclui `demo`).
 - **Regra do clube: aventureiro INATIVO não é cobrado**, mesmo com mês em aberto — quem saiu não recebe
   cobrança e a dívida não conta como "a receber". Toda query de cobrança/em-aberto precisa de
-  `aventureiro__ativo=True` (além de `demo=False`). Já aplicado em `_cobrancas_familias`,
+  `aventureiro__ativo=True` (além de `demo=False`). **Exceção: o parcelamento do clube** — dívida já
+  combinada continua devida (como as parcelas de inscrição); não adicione o filtro lá, há teste.
+  Já aplicado em `_cobrancas_familias`,
   `_mensalidades_abertas_familia` (acerto público), `_mensalidades_familia_abertas` (área do responsável),
   no total `aberto` do painel do Diretor e no Financeiro. **Pagas contam sempre** (histórico não muda).
 - **Mensalidades**: `ConfigMensalidade` (singleton; valores padrão + `mensagem_cobranca`, **`mensagem_apelo`**,
@@ -341,6 +365,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   encolhe abaixo do conteúdo, então gráfico/tabela/nome comprido **estica a grade e cria rolagem horizontal na
   página** — e um wrapper de rolagem interna (`*-scroll`) nunca entra em ação. Já aconteceu em Aniversários e
   em Mensalidades (`.mens-resumo-topo`).
+- **Cobrança em lote é UM arquivo de JS para as duas abas**: `mensalidade_cobranca.js` é ligado duas vezes
+  (mensalidades e parcelas do clube), recebendo o painel e o **prefixo dos ids**. Ao criar uma terceira,
+  ligue-o de novo — não duplique. O clique do envio individual é ouvido **no painel**, nunca no `document`:
+  no document, as duas instâncias respondem ao mesmo clique e a cobrança sai duas vezes.
 - **Modais** fecham no fundo só com `mousedown`+`click` no fundo (não fechar ao arrastar seleção).
 - "Meus Dados": foto só aparece se o arquivo existir (`foto.storage.exists`), senão placeholder com iniciais.
 - Verificação visual sem navegador dedicado: renderizar via test client + Chrome headless

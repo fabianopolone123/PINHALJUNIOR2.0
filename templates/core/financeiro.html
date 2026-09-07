@@ -114,10 +114,22 @@
                             <ul class="fin-fonte-det">
                                 <li>Inscrições: R$ {{ resumo.eventos.inscricoes|moeda }}</li>
                                 <li>Lojinha: R$ {{ resumo.eventos.pedidos|moeda }}</li>
+                                {% if resumo.eventos.parcelas_clube %}<li>Parcelas lançadas pelo clube: R$ {{ resumo.eventos.parcelas_clube|moeda }}</li>{% endif %}
                                 <li>Custos: <span class="saida">− R$ {{ resumo.eventos.custos|moeda }}</span></li>
                                 {% if resumo.eventos.taxa %}<li>Taxa Mercado Pago: <span class="saida">− R$ {{ resumo.eventos.taxa|moeda }}</span></li>{% endif %}
                             </ul>
                             <a href="{% url 'core:eventos' %}" class="fin-fonte-link">Ver eventos →</a>
+                        </div>
+                        <div class="card fin-fonte fonte-parcelamentos">
+                            <div class="fin-fonte-topo"><span class="fin-fonte-icone">📆</span><h3>Parcelamentos</h3></div>
+                            <p class="fin-fonte-valor {% if resumo.parcelamentos.liquido >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resumo.parcelamentos.liquido|moeda }}</p>
+                            <span class="fin-fonte-tag">líquido da fonte</span>
+                            <ul class="fin-fonte-det">
+                                <li>{{ resumo.parcelamentos.n }} parcela(s) paga(s)</li>
+                                {% if resumo.parcelamentos.taxa %}<li>Taxa Mercado Pago: <span class="saida">− R$ {{ resumo.parcelamentos.taxa|moeda }}</span></li>{% endif %}
+                                <li>A receber: <strong>R$ {{ resumo.parcelamentos.aberto|moeda }}</strong></li>
+                            </ul>
+                            <a href="{% url 'core:mensalidades' %}?aba=parcelas" class="fin-fonte-link">Ver parcelamentos →</a>
                         </div>
                         <div class="card fin-fonte fonte-custos">
                             <div class="fin-fonte-topo"><span class="fin-fonte-icone">🧰</span><h3>Custos gerais do clube</h3></div>
@@ -159,6 +171,7 @@
                             <li><span>💰 Mensalidades (já sem taxas)</span><span class="entrada">+ R$ {{ resumo.mensalidades.liquido|moeda }}</span></li>
                             <li><span>🛍️ Loja (já sem custos e taxas)</span><span class="entrada">+ R$ {{ resumo.loja.liquido|moeda }}</span></li>
                             <li><span>🎟️ Eventos (já sem custos e taxas)</span><span class="entrada">+ R$ {{ resumo.eventos.liquido|moeda }}</span></li>
+                            <li><span>📆 Parcelamentos do clube (já sem taxas)</span><span class="entrada">+ R$ {{ resumo.parcelamentos.liquido|moeda }}</span></li>
                             <li><span>🧰 Custos gerais do clube</span><span class="saida">− R$ {{ resumo.custos_clube.total|moeda }}</span></li>
                             <li class="fin-comp-total"><span>= Resultado líquido</span><span class="{% if resultado >= 0 %}entrada{% else %}saida{% endif %}">R$ {{ resultado|moeda }}</span></li>
                         </ul>
@@ -176,6 +189,7 @@
                                     <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#1f6fb2"></span> Mensalidades — R$ {{ resumo.mensalidades.entradas|moeda }}</span>
                                     <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#3a9d3a"></span> Loja — R$ {{ resumo.loja.entradas|moeda }}</span>
                                     <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#e0a800"></span> Eventos — R$ {{ resumo.eventos.entradas|moeda }}</span>
+                                    <span class="fin-leg-item"><span class="fin-leg-cor" style="background:#6a4fb3"></span> Parcelamentos — R$ {{ resumo.parcelamentos.entradas|moeda }}</span>
                                 </div>
                             </div>
                         </div>
@@ -215,6 +229,7 @@
                         <button type="button" class="fin-chip" data-fonte="mensalidade">Mensalidades</button>
                         <button type="button" class="fin-chip" data-fonte="loja">Loja</button>
                         <button type="button" class="fin-chip" data-fonte="eventos">Eventos</button>
+                        <button type="button" class="fin-chip" data-fonte="parcelamentos">Parcelamentos</button>
                         <button type="button" class="fin-chip" data-fonte="custos">Custos</button>
                     </div>
                     {% if extrato %}

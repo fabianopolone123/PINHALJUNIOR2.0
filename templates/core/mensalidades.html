@@ -96,7 +96,7 @@
                 </section>
 
                 <div class="mens-abas" role="tablist">
-                    <button type="button" class="mens-aba{% if aba != 'aventureiros' and aba != 'cobrancas' %} ativa{% endif %}" data-aba="resumo" role="tab">
+                    <button type="button" class="mens-aba{% if aba == 'resumo' %} ativa{% endif %}" data-aba="resumo" role="tab">
                         <span aria-hidden="true">📊</span> Resumo
                     </button>
                     <button type="button" class="mens-aba{% if aba == 'aventureiros' %} ativa{% endif %}" data-aba="aventureiros" role="tab">
@@ -105,10 +105,16 @@
                     <button type="button" class="mens-aba{% if aba == 'cobrancas' %} ativa{% endif %}" data-aba="cobrancas" role="tab">
                         <span aria-hidden="true">📣</span> Cobranças
                     </button>
+                    <button type="button" class="mens-aba{% if aba == 'parcelas' %} ativa{% endif %}" data-aba="parcelas" role="tab">
+                        <span aria-hidden="true">📆</span> Parcelas{% if parc_totais.n %} <span class="mens-aba-badge">{{ parc_totais.n }}</span>{% endif %}
+                    </button>
+                    <button type="button" class="mens-aba{% if aba == 'cobrar-parcelas' %} ativa{% endif %}" data-aba="cobrar-parcelas" role="tab">
+                        <span aria-hidden="true">📨</span> Cobrar parcelas{% if cobrancas_parcelas %} <span class="mens-aba-badge">{{ cobrancas_parcelas|length }}</span>{% endif %}
+                    </button>
                 </div>
 
                 <!-- ===== ABA: RESUMO (dashboard) ===== -->
-                <section class="mens-painel" data-painel="resumo"{% if aba == 'aventureiros' or aba == 'cobrancas' %} hidden{% endif %}>
+                <section class="mens-painel" data-painel="resumo"{% if aba != 'resumo' %} hidden{% endif %}>
                     <div class="mens-resumo-topo">
                         <div class="card mens-donut-card">
                             <div class="mens-donut" style="--pct: {{ taxa|floatformat:0 }}">
@@ -446,6 +452,267 @@
                     </section>
                     {% endif %}
                 </section>
+
+                <!-- ===== ABA: PARCELAS (parcelamento lançado pelo clube) ===== -->
+                {% comment %}
+                Lançamento manual de parcelas: o Diretor combina um valor com uma
+                família (ou com alguém da diretoria) e o sistema divide em N
+                parcelas vencendo no dia {{ dia_vencimento }} mês a mês. Nada é
+                cobrado no ato — o lançamento nasce todo a receber.
+                {% endcomment %}
+                <section class="mens-painel" data-painel="parcelas"{% if aba != 'parcelas' %} hidden{% endif %}>
+                    <div class="mens-kpis">
+                        <div class="card mens-kpi">
+                            <span class="mens-kpi-icone" aria-hidden="true">📆</span>
+                            <span class="mens-kpi-valor">R$ {{ parc_totais.lancado|moeda }}</span>
+                            <span class="mens-kpi-rotulo">Lançado ({{ parc_totais.n }} acerto{{ parc_totais.n|pluralize }})</span>
+                        </div>
+                        <div class="card mens-kpi">
+                            <span class="mens-kpi-icone" aria-hidden="true">💰</span>
+                            <span class="mens-kpi-valor">R$ {{ parc_totais.recebido|moeda }}</span>
+                            <span class="mens-kpi-rotulo">Já recebido</span>
+                        </div>
+                        <div class="card mens-kpi{% if parc_totais.aberto %} alerta{% endif %}">
+                            <span class="mens-kpi-icone" aria-hidden="true">⏳</span>
+                            <span class="mens-kpi-valor">R$ {{ parc_totais.aberto|moeda }}</span>
+                            <span class="mens-kpi-rotulo">A receber</span>
+                        </div>
+                        <div class="card mens-kpi{% if parc_totais.vencido %} alerta{% endif %}">
+                            <span class="mens-kpi-icone" aria-hidden="true">🔴</span>
+                            <span class="mens-kpi-valor">R$ {{ parc_totais.vencido|moeda }}</span>
+                            <span class="mens-kpi-rotulo">Vencido</span>
+                        </div>
+                    </div>
+
+                    <div class="card mens-cobranca-barra">
+                        <span>Parcelamento <strong>lançado pelo clube</strong>: um valor combinado dividido em parcelas que vencem no <strong>dia {{ dia_vencimento }}</strong> de cada mês.</span>
+                        <button type="button" class="btn-acao" id="btnParcNovo">➕ Novo lançamento</button>
+                    </div>
+
+                    {% if parcelamentos %}
+                    <input type="search" id="parcBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar por pessoa, descrição ou evento…" aria-label="Buscar lançamento">
+                    <ul class="parc-lista">
+                        {% for l in parcelamentos %}
+                        <li class="card parc-item{% if l.status == 'cancelado' %} parc-cancelado{% endif %}"
+                            data-busca="{{ l.pessoa_nome|lower }} {{ l.descricao|lower }}{% if l.evento %} {{ l.evento.nome|lower }}{% endif %}">
+                            <details>
+                                <summary class="parc-resumo">
+                                    <span class="parc-pessoa">{% if l.aventureiro %}🧒{% else %}🧑‍💼{% endif %} {{ l.pessoa_nome }}</span>
+                                    <span class="parc-desc">{{ l.descricao }}</span>
+                                    <span class="parc-valores">
+                                        <strong>R$ {{ l.valor_total|moeda }}</strong> em {{ l.qtd_parcelas }}x
+                                    </span>
+                                    <span class="parc-selo">
+                                        {% if l.status == 'cancelado' %}<span class="pill">✖ Cancelado</span>
+                                        {% elif l.quitado %}<span class="pill pill-verde">✅ Quitado</span>
+                                        {% elif l.total_vencido %}<span class="pill pill-pendente">🔴 Vencido R$ {{ l.total_vencido|moeda }}</span>
+                                        {% else %}<span class="pill pill-pendente">⏳ Falta R$ {{ l.total_aberto|moeda }}</span>{% endif %}
+                                    </span>
+                                </summary>
+                                <div class="parc-corpo">
+                                    <p class="parc-meta">
+                                        Lançado em {{ l.criado_em|date:"d/m/Y" }}{% if l.criado_por %} por {{ l.criado_por.get_full_name|default:l.criado_por.username }}{% endif %}
+                                        {% if l.evento %} · 🎪 Evento: <strong>{{ l.evento.nome }}</strong>{% endif %}
+                                        {% if l.aventureiro %} · conta de {{ l.aventureiro.resp_nome }}{% endif %}
+                                    </p>
+                                    {% if l.observacao %}<p class="parc-obs">📝 {{ l.observacao }}</p>{% endif %}
+
+                                    <ul class="parc-parcelas">
+                                        {% for pa in l.parcelas.all %}
+                                        <li class="parc-parcela{% if pa.status == 'cancelada' %} parc-parcela-cancelada{% endif %}">
+                                            <span class="parc-parcela-num">Parcela {{ pa.rotulo }}</span>
+                                            <span class="parc-parcela-valor">R$ {{ pa.valor|moeda }}</span>
+                                            {% if pa.status == 'paga' %}
+                                            <span class="parcela-tag">paga {{ pa.pago_em|date:"d/m/Y" }} · {{ pa.get_forma_pagamento_display }}</span>
+                                            {% elif pa.status == 'cancelada' %}
+                                            <span class="parcela-tag">cancelada</span>
+                                            {% else %}
+                                            <span class="parcela-tag {% if pa.vencida %}selo-vencido{% else %}parcela-tag-aberta{% endif %}">{% if pa.vencida %}venceu{% else %}vence{% endif %} {{ pa.vencimento|date:"d/m/Y" }}</span>
+                                            {% endif %}
+                                            {% if pa.status != 'cancelada' %}
+                                            <form method="post" action="{% url 'core:parcela_clube_pago' %}" class="parcela-baixa-form"
+                                                  onsubmit="return confirm('{% if pa.status == "paga" %}Voltar a parcela {{ pa.rotulo }} para em aberto?{% else %}Confirmar o recebimento da parcela {{ pa.rotulo }} (R$ {{ pa.valor|moeda }})?{% endif %}');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="parcela_id" value="{{ pa.id }}">
+                                                {% if pa.status != 'paga' %}
+                                                <select name="forma" class="campo-select parc-forma-sel" aria-label="Forma de pagamento">
+                                                    <option value="dinheiro">Dinheiro</option>
+                                                    <option value="pix">Pix</option>
+                                                    <option value="cartao">Cartão</option>
+                                                </select>
+                                                {% endif %}
+                                                <button type="submit" class="btn-secundario btn-acao-pequeno">{% if pa.status == 'paga' %}↩ Reabrir{% else %}✅ Dar baixa{% endif %}</button>
+                                            </form>
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+
+                                    {% if l.status == 'ativo' %}
+                                    <p class="parc-link">🔗 Link para a pessoa pagar (Pix/cartão, sem login):<br>
+                                        <a href="{% url 'core:parcelas_clube' l.get_token %}" class="selecionavel">{{ request.scheme }}://{{ request.get_host }}{% url 'core:parcelas_clube' l.get_token %}</a>
+                                    </p>
+                                    <form method="post" action="{% url 'core:parcelamento_cancelar' %}" class="parc-cancelar-form"
+                                          onsubmit="return confirm('Cancelar este lançamento? As parcelas em aberto são canceladas; as já pagas continuam no caixa.');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="parcelamento_id" value="{{ l.id }}">
+                                        <button type="submit" class="btn-secundario btn-acao-pequeno">✖ Cancelar lançamento</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </details>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="painel-nota parc-vazio-busca" hidden>Nenhum lançamento encontrado.</p>
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">📆</span>
+                        <h2 class="card-titulo">Nenhum parcelamento lançado</h2>
+                        <p class="card-texto">Use <strong>Novo lançamento</strong> para dividir um valor combinado em parcelas mensais.</p>
+                    </section>
+                    {% endif %}
+                </section>
+
+                <!-- ===== ABA: COBRAR PARCELAS ===== -->
+                {% comment %}
+                Cobrança das parcelas do clube. Aba e histórico PRÓPRIOS (não os
+                da mensalidade): contar as duas juntas faria uma silenciar a
+                outra no filtro "já cobrei este mês". O telefone de cobrança é o
+                mesmo (responsável financeiro da conta), então a rota de trocar o
+                telefone é reaproveitada.
+                {% endcomment %}
+                <section class="mens-painel" data-painel="cobrar-parcelas"{% if aba != 'cobrar-parcelas' %} hidden{% endif %}
+                         data-enviar-url="{% url 'core:parcela_cobranca_enviar' %}"
+                         data-modo-url="{% url 'core:parcela_cobranca_modo' %}"
+                         data-telefone-url="{% url 'core:mensalidade_cobranca_telefone' %}"
+                         data-ia-configurada="{% if ia_configurada %}1{% else %}0{% endif %}"
+                         data-csrf="{{ csrf_token }}">
+
+                    <details class="card mens-cobranca-msg">
+                        <summary>✏️ Mensagem da cobrança de parcelas</summary>
+                        <form method="post" action="{% url 'core:parcela_cobranca_config' %}" class="mens-cobranca-form">
+                            {% csrf_token %}
+                            <label class="bloco-rotulo">Mensagem padrão (WhatsApp)</label>
+                            <textarea name="mensagem_cobranca_parcela" rows="10" class="mens-cobranca-textarea">{{ mensagem_cobranca_parcela }}</textarea>
+                            <p class="ajuda">Usada quando o modo IA está <strong>desligado</strong>. Marcadores: <code>{nome}</code> (1º nome), <code>{itens}</code> (parcelas em aberto, com vencimento), <code>{total}</code>, <code>{link}</code> (página de pagamento das parcelas).</p>
+
+                            <label class="bloco-rotulo" style="margin-top:14px;">🤖 Prompt da cobrança pela IA</label>
+                            <textarea name="prompt_cobranca_parcela_ia" rows="10" class="mens-cobranca-textarea">{{ prompt_cobranca_parcela_ia }}</textarea>
+                            <p class="ajuda">Usado quando o modo IA está <strong>ligado</strong>, com os mesmos marcadores já preenchidos.</p>
+
+                            <label class="bloco-rotulo" style="margin-top:14px;">✉️ Assunto por e-mail</label>
+                            <input type="text" name="assunto_cobranca_parcela_email" maxlength="200" class="mens-cobranca-textarea" value="{{ assunto_cobranca_parcela_email }}">
+                            <p class="ajuda">O corpo é o mesmo texto acima, sem a marcação <code>*negrito*</code> do WhatsApp. Aceita <code>{nome}</code>.</p>
+
+                            <div class="form-acoes"><button type="submit" class="btn-acao">💾 Salvar mensagens</button></div>
+                        </form>
+                    </details>
+
+                    <div class="card mens-cobranca-modo">
+                        <div class="mens-modo-info">
+                            <span class="mens-modo-titulo">Como enviar a cobrança das parcelas</span>
+                            <span class="mens-modo-sub" id="parcCobrancaModoSub">{% if cobranca_parcela_via_ia %}🤖 A IA redige a mensagem das parcelas para cada pessoa.{% else %}📝 Usa a mensagem de cobrança de parcelas padrão.{% endif %}</span>
+                        </div>
+                        <label class="mens-switch" title="Alternar entre mensagem padrão e IA">
+                            <span class="mens-switch-lbl">Padrão</span>
+                            <input type="checkbox" id="parcCobrancaModoIA" {% if cobranca_parcela_via_ia %}checked{% endif %}>
+                            <span class="mens-switch-trilho"><span class="mens-switch-bolinha"></span></span>
+                            <span class="mens-switch-lbl">🤖 IA</span>
+                        </label>
+                    </div>
+                    {% if not ia_configurada %}
+                    <p class="ajuda mens-modo-aviso" id="parcCobrancaIaAviso"{% if not cobranca_parcela_via_ia %} hidden{% endif %}>⚠️ O modo IA está ligado, mas a IA ainda não foi configurada. Configure em <strong>Configurações IA</strong> ou volte para a mensagem padrão.</p>
+                    {% endif %}
+
+                    {% if cobrancas_parcelas %}
+                    <div class="card mens-cobranca-barra">
+                        <span><strong>{{ cobrancas_parcelas|length }}</strong> pessoa(s) com parcela em aberto.</span>
+                        <label class="mens-chk">Enviar por
+                            <select id="parcCobrancaCanal" class="mens-cob-canal-sel">
+                                <option value="whatsapp">💬 WhatsApp</option>
+                                <option value="email"{% if not email_configurado %} disabled{% endif %}>✉️ E-mail{% if not email_configurado %} (não configurado){% endif %}</option>
+                                <option value="ambos"{% if not email_configurado %} disabled{% endif %}>💬+✉️ Ambos</option>
+                            </select>
+                        </label>
+                        <label class="mens-chk"><input type="checkbox" id="parcCobrancaSoNaoEnviados" checked> Só quem não recebeu este mês</label>
+                        <label class="mens-chk"><input type="checkbox" id="parcCobrancaSoLiberados" checked> Só quem já me mandou mensagem <span class="mens-chk-dica">(evita bloqueio; só vale no WhatsApp)</span></label>
+                        <button type="button" class="btn-acao" id="parcCobrancaEnviarTodos">📤 Enviar a todos</button>
+                    </div>
+
+                    <input type="search" id="parcCobrancaBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar por pessoa ou lançamento…" aria-label="Buscar pessoa">
+
+                    <div class="card mens-cobranca-progresso" id="parcCobrancaProgresso" hidden>
+                        <div class="mens-prog-barra"><div class="mens-prog-fill" id="parcCobrancaProgFill"></div></div>
+                        <p class="mens-prog-txt" id="parcCobrancaProgTxt">Enviando…</p>
+                        <button type="button" class="btn-secundario" id="parcCobrancaCancelar">Cancelar</button>
+                    </div>
+
+                    <ul class="mens-cobranca-lista">
+                        {% for f in cobrancas_parcelas %}
+                        <li class="card mens-cobranca-item" data-usuario="{{ f.usuario_id }}"
+                            data-busca="{{ f.resp_nome|lower }}{% for p in f.parcelas %} {{ p.parcelamento.descricao|lower }}{% endfor %}"
+                            data-cobrado="{{ f.cobrado_mes }}"
+                            data-cobrado-whatsapp="{{ f.cobrado_mes_whatsapp }}"
+                            data-cobrado-email="{{ f.cobrado_mes_email }}"
+                            data-tem-numero="{% if f.tem_numero %}1{% else %}0{% endif %}"
+                            data-tem-email="{% if f.tem_email %}1{% else %}0{% endif %}"
+                            data-liberado="{% if f.autorizou or f.ultima_msg_em %}1{% else %}0{% endif %}">
+                            <div class="mens-cobranca-linha">
+                                <span class="mens-cobranca-nome">{{ f.resp_nome }}</span>
+                                <span class="mens-cobranca-status">
+                                {% if f.cobrado_mes %}<span class="mens-badge mens-badge-isento">📤 Cobrado este mês ({{ f.cobrado_mes }})</span>
+                                {% else %}<span class="mens-badge mens-badge-desc">⏳ Não cobrado este mês</span>{% endif %}
+                                </span>
+                            </div>
+                            <div class="mens-cobranca-det">
+                                <span>Em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_parcelas }} parcela{{ f.n_parcelas|pluralize }}{% if f.n_vencidas %} · <strong class="parc-vencido-txt">{{ f.n_vencidas }} vencida{{ f.n_vencidas|pluralize }} (R$ {{ f.vencido|moeda }})</strong>{% endif %}</span>
+                                {% if f.numeros|length > 1 %}
+                                <label class="mens-cob-tel">📱 Enviar para:
+                                    <select class="mens-cob-tel-sel" data-usuario="{{ f.usuario_id }}" data-origem-atual="{{ f.origem_atual }}">
+                                        {% for n in f.numeros %}
+                                        <option value="{{ n.origem }}"{% if n.origem == f.origem_atual %} selected{% endif %}>{{ n.rotulo }} — {{ n.numero }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                                {% elif f.tem_numero %}<span>📱 {{ f.numero }}</span>
+                                {% else %}<span class="mens-cobranca-semzap">sem WhatsApp cadastrado</span>{% endif %}
+                            </div>
+                            <div class="mens-termometro">
+                                {% if f.autorizou %}
+                                <span class="mens-term-pill mens-term-verde">✅ Autorizado</span>
+                                {% elif f.ultima_msg_em %}
+                                <span class="mens-term-pill mens-term-amarelo">🟡 Enviou msg, sem autorização</span>
+                                {% else %}
+                                <span class="mens-term-pill mens-term-vermelho">⛔ Nunca enviou mensagem</span>
+                                {% endif %}
+                                <span class="mens-term-msg">💬 {% if f.ultima_msg_em %}última mensagem há {{ f.ultima_msg_em|timesince }}{% else %}sem mensagem recebida{% endif %}</span>
+                            </div>
+                            <ul class="mens-cobranca-criancas">
+                                {% for p in f.parcelas %}
+                                <li>
+                                    <span class="crianca-nome">📆 {{ p.parcelamento.descricao }} — {{ p.rotulo }}</span>
+                                    <span class="crianca-valor">R$ {{ p.valor|moeda }}</span>
+                                    <small class="crianca-meses">{% if p.vencida %}venceu{% else %}vence{% endif %} {{ p.vencimento|date:"d/m/Y" }}</small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            <button type="button" class="btn-secundario btn-acao-pequeno mens-cobranca-enviar"
+                                    data-usuario="{{ f.usuario_id }}"{% if not f.tem_numero %} disabled{% endif %}>
+                                📤 Enviar cobrança
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="painel-nota mens-cobranca-vazio-busca" hidden>Nenhuma pessoa encontrada.</p>
+                    {% else %}
+                    <section class="card vazio-card">
+                        <span class="vazio-icone" aria-hidden="true">✅</span>
+                        <h2 class="card-titulo">Nenhuma parcela em aberto</h2>
+                        <p class="card-texto">Não há parcelas do clube para cobrar agora.</p>
+                    </section>
+                    {% endif %}
+                </section>
             </div>
         </main>
 
@@ -533,6 +800,85 @@
             </div>
         </div>
 
+
+        <!-- Modal: novo lançamento de parcelas (pelo clube) -->
+        <div class="modal-overlay" id="modalParcNovo" hidden>
+            <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalParcNovoTitulo">
+                <div class="modal-topo">
+                    <h2 class="modal-titulo" id="modalParcNovoTitulo">📆 Novo lançamento de parcelas</h2>
+                    <button type="button" class="modal-fechar" data-fechar aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-corpo">
+                    <p class="mens-modal-sub">Divide um valor combinado em parcelas mensais, vencendo no <strong>dia {{ dia_vencimento }}</strong>. Nada é cobrado agora: o lançamento nasce todo <strong>a receber</strong>.</p>
+                    <form method="post" action="{% url 'core:parcelamento_novo' %}" class="mens-modal-form" id="parcNovoForm">
+                        {% csrf_token %}
+                        <label class="mens-editar-campo">Para quem
+                            <select name="alvo" id="parcAlvo" class="campo-select" required>
+                                <option value="">— escolha —</option>
+                                {% if parc_alvos.aventureiros %}
+                                <optgroup label="Aventureiros (leva a conta do responsável)">
+                                    {% for a in parc_alvos.aventureiros %}
+                                    <option value="{{ a.valor }}">{{ a.rotulo }}{% if a.detalhe %} — resp. {{ a.detalhe }}{% endif %}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                                {% if parc_alvos.contas %}
+                                <optgroup label="Diretoria">
+                                    {% for c in parc_alvos.contas %}
+                                    <option value="{{ c.valor }}">{{ c.rotulo }} — {{ c.detalhe }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                        </label>
+                        <small class="ajuda">Escolher o aventureiro já vincula os dois: a criança e a conta do responsável. Para quem é da diretoria (com ou sem filho no clube), escolha em <strong>Diretoria</strong>.</small>
+
+                        <label class="mens-editar-campo">Descrição
+                            <input type="text" name="descricao" maxlength="150" class="mens-cobranca-textarea" placeholder="Ex.: Acampamento de julho — parte da diretoria" required>
+                        </label>
+
+                        <label class="mens-editar-campo">Valor total (R$)
+                            <input type="text" inputmode="decimal" class="mens-input-valor" id="parcValorVis" data-moeda data-moeda-alvo="parcValor">
+                            <input type="hidden" name="valor_total" id="parcValor">
+                        </label>
+
+                        <label class="mens-editar-campo">Número de parcelas
+                            <input type="number" name="qtd_parcelas" id="parcQtd" min="1" max="36" step="1" value="2" class="mens-input-pct" required>
+                        </label>
+
+                        <label class="mens-editar-campo">1ª parcela vence em
+                            <select name="venc_primeiro" id="parcVenc" class="campo-select">
+                                {% for m in parc_meses %}
+                                <option value="{{ m.valor }}"{% if m.valor == parc_venc_padrao %} selected{% endif %}>dia {{ dia_vencimento }} de {{ m.rotulo }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+
+                        <label class="mens-editar-campo">Evento (opcional)
+                            <select name="evento_id" class="campo-select">
+                                <option value="">— nenhum (acerto geral do clube) —</option>
+                                {% for e in parc_eventos %}
+                                <option value="{{ e.id }}">{{ e.nome }}{% if e.data %} — {{ e.data|date:"d/m/Y" }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <small class="ajuda">Com evento, o dinheiro dessas parcelas conta na fonte <strong>Eventos</strong> do Financeiro e aparece no painel daquele evento. É o caso de quem se inscreveu num evento que não oferecia parcelamento.</small>
+
+                        <label class="mens-editar-campo">Observação (opcional)
+                            <textarea name="observacao" rows="2" class="mens-cobranca-textarea"></textarea>
+                        </label>
+
+                        <p class="parc-preview" id="parcPreview" hidden></p>
+
+                        <div class="form-acoes">
+                            <button type="button" class="btn-secundario" data-fechar>Cancelar</button>
+                            <button type="submit" class="btn-acao">Lançar parcelas</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal: cobrar mensalidades em aberto via Pix -->
         <div class="modal-overlay" id="modalCobrarPix" hidden>
             <div class="modal-caixa modal-tipo" role="dialog" aria-modal="true" aria-labelledby="modalCobrarTitulo">
@@ -566,5 +912,6 @@
     <script src="{% static 'js/mensalidades.js' %}"></script>
     <script src="{% static 'js/mensalidade_pix.js' %}"></script>
     <script src="{% static 'js/mensalidade_cobranca.js' %}"></script>
+    <script src="{% static 'js/parcelamento.js' %}"></script>
 </body>
 </html>

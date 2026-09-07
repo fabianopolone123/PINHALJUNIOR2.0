@@ -143,6 +143,39 @@
                     {% endif %}
                 </section>
                 {% endif %}
+
+                {% comment %}
+                Parcelas lançadas pelo clube (acerto combinado — ex.: a parte da
+                diretoria num evento). Ficam num bloco PRÓPRIO, e não junto das
+                mensalidades: têm vencimento e descrição, e o pagamento é pelo
+                link do lançamento, uma parcela por vez (cada uma vira a sua
+                cobrança). O responsável vê aqui e paga na página do link.
+                {% endcomment %}
+                {% if parcelamentos %}
+                <section class="mens-resp-parcelas">
+                    <h2 class="secao-titulo">📆 Parcelas combinadas com o clube</h2>
+                    <p class="painel-nota">Acertos parcelados (fora da mensalidade). Total em aberto: <strong>R$ {{ parcelas_total|moeda }}</strong> em {{ n_parcelas }} parcela{{ n_parcelas|pluralize }}.</p>
+                    {% for item in parcelamentos %}
+                    <div class="card mens-resp-crianca">
+                        <div class="mens-resp-crianca-topo">
+                            <span class="mens-resp-crianca-nome">{{ item.lanc.descricao }}{% if item.lanc.evento %} <small>· {{ item.lanc.evento.nome }}</small>{% endif %}</span>
+                            <span class="mens-resp-crianca-total">R$ {{ item.total|moeda }}</span>
+                        </div>
+                        <ul class="mens-resp-itens">
+                            {% for p in item.parcelas %}
+                            <li>
+                                <span class="mens-resp-item">
+                                    <span class="mens-resp-item-mes">Parcela {{ p.rotulo }} <small>{% if p.vencida %}venceu{% else %}vence{% endif %} {{ p.vencimento|date:"d/m/Y" }}</small></span>
+                                    <span class="mens-resp-item-valor">R$ {{ p.valor|moeda }}</span>
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <a href="{% url 'core:parcelas_clube' item.lanc.get_token %}" class="btn-acao btn-acao-pequeno">💳 Pagar parcelas</a>
+                    </div>
+                    {% endfor %}
+                </section>
+                {% endif %}
             </div>
         </main>
     </div>

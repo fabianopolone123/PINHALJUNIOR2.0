@@ -540,3 +540,56 @@ internas ou no fluxo de login, seguir estas regras:
 - **Cuidado com vazamento de `messages`**: mensagem enfileirada antes de um `redirect` só é consumida se
   a página de **destino renderizar `{% for m in messages %}`**. Por isso o **login também renderiza
   messages** (mostra "Senha redefinida…" e não deixa a mensagem sobrar para telas seguintes).
+
+
+## Parcelamento lançado pelo clube (Mensalidades → Parcelas)
+
+Lançamento **manual** de parcelas para uma conta (família ou diretoria), dividido no dia
+`DIA_VENCIMENTO_PARCELA` mês a mês. Não confundir com `ParcelaInscricao`, que é o parcelamento do valor da
+**diretoria dentro da inscrição** de evento e nasce sozinho no ato.
+
+- **O vínculo é com a CONTA** (`ParcelamentoClube.usuario`), não com o aventureiro. É isso que faz o mesmo
+  lançamento servir para família e para **diretoria sem filho no clube**. `aventureiro` é opcional (diz *por
+  quem* é o acerto) e `evento` é opcional (diz *de onde* veio a dívida).
+- **Não vire uma `Mensalidade`.** Ela é **uma por (aventureiro, ano, mês)** — colidiria com a mensalidade do
+  mês —, não tem vencimento nem descrição, e é amarrada ao `Aventureiro`. E não vire uma `ParcelaInscricao`:
+  ela exige uma `Inscricao` e o dinheiro dela entra no caixa **pelo evento**.
+- **O lançamento nasce 100% a receber.** Nada é cobrado no ato, então **só a parcela PAGA é entrada** — em
+  qualquer soma de caixa (Financeiro do clube, painel do evento) e no **extrato**, que leva **uma linha por
+  parcela paga**. Lançar não move caixa nenhum. (Por isso aqui não existe a flag `no_ato` das parcelas de
+  inscrição: nenhuma parcela é cobrada junto de outra coisa.)
+- **A fonte do dinheiro é decidida pelo `evento`**: com evento, a parcela paga conta em **Eventos** (e no
+  painel daquele evento, no canal próprio "Parcelamento do clube"); sem evento, na fonte **Parcelamentos**.
+  Nunca nas duas — há teste.
+- **A divisão do valor é a `dividir_em_parcelas`** (função de módulo em `models.py`), compartilhada com o
+  parcelamento de evento: a sobra dos centavos vai na **1ª** parcela. Ela **cai para 1 parcela** quando o
+  valor não dá R$ 0,01 por parcela (cobrança de zero não existe no gateway) — quem exige um número de
+  parcelas **precisa conferir o tamanho da lista** e recusar, como faz o lançamento manual.
+- **A regra "aventureiro inativo não é cobrado" NÃO vale aqui.** Ela é da cobrança **recorrente** de quem saiu
+  do clube; um parcelamento é dívida **combinada** e continua devida, como as parcelas de inscrição. Há teste
+  documentando a diferença — não "conserte" isso adicionando `aventureiro__ativo=True`.
+- **A cobrança tem aba, mensagem e histórico PRÓPRIOS** (`CobrancaParcelaEnviada`). Contar junto com a
+  mensalidade faria "já cobrei este mês" de uma **silenciar** a outra — é o mesmo motivo pelo qual o canal faz
+  parte da identidade do registro. Mantenha o padrão de lote: **1 por request + 10s no front**.
+- **Cancelar** um lançamento cancela **só as parcelas em aberto**; as pagas continuam no caixa e no extrato.
+  A baixa manual **entra** no caixa (diferente da baixa do "pago direto ao evento"), e **reabrir solta o
+  `pagamento`** para a taxa do gateway não ficar presa a uma parcela em aberto.
+- **`demo` fica fora**: use o helper `_q_parcelamentos_clube()` (exclui aventureiro/evento fictícios) em
+  **toda** estatística nova.
+- **O link público aceita DOIS tokens** (`_lancamentos_por_token`): o de **um lançamento** (é o que o painel
+  do Diretor mostra, para tratar de um acerto específico) e o da **conta** (`PerfilUsuario.token_acerto`, o
+  mesmo do acerto de mensalidades), que abre **todos** os lançamentos ativos da pessoa. A **cobrança manda o
+  token da conta** de propósito: a mensagem lista as parcelas de todos os lançamentos, então um link que
+  mostrasse só um deles contradiria a própria mensagem. A página é uma **lista de blocos**, um por
+  lançamento, e cada bloco posta no **seu** token — a cobrança é sempre de uma parcela de um lançamento.
+- **Pagamento online**: uma cobrança **por parcela** (`tipo="parcela_clube"`), finalizada por
+  `_finalizar_parcela_clube` — **idempotente**, porque o webhook do MP repete o aviso. A página pública
+  `/parcelas/<token>/` é sem login, pelo mesmo motivo do acerto de mensalidades: quem recebe a cobrança pode
+  não ter o login.
+- **JS**: `mensalidade_cobranca.js` é **um arquivo para as duas abas** de cobrança (painel + prefixo de ids
+  por parâmetro). Ao criar uma terceira, ligue-o de novo — não duplique. O clique do envio individual é
+  ouvido **no painel**, não no `document`: no document, as duas instâncias respondem ao mesmo clique e a
+  cobrança sai duas vezes.
+- **Abas**: o trilho `.mens-abas` agora tem **5** pílulas e usa `flex-wrap` com `flex-basis: auto` — em
+  telas estreitas as pílulas descem de linha em vez de empurrar a página. Ao acrescentar aba, confira a
+  rolagem horizontal com a sonda (`scrollWidth` × `clientWidth`).

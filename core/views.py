@@ -63,6 +63,7 @@ from . import wapi
 from . import wapi_parser
 from .models import (
     DIA_VENCIMENTO_PARCELA,
+    dividir_em_parcelas,
     FORMA_PAGAMENTO_CHOICES,
     FORMAS_PAGAMENTO_ONLINE,
     MESES_PT,
@@ -70,6 +71,7 @@ from .models import (
     Aventureiro,
     CaixaClube,
     CobrancaEnviada,
+    CobrancaParcelaEnviada,
     CompraLoja,
     ComprovanteCustoClube,
     ConfigMensalidade,
@@ -101,6 +103,9 @@ from .models import (
     MENSAGEM_COBRANCA_PADRAO,
     ASSUNTO_COBRANCA_PADRAO,
     PROMPT_COBRANCA_IA_PADRAO,
+    MENSAGEM_COBRANCA_PARCELA_PADRAO,
+    ASSUNTO_COBRANCA_PARCELA_PADRAO,
+    PROMPT_COBRANCA_PARCELA_IA_PADRAO,
     CANAL_WHATSAPP,
     CANAL_EMAIL,
     CANAL_AMBOS,
@@ -123,7 +128,9 @@ from .models import (
     OpenAIConfig,
     OperadorEvento,
     Pagamento,
+    ParcelaClube,
     ParcelaInscricao,
+    ParcelamentoClube,
     ParticipanteInscricao,
     PedidoLoja,
     PerfilUsuario,
@@ -1226,7 +1233,8 @@ def evento_complexo_novo_view(request):
 
 
 def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, custos,
-                       arrecadacao_inscricoes, vendas_loja, total_custos):
+                       arrecadacao_inscricoes, vendas_loja, total_custos,
+                       parcelas_clube=()):
     """Monta o extrato financeiro completo do evento (Fase 5).
 
     Consolida ENTRADAS (inscrições + lojinha confirmadas) e SAÍDAS (custos):
@@ -1237,8 +1245,18 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
 
     `confirmadas`/`pedidos_confirmados` chegam **já sem** o que foi pago direto ao
     evento (fora do caixa); esses lançamentos ainda aparecem no extrato, marcados
-    com `fora_caixa`, como os cancelados."""
-    receitas = arrecadacao_inscricoes + vendas_loja
+    com `fora_caixa`, como os cancelados.
+
+    `parcelas_clube` são as parcelas **pagas** de parcelamentos que o clube lançou
+    à mão apontando para este evento (quem se inscreveu quando o evento não
+    oferecia parcelamento). Entram como receita do evento — é dinheiro do evento
+    —, com um canal próprio: não vieram do site nem do balcão, então somá-las a
+    "Online" ou "Balcão" mentiria sobre por onde a venda entrou."""
+    parcelas_clube = list(parcelas_clube)
+    total_parcelas_clube = sum(
+        (p.valor_pago or p.valor for p in parcelas_clube), Decimal("0")
+    )
+    receitas = arrecadacao_inscricoes + vendas_loja + total_parcelas_clube
     # Taxa do gateway (Mercado Pago) deste evento: soma sobre os Pagamentos DISTINTOS
     # ligados às inscrições/pedidos confirmados (uma inscrição e o pedido de lojinha
     # que veio junto compartilham o MESMO Pagamento — o set evita contagem dupla).
@@ -1250,6 +1268,8 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
         parc.pagamento_id for i in confirmadas for parc in i.parcelas.all()
         if parc.pagamento_id
     }
+    # Idem para as parcelas lançadas pelo clube e pagas online.
+    pag_ids |= {p.pagamento_id for p in parcelas_clube if p.pagamento_id}
     taxa_total = (
         Pagamento.objects.filter(id__in=pag_ids, status="aprovado").aggregate(
             t=Sum("taxa"))["t"] or Decimal("0")
@@ -1267,6 +1287,8 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
         _add_forma(i.forma_pagamento, i.valor_no_caixa)
     for p in pedidos_confirmados:
         _add_forma(p.forma_pagamento, p.valor_total)
+    for p in parcelas_clube:
+        _add_forma(p.forma_pagamento, p.valor_pago or p.valor)
     entradas_por_forma = [
         {"forma": formas_labels.get(k, k), "valor": v["valor"], "qtd": v["qtd"]}
         for k, v in sorted(formas.items(), key=lambda kv: kv[1]["valor"], reverse=True)
@@ -1315,6 +1337,16 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
                 "cancelado": i.status == "cancelada",
                 "fora_caixa": i.pagamento_externo,
             })
+    for p in parcelas_clube:
+        extrato.append({
+            "data": p.pago_em or p.criado_em,
+            "tipo": f"Parcela {p.rotulo} (clube)", "codigo": "",
+            "descricao": f"{p.parcelamento.descricao} — {p.parcelamento.pessoa_nome}",
+            "forma": formas_labels.get(p.forma_pagamento, ""),
+            "canal": "Clube",
+            "valor": p.valor_pago or p.valor, "entrada": True,
+            "cancelado": False, "fora_caixa": False,
+        })
     for p in pedidos:
         extrato.append({
             "data": p.criado_em, "tipo": "Lojinha", "codigo": p.codigo,
@@ -1352,9 +1384,12 @@ def _montar_financeiro(inscricoes, confirmadas, pedidos, pedidos_confirmados, cu
         "entradas_por_forma": entradas_por_forma,
         "canal_online": canal_online,
         "canal_pdv": canal_pdv,
+        "canal_clube": total_parcelas_clube,
+        "parcelas_clube": total_parcelas_clube,
         "qtd_custos": len(custos),
         "extrato": extrato,
-        "qtd_entradas": len(confirmadas) + len(pedidos_confirmados),
+        "qtd_entradas": (len(confirmadas) + len(pedidos_confirmados)
+                         + len(parcelas_clube)),
         "qtd_saidas": len(custos),
     }
 
@@ -1611,9 +1646,37 @@ def evento_painel_view(request, pk):
     }
     externo["total"] = externo["pago"] + externo["pendente"]
 
+    # Parcelamentos que o clube lançou à mão apontando para este evento.
+    parcelamentos_clube = list(
+        _q_parcelamentos_clube().filter(evento=evento, status="ativo")
+        .select_related("usuario", "aventureiro").prefetch_related("parcelas")
+    )
+    parcelas_clube_todas = [
+        pa for l in parcelamentos_clube for pa in l.parcelas.all()
+        if pa.status != "cancelada"
+    ]
+    parcelas_clube_pagas = [pa for pa in parcelas_clube_todas if pa.status == "paga"]
+    parc_clube = {
+        "lancamentos": parcelamentos_clube,
+        "recebido": sum(
+            (pa.valor_pago or Decimal("0") for pa in parcelas_clube_pagas),
+            Decimal("0"),
+        ),
+        "aberto": sum(
+            (pa.valor for pa in parcelas_clube_todas if pa.em_aberto), Decimal("0")
+        ),
+        "vencido": sum(
+            (pa.valor for pa in parcelas_clube_todas if pa.vencida), Decimal("0")
+        ),
+        "qtd_aberto": sum(1 for pa in parcelas_clube_todas if pa.em_aberto),
+        "qtd_lancamentos": len(parcelamentos_clube),
+    }
+    receitas += parc_clube["recebido"]
+
     financeiro = _montar_financeiro(
         inscricoes, confirmadas_caixa, pedidos, pedidos_caixa, custos,
         arrecadacao_inscricoes, vendas_loja, total_custos,
+        parcelas_clube=parcelas_clube_pagas,
     )
     dashboard = _montar_dashboard(
         confirmadas, pedidos_confirmados, custos, faixas, receitas, total_custos,
@@ -1646,6 +1709,7 @@ def evento_painel_view(request, pk):
         "diretoria_ainda_aberta": evento.inscricoes_abertas(tem_diretoria=True),
         "externo": externo,
         "parcelado": parcelado,
+        "parc_clube": parc_clube,
         "resumo": {
             "inscritos": inscritos,
             "arrecadacao_inscricoes": arrecadacao_inscricoes,
@@ -5611,6 +5675,8 @@ def _finalizar_pagamento(pagamento):
         _finalizar_inscricao(pagamento)
     elif pagamento.tipo == "parcela_inscricao":
         _finalizar_parcela_inscricao(pagamento)
+    elif pagamento.tipo == "parcela_clube":
+        _finalizar_parcela_clube(pagamento)
 
 
 def _finalizar_inscricao(pagamento):
@@ -5631,6 +5697,26 @@ def _finalizar_parcela_inscricao(pagamento):
     não é mexida (webhook do MP repete o aviso)."""
     dados = pagamento.payload or {}
     parcela = ParcelaInscricao.objects.filter(pk=dados.get("parcela_id")).first()
+    if parcela is None:
+        pagamento.detalhe = "Parcela não encontrada ao finalizar o pagamento."
+        return
+    if parcela.status == "paga":
+        return
+    parcela.status = "paga"
+    parcela.valor_pago = pagamento.valor_bruto
+    parcela.pago_em = timezone.now()
+    parcela.forma_pagamento = pagamento.forma
+    parcela.pagamento = pagamento
+    parcela.save(update_fields=[
+        "status", "valor_pago", "pago_em", "forma_pagamento", "pagamento",
+    ])
+
+
+def _finalizar_parcela_clube(pagamento):
+    """Dá baixa na parcela do clube que este pagamento quitou. Idempotente:
+    parcela já paga não é mexida (o webhook do MP repete o aviso)."""
+    dados = pagamento.payload or {}
+    parcela = ParcelaClube.objects.filter(pk=dados.get("parcela_clube_id")).first()
     if parcela is None:
         pagamento.detalhe = "Parcela não encontrada ao finalizar o pagamento."
         return
@@ -8414,6 +8500,14 @@ def mensalidades_view(request):
     taxa = (tot["recebido"] / (tot["recebido"] + tot["aberto"]) * 100) \
         if (tot["recebido"] + tot["aberto"]) else Decimal("0")
     cfg_mens = ConfigMensalidade.get_solo()  # 1 consulta reaproveitada (antes: 5×)
+
+    # Aba pedida na URL, normalizada: valor desconhecido volta ao Resumo (o
+    # template esconde por "aba != nome", então um valor solto esconderia tudo).
+    ABAS = {"resumo", "aventureiros", "cobrancas", "parcelas", "cobrar-parcelas"}
+    aba_atual = request.GET.get("aba") or "resumo"
+    if aba_atual not in ABAS:
+        aba_atual = "resumo"
+    parcelamentos = _parcelamentos_painel()
     contexto = {
         "config": cfg_mens,
         "ano": ano,
@@ -8423,7 +8517,7 @@ def mensalidades_view(request):
         "taxa": taxa,
         "dashboard": _mensalidades_dashboard(mens),
         "top_devedores": _top_devedores(ano),
-        "aba": request.GET.get("aba", "resumo"),
+        "aba": aba_atual,
         "meses": [(i, MESES_PT[i]) for i in range(1, 13)],
         "mes_atual": timezone.localdate().month,
         "formas_pagamento": [
@@ -8440,6 +8534,25 @@ def mensalidades_view(request):
         "wa_configurado": WhatsappConfig.get_solo().configurado,
         "ia_configurada": OpenAIConfig.get_solo().configurado,
         "email_configurado": EmailConfig.get_solo().configurado,
+        # Abas Parcelas / Cobrar parcelas (parcelamento lançado pelo clube)
+        "parcelamentos": parcelamentos["lancamentos"],
+        "parc_totais": parcelamentos["totais"],
+        "parc_alvos": _alvos_parcelamento(),
+        "parc_eventos": Evento.objects.filter(demo=False).order_by("-data", "nome"),
+        "parc_meses": _mes_opcoes_vencimento(),
+        "parc_venc_padrao": _vencimento_diferido().strftime("%Y-%m"),
+        "dia_vencimento": DIA_VENCIMENTO_PARCELA,
+        "cobrancas_parcelas": _cobrancas_parcelas_familias(),
+        "mensagem_cobranca_parcela": (
+            cfg_mens.mensagem_cobranca_parcela or MENSAGEM_COBRANCA_PARCELA_PADRAO
+        ),
+        "assunto_cobranca_parcela_email": (
+            cfg_mens.assunto_cobranca_parcela_email or ASSUNTO_COBRANCA_PARCELA_PADRAO
+        ),
+        "prompt_cobranca_parcela_ia": (
+            cfg_mens.prompt_cobranca_parcela_ia or PROMPT_COBRANCA_PARCELA_IA_PADRAO
+        ),
+        "cobranca_parcela_via_ia": cfg_mens.cobranca_parcela_via_ia,
     }
     return render(request, "core/mensalidades.html", contexto)
 
@@ -8702,9 +8815,27 @@ def _mensalidades_responsavel(request):
         ).exclude(_q_mens_vencidas()).exists()
     )
 
+    # Parcelas lançadas pelo clube para esta conta (acerto combinado). Ficam num
+    # bloco próprio: são dívida específica, com vencimento — não competência
+    # mensal —, e o pagamento é pelo link do lançamento, uma parcela por vez.
+    parcelas_clube = _parcelas_abertas_conta(usuario)
+    parc_por_lanc = {}
+    for pc in parcelas_clube:
+        item = parc_por_lanc.setdefault(
+            pc.parcelamento_id, {"lanc": pc.parcelamento, "parcelas": [],
+                                 "total": Decimal("0")}
+        )
+        item["parcelas"].append(pc)
+        item["total"] += pc.valor
+
     resp_nome, _ = _responsavel_da_familia(usuario)
     contexto = {
         "criancas": criancas,
+        "parcelamentos": sorted(
+            parc_por_lanc.values(), key=lambda x: x["lanc"].criado_em
+        ),
+        "parcelas_total": sum((p.valor for p in parcelas_clube), Decimal("0")),
+        "n_parcelas": len(parcelas_clube),
         "total_aberto": total_aberto,
         "n_abertas": len(abertas),
         "pago_ano": pago_ano,
@@ -8779,6 +8910,654 @@ def minhas_mensalidades_pagar_view(request):
 
 
 # ===========================================================================
+# Parcelamento lançado PELO CLUBE (aba "Parcelas" das Mensalidades).
+#
+# O Diretor lança na mão um valor combinado (com uma família ou com um
+# integrante da diretoria) e o sistema divide em N parcelas vencendo no dia
+# `DIA_VENCIMENTO_PARCELA` mês a mês. Nada é cobrado no ato: o lançamento nasce
+# 100% a receber, e só a parcela PAGA entra no caixa.
+#
+# Diferenças de propósito em relação à mensalidade:
+#   * a regra "aventureiro inativo não é cobrado" **não** vale aqui. Ela existe
+#     para a cobrança recorrente de quem saiu do clube; um parcelamento é uma
+#     dívida específica, já combinada — quem saiu continua devendo o que
+#     combinou, exatamente como as parcelas de inscrição de evento;
+#   * a cobrança tem aba, mensagem e histórico (`CobrancaParcelaEnviada`)
+#     PRÓPRIOS: contar junto com a mensalidade faria uma silenciar a outra.
+# ===========================================================================
+def _vencimentos_clube(primeiro, qtd):
+    """Datas das `qtd` parcelas: `primeiro` e depois mês a mês, sempre no mesmo
+    dia (o `primeiro` já vem no `DIA_VENCIMENTO_PARCELA`)."""
+    return [_somar_meses(primeiro, i) for i in range(qtd)]
+
+
+def _mes_opcoes_vencimento(hoje=None, quantos=13):
+    """Meses oferecidos para a 1ª parcela: o mês seguinte (padrão) e os
+    próximos, mais o mês atual — quem combinou o acerto para "este mês ainda"
+    também precisa de opção. Valor `AAAA-MM`, rótulo `Outubro/2026`."""
+    hoje = hoje or timezone.localdate()
+    base = hoje.replace(day=1)
+    opcoes = []
+    for i in range(-1, quantos):
+        d = _somar_meses(base, i)
+        opcoes.append({
+            "valor": f"{d.year:04d}-{d.month:02d}",
+            "rotulo": f"{MESES_PT[d.month]}/{d.year}",
+        })
+    return opcoes
+
+
+def _venc_primeiro_de_post(valor, hoje=None):
+    """`AAAA-MM` do POST → data do dia `DIA_VENCIMENTO_PARCELA` daquele mês.
+    Sem valor (ou inválido), cai no padrão: mês seguinte."""
+    hoje = hoje or timezone.localdate()
+    try:
+        ano, mes = (valor or "").split("-")
+        return datetime.date(int(ano), int(mes), DIA_VENCIMENTO_PARCELA)
+    except (ValueError, AttributeError, TypeError):
+        return _vencimento_diferido(hoje)
+
+
+def _alvos_parcelamento():
+    """Opções do seletor "para quem": os aventureiros ativos (cada um leva a
+    própria conta) e as contas de diretoria/responsável.
+
+    Escolher o aventureiro já resolve os dois vínculos de uma vez (conta +
+    aventureiro), e a conta sozinha atende a diretoria sem filho no clube."""
+    aventureiros = [
+        {"valor": f"av:{a.id}", "rotulo": a.nome_completo,
+         "detalhe": a.resp_nome or ""}
+        for a in Aventureiro.objects.filter(
+            ativo=True, demo=False, usuario__isnull=False
+        ).order_by("nome_completo")
+    ]
+    contas = [
+        {"valor": f"conta:{m.usuario_id}", "rotulo": m.nome_completo,
+         "detalhe": "Diretoria"}
+        for m in MembroDiretoria.objects.filter(
+            ativo=True, demo=False, usuario__isnull=False
+        ).order_by("nome_completo")
+    ]
+    return {"aventureiros": aventureiros, "contas": contas}
+
+
+def _resolver_alvo(valor):
+    """"av:<id>"/"conta:<id>" → (usuario, aventureiro|None). (None, None) se não
+    casar — o POST é validado por aqui, não pelo HTML."""
+    tipo, _, ident = (valor or "").partition(":")
+    if tipo == "av":
+        av = Aventureiro.objects.filter(
+            pk=ident or 0, usuario__isnull=False
+        ).select_related("usuario").first()
+        return (av.usuario, av) if av else (None, None)
+    if tipo == "conta":
+        u = User.objects.filter(pk=ident or 0).first()
+        return (u, None) if u else (None, None)
+    return None, None
+
+
+def _q_parcelamentos_clube():
+    """Parcelamentos que contam para o clube: fora os de dado FICTÍCIO (demo).
+    Lançamento sem aventureiro/evento continua contando (é o caso da
+    diretoria)."""
+    return (
+        ParcelamentoClube.objects.exclude(aventureiro__demo=True)
+        .exclude(evento__demo=True)
+    )
+
+
+def _parcelamentos_painel():
+    """Lançamentos + totais para a aba "Parcelas" do Diretor."""
+    lancamentos = list(
+        _q_parcelamentos_clube()
+        .select_related("usuario", "aventureiro", "evento")
+        .prefetch_related("parcelas")
+    )
+    ativos = [l for l in lancamentos if l.status == "ativo"]
+    totais = {
+        "lancado": sum((l.valor_total for l in ativos), Decimal("0")),
+        "recebido": sum((l.total_recebido for l in ativos), Decimal("0")),
+        "aberto": sum((l.total_aberto for l in ativos), Decimal("0")),
+        "vencido": sum((l.total_vencido for l in ativos), Decimal("0")),
+        "n": len(ativos),
+        "n_quitados": sum(1 for l in ativos if l.quitado),
+    }
+    return {"lancamentos": lancamentos, "totais": totais}
+
+
+@diretor_required
+@require_POST
+def parcelamento_novo_view(request):
+    """Lança um parcelamento na mão: valor total ÷ nº de parcelas, vencendo no
+    dia `DIA_VENCIMENTO_PARCELA` a partir do mês escolhido."""
+    volta = reverse("core:mensalidades") + "?aba=parcelas"
+    usuario, aventureiro = _resolver_alvo(request.POST.get("alvo"))
+    if usuario is None:
+        messages.error(request, "Escolha para quem é o lançamento.")
+        return redirect(volta)
+
+    descricao = (request.POST.get("descricao") or "").strip()
+    if not descricao:
+        messages.error(request, "Informe a descrição do lançamento.")
+        return redirect(volta)
+
+    try:
+        valor_total = Decimal((request.POST.get("valor_total") or "0").replace(",", "."))
+        qtd = int(request.POST.get("qtd_parcelas") or 0)
+    except (InvalidOperation, ValueError, TypeError):
+        messages.error(request, "Valor ou número de parcelas inválido.")
+        return redirect(volta)
+    if valor_total <= 0:
+        messages.error(request, "O valor total precisa ser maior que zero.")
+        return redirect(volta)
+    if not 1 <= qtd <= 36:
+        messages.error(request, "O número de parcelas precisa ser de 1 a 36.")
+        return redirect(volta)
+
+    valores = dividir_em_parcelas(valor_total, qtd)
+    if len(valores) != qtd:
+        # `dividir_em_parcelas` cai para 1 parcela quando o valor não dá nem
+        # R$ 0,01 por parcela. Aqui o número de parcelas foi pedido: avisa em
+        # vez de entregar em silêncio um lançamento diferente do pedido.
+        messages.error(
+            request, f"R$ {valor_total} é pouco para dividir em {qtd} parcelas."
+        )
+        return redirect(volta)
+
+    evento = Evento.objects.filter(pk=request.POST.get("evento_id") or 0).first()
+    primeiro = _venc_primeiro_de_post(request.POST.get("venc_primeiro"))
+
+    lanc = ParcelamentoClube.objects.create(
+        usuario=usuario,
+        aventureiro=aventureiro,
+        evento=evento,
+        descricao=descricao,
+        observacao=(request.POST.get("observacao") or "").strip(),
+        valor_total=valor_total,
+        qtd_parcelas=qtd,
+        criado_por=request.user,
+    )
+    lanc.get_token()
+    vencimentos = _vencimentos_clube(primeiro, qtd)
+    ParcelaClube.objects.bulk_create([
+        ParcelaClube(
+            parcelamento=lanc, numero=i + 1, total=qtd,
+            valor=valores[i], vencimento=vencimentos[i], status="aberta",
+        )
+        for i in range(qtd)
+    ])
+    messages.success(
+        request,
+        f"Lançamento criado: {qtd}x para {lanc.pessoa_nome}, "
+        f"a 1ª vencendo em {primeiro.strftime('%d/%m/%Y')}.",
+    )
+    return redirect(volta)
+
+
+@diretor_required
+@require_POST
+def parcelamento_cancelar_view(request):
+    """Cancela um lançamento e as parcelas ainda em aberto. Parcela **paga não é
+    mexida**: o dinheiro entrou e continua no caixa/extrato."""
+    lanc = get_object_or_404(ParcelamentoClube, pk=request.POST.get("parcelamento_id"))
+    abertas = lanc.parcelas.filter(status="aberta")
+    n = abertas.count()
+    abertas.update(status="cancelada")
+    lanc.status = "cancelado"
+    lanc.save(update_fields=["status"])
+    messages.success(
+        request,
+        f"Lançamento cancelado. {n} parcela(s) em aberto cancelada(s); "
+        f"as pagas continuam no caixa.",
+    )
+    return redirect(reverse("core:mensalidades") + "?aba=parcelas")
+
+
+@diretor_required
+@require_POST
+def parcela_clube_pago_view(request):
+    """Baixa manual (ou desfaz) de uma parcela do clube — para quem acertou fora
+    do site. **Entra no caixa**, diferente da baixa do "pago direto ao evento".
+
+    Ao reabrir, solta o `pagamento` para a taxa do gateway não ficar presa a uma
+    parcela em aberto (mesma regra da parcela de inscrição)."""
+    parcela = get_object_or_404(
+        ParcelaClube, pk=request.POST.get("parcela_id")
+    )
+    if parcela.status == "paga":
+        parcela.status = "aberta"
+        parcela.forma_pagamento = ""
+        parcela.valor_pago = None
+        parcela.pago_em = None
+        parcela.registrado_por = None
+        parcela.pagamento = None
+        aviso = f"Parcela {parcela.rotulo} voltou para em aberto."
+    else:
+        parcela.status = "paga"
+        forma = request.POST.get("forma") or "dinheiro"
+        parcela.forma_pagamento = forma if forma in dict(FORMA_PAGAMENTO_CHOICES) else "dinheiro"
+        parcela.valor_pago = parcela.valor
+        parcela.pago_em = timezone.now()
+        parcela.registrado_por = request.user
+        aviso = f"Parcela {parcela.rotulo} baixada como paga."
+    parcela.save(update_fields=[
+        "status", "forma_pagamento", "valor_pago", "pago_em", "registrado_por",
+        "pagamento",
+    ])
+    messages.success(request, aviso)
+    return redirect(reverse("core:mensalidades") + "?aba=parcelas")
+
+
+# ---------------------------------------------------------------------------
+# Cobrança das parcelas do clube (aba própria, espelhando a de mensalidades).
+# ---------------------------------------------------------------------------
+def _parcelas_abertas_conta(usuario):
+    """Parcelas em aberto da conta, da mais antiga para a mais nova.
+
+    Inclui as que **ainda não venceram**: um parcelamento é um acerto fechado,
+    a pessoa sabe quantas parcelas tem e pode adiantar. (A mensalidade é o
+    contrário: só se cobra o que já venceu.)"""
+    return list(
+        ParcelaClube.objects.filter(
+            parcelamento__usuario=usuario,
+            parcelamento__status="ativo",
+            status="aberta",
+        ).select_related("parcelamento", "parcelamento__evento",
+                         "parcelamento__aventureiro")
+        .order_by("vencimento", "numero")
+    )
+
+
+def _cobrancas_parcelas_familias():
+    """Contas com parcelas em aberto: dados da aba de cobrança de parcelas
+    (nome, total, WhatsApp/e-mail, link e nº de cobranças enviadas no mês)."""
+    hoje = timezone.localdate()
+    abertas = (
+        ParcelaClube.objects.filter(status="aberta", parcelamento__status="ativo")
+        .filter(parcelamento__in=_q_parcelamentos_clube())
+        .select_related("parcelamento", "parcelamento__aventureiro",
+                        "parcelamento__evento")
+        .order_by("vencimento", "numero")
+    )
+    por_conta = defaultdict(list)
+    for p in abertas:
+        por_conta[p.parcelamento.usuario_id].append(p)
+
+    cont_canal = defaultdict(lambda: {CANAL_WHATSAPP: 0, CANAL_EMAIL: 0})
+    for e in (
+        CobrancaParcelaEnviada.objects.filter(ano=hoje.year, mes=hoje.month)
+        .values("usuario", "canal").annotate(n=Count("id"))
+    ):
+        cont_canal[e["usuario"]][e["canal"]] = e["n"]
+
+    users = {u.id: u for u in User.objects.filter(id__in=por_conta.keys())}
+    familias = []
+    for uid, parcelas in por_conta.items():
+        u = users.get(uid)
+        if u is None:
+            continue
+        nome = _nome_da_conta(u)
+        perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
+        numeros = _numeros_conta(u)
+        origem_atual, numero = _resolver_origem_numero(
+            numeros, perfil.cobranca_whatsapp_origem or ""
+        )
+        # Sem número nos aventureiros (conta só de diretoria), usa o da ficha.
+        if not numero:
+            numero = _whatsapp_familia(u)
+        email = _email_familia(u)
+        contagens = cont_canal[uid]
+        familias.append({
+            "usuario_id": uid,
+            "resp_nome": nome,
+            "primeiro_nome": (nome or "").split(" ")[0],
+            "parcelas": parcelas,
+            "total": sum((p.valor for p in parcelas), Decimal("0")),
+            "vencido": sum((p.valor for p in parcelas if p.vencida), Decimal("0")),
+            "n_parcelas": len(parcelas),
+            "n_vencidas": sum(1 for p in parcelas if p.vencida),
+            "numeros": numeros,
+            "numero": numero,
+            "tem_numero": bool(numero),
+            "origem_atual": origem_atual,
+            "email": email,
+            "tem_email": bool(email),
+            "ultima_msg_em": perfil.ultima_msg_whatsapp_em,
+            "autorizou": bool(perfil.autorizacao_recebida_em),
+            "cobrado_mes": contagens[CANAL_WHATSAPP] + contagens[CANAL_EMAIL],
+            "cobrado_mes_whatsapp": contagens[CANAL_WHATSAPP],
+            "cobrado_mes_email": contagens[CANAL_EMAIL],
+            # Link público **da conta** (o mesmo token do acerto de
+            # mensalidades): a mensagem lista as parcelas de TODOS os
+            # lançamentos, então o link precisa abrir todos.
+            "token": perfil.get_token_acerto(),
+        })
+    familias.sort(key=lambda f: (-f["vencido"], -f["total"]))
+    return familias
+
+
+def _nome_da_conta(usuario):
+    """Nome de quem responde pela conta: o responsável dos aventureiros ou, numa
+    conta só de diretoria, o nome da ficha."""
+    nome, _ = _responsavel_da_familia(usuario)
+    membro = getattr(usuario, "membro_diretoria", None)
+    if membro is not None and (not nome or nome == usuario.username):
+        return membro.nome_completo
+    return nome
+
+
+def _montar_mensagem_cobranca_parcela(template, familia, request):
+    """Interpola o template com os dados da conta ({nome}/{itens}/{total}/{link})."""
+    itens = "\n".join(
+        f"• {p.parcelamento.descricao} — parcela {p.rotulo}"
+        + (f" (vence {p.vencimento.strftime('%d/%m/%Y')})" if p.vencimento else "")
+        + f": R$ {_moeda_txt(p.valor)}"
+        for p in familia["parcelas"]
+    )
+    link = request.build_absolute_uri(
+        reverse("core:parcelas_clube", args=[familia["token"]])
+    )
+    return (
+        (template or MENSAGEM_COBRANCA_PARCELA_PADRAO)
+        .replace("{nome}", familia["primeiro_nome"] or "")
+        .replace("{itens}", itens)
+        .replace("{total}", _moeda_txt(familia["total"]))
+        .replace("{link}", link)
+    )
+
+
+@diretor_required
+@require_POST
+def parcela_cobranca_config_view(request):
+    """Salva a mensagem/assunto/prompt da cobrança de parcelas."""
+    c = ConfigMensalidade.get_solo()
+    c.mensagem_cobranca_parcela = (
+        (request.POST.get("mensagem_cobranca_parcela") or "").strip()
+        or MENSAGEM_COBRANCA_PARCELA_PADRAO
+    )
+    c.assunto_cobranca_parcela_email = (
+        (request.POST.get("assunto_cobranca_parcela_email") or "").strip()
+        or ASSUNTO_COBRANCA_PARCELA_PADRAO
+    )
+    c.prompt_cobranca_parcela_ia = (
+        (request.POST.get("prompt_cobranca_parcela_ia") or "").strip()
+        or PROMPT_COBRANCA_PARCELA_IA_PADRAO
+    )
+    c.atualizado_por = request.user
+    c.save()
+    messages.success(request, "Mensagens da cobrança de parcelas salvas.")
+    return redirect(reverse("core:mensalidades") + "?aba=parcelas")
+
+
+@diretor_required
+@require_POST
+def parcela_cobranca_modo_view(request):
+    """Liga/desliga o modo IA da cobrança de parcelas (alavanca própria)."""
+    c = ConfigMensalidade.get_solo()
+    c.cobranca_parcela_via_ia = request.POST.get("via_ia") == "1"
+    c.atualizado_por = request.user
+    c.save(update_fields=["cobranca_parcela_via_ia", "atualizado_por", "atualizado_em"])
+    return JsonResponse({"ok": True, "via_ia": c.cobranca_parcela_via_ia})
+
+
+@diretor_required
+@require_POST
+def parcela_cobranca_enviar_view(request):
+    """Envia a cobrança das parcelas (uma conta ou todas) pelo canal escolhido.
+
+    Mesmo contrato do envio de mensalidades: 1 request por conta (o front dá a
+    pausa de 10s), mensagem montada **uma vez** por conta (a IA não pode ser
+    chamada 2×), filtro "quem não recebeu este mês" avaliado **por canal** e
+    histórico próprio (`CobrancaParcelaEnviada`). Cobrança não é transacional:
+    o e-mail respeita descadastro e bounce."""
+    canal = (request.POST.get("canal") or CANAL_WHATSAPP).strip()
+    if canal not in dict(CANAL_COBRANCA_CHOICES) and canal != CANAL_AMBOS:
+        return JsonResponse({"ok": False, "erro": "Canal inválido."}, status=400)
+    pedidos = ([CANAL_WHATSAPP, CANAL_EMAIL] if canal == CANAL_AMBOS else [canal])
+
+    wa = WhatsappConfig.get_solo()
+    email_cfg = EmailConfig.get_solo()
+    faltando = [
+        c for c in pedidos
+        if (c == CANAL_WHATSAPP and not wa.configurado)
+        or (c == CANAL_EMAIL and not email_cfg.configurado)
+    ]
+    if len(faltando) == len(pedidos):
+        qual = "o WhatsApp" if pedidos == [CANAL_WHATSAPP] else (
+            "o e-mail" if pedidos == [CANAL_EMAIL] else "o WhatsApp e o e-mail"
+        )
+        return JsonResponse(
+            {"ok": False, "erro": f"Configure {qual} antes de enviar cobranças."},
+            status=400,
+        )
+    pedidos = [c for c in pedidos if c not in faltando]
+
+    cfg = ConfigMensalidade.get_solo()
+    via_ia = cfg.cobranca_parcela_via_ia
+    template = cfg.mensagem_cobranca_parcela or MENSAGEM_COBRANCA_PARCELA_PADRAO
+    prompt_ia = cfg.prompt_cobranca_parcela_ia or PROMPT_COBRANCA_PARCELA_IA_PADRAO
+    ia_cfg = OpenAIConfig.get_solo()
+    if via_ia and not ia_cfg.configurado:
+        return JsonResponse(
+            {"ok": False, "erro": "Modo IA ligado, mas a IA não está configurada. "
+                                  "Configure em Configurações IA ou desligue o modo IA."},
+            status=400,
+        )
+    assunto = cfg.assunto_cobranca_parcela_email or ASSUNTO_COBRANCA_PARCELA_PADRAO
+    alvo = request.POST.get("usuario_id")
+    so_nao_enviados = request.POST.get("so_nao_enviados") == "1"
+    hoje = timezone.localdate()
+    chave = {CANAL_WHATSAPP: "cobrado_mes_whatsapp", CANAL_EMAIL: "cobrado_mes_email"}
+
+    familias = _cobrancas_parcelas_familias()
+    if alvo:
+        familias = [f for f in familias if str(f["usuario_id"]) == str(alvo)]
+
+    enviados = 0
+    por_canal = {CANAL_WHATSAPP: 0, CANAL_EMAIL: 0}
+    falhas = []
+    for f in familias:
+        destinos = []
+        for c in pedidos:
+            if so_nao_enviados and f[chave[c]]:
+                continue
+            if c == CANAL_EMAIL and not f["tem_email"]:
+                falhas.append(f"{f['resp_nome']}: sem e-mail cadastrado")
+                continue
+            if c == CANAL_WHATSAPP and not f["tem_numero"]:
+                falhas.append(f"{f['resp_nome']}: sem WhatsApp cadastrado")
+                continue
+            destinos.append(c)
+        if not destinos:
+            continue
+
+        if via_ia:
+            prompt = _montar_mensagem_cobranca_parcela(prompt_ia, f, request)
+            ok_ia, msg, uso = openai_ia.enviar_prompt(ia_cfg, prompt)
+            if not ok_ia:
+                falhas.append(f"{f['resp_nome']}: IA falhou ({msg})")
+                continue
+            ia_cfg.registrar_uso(uso)
+        else:
+            msg = _montar_mensagem_cobranca_parcela(template, f, request)
+
+        for c in destinos:
+            if c == CANAL_EMAIL:
+                ok, detalhe = _enviar_email(
+                    f["email"],
+                    assunto.format_map(_MarcadorDict({"nome": f["primeiro_nome"]})),
+                    texto_para_email(msg),
+                    transacional=False,       # o clube inicia — respeita descadastro
+                    nome=f["resp_nome"] or "", origem="cobranca_parcela",
+                )
+                detalhe = _MOTIVO_EMAIL.get(detalhe, detalhe)
+                rotulo = "e-mail"
+            else:
+                ok, detalhe = _enviar_whatsapp(
+                    wa, f["numero"], msg, origem="cobranca_parcela",
+                    nome=f["resp_nome"] or "",
+                )
+                rotulo = "WhatsApp"
+
+            if ok:
+                CobrancaParcelaEnviada.objects.create(
+                    usuario_id=f["usuario_id"], canal=c, ano=hoje.year,
+                    mes=hoje.month, enviada_por=request.user,
+                )
+                enviados += 1
+                por_canal[c] += 1
+            else:
+                falhas.append(f"{f['resp_nome']} ({rotulo}): {detalhe}")
+
+    return JsonResponse({
+        "ok": True, "enviados": enviados, "falhas": falhas,
+        "via_ia": via_ia, "canal": canal, "por_canal": por_canal,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Página PÚBLICA das parcelas do clube (link do token do lançamento).
+#
+# Sem login, pelo mesmo motivo do acerto de mensalidades e das parcelas de
+# inscrição: quem recebe a cobrança pode não ter (ou não lembrar) o login. O
+# token identifica o lançamento; o Pix é gerado só no clique, uma parcela por
+# vez — assim cada parcela tem o seu `Pagamento` e a sua taxa.
+# ---------------------------------------------------------------------------
+def _parcelamento_por_token(token):
+    """O lançamento daquele token (usado pelo pagamento, que é sempre de UMA
+    parcela de UM lançamento)."""
+    if not token:
+        return None
+    return (
+        ParcelamentoClube.objects.filter(token=token)
+        .select_related("evento", "aventureiro", "usuario")
+        .prefetch_related("parcelas").first()
+    )
+
+
+def _lancamentos_por_token(token):
+    """Lançamentos que o token abre.
+
+    Aceita **os dois** tokens: o de um lançamento (abre aquele) e o da **conta**
+    (`PerfilUsuario.token_acerto` — abre todos os lançamentos ativos da pessoa).
+    A cobrança manda o token da conta de propósito: ela lista as parcelas de
+    todos os lançamentos, então um link que mostrasse só um deles contradiria a
+    própria mensagem. O link por lançamento continua valendo (é o que o painel
+    do Diretor mostra, para tratar de um acerto específico).
+
+    Devolve (lista, usuario) — lista vazia com usuário `None` quando o token não
+    casa com nada."""
+    if not token:
+        return [], None
+    lanc = _parcelamento_por_token(token)
+    if lanc is not None:
+        return [lanc], lanc.usuario
+    perfil = (
+        PerfilUsuario.objects.filter(token_acerto=token)
+        .select_related("usuario").first()
+    )
+    if perfil is None:
+        return [], None
+    lancamentos = list(
+        ParcelamentoClube.objects.filter(usuario=perfil.usuario, status="ativo")
+        .select_related("evento", "aventureiro", "usuario")
+        .prefetch_related("parcelas").order_by("criado_em")
+    )
+    return lancamentos, perfil.usuario
+
+
+def parcelas_clube_view(request, token):
+    """Página pública: o que a pessoa já pagou e o que falta.
+
+    Cada lançamento é um bloco, com o **seu** token no formulário de pagamento —
+    a cobrança é sempre de uma parcela de um lançamento."""
+    lancamentos, usuario = _lancamentos_por_token(token)
+    if usuario is None:
+        return render(request, "core/parcelas_clube.html", {"invalido": True})
+
+    blocos = []
+    abertas_todas = []
+    pago_total = Decimal("0")
+    for lanc in lancamentos:
+        parcelas = [p for p in lanc.parcelas.all() if p.status != "cancelada"]
+        abertas = [p for p in parcelas if p.em_aberto]
+        abertas_todas.extend(abertas)
+        pago_total += sum(
+            (p.valor_pago or Decimal("0") for p in parcelas if p.status == "paga"),
+            Decimal("0"),
+        )
+        blocos.append({
+            "lanc": lanc,
+            "token": lanc.get_token(),
+            "parcelas": parcelas,
+            "abertas": abertas,
+            "cancelado": lanc.status == "cancelado",
+        })
+    nome = _nome_da_conta(usuario)
+    return render(request, "core/parcelas_clube.html", {
+        "token": token,
+        "blocos": blocos,
+        # Um lançamento só: o cabeçalho fala dele pelo nome (é o caso comum).
+        "unico": blocos[0] if len(blocos) == 1 else None,
+        "abertas": abertas_todas,
+        "total_aberto": sum((p.valor for p in abertas_todas), Decimal("0")),
+        "pago": pago_total,
+        "quitado": not abertas_todas,
+        "cancelado": all(b["cancelado"] for b in blocos) if blocos else False,
+        "primeiro_nome": (nome or "").split(" ")[0],
+        "formas_pagamento": FORMAS_PAGAMENTO_ONLINE,
+        "mp_configurado": _mp_config().configurado,
+    })
+
+
+@require_POST
+def parcela_clube_pagar_view(request, token):
+    """Gera a cobrança (Pix/cartão) de UMA parcela do lançamento."""
+    lanc = _parcelamento_por_token(token)
+    if lanc is None:
+        return redirect("core:login")
+    if lanc.status != "ativo":
+        messages.error(request, "Esse lançamento foi cancelado.")
+        return redirect("core:parcelas_clube", token=token)
+    parcela = lanc.parcelas.filter(
+        pk=request.POST.get("parcela_id"), status="aberta"
+    ).first()
+    if parcela is None:
+        messages.error(request, "Essa parcela não está em aberto.")
+        return redirect("core:parcelas_clube", token=token)
+    forma = request.POST.get("forma_pagamento") or "pix"
+    if forma not in {"pix", "cartao"}:
+        forma = "pix"
+    nome = _nome_da_conta(lanc.usuario)
+    descricao = f"Parcela {parcela.rotulo} — {lanc.descricao}"
+    payload = {
+        "parcela_clube_id": parcela.id,
+        "parcelamento_id": lanc.id,
+        "titulo": descricao,
+        "itens": [{"nome": f"{lanc.descricao} — parcela {parcela.rotulo}",
+                   "valor": f"{parcela.valor:.2f}"}],
+    }
+    comprador = {"nome": nome, "email": _email_familia(lanc.usuario)}
+    if forma == "cartao":
+        pagamento, init_point, erro = _criar_pagamento_cartao(
+            request, tipo="parcela_clube", valor=parcela.valor, descricao=descricao,
+            payload=payload, comprador=comprador, usuario=lanc.usuario,
+        )
+        if erro:
+            messages.error(request, f"Não foi possível iniciar o cartão: {erro}")
+            return redirect("core:parcelas_clube", token=token)
+        return redirect(init_point)
+    pagamento, erro = _criar_pagamento_pix(
+        request, tipo="parcela_clube", valor=parcela.valor, descricao=descricao,
+        payload=payload, comprador=comprador, usuario=lanc.usuario,
+    )
+    if erro:
+        messages.error(request, f"Não foi possível gerar o Pix: {erro}")
+        return redirect("core:parcelas_clube", token=token)
+    return redirect("core:pagamento", ref=pagamento.referencia)
+
+
+# ===========================================================================
 # Financeiro geral do clube (consolida mensalidades + loja + eventos + custos)
 # ===========================================================================
 def _dt_data(dt):
@@ -8822,6 +9601,41 @@ def financeiro_view(request):
     )
     custos_ev = list(CustoEvento.objects.select_related("evento"))
     custos_clube = list(CustoClube.objects.prefetch_related("comprovantes"))
+    # Parcelas lançadas na mão pelo clube. Só a PAGA é entrada (o lançamento
+    # nasce todo a receber); as em aberto viram "a receber". Cada parcela cai na
+    # fonte do seu lançamento: com evento conta como EVENTOS, sem evento como
+    # PARCELAMENTOS (acerto geral do clube).
+    parcelas_clube = list(
+        ParcelaClube.objects.exclude(status="cancelada")
+        .filter(parcelamento__in=_q_parcelamentos_clube())
+        .filter(parcelamento__status="ativo")
+        .select_related("parcelamento", "parcelamento__evento",
+                        "parcelamento__aventureiro", "parcelamento__usuario")
+    )
+    pc_ev = [p for p in parcelas_clube if p.parcelamento.evento_id]
+    pc_geral = [p for p in parcelas_clube if not p.parcelamento.evento_id]
+
+    def _pc_pago(lista):
+        return sum(
+            (p.valor_pago or Decimal("0") for p in lista if p.status == "paga"),
+            Decimal("0"),
+        )
+
+    def _pc_aberto(lista):
+        return sum((p.valor for p in lista if p.em_aberto), Decimal("0"))
+
+    def _pc_taxa(lista):
+        """Taxa do gateway das parcelas pagas online desta fonte. Vai pelo
+        `Pagamento` de cada parcela (cada uma tem o seu) em vez de somar por
+        `tipo`, porque o mesmo tipo `parcela_clube` atende as duas fontes."""
+        ids = {p.pagamento_id for p in lista if p.pagamento_id}
+        if not ids:
+            return Decimal("0")
+        return Pagamento.objects.filter(id__in=ids, status="aprovado").aggregate(
+            t=Sum("taxa"))["t"] or Decimal("0")
+
+    pc_ev_recebido, pc_ev_aberto = _pc_pago(pc_ev), _pc_aberto(pc_ev)
+    pc_geral_recebido, pc_geral_aberto = _pc_pago(pc_geral), _pc_aberto(pc_geral)
 
     mens_recebido = sum((m.valor_pago or Decimal("0") for m in mens_pagas), Decimal("0"))
     mens_aberto = sum(
@@ -8835,7 +9649,7 @@ def financeiro_view(request):
     inscr_total = sum((i.valor_no_caixa for i in inscricoes), Decimal("0"))
     inscr_aberto = sum((i.total_parcelas_aberto for i in inscricoes), Decimal("0"))
     pedidos_total = sum((p.valor_total for p in pedidos_ev), Decimal("0"))
-    eventos_entradas = inscr_total + pedidos_total
+    eventos_entradas = inscr_total + pedidos_total + pc_ev_recebido
     custos_ev_total = sum((c.valor for c in custos_ev), Decimal("0"))
     # Custos do clube separados por destino: 'loja' abate no líquido da loja;
     # 'geral' é custo do clube em si.
@@ -8850,10 +9664,12 @@ def financeiro_view(request):
             t=Sum("taxa"))["t"] or Decimal("0")
     taxa_mens = _soma_taxa(["mensalidade"])
     taxa_loja = _soma_taxa(["loja_clube"])
-    taxa_eventos = _soma_taxa(["loja_evento", "inscricao", "parcela_inscricao"])
-    taxa_total = taxa_mens + taxa_loja + taxa_eventos
+    taxa_eventos = _soma_taxa(["loja_evento", "inscricao", "parcela_inscricao"]) \
+        + _pc_taxa(pc_ev)
+    taxa_parcelamentos = _pc_taxa(pc_geral)
+    taxa_total = taxa_mens + taxa_loja + taxa_eventos + taxa_parcelamentos
 
-    entradas = mens_recebido + loja_total + eventos_entradas
+    entradas = mens_recebido + loja_total + eventos_entradas + pc_geral_recebido
     saidas = custos_ev_total + custos_loja_total + custos_geral_total + taxa_total
     resultado = entradas - saidas
 
@@ -8868,20 +9684,31 @@ def financeiro_view(request):
             "entradas": eventos_entradas, "inscricoes": inscr_total,
             "pedidos": pedidos_total, "custos": custos_ev_total, "taxa": taxa_eventos,
             "liquido": eventos_entradas - custos_ev_total - taxa_eventos,
-            # Parcelas de inscrição da diretoria ainda não recebidas.
-            "aberto": inscr_aberto,
+            # A receber do evento: parcelas da inscrição da diretoria +
+            # parcelas lançadas à mão e ligadas a um evento.
+            "aberto": inscr_aberto + pc_ev_aberto,
+            "parcelas_clube": pc_ev_recebido,
+        },
+        # Acertos parcelados lançados pelo clube SEM evento (fonte própria).
+        "parcelamentos": {
+            "entradas": pc_geral_recebido, "taxa": taxa_parcelamentos,
+            "liquido": pc_geral_recebido - taxa_parcelamentos,
+            "aberto": pc_geral_aberto,
+            "n": sum(1 for p in pc_geral if p.status == "paga"),
         },
         "custos_clube": {"total": custos_geral_total,
                          "n": sum(1 for c in custos_clube if c.destino != "loja")},
         "taxas": {"total": taxa_total, "mensalidades": taxa_mens,
-                  "loja": taxa_loja, "eventos": taxa_eventos},
+                  "loja": taxa_loja, "eventos": taxa_eventos,
+                  "parcelamentos": taxa_parcelamentos},
     }
 
     # Duas "contas" do clube: o que pode gastar × o que está travado.
     # - Disponível: mensalidades + lucro dos eventos − custos gerais do clube.
     # - Reservado da loja: vendas − custos da loja (fica travado p/ pagar fornecedores).
     lucro_eventos = eventos_entradas - custos_ev_total - taxa_eventos
-    disponivel = (mens_recebido - taxa_mens) + lucro_eventos - custos_geral_total
+    disponivel = (mens_recebido - taxa_mens) + lucro_eventos - custos_geral_total \
+        + (pc_geral_recebido - taxa_parcelamentos)
     reservado_loja = loja_total - custos_loja_total - taxa_loja
 
     # Onde está o dinheiro: banco (informado) e espécie = o que sobra.
@@ -8913,6 +9740,20 @@ def financeiro_view(request):
                             "desc": f"{i.evento.nome} — {i.responsavel_nome}",
                             "valor": parc.valor_pago or parc.valor,
                             "saida": False, "comprovante": None})
+    for pc in parcelas_clube:
+        # Uma linha por parcela PAGA (o lançamento em si não é entrada nenhuma).
+        if pc.status != "paga":
+            continue
+        lanc = pc.parcelamento
+        extrato.append({
+            "data": _dt_data(pc.pago_em or pc.criado_em),
+            "fonte": ("eventos" if lanc.evento_id else "parcelamentos"),
+            "tipo": f"Parcela {pc.rotulo} (clube)",
+            "desc": (f"{lanc.evento.nome} — " if lanc.evento_id else "")
+                    + f"{lanc.descricao} — {lanc.pessoa_nome}",
+            "valor": pc.valor_pago or pc.valor,
+            "saida": False, "comprovante": None,
+        })
     for p in pedidos_ev:
         extrato.append({"data": _dt_data(p.criado_em), "fonte": "eventos", "tipo": "Lojinha do evento",
                         "desc": f"{p.evento.nome} — {p.comprador_nome}", "valor": p.valor_total,
@@ -8967,9 +9808,10 @@ def financeiro_view(request):
     total_ent = entradas or Decimal("1")
     p1 = float(mens_recebido / total_ent * 100)
     p2 = float((mens_recebido + loja_total) / total_ent * 100)
+    p3 = float((mens_recebido + loja_total + eventos_entradas) / total_ent * 100)
     donut = mark_safe(
         f"conic-gradient(#1f6fb2 0 {p1:.1f}%, #3a9d3a {p1:.1f}% {p2:.1f}%, "
-        f"#e0a800 {p2:.1f}% 100%)"
+        f"#e0a800 {p2:.1f}% {p3:.1f}%, #6a4fb3 {p3:.1f}% 100%)"
     )
 
     contexto = {
