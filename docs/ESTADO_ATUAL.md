@@ -29,6 +29,10 @@ em qualquer caso **só a parcela PAGA é entrada**, e o extrato leva **uma linha
 em si não move caixa). A regra da divisão saiu de dentro do `Evento` para a função de módulo
 **`dividir_em_parcelas`**, agora compartilhada pelos dois parcelamentos. Também corrigida uma **rolagem
 horizontal pré-existente** no Financeiro (armadilha do `1fr` sem `minmax`). Suíte: **396 testes OK** (362 + 34).
+**Já está em produção** (deploy em 07/09, commit `60b5c3b`, migration `0071` aplicada): telas e link público
+respondendo, estáticos servidos, healthcheck OK. **Ainda não provado em produção:** o **Pix real de uma
+parcela** — a baixa pelo webhook tem teste, mas o webhook de verdade só se confirma com uma cobrança real — e
+a **cobrança por WhatsApp** desse fluxo (depende da W-API estar ativa; não foi conferida no deploy).
 Antes: a 1ª parcela da diretoria pode ficar para o mês que vem.
 
 **Anterior (Eventos: a 1ª parcela da diretoria pode ficar para o mês que vem):**

@@ -99,10 +99,34 @@ combinou o acerto depois, ficava fora do sistema.
 - O **telefone de cobrança** é o mesmo da mensalidade (responsável financeiro da conta), então a rota de
   trocar o telefone foi reaproveitada em vez de duplicada.
 
+### Deploy e conferência em produção (07/09)
+Deploy pelo atalho `pinhaljunior2-deploy` (nunca `pinhaljunior-deploy`, que reativaria o sistema antigo):
+`fdc1cf5` → **`60b5c3b`**, com backup do SQLite antes (`db_before_deploy_20260907_210924.sqlite3`),
+`check` e `makemigrations --check` limpos, **migration `0071` aplicada**, 5 estáticos coletados e healthcheck
+OK na porta 8010. Serviços depois do deploy: `pinhaljunior2` **active**, `nginx` **active**,
+`sitepinhal` **inactive** (como deve ficar).
+
+Conferido de fora, pelo domínio: `/` **200**; `/mensalidades/` e `/financeiro/` **302** (pedem login, como
+esperado); `/parcelas/<token inexistente>/` **200** mostrando "Link inválido" e **sem vazar nada**;
+`/static/js/parcelamento.js` e `/static/css/mensalidades.css` **200**, servindo o conteúdo novo (o JS veio com
+o cabeçalho da aba Parcelas, então não é cache de versão antiga).
+
+**O que essa conferência NÃO prova** — e por isso fica registrado:
+- o **Pix real de uma parcela**: `_finalizar_parcela_clube` tem teste (inclusive de idempotência, com o aviso
+  repetido do MP), mas o **webhook de verdade** nesse tipo novo (`parcela_clube`) só se confirma com uma
+  cobrança real. Vale fazer a primeira e olhar a parcela mudar para paga sozinha;
+- a **cobrança por WhatsApp** das parcelas: depende da **W-API** estar ativa, e a saúde dela não foi
+  conferida neste deploy. Se a cobrança não sair, é o primeiro lugar a olhar (ver DEPLOY_VPS.md,
+  "Dependências externas que expiram").
+
+Nada mudou no processo de deploy nem no ambiente: sem dependência nova, sem variável nova em
+`/etc/pinhaljunior2.env` e sem cron novo — por isso o `DEPLOY_VPS.md` não precisou de alteração.
+
 ### Pendências
 - **Cobrança automática** das parcelas (as do clube e as de inscrição) — nada dispara sozinho; hoje o
   Diretor manda pela aba.
 - **Editar** um lançamento (valor/nº de parcelas) — hoje é cancelar e lançar de novo.
+- **Primeiro pagamento real** de uma parcela ainda não feito (ver a conferência acima).
 - Ainda **sem throttle** na recuperação de senha (dívida antiga).
 
 ---
