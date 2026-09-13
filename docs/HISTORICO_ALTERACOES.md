@@ -22,6 +22,79 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Leilão online ao vivo: módulo implementado (app, serviço e telas)
+
+### Resumo
+Implementação do módulo planejado na entrada anterior. App `leilao` **novo e independente**, com
+**banco SQLite próprio** e **serviço ASGI próprio**, servindo `/leilao/`: entrada por link (sem senha),
+tela do pregão em tempo real por **SSE**, botão de lance de +R$ 5, cronômetro do servidor, fechamento
+automático, **Pix com prazo de 15 min** (vencido, o lote volta para a fila), chat entre lotes, mesa do
+locutor com voz ao vivo por **WebRTC**, cadastro de item pela câmera do celular e efeitos (som
+sintetizado, vibração, confete). Suíte do leilão: **68 testes OK**.
+
+### Arquivos criados/alterados
+- `leilao/` (app novo): `models.py` (8 models, migration **0001**), `servicos.py` (regras do pregão),
+  `hub.py` (pub/sub em memória + laço central), `estado.py` (estado público), `views.py`, `urls.py`,
+  `forms.py`, `sessao.py`, `imagens.py` (Pillow), `context_processors.py`, `admin.py`, `tests.py`,
+  comandos `leilao_demo` e `leilao_carga`.
+- `config/settings_leilao.py`, `config/urls_leilao.py`, `config/asgi_leilao.py`: o **segundo serviço**.
+- `templates/leilao/` (9 telas) e `static/leilao/` (2 CSS + 8 JS).
+- `requirements-leilao.txt`: **uvicorn** — a única dependência nova, isolada do ambiente do clube.
+- `docs/DEPLOY_LEILAO.md`: serviço, Nginx (com SSE), MediaMTX, firewall e o teste de carga.
+
+### Decisões tomadas
+- **Serviço separado com UM worker.** O hub e o relógio vivem na memória do processo: dois workers
+  seriam dois leilões paralelos, cada um com o seu cronômetro. E SSE em worker **síncrono** prenderia um
+  worker por participante — por isso o leilão não pode morar no serviço do clube.
+- **`transaction_mode: IMMEDIATE` no SQLite.** Descoberto rodando o teste de concorrência em banco de
+  **arquivo** (o padrão do Django para SQLite é `:memory:` com *shared cache*, que esconde o problema):
+  com o `BEGIN DEFERRED` padrão, uma transação que **lê e depois escreve** — que é todo lance — recebe
+  `SQLITE_BUSY` na hora, **sem** respeitar o `busy_timeout`. Sem isso, lances se perderiam no meio do
+  pregão. "Um escritor só" vale para processos; dentro do processo as views síncronas rodam em threads,
+  cada uma com a sua conexão.
+- **`ConfigLeilao.get_solo()` não escreve.** Era `get_or_create`, e ele é chamado pelo context processor
+  a **cada página** e por uma thread de fundo a cada item vendido — toda leitura virava tentativa de
+  escrita, disputando a trava com quem estava dando lance.
+- **Lance sem corrida**: cadeado por lote + `UPDATE` conferindo o valor que o cliente viu. Se o preço
+  subiu mais de **um** degrau desde que a tela desenhou o botão, o lance é recusado e a pessoa confirma
+  de novo — aceitar calado faria alguém pagar mais do que pretendia.
+- **O freio de 300 ms vem DEPOIS das recusas com explicação própria.** Antes, quem tocava duas vezes
+  ouvia "Calma!" quando a resposta certa era "você já está ganhando".
+- **O relógio é do servidor** (`fecha_em` absoluto + `servidor_em` em todo estado): celular com a hora
+  errada vê o mesmo cronômetro que os outros.
+- **O broadcast só leva o que pode ser dito em voz alta** (nome curto e valor). Código Pix, telefone e
+  endereço saem por `GET` autenticado pela sessão. Há teste.
+- **Reconexão manda o estado inteiro**, em vez de repetir eventos perdidos: dispensa lógica de replay e
+  quem volta está sempre correto.
+- **Lances são por rodada** (`Lote.lances_da_rodada`): um item que volta para a fila e é reaberto não
+  pode mostrar — nem deixar desfazer — lances da rodada anulada.
+- **O Pix é gerado numa thread**, depois de publicar o "vendido": ninguém espera o Mercado Pago com a
+  tela parada. Sem credencial configurada o leilão **não para** — o locutor dá baixa manual.
+- **`leilao/tests.py` se auto-pula** quando o app não está instalado: o `manage.py test` do clube varre o
+  diretório inteiro e, sem isso, o arquivo virava um erro de importação na suíte do clube.
+- Áudio por **MediaMTX (WHIP/WHEP)**, com o cliente em `RTCPeerConnection` puro — nenhuma biblioteca JS
+  externa entra no projeto. A caixa de áudio é **plugável**: reprovando o teste de carga, aponta para uma
+  live externa sem tocar no resto.
+
+### Armadilhas do projeto que morderam de novo (agora com teste)
+- **`{# ... #}` é de UMA linha.** O comentário de duas linhas do `_campo.html` continha um `{% include %}`
+  de exemplo — que o Django **executou**, fazendo o parcial incluir a si mesmo até estourar a pilha.
+  Entrou um teste que varre `templates/` e reprova qualquer `{# #}` multilinha.
+- **Bloco `display:flex` não some com `hidden`**: regras explícitas no CSS + teste.
+- **A captura do Chrome headless não prova estouro**: o viewport mínimo é ~485px, então pedir 430
+  renderiza em 500 e **corta a imagem** — parecia estouro e não era. Quem decide é a sonda
+  (`scrollWidth` × `clientWidth`): sem estouro a 500px e a 1280px.
+
+### Pendências
+- **Teste de carga com 100 conexões** (`leilao_carga`) e ensaio de áudio com aparelhos reais — a fazer
+  **antes** do evento, de outra máquina.
+- **Deploy**: serviço, Nginx e MediaMTX ainda não instalados no VPS (passo a passo em `DEPLOY_LEILAO.md`).
+- **Pix real do leilão nunca foi cobrado** — o fluxo tem teste, mas o webhook de verdade só se confirma
+  com uma cobrança real.
+- Definir a **data do evento** e quem será o locutor.
+
+---
+
 ## 2026-09-13 - Planejamento do módulo de Leilão online ao vivo
 
 ### Resumo

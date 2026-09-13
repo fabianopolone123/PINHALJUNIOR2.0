@@ -1,0 +1,15 @@
+{% comment %}
+Campo padrão do leilão: rótulo em cima + widget. Mesmo desenho do core/_campo.html.
+Uso: include "leilao/_campo.html" with campo=form.nome
+
+ATENÇÃO: este bloco é {% comment %}, não {# #}. O {# #} comenta UMA linha só —
+em várias, o texto vaza para a tela e, se houver uma tag de template no meio,
+ela É EXECUTADA. Foi assim que este parcial passou a incluir a si mesmo e
+estourou a pilha. Está na lista de convenções do CLAUDE.md.
+{% endcomment %}
+<div class="campo">
+    <label for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} <span class="obrigatorio">*</span>{% endif %}</label>
+    {{ campo }}
+    {% if campo.help_text %}<small class="ajuda">{{ campo.help_text }}</small>{% endif %}
+    {% if campo.errors %}<div class="erros">{{ campo.errors }}</div>{% endif %}
+</div>

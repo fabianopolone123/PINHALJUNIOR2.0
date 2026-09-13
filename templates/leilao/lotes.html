@@ -1,0 +1,67 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Itens do leilão{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    <header class="mesa-topo">
+        <div class="mesa-identidade">
+            <h1>Itens — {{ leilao.nome }}</h1>
+        </div>
+        <div class="mesa-acoes-topo">
+            <a href="{% url 'leilao:locutor' %}" class="btn-mini">← Mesa</a>
+            <a href="{% url 'leilao:lote_novo' %}" class="btn-mini destaque">+ Item</a>
+        </div>
+    </header>
+
+    <ul class="itens">
+        {% for l in lotes %}
+        <li class="item item-{{ l.status }}">
+            {% if l.foto_mini %}<img src="{{ l.foto_mini.url }}" alt="" class="item-foto">
+            {% elif l.foto %}<img src="{{ l.foto.url }}" alt="" class="item-foto">
+            {% else %}<span class="item-foto vazia">📦</span>{% endif %}
+
+            <div class="item-corpo">
+                <span class="item-nome">{{ l.ordem }}. {{ l.nome }}</span>
+                <span class="item-linha">{{ l.descricao|default:"—" }}</span>
+                <span class="item-linha">
+                    Inicial R$ {{ l.lance_inicial }} ·
+                    incremento R$ {{ l.incremento_efetivo }} ·
+                    <b class="selo selo-{{ l.status }}">{{ l.get_status_display }}</b>
+                </span>
+            </div>
+
+            <div class="item-acoes">
+                {% if l.status == 'fila' %}
+                <button type="button" class="btn-mini" data-acao="mover" data-lote="{{ l.id }}"
+                        data-direcao="cima" title="Subir na fila">▲</button>
+                <button type="button" class="btn-mini" data-acao="mover" data-lote="{{ l.id }}"
+                        data-direcao="baixo" title="Descer na fila">▼</button>
+                {% endif %}
+                <a href="{% url 'leilao:lote_editar' l.id %}" class="btn-mini">Editar</a>
+                {% if not l.lances.exists and not l.arremates.exists %}
+                <form method="post" action="{% url 'leilao:lote_excluir' l.id %}" class="inline"
+                      data-confirmar="Excluir “{{ l.nome }}”?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-mini perigo">🗑️</button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="vazio">Nenhum item ainda. Comece por <a href="{% url 'leilao:lote_novo' %}">cadastrar um item</a>.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div id="dadosMesa" hidden
+     data-csrf="{{ csrf_token }}"
+     data-acao-url="{% url 'leilao:locutor_acao' %}"></div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'leilao/js/lotes.js' %}"></script>
+{% endblock %}

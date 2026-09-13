@@ -640,3 +640,62 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
 - **Abas**: o trilho `.mens-abas` agora tem **5** pílulas e usa `flex-wrap` com `flex-basis: auto` — em
   telas estreitas as pílulas descem de linha em vez de empurrar a página. Ao acrescentar aba, confira a
   rolagem horizontal com a sonda (`scrollWidth` × `clientWidth`).
+
+## Módulo de Leilão (`/leilao/`) — regras próprias
+
+O leilão é **outra aplicação Django** na mesma base de código (settings, URLs, banco, cookies e serviço
+próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
+
+- **UM worker uvicorn, sempre.** O hub de eventos (`leilao/hub.py`) e o relógio do pregão vivem **na
+  memória do processo**. Dois workers = dois leilões paralelos, cada um com o seu cronômetro, e metade
+  das pessoas vendo um pregão e metade vendo outro. Se um dia precisar escalar, o caminho é trocar o hub
+  em memória por Redis pub/sub — **só isso** muda.
+- **O leilão não pode morar no serviço do clube.** Ele usa **SSE**, que segura a conexão aberta; em
+  worker **síncrono** (o do clube é gunicorn sync) cada participante prenderia um worker inteiro e
+  derrubaria o site do clube junto.
+- **`transaction_mode: IMMEDIATE` no SQLite não é detalhe.** Com o `BEGIN DEFERRED` padrão, uma
+  transação que **lê e depois escreve** — que é **todo lance** — recebe `SQLITE_BUSY` na hora, **sem**
+  respeitar o `busy_timeout`: o SQLite recusa em vez de arriscar um impasse. O resultado seria lance
+  perdido no meio do pregão. "Um escritor só" vale para **processos**; dentro do processo, as views
+  síncronas rodam num pool de **threads**, cada uma com a sua conexão.
+- **O banco de teste do leilão é em ARQUIVO** (`TEST: {"NAME": ...}`), não em memória. O padrão do Django
+  para SQLite é `:memory:` com *shared cache*, onde o `busy_timeout` não vale e duas threads escrevendo
+  dão `database table is locked` — o que **esconderia** justamente o problema que o teste de lances
+  simultâneos existe para pegar.
+- **`get_solo()` de configuração NÃO escreve.** Era `get_or_create`, e ele é chamado pelo context
+  processor a **cada página** e por uma thread de fundo a cada item vendido: toda leitura virava
+  tentativa de escrita, disputando a trava com quem estava dando lance. Sem linha salva, devolve
+  instância em memória.
+- **O relógio é do servidor.** `Lote.fecha_em` é data/hora **absoluta** e todo estado leva `servidor_em`;
+  o navegador calcula a diferença uma vez e aplica. Celular com a hora errada (tem muitos) vê o mesmo
+  cronômetro. **Nunca** mandar "faltam N segundos" e deixar o cliente contar sozinho.
+- **O broadcast só leva o que pode ser dito em voz alta**: nome curto e valor. **Código Pix, telefone e
+  endereço nunca entram no stream** — saem por `GET` próprio, autenticado pela sessão. Há teste.
+- **Reconexão manda o estado inteiro**, nunca uma repetição de eventos perdidos. É o que dispensa lógica
+  de replay: quem reconecta está sempre correto. Evento novo no stream? Mande o suficiente para a tela se
+  redesenhar sozinha.
+- **Lance é `POST`, não stream.** O SSE é de mão única (servidor → cliente), e é isso que o faz barato.
+- **Corrida de lance**: cadeado por lote + `UPDATE` conferindo **o valor que o cliente viu**. Se subiu
+  mais de **um** degrau desde que a tela desenhou o botão, recusar e pedir confirmação — aceitar calado
+  faria alguém pagar mais do que pretendia. E o **freio de repetição vem depois** das recusas que têm
+  explicação própria, senão quem toca duas vezes ouve "Calma!" quando a resposta certa era "você já está
+  ganhando".
+- **Lances são por RODADA** (`Lote.lances_da_rodada()`): um item volta para a fila quando o arrematante
+  não paga, e os lances da rodada anulada não podem aparecer na tela nem ser ressuscitados pelo
+  "desfazer".
+- **Chamada externa lenta sai do caminho crítico.** O Pix é gerado numa thread **depois** de publicar o
+  "vendido" — ninguém espera o Mercado Pago com a tela parada. Sem credencial, o leilão **não para**: o
+  locutor dá baixa manual. Thread de fundo **fecha a conexão** no fim (`connections.close_all()`).
+- **Sem biblioteca externa, aqui também.** WebRTC é API nativa (`RTCPeerConnection` + `fetch` do SDP, ~40
+  linhas); o QR vem pronto em base64 do Mercado Pago; o som é **sintetizado em WebAudio** (zero arquivo
+  para baixar, zero latência); confete é canvas escrito à mão. A única dependência nova é o **uvicorn**,
+  isolada em `requirements-leilao.txt`.
+- **`leilao/tests.py` se auto-pula** quando o app não está instalado (`apps.is_installed`). O
+  `manage.py test` do clube varre o diretório inteiro e encontraria o arquivo; sem a guarda, ele vira um
+  erro de importação na suíte do clube. **Teste novo em app com settings próprias precisa da mesma
+  guarda.**
+- **A caixa de áudio é plugável de propósito**: se o teste de carga do WebRTC reprovar no VPS
+  compartilhado, basta preencher "link de live externa" na configuração — a tela passa a apontar para lá
+  sem tocar no resto.
+- **Teste de carga antes do evento, de outra máquina** (`leilao_carga`). Medir de dentro do VPS esconde
+  exatamente o que o teste procura.

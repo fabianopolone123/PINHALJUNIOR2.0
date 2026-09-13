@@ -1,0 +1,244 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Mesa do locutor — {{ leilao.nome }}{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+
+    <header class="mesa-topo">
+        <div class="mesa-identidade">
+            <h1>{{ leilao.nome }}</h1>
+            <span class="mesa-status status-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
+        </div>
+        <div class="mesa-acoes-topo">
+            <span class="mesa-online">👥 <b id="online">0</b></span>
+            <a href="{% url 'leilao:leiloes' %}" class="btn-mini">Leilões</a>
+            <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️</a>
+            <form method="post" action="{% url 'leilao:sair_locutor' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn-mini">Sair</button>
+            </form>
+        </div>
+    </header>
+
+    {% if leilao.status != 'ao_vivo' %}
+    <div class="mesa-aviso">
+        Este leilão <b>não está no ar</b> — ninguém vê a tela do pregão ainda.
+        <form method="post" action="{% url 'leilao:leilao_status' leilao.pk %}" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="status" value="ao_vivo">
+            <button type="submit" class="btn-mini destaque">▶ Colocar no ar</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <nav class="mesa-abas" role="tablist">
+        <button type="button" class="mesa-aba ativa" data-aba="pregao">🎤 Pregão</button>
+        <button type="button" class="mesa-aba" data-aba="itens">📦 Itens <b>{{ lotes|length }}</b></button>
+        <button type="button" class="mesa-aba" data-aba="pagamentos">💰 Pagamentos
+            {% if painel.resumo.aguardando %}<b class="alerta">{{ painel.resumo.aguardando }}</b>{% endif %}
+        </button>
+        <button type="button" class="mesa-aba" data-aba="pessoas">👥 Pessoas <b>{{ painel.participantes|length }}</b></button>
+        <button type="button" class="mesa-aba" data-aba="chat">💬 Chat</button>
+    </nav>
+
+    {# ================= PREGÃO ================= #}
+    <section class="mesa-secao ativa" data-secao="pregao">
+
+        <div class="pregao-grade">
+            <div class="cartao lote-atual">
+                <div class="lote-atual-topo">
+                    <img id="mesaFoto" alt="" class="mesa-foto" hidden>
+                    <div class="lote-atual-info">
+                        <span class="etiqueta" id="mesaEtiqueta">Nenhum item em pregão</span>
+                        <h2 id="mesaNome">—</h2>
+                        <p id="mesaDesc" class="mesa-desc"></p>
+                    </div>
+                </div>
+
+                <div class="mesa-numeros">
+                    <div class="numero">
+                        <span class="numero-rotulo">Valor atual</span>
+                        <span class="numero-valor destaque-ouro" id="mesaValor">R$ 0,00</span>
+                    </div>
+                    <div class="numero">
+                        <span class="numero-rotulo">Ganhando</span>
+                        <span class="numero-valor" id="mesaLider">—</span>
+                    </div>
+                    <div class="numero">
+                        <span class="numero-rotulo">Próximo lance</span>
+                        <span class="numero-valor" id="mesaProximo">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <div class="mesa-crono" id="mesaCrono">
+                    <span class="mesa-crono-numero" id="mesaCronoTexto">--</span>
+                    <span class="mesa-crono-rotulo" id="mesaCronoRotulo">cronômetro</span>
+                </div>
+
+                <div class="mesa-botoes">
+                    <button type="button" class="btn-mesa abrir" data-acao="abrir">▶ Abrir próximo</button>
+                    <button type="button" class="btn-mesa tempo" data-acao="tempo">+{{ leilao.segundos_extra }}s</button>
+                    <button type="button" class="btn-mesa pausa" data-acao="pausar" id="btnPausa">⏸ Pausar</button>
+                    <button type="button" class="btn-mesa vendido" data-acao="fechar">🔨 VENDIDO</button>
+                    <button type="button" class="btn-mesa desfazer" data-acao="desfazer">↩ Desfazer lance</button>
+                </div>
+            </div>
+
+            <div class="cartao microfone">
+                <h3>🎙️ Sua voz</h3>
+                {% if audio_ativo %}
+                <p class="micro-ajuda" id="microEstado">Desligado. Ninguém está ouvindo você pelo sistema.</p>
+                <div class="micro-nivel"><span id="microBarra"></span></div>
+                <button type="button" class="btn-mesa micro" id="btnMicrofone"
+                        data-whip="{{ audio_whip }}">🎤 Transmitir</button>
+                {% else %}
+                <p class="micro-ajuda">
+                    A transmissão de voz está <b>desligada</b> na configuração.
+                    {% if audio_externo %}Os participantes veem o link da live externa.{% endif %}
+                </p>
+                <a href="{% url 'leilao:config' %}" class="btn-mini">Configurar áudio</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="pregao-grade">
+            <div class="cartao">
+                <h3>Lances deste item</h3>
+                <ul class="historico" id="historico">
+                    <li class="vazio">Nenhum lance ainda.</li>
+                </ul>
+            </div>
+
+            <div class="cartao">
+                <h3>Fila <span class="conta" id="contaFila"></span></h3>
+                <ul class="fila" id="fila"></ul>
+            </div>
+        </div>
+    </section>
+
+    {# ================= ITENS ================= #}
+    <section class="mesa-secao" data-secao="itens" hidden>
+        <div class="secao-barra">
+            <a href="{% url 'leilao:lote_novo' %}" class="btn-mesa abrir">+ Cadastrar item</a>
+            <a href="{% url 'leilao:lotes' %}" class="btn-mini">Gerenciar fila</a>
+        </div>
+        <ul class="itens">
+            {% for l in lotes %}
+            <li class="item item-{{ l.status }}">
+                {% if l.foto_mini %}<img src="{{ l.foto_mini.url }}" alt="" class="item-foto">
+                {% elif l.foto %}<img src="{{ l.foto.url }}" alt="" class="item-foto">
+                {% else %}<span class="item-foto vazia">📦</span>{% endif %}
+                <div class="item-corpo">
+                    <span class="item-nome">{{ l.ordem }}. {{ l.nome }}</span>
+                    <span class="item-linha">
+                        Inicial R$ {{ l.lance_inicial }} ·
+                        <b class="selo selo-{{ l.status }}">{{ l.get_status_display }}</b>
+                        {% if l.status == 'vendido' %} · R$ {{ l.valor_atual }} para {{ l.lider.nome_curto }}{% endif %}
+                        {% if l.voltas %} · voltou {{ l.voltas }}x{% endif %}
+                    </span>
+                </div>
+                {% if l.status == 'fila' %}
+                <button type="button" class="btn-mini destaque" data-acao="abrir" data-lote="{{ l.id }}">▶</button>
+                {% endif %}
+            </li>
+            {% empty %}
+            <li class="vazio">Nenhum item cadastrado. Comece por “Cadastrar item”.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {# ================= PAGAMENTOS ================= #}
+    <section class="mesa-secao" data-secao="pagamentos" hidden>
+        <div class="kpis">
+            <div class="kpi"><span>Arrematados</span><b>{{ painel.resumo.total|default:0 }}</b></div>
+            <div class="kpi bom"><span>Pagos</span><b>{{ painel.resumo.pagos|default:0 }}</b></div>
+            <div class="kpi atencao"><span>Aguardando</span><b>{{ painel.resumo.aguardando|default:0 }}</b></div>
+            <div class="kpi ruim"><span>Venceu o prazo</span><b>{{ painel.resumo.expirados|default:0 }}</b></div>
+            <div class="kpi bom"><span>Arrecadado</span><b>R$ {{ painel.resumo.arrecadado|default:"0,00" }}</b></div>
+            <div class="kpi atencao"><span>A receber</span><b>R$ {{ painel.resumo.a_receber|default:"0,00" }}</b></div>
+        </div>
+
+        <ul class="arremates-mesa">
+            {% for a in painel.arremates %}
+            <li class="arremate-linha {{ a.status }}">
+                <div class="arremate-quem">
+                    <b>{{ a.participante.nome }}</b>
+                    <span class="arremate-item">{{ a.lote.nome }}</span>
+                    <span class="arremate-contato selecionavel">{{ a.participante.whatsapp }}</span>
+                </div>
+                <div class="arremate-fim">
+                    <span class="arremate-preco">R$ {{ a.valor }}</span>
+                    <span class="selo selo-{{ a.status }}">{{ a.get_status_display }}</span>
+                    {% if a.status == 'aguardando' %}
+                    <button type="button" class="btn-mini destaque" data-acao="pago" data-arremate="{{ a.id }}">
+                        Marcar pago
+                    </button>
+                    {% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="vazio">Nada arrematado ainda.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {# ================= PESSOAS ================= #}
+    <section class="mesa-secao" data-secao="pessoas" hidden>
+        <input type="search" class="busca" id="buscaPessoas" placeholder="Buscar por nome ou WhatsApp…">
+        <ul class="pessoas" id="listaPessoas">
+            {% for p in painel.participantes %}
+            <li class="pessoa {% if p.bloqueado %}bloqueada{% endif %}"
+                data-busca="{{ p.nome|lower }} {{ p.whatsapp }}">
+                <div class="pessoa-corpo">
+                    <b>{{ p.nome }}</b>
+                    <span class="pessoa-linha selecionavel">{{ p.whatsapp }}</span>
+                    <span class="pessoa-linha endereco selecionavel">{{ p.endereco_uma_linha }}</span>
+                    <span class="pessoa-linha">{{ p.n_lances }} lance{{ p.n_lances|pluralize }} ·
+                        {{ p.n_arremates }} arremate{{ p.n_arremates|pluralize }}</span>
+                </div>
+                <button type="button" class="btn-mini {% if p.bloqueado %}destaque{% endif %}"
+                        data-acao="bloquear" data-participante="{{ p.id }}">
+                    {% if p.bloqueado %}Desbloquear{% else %}Bloquear{% endif %}
+                </button>
+            </li>
+            {% empty %}
+            <li class="vazio">Ninguém entrou ainda.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {# ================= CHAT ================= #}
+    <section class="mesa-secao" data-secao="chat" hidden>
+        <div class="cartao">
+            <h3>Bate-papo do intervalo</h3>
+            <p class="micro-ajuda" id="chatEstadoMesa">Fechado.</p>
+            <div class="mesa-botoes">
+                <button type="button" class="btn-mesa abrir" data-acao="chat">💬 Abrir por {{ leilao.chat_segundos }}s</button>
+                <button type="button" class="btn-mesa desfazer" data-acao="chat-fechar">Fechar chat</button>
+            </div>
+            <form class="aviso-form" id="avisoForm">
+                <input type="text" id="avisoTexto" maxlength="300" placeholder="Mandar um aviso para todos…">
+                <button type="submit" class="btn-mini destaque">Enviar</button>
+            </form>
+            <ul class="chat-mesa" id="chatMesa"></ul>
+        </div>
+    </section>
+</div>
+
+<div id="dadosMesa" hidden
+     data-csrf="{{ csrf_token }}"
+     data-acao-url="{% url 'leilao:locutor_acao' %}"
+     data-dados-url="{% url 'leilao:locutor_dados' %}"
+     data-stream-url="{% url 'leilao:stream' %}"></div>
+
+{{ estado_inicial|json_script:"estadoInicial" }}
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'leilao/js/audio_falar.js' %}"></script>
+<script src="{% static 'leilao/js/locutor.js' %}"></script>
+{% endblock %}

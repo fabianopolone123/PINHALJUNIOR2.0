@@ -1,0 +1,153 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}{% if leilao %}{{ leilao.nome }}{% else %}Leilão{% endif %}{% endblock %}
+{% block corpo_classe %}tela-palco{% endblock %}
+
+{% block conteudo %}
+<main class="palco">
+
+    <header class="palco-topo">
+        <span class="selo-vivo" id="seloVivo"><i></i> AO VIVO</span>
+        <span class="palco-nome">{% if leilao %}{{ leilao.nome }}{% else %}Leilão{% endif %}</span>
+        <span class="palco-online" title="Pessoas no leilão">👥 <b id="online">1</b></span>
+        <button type="button" class="btn-som" id="btnSom" aria-pressed="false"
+                title="Ativar som e a voz do locutor">🔇</button>
+    </header>
+
+    {# Estado vazio: nenhum leilão no ar. #}
+    <section class="palco-vazio" id="palcoVazio" hidden>
+        <div class="vazio-icone">🎪</div>
+        <h1>Nenhum leilão no ar agora</h1>
+        <p>Assim que o locutor abrir o pregão, esta tela acende sozinha. Pode deixar aberta.</p>
+    </section>
+
+    {# Entre lotes: o pregão parou, o chat abre. #}
+    <section class="palco-intervalo" id="palcoIntervalo" hidden>
+        <div class="intervalo-icone">⏸️</div>
+        <h1>Intervalo</h1>
+        <p id="intervaloTexto">Preparando o próximo item…</p>
+    </section>
+
+    <div id="palcoPregao" hidden>
+        <section class="lote">
+            <div class="lote-foto" id="loteFoto">
+                <img id="loteImg" alt="" hidden>
+                <div class="lote-foto-vazia" id="loteSemFoto">📦</div>
+                <span class="lote-selo-volta" id="loteVolta" hidden>Voltou para a fila</span>
+            </div>
+            <h1 class="lote-nome" id="loteNome">—</h1>
+            <p class="lote-desc" id="loteDesc"></p>
+        </section>
+
+        <section class="pregao">
+            <div class="cronometro" id="cronometro">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="crono-trilho" cx="60" cy="60" r="54"></circle>
+                    <circle class="crono-anel" cx="60" cy="60" r="54" pathLength="100"
+                            stroke-dasharray="100 100" id="cronoAnel"></circle>
+                </svg>
+                <span class="crono-texto" id="cronoTexto">--</span>
+            </div>
+
+            <div class="lider" id="lider">
+                <span class="lider-rotulo" id="liderRotulo">Lance inicial</span>
+                <span class="lider-nome" id="liderNome">Ninguém ainda</span>
+                <span class="lider-valor" id="liderValor">R$ 0,00</span>
+            </div>
+        </section>
+
+        <div class="acao">
+            <button type="button" class="btn-lance" id="btnLance">
+                <span class="btn-lance-rotulo">DAR LANCE</span>
+                <span class="btn-lance-valor" id="btnLanceValor">R$ 0,00</span>
+            </button>
+            <p class="acao-dica" id="acaoDica">Cada toque sobe <b id="dicaIncremento">R$ 5,00</b></p>
+        </div>
+
+        <section class="ultimos" id="ultimos" hidden>
+            <h2>Últimos lances</h2>
+            <ul id="ultimosLista"></ul>
+        </section>
+    </div>
+
+    {# Chat do intervalo #}
+    <section class="chat" id="chat" hidden>
+        <h2 class="chat-titulo">💬 Bate-papo <span class="chat-tempo" id="chatTempo"></span></h2>
+        <ul class="chat-lista" id="chatLista"></ul>
+        <form class="chat-form" id="chatForm">
+            <input type="text" id="chatTexto" maxlength="300" placeholder="Escreva uma mensagem…"
+                   autocomplete="off">
+            <button type="submit" aria-label="Enviar">➤</button>
+        </form>
+    </section>
+
+    <footer class="palco-barra">
+        <button type="button" class="barra-btn" id="btnArremates">
+            🏆 Meus arremates <b id="qtdArremates">0</b>
+        </button>
+        <span class="barra-info" id="barraInfo"></span>
+    </footer>
+</main>
+
+{# ---- Gaveta: meus arremates (abre por cima, o pregão continua atrás) ---- #}
+<aside class="gaveta" id="gaveta" hidden>
+    <div class="gaveta-caixa" role="dialog" aria-label="Meus arremates">
+        <header class="gaveta-topo">
+            <h2>🏆 Meus arremates</h2>
+            <button type="button" class="gaveta-fechar" id="gavetaFechar" aria-label="Fechar">✕</button>
+        </header>
+        <div class="gaveta-corpo" id="gavetaCorpo">
+            <p class="gaveta-vazio">Você ainda não arrematou nada. Boa sorte!</p>
+        </div>
+    </div>
+</aside>
+
+{# ---- Modal do QR Code ---- #}
+<div class="modal-overlay" id="modalQr" hidden>
+    <div class="modal-caixa" role="dialog" aria-label="Pagar com Pix">
+        <div class="modal-topo">
+            <h2 class="modal-titulo">Pagar com Pix</h2>
+            <button type="button" class="modal-fechar" id="qrFechar" aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo qr-corpo">
+            <p class="qr-item" id="qrItem"></p>
+            <p class="qr-valor" id="qrValor"></p>
+            <img id="qrImagem" alt="QR Code do Pix" hidden>
+            <p class="qr-prazo" id="qrPrazo"></p>
+            <button type="button" class="btn-copiar" id="qrCopiar">📋 Copiar código Pix</button>
+            <p class="qr-ajuda">Abra o app do banco, escolha <b>Pix Copia e Cola</b> e cole o código.</p>
+        </div>
+    </div>
+</div>
+
+<canvas id="confete" class="confete" aria-hidden="true"></canvas>
+<audio id="audioLocutor" playsinline></audio>
+
+{% comment %}
+Dados para o JS: token CSRF e endereço do áudio. Padrão do projeto (data-* num
+elemento, como no presenca.js) — nada de token em variável global.
+{% endcomment %}
+<div id="dadosLeilao" hidden
+     data-csrf="{{ csrf_token }}"
+     data-eu="{{ participante.id }}"
+     data-audio="{{ audio_whep }}"
+     data-audio-externo="{{ audio_externo }}"></div>
+
+{{ estado_inicial|json_script:"estadoInicial" }}
+{% endblock %}
+
+{% block js %}
+<script id="urlsLeilao" type="application/json">{
+    "stream": "{% url 'leilao:stream' %}",
+    "lance": "{% url 'leilao:lance' %}",
+    "chat": "{% url 'leilao:chat_enviar' %}",
+    "arremates": "{% url 'leilao:meus_arremates' %}",
+    "pix": "{% url 'leilao:arremate_pix' 0 %}",
+    "conferir": "{% url 'leilao:arremate_conferir' 0 %}"
+}</script>
+<script src="{% static 'leilao/js/som.js' %}"></script>
+<script src="{% static 'leilao/js/confete.js' %}"></script>
+<script src="{% static 'leilao/js/audio_ouvir.js' %}"></script>
+<script src="{% static 'leilao/js/leilao.js' %}"></script>
+{% endblock %}

@@ -2,7 +2,34 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-13 (**Ficha de diretoria na própria conta + card "Minhas parcelas"**): duas
+**Última atualização:** 2026-09-13 (**Leilão online ao vivo — módulo novo em `/leilao/`**): módulo
+**independente** do sistema do clube, para leilão beneficente ao vivo com o público **todo remoto** (~50
+pessoas, teto de projeto 100). É uma **segunda aplicação** na mesma base de código: app `leilao`, **banco
+SQLite próprio** (`leilao.sqlite3`) e **serviço ASGI próprio** (uvicorn, porta 8011) — 50 pessoas
+martelando lance não encostam no banco que roda mensalidades, eventos e loja. A pessoa entra por um
+**link** (nome, WhatsApp e endereço; sem senha, sessão por token) e cai na **tela do pregão**: foto
+grande do item, **quem está ganhando** e o **valor** em letra enorme, **cronômetro** e um **botão gigante
+de lance** que soma R$ 5 por toque. Tudo em **tempo real por SSE** — o servidor empurra o lance para
+todas as conexões abertas em menos de meio segundo. Quem arremata tem **15 minutos** para pagar por
+**Pix** (copiar código ou ver o QR **sem sair da tela**, que continua com o próximo item rolando atrás);
+vencido o prazo, o lote **volta para a fila**. Entre um lote e outro abre um **chat**. A **mesa do
+locutor** (`/leilao/locutor/`, `is_staff`) traz cronômetro grande, abrir/pausar/+tempo/**VENDIDO**,
+**desfazer lance**, fila, histórico ao vivo, controle de **pagamentos** (com baixa manual), lista de
+**pessoas** (contato e endereço, para entregar) e o **microfone**: a voz do locutor vai ao vivo por
+**WebRTC/MediaMTX** com atraso de 200-500 ms, em `RTCPeerConnection` puro — **sem biblioteca JS
+externa**. Item é cadastrado pela **câmera do celular** (`capture` nativo) e a foto é reduzida com
+Pillow. Efeitos: som **sintetizado em WebAudio** (zero arquivo para baixar), vibração, confete e o par
+de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que mais importam: **um worker só**
+(o hub de eventos e o relógio vivem na memória do processo — dois seriam dois leilões paralelos);
+**`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
+— leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
+leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **68 testes
+OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **Ainda NÃO está em produção**: falta o
+deploy (`docs/DEPLOY_LEILAO.md`) e o **teste de carga com 100 conexões**, que é obrigatório antes do
+evento. Plano completo em `docs/PLANEJAMENTO_LEILAO.md`.
+
+**Atualização anterior:** 2026-09-13 (**Ficha de diretoria na própria conta + card "Minhas parcelas"**): duas
 faltas que apareceram no mesmo caso real — uma responsável que também virou da diretoria. (1) O único caminho
 para virar diretoria era `/cadastro/diretoria/`, que **cria uma conta nova**: quem já era responsável acabava
 com **dois logins** e a família partida em duas contas. Agora o **Diretor libera** a conta em **Usuários**
@@ -1776,6 +1803,75 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     `mensagem_cobranca_parcela`, `assunto_cobranca_parcela_email`, `cobranca_parcela_via_ia` e
     `prompt_cobranca_parcela_ia`.
 
+## Módulo de Leilão (`/leilao/`) — aplicação separada
+
+> **É outro sistema Django**, na mesma base de código: settings, URLs, banco, cookies e serviço
+> próprios. Nada aqui compartilha banco com o clube. Detalhes em `docs/PLANEJAMENTO_LEILAO.md`
+> (o porquê) e `docs/DEPLOY_LEILAO.md` (como publicar).
+
+**Como rodar local**
+
+```bash
+pip install -r requirements-leilao.txt
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
+DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
+  python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 68 testes
+```
+
+Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
+fictícios com foto desenhada por Pillow e 3 participantes fictícios.
+
+**Arquivos do serviço**: `config/settings_leilao.py`, `config/urls_leilao.py`, `config/asgi_leilao.py`.
+**`manage.py test` do clube continua com a sua suíte**: `leilao/tests.py` se **auto-pula** quando o app
+não está instalado (sem isso, virava erro de importação na suíte do clube).
+
+**Models** (migration `0001`, banco `leilao.sqlite3`)
+- `ConfigLeilao` — singleton (`get_solo`, que **não escreve**: é lido a cada página). Credenciais do
+  Mercado Pago (teste/produção) + `site_url` + configuração de áudio (MediaMTX) e o **plano B**
+  `audio_externo_url`. Expõe `access_token`/`webhook_secret`, que é tudo o que o
+  `core/mercadopago.py` — biblioteca pura — precisa.
+- `Leilao` — a noite de leilão: `status` (rascunho/**ao_vivo**/encerrado; **só um ao vivo**),
+  `incremento_padrao` (R$ 5), `segundos_por_lote` (60), `reiniciar_cronometro`, `segundos_extra`,
+  `minutos_para_pagar` (15), `chat_segundos` e `chat_aberto_ate`.
+- `Participante` — quem entra pelo link: nome, WhatsApp, endereço completo, `token` (a sessão guarda só
+  o token), `bloqueado`. `nome_curto` (primeiro + último) é o que vai para a tela e para o broadcast.
+- `Lote` — o item: `ordem`, foto + `foto_mini` (Pillow), `lance_inicial`, `incremento` opcional,
+  `status` (fila/aberto/vendido/sem_lance/cancelado), `valor_atual`, `lider`, **`fecha_em`** (data/hora
+  **absoluta** do fim do cronômetro), `pausado_restante`, `voltas`. `proximo_valor` devolve o **lance
+  inicial** enquanto não há lance (somar o incremento faria o item nunca sair pelo preço anunciado) e
+  **`lances_da_rodada()`** limita o histórico à vez atual em pregão.
+- `Lance` — imutável, com `cancelado` para o **desfazer** do locutor (histórico não se apaga).
+- `Arremate` — FK (não OneToOne) com o lote: o item pode voltar para a fila e ser arrematado de novo,
+  e o histórico das tentativas é o que embasa bloquear alguém. Tem `expira_em` e `pago_manual`.
+- `PagamentoLeilao` — a cobrança Pix, com o QR pronto (`qr_code` + `qr_code_base64`) e `finalizado`
+  como trava de idempotência do webhook.
+- `MensagemChat` — `participante` vazio = locutor; `removida` em vez de apagar.
+
+**Arquitetura** (o que não pode ser mexido sem entender)
+- `hub.py` — pub/sub **em memória** + `laco_central` (1 s) que fecha lote vencido, expira arremate e
+  devolve o lote à fila. Só funciona com **um worker**.
+- `servicos.py` — **toda** mudança de estado do pregão. `dar_lance` usa cadeado por lote + `UPDATE`
+  conferindo o valor que o cliente viu.
+- `estado.py` — o estado público (o que vai no broadcast). **Só o que pode ser dito em voz alta.**
+- `sessao.py` — o participante deste navegador (token na sessão, sem senha).
+
+**Rotas** — público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
+`/meus-arremates/`, `/arremate/<id>/pix|conferir/`, `/webhooks/mercadopago/`.
+Locutor (`is_staff`): `/locutor/` (mesa), `/locutor/entrar|sair|dados|acao/`,
+`/locutor/lotes/` (+`novo`/`<id>/editar`/`<id>/excluir`), `/locutor/leiloes/` (+`<id>/status/`),
+`/locutor/config/`.
+
+**Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `locutor`, `locutor_entrar`, `lotes`,
+`lote_form`, `leiloes`, `config`, `_base`, `_campo`.
+**Estáticos**: `static/leilao/css/{leilao,locutor}.css` e `static/leilao/js/{leilao,locutor,som,confete,
+audio_ouvir,audio_falar,lotes,lote_form,entrar}.js`. Reaproveita `css/base.css` (modal + toast) e
+`js/inicio.js` (módulo único de toasts) do sistema do clube.
+
+**Comandos**: `leilao_demo` (dados fictícios) e `leilao_carga` (teste de carga: N conexões SSE + lances
+cronometrados; **rodar de outra máquina, antes do evento**).
+
 ## Funcionalidades incompletas / não implementadas
 - Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos), tanto
   pelo CPF do **responsável legal** quanto pelo da **ficha de diretoria**. Falta permitir que o **responsável
@@ -1822,12 +1918,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Cobrança automática das parcelas** (do clube e de inscrição): hoje nada dispara sozinho — o Diretor
   manda pela aba "Cobrar parcelas". É a continuação natural do parcelamento.
 - **Editar um parcelamento lançado** (valor / nº de parcelas): hoje é cancelar e lançar de novo.
-- **Leilão online ao vivo** (`/leilao/`) — **em construção**, módulo novo e **independente** do sistema do
-  clube (app `leilao`, **banco SQLite próprio** e **serviço ASGI próprio**; reaproveita só o cliente de
-  pagamento `core/mercadopago.py`, que é biblioteca pura). Tempo real por **SSE** (dependência nova
-  **autorizada**: `uvicorn`, num `requirements-leilao.txt` separado), voz do locutor por **WebRTC/MediaMTX**
-  no próprio VPS e Pix com prazo de **15 min** para pagar, senão o lote volta para a fila. Plano completo,
-  com as contas de carga e os riscos, em **`docs/PLANEJAMENTO_LEILAO.md`**.
+- **Leilão online ao vivo** (`/leilao/`) — **implementado, ainda não publicado**. Ver o resumo no topo,
+  o plano em `docs/PLANEJAMENTO_LEILAO.md` e o deploy em `docs/DEPLOY_LEILAO.md`. Falta: instalar o
+  serviço/Nginx/MediaMTX no VPS e rodar o **teste de carga** (`leilao_carga`) antes do evento.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Permitir ao responsável logado escolher o próprio WhatsApp principal (recuperação).
 

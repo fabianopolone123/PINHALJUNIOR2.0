@@ -267,7 +267,40 @@ PINHALJUNIOR2.0/
 ## Apps existentes
 
 - **config**: projeto Django (settings, urls, wsgi, asgi). Não é um app de negócio.
+  Guarda também as configurações do **segundo serviço** (o leilão): `settings_leilao.py`,
+  `urls_leilao.py` e `asgi_leilao.py`.
 - **core**: app principal. Views de login, tela inicial e cadastro; models de aventureiro.
+- **leilao**: **módulo de leilão online ao vivo** (`/leilao/`) — **independente** do sistema do clube,
+  com banco SQLite próprio e serviço ASGI próprio. Ver a seção abaixo.
+
+## Leilão online ao vivo (`/leilao/`) — segunda aplicação
+
+Leilão beneficente ao vivo, com o público remoto no celular: lance de R$ 5 em R$ 5, cronômetro,
+tempo real por **SSE**, Pix com 15 minutos para pagar, chat entre lotes e a **voz do locutor** por
+WebRTC. Roda como um **segundo serviço**, na mesma base de código:
+
+```
+pinhaljunior.com.br/sistema-novo/  → pinhaljunior2.service        → gunicorn sync      → db.sqlite3
+pinhaljunior.com.br/leilao/        → pinhaljunior_leilao.service  → uvicorn (1 worker) → leilao.sqlite3
+```
+
+Para rodar local:
+
+```bash
+pip install -r requirements-leilao.txt
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
+DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
+  python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
+```
+
+Testes: `DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao`.
+(O `python manage.py test` do clube **pula** essa suíte sozinho — são duas aplicações.)
+
+- **`uvicorn` é a única dependência nova**, isolada em `requirements-leilao.txt` para não mexer no
+  ambiente do sistema do clube.
+- **Sempre um worker só**: o hub de eventos e o relógio do pregão vivem na memória do processo.
+- Plano e decisões: `docs/PLANEJAMENTO_LEILAO.md`. Deploy: `docs/DEPLOY_LEILAO.md`.
 
 ## Rotas existentes
 

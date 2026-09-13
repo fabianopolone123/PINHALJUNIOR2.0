@@ -1,0 +1,12 @@
+# Dependências do SERVIÇO DO LEILÃO (`/leilao/`), separadas de propósito.
+#
+# O sistema do clube roda em gunicorn síncrono e não deve ganhar dependência
+# nova por causa do leilão. Instale este arquivo apenas no serviço do leilão:
+#
+#     pip install -r requirements.txt -r requirements-leilao.txt
+#
+# `uvicorn` é a ÚNICA dependência nova do módulo, autorizada pelo usuário ao
+# escolher SSE como transporte de tempo real. O resto (Mercado Pago, WebRTC,
+# QR Code, som, gráficos) é biblioteca-padrão, API nativa do navegador ou
+# Pillow, que o projeto já usa.
+uvicorn>=0.30

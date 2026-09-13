@@ -1,0 +1,481 @@
+/* =========================================================
+   Leilão — mesa do locutor
+   Complementa o leilao.css (que já traz a paleta e os campos).
+
+   A pessoa aqui está FALANDO enquanto usa a tela. Então: botões grandes,
+   poucos, com verbo claro, e o cronômetro visível de longe. Nada de menu
+   escondido nem confirmação em dois passos no meio do pregão.
+   ========================================================= */
+
+body.tela-locutor {
+    min-height: 100dvh;
+    background:
+        radial-gradient(900px 480px at 50% -15%, rgba(23, 105, 170, 0.42), transparent 70%),
+        var(--palco-fundo);
+    color: var(--palco-texto);
+}
+
+.mesa {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 12px 14px calc(28px + var(--piso));
+}
+
+/* ---- Topo ---- */
+.mesa-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--palco-borda);
+}
+.mesa-identidade { min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mesa-identidade h1 { font-size: 1.15rem; overflow-wrap: anywhere; }
+
+.mesa-status {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-radius: 999px;
+    padding: 3px 9px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--palco-suave);
+}
+.mesa-status.status-ao_vivo { background: rgba(226, 69, 47, 0.25); color: #ffc7bd; }
+
+.mesa-acoes-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mesa-online { font-size: 0.82rem; color: var(--palco-suave); }
+.mesa-online b { color: var(--palco-texto); }
+.inline { display: inline; }
+
+.btn-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 11px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--palco-texto);
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 9px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-mini:hover { background: rgba(255, 255, 255, 0.12); }
+.btn-mini.destaque { background: rgba(58, 157, 58, 0.28); border-color: rgba(98, 196, 98, 0.55); }
+.btn-mini.perigo { background: rgba(226, 69, 47, 0.2); border-color: rgba(255, 107, 82, 0.45); }
+
+.mesa-aviso {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 11px 13px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    background: rgba(240, 162, 2, 0.16);
+    border: 1px solid rgba(240, 162, 2, 0.45);
+    border-radius: 12px;
+}
+
+/* ---- Abas (mesmo desenho das abas do resto do sistema: trilho + pílulas) ---- */
+.mesa-abas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+    margin-bottom: 14px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--palco-borda);
+    border-radius: 14px;
+}
+.mesa-aba {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--palco-suave);
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.mesa-aba:hover { color: var(--palco-texto); background: rgba(255, 255, 255, 0.06); }
+.mesa-aba.ativa {
+    color: var(--branco);
+    background: linear-gradient(135deg, var(--azul), var(--azul-claro));
+}
+.mesa-aba b {
+    font-size: 0.72rem;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+}
+.mesa-aba b.alerta { background: var(--ambar); color: #2a1a00; }
+
+.mesa-secao[hidden] { display: none !important; }
+
+/* ---- Cartões ---- */
+.cartao {
+    padding: 14px;
+    margin-bottom: 14px;
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 16px;
+}
+.cartao h3 {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--palco-suave);
+    margin-bottom: 10px;
+}
+.conta { font-weight: 700; color: var(--palco-texto); }
+
+/* `minmax(0, 1fr)` e não `1fr`: com `1fr` a coluna não encolhe abaixo do
+   conteúdo e um nome comprido estica a grade, criando rolagem horizontal na
+   página inteira. Armadilha já registrada nas regras do projeto. */
+.pregao-grade {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+}
+@media (min-width: 860px) {
+    .pregao-grade { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+
+/* ---- Lote em pregão ---- */
+.lote-atual-topo { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.mesa-foto {
+    width: 88px; height: 88px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.3);
+}
+.lote-atual-info { min-width: 0; }
+.etiqueta {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--palco-suave);
+}
+.lote-atual-info h2 { font-size: 1.2rem; line-height: 1.2; overflow-wrap: anywhere; }
+.mesa-desc { font-size: 0.86rem; color: var(--palco-suave); margin-top: 3px; }
+
+.mesa-numeros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.numero {
+    padding: 9px 11px;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 11px;
+    min-width: 0;
+}
+.numero-rotulo {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--palco-suave);
+}
+.numero-valor {
+    display: block;
+    font-size: 1.12rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.destaque-ouro { color: var(--ouro); }
+
+/* Cronômetro grande: tem de ser legível de longe, o locutor não está colado na tela. */
+.mesa-crono {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--palco-borda);
+    border-radius: 14px;
+}
+.mesa-crono-numero {
+    font-size: 2.6rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.mesa-crono-rotulo { font-size: 0.72rem; color: var(--palco-suave); text-transform: uppercase; }
+.mesa-crono.apertado .mesa-crono-numero { color: var(--ambar); }
+.mesa-crono.final .mesa-crono-numero { color: var(--vermelho-claro); }
+.mesa-crono.final { animation: pulso 1s infinite; }
+.mesa-crono.pausado .mesa-crono-numero { color: var(--ambar); }
+
+.mesa-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.btn-mesa {
+    flex: 1 1 auto;
+    min-width: 124px;
+    min-height: 48px;
+    padding: 11px 14px;
+    font-size: 0.92rem;
+    font-weight: 800;
+    font-family: inherit;
+    color: var(--palco-texto);
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.12s ease, filter var(--transicao);
+}
+.btn-mesa:active { transform: scale(0.97); }
+.btn-mesa:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-mesa.abrir { background: linear-gradient(135deg, var(--azul), var(--azul-claro)); border-color: transparent; color: #fff; }
+.btn-mesa.vendido { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); border-color: transparent; color: #fff; }
+.btn-mesa.tempo { background: rgba(240, 162, 2, 0.2); border-color: rgba(240, 162, 2, 0.5); }
+.btn-mesa.micro { background: linear-gradient(135deg, var(--verde), #2f8f4f); border-color: transparent; color: #fff; }
+.btn-mesa.micro.ligado { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); }
+
+/* ---- Microfone ---- */
+.micro-ajuda { font-size: 0.84rem; color: var(--palco-suave); line-height: 1.5; margin-bottom: 10px; }
+.alerta-texto { color: var(--ambar); }
+
+.micro-nivel {
+    height: 8px;
+    margin-bottom: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.micro-nivel span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--verde-claro), var(--ambar));
+    transition: width 0.1s linear;
+}
+
+/* ---- Histórico e fila ---- */
+.historico, .fila, .itens, .pessoas, .arremates-mesa, .chat-mesa {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.historico { max-height: 320px; overflow-y: auto; }
+.historico li, .fila li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 11px;
+    font-size: 0.87rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    min-width: 0;
+}
+.historico li.cancelado { opacity: 0.45; text-decoration: line-through; }
+.historico .quem, .fila .nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.historico .quanto { font-weight: 800; color: var(--ouro); white-space: nowrap; }
+.historico .quando { font-size: 0.74rem; color: var(--palco-suave); white-space: nowrap; }
+
+.vazio { color: var(--palco-suave); font-size: 0.87rem; padding: 10px 2px; }
+.vazio a { color: var(--azul-claro); }
+
+/* ---- Itens ---- */
+.secao-barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px;
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 12px;
+    min-width: 0;
+}
+.item-foto {
+    width: 54px; height: 54px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 9px;
+    background: rgba(0, 0, 0, 0.3);
+}
+.item-foto.vazia { display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+.item-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.item-nome { font-weight: 700; overflow-wrap: anywhere; }
+.item-linha { font-size: 0.8rem; color: var(--palco-suave); overflow-wrap: anywhere; }
+.item-acoes { display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
+.item-aberto { border-color: rgba(98, 196, 98, 0.5); }
+.item-vendido { opacity: 0.75; }
+
+.selo { font-size: 0.72rem; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.selo-fila { background: rgba(255, 255, 255, 0.1); color: var(--palco-suave); }
+.selo-aberto, .selo-ao_vivo { background: rgba(58, 157, 58, 0.26); color: var(--verde-claro); }
+.selo-vendido, .selo-pago { background: rgba(58, 157, 58, 0.26); color: var(--verde-claro); }
+.selo-aguardando { background: rgba(240, 162, 2, 0.24); color: var(--ambar); }
+.selo-expirado, .selo-cancelado, .selo-sem_lance { background: rgba(226, 69, 47, 0.22); color: var(--vermelho-claro); }
+.selo-rascunho, .selo-encerrado { background: rgba(255, 255, 255, 0.1); color: var(--palco-suave); }
+
+/* ---- KPIs ---- */
+.kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.kpi {
+    padding: 11px;
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 12px;
+    min-width: 0;
+}
+.kpi span {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--palco-suave);
+}
+.kpi b { font-size: 1.25rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kpi.bom b { color: var(--verde-claro); }
+.kpi.atencao b { color: var(--ambar); }
+.kpi.ruim b { color: var(--vermelho-claro); }
+
+/* ---- Arremates ---- */
+.arremate-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 11px;
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 12px;
+    min-width: 0;
+}
+.arremate-linha.aguardando { border-color: rgba(240, 162, 2, 0.45); }
+.arremate-linha.expirado { opacity: 0.6; }
+.arremate-quem { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.arremate-item, .arremate-contato { font-size: 0.8rem; color: var(--palco-suave); overflow-wrap: anywhere; }
+.arremate-fim { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.arremate-preco { font-weight: 800; color: var(--ouro); font-variant-numeric: tabular-nums; }
+
+/* ---- Pessoas ---- */
+.busca {
+    width: 100%;
+    padding: 11px 13px;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--palco-borda);
+    border-radius: 11px;
+}
+.busca::placeholder { color: var(--palco-suave); }
+.busca:focus { outline: none; border-color: var(--azul-claro); }
+
+.pessoa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px;
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 12px;
+    min-width: 0;
+}
+.pessoa.bloqueada { border-color: rgba(226, 69, 47, 0.5); opacity: 0.75; }
+.pessoa-corpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pessoa-linha { font-size: 0.79rem; color: var(--palco-suave); overflow-wrap: anywhere; }
+.pessoa-linha.endereco { font-size: 0.75rem; }
+
+/* Esconder item filtrado usa CLASSE, não `hidden`: elemento `display:flex`
+   ignora o `[hidden]` do navegador (regra registrada no projeto). */
+.busca-oculto { display: none !important; }
+
+/* ---- Chat da mesa ---- */
+.aviso-form { display: flex; gap: 8px; margin: 10px 0; }
+.aviso-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    font-family: inherit;
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--palco-borda);
+    border-radius: 10px;
+}
+.aviso-form input:focus { outline: none; border-color: var(--azul-claro); }
+
+.chat-mesa { max-height: 300px; overflow-y: auto; }
+.chat-mesa li { font-size: 0.87rem; padding: 6px 9px; background: rgba(0, 0, 0, 0.18); border-radius: 9px; }
+.chat-mesa .autor { font-weight: 800; color: var(--azul-claro); }
+.chat-mesa li.locutor .autor { color: var(--ouro); }
+
+/* ---- Formulários dentro da mesa ---- */
+.form-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 0 12px;
+}
+.mesa .campo label { color: var(--palco-texto); }
+.mesa .campo-input, .mesa .campo-select, .mesa .campo-file {
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.25);
+    border-color: var(--palco-borda);
+}
+.mesa .campo-input::placeholder { color: var(--palco-suave); }
+.mesa .ajuda { color: var(--palco-suave); }
+
+.check-linha {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 10px 0;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.check-linha input { margin-top: 3px; flex-shrink: 0; }
+.check-linha small { display: block; font-size: 0.76rem; color: var(--palco-suave); }
+
+.previa-foto { width: 100%; border-radius: 12px; margin-bottom: 12px; }
+.btn-voltar {
+    display: block;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 0.86rem;
+    color: var(--azul);
+    text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mesa-crono.final { animation: none; }
+}

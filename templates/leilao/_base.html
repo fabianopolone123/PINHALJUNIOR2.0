@@ -1,0 +1,36 @@
+{% load static %}<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    {% comment %}
+    viewport-fit=cover + as variáveis safe-area do CSS: sem isso o botão de lance
+    fica embaixo da barra de gestos do iPhone — justo o botão que a pessoa mais usa.
+    {% endcomment %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#071a2c">
+    <title>{% block titulo %}Leilão{% endblock %}</title>
+    {# base.css ANTES do CSS da página (regra do projeto): traz modal e toast. #}
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'leilao/css/leilao.css' %}">
+    {% block css %}{% endblock %}
+</head>
+<body class="{% block corpo_classe %}{% endblock %}">
+
+    {% if messages %}
+    <div class="mensagens">
+        {% for m in messages %}
+        <div class="mensagem mensagem-{{ m.tags }}">{{ m }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block conteudo %}{% endblock %}
+
+    {% comment %}
+    Módulo único de toasts do sistema (move para o body, auto-fecha, expõe
+    window.mostrarToast). Seguro em qualquer página.
+    {% endcomment %}
+    <script src="{% static 'js/inicio.js' %}"></script>
+    {% block js %}{% endblock %}
+</body>
+</html>

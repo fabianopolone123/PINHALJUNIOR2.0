@@ -1,0 +1,32 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Entrar — mesa do locutor{% endblock %}
+{% block corpo_classe %}tela-entrada{% endblock %}
+
+{% block conteudo %}
+<main class="entrada">
+    <div class="entrada-card">
+        <header class="entrada-topo">
+            <img src="{% static 'img/logo.png' %}" alt="" class="entrada-logo" onerror="this.style.display='none'">
+            <h1>Mesa do locutor</h1>
+            <p class="entrada-sub">Área da equipe do leilão.</p>
+        </header>
+
+        <form method="post" class="entrada-form">
+            {% csrf_token %}
+            <div class="campo">
+                <label for="usuario">Usuário</label>
+                <input type="text" name="usuario" id="usuario" class="campo-input"
+                       autocomplete="username" autocapitalize="none" required>
+            </div>
+            <div class="campo">
+                <label for="senha">Senha</label>
+                <input type="password" name="senha" id="senha" class="campo-input"
+                       autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn-entrar">Entrar</button>
+        </form>
+    </div>
+</main>
+{% endblock %}

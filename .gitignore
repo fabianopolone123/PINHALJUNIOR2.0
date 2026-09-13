@@ -20,6 +20,14 @@ staticfiles/
 media/
 *.log
 
+# Leilão (segunda aplicação): banco, uploads e estáticos coletados próprios.
+# O SQLite em modo WAL cria os arquivos -wal/-shm ao lado do banco.
+*.sqlite3-wal
+*.sqlite3-shm
+media_leilao/
+staticfiles_leilao/
+test_leilao.sqlite3
+
 # Dados de migração do sistema antigo (dados pessoais de menores — NUNCA versionar)
 exportacao_migracao_*.zip
 migracao/

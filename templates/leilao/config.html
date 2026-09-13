@@ -1,0 +1,73 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Configuração do leilão{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    <header class="mesa-topo">
+        <div class="mesa-identidade"><h1>⚙️ Configuração</h1></div>
+        <div class="mesa-acoes-topo">
+            <a href="{% url 'leilao:locutor' %}" class="btn-mini">← Mesa</a>
+        </div>
+    </header>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="cartao">
+            <h3>💳 Mercado Pago (Pix)</h3>
+            <p class="micro-ajuda">
+                O leilão tem as <b>próprias</b> credenciais — ele não lê a configuração do sistema
+                do clube. Segredo em branco <b>não apaga</b> o que já está salvo.
+                {% if config.configurado %}
+                <br>Token em uso: <b class="selecionavel">{{ config.token_mascarado }}</b>
+                ({{ config.get_modo_display }}).
+                {% else %}
+                <br><b class="alerta-texto">Sem credencial: o sistema não gera Pix</b> — o locutor
+                combina o pagamento por fora e dá baixa manual.
+                {% endif %}
+            </p>
+
+            {% include "leilao/_campo.html" with campo=form.modo %}
+            <div class="form-grade">
+                {% include "leilao/_campo.html" with campo=form.access_token_teste %}
+                {% include "leilao/_campo.html" with campo=form.webhook_secret_teste %}
+                {% include "leilao/_campo.html" with campo=form.access_token_prod %}
+                {% include "leilao/_campo.html" with campo=form.webhook_secret_prod %}
+            </div>
+            {% include "leilao/_campo.html" with campo=form.site_url %}
+            <p class="micro-ajuda">
+                No painel do Mercado Pago, aponte o webhook para
+                <b class="selecionavel">{{ config.site_url|default:"(endereço acima)" }}/webhooks/mercadopago/</b>
+            </p>
+        </div>
+
+        <div class="cartao">
+            <h3>🎙️ Voz do locutor</h3>
+            <p class="micro-ajuda">
+                A voz vai por WebRTC pelo MediaMTX instalado no servidor. Os participantes
+                escutam dentro da própria tela do leilão, com atraso de menos de meio segundo.
+            </p>
+            <label class="check-linha">
+                {{ form.audio_ativo }}
+                <span>{{ form.audio_ativo.label }}</span>
+            </label>
+            <div class="form-grade">
+                {% include "leilao/_campo.html" with campo=form.audio_caminho %}
+                {% include "leilao/_campo.html" with campo=form.audio_publicar_usuario %}
+                {% include "leilao/_campo.html" with campo=form.audio_publicar_senha %}
+            </div>
+            {% include "leilao/_campo.html" with campo=form.audio_externo_url %}
+            <p class="micro-ajuda">
+                O campo acima é o <b>plano B</b>: se a transmissão própria não for usada,
+                aponte para uma live externa e a tela do participante leva o link.
+            </p>
+        </div>
+
+        <button type="submit" class="btn-entrar">Salvar configuração</button>
+    </form>
+</div>
+{% endblock %}

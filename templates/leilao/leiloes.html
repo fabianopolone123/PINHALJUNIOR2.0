@@ -1,0 +1,84 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Leilões{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    <header class="mesa-topo">
+        <div class="mesa-identidade"><h1>Leilões</h1></div>
+        <div class="mesa-acoes-topo">
+            <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️ Configuração</a>
+            <form method="post" action="{% url 'leilao:sair_locutor' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn-mini">Sair</button>
+            </form>
+        </div>
+    </header>
+
+    <ul class="itens">
+        {% for l in leiloes %}
+        <li class="item">
+            <div class="item-corpo">
+                <span class="item-nome">{{ l.nome }}</span>
+                <span class="item-linha">
+                    <b class="selo selo-{{ l.status }}">{{ l.get_status_display }}</b> ·
+                    {{ l.lotes.count }} item{{ l.lotes.count|pluralize:"ns" }} ·
+                    lance de R$ {{ l.incremento_padrao }} ·
+                    {{ l.segundos_por_lote }}s por lote ·
+                    {{ l.minutos_para_pagar }} min para pagar
+                </span>
+            </div>
+            <div class="item-acoes">
+                {% if l.status != 'ao_vivo' %}
+                <form method="post" action="{% url 'leilao:leilao_status' l.pk %}" class="inline"
+                      data-confirmar="Colocar “{{ l.nome }}” no ar? Isso encerra o leilão que estiver ao vivo.">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="ao_vivo">
+                    <button type="submit" class="btn-mini destaque">▶ No ar</button>
+                </form>
+                {% else %}
+                <a href="{% url 'leilao:locutor' %}" class="btn-mini destaque">Abrir mesa</a>
+                <form method="post" action="{% url 'leilao:leilao_status' l.pk %}" class="inline"
+                      data-confirmar="Encerrar “{{ l.nome }}”?">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="encerrado">
+                    <button type="submit" class="btn-mini perigo">Encerrar</button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="vazio">Nenhum leilão criado ainda.</li>
+        {% endfor %}
+    </ul>
+
+    <div class="cartao">
+        <h3>Novo leilão</h3>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% include "leilao/_campo.html" with campo=form.nome %}
+            {% include "leilao/_campo.html" with campo=form.descricao %}
+            <div class="form-grade">
+                {% include "leilao/_campo.html" with campo=form.incremento_padrao %}
+                {% include "leilao/_campo.html" with campo=form.segundos_por_lote %}
+                {% include "leilao/_campo.html" with campo=form.segundos_extra %}
+                {% include "leilao/_campo.html" with campo=form.minutos_para_pagar %}
+                {% include "leilao/_campo.html" with campo=form.chat_segundos %}
+            </div>
+            <label class="check-linha">
+                {{ form.reiniciar_cronometro }}
+                <span>{{ form.reiniciar_cronometro.label }}
+                    <small>{{ form.reiniciar_cronometro.help_text }}</small></span>
+            </label>
+            <button type="submit" class="btn-entrar">Criar leilão</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'leilao/js/lotes.js' %}"></script>
+{% endblock %}

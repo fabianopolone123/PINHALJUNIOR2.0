@@ -1,0 +1,54 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Entrar no leilão{% endblock %}
+{% block corpo_classe %}tela-entrada{% endblock %}
+
+{% block conteudo %}
+<main class="entrada">
+    <div class="entrada-card">
+        <header class="entrada-topo">
+            <img src="{% static 'img/logo.png' %}" alt="Clube de Aventureiros Pinhal Júnior" class="entrada-logo"
+                 onerror="this.style.display='none'">
+            <h1>{% if leilao %}{{ leilao.nome }}{% else %}Leilão do Clube{% endif %}</h1>
+            {% if leilao and leilao.descricao %}
+            <p class="entrada-sub">{{ leilao.descricao }}</p>
+            {% else %}
+            <p class="entrada-sub">Preencha seus dados para entrar e dar lances.</p>
+            {% endif %}
+        </header>
+
+        <form method="post" class="entrada-form" novalidate>
+            {% csrf_token %}
+
+            <div class="entrada-bloco">
+                {% include "leilao/_campo.html" with campo=form.nome %}
+                {% include "leilao/_campo.html" with campo=form.whatsapp %}
+            </div>
+
+            <div class="entrada-bloco">
+                <h2 class="entrada-secao">Para onde entregamos o que você arrematar</h2>
+                <div class="entrada-grade">
+                    <div class="col-cep">{% include "leilao/_campo.html" with campo=form.cep %}</div>
+                    <div class="col-larga">{% include "leilao/_campo.html" with campo=form.logradouro %}</div>
+                    <div class="col-num">{% include "leilao/_campo.html" with campo=form.numero %}</div>
+                    <div class="col-larga">{% include "leilao/_campo.html" with campo=form.complemento %}</div>
+                    <div class="col-larga">{% include "leilao/_campo.html" with campo=form.bairro %}</div>
+                    <div class="col-cidade">{% include "leilao/_campo.html" with campo=form.cidade %}</div>
+                    <div class="col-uf">{% include "leilao/_campo.html" with campo=form.estado %}</div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-entrar">Entrar no leilão</button>
+            <p class="entrada-aviso">
+                Seus dados são usados só para a entrega do item arrematado e para o clube
+                falar com você.
+            </p>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'leilao/js/entrar.js' %}"></script>
+{% endblock %}

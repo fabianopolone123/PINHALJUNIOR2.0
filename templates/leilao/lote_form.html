@@ -1,0 +1,51 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}{% if lote %}Editar item{% else %}Cadastrar item{% endif %}{% endblock %}
+{% block corpo_classe %}tela-entrada{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<main class="entrada">
+    <div class="entrada-card">
+        <header class="entrada-topo">
+            <h1>{% if lote %}Editar item{% else %}Cadastrar item{% endif %}</h1>
+            <p class="entrada-sub">{{ leilao.nome }}</p>
+        </header>
+
+        <form method="post" enctype="multipart/form-data" class="entrada-form" novalidate>
+            {% csrf_token %}
+            {% include "leilao/_campo.html" with campo=form.nome %}
+            {% include "leilao/_campo.html" with campo=form.descricao %}
+
+            <div class="entrada-grade">
+                <div class="col-cep">{% include "leilao/_campo.html" with campo=form.lance_inicial %}</div>
+                <div class="col-num">{% include "leilao/_campo.html" with campo=form.incremento %}</div>
+            </div>
+
+            <div class="campo">
+                <label for="{{ form.foto.id_for_label }}">Foto do item</label>
+                {% comment %}
+                O atributo `capture` (posto no widget, em forms.py) faz o celular abrir a
+                CÂMERA direto em vez da galeria. É nativo do <input type="file"> — nenhuma
+                biblioteca envolvida. No computador, vira um seletor de arquivo normal.
+                {% endcomment %}
+                {{ form.foto }}
+                <small class="ajuda">No celular, abre a câmera. A imagem é reduzida
+                    automaticamente para carregar rápido na tela de todo mundo.</small>
+                {% if form.foto.errors %}<div class="erros">{{ form.foto.errors }}</div>{% endif %}
+            </div>
+
+            <img id="previaFoto" class="previa-foto" alt="" hidden>
+
+            <button type="submit" class="btn-entrar">Salvar item</button>
+            <a href="{% url 'leilao:lotes' %}" class="btn-voltar">Voltar para a lista</a>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/moeda_br.js' %}"></script>
+<script src="{% static 'leilao/js/lote_form.js' %}"></script>
+{% endblock %}
