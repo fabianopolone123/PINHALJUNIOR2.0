@@ -94,7 +94,9 @@
                 <p class="micro-ajuda" id="microEstado">Desligado. Ninguém está ouvindo você pelo sistema.</p>
                 <div class="micro-nivel"><span id="microBarra"></span></div>
                 <button type="button" class="btn-mesa micro" id="btnMicrofone"
-                        data-whip="{{ audio_whip }}">🎤 Transmitir</button>
+                        data-whip="{{ audio_whip }}"
+                        data-whip-usuario="{{ config_leilao.audio_publicar_usuario }}"
+                        data-whip-senha="{{ config_leilao.audio_publicar_senha }}">🎤 Transmitir</button>
                 {% else %}
                 <p class="micro-ajuda">
                     A transmissão de voz está <b>desligada</b> na configuração.

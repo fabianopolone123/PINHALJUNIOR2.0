@@ -406,9 +406,14 @@
             }
             btnMic.disabled = true;
             $("microEstado").textContent = "Pedindo acesso ao microfone…";
-            window.AudioFalar.iniciar(btnMic.dataset.whip, function (nivel) {
-                $("microBarra").style.width = Math.min(100, nivel * 140) + "%";
-            }).then(function (ok) {
+            window.AudioFalar.iniciar(
+                btnMic.dataset.whip,
+                function (nivel) {
+                    $("microBarra").style.width = Math.min(100, nivel * 140) + "%";
+                },
+                btnMic.dataset.whipUsuario,
+                btnMic.dataset.whipSenha
+            ).then(function (ok) {
                 btnMic.disabled = false;
                 if (ok) {
                     btnMic.textContent = "⏹ Parar transmissão";

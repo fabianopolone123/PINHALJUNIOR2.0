@@ -60,7 +60,16 @@ window.AudioFalar = (function () {
         }
     }
 
-    async function iniciar(url, aoNivel) {
+    /* O MediaMTX protege a PUBLICAÇÃO com usuário e senha (quem escuta é
+       liberado). Sem este cabeçalho o servidor responde 401 e o locutor fica
+       mudo sem entender por quê. A credencial só aparece na página do locutor,
+       que já é restrita à equipe. */
+    function autorizacao(usuario, senha) {
+        if (!usuario) return null;
+        return "Basic " + btoa(usuario + ":" + (senha || ""));
+    }
+
+    async function iniciar(url, aoNivel, usuario, senha) {
         if (!url) return false;
         parar();
         try {
@@ -82,11 +91,18 @@ window.AudioFalar = (function () {
             await pc.setLocalDescription(oferta);
             await esperarIce(pc, 2500);
 
+            var cabecalhos = { "Content-Type": "application/sdp" };
+            var auth = autorizacao(usuario, senha);
+            if (auth) cabecalhos["Authorization"] = auth;
+
             var resposta = await fetch(url, {
                 method: "POST",
-                headers: { "Content-Type": "application/sdp" },
+                headers: cabecalhos,
                 body: pc.localDescription.sdp
             });
+            if (resposta.status === 401) {
+                throw new Error("o servidor de audio recusou o usuario/senha de publicacao");
+            }
             if (!resposta.ok) throw new Error("WHIP respondeu " + resposta.status);
 
             var sdp = await resposta.text();
