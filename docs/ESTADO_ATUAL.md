@@ -1822,6 +1822,12 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 - **Cobrança automática das parcelas** (do clube e de inscrição): hoje nada dispara sozinho — o Diretor
   manda pela aba "Cobrar parcelas". É a continuação natural do parcelamento.
 - **Editar um parcelamento lançado** (valor / nº de parcelas): hoje é cancelar e lançar de novo.
+- **Leilão online ao vivo** (`/leilao/`) — **em construção**, módulo novo e **independente** do sistema do
+  clube (app `leilao`, **banco SQLite próprio** e **serviço ASGI próprio**; reaproveita só o cliente de
+  pagamento `core/mercadopago.py`, que é biblioteca pura). Tempo real por **SSE** (dependência nova
+  **autorizada**: `uvicorn`, num `requirements-leilao.txt` separado), voz do locutor por **WebRTC/MediaMTX**
+  no próprio VPS e Pix com prazo de **15 min** para pagar, senão o lote volta para a fila. Plano completo,
+  com as contas de carga e os riscos, em **`docs/PLANEJAMENTO_LEILAO.md`**.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Permitir ao responsável logado escolher o próprio WhatsApp principal (recuperação).
 

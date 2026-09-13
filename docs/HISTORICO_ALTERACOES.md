@@ -22,6 +22,59 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Planejamento do módulo de Leilão online ao vivo
+
+### Resumo
+Levantamento e decisões de arquitetura do **leilão online** (`/leilao/`) antes de escrever código: leilão ao
+vivo com locutor falando, ~50 participantes simultâneos (teto de 100), **todos remotos**, lance de R$ 5 em
+R$ 5, cronômetro de 1 min por lote, chat entre lotes, Pix com **15 min** para pagar (senão o item volta para
+a fila) e voz do locutor em tempo real. Nenhum código de produção ainda — esta entrada registra o **plano**.
+
+### Arquivos criados/alterados
+- `docs/PLANEJAMENTO_LEILAO.md`: **novo** — o plano completo (arquitetura, protocolo de tempo real, telas,
+  dinheiro, áudio, fases, riscos e o que o módulo não faz).
+- `docs/ESTADO_ATUAL.md`: item do leilão em "Próximas etapas previstas", apontando para o plano.
+
+### Decisões tomadas
+- **Tempo real por SSE num serviço ASGI próprio**, não por polling nem por WebSocket/Channels. O sistema do
+  clube roda em **gunicorn síncrono**: uma conexão SSE por participante **ocuparia um worker inteiro** e
+  derrubaria o site do clube. Polling foi descartado pelo custo no **1 vCPU compartilhado** (100 celulares
+  perguntando a cada segundo ≈ 100 req/s) e Channels+Redis por trazer três peças novas para um VPS sem swap.
+- **Um único worker uvicorn, de propósito**: com um processo só, o hub de eventos vive em memória (**sem
+  Redis**), há **um escritor só** no SQLite e o cronômetro/expiração rodam num laço `asyncio` único (**sem
+  cron**). O preço — não escalar horizontalmente — é aceito e tem saída conhecida (trocar o hub por Redis).
+- **Banco próprio** (`leilao.sqlite3`) e **`core` fora do `INSTALLED_APPS`** do serviço do leilão: 50 pessoas
+  martelando lance não podem encostar no banco que roda mensalidades/eventos/loja.
+- **O pagamento é reaproveitado sem acoplar**: `core/mercadopago.py` é biblioteca pura (só `urllib`, recebe o
+  objeto de config de quem chama), então o leilão passa o **seu** `ConfigLeilao`. Custo aceito: as credenciais
+  do MP são digitadas de novo na tela do leilão.
+- **O relógio é do servidor** (`Lote.fecha_em` absoluto; o cliente só desenha a diferença) e o **cronômetro é a
+  autoridade do lance, não a voz** — com público 100% remoto, o áudio sempre chega com algum atraso.
+- **Lance sem corrida**: lock por lote no processo + `UPDATE` condicional pelo valor que o cliente viu, para
+  dois toques no mesmo milissegundo não virarem dois incrementos sobre o mesmo valor; ninguém cobre o próprio
+  lance; 1 lance a cada 300 ms por pessoa.
+- **Broadcast único, personalização no cliente**: o servidor serializa o evento **uma vez** e escreve para
+  todos; "você está ganhando" é decidido no navegador. Dado privado (código Pix, endereço) **nunca** entra no
+  broadcast — sai por `GET` autenticado pela sessão.
+- **Áudio no próprio VPS com MediaMTX (WHIP/WHEP)**, não mediasoup/Janus/LiveKit: binário Go único e cliente
+  em `RTCPeerConnection` puro, **sem biblioteca JS externa** (a regra do projeto). Contas levantadas: ~40 kbps
+  por ouvinte, ~4 Mbps de subida e ~5.000 pacotes/s a 100 ouvintes — banda é irrelevante e a CPU estimada fica
+  em 10-20% de um núcleo. **O risco não é a média, é o engasgo**: um dos outros 11 sites segurando o vCPU por
+  150 ms faz o som picotar para todos. Mitigação combinada com o usuário: parar os outros serviços no dia e
+  dar `CPUWeight` ao processo de áudio.
+- **Dependência nova autorizada pelo usuário**: `uvicorn`, isolada num `requirements-leilao.txt` separado.
+
+### Pendências
+- Implementação, em 8 fases internas (a entrega ao usuário é única, com o módulo inteiro pronto).
+- **Teste de carga obrigatório antes do evento** (comando `leilao_carga` para SSE/lances). O de áudio é
+  **estimativa**, não prova: medição com 10-15 aparelhos reais + extrapolação pela conta de pacotes — por isso
+  a caixa de áudio da tela nasce **plugável**, para cair numa live externa se reprovar.
+- Sugestão feita e **recusada pelo desenho atual** (decisão do usuário): pedir o endereço completo só de quem
+  arremata, em vez de na porta de entrada.
+- Definir com o usuário a **data do evento** (dita o prazo do ensaio geral) e quem será o locutor.
+
+---
+
 ## 2026-09-13 - Parcelas: alinha "Copiar resumo" com "Novo lançamento"
 
 ### Resumo
