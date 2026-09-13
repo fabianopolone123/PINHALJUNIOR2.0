@@ -247,9 +247,16 @@
 .mens-cobranca-barra { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 16px; margin-bottom:12px; }
 .mens-cobranca-barra .btn-acao { margin-left:auto; }
 /* Aba Parcelas: "Copiar resumo" + "Novo lançamento" andam juntos à direita —
-   o margin-left:auto passa para o grupo, senão ele separaria os dois botões. */
+   o margin-left:auto passa para o grupo, senão ele separaria os dois botões.
+   Os dois precisam ficar ALINHADOS, e por padrão não ficam: o .btn-acao nasce
+   com margin-top:18px (pensado para fechar um card, não para dividir linha com
+   outro botão) e sem borda, enquanto o .btn-secundario tem borda de 1.5px — daí
+   o desnível de 18px e a diferença de 3px de altura. Zera a margem e dá ao
+   .btn-acao uma borda transparente da mesma espessura. */
 .mens-cobranca-barra .copiar-lista-acoes { margin-left:auto; align-items:center; }
-.mens-cobranca-barra .copiar-lista-acoes .btn-acao { margin-left:0; }
+.mens-cobranca-barra .copiar-lista-acoes .btn-acao {
+    margin:0; border:1.5px solid transparent;
+}
 
 /* Alavanca "mensagem padrão × IA" */
 .mens-cobranca-modo { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px; margin-bottom:8px; }

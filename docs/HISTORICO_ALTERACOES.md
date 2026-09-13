@@ -22,6 +22,29 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Parcelas: alinha "Copiar resumo" com "Novo lançamento"
+
+### Resumo
+Os dois botões da barra da aba Parcelas estavam desencontrados. Causa: `.btn-acao` nasce com `margin-top:18px`
+(foi pensado para fechar um card, não para dividir linha com outro botão) e **sem borda**, enquanto
+`.btn-secundario` tem borda de 1.5px — o que dava 18px de desnível e 3px de diferença de altura.
+
+### Arquivos criados/alterados
+- `static/css/mensalidades.css`: dentro da barra, o `.btn-acao` perde a margem e ganha uma **borda
+  transparente** de 1.5px, igualando a caixa dos dois.
+
+### Decisões tomadas
+- **A correção é local à barra** (`.mens-cobranca-barra .copiar-lista-acoes .btn-acao`), não no `.btn-acao`
+  global: a margem existe por um motivo em todos os outros lugares onde o botão fecha um card.
+- Conferido com **sonda** no Chrome headless (a régua que a documentação recomenda, em vez de confiar no
+  olho): mesmo `top` e mesma altura nos dois botões (diferença **0**), sem rolagem horizontal, a 1280px **e**
+  a 485px.
+
+### Pendências
+- Nenhuma.
+
+---
+
 ## 2026-09-13 - Ficha de diretoria na própria conta e card "Minhas parcelas"
 
 ### Resumo
