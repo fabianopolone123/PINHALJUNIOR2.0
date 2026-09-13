@@ -15,7 +15,9 @@ aventureiro saiu some do grupo "Aventureiros" mas continua em "Responsáveis"; `
 contagem do clube; e uma conta com fichas de responsáveis diferentes (pai numa, mãe noutra) vira **uma opção por
 nome**, todas para a mesma conta. `ParcelamentoClube.pessoa_nome` ganhou o fallback correspondente: lançamento
 numa conta de família sem aventureiro mostrava o **nome de acesso** (username) na lista de parcelas; agora mostra
-o nome do responsável. Funções: `_alvos_parcelamento` + a nova `_alvos_responsaveis` em `views.py`.
+o nome do responsável. Funções: `_alvos_parcelamento` + a nova `_alvos_responsaveis` em `views.py`. Suíte:
+**401 testes OK** (396 + 5). **Já está em produção** (deploy em 12/09, commit `9342913`; **sem migration** —
+a mudança é de seletor e exibição): `/` 200, `/mensalidades/` 302 (pede login) e o template novo servido.
 
 **Atualização anterior:** 2026-09-07 (**Parcelamento lançado pelo clube — lançamento manual de parcelas**):
 o parcelamento deixou de existir só dentro da inscrição de evento. Agora o Diretor pode **lançar parcelas na

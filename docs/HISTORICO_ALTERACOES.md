@@ -55,6 +55,19 @@ listada pelo nome de quem responde por ela e os filhos no detalhe (desempata hom
 - **`pessoa_nome` precisava do fallback**: antes, um lançamento numa conta de família sem aventureiro aparecia
   na lista de parcelas com o **nome de acesso** (username). Agora mostra o nome do responsável.
 
+### Deploy e conferência em produção (12/09)
+Deploy pelo atalho `pinhaljunior2-deploy` (nunca `pinhaljunior-deploy`, que reativaria o sistema antigo):
+`60b5c3b` → **`9342913`**, com backup do SQLite antes, `check` e `makemigrations --check` limpos, **nenhuma
+migration a aplicar** (a mudança é de seletor e exibição), estáticos coletados e healthcheck OK na porta 8010.
+Serviços depois do deploy: `pinhaljunior2` **active**, `nginx` **active**, `sitepinhal` **inactive** (como deve
+ficar). Conferido de fora, pelo domínio: `/` **200**, `/mensalidades/` **302** (pede login, como esperado),
+`/parcelas/<token inexistente>/` **200** com "Link inválido" e sem vazar nada; no servidor, o template já traz o
+`<optgroup>` novo.
+
+**O que a conferência NÃO prova:** a lista de responsáveis **com os dados reais** — de fora não dá para abrir o
+modal (é tela de Diretor). Vale abrir Mensalidades → 📆 Parcelas → Novo lançamento e olhar o grupo
+**Responsáveis**: os nomes devem ser os dos adultos das famílias, sem repetir quem já está em Diretoria.
+
 ### Pendências
 - Nenhuma.
 
