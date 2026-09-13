@@ -4930,6 +4930,43 @@ class ParcelamentoClubeTests(TestCase):
         self.assertEqual(resp["valor"], f"conta:{self.resp.id}")
         self.assertIn("Criança Teste", resp["detalhe"])
 
+    def test_seletor_lista_pai_e_mae_alem_do_responsavel_legal(self):
+        """Quem lança lembra do adulto com quem combinou, e nem sempre é o
+        responsável legal da ficha."""
+        self.av.pai_nome = "Pai Teste"
+        self.av.mae_nome = "Mãe Teste"
+        self.av.save(update_fields=["pai_nome", "mae_nome"])
+        alvos = views._alvos_parcelamento()["responsaveis"]
+        por_nome = {r["rotulo"]: r for r in alvos}
+        for nome in ("Pai Teste", "Mãe Teste", "Responsável Teste"):
+            self.assertIn(nome, por_nome)
+            self.assertEqual(por_nome[nome]["valor"], f"conta:{self.resp.id}")
+        self.assertEqual(por_nome["Pai Teste"]["detalhe"], "pai de Criança Teste")
+        self.assertEqual(por_nome["Mãe Teste"]["detalhe"], "mãe de Criança Teste")
+
+    def test_adulto_que_acumula_papeis_aparece_uma_vez_so(self):
+        """Mãe que também é a responsável legal é UMA pessoa: uma opção, com os
+        dois papéis no detalhe."""
+        self.av.mae_nome = "Responsável Teste"
+        self.av.save(update_fields=["mae_nome"])
+        alvos = views._alvos_parcelamento()["responsaveis"]
+        iguais = [r for r in alvos if r["rotulo"] == "Responsável Teste"]
+        self.assertEqual(len(iguais), 1)
+        self.assertEqual(iguais[0]["detalhe"], "mãe/resp. legal de Criança Teste")
+
+    def test_adulto_de_dois_filhos_aparece_uma_vez_com_os_dois(self):
+        Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Criança Dois",
+            data_nascimento=datetime.date(2018, 2, 3),
+            resp_nome="Responsável Teste", resp_cpf="000",
+            resp_whatsapp="47999990000", resp_email="resp@exemplo.com",
+        )
+        alvos = views._alvos_parcelamento()["responsaveis"]
+        iguais = [r for r in alvos if r["rotulo"] == "Responsável Teste"]
+        self.assertEqual(len(iguais), 1)
+        self.assertIn("Criança Teste", iguais[0]["detalhe"])
+        self.assertIn("Criança Dois", iguais[0]["detalhe"])
+
     def test_seletor_nao_repete_a_conta_que_ja_esta_em_diretoria(self):
         """Mesma conta nos dois grupos seria a mesma opção duas vezes."""
         MembroDiretoria.objects.create(

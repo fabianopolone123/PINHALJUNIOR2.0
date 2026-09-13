@@ -6,18 +6,22 @@
 modal de novo lançamento (Mensalidades → 📆 Parcelas) havia só dois grupos — **Aventureiros** e **Diretoria**.
 Quando o acerto era do adulto da família, e não de uma criança em particular, o Diretor tinha que escolher um
 aventureiro qualquer só para chegar à conta certa. Agora há um terceiro grupo, **Responsáveis (conta da
-família)**: cada família aparece pelo nome de quem responde por ela (`Aventureiro.resp_nome`), com os filhos no
-detalhe para desempatar homônimos. O alvo é a **mesma** `conta:<id>` — muda só como se acha a família, então
+família)**: a família aparece pelo nome dos **adultos da ficha — pai, mãe e responsável legal**
+(`Aventureiro.pai_nome`/`mae_nome`/`resp_nome`), cada um uma opção, porque quem lança lembra do adulto com quem
+combinou e nem sempre é o responsável legal. O detalhe traz o **papel e os filhos** ("mãe de Fulano") para
+desempatar homônimos, e quem acumula papéis na mesma ficha (mãe **e** responsável legal) é **uma opção só**,
+com os dois papéis juntos ("mãe/resp. legal de Fulano"). O alvo é a **mesma** `conta:<id>` — muda só como se acha a família, então
 `_resolver_alvo` e o POST não mudaram. Detalhes que importam: a conta que já está em **Diretoria** fica **fora**
 do grupo novo (seria a mesma opção duas vezes); o grupo **não filtra `ativo`** (dívida combinada continua devida
 depois de a criança sair — a exceção do parcelamento, que já vale no resto do módulo), então a família cujo
 aventureiro saiu some do grupo "Aventureiros" mas continua em "Responsáveis"; `demo` fica fora, como em toda
-contagem do clube; e uma conta com fichas de responsáveis diferentes (pai numa, mãe noutra) vira **uma opção por
-nome**, todas para a mesma conta. `ParcelamentoClube.pessoa_nome` ganhou o fallback correspondente: lançamento
+contagem do clube; e uma conta com fichas de responsáveis diferentes (pai numa, mãe noutra) junta tudo numa lista
+só, sem repetir ninguém. `ParcelamentoClube.pessoa_nome` ganhou o fallback correspondente: lançamento
 numa conta de família sem aventureiro mostrava o **nome de acesso** (username) na lista de parcelas; agora mostra
-o nome do responsável. Funções: `_alvos_parcelamento` + a nova `_alvos_responsaveis` em `views.py`. Suíte:
-**401 testes OK** (396 + 5). **Já está em produção** (deploy em 12/09, commit `9342913`; **sem migration** —
-a mudança é de seletor e exibição): `/` 200, `/mensalidades/` 302 (pede login) e o template novo servido.
+o nome do responsável legal. Funções: `_alvos_parcelamento` + a nova `_alvos_responsaveis` em `views.py`. Suíte:
+**404 testes OK** (396 + 8). A 1ª parte (o grupo pelo responsável legal) foi para produção em 12/09 no commit
+`9342913`; a 2ª (pai e mãe) segue no mesmo deploy do dia — **sem migration** nas duas, a mudança é de seletor e
+exibição.
 
 **Atualização anterior:** 2026-09-07 (**Parcelamento lançado pelo clube — lançamento manual de parcelas**):
 o parcelamento deixou de existir só dentro da inscrição de evento. Agora o Diretor pode **lançar parcelas na

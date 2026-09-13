@@ -552,7 +552,8 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
   lançamento servir para família e para **diretoria sem filho no clube**. `aventureiro` é opcional (diz *por
   quem* é o acerto) e `evento` é opcional (diz *de onde* veio a dívida).
 - **O seletor "para quem" tem TRÊS grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`, ativos),
-  **Responsáveis** (`conta:<id>`, a família pelo nome do adulto — `_alvos_responsaveis`) e Diretoria
+  **Responsáveis** (`conta:<id>`, a família pelos adultos da ficha — **pai, mãe e responsável legal**, uma
+  opção cada, em `_alvos_responsaveis`; quem acumula papéis vira uma opção só) e Diretoria
   (`conta:<id>`). Os dois últimos produzem o **mesmo** alvo: o grupo novo é só outro caminho para a mesma
   conta, e por isso `_resolver_alvo` não mudou. A conta que já está em Diretoria **não** se repete em
   Responsáveis, e esse grupo **não filtra `ativo`** — é a exceção do parcelamento (dívida combinada continua

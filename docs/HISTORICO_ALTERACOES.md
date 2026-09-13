@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-12 - Parcelas: o grupo "Responsáveis" traz pai, mãe e responsável legal
+
+### Resumo
+Pedido do usuário: "em responsáveis lá puxa todos, tipo pai e mãe". O grupo criado mais cedo hoje listava só o
+**responsável legal** (`resp_nome`) de cada ficha — mas quem lança lembra do adulto com quem combinou, que
+muitas vezes é o pai ou a mãe que não é o responsável legal. Agora os **três** nomes da ficha
+(`pai_nome`/`mae_nome`/`resp_nome`) viram opções, todas apontando para a mesma conta.
+
+### Arquivos criados/alterados
+- `core/views.py`: `_alvos_responsaveis` passou a varrer os três campos e a agrupar **por pessoa** (nome
+  normalizado) em vez de por nome de responsável.
+- `templates/core/mensalidades.html`: rótulo do `<optgroup>` e texto de ajuda dizendo quem aparece ali.
+- `core/tests.py`: 3 testes novos (pai/mãe/resp. legal listados, adulto que acumula papéis aparece uma vez só,
+  adulto de dois filhos aparece uma vez com os dois).
+- `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`, `CLAUDE.md`: documentação.
+
+### Decisões tomadas
+- **Agrupar por pessoa, não por campo.** A mãe costuma ser também a responsável legal da mesma ficha: listar
+  por campo a faria aparecer duas vezes, com o mesmo efeito. O agrupamento é pelo nome **normalizado**
+  (espaços colapsados, sem diferenciar maiúscula) e os papéis se juntam no detalhe ("mãe/resp. legal de
+  Fulano").
+- **O detalhe ganhou o papel** ("pai de Fulano"), que antes era só "resp. de Fulano". Com três adultos por
+  ficha, o papel é o que separa homônimos de famílias diferentes.
+- **O alvo continua sendo `conta:<id>`**: nada mudou no POST, em `_resolver_alvo` nem no model.
+- **Ficha sem nenhum adulto preenchido** cai no nome da conta, como antes — não some da lista.
+
+### Pendências
+- Nenhuma.
+
+---
+
 ## 2026-09-12 - Parcelas: o seletor "para quem" também lista os responsáveis
 
 ### Resumo

@@ -8991,14 +8991,16 @@ def _alvos_parcelamento():
 
 
 def _alvos_responsaveis(ja_listadas):
-    """Contas de família pelo nome do RESPONSÁVEL, para o lançamento que é do
-    adulto e não de um aventureiro específico.
+    """Contas de família pelos ADULTOS da ficha — **pai, mãe e responsável
+    legal** —, para o lançamento que é do adulto e não de um aventureiro
+    específico.
 
-    O alvo é a mesma `conta:<id>` do aventureiro — muda só como o Diretor acha
-    a família na lista. **Não** filtra `ativo`: dívida combinada continua
-    devida depois de a criança sair do clube (a exceção do parcelamento). A
-    conta que já aparece em "Diretoria" fica de fora, senão seria a mesma opção
-    duas vezes."""
+    Os três nomes viram opções separadas porque quem lança lembra do adulto com
+    quem combinou, e nem sempre é o responsável legal. Todas apontam para a
+    mesma `conta:<id>` do aventureiro: muda só como o Diretor acha a família na
+    lista. **Não** filtra `ativo`: dívida combinada continua devida depois de a
+    criança sair do clube (a exceção do parcelamento). A conta que já aparece
+    em "Diretoria" fica de fora, senão seria a mesma opção duas vezes."""
     familias = {}
     for a in (
         Aventureiro.objects.filter(demo=False, usuario__isnull=False)
@@ -9007,28 +9009,42 @@ def _alvos_responsaveis(ja_listadas):
     ):
         if a.usuario_id in ja_listadas:
             continue
-        f = familias.setdefault(
-            a.usuario_id, {"usuario": a.usuario, "nomes": [], "filhos": []}
-        )
-        # Uma conta pode ter fichas com responsáveis diferentes (pai numa,
-        # mãe noutra): cada nome vira uma opção, todas para a mesma conta.
-        nome = (a.resp_nome or "").strip()
-        if nome and nome not in f["nomes"]:
-            f["nomes"].append(nome)
-        f["filhos"].append(a.nome_completo)
+        f = familias.setdefault(a.usuario_id, {"usuario": a.usuario, "pessoas": {}})
+        for papel, nome in (
+            ("pai", a.pai_nome), ("mãe", a.mae_nome), ("resp. legal", a.resp_nome),
+        ):
+            nome = " ".join((nome or "").split())
+            if not nome:
+                continue
+            # A mesma pessoa costuma ser mãe numa ficha e responsável legal na
+            # mesma: é UMA opção, com os dois papéis no detalhe.
+            p = f["pessoas"].setdefault(
+                nome.casefold(), {"nome": nome, "papeis": [], "filhos": []}
+            )
+            if papel not in p["papeis"]:
+                p["papeis"].append(papel)
+            if a.nome_completo not in p["filhos"]:
+                p["filhos"].append(a.nome_completo)
 
     alvos = []
     for uid, f in familias.items():
-        nomes = f["nomes"] or [f["usuario"].get_full_name() or f["usuario"].username]
-        detalhe = ", ".join(f["filhos"][:2])
-        if len(f["filhos"]) > 2:
-            detalhe += f" e +{len(f['filhos']) - 2}"
-        for nome in nomes:
+        pessoas = list(f["pessoas"].values())
+        if not pessoas:
+            # Ficha sem nenhum adulto preenchido: sobra o nome da conta.
+            u = f["usuario"]
+            pessoas = [{
+                "nome": u.get_full_name() or u.username, "papeis": [], "filhos": [],
+            }]
+        for p in pessoas:
+            filhos = ", ".join(p["filhos"][:2])
+            if len(p["filhos"]) > 2:
+                filhos += f" e +{len(p['filhos']) - 2}"
+            papeis = "/".join(p["papeis"])
+            detalhe = f"{papeis} de {filhos}" if papeis and filhos else filhos
             alvos.append({
-                "valor": f"conta:{uid}", "rotulo": nome,
-                "detalhe": f"resp. de {detalhe}" if detalhe else "",
+                "valor": f"conta:{uid}", "rotulo": p["nome"], "detalhe": detalhe,
             })
-    alvos.sort(key=lambda a: a["rotulo"].lower())
+    alvos.sort(key=lambda a: (a["rotulo"].lower(), a["detalhe"].lower()))
     return alvos
 
 

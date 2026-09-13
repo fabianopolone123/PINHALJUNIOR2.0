@@ -823,7 +823,7 @@
                                 </optgroup>
                                 {% endif %}
                                 {% if parc_alvos.responsaveis %}
-                                <optgroup label="Responsáveis (conta da família)">
+                                <optgroup label="Responsáveis — pai, mãe e resp. legal (conta da família)">
                                     {% for r in parc_alvos.responsaveis %}
                                     <option value="{{ r.valor }}">{{ r.rotulo }}{% if r.detalhe %} — {{ r.detalhe }}{% endif %}</option>
                                     {% endfor %}
@@ -838,7 +838,7 @@
                                 {% endif %}
                             </select>
                         </label>
-                        <small class="ajuda">Escolher o aventureiro já vincula os dois: a criança e a conta do responsável. Escolha em <strong>Responsáveis</strong> quando o acerto é do adulto e não de uma criança em particular, e em <strong>Diretoria</strong> para quem é da diretoria (com ou sem filho no clube).</small>
+                        <small class="ajuda">Escolher o aventureiro já vincula os dois: a criança e a conta do responsável. Escolha em <strong>Responsáveis</strong> quando o acerto é do adulto e não de uma criança em particular — lá aparecem <strong>pai, mãe e responsável legal</strong> de cada ficha, todos levando à mesma conta, e em <strong>Diretoria</strong> para quem é da diretoria (com ou sem filho no clube).</small>
 
                         <label class="mens-editar-campo">Descrição
                             <input type="text" name="descricao" maxlength="150" class="mens-cobranca-textarea" placeholder="Ex.: Acampamento de julho — parte da diretoria" required>

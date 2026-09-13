@@ -199,8 +199,8 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `ParcelaInscricao` (parcelamento do valor da diretoria **dentro da inscrição**, que nasce sozinho no ato).
   O vínculo é com a **conta** (`usuario`), não com o aventureiro — é o que faz servir para família **e** para
   diretoria sem filho no clube; `aventureiro` e `evento` são **opcionais**. O seletor "para quem" tem **três
-  grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`), **Responsáveis** (a família pelo nome do adulto,
-  `_alvos_responsaveis`) e Diretoria — os dois últimos dão o **mesmo** `conta:<id>`, então o grupo novo é só
+  grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`), **Responsáveis** (a família pelos adultos da
+  ficha — pai, mãe e resp. legal, `_alvos_responsaveis`) e Diretoria — os dois últimos dão o **mesmo** `conta:<id>`, então o grupo novo é só
   outro caminho para a mesma conta. Responsáveis **não filtra `ativo`** (a exceção do parcelamento) e não
   repete quem já está em Diretoria. **Não** é uma `Mensalidade`
   (uma por aventureiro/ano/mês, sem vencimento nem descrição, amarrada ao aventureiro) nem uma
