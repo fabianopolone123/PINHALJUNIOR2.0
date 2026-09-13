@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-12 (**Parcelas: o seletor "para quem" agora lista os responsáveis**): no
+**Última atualização:** 2026-09-12 (**Parcelas: "Copiar resumo" + o evento na cobrança**): duas coisas na
+aba 📆 Parcelas. (1) Botão **📋 Copiar resumo** ao lado do "Novo lançamento": copia para a área de transferência
+um resumo pronto — totais (lançado, recebido, a receber, vencido), um bloco por lançamento **ativo** (pessoa,
+descrição, evento, quanto falta) e **uma linha por parcela vencida**, que é a parte acionável. Formatado para a
+tela do celular (`*negrito*` do WhatsApp, uma informação por linha), como o "Copiar resumo" do painel do evento;
+**leva nomes**, então não é texto para grupo aberto. Cancelado fica fora e só é contado no fim — os KPIs também
+somam só os ativos. O texto vem **pronto do servidor** (`_export_parcelamentos`) numa `<textarea
+class="copiar-fonte">` e o JS só copia: a mecânica virou o arquivo **`copiar_texto.js`**, compartilhado com o
+painel do evento (era um bloco dentro do `evento_painel.js`) — ao criar uma terceira tela que copie texto,
+ligue-o de novo. (2) A **cobrança de parcelas** ganhou os marcadores **`{evento}`** (nome) e
+**`{link_evento}`** (página pública do evento), valendo na mensagem padrão **e** no prompt da IA, que passam
+pelo mesmo `_montar_mensagem_cobranca_parcela`. Eles são **opcionais** e a regra é **por linha**: a linha que
+usa um marcador opcional vazio **some inteira** (`_aplicar_marcadores`) — quem tem acerto geral do clube não
+recebe "Referente a:" pendurado, e o prompt da IA não leva rótulo sem valor (que é convite para ela inventar).
+O link só sai de evento **de inscrição e ativo**: a página do inativo é bloqueada, e link que não abre é pior do
+que link nenhum. A mensagem e o prompt padrão já vêm com as duas linhas.
+
+**Atualização anterior:** 2026-09-12 (**Parcelas: o seletor "para quem" agora lista os responsáveis**): no
 modal de novo lançamento (Mensalidades → 📆 Parcelas) havia só dois grupos — **Aventureiros** e **Diretoria**.
 Quando o acerto era do adulto da família, e não de uma criança em particular, o Diretor tinha que escolher um
 aventureiro qualquer só para chegar à conta certa. Agora há um terceiro grupo, **Responsáveis (conta da

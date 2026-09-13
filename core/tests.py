@@ -5017,6 +5017,56 @@ class ParcelamentoClubeTests(TestCase):
         self._lancar(qtd_parcelas="99")
         self.assertFalse(ParcelamentoClube.objects.exists())
 
+    # --- "Copiar resumo" (texto pronto do servidor) ---
+
+    def test_resumo_traz_os_totais_e_um_bloco_por_lancamento(self):
+        self._lancar()
+        texto = views._export_parcelamentos(views._parcelamentos_painel())
+        self.assertIn("Parcelamentos do clube", texto)
+        self.assertIn("Lançado: R$ 300,00", texto)
+        self.assertIn("Criança Teste", texto)
+        self.assertIn("Acampamento — parte da diretoria", texto)
+        self.assertIn("R$ 300,00 em 3x", texto)
+        self.assertIn("Falta R$ 300,00", texto)
+
+    def test_resumo_lista_a_parcela_vencida_uma_por_linha(self):
+        """A parte acionável: quem lê precisa saber QUAL parcela cobrar."""
+        self._lancar()
+        pa = ParcelamentoClube.objects.get().parcelas.first()
+        pa.vencimento = timezone.localdate() - datetime.timedelta(days=5)
+        pa.save(update_fields=["vencimento"])
+        texto = views._export_parcelamentos(views._parcelamentos_painel())
+        self.assertIn("Parcela 1/3", texto)
+        self.assertIn("venceu " + pa.vencimento.strftime("%d/%m/%Y"), texto)
+
+    def test_resumo_marca_o_quitado_e_nao_pede_pagamento(self):
+        self._lancar()
+        ParcelamentoClube.objects.get().parcelas.update(
+            status="paga", valor_pago=Decimal("100.00")
+        )
+        texto = views._export_parcelamentos(views._parcelamentos_painel())
+        self.assertIn("Quitado", texto)
+        self.assertNotIn("Falta", texto)
+
+    def test_resumo_deixa_o_cancelado_de_fora_e_conta_no_fim(self):
+        """Os KPIs somam só os ativos: o resumo tem de contar igual."""
+        self._lancar()
+        lanc = ParcelamentoClube.objects.get()
+        lanc.status = "cancelado"
+        lanc.save(update_fields=["status"])
+        texto = views._export_parcelamentos(views._parcelamentos_painel())
+        self.assertNotIn("Acampamento — parte da diretoria", texto)
+        self.assertIn("1 lançamento cancelado fora do resumo", texto)
+        self.assertIn("Nenhum lançamento ativo", texto)
+
+    def test_aba_parcelas_serve_o_texto_pronto_para_copiar(self):
+        self._lancar()
+        r = self.client.get(reverse("core:mensalidades") + "?aba=parcelas")
+        corpo = r.content.decode()
+        self.assertIn('id="exportParcResumo"', corpo)
+        self.assertIn("btn-copiar-lista", corpo)
+        self.assertIn("Parcelamentos do clube", corpo)
+
     def test_mes_da_primeira_parcela_pode_ser_escolhido(self):
         d = views._somar_meses(timezone.localdate().replace(day=1), 4)
         self._lancar(venc_primeiro=f"{d.year:04d}-{d.month:02d}")
@@ -5373,6 +5423,75 @@ class CobrancaParcelaClubeTests(TestCase):
         # parcelas de todos os lançamentos, então o link tem de abrir todos.
         perfil = PerfilUsuario.objects.get(usuario=self.resp)
         self.assertIn(f"/parcelas/{perfil.token_acerto}/", texto)
+
+    # --- marcadores do evento vinculado ---
+
+    def _evento(self, **kw):
+        dados = dict(
+            tipo="inscricao", nome="Acampamento de Julho", local="Campo",
+            data=timezone.localdate() + datetime.timedelta(days=30),
+        )
+        dados.update(kw)
+        ev = Evento.objects.create(**dados)
+        self.lanc.evento = ev
+        self.lanc.save(update_fields=["evento"])
+        return ev
+
+    def _texto_enviado(self):
+        capturado = {}
+
+        def fake(cfg, numero, texto, **kw):
+            capturado["texto"] = texto
+            return True, "ok"
+
+        with mock.patch.object(views, "_enviar_whatsapp", side_effect=fake):
+            self.client.post(self.url, {"canal": "whatsapp"})
+        return capturado["texto"]
+
+    def test_mensagem_traz_o_nome_e_a_pagina_do_evento_vinculado(self):
+        ev = self._evento()
+        texto = self._texto_enviado()
+        self.assertIn("Acampamento de Julho", texto)
+        self.assertIn(f"/eventos/{ev.id}/pagina/", texto)
+
+    def test_sem_evento_a_linha_do_evento_some_inteira(self):
+        """Acerto geral do clube não tem evento: melhor sumir do que mandar
+        "Referente a:" sem nada depois."""
+        texto = self._texto_enviado()
+        self.assertNotIn("Referente a", texto)
+        self.assertNotIn("Página do evento", texto)
+        self.assertNotIn("{evento}", texto)
+        self.assertNotIn("{link_evento}", texto)
+        # E sem buraco de linhas em branco no lugar.
+        self.assertNotIn("\n\n\n", texto)
+
+    def test_evento_inativo_nao_manda_link_que_nao_abre(self):
+        """A página pública do evento inativo é bloqueada: o nome vai, o link não."""
+        ev = self._evento(ativo=False)
+        texto = self._texto_enviado()
+        self.assertIn("Acampamento de Julho", texto)
+        self.assertNotIn(f"/eventos/{ev.id}/pagina/", texto)
+
+    def test_evento_simples_nao_manda_link_que_nao_abre(self):
+        """Página pública existe só para evento de inscrição."""
+        ev = self._evento(tipo="simples")
+        texto = self._texto_enviado()
+        self.assertIn("Acampamento de Julho", texto)
+        self.assertNotIn(f"/eventos/{ev.id}/pagina/", texto)
+
+    def test_marcador_opcional_vazio_tira_so_a_propria_linha(self):
+        texto = views._aplicar_marcadores(
+            "Olá {nome}!\n🎪 Evento: {evento}\nTotal: {total}",
+            {"nome": "Ana", "evento": "", "total": "10,00"},
+        )
+        self.assertEqual(texto, "Olá Ana!\nTotal: 10,00")
+
+    def test_marcador_opcional_preenchido_mantem_a_linha(self):
+        texto = views._aplicar_marcadores(
+            "Olá {nome}!\nEvento: {evento}",
+            {"nome": "Ana", "evento": "Acampa"},
+        )
+        self.assertEqual(texto, "Olá Ana!\nEvento: Acampa")
 
     def test_filtro_de_quem_ja_recebeu_e_por_canal(self):
         CobrancaParcelaEnviada.objects.create(

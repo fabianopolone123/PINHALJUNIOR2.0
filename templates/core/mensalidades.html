@@ -486,8 +486,23 @@
 
                     <div class="card mens-cobranca-barra">
                         <span>Parcelamento <strong>lançado pelo clube</strong>: um valor combinado dividido em parcelas que vencem no <strong>dia {{ dia_vencimento }}</strong> de cada mês.</span>
-                        <button type="button" class="btn-acao" id="btnParcNovo">➕ Novo lançamento</button>
+                        <div class="copiar-lista-acoes">
+                            {% if parcelamentos %}
+                            <button type="button" class="btn-secundario btn-copiar-lista" data-fonte="exportParcResumo"
+                                    data-aviso="Resumo copiado! Já pode colar."
+                                    title="Totais + um bloco por lançamento ativo (pessoa, descrição, quanto falta e as parcelas vencidas). Leva nomes: não mande em grupo aberto.">
+                                <span aria-hidden="true">📋</span> Copiar resumo
+                            </button>
+                            {% endif %}
+                            <button type="button" class="btn-acao" id="btnParcNovo">➕ Novo lançamento</button>
+                        </div>
                     </div>
+                    {% comment %}
+                    O texto do "Copiar resumo" vem PRONTO do servidor
+                    (`_export_parcelamentos`) nesta textarea, que fica fora da tela
+                    — ver .copiar-fonte em eventos.css e copiar_texto.js.
+                    {% endcomment %}
+                    <textarea id="exportParcResumo" class="copiar-fonte" readonly tabindex="-1" aria-hidden="true">{{ parc_resumo }}</textarea>
 
                     {% if parcelamentos %}
                     <input type="search" id="parcBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar por pessoa, descrição ou evento…" aria-label="Buscar lançamento">
@@ -595,11 +610,11 @@
                             {% csrf_token %}
                             <label class="bloco-rotulo">Mensagem padrão (WhatsApp)</label>
                             <textarea name="mensagem_cobranca_parcela" rows="10" class="mens-cobranca-textarea">{{ mensagem_cobranca_parcela }}</textarea>
-                            <p class="ajuda">Usada quando o modo IA está <strong>desligado</strong>. Marcadores: <code>{nome}</code> (1º nome), <code>{itens}</code> (parcelas em aberto, com vencimento), <code>{total}</code>, <code>{link}</code> (página de pagamento das parcelas).</p>
+                            <p class="ajuda">Usada quando o modo IA está <strong>desligado</strong>. Marcadores: <code>{nome}</code> (1º nome), <code>{itens}</code> (parcelas em aberto, com vencimento), <code>{total}</code>, <code>{link}</code> (página de pagamento das parcelas).<br>Do <strong>evento vinculado</strong> ao lançamento: <code>{evento}</code> (nome) e <code>{link_evento}</code> (página do evento). Os dois são <strong>opcionais</strong> — quem não tem evento (acerto geral do clube) <strong>não recebe a linha</strong>, então escreva cada um em <strong>linha própria</strong>. O link só sai de evento de inscrição que esteja ativo.</p>
 
                             <label class="bloco-rotulo" style="margin-top:14px;">🤖 Prompt da cobrança pela IA</label>
                             <textarea name="prompt_cobranca_parcela_ia" rows="10" class="mens-cobranca-textarea">{{ prompt_cobranca_parcela_ia }}</textarea>
-                            <p class="ajuda">Usado quando o modo IA está <strong>ligado</strong>, com os mesmos marcadores já preenchidos.</p>
+                            <p class="ajuda">Usado quando o modo IA está <strong>ligado</strong>, com os mesmos marcadores já preenchidos — inclusive <code>{evento}</code> e <code>{link_evento}</code>, cuja linha some quando o lançamento não tem evento (rótulo sem valor faz a IA inventar).</p>
 
                             <label class="bloco-rotulo" style="margin-top:14px;">✉️ Assunto por e-mail</label>
                             <input type="text" name="assunto_cobranca_parcela_email" maxlength="200" class="mens-cobranca-textarea" value="{{ assunto_cobranca_parcela_email }}">
@@ -920,5 +935,6 @@
     <script src="{% static 'js/mensalidade_pix.js' %}"></script>
     <script src="{% static 'js/mensalidade_cobranca.js' %}"></script>
     <script src="{% static 'js/parcelamento.js' %}"></script>
+    <script src="{% static 'js/copiar_texto.js' %}"></script>
 </body>
 </html>

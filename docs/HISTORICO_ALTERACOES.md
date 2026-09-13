@@ -22,6 +22,48 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-12 - Parcelas: botão "Copiar resumo" e o evento na cobrança
+
+### Resumo
+Dois pedidos do usuário na aba 📆 Parcelas: um **botão "Copiar resumo"** que joga no clipboard um resumo dos
+lançamentos, e, na **cobrança de parcelas**, um **marcador/link do evento vinculado** para usar na mensagem e
+no prompt da IA.
+
+### Arquivos criados/alterados
+- `core/views.py`: `_export_parcelamentos` (texto do resumo) + `parc_resumo` no contexto; `_aplicar_marcadores`
+  (marcadores opcionais), `_eventos_da_cobranca` e `_montar_mensagem_cobranca_parcela` com `{evento}` e
+  `{link_evento}`.
+- `core/models.py`: mensagem e prompt padrão da cobrança de parcelas com as linhas do evento; comentário dos
+  marcadores atualizado.
+- `static/js/copiar_texto.js` (**novo**): a mecânica do copiar, agora compartilhada; `static/js/evento_painel.js`
+  perdeu o bloco duplicado e ambos os templates carregam o arquivo novo.
+- `templates/core/mensalidades.html`: botão + `<textarea class="copiar-fonte">` na aba Parcelas e as dicas dos
+  marcadores novos; `templates/core/evento_painel.html`: carrega o `copiar_texto.js`.
+- `static/css/mensalidades.css`: os dois botões da barra andam juntos à direita.
+- `core/tests.py`: 12 testes novos (resumo: totais, bloco por lançamento, parcela vencida, quitado, cancelado
+  fora, textarea servida na tela; marcadores: nome+link do evento, linha some sem evento, evento inativo e
+  evento simples sem link, e dois testes unitários do `_aplicar_marcadores`).
+- `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`, `CLAUDE.md`: documentação.
+
+### Decisões tomadas
+- **O texto do resumo vem pronto do servidor**, como o do painel do evento: o JS só copia. Montar no JS seria
+  refazer no navegador regras (quitado, vencida, cancelado) que já existem no Python.
+- **A mecânica do copiar virou arquivo compartilhado** (`copiar_texto.js`) em vez de um segundo bloco igual:
+  mesmo motivo do `mensalidade_cobranca.js`, que já serve duas abas.
+- **Cancelado fica fora do resumo** (só contado no fim): os KPIs da aba somam só os ativos, e dois números
+  diferentes na mesma tela parecem erro.
+- **`{evento}`/`{link_evento}` são marcadores OPCIONAIS**: a linha que usa um deles some inteira quando o
+  lançamento não tem evento. Sem isso, o acerto geral do clube receberia "Referente a:" sem nada depois — e,
+  no prompt da IA, rótulo sem valor é convite para ela inventar um evento.
+- **O link só sai de evento de inscrição e ativo**: a página pública do inativo é bloqueada e o evento simples
+  não tem página. O **nome** do evento continua aparecendo nesses casos; só o link é omitido.
+- **Com mais de um evento**, o link vira "Nome: URL" por linha — a URL sozinha não diz de qual evento é.
+
+### Pendências
+- Nenhuma.
+
+---
+
 ## 2026-09-12 - Parcelas: o grupo "Responsáveis" traz pai, mãe e responsável legal
 
 ### Resumo

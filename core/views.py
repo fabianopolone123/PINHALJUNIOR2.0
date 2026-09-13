@@ -8537,6 +8537,7 @@ def mensalidades_view(request):
         # Abas Parcelas / Cobrar parcelas (parcelamento lançado pelo clube)
         "parcelamentos": parcelamentos["lancamentos"],
         "parc_totais": parcelamentos["totais"],
+        "parc_resumo": _export_parcelamentos(parcelamentos),
         "parc_alvos": _alvos_parcelamento(),
         "parc_eventos": Evento.objects.filter(demo=False).order_by("-data", "nome"),
         "parc_meses": _mes_opcoes_vencimento(),
@@ -9092,6 +9093,83 @@ def _parcelamentos_painel():
     return {"lancamentos": lancamentos, "totais": totais}
 
 
+def _export_parcelamentos(painel):
+    """Texto do botão "Copiar resumo" da aba Parcelas: os lançamentos do clube
+    prontos para colar no WhatsApp.
+
+    Mesma mecânica do resumo de inscritos do evento (`_export_inscritos_evento`):
+    o texto vem **pronto do servidor** numa `<textarea class="copiar-fonte">` e o
+    JS só copia. Formatado para a tela do celular, onde o WhatsApp quebra por
+    volta de 35 caracteres — daí `*negrito*` e **uma informação por linha** em
+    vez de tudo separado por "·".
+
+    **Leva nomes**, como o resumo do evento: serve para a diretoria conferir o
+    que está lançado, não para grupo aberto. Lançamento **cancelado fica fora**
+    (só é contado no fim, para o número de acertos bater com os KPIs, que também
+    somam só os ativos), e a ordem é a **mesma da tela**.
+
+    Recebe o resultado do `_parcelamentos_painel` — quem consulta o banco é ele,
+    uma vez só."""
+    lancamentos = painel["lancamentos"]
+    t = painel["totais"]
+    ativos = [l for l in lancamentos if l.status == "ativo"]
+    cancelados = len(lancamentos) - len(ativos)
+
+    linhas = [
+        "*📆 Resumo — Parcelamentos do clube*",
+        f"_gerado em {timezone.localdate().strftime('%d/%m/%Y')}_",
+        "",
+        f"*💰 Lançado: {_fmt_moeda(t['lancado'])}*",
+        f"📋 {t['n']} acerto{'' if t['n'] == 1 else 's'} ativo{'' if t['n'] == 1 else 's'}"
+        + (f" · {t['n_quitados']} quitado{'' if t['n_quitados'] == 1 else 's'}"
+           if t["n_quitados"] else ""),
+        f"✅ Recebido: {_fmt_moeda(t['recebido'])}",
+        f"⏳ A receber: {_fmt_moeda(t['aberto'])}",
+    ]
+    if t["vencido"]:
+        linhas.append(f"🔴 Vencido: {_fmt_moeda(t['vencido'])}")
+
+    if not ativos:
+        linhas += ["", "_Nenhum lançamento ativo._"]
+    else:
+        linhas += ["", "*Lançamentos:*"]
+    for n, l in enumerate(ativos, start=1):
+        vivas = [p for p in l.parcelas.all() if p.status != "cancelada"]
+        pagas = l.n_pagas
+        linhas += ["", f"*{n}. {l.pessoa_nome}*", f"📝 {l.descricao}"]
+        if l.evento:
+            linhas.append(f"🎪 {l.evento.nome}")
+        linhas.append(
+            f"💰 {_fmt_moeda(l.valor_total)} em {l.qtd_parcelas}x "
+            f"({pagas}/{len(vivas)} paga{'' if pagas == 1 else 's'})"
+        )
+        if l.quitado:
+            linhas.append("✅ Quitado")
+            continue
+        linhas.append(f"⏳ Falta {_fmt_moeda(l.total_aberto)}")
+        # As vencidas vêm uma por linha: é a parte acionável do resumo — quem lê
+        # precisa saber qual parcela cobrar, não só que existe atraso.
+        for p in sorted(
+            (p for p in vivas if p.vencida), key=lambda p: p.vencimento
+        ):
+            linhas.append(
+                f"🔴 Parcela {p.rotulo} — {_fmt_moeda(p.valor)} "
+                f"(venceu {p.vencimento.strftime('%d/%m/%Y')})"
+            )
+        if l.proximo_vencimento and not l.total_vencido:
+            linhas.append(
+                f"📅 Próxima: {l.proximo_vencimento.strftime('%d/%m/%Y')}"
+            )
+
+    if cancelados:
+        linhas += [
+            "",
+            f"_✖ {cancelados} lançamento{'' if cancelados == 1 else 's'} "
+            f"cancelado{'' if cancelados == 1 else 's'} fora do resumo._",
+        ]
+    return "\n".join(linhas)
+
+
 @diretor_required
 @require_POST
 def parcelamento_novo_view(request):
@@ -9313,8 +9391,62 @@ def _nome_da_conta(usuario):
     return nome
 
 
+# Marcadores que podem **não existir** para aquela família: a linha que usa um
+# deles some inteira quando ele vem vazio (ver `_aplicar_marcadores`).
+MARCADORES_OPCIONAIS = ("evento", "link_evento")
+
+
+def _aplicar_marcadores(template, valores, opcionais=MARCADORES_OPCIONAIS):
+    """Troca os marcadores e **remove a linha inteira** que usa um marcador
+    opcional vazio.
+
+    O Diretor escreve o texto **uma vez** e ele serve para todo mundo, mas nem
+    todo lançamento tem evento (o acerto geral do clube não tem). Sem isso, essas
+    famílias receberiam a linha pela metade ("🎪 Evento: ") — e, no prompt da IA,
+    um rótulo sem valor é convite para a IA inventar o que falta. Por isso a regra
+    é **por linha**: escreva o evento em linha própria.
+
+    Marcador obrigatório ({nome}/{itens}/{total}/{link}) não entra nessa regra —
+    ele existe sempre, e uma linha some só quando o marcador é opcional."""
+    linhas, removeu = [], False
+    for linha in (template or "").split("\n"):
+        if any(("{" + k + "}") in linha and not valores.get(k) for k in opcionais):
+            removeu = True
+            continue
+        for chave, valor in valores.items():
+            linha = linha.replace("{" + chave + "}", valor)
+        linhas.append(linha)
+    texto = "\n".join(linhas)
+    # A linha removida costuma deixar um buraco de 2 linhas em branco.
+    return re.sub(r"\n{3,}", "\n\n", texto) if removeu else texto
+
+
+def _eventos_da_cobranca(familia, request):
+    """(nomes, links) dos eventos ligados às parcelas em aberto da conta.
+
+    O lançamento pode não ter evento (acerto geral do clube), e o link só sai do
+    evento cuja **página pública abre de fato**: ela existe apenas para evento de
+    inscrição e o evento **inativo** é bloqueado. Link que não abre é pior do que
+    link nenhum."""
+    eventos = []
+    for p in familia["parcelas"]:
+        ev = p.parcelamento.evento
+        if ev is not None and ev not in eventos:
+            eventos.append(ev)
+    com_pagina = [e for e in eventos if e.ativo and e.tipo == "inscricao"]
+    links = [
+        request.build_absolute_uri(reverse("core:evento_pagina", args=[e.id]))
+        for e in com_pagina
+    ]
+    if len(com_pagina) > 1:
+        # Com mais de um, a URL sozinha não diz de qual evento é.
+        links = [f"{e.nome}: {u}" for e, u in zip(com_pagina, links)]
+    return ", ".join(e.nome for e in eventos), "\n".join(links)
+
+
 def _montar_mensagem_cobranca_parcela(template, familia, request):
-    """Interpola o template com os dados da conta ({nome}/{itens}/{total}/{link})."""
+    """Interpola o template com os dados da conta: {nome}/{itens}/{total}/{link}
+    sempre, e {evento}/{link_evento} quando as parcelas vêm de um evento."""
     itens = "\n".join(
         f"• {p.parcelamento.descricao} — parcela {p.rotulo}"
         + (f" (vence {p.vencimento.strftime('%d/%m/%Y')})" if p.vencimento else "")
@@ -9324,12 +9456,17 @@ def _montar_mensagem_cobranca_parcela(template, familia, request):
     link = request.build_absolute_uri(
         reverse("core:parcelas_clube", args=[familia["token"]])
     )
-    return (
-        (template or MENSAGEM_COBRANCA_PARCELA_PADRAO)
-        .replace("{nome}", familia["primeiro_nome"] or "")
-        .replace("{itens}", itens)
-        .replace("{total}", _moeda_txt(familia["total"]))
-        .replace("{link}", link)
+    evento_nomes, evento_links = _eventos_da_cobranca(familia, request)
+    return _aplicar_marcadores(
+        template or MENSAGEM_COBRANCA_PARCELA_PADRAO,
+        {
+            "nome": familia["primeiro_nome"] or "",
+            "itens": itens,
+            "total": _moeda_txt(familia["total"]),
+            "link": link,
+            "evento": evento_nomes,
+            "link_evento": evento_links,
+        },
     )
 
 

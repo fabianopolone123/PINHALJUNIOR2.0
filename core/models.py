@@ -3463,7 +3463,10 @@ MENSAGEM_APELO_PADRAO = (
 # Cobrança das PARCELAS lançadas pelo clube (aba própria). Texto separado do da
 # mensalidade de propósito: o que se cobra aqui é um acerto combinado (com valor,
 # nº de parcelas e vencimento), não a contribuição mensal — misturar as duas
-# mensagens confunde quem recebe. Marcadores: {nome}, {itens}, {total}, {link}.
+# mensagens confunde quem recebe. Marcadores: {nome}, {itens}, {total}, {link} e,
+# quando o acerto veio de um evento, {evento} e {link_evento} — estes dois são
+# OPCIONAIS: a linha que usa um deles some quando o lançamento não tem evento
+# (ver `_aplicar_marcadores`), então escreva o evento em linha própria.
 ASSUNTO_COBRANCA_PARCELA_PADRAO = (
     "Parcelas em aberto — Clube de Aventureiros Pinhal Júnior"
 )
@@ -3473,6 +3476,8 @@ MENSAGEM_COBRANCA_PARCELA_PADRAO = (
     "Passando para lembrar das parcelas em aberto:\n"
     "{itens}\n"
     "*Total: R$ {total}*\n\n"
+    "🎪 Referente a: *{evento}*\n"
+    "🔗 Página do evento: {link_evento}\n\n"
     "Para acertar rapidinho (Pix ou cartão), é só acessar:\n"
     "{link}\n\n"
     "Qualquer dúvida, estamos à disposição. Obrigado! 💚"
@@ -3484,7 +3489,9 @@ PROMPT_COBRANCA_PARCELA_IA_PADRAO = (
     "de um acerto combinado com o clube.\n\n"
     "Parcelas em aberto:\n{itens}\n"
     "Total: R$ {total}\n"
-    "Link para pagar fácil (Pix ou cartão): {link}\n\n"
+    "Link para pagar fácil (Pix ou cartão): {link}\n"
+    "Evento a que o acerto se refere: {evento}\n"
+    "Página desse evento: {link_evento}\n\n"
     "Escreva uma mensagem CURTA, objetiva e MUITO educada, em português do Brasil.\n\n"
     "FORMATO (use quebras de linha de verdade, com uma linha em branco entre os blocos):\n"
     "1) uma saudação inicial;\n"
@@ -3492,6 +3499,8 @@ PROMPT_COBRANCA_PARCELA_IA_PADRAO = (
     "3) o total;\n"
     "4) o link de pagamento;\n"
     "5) um agradecimento final.\n\n"
+    "Se acima houver um evento, cite o NOME dele numa frase e inclua a página do evento "
+    "somente se ela também estiver acima; se não houver, não mencione evento nenhum.\n\n"
     "Use no máximo 1 ou 2 emojis discretos. NÃO invente valores, datas ou informações além "
     "das acima. Responda apenas com o texto final da mensagem, sem aspas nem comentários."
 )

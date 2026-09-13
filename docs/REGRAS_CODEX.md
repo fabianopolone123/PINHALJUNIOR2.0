@@ -558,6 +558,21 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
   conta, e por isso `_resolver_alvo` não mudou. A conta que já está em Diretoria **não** se repete em
   Responsáveis, e esse grupo **não filtra `ativo`** — é a exceção do parcelamento (dívida combinada continua
   devida), então a família cujo aventureiro saiu ainda precisa ser alcançável. `demo` fica fora dos três.
+- **Copiar texto para o clipboard é UM arquivo: `copiar_texto.js`.** O texto vem **pronto do servidor** numa
+  `<textarea class="copiar-fonte">` (fora da tela, nunca `hidden`: a cópia de reserva precisa de `select()` num
+  campo que exista) e o botão `.btn-copiar-lista` aponta para ela por `data-fonte`. Já serve o painel do evento
+  e a aba Parcelas; ao criar uma terceira tela, **ligue o mesmo arquivo** em vez de copiar o bloco.
+- **O resumo copiável conta como os KPIs**: `_export_parcelamentos` deixa o lançamento **cancelado de fora**
+  (só um contador no fim), porque os KPIs da aba somam só os ativos — dois números diferentes na mesma tela
+  parecem erro. E **leva nomes**: é texto para a diretoria, não para grupo aberto.
+- **Marcador de mensagem pode ser OPCIONAL** (`_aplicar_marcadores`, hoje `{evento}`/`{link_evento}` na cobrança
+  de parcelas): quando vem vazio, a **linha inteira** que o usa é removida e o buraco de linhas em branco é
+  fechado. Duas razões: a mensagem é escrita **uma vez** para todo mundo, e no **prompt da IA** um rótulo sem
+  valor ("Evento: ") faz a IA inventar o que falta. Consequência a documentar na tela: marcador opcional vai em
+  **linha própria**. Marcador obrigatório ({nome}/{itens}/{total}/{link}) não entra nessa regra.
+- **Link só de página que abre**: `{link_evento}` sai apenas de evento **de inscrição e ativo** — a página
+  pública do inativo é bloqueada (e a do evento simples não existe). Mandar link que não abre é pior do que
+  não mandar.
 - **Lançamento numa conta sem aventureiro precisa de um nome legível**: `pessoa_nome` tenta, nesta ordem,
   aventureiro → ficha de diretoria → **`resp_nome` da família** → `get_full_name()`/username. Sem o penúltimo
   degrau a lista de parcelas mostrava o **nome de acesso** da conta.

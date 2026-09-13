@@ -369,6 +369,13 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   encolhe abaixo do conteúdo, então gráfico/tabela/nome comprido **estica a grade e cria rolagem horizontal na
   página** — e um wrapper de rolagem interna (`*-scroll`) nunca entra em ação. Já aconteceu em Aniversários e
   em Mensalidades (`.mens-resumo-topo`).
+- **Copiar texto para o clipboard é UM arquivo**: `copiar_texto.js` (painel do evento + aba Parcelas). O texto
+  vem **pronto do servidor** numa `<textarea class="copiar-fonte">` e o botão `.btn-copiar-lista` aponta para
+  ela por `data-fonte`. Tela nova que copie texto liga o mesmo arquivo — não duplique o bloco.
+- **Marcador de mensagem pode ser opcional**: `_aplicar_marcadores` remove a **linha inteira** que usa um
+  marcador vazio (hoje `{evento}`/`{link_evento}` na cobrança de parcelas) e fecha o buraco. Serve para a
+  mensagem padrão e para o **prompt da IA**, onde rótulo sem valor faz a IA inventar. Marcador opcional vai em
+  **linha própria**; `{link_evento}` só sai de evento de inscrição **ativo** (link que não abre é pior que nada).
 - **Cobrança em lote é UM arquivo de JS para as duas abas**: `mensalidade_cobranca.js` é ligado duas vezes
   (mensalidades e parcelas do clube), recebendo o painel e o **prefixo dos ids**. Ao criar uma terceira,
   ligue-o de novo — não duplique. O clique do envio individual é ouvido **no painel**, nunca no `document`:
