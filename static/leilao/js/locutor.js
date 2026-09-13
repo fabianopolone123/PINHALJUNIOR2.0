@@ -233,15 +233,24 @@
     /* ---------------------------------------------------------------
        Stream
        --------------------------------------------------------------- */
+    var recargaAgendada = null;
+
+    /* O histórico completo vem por `fetch`, e numa disputa quente chega um lance
+       por segundo. Sem o agrupamento abaixo, a mesa dispararia uma consulta por
+       lance — justo quando o servidor está mais ocupado atendendo o pregão. */
     function recarregarDados() {
-        fetch(URL_DADOS, { headers: { "X-Requested-With": "XMLHttpRequest" } })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (!d.ok) return;
-                render(d.estado);
-                desenharHistorico(d.historico);
-            })
-            .catch(function () { /* a próxima volta resolve */ });
+        if (recargaAgendada) return;
+        recargaAgendada = setTimeout(function () {
+            recargaAgendada = null;
+            fetch(URL_DADOS, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.ok) return;
+                    render(d.estado);
+                    desenharHistorico(d.historico);
+                })
+                .catch(function () { /* a próxima volta resolve */ });
+        }, 700);
     }
 
     var fonte = new EventSource(URL_STREAM);
@@ -272,7 +281,9 @@
     fonte.addEventListener("chat", function (e) {
         var m = JSON.parse(e.data);
         if (!estado.chat) estado.chat = { mensagens: [] };
-        estado.chat.mensagens = (estado.chat.mensagens || []).concat([m]);
+        var lista = (estado.chat.mensagens || []).concat([m]);
+        // Teto: a mesa fica aberta a noite inteira e não pode acumular memória.
+        estado.chat.mensagens = lista.slice(-80);
         desenharChatMesa();
     });
     fonte.addEventListener("chat_estado", function (e) {
@@ -316,6 +327,20 @@
         // "Vendido" e "desfazer" mexem em dinheiro: confirmam.
         if (qual === "fechar" && !window.confirm("Bater o martelo e fechar este item?")) return;
         if (qual === "desfazer" && !window.confirm("Desfazer o último lance?")) return;
+
+        // Abrir outro item com um pregão ACONTECENDO joga o atual de volta para a
+        // fila e a disputa se perde. É um acidente fácil de cometer falando ao
+        // mesmo tempo — e caro, porque há gente disputando naquele instante.
+        if (qual === "abrir") {
+            var atual = estado && estado.ativo ? estado.lote : null;
+            if (atual && atual.tem_lance) {
+                var aviso = "O item “" + atual.nome + "” está em disputa por " +
+                    moeda(atual.valor_atual) + " (" + (atual.lider ? atual.lider.nome : "—") + ").\n\n" +
+                    "Abrir outro joga este de volta para a fila e a disputa se perde.\n" +
+                    "Para vender, use o botão VENDIDO.\n\nAbrir outro mesmo assim?";
+                if (!window.confirm(aviso)) return;
+            }
+        }
 
         acao(corpo).then(function (d) {
             if (!d) return;

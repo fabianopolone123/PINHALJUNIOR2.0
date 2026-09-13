@@ -33,7 +33,7 @@ from . import servicos
 from .forms import ConfigLeilaoForm, EntrarForm, LeilaoForm, LoteForm
 from .hub import HUB, garantir_laco, sse
 from .imagens import preparar_foto
-from .models import Arremate, ConfigLeilao, Lance, Leilao, Lote, PagamentoLeilao, Participante
+from .models import Arremate, ConfigLeilao, Leilao, Lote, PagamentoLeilao, Participante
 from .sessao import entrar as sessao_entrar
 from .sessao import participante_atual
 from .sessao import sair as sessao_sair
@@ -104,8 +104,9 @@ def leilao_view(request):
         {
             "leilao": leilao,
             # Objeto, não string: o `json_script` do template é quem serializa.
+            # A lista de arremates NÃO vai aqui: a tela a busca por `fetch`
+            # (`/meus-arremates/`), porque ela muda sozinha durante o pregão.
             "estado_inicial": est.estado_publico(leilao),
-            "arremates": _arremates_do(participante),
         },
     )
 
@@ -237,7 +238,16 @@ def meus_arremates_view(request):
                 "tem_pix": bool(a.pagamento_id and a.pagamento.qr_code),
             }
         )
-    return JsonResponse({"ok": True, "arremates": itens})
+    # Sem Mercado Pago configurado, Pix nenhum vai nascer — e a tela precisa
+    # dizer isso, em vez de prometer um "gerando…" que nunca termina. O leilão
+    # segue: o locutor combina o pagamento e dá baixa manual.
+    return JsonResponse(
+        {
+            "ok": True,
+            "arremates": itens,
+            "pix_possivel": ConfigLeilao.get_solo().configurado,
+        }
+    )
 
 
 def arremate_pix_view(request, pk):
@@ -255,6 +265,12 @@ def arremate_pix_view(request, pk):
 
     pagamento = arremate.pagamento
     if not pagamento:
+        if not ConfigLeilao.get_solo().configurado:
+            return JsonResponse({
+                "ok": False,
+                "gerando": False,
+                "msg": "O pagamento deste leilão é combinado com o locutor.",
+            })
         # Pode estar sendo gerado ainda (thread de fundo) — a tela espera e tenta de novo.
         return JsonResponse({"ok": False, "gerando": True, "msg": "Gerando seu Pix…"})
 

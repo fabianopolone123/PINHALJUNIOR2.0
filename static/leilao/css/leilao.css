@@ -96,10 +96,13 @@ body.tela-entrada {
     border-bottom: 1px solid var(--borda);
 }
 
-.entrada-grade { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0 10px; }
+/* `minmax(0, 1fr)` e não `1fr`: com `1fr` a coluna não encolhe abaixo do
+   conteúdo e um rótulo comprido estica a grade inteira (armadilha do projeto). */
+.entrada-grade { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 10px; }
 .col-larga { grid-column: span 6; }
 .col-cep { grid-column: span 3; }
-.col-num { grid-column: span 3; }
+.col-num { grid-column: span 2; }
+.col-compl { grid-column: span 4; }
 .col-cidade { grid-column: span 4; }
 .col-uf { grid-column: span 2; }
 

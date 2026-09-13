@@ -143,7 +143,24 @@
         if (lote) desenharLote(lote);
         desenharChat();
         desenharBarra();
+        precarregarProxima();
         tick();
+    }
+
+    var precarregadas = {};
+
+    /* Baixa a foto do PRÓXIMO item enquanto o atual ainda está em disputa.
+       Quando o locutor abrir, a imagem já está no cache do navegador e a tela
+       muda no mesmo instante — em vez de piscar um quadro vazio justo no
+       segundo em que todo mundo está olhando. */
+    function precarregarProxima() {
+        var fila = (estado && estado.fila) || [];
+        if (!fila.length) return;
+        var url = fila[0].foto || fila[0].foto_mini;
+        if (!url || precarregadas[url]) return;
+        precarregadas[url] = true;
+        var img = new Image();
+        img.src = url;
     }
 
     function desenharLote(lote) {
@@ -379,11 +396,14 @@
     /* ---------------------------------------------------------------
        Meus arremates
        --------------------------------------------------------------- */
+    var pixPossivel = true;
+
     function carregarArremates() {
         return fetch(URLS.arremates, { headers: { "X-Requested-With": "XMLHttpRequest" } })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (!d.ok) return;
+                pixPossivel = d.pix_possivel !== false;
                 desenharArremates(d.arremates || []);
                 return d.arremates;
             })
@@ -448,24 +468,33 @@
             prazo.textContent = "Pague em " + mmss(a.segundos);
             corpo.appendChild(prazo);
 
-            var acoes = document.createElement("div");
-            acoes.className = "arremate-acoes";
+            if (!pixPossivel) {
+                // Sem Mercado Pago configurado não nasce Pix nenhum. Dizer isso é
+                // melhor do que oferecer dois botões que nunca vão funcionar.
+                var aviso = document.createElement("span");
+                aviso.className = "arremate-prazo";
+                aviso.textContent = "Combine o pagamento com o locutor.";
+                corpo.appendChild(aviso);
+            } else {
+                var acoes = document.createElement("div");
+                acoes.className = "arremate-acoes";
 
-            var bCopiar = document.createElement("button");
-            bCopiar.type = "button";
-            bCopiar.className = "btn-pagar";
-            bCopiar.textContent = "📋 Copiar código Pix";
-            bCopiar.addEventListener("click", function () { copiarPix(a.id); });
-            acoes.appendChild(bCopiar);
+                var bCopiar = document.createElement("button");
+                bCopiar.type = "button";
+                bCopiar.className = "btn-pagar";
+                bCopiar.textContent = "📋 Copiar código Pix";
+                bCopiar.addEventListener("click", function () { copiarPix(a.id); });
+                acoes.appendChild(bCopiar);
 
-            var bQr = document.createElement("button");
-            bQr.type = "button";
-            bQr.className = "btn-qr";
-            bQr.textContent = "📱 Mostrar QR Code";
-            bQr.addEventListener("click", function () { abrirQr(a.id); });
-            acoes.appendChild(bQr);
+                var bQr = document.createElement("button");
+                bQr.type = "button";
+                bQr.className = "btn-qr";
+                bQr.textContent = "📱 Mostrar QR Code";
+                bQr.addEventListener("click", function () { abrirQr(a.id); });
+                acoes.appendChild(bQr);
 
-            corpo.appendChild(acoes);
+                corpo.appendChild(acoes);
+            }
         }
 
         div.appendChild(corpo);

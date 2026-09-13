@@ -106,10 +106,18 @@ def abrir_lote(lote, *, segundos=None):
 
     with transaction.atomic():
         # Guarda: só um lote em pregão por vez. Se sobrou outro aberto (queda de
-        # serviço no meio do pregão), ele volta para a fila em vez de existirem
-        # dois cronômetros rodando.
+        # serviço no meio do pregão, ou o locutor abriu o próximo sem fechar),
+        # ele volta para a fila em vez de existirem dois cronômetros rodando.
+        #
+        # Volta **limpo**: os lances daquela rodada continuam no banco (histórico),
+        # mas o lote não pode ficar na fila exibindo líder e valor de uma disputa
+        # que foi abandonada.
         Lote.objects.filter(leilao=leilao, status="aberto").exclude(pk=lote.pk).update(
-            status="fila", fecha_em=None, pausado_restante=None
+            status="fila",
+            fecha_em=None,
+            pausado_restante=None,
+            valor_atual=Decimal("0.00"),
+            lider=None,
         )
         lote.status = "aberto"
         lote.aberto_em = agora

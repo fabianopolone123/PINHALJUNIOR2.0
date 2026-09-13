@@ -816,3 +816,84 @@ class RodadaTests(TestCase):
         self.lote.refresh_from_db()
         self.assertIsNone(self.lote.lider_id)
         self.assertEqual(self.lote.valor_atual, Decimal("0.00"))
+
+
+class AbrirOutroLoteTests(TestCase):
+    """Abrir outro item com um pregão acontecendo devolve o atual à fila.
+
+    O servidor aceita (é o locutor quem manda), mas o lote abandonado precisa
+    voltar **limpo** — não pode ficar na fila exibindo líder e valor de uma
+    disputa que foi jogada fora. A confirmação na tela do locutor é a camada que
+    evita o acidente; esta é a que garante o estado coerente.
+    """
+
+    def test_lote_abandonado_volta_limpo_para_a_fila(self):
+        servicos.limpar_limites()
+        leilao = criar_leilao()
+        a = criar_lote(leilao, nome="Item A", ordem=1)
+        b = criar_lote(leilao, nome="Item B", ordem=2)
+        ana = criar_pessoa("Ana Fictícia")
+
+        servicos.abrir_lote(a)
+        a.refresh_from_db()
+        servicos.dar_lance(a.id, ana)
+        a.refresh_from_db()
+        self.assertEqual(a.valor_atual, Decimal("40.00"))
+
+        servicos.abrir_lote(b)
+        a.refresh_from_db()
+        self.assertEqual(a.status, "fila")
+        self.assertIsNone(a.lider_id)
+        self.assertEqual(a.valor_atual, Decimal("0.00"))
+        self.assertEqual(a.proximo_valor, Decimal("40.00"))
+        # O lance continua no banco: histórico não se apaga.
+        self.assertEqual(Lance.objects.filter(lote=a).count(), 1)
+
+
+class SemMercadoPagoTests(TestCase):
+    """O leilão não pode parar por falta de credencial de pagamento.
+
+    Sem Mercado Pago configurado nenhum Pix nasce — e a tela precisa DIZER isso,
+    em vez de prometer um "gerando…" que nunca termina. O locutor combina o
+    pagamento e dá baixa manual.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.c = Client()
+        self.c.post("/entrar/", {
+            "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0000",
+            "cep": "01001-000", "logradouro": "Rua Exemplo", "numero": "10",
+            "bairro": "Centro", "cidade": "Cidade Exemplo", "estado": "SP",
+        })
+        self.pessoa = Participante.objects.get(nome="Fulano de Teste")
+
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.pessoa)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote)
+
+    def test_arremate_acontece_mesmo_sem_credencial(self):
+        self.assertIsNotNone(self.arremate)
+        self.assertEqual(self.arremate.status, "aguardando")
+
+    def test_lista_avisa_que_o_pix_nao_e_possivel(self):
+        r = self.c.get("/meus-arremates/")
+        self.assertFalse(r.json()["pix_possivel"])
+
+    def test_pedir_o_pix_nao_promete_o_que_nao_vem(self):
+        r = self.c.get(f"/arremate/{self.arremate.id}/pix/")
+        corpo = r.json()
+        self.assertFalse(corpo["ok"])
+        self.assertFalse(corpo["gerando"])
+        self.assertIn("locutor", corpo["msg"])
+
+    def test_com_credencial_a_lista_libera_o_pix(self):
+        cfg = ConfigLeilao.get_solo()
+        cfg.access_token_teste = "TEST-token-ficticio-1234"
+        cfg.save()
+        r = self.c.get("/meus-arremates/")
+        self.assertTrue(r.json()["pix_possivel"])

@@ -121,7 +121,16 @@ def estado_publico(leilao, *, com_chat=True):
         },
         "lote": lote_publico(lote),
         "fila": [
-            {"id": x.id, "nome": x.nome, "foto_mini": _foto(x.foto_mini) or _foto(x.foto)}
+            {
+                "id": x.id,
+                "nome": x.nome,
+                "foto_mini": _foto(x.foto_mini) or _foto(x.foto),
+                # A foto GRANDE do próximo vai junto para a tela poder
+                # pré-carregá-la. Sem isso, o primeiro segundo do lote novo — o
+                # mais importante — mostra um quadro vazio enquanto a imagem
+                # baixa. São ~50 bytes por item; vale a troca.
+                "foto": _foto(x.foto),
+            }
             for x in fila
         ],
         "restam_na_fila": leilao.lotes.filter(status="fila").count(),
