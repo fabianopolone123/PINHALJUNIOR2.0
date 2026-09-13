@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Leilão: refinos para o uso ao vivo
+
+### Resumo
+Ajustes saídos de reler o módulo pensando no evento acontecendo, não no código.
+
+### Arquivos criados/alterados
+- `static/leilao/js/leilao.js`: estado "te superaram" **permanente**, som próprio de perder a
+  liderança, aviso quando não há Pix possível, pré-carga da foto do próximo item.
+- `static/leilao/js/locutor.js`: confirmação ao abrir outro item com pregão em disputa; recargas do
+  histórico **agrupadas** (era uma consulta por lance).
+- `leilao/servicos.py`: lote abandonado volta **limpo** para a fila.
+- `leilao/estado.py`: a foto grande do próximo item vai no estado (para a pré-carga).
+- `leilao/views.py`: `pix_possivel` na lista de arremates e resposta honesta quando não há credencial.
+- `templates/leilao/entrar.html` + `static/leilao/css/leilao.css`: número e complemento na mesma linha.
+
+### Decisões tomadas
+- **"Te superaram" não é um piscar.** É a informação mais importante para quem disputa, e a pessoa
+  olha o celular de vez em quando — então o estado fica até ela cobrir, e o botão passa a dizer
+  "COBRIR O LANCE". Perder a liderança ganhou **som descendente próprio**: dá para entender sem olhar.
+- **Sem Mercado Pago configurado o leilão não para** — mas a tela precisa **dizer** isso. Antes
+  prometia "Gerando seu Pix…" para sempre; agora diz "combine o pagamento com o locutor", e o Diretor
+  dá baixa manual.
+- **Abrir outro item no meio de uma disputa** é acidente fácil de cometer falando ao mesmo tempo, e
+  caro. Ganhou confirmação nomeando o item, o valor e quem está ganhando. No servidor, o lote
+  abandonado volta **limpo** (sem líder nem valor de uma disputa jogada fora) — os lances continuam
+  no banco, mas fora da rodada nova.
+- **A foto do próximo item é pré-carregada** enquanto o atual está em disputa: a troca de lote é o
+  segundo em que todo mundo está olhando, e não pode piscar um quadro vazio.
+
+### Pendências
+- As mesmas da entrada anterior (deploy, teste de carga, Pix real, data do evento).
+
+---
+
 ## 2026-09-13 - Leilão online ao vivo: módulo implementado (app, serviço e telas)
 
 ### Resumo
