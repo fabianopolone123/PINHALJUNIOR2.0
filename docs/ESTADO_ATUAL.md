@@ -20,7 +20,8 @@ parcelas lançadas pelo clube (presas à conta) e parcelas do valor da diretoria
 à inscrição) —, o que está **vencido** em destaque e o botão de pagar. Ele **não cria fluxo de pagamento
 novo**: manda para as **mesmas páginas públicas por token** que a cobrança usa. Vale para qualquer perfil — o
 responsável também vê as suas ali. Funções: `_minhas_parcelas`, `_gravar_ficha_diretoria` (extraída, usada
-pelos dois caminhos de cadastro), `minha_ficha_diretoria_view`, `usuario_liberar_diretoria_view`.
+pelos dois caminhos de cadastro), `minha_ficha_diretoria_view`, `usuario_liberar_diretoria_view`. Suíte: **433 testes OK**. **Em produção** no
+commit `c900d2b`, com a migration **0073** aplicada e healthcheck OK.
 
 **Atualização anterior:** 2026-09-12 (**Parcelas: "Copiar resumo" + o evento na cobrança**): duas coisas na
 aba 📆 Parcelas. (1) Botão **📋 Copiar resumo** ao lado do "Novo lançamento": copia para a área de transferência

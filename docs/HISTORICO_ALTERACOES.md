@@ -63,6 +63,16 @@ entrou o card **💳 Minhas parcelas** em Meus Dados.
   Com isso o perfil **Professor continua com acesso só a "Meus Dados"**, como combinado — o módulo de
   permissões decide o resto depois.
 
+### Deploy e conferência em produção (13/09)
+Deploy pelo atalho `pinhaljunior2-deploy`: `cf64c23` → **`c900d2b`**, com backup do SQLite antes, `check` e
+`makemigrations --check` limpos (desta vez rodados **antes** do push, depois do incidente de ontem), **migration
+`0073` aplicada**, estáticos coletados e healthcheck OK. Serviços: `pinhaljunior2` e `nginx` **active**,
+`sitepinhal` **inactive**. Conferido: `/` **200**; `/inicio/`, `/meus-dados/diretoria/` e `/usuarios/` **302**
+(pedem login, como esperado).
+
+**O que a conferência NÃO prova:** o caminho completo com gente de verdade — liberar uma conta em Usuários,
+a pessoa preencher a ficha e assinar os três documentos no celular, e o card de parcelas com dívida real.
+
 ### Pendências
 - Módulo de permissões (ligar/desligar telas por perfil) — o encaixe continua sendo `ACESSO_PADRAO`/
   `perfil_efetivo`, sem mexer em menu nem em views.
