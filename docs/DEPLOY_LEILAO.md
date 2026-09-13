@@ -205,6 +205,35 @@ ufw allow 8189/udp comment "MediaMTX - audio do leilao"
 Depois, na tela `/leilao/locutor/config/`: ligar **"Transmitir a voz do locutor"**, caminho `leilao`,
 e o usuário/senha de publicação.
 
+## 7.1 Atualizar o leilão depois de um deploy — ARMADILHA
+
+O `pinhaljunior2-deploy` faz `git reset --hard` em `/var/www/pinhaljunior2/current`, que é a pasta dos
+**dois** serviços. Ou seja: ele **troca o código do leilão junto**, mas reinicia só o
+`pinhaljunior2.service` e roda `collectstatic` só com as settings do clube.
+
+**Consequência:** depois de um deploy, o leilão continua rodando o **código velho** em memória, e os
+estáticos novos dele não foram coletados. Num dia comum isso passa despercebido; na véspera do evento,
+não.
+
+Então, **sempre depois do `pinhaljunior2-deploy`** (ou quando só o leilão mudou):
+
+```bash
+cd /var/www/pinhaljunior2/current
+export $(grep -v '^#' /etc/pinhaljunior_leilao.env | xargs)
+/var/www/pinhaljunior2/.venv/bin/python manage.py migrate --noinput
+/var/www/pinhaljunior2/.venv/bin/python manage.py collectstatic --noinput
+chown -R www-data:www-data /var/www/pinhaljunior2/data /var/www/pinhaljunior2/staticfiles_leilao
+systemctl restart pinhaljunior_leilao.service
+```
+
+> **Não reinicie o serviço com um pregão acontecendo.** O estado em si sobrevive: `fecha_em` é uma
+> data/hora **gravada no banco**, então o cronômetro é retomado no ponto certo e as conexões SSE voltam
+> sozinhas em segundos (o `EventSource` reconecta e o servidor remanda o estado inteiro).
+>
+> O risco é o **tempo**: se o reinício demorar mais do que faltava no cronômetro, o laço central sobe
+> com o prazo **já vencido** e fecha o lote **no mesmo instante** — batendo o martelo no valor em que
+> estava, sem os últimos segundos de disputa. Espere o intervalo entre um lote e outro.
+
 ## 8. Antes do evento — a prova
 
 **Obrigatório, e não no dia.**

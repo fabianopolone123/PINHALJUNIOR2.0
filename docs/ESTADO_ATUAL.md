@@ -24,7 +24,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **73 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **Ainda NÃO está em produção**: falta o
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **75 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **Ainda NÃO está em produção**: falta o
 deploy (`docs/DEPLOY_LEILAO.md`) e o **teste de carga com 100 conexões**, que é obrigatório antes do
 evento. Plano completo em `docs/PLANEJAMENTO_LEILAO.md`.
 
@@ -1816,7 +1816,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 73 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 75 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens

@@ -897,3 +897,41 @@ class SemMercadoPagoTests(TestCase):
         cfg.save()
         r = self.c.get("/meus-arremates/")
         self.assertTrue(r.json()["pix_possivel"])
+
+
+class ReinicioDoServicoTests(TestCase):
+    """O que sobrevive a um restart do serviço no meio do pregão.
+
+    O estado vive no banco (`fecha_em` é data/hora absoluta), então o cronômetro
+    é retomado no ponto certo — mas se o reinício demorar mais do que faltava, o
+    laço central sobe com o prazo vencido e fecha o lote na hora. Está
+    documentado em `docs/DEPLOY_LEILAO.md`; aqui fica fixado em teste.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        self.lote.refresh_from_db()
+
+    def test_lote_aberto_continua_aberto_e_com_o_prazo_gravado(self):
+        prazo = self.lote.fecha_em
+        # Nada de estado em memória: só o que está no banco.
+        servicos.limpar_limites()
+        de_novo = Lote.objects.get(pk=self.lote.pk)
+        self.assertEqual(de_novo.status, "aberto")
+        self.assertEqual(de_novo.fecha_em, prazo)
+        self.assertEqual(de_novo.lider_id, self.ana.id)
+
+    def test_reinicio_demorado_fecha_o_lote_na_primeira_volta(self):
+        Lote.objects.filter(pk=self.lote.pk).update(
+            fecha_em=timezone.now() - timedelta(seconds=30)
+        )
+        servicos.verificar_prazos()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "vendido")
+        self.assertEqual(Arremate.objects.filter(lote=self.lote).count(), 1)
