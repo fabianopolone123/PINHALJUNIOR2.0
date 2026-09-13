@@ -48,6 +48,17 @@ muitas vezes é o pai ou a mãe que não é o responsável legal. Agora os **tr�
 - **O alvo continua sendo `conta:<id>`**: nada mudou no POST, em `_resolver_alvo` nem no model.
 - **Ficha sem nenhum adulto preenchido** cai no nome da conta, como antes — não some da lista.
 
+### Deploy e conferência em produção (12/09)
+Deploy pelo atalho `pinhaljunior2-deploy` (nunca `pinhaljunior-deploy`): `9342913` → **`4dfaace`**, com backup
+do SQLite antes, `check` e `makemigrations --check` limpos, **nenhuma migration a aplicar**, estáticos coletados
+e healthcheck OK na porta 8010. Serviços: `pinhaljunior2` **active**, `nginx` **active**, `sitepinhal`
+**inactive**. Conferido: `/` **200**, `/mensalidades/` **302** (pede login) e, no servidor, o template já com o
+rótulo novo do `<optgroup>`.
+
+**O que a conferência NÃO prova:** a lista com os dados reais — o modal é tela de Diretor e não abre de fora.
+Vale abrir Mensalidades → 📆 Parcelas → Novo lançamento e ver se pai e mãe aparecem junto do responsável legal,
+sem ninguém repetido.
+
 ### Pendências
 - Nenhuma.
 

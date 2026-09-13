@@ -19,9 +19,9 @@ contagem do clube; e uma conta com fichas de responsáveis diferentes (pai numa,
 só, sem repetir ninguém. `ParcelamentoClube.pessoa_nome` ganhou o fallback correspondente: lançamento
 numa conta de família sem aventureiro mostrava o **nome de acesso** (username) na lista de parcelas; agora mostra
 o nome do responsável legal. Funções: `_alvos_parcelamento` + a nova `_alvos_responsaveis` em `views.py`. Suíte:
-**404 testes OK** (396 + 8). A 1ª parte (o grupo pelo responsável legal) foi para produção em 12/09 no commit
-`9342913`; a 2ª (pai e mãe) segue no mesmo deploy do dia — **sem migration** nas duas, a mudança é de seletor e
-exibição.
+**404 testes OK** (396 + 8). **Já está em produção**: o grupo pelo responsável legal no commit `9342913` e pai/mãe no
+`4dfaace`, os dois em 12/09 — **sem migration** (a mudança é de seletor e exibição), healthcheck OK e serviços
+`pinhaljunior2`/`nginx` ativos, `sitepinhal` inativo.
 
 **Atualização anterior:** 2026-09-07 (**Parcelamento lançado pelo clube — lançamento manual de parcelas**):
 o parcelamento deixou de existir só dentro da inscrição de evento. Agora o Diretor pode **lançar parcelas na
