@@ -558,6 +558,13 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
   conta, e por isso `_resolver_alvo` não mudou. A conta que já está em Diretoria **não** se repete em
   Responsáveis, e esse grupo **não filtra `ativo`** — é a exceção do parcelamento (dívida combinada continua
   devida), então a família cujo aventureiro saiu ainda precisa ser alcançável. `demo` fica fora dos três.
+- **Mudar o TEXTO PADRÃO de uma mensagem é mudar o `default` de um campo — e isso exige migration.** As
+  mensagens/prompts padrão (`MENSAGEM_*_PADRAO`, `PROMPT_*_PADRAO`) são `default=` de campos do
+  `ConfigMensalidade`: editar a constante muda o estado do model. O deploy roda `makemigrations --check` e
+  **recusa** sem a migration (já aconteceu: o deploy caiu no rollback e o site ficou **502 por ~2 min**, porque
+  o rollback do script **não refaz o `chown root:www-data`** do código). Rode `makemigrations` sempre que mexer
+  numa dessas constantes; é só `AlterField`, nenhum dado muda e quem já salvou a própria mensagem continua com
+  ela.
 - **Copiar texto para o clipboard é UM arquivo: `copiar_texto.js`.** O texto vem **pronto do servidor** numa
   `<textarea class="copiar-fonte">` (fora da tela, nunca `hidden`: a cópia de reserva precisa de `select()` num
   campo que exista) e o botão `.btn-copiar-lista` aponta para ela por `data-fonte`. Já serve o painel do evento

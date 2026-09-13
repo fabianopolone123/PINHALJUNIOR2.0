@@ -369,6 +369,9 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   encolhe abaixo do conteúdo, então gráfico/tabela/nome comprido **estica a grade e cria rolagem horizontal na
   página** — e um wrapper de rolagem interna (`*-scroll`) nunca entra em ação. Já aconteceu em Aniversários e
   em Mensalidades (`.mens-resumo-topo`).
+- **Texto padrão de mensagem = `default` de campo = migration.** `MENSAGEM_*_PADRAO`/`PROMPT_*_PADRAO` são
+  `default=` no `ConfigMensalidade`: editar a constante pede `makemigrations` (só `AlterField`). Sem isso o
+  deploy recusa no `makemigrations --check`, faz rollback e o rollback **não refaz as permissões** — o site cai.
 - **Copiar texto para o clipboard é UM arquivo**: `copiar_texto.js` (painel do evento + aba Parcelas). O texto
   vem **pronto do servidor** numa `<textarea class="copiar-fonte">` e o botão `.btn-copiar-lista` aponta para
   ela por `data-fonte`. Tela nova que copie texto liga o mesmo arquivo — não duplique o bloco.

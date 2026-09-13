@@ -17,7 +17,9 @@ pelo mesmo `_montar_mensagem_cobranca_parcela`. Eles são **opcionais** e a regr
 usa um marcador opcional vazio **some inteira** (`_aplicar_marcadores`) — quem tem acerto geral do clube não
 recebe "Referente a:" pendurado, e o prompt da IA não leva rótulo sem valor (que é convite para ela inventar).
 O link só sai de evento **de inscrição e ativo**: a página do inativo é bloqueada, e link que não abre é pior do
-que link nenhum. A mensagem e o prompt padrão já vêm com as duas linhas.
+que link nenhum. A mensagem e o prompt padrão já vêm com as duas linhas. Suíte: **415 testes OK**. **Em
+produção** no commit `cf64c23`, com a migration **0072** (só `AlterField` de default — mudar o texto padrão
+mexe no default do campo; **o primeiro deploy falhou** por causa disso, ver HISTORICO).
 
 **Atualização anterior:** 2026-09-12 (**Parcelas: o seletor "para quem" agora lista os responsáveis**): no
 modal de novo lançamento (Mensalidades → 📆 Parcelas) havia só dois grupos — **Aventureiros** e **Diretoria**.

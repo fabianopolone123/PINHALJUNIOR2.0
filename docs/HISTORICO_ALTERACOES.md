@@ -59,6 +59,28 @@ no prompt da IA.
   não tem página. O **nome** do evento continua aparecendo nesses casos; só o link é omitido.
 - **Com mais de um evento**, o link vira "Nome: URL" por linha — a URL sozinha não diz de qual evento é.
 
+### Deploy e conferência em produção (12/09) — com incidente
+
+**O primeiro deploy falhou e o site ficou 502 por ~2 minutos.** Causa: mudar o **texto padrão** da mensagem e do
+prompt da cobrança de parcelas mudou o `default=` desses campos do `ConfigMensalidade` — ou seja, mexeu no
+estado do model — e o commit foi sem migration. O atalho roda `makemigrations --check` **antes** de aplicar as
+migrations, detectou a pendência e abortou para o rollback. O rollback voltou o código e o banco, mas **não
+refaz o `chown root:www-data`** (esse passo vem depois, no caminho feliz), então o Gunicorn ficou sem permissão
+de ler o próprio `config/__init__.py`, em `activating (auto-restart)`, e o Nginx devolveu **502**.
+
+Correção: gerar a migration **0072** (só `AlterField` de default — nenhum dado muda, e quem já salvou a própria
+mensagem continua com ela), commitar, e rodar o `pinhaljunior2-deploy` de novo. O deploy bem-sucedido refaz as
+permissões no fim, então o site voltou sem precisar de conserto manual: `4dfaace` → **`cf64c23`**, migration
+`0072` aplicada, 50 estáticos coletados, healthcheck OK. Conferido: `/` **200**, `/mensalidades/` **302**,
+`/static/js/copiar_texto.js` **200**; `pinhaljunior2` e `nginx` **active**, `sitepinhal` **inactive**.
+
+Ficou documentado nos dois lugares que evitariam o incidente: a regra "texto padrão é `default` de campo, então
+pede migration" (REGRAS_CODEX e CLAUDE.md) e a armadilha do rollback sem permissões (DEPLOY_VPS.md).
+
+**O que a conferência NÃO prova:** o texto copiado com os dados reais e a cobrança com o `{evento}` de fato
+enviada (depende da W-API ativa). Vale abrir Mensalidades → 📆 Parcelas, clicar em **📋 Copiar resumo** e colar
+numa conversa, e mandar uma cobrança de teste de um lançamento com evento.
+
 ### Pendências
 - Nenhuma.
 

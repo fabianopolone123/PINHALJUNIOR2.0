@@ -66,6 +66,33 @@ O atalho faz:
 - reload do Nginx;
 - healthcheck em `127.0.0.1:8010`.
 
+## Quando o deploy falha: o rollback NÃO refaz as permissões
+
+Descoberto em 12/09/2026, com o site **502 por ~2 minutos**. O atalho valida `makemigrations --check` **antes**
+de aplicar migrations; faltando uma migration ele aborta e chama o rollback, que volta o código (`git reset`) e
+restaura o SQLite — mas o passo de **permissões** (`chown -R root:www-data` + `chmod -R g+rX`) vem **depois**, no
+caminho feliz, e não é refeito. O código volta como `root:root` e o Gunicorn não lê nem o `config/__init__.py`:
+
+```text
+PermissionError: [Errno 13] Permission denied: '/var/www/pinhaljunior2/current/config/__init__.py'
+```
+
+O serviço fica em `activating (auto-restart)` e o Nginx responde **502**. Para levantar na hora:
+
+```bash
+chown -R root:www-data /var/www/pinhaljunior2/current
+chmod -R g+rX /var/www/pinhaljunior2/current
+systemctl restart pinhaljunior2.service
+```
+
+Melhor ainda: **corrigir a causa e rodar o `pinhaljunior2-deploy` de novo** — o deploy que dá certo refaz as
+permissões no fim e devolve o site sozinho (foi o que se fez). E, antes de qualquer push que mexa em model
+(inclusive em `default=`, como o texto padrão de uma mensagem), rode localmente:
+
+```bash
+python manage.py makemigrations --check --dry-run
+```
+
 ## Variáveis de produção
 
 O arquivo `/etc/pinhaljunior2.env` define:
