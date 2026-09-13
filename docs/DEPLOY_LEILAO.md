@@ -149,6 +149,14 @@ chown -R www-data:www-data /var/www/pinhaljunior2/data /var/www/pinhaljunior2/st
 > O `createsuperuser` cria quem entra em `/leilao/locutor/`. O acesso é pelo `is_staff` — a conta do
 > sistema do clube **não serve** aqui (bancos diferentes, de propósito).
 
+O `collectstatic` do leilão usa o mesmo cache-busting do clube (`core.storages`, que é importável sem o
+app `core` instalado) — conferido localmente: 188 arquivos, todos pós-processados.
+
+O `manage.py check --deploy` deste serviço mostra **as mesmas três** advertências do sistema do clube, e
+elas são **esperadas**: `W004` (HSTS ainda sem valor — dívida conhecida do projeto), `W008` (quem
+redireciona HTTP→HTTPS é o Nginx) e `W009`, que só aparece se faltar a `DJANGO_SECRET_KEY` no `.env`.
+**Essa terceira, em produção, tem de sumir** — se ela aparecer, o segredo não foi configurado.
+
 ## 7. Áudio — MediaMTX
 
 Binário Go único, sem npm e sem compilar:
