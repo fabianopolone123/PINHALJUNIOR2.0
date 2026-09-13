@@ -2,11 +2,26 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-07 (**Parcelamento lançado pelo clube — lançamento manual de parcelas**):
+**Última atualização:** 2026-09-12 (**Parcelas: o seletor "para quem" agora lista os responsáveis**): no
+modal de novo lançamento (Mensalidades → 📆 Parcelas) havia só dois grupos — **Aventureiros** e **Diretoria**.
+Quando o acerto era do adulto da família, e não de uma criança em particular, o Diretor tinha que escolher um
+aventureiro qualquer só para chegar à conta certa. Agora há um terceiro grupo, **Responsáveis (conta da
+família)**: cada família aparece pelo nome de quem responde por ela (`Aventureiro.resp_nome`), com os filhos no
+detalhe para desempatar homônimos. O alvo é a **mesma** `conta:<id>` — muda só como se acha a família, então
+`_resolver_alvo` e o POST não mudaram. Detalhes que importam: a conta que já está em **Diretoria** fica **fora**
+do grupo novo (seria a mesma opção duas vezes); o grupo **não filtra `ativo`** (dívida combinada continua devida
+depois de a criança sair — a exceção do parcelamento, que já vale no resto do módulo), então a família cujo
+aventureiro saiu some do grupo "Aventureiros" mas continua em "Responsáveis"; `demo` fica fora, como em toda
+contagem do clube; e uma conta com fichas de responsáveis diferentes (pai numa, mãe noutra) vira **uma opção por
+nome**, todas para a mesma conta. `ParcelamentoClube.pessoa_nome` ganhou o fallback correspondente: lançamento
+numa conta de família sem aventureiro mostrava o **nome de acesso** (username) na lista de parcelas; agora mostra
+o nome do responsável. Funções: `_alvos_parcelamento` + a nova `_alvos_responsaveis` em `views.py`.
+
+**Atualização anterior:** 2026-09-07 (**Parcelamento lançado pelo clube — lançamento manual de parcelas**):
 o parcelamento deixou de existir só dentro da inscrição de evento. Agora o Diretor pode **lançar parcelas na
 mão** (models `ParcelamentoClube`/`ParcelaClube`, migration **0071**): escolhe **para quem** — um aventureiro
-(que já leva a conta do responsável) ou uma **conta de diretoria**, inclusive quem **não tem filho no clube**
-—, digita descrição, **valor total** e **nº de parcelas**, e o sistema divide vencendo no **dia 10** mês a mês,
+(que já leva a conta do responsável), um **responsável** (a conta da família pelo nome do adulto) ou uma
+**conta de diretoria**, inclusive quem **não tem filho no clube** —, digita descrição, **valor total** e **nº de parcelas**, e o sistema divide vencendo no **dia 10** mês a mês,
 a partir do mês escolhido (padrão: o mês seguinte). O caso que pediu isso: quem se inscreveu num evento que
 **não** tinha o parcelamento habilitado, ou combinou o acerto depois — antes não havia caminho nenhum, nem em
 Eventos, nem em Mensalidades, nem no Financeiro. Duas abas novas em **Mensalidades**: **📆 Parcelas** (KPIs

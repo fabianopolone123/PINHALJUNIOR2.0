@@ -8960,10 +8960,12 @@ def _venc_primeiro_de_post(valor, hoje=None):
 
 def _alvos_parcelamento():
     """Opções do seletor "para quem": os aventureiros ativos (cada um leva a
-    própria conta) e as contas de diretoria/responsável.
+    própria conta), as contas de diretoria e as contas de família pelo nome do
+    **responsável**.
 
     Escolher o aventureiro já resolve os dois vínculos de uma vez (conta +
-    aventureiro), e a conta sozinha atende a diretoria sem filho no clube."""
+    aventureiro); a conta sozinha atende a diretoria sem filho no clube e o
+    acerto que é do adulto da família, não de uma criança em particular."""
     aventureiros = [
         {"valor": f"av:{a.id}", "rotulo": a.nome_completo,
          "detalhe": a.resp_nome or ""}
@@ -8971,14 +8973,63 @@ def _alvos_parcelamento():
             ativo=True, demo=False, usuario__isnull=False
         ).order_by("nome_completo")
     ]
+    membros = list(
+        MembroDiretoria.objects.filter(
+            ativo=True, demo=False, usuario__isnull=False
+        ).order_by("nome_completo")
+    )
     contas = [
         {"valor": f"conta:{m.usuario_id}", "rotulo": m.nome_completo,
          "detalhe": "Diretoria"}
-        for m in MembroDiretoria.objects.filter(
-            ativo=True, demo=False, usuario__isnull=False
-        ).order_by("nome_completo")
+        for m in membros
     ]
-    return {"aventureiros": aventureiros, "contas": contas}
+    return {
+        "aventureiros": aventureiros,
+        "contas": contas,
+        "responsaveis": _alvos_responsaveis({m.usuario_id for m in membros}),
+    }
+
+
+def _alvos_responsaveis(ja_listadas):
+    """Contas de família pelo nome do RESPONSÁVEL, para o lançamento que é do
+    adulto e não de um aventureiro específico.
+
+    O alvo é a mesma `conta:<id>` do aventureiro — muda só como o Diretor acha
+    a família na lista. **Não** filtra `ativo`: dívida combinada continua
+    devida depois de a criança sair do clube (a exceção do parcelamento). A
+    conta que já aparece em "Diretoria" fica de fora, senão seria a mesma opção
+    duas vezes."""
+    familias = {}
+    for a in (
+        Aventureiro.objects.filter(demo=False, usuario__isnull=False)
+        .select_related("usuario")
+        .order_by("nome_completo")
+    ):
+        if a.usuario_id in ja_listadas:
+            continue
+        f = familias.setdefault(
+            a.usuario_id, {"usuario": a.usuario, "nomes": [], "filhos": []}
+        )
+        # Uma conta pode ter fichas com responsáveis diferentes (pai numa,
+        # mãe noutra): cada nome vira uma opção, todas para a mesma conta.
+        nome = (a.resp_nome or "").strip()
+        if nome and nome not in f["nomes"]:
+            f["nomes"].append(nome)
+        f["filhos"].append(a.nome_completo)
+
+    alvos = []
+    for uid, f in familias.items():
+        nomes = f["nomes"] or [f["usuario"].get_full_name() or f["usuario"].username]
+        detalhe = ", ".join(f["filhos"][:2])
+        if len(f["filhos"]) > 2:
+            detalhe += f" e +{len(f['filhos']) - 2}"
+        for nome in nomes:
+            alvos.append({
+                "valor": f"conta:{uid}", "rotulo": nome,
+                "detalhe": f"resp. de {detalhe}" if detalhe else "",
+            })
+    alvos.sort(key=lambda a: a["rotulo"].lower())
+    return alvos
 
 
 def _resolver_alvo(valor):

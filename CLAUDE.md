@@ -198,7 +198,11 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `DIA_VENCIMENTO_PARCELA` (dia 10) mês a mês, a partir do mês que ele escolhe. Não confundir com
   `ParcelaInscricao` (parcelamento do valor da diretoria **dentro da inscrição**, que nasce sozinho no ato).
   O vínculo é com a **conta** (`usuario`), não com o aventureiro — é o que faz servir para família **e** para
-  diretoria sem filho no clube; `aventureiro` e `evento` são **opcionais**. **Não** é uma `Mensalidade`
+  diretoria sem filho no clube; `aventureiro` e `evento` são **opcionais**. O seletor "para quem" tem **três
+  grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`), **Responsáveis** (a família pelo nome do adulto,
+  `_alvos_responsaveis`) e Diretoria — os dois últimos dão o **mesmo** `conta:<id>`, então o grupo novo é só
+  outro caminho para a mesma conta. Responsáveis **não filtra `ativo`** (a exceção do parcelamento) e não
+  repete quem já está em Diretoria. **Não** é uma `Mensalidade`
   (uma por aventureiro/ano/mês, sem vencimento nem descrição, amarrada ao aventureiro) nem uma
   `ParcelaInscricao` (exige `Inscricao`, e o dinheiro dela entra pelo evento). **O lançamento nasce 100% a
   receber**: só a parcela **PAGA** é entrada, em toda soma de caixa, e o extrato leva **uma linha por parcela

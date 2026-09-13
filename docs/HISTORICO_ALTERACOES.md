@@ -22,6 +22,44 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-12 - Parcelas: o seletor "para quem" também lista os responsáveis
+
+### Resumo
+Pedido do usuário: "em parcelas coloca pra poder selecionar nomes de responsáveis também". O modal de novo
+lançamento (Mensalidades → 📆 Parcelas) tinha só **Aventureiros** e **Diretoria**: quando o acerto era do
+adulto da família — e não de uma criança específica —, o Diretor precisava escolher um aventureiro qualquer só
+para chegar à conta certa. Agora há um terceiro grupo, **Responsáveis (conta da família)**, com a família
+listada pelo nome de quem responde por ela e os filhos no detalhe (desempata homônimos).
+
+### Arquivos criados/alterados
+- `core/views.py`: `_alvos_parcelamento` passou a devolver também `responsaveis`; nova `_alvos_responsaveis`
+  agrupa os aventureiros por conta e monta as opções pelo `resp_nome`.
+- `core/models.py`: `ParcelamentoClube.pessoa_nome` ganhou o degrau do responsável antes do username.
+- `templates/core/mensalidades.html`: `<optgroup>` "Responsáveis (conta da família)" no seletor + texto de
+  ajuda atualizado.
+- `core/tests.py`: 5 testes novos em `ParcelamentoClubeTests` (lista o responsável, não repete a conta que já
+  está em Diretoria, ignora `demo`, mantém a família cujo aventureiro saiu, e o lançamento na conta da família
+  mostra o nome do responsável).
+- `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`, `CLAUDE.md`: documentação.
+
+### Decisões tomadas
+- **O alvo continua sendo `conta:<id>`** — o mesmo do grupo Diretoria. O grupo novo muda só *como se acha* a
+  família, então `_resolver_alvo` e o POST ficaram intactos (nada a migrar, nada a revalidar).
+- **A conta que já aparece em Diretoria fica fora do grupo novo**: seria a mesma opção duas vezes, com o mesmo
+  efeito.
+- **O grupo não filtra `ativo`**, ao contrário do grupo de aventureiros. É a exceção do parcelamento já
+  documentada: dívida combinada continua devida depois de a criança sair, e essa família precisa continuar
+  alcançável. `demo` fica fora dos três grupos, como em toda contagem do clube.
+- **Uma conta com responsáveis diferentes em fichas diferentes** (pai numa, mãe noutra) vira **uma opção por
+  nome**, todas apontando para a mesma conta — ajuda a achar pelo nome que o Diretor lembra.
+- **`pessoa_nome` precisava do fallback**: antes, um lançamento numa conta de família sem aventureiro aparecia
+  na lista de parcelas com o **nome de acesso** (username). Agora mostra o nome do responsável.
+
+### Pendências
+- Nenhuma.
+
+---
+
 ## 2026-09-07 - Parcelamento lançado pelo clube (lançamento manual de parcelas)
 
 ### Resumo

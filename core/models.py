@@ -3821,6 +3821,11 @@ class ParcelamentoClube(models.Model):
         membro = getattr(self.usuario, "membro_diretoria", None)
         if membro is not None:
             return membro.nome_completo
+        # Conta de família escolhida pelo nome do responsável: o nome de acesso
+        # (username) não diz nada para quem lê a lista de lançamentos.
+        av = self.usuario.aventureiros.first()
+        if av is not None and av.resp_nome:
+            return av.resp_nome
         return self.usuario.get_full_name() or self.usuario.username
 
 

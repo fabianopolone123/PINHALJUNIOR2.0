@@ -551,6 +551,15 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
 - **O vínculo é com a CONTA** (`ParcelamentoClube.usuario`), não com o aventureiro. É isso que faz o mesmo
   lançamento servir para família e para **diretoria sem filho no clube**. `aventureiro` é opcional (diz *por
   quem* é o acerto) e `evento` é opcional (diz *de onde* veio a dívida).
+- **O seletor "para quem" tem TRÊS grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`, ativos),
+  **Responsáveis** (`conta:<id>`, a família pelo nome do adulto — `_alvos_responsaveis`) e Diretoria
+  (`conta:<id>`). Os dois últimos produzem o **mesmo** alvo: o grupo novo é só outro caminho para a mesma
+  conta, e por isso `_resolver_alvo` não mudou. A conta que já está em Diretoria **não** se repete em
+  Responsáveis, e esse grupo **não filtra `ativo`** — é a exceção do parcelamento (dívida combinada continua
+  devida), então a família cujo aventureiro saiu ainda precisa ser alcançável. `demo` fica fora dos três.
+- **Lançamento numa conta sem aventureiro precisa de um nome legível**: `pessoa_nome` tenta, nesta ordem,
+  aventureiro → ficha de diretoria → **`resp_nome` da família** → `get_full_name()`/username. Sem o penúltimo
+  degrau a lista de parcelas mostrava o **nome de acesso** da conta.
 - **Não vire uma `Mensalidade`.** Ela é **uma por (aventureiro, ano, mês)** — colidiria com a mensalidade do
   mês —, não tem vencimento nem descrição, e é amarrada ao `Aventureiro`. E não vire uma `ParcelaInscricao`:
   ela exige uma `Inscricao` e o dinheiro dela entra no caixa **pelo evento**.

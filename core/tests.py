@@ -4918,6 +4918,58 @@ class ParcelamentoClubeTests(TestCase):
         self._lancar(alvo="av:99999")
         self.assertFalse(ParcelamentoClube.objects.exists())
 
+    # --- seletor "para quem" ---
+
+    def test_seletor_lista_o_responsavel_pelo_nome(self):
+        """O acerto às vezes é do adulto, não de uma criança: a família também
+        aparece pelo nome de quem responde por ela."""
+        alvos = views._alvos_parcelamento()
+        rotulos = [r["rotulo"] for r in alvos["responsaveis"]]
+        self.assertIn("Responsável Teste", rotulos)
+        resp = next(r for r in alvos["responsaveis"] if r["rotulo"] == "Responsável Teste")
+        self.assertEqual(resp["valor"], f"conta:{self.resp.id}")
+        self.assertIn("Criança Teste", resp["detalhe"])
+
+    def test_seletor_nao_repete_a_conta_que_ja_esta_em_diretoria(self):
+        """Mesma conta nos dois grupos seria a mesma opção duas vezes."""
+        MembroDiretoria.objects.create(
+            usuario=self.resp, nome_completo="Responsável Teste", cpf="321",
+            data_nascimento=datetime.date(1988, 3, 2),
+        )
+        alvos = views._alvos_parcelamento()
+        self.assertNotIn(
+            f"conta:{self.resp.id}", [r["valor"] for r in alvos["responsaveis"]]
+        )
+        self.assertIn(f"conta:{self.resp.id}", [c["valor"] for c in alvos["contas"]])
+
+    def test_seletor_de_responsaveis_ignora_dado_ficticio(self):
+        demo_user = User.objects.create_user(username="demo", password="123456")
+        Aventureiro.objects.create(
+            usuario=demo_user, nome_completo="Criança Demo",
+            data_nascimento=datetime.date(2015, 1, 1), resp_nome="Responsável Demo",
+            resp_cpf="999", resp_whatsapp="47999990001", resp_email="d@exemplo.com",
+            demo=True,
+        )
+        rotulos = [r["rotulo"] for r in views._alvos_parcelamento()["responsaveis"]]
+        self.assertNotIn("Responsável Demo", rotulos)
+
+    def test_seletor_mantem_a_familia_cujo_aventureiro_saiu_do_clube(self):
+        """Dívida combinada continua devida — a exceção do parcelamento."""
+        self.av.ativo = False
+        self.av.save(update_fields=["ativo"])
+        alvos = views._alvos_parcelamento()
+        self.assertNotIn(f"av:{self.av.id}", [a["valor"] for a in alvos["aventureiros"]])
+        self.assertIn(f"conta:{self.resp.id}", [r["valor"] for r in alvos["responsaveis"]])
+
+    def test_lancamento_para_a_conta_da_familia_mostra_o_responsavel(self):
+        """Sem aventureiro e sem ficha de diretoria, a lista mostraria o nome de
+        acesso da conta, que não diz nada."""
+        self._lancar(alvo=f"conta:{self.resp.id}")
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.usuario, self.resp)
+        self.assertIsNone(lanc.aventureiro)
+        self.assertEqual(lanc.pessoa_nome, "Responsável Teste")
+
     def test_valor_baixo_para_o_numero_de_parcelas_e_recusado(self):
         """O nº de parcelas foi pedido: cair para 1 silenciosamente seria pior."""
         self._lancar(valor_total="0.02", qtd_parcelas="5")
