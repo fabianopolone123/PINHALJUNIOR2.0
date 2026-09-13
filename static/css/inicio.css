@@ -1116,3 +1116,26 @@ details[open] > summary .ver-mais::after { content: " ▾"; }
         transition: none !important;
     }
 }
+
+/* Convite "você também é da diretoria?" (Meus Dados) — aparece só para quem o
+   Diretor liberou. Card comum; o botão é o único ajuste. */
+.convite-diretoria { display: flex; flex-direction: column; gap: 8px; }
+.convite-diretoria .btn-acao { align-self: flex-start; margin-top: 4px; text-decoration: none; }
+
+/* Card "Minhas parcelas" (Meus Dados): o que a pessoa deve, com o link de pagar.
+   Uma linha por parcela; no celular a linha quebra em duas. */
+.minhas-parcelas { display: flex; flex-direction: column; gap: 8px; }
+.minhas-parcelas .bloco-rotulo { margin: 6px 0 0; }
+.minhas-parcelas .btn-acao { align-self: flex-start; margin-top: 2px; text-decoration: none; }
+.minhas-parcelas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.minhas-parcelas-lista li {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+    padding: 6px 0; border-bottom: 1px dashed var(--borda);
+}
+.minhas-parcelas-lista .mp-desc { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.minhas-parcelas-lista .mp-valor { font-weight: 800; white-space: nowrap; }
+.minhas-parcelas-lista .mp-venc { font-size: 0.86rem; color: var(--texto-suave); white-space: nowrap; }
+/* Mesma regra que mensalidades.css já define — repetida porque esta página
+   não carrega aquele arquivo. Sem `font-weight` de propósito: inicio.css é
+   carregado ANTES em Mensalidades, e um peso a mais aqui mudaria lá. */
+.parc-vencido-txt { color: #c0392b; }

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0f4c81">
-    <title>Cadastro de Diretoria - Clube de Aventureiros Pinhal Júnior</title>
+    <title>{% if minha_ficha %}Minha ficha de diretoria{% else %}Cadastro de Diretoria{% endif %} - Clube de Aventureiros Pinhal Júnior</title>
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <link rel="stylesheet" href="{% static 'css/cadastro.css' %}">
 </head>
@@ -21,6 +21,9 @@
                     {% if com_aventureiro %}
                         Ao final, você seguirá para o cadastro do aventureiro.
                     {% endif %}
+                    {% if minha_ficha %}
+                        Você preenche na <strong>sua conta</strong>: nenhum login novo é criado.
+                    {% endif %}
                 </p>
             </header>
 
@@ -34,12 +37,12 @@
             <div class="progresso" aria-hidden="true">
                 <div class="progresso-linha"><span class="progresso-preenchido" id="progressoPreenchido"></span></div>
                 <ol class="progresso-etapas" id="progressoEtapas">
-                    <li class="etapa-ponto ativo"><span>1</span><em>Conta</em></li>
-                    <li class="etapa-ponto"><span>2</span><em>Identificação</em></li>
-                    <li class="etapa-ponto"><span>3</span><em>Contato</em></li>
-                    <li class="etapa-ponto"><span>4</span><em>Ficha médica</em></li>
-                    <li class="etapa-ponto"><span>5</span><em>Termos</em></li>
-                    <li class="etapa-ponto"><span>6</span><em>Revisão</em></li>
+                    {% if conta_form %}<li class="etapa-ponto ativo"><span>1</span><em>Conta</em></li>{% endif %}
+                    <li class="etapa-ponto{% if not conta_form %} ativo{% endif %}"><span>{% if conta_form %}2{% else %}1{% endif %}</span><em>Identificação</em></li>
+                    <li class="etapa-ponto"><span>{% if conta_form %}3{% else %}2{% endif %}</span><em>Contato</em></li>
+                    <li class="etapa-ponto"><span>{% if conta_form %}4{% else %}3{% endif %}</span><em>Ficha médica</em></li>
+                    <li class="etapa-ponto"><span>{% if conta_form %}5{% else %}4{% endif %}</span><em>Termos</em></li>
+                    <li class="etapa-ponto"><span>{% if conta_form %}6{% else %}5{% endif %}</span><em>Revisão</em></li>
                 </ol>
             </div>
 
@@ -55,6 +58,13 @@
                 {% csrf_token %}
                 {% if com_aventureiro %}<input type="hidden" name="com_aventureiro" value="1">{% endif %}
 
+                {% comment %}
+                Etapa da conta: só no cadastro que CRIA a conta. Quem já tem login
+                (ficha na própria conta) começa na Identificação — o JS de passos
+                anda por ÍNDICE, então basta não renderizar esta seção e marcar a
+                seguinte como ativa.
+                {% endcomment %}
+                {% if conta_form %}
                 <!-- ===== Etapa 1: Conta ===== -->
                 <section class="passo ativo" data-passo="1">
                     <h2 class="passo-titulo">1. Conta de acesso</h2>
@@ -66,10 +76,11 @@
                         {% include "core/_campo.html" with campo=conta_form.confirmar_senha %}
                     </div>
                 </section>
+                {% endif %}
 
                 <!-- ===== Etapa 2: Identificação ===== -->
-                <section class="passo" data-passo="2">
-                    <h2 class="passo-titulo">2. Identificação</h2>
+                <section class="passo{% if not conta_form %} ativo{% endif %}" data-passo="2">
+                    <h2 class="passo-titulo">{% if conta_form %}2{% else %}1{% endif %}. Identificação</h2>
 
                     <div class="bloco">
                         <h3 class="bloco-titulo">Dados pessoais</h3>
@@ -107,7 +118,7 @@
 
                 <!-- ===== Etapa 3: Contato e endereço ===== -->
                 <section class="passo" data-passo="3">
-                    <h2 class="passo-titulo">3. Contato e endereço</h2>
+                    <h2 class="passo-titulo">{% if conta_form %}3{% else %}2{% endif %}. Contato e endereço</h2>
 
                     <div class="bloco">
                         <h3 class="bloco-titulo">Contato</h3>
@@ -140,13 +151,13 @@
 
                 <!-- ===== Etapa 4: Ficha médica (mesma do aventureiro) ===== -->
                 <section class="passo" data-passo="4">
-                    <h2 class="passo-titulo">4. Dados médicos</h2>
+                    <h2 class="passo-titulo">{% if conta_form %}4{% else %}3{% endif %}. Dados médicos</h2>
                     {% include "core/_ficha_medica_campos.html" %}
                 </section>
 
                 <!-- ===== Etapa 5: Escolaridade + Termos/Aceites ===== -->
                 <section class="passo" data-passo="5">
-                    <h2 class="passo-titulo">5. Escolaridade e termos</h2>
+                    <h2 class="passo-titulo">{% if conta_form %}5{% else %}4{% endif %}. Escolaridade e termos</h2>
 
                     <div class="bloco">
                         <h3 class="bloco-titulo">Escolaridade</h3>
@@ -214,12 +225,12 @@
 
                 <!-- ===== Etapa 6: Revisão ===== -->
                 <section class="passo" data-passo="6">
-                    <h2 class="passo-titulo">6. Revisão</h2>
+                    <h2 class="passo-titulo">{% if conta_form %}6{% else %}5{% endif %}. Revisão</h2>
                     <p class="passo-desc">Confira as informações antes de finalizar.</p>
                     <div class="revisao" id="revisao"></div>
                     <p class="aviso-revisao">
                         Ao finalizar, o cadastro de diretoria será registrado
-                        {% if com_aventureiro %} e você seguirá para o cadastro do aventureiro{% endif %}.
+                        {% if com_aventureiro %} e você seguirá para o cadastro do aventureiro{% endif %}{% if minha_ficha %} na sua conta, que passa a ter os dois perfis{% endif %}.
                     </p>
                 </section>
 
@@ -232,7 +243,11 @@
             </form>
 
             <p class="voltar-login">
+                {% if minha_ficha %}
+                <a href="{% url 'core:inicio' %}">Voltar para Meus Dados</a>
+                {% else %}
                 <a href="{% url 'core:cadastro' %}">Voltar às opções de cadastro</a>
+                {% endif %}
             </p>
         </section>
     </main>

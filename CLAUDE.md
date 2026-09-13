@@ -369,6 +369,14 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   encolhe abaixo do conteúdo, então gráfico/tabela/nome comprido **estica a grade e cria rolagem horizontal na
   página** — e um wrapper de rolagem interna (`*-scroll`) nunca entra em ação. Já aconteceu em Aniversários e
   em Mensalidades (`.mens-resumo-topo`).
+- **Diretoria em conta que já existe**: `/meus-dados/diretoria/` (o Diretor libera em Usuários →
+  `PerfilUsuario.liberacao_diretoria_em`, mig. **0073**; a pessoa preenche e assina; o papel continua sendo
+  definido em `/usuarios/diretoria/`). **Nunca** mande quem já tem login para `/cadastro/diretoria/` — aquele
+  **cria conta nova**. Os dois caminhos gravam pelo mesmo `_gravar_ficha_diretoria`. Definir o papel
+  **substitui** o grupo "Diretoria".
+- **Card 💳 Minhas parcelas** (Meus Dados, `_minhas_parcelas`): o que a pessoa deve em `ParcelaClube` (conta) e
+  `ParcelaInscricao` (inscrição), com link para as **páginas públicas por token** — é o único caminho de quem é
+  só diretoria (não tem tela de mensalidade). Não crie fluxo de pagamento logado paralelo.
 - **Texto padrão de mensagem = `default` de campo = migration.** `MENSAGEM_*_PADRAO`/`PROMPT_*_PADRAO` são
   `default=` no `ConfigMensalidade`: editar a constante pede `makemigrations` (só `AlterField`). Sem isso o
   deploy recusa no `makemigrations --check`, faz rollback e o rollback **não refaz as permissões** — o site cai.

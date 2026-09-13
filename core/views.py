@@ -392,11 +392,19 @@ def inicio_view(request):
         membro.papel = _papel_diretoria(usuario)
         _preparar_ficha(getattr(membro, "ficha_medica", None))
 
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=usuario)
     contexto = {
         "aventureiros": aventureiros,
         "total_aventureiros": len(aventureiros),
         "responsavel": responsavel,
         "membro_diretoria": membro,
+        # Convite para preencher a ficha de diretoria na própria conta: só
+        # aparece para quem o Diretor liberou e ainda não tem ficha.
+        "pode_virar_diretoria": perfil.pode_cadastrar_diretoria,
+        # O que a pessoa deve em parcelas (clube + inscrição), com o link de
+        # pagar. É o único caminho de quem é SÓ diretoria: ela não tem tela de
+        # mensalidade. None quando não deve nada — o card nem aparece.
+        "minhas_parcelas": _minhas_parcelas(usuario),
     }
     return render(request, "core/inicio.html", contexto)
 
@@ -796,6 +804,193 @@ def _salvar_assinaturas_diretoria(membro_obj, request):
         )
 
 
+def _minhas_parcelas(usuario):
+    """O que a PESSOA LOGADA deve em parcelas — para o card de "Meus Dados".
+
+    São duas origens diferentes, e as duas precisam aparecer: as parcelas
+    lançadas pelo clube (`ParcelaClube`, presas à **conta**) e as do valor da
+    diretoria dentro de uma inscrição (`ParcelaInscricao`, presas à
+    **inscrição**). Cada uma paga na sua página pública — a do clube pelo token
+    da conta, que abre todos os lançamentos; a da inscrição pelo token dela.
+
+    Existe porque quem é só diretoria não tem tela de mensalidade nenhuma: até
+    aqui, a única forma de ver e pagar era o link que chega na cobrança. Vale
+    para qualquer perfil (o responsável também vê as suas).
+
+    Lançamento **cancelado** fica de fora; parcela cancelada também."""
+    clube = list(
+        ParcelaClube.objects.filter(
+            parcelamento__usuario=usuario,
+            parcelamento__status="ativo",
+            status="aberta",
+        )
+        .select_related("parcelamento", "parcelamento__evento")
+        .order_by("vencimento", "numero")
+    )
+    inscricao = list(
+        ParcelaInscricao.objects.filter(
+            inscricao__usuario=usuario,
+            inscricao__status="confirmada",
+            status="aberta",
+        )
+        .select_related("inscricao", "inscricao__evento")
+        .order_by("vencimento", "numero")
+    )
+    if not clube and not inscricao:
+        return None
+
+    total = sum((p.valor for p in clube + inscricao), Decimal("0"))
+    vencidas = [p for p in clube + inscricao if p.vencida]
+    link = ""
+    if clube:
+        perfil, _ = PerfilUsuario.objects.get_or_create(usuario=usuario)
+        link = reverse("core:parcelas_clube", args=[perfil.get_token_acerto()])
+    # Uma inscrição por linha: o token (e a página de pagamento) é de cada uma.
+    inscricoes = []
+    for p in inscricao:
+        insc = p.inscricao
+        atual = next((i for i in inscricoes if i["codigo"] == insc.codigo), None)
+        if atual is None:
+            atual = {
+                "codigo": insc.codigo,
+                "evento": insc.evento.nome if insc.evento_id else "",
+                "parcelas": [],
+                "total": Decimal("0"),
+                "link": reverse(
+                    "core:inscricao_parcelas", args=[insc.get_token_parcelas()]
+                ),
+            }
+            inscricoes.append(atual)
+        atual["parcelas"].append(p)
+        atual["total"] += p.valor
+
+    return {
+        "clube": clube,
+        "clube_total": sum((p.valor for p in clube), Decimal("0")),
+        "link_clube": link,
+        "inscricoes": inscricoes,
+        "total": total,
+        "n_vencidas": len(vencidas),
+        "total_vencido": sum((p.valor for p in vencidas), Decimal("0")),
+    }
+
+
+def _gravar_ficha_diretoria(usuario, membro_form, medica_form, request):
+    """Grava a ficha de diretoria (membro + ficha médica + assinaturas) para uma
+    conta que já existe.
+
+    Os aceites viram `True` aqui porque **a assinatura substitui o checkbox**: no
+    formulário a pessoa assina os três documentos, e assinar é aceitar. Serve aos
+    DOIS caminhos — o cadastro que cria a conta e a ficha preenchida depois, na
+    própria conta —, que precisam gravar exatamente a mesma coisa."""
+    membro_obj = membro_form.save(commit=False)
+    membro_obj.usuario = usuario
+    membro_obj.compromisso_aceito = True
+    membro_obj.declaracao_medica_aceita = True
+    membro_obj.autorizacao_imagem_aceita = True
+    membro_obj.save()
+
+    ficha = medica_form.save(commit=False)
+    ficha.membro = membro_obj
+    ficha.save()
+
+    _salvar_assinaturas_diretoria(membro_obj, request)
+    return membro_obj
+
+
+@login_required
+def minha_ficha_diretoria_view(request):
+    """A pessoa que JÁ TEM login preenche a ficha de diretoria na própria conta,
+    virando Responsável + Diretoria num login só (o seletor "Ver como" aparece).
+
+    Sem isto, o único caminho era `/cadastro/diretoria/`, que **cria uma conta
+    nova** — quem já era responsável acabava com dois logins e a família partida
+    em duas contas. O papel específico (Professor, Tesoureiro...) continua sendo
+    do Diretor, em `/usuarios/diretoria/`: aqui a pessoa nasce na "Diretoria"
+    genérica.
+
+    **Só entra quem o Diretor liberou** (`PerfilUsuario.liberacao_diretoria_em`)
+    e quem ainda não tem ficha — conferido aqui, no POST também: esconder o botão
+    no HTML não barra envio forjado. A liberação é consumida no fim, para não
+    ficar valendo para sempre."""
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=request.user)
+    if not perfil.pode_cadastrar_diretoria:
+        if hasattr(request.user, "membro_diretoria"):
+            messages.info(request, "Sua ficha de diretoria já está cadastrada.")
+        else:
+            messages.error(
+                request,
+                "O cadastro de diretoria precisa ser liberado pelo Diretor.",
+            )
+        return redirect("core:inicio")
+
+    if request.method == "POST":
+        membro = MembroDiretoriaForm(request.POST, request.FILES, prefix="dir")
+        medica = FichaMedicaDiretoriaForm(request.POST, prefix="med")
+    else:
+        membro = MembroDiretoriaForm(prefix="dir")
+        medica = FichaMedicaDiretoriaForm(prefix="med")
+    erro_aceites = []
+
+    if request.method == "POST":
+        erro_aceites = _validar_aceites_diretoria(request)
+        if membro.is_valid() and medica.is_valid() and not erro_aceites:
+            with transaction.atomic():
+                membro_obj = _gravar_ficha_diretoria(
+                    request.user, membro, medica, request
+                )
+                grupo, _ = Group.objects.get_or_create(name="Diretoria")
+                request.user.groups.add(grupo)
+                perfil.liberacao_diretoria_em = None
+                perfil.liberacao_diretoria_por = None
+                perfil.save(update_fields=[
+                    "liberacao_diretoria_em", "liberacao_diretoria_por",
+                ])
+            messages.success(
+                request,
+                "Ficha de diretoria cadastrada! Use o seletor no topo do menu "
+                "para alternar entre Responsável e Diretoria.",
+            )
+            return redirect("core:inicio")
+
+    return render(request, "core/cadastro_diretoria.html", {
+        "conta_form": None,          # sem este passo: a conta já existe
+        "membro_form": membro,
+        "medica_form": medica,
+        "erro_aceites": erro_aceites,
+        "com_aventureiro": False,
+        "minha_ficha": True,
+    })
+
+
+@diretor_required
+@require_POST
+def usuario_liberar_diretoria_view(request, conta_id):
+    """Diretor: libera (ou revoga) o cadastro de diretoria de uma conta.
+
+    É um interruptor por conta, não um cadastro: quem preenche a ficha — e
+    assina os três documentos — é a própria pessoa, em "Meus Dados"."""
+    usuario = get_object_or_404(User, pk=conta_id)
+    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=usuario)
+    if hasattr(usuario, "membro_diretoria"):
+        messages.info(request, "Essa conta já tem ficha de diretoria.")
+        return redirect("core:usuarios")
+    if perfil.liberacao_diretoria_em:
+        perfil.liberacao_diretoria_em = None
+        perfil.liberacao_diretoria_por = None
+        aviso = "Liberação do cadastro de diretoria revogada."
+    else:
+        perfil.liberacao_diretoria_em = timezone.now()
+        perfil.liberacao_diretoria_por = request.user
+        aviso = (
+            "Cadastro de diretoria liberado. A pessoa preenche a ficha em "
+            "\"Meus Dados\"."
+        )
+    perfil.save(update_fields=["liberacao_diretoria_em", "liberacao_diretoria_por"])
+    messages.success(request, aviso)
+    return redirect("core:usuarios")
+
+
 def cadastro_diretoria_view(request):
     """Cadastro de diretoria (ficha "Compromisso para Voluntários").
 
@@ -828,18 +1023,7 @@ def cadastro_diretoria_view(request):
                 grupo, _ = Group.objects.get_or_create(name="Diretoria")
                 usuario.groups.add(grupo)
 
-                membro_obj = membro.save(commit=False)
-                membro_obj.usuario = usuario
-                membro_obj.compromisso_aceito = True
-                membro_obj.declaracao_medica_aceita = True
-                membro_obj.autorizacao_imagem_aceita = True
-                membro_obj.save()
-
-                ficha = medica.save(commit=False)
-                ficha.membro = membro_obj
-                ficha.save()
-
-                _salvar_assinaturas_diretoria(membro_obj, request)
+                membro_obj = _gravar_ficha_diretoria(usuario, membro, medica, request)
 
             login(request, usuario, backend=BACKEND_PADRAO)
             request.session[SESSAO_USUARIO_ID] = usuario.pk
@@ -1026,6 +1210,8 @@ def usuarios_view(request):
         resp["conta_id"] = None
         resp["numeros_principal"] = []
         resp["principal_origem"] = ""
+        resp["tem_ficha_diretoria"] = False
+        resp["liberado_diretoria"] = False
         k = _so_digitos(resp["cpf"])
         contas = cpf_para_contas.get(k) if k else None
         if contas and len(contas) == 1:
@@ -1036,6 +1222,12 @@ def usuarios_view(request):
                 resp["numeros_principal"] = _numeros_conta(usuario)
                 perfil = getattr(usuario, "perfil", None)
                 resp["principal_origem"] = perfil.whatsapp_principal_origem if perfil else ""
+                # Cadastro de diretoria na própria conta: o Diretor libera aqui e
+                # a pessoa preenche a ficha em "Meus Dados".
+                resp["tem_ficha_diretoria"] = hasattr(usuario, "membro_diretoria")
+                resp["liberado_diretoria"] = bool(
+                    perfil and perfil.liberacao_diretoria_em
+                )
 
     aventureiros.sort(key=lambda a: _normaliza(a.nome_completo))
 

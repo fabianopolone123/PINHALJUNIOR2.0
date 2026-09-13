@@ -227,6 +227,17 @@ urlpatterns = [
     ),
     path("cadastro/sucesso/", views.cadastro_sucesso_view, name="cadastro_sucesso"),
     path("usuarios/diretoria/", views.diretoria_equipe_view, name="diretoria_equipe"),
+    # Diretor libera a conta; a própria pessoa preenche a ficha em "Meus Dados".
+    path(
+        "usuarios/conta/<int:conta_id>/liberar-diretoria/",
+        views.usuario_liberar_diretoria_view,
+        name="usuario_liberar_diretoria",
+    ),
+    path(
+        "meus-dados/diretoria/",
+        views.minha_ficha_diretoria_view,
+        name="minha_ficha_diretoria",
+    ),
     path(
         "usuarios/diretoria/<int:pk>/papel/",
         views.diretoria_papel_view,

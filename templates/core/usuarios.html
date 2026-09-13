@@ -181,6 +181,26 @@
                     {% include "core/_dado.html" with rotulo="WhatsApp" valor=r.whatsapp %}
                 </div>
 
+                {% if r.conta_id %}
+                <div class="principal-bloco">
+                    <h4 class="bloco-rotulo">⛺ Cadastro de diretoria</h4>
+                    {% if r.tem_ficha_diretoria %}
+                    <p class="principal-ajuda">Esta conta <strong>já tem ficha de diretoria</strong>. O papel (Professor, Tesoureiro…) é definido em <a href="{% url 'core:diretoria_equipe' %}">Diretoria</a>.</p>
+                    {% else %}
+                    <p class="principal-ajuda">Libere para a pessoa preencher a ficha de diretoria na <strong>própria conta</strong> (em "Meus Dados") — sem criar login novo. Ela assina os documentos; o <strong>papel</strong> quem define é você, depois, em <a href="{% url 'core:diretoria_equipe' %}">Diretoria</a>.</p>
+                    <form method="post" action="{% url 'core:usuario_liberar_diretoria' r.conta_id %}" class="principal-form">
+                        {% csrf_token %}
+                        {% if r.liberado_diretoria %}
+                        <p class="principal-nota">✅ <strong>Liberado</strong> — aguardando a pessoa preencher.</p>
+                        <button type="submit" class="btn-secundario btn-acao-pequeno">Revogar liberação</button>
+                        {% else %}
+                        <button type="submit" class="btn-secundario btn-acao-pequeno">Liberar cadastro de diretoria</button>
+                        {% endif %}
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+
                 {% if r.conta_id and r.numeros_principal %}
                 <div class="principal-bloco">
                     <h4 class="bloco-rotulo">📱 WhatsApp principal</h4>

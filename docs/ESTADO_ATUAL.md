@@ -2,7 +2,27 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-12 (**Parcelas: "Copiar resumo" + o evento na cobrança**): duas coisas na
+**Última atualização:** 2026-09-13 (**Ficha de diretoria na própria conta + card "Minhas parcelas"**): duas
+faltas que apareceram no mesmo caso real — uma responsável que também virou da diretoria. (1) O único caminho
+para virar diretoria era `/cadastro/diretoria/`, que **cria uma conta nova**: quem já era responsável acabava
+com **dois logins** e a família partida em duas contas. Agora o **Diretor libera** a conta em **Usuários**
+(bloco "⛺ Cadastro de diretoria" no modal do responsável; o mesmo botão revoga) e a **pessoa preenche a ficha
+na própria conta**, em **Meus Dados** → "Preencher minha ficha de diretoria" (`/meus-dados/diretoria/`). É o
+**mesmo formulário** do cadastro (`cadastro_diretoria.html`), só que **sem o passo da conta de acesso** — a
+numeração dos passos e o JS acompanham, porque o JS anda por índice. Ao salvar, a conta entra no grupo
+**Diretoria** e passa a ter **dois perfis** (o seletor "Ver como" aparece); o **papel específico**
+(Professor/Tesoureiro/...) continua sendo do Diretor em `/usuarios/diretoria/`, e definir o papel **substitui**
+o grupo genérico. A liberação (`PerfilUsuario.liberacao_diretoria_em`, migration **0073**) é **consumida** ao
+preencher — não fica valendo para sempre —, e a trava está na **view**, não no HTML. (2) Quem é **só
+diretoria** não tinha tela nenhuma para ver ou pagar o que devia: a única forma era o link que chega na
+cobrança. Entrou o card **💳 Minhas parcelas** em Meus Dados, com o que a pessoa deve nas **duas origens** —
+parcelas lançadas pelo clube (presas à conta) e parcelas do valor da diretoria **dentro da inscrição** (presas
+à inscrição) —, o que está **vencido** em destaque e o botão de pagar. Ele **não cria fluxo de pagamento
+novo**: manda para as **mesmas páginas públicas por token** que a cobrança usa. Vale para qualquer perfil — o
+responsável também vê as suas ali. Funções: `_minhas_parcelas`, `_gravar_ficha_diretoria` (extraída, usada
+pelos dois caminhos de cadastro), `minha_ficha_diretoria_view`, `usuario_liberar_diretoria_view`.
+
+**Atualização anterior:** 2026-09-12 (**Parcelas: "Copiar resumo" + o evento na cobrança**): duas coisas na
 aba 📆 Parcelas. (1) Botão **📋 Copiar resumo** ao lado do "Novo lançamento": copia para a área de transferência
 um resumo pronto — totais (lançado, recebido, a receber, vencido), um bloco por lançamento **ativo** (pessoa,
 descrição, evento, quanto falta) e **uma linha por parcela vencida**, que é a parte acionável. Formatado para a

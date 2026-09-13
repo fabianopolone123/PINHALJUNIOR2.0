@@ -558,6 +558,21 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
   conta, e por isso `_resolver_alvo` não mudou. A conta que já está em Diretoria **não** se repete em
   Responsáveis, e esse grupo **não filtra `ativo`** — é a exceção do parcelamento (dívida combinada continua
   devida), então a família cujo aventureiro saiu ainda precisa ser alcançável. `demo` fica fora dos três.
+- **Virar diretoria numa conta que já existe passa por `/meus-dados/diretoria/`, nunca pelo
+  `/cadastro/diretoria/`.** Aquele **cria conta** (`User.objects.create_user`) — usá-lo para quem já tem login
+  parte a família em dois cadastros. O caminho novo tem três donos: o **Diretor** libera a conta em Usuários
+  (`PerfilUsuario.liberacao_diretoria_em`), a **pessoa** preenche e assina, e o **Diretor** define o papel em
+  `/usuarios/diretoria/`. A gravação é a mesma nos dois caminhos (`_gravar_ficha_diretoria`) — mexeu num,
+  conferiu o outro.
+- **A liberação é consumida e conferida na view.** Ao gravar a ficha, `liberacao_diretoria_em` volta a vazio:
+  liberação não é permissão permanente. E `pode_cadastrar_diretoria` é checado no **GET e no POST** — esconder
+  o botão no HTML não barra envio forjado.
+- **Definir o papel SUBSTITUI o grupo "Diretoria"** (`diretoria_papel_view` remove todos e aplica um). Quem
+  escrever regra por perfil não pode assumir que o professor também está em "Diretoria" — ele **não está**.
+- **Quem é só diretoria não tem tela de mensalidade.** Por isso o que ela deve aparece no card **Minhas
+  parcelas** de "Meus Dados" (`_minhas_parcelas`), que cobre as **duas** origens (`ParcelaClube`, presa à
+  conta, e `ParcelaInscricao`, presa à inscrição) e **reaproveita as páginas públicas por token** para pagar —
+  não crie um segundo fluxo de pagamento logado.
 - **Mudar o TEXTO PADRÃO de uma mensagem é mudar o `default` de um campo — e isso exige migration.** As
   mensagens/prompts padrão (`MENSAGEM_*_PADRAO`, `PROMPT_*_PADRAO`) são `default=` de campos do
   `ConfigMensalidade`: editar a constante muda o estado do model. O deploy roda `makemigrations --check` e

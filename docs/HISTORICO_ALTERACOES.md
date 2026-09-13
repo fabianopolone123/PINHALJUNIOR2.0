@@ -22,6 +22,53 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Ficha de diretoria na própria conta e card "Minhas parcelas"
+
+### Resumo
+Caso real: uma responsável tentou se cadastrar como diretoria e o único caminho existente
+(`/cadastro/diretoria/`) **cria uma conta nova** — ela terminaria com dois logins. Agora o **Diretor libera** a
+conta em Usuários e a **pessoa preenche a ficha na própria conta**, virando Responsável + Diretoria num login
+só. Junto, a segunda falta do mesmo caso: quem é **só diretoria** não tinha onde ver nem pagar o que devia —
+entrou o card **💳 Minhas parcelas** em Meus Dados.
+
+### Arquivos criados/alterados
+- `core/models.py`: `PerfilUsuario.liberacao_diretoria_em`/`liberacao_diretoria_por` + a propriedade
+  `pode_cadastrar_diretoria` (liberado **e** ainda sem ficha). Migration **0073**.
+- `core/views.py`: `_gravar_ficha_diretoria` (extraída do cadastro, usada pelos dois caminhos),
+  `minha_ficha_diretoria_view`, `usuario_liberar_diretoria_view`, `_minhas_parcelas`; contexto novo em
+  `inicio_view` e em `usuarios_view`.
+- `core/urls.py`: `/meus-dados/diretoria/` e `usuarios/conta/<id>/liberar-diretoria/`.
+- `templates/core/cadastro_diretoria.html`: o passo "Conta de acesso" virou condicional (`{% if conta_form %}`),
+  com a numeração dos passos e o ponto ativo acompanhando.
+- `templates/core/usuarios.html`: bloco "⛺ Cadastro de diretoria" no modal do responsável (liberar/revogar).
+- `templates/core/inicio.html`: convite "Você também é da diretoria?" e o card "💳 Minhas parcelas"
+  (+ `{% load formato %}` para o filtro de moeda).
+- `static/css/inicio.css`: estilo dos dois cards.
+- `core/tests.py`: 18 testes novos (10 da ficha na própria conta, 8 do card).
+- `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`, `CLAUDE.md`: documentação.
+
+### Decisões tomadas
+- **Quem libera é o Diretor** (escolha do usuário entre três opções). O botão nem aparece para quem não foi
+  liberado, e a view confere no GET **e** no POST — esconder no HTML não barra POST forjado.
+- **A liberação é consumida** ao preencher a ficha: é autorização para um cadastro, não permissão permanente.
+- **Reaproveitar o formulário do cadastro** em vez de duplicar 260 linhas de template. O JS de passos anda por
+  **índice**, então bastou não renderizar a seção da conta e marcar a seguinte como ativa.
+- **A gravação virou uma função só** (`_gravar_ficha_diretoria`): os dois caminhos precisam gravar exatamente a
+  mesma coisa (membro + ficha médica + as 3 assinaturas, com os aceites vindo da assinatura).
+- **O papel continua sendo do Diretor**: a pessoa entra na "Diretoria" genérica. Vale lembrar que definir o
+  papel **substitui** o grupo genérico — o professor não fica em "Diretoria".
+- **O card de parcelas não cria fluxo de pagamento novo**: manda para as mesmas páginas públicas por token que
+  a cobrança já usa. Menos código e um caminho só para manter.
+- **O card vale para todos os perfis**, não só para a diretoria: o responsável também vê ali as parcelas dele.
+  Com isso o perfil **Professor continua com acesso só a "Meus Dados"**, como combinado — o módulo de
+  permissões decide o resto depois.
+
+### Pendências
+- Módulo de permissões (ligar/desligar telas por perfil) — o encaixe continua sendo `ACESSO_PADRAO`/
+  `perfil_efetivo`, sem mexer em menu nem em views.
+
+---
+
 ## 2026-09-12 - Parcelas: botão "Copiar resumo" e o evento na cobrança
 
 ### Resumo

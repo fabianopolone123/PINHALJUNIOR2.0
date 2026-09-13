@@ -1,18 +1,24 @@
+import base64
 import datetime
 import hashlib
+import io
 import json
 import hmac
 from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth.models import Group, User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from PIL import Image
+
 from . import email_envio
+from . import menus
 from . import mercadopago as mp
 from . import views
 from . import wapi_parser
@@ -4817,6 +4823,305 @@ class EventoNoMenuPorPerfilTests(TestCase):
         self.assertEqual(r.status_code, 200)
         r2 = self.client.get(reverse("core:evento_inscrever", args=[ev.id]))
         self.assertEqual(r2.status_code, 200)
+
+
+class FichaDiretoriaNaPropriaContaTests(TestCase):
+    """Quem JÁ TEM login vira Responsável + Diretoria no MESMO login.
+
+    Antes, o único caminho era `/cadastro/diretoria/`, que **cria conta nova**:
+    quem já era responsável terminava com dois logins e a família partida em
+    duas contas. Quem abre a porta é o **Diretor** (liberação por conta); quem
+    preenche e assina é a **pessoa**; o **papel** (Professor, Tesoureiro...)
+    continua sendo definido depois, em `/usuarios/diretoria/`.
+    """
+
+    def setUp(self):
+        self.diretor = User.objects.create_user(username="dir", password="123456")
+        self.diretor.groups.add(Group.objects.get_or_create(name="Diretor")[0])
+        self.resp = User.objects.create_user(username="resp", password="123456")
+        self.av = Aventureiro.objects.create(
+            usuario=self.resp, nome_completo="Criança Teste",
+            data_nascimento=datetime.date(2016, 5, 4),
+            resp_nome="Responsável Teste", resp_cpf="000",
+            resp_whatsapp="47999990000", resp_email="resp@exemplo.com",
+        )
+        self.url_liberar = reverse(
+            "core:usuario_liberar_diretoria", args=[self.resp.id]
+        )
+        self.url_ficha = reverse("core:minha_ficha_diretoria")
+
+    def _liberar(self):
+        self.client.login(username="dir", password="123456")
+        self.client.post(self.url_liberar)
+        self.client.logout()
+
+    # --- a liberação é do Diretor ---
+
+    def test_diretor_libera_e_revoga_a_mesma_conta(self):
+        self.client.login(username="dir", password="123456")
+        self.client.post(self.url_liberar)
+        perfil = PerfilUsuario.objects.get(usuario=self.resp)
+        self.assertIsNotNone(perfil.liberacao_diretoria_em)
+        self.assertEqual(perfil.liberacao_diretoria_por, self.diretor)
+        self.client.post(self.url_liberar)          # o mesmo botão revoga
+        perfil.refresh_from_db()
+        self.assertIsNone(perfil.liberacao_diretoria_em)
+
+    def test_responsavel_nao_libera_a_si_mesmo(self):
+        self.client.login(username="resp", password="123456")
+        r = self.client.post(self.url_liberar)
+        self.assertNotEqual(r.status_code, 200)
+        self.assertFalse(
+            PerfilUsuario.objects.filter(
+                usuario=self.resp, liberacao_diretoria_em__isnull=False
+            ).exists()
+        )
+
+    # --- o formulário só abre para quem foi liberado ---
+
+    def test_sem_liberacao_a_tela_nao_abre(self):
+        """A trava é na view: esconder o botão no HTML não barra POST forjado."""
+        self.client.login(username="resp", password="123456")
+        r = self.client.get(self.url_ficha)
+        self.assertRedirects(r, reverse("core:inicio"))
+
+    def test_liberado_ve_o_convite_em_meus_dados(self):
+        self.client.login(username="resp", password="123456")
+        self.assertNotContains(self.client.get(reverse("core:inicio")), self.url_ficha)
+        self.client.logout()
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        self.assertContains(self.client.get(reverse("core:inicio")), self.url_ficha)
+
+    def test_formulario_nao_pede_conta_de_acesso(self):
+        """A conta já existe: o passo 1 (usuário/senha) não pode aparecer."""
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        corpo = self.client.get(self.url_ficha).content.decode()
+        self.assertNotIn("Conta de acesso", corpo)
+        self.assertIn("1. Identificação", corpo)
+
+    # --- o resultado ---
+
+    def test_ficha_preenchida_deixa_a_conta_com_os_dois_perfis(self):
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        r = self.client.post(self.url_ficha, self._dados_ficha())
+        self.assertRedirects(r, reverse("core:inicio"))
+        membro = MembroDiretoria.objects.get(usuario=self.resp)
+        self.assertEqual(membro.nome_completo, "Responsável Teste")
+        # Nenhuma conta nova: a ficha entrou na que já existia.
+        self.assertEqual(User.objects.filter(username="resp").count(), 1)
+        self.assertIn("Diretoria", self.resp.groups.values_list("name", flat=True))
+        perfis = menus.perfis_do_usuario(User.objects.get(pk=self.resp.pk))
+        self.assertIn("Diretoria", perfis)
+        self.assertIn("Responsável", perfis)
+
+    def test_aceites_ficam_gravados_pela_assinatura(self):
+        """Assinar é aceitar: não há checkbox de aceite no formulário."""
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        self.client.post(self.url_ficha, self._dados_ficha())
+        membro = MembroDiretoria.objects.get(usuario=self.resp)
+        self.assertTrue(membro.compromisso_aceito)
+        self.assertTrue(membro.declaracao_medica_aceita)
+        self.assertTrue(membro.autorizacao_imagem_aceita)
+
+    def test_a_liberacao_e_consumida_e_nao_vale_para_sempre(self):
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        self.client.post(self.url_ficha, self._dados_ficha())
+        perfil = PerfilUsuario.objects.get(usuario=self.resp)
+        self.assertIsNone(perfil.liberacao_diretoria_em)
+        # E a tela não abre de novo para quem já tem ficha.
+        self.assertRedirects(self.client.get(self.url_ficha), reverse("core:inicio"))
+
+    def test_quem_ja_tem_ficha_nao_pode_ser_liberado_de_novo(self):
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        self.client.post(self.url_ficha, self._dados_ficha())
+        self.client.logout()
+        self.client.login(username="dir", password="123456")
+        self.client.post(self.url_liberar)
+        perfil = PerfilUsuario.objects.get(usuario=self.resp)
+        self.assertIsNone(perfil.liberacao_diretoria_em)
+
+    def test_papel_especifico_continua_sendo_do_diretor(self):
+        """A pessoa entra na Diretoria genérica; Professor quem define é o Diretor."""
+        self._liberar()
+        self.client.login(username="resp", password="123456")
+        self.client.post(self.url_ficha, self._dados_ficha())
+        membro = MembroDiretoria.objects.get(usuario=self.resp)
+        self.client.logout()
+        self.client.login(username="dir", password="123456")
+        self.client.post(
+            reverse("core:diretoria_papel", args=[membro.id]), {"papel": "Professor"}
+        )
+        nomes = set(
+            User.objects.get(pk=self.resp.pk).groups.values_list("name", flat=True)
+        )
+        self.assertIn("Professor", nomes)
+        self.assertNotIn("Diretoria", nomes)      # o papel SUBSTITUI o genérico
+
+    def _dados_ficha(self):
+        """POST válido da ficha: obrigatórios do formulário + as 3 assinaturas.
+
+        A foto é um PNG gerado na hora (avatar fictício) — **nunca** foto real."""
+        png = io.BytesIO()
+        Image.new("RGB", (60, 80), (200, 215, 235)).save(png, format="PNG")
+        assinatura = "data:image/png;base64," + base64.b64encode(
+            png.getvalue()
+        ).decode()
+        dados = {
+            "dir-nome_completo": "Responsável Teste",
+            "dir-nacionalidade": "Brasileira",
+            "dir-igreja": "Igreja Central",
+            "dir-distrito": "Distrito Teste",
+            "dir-cpf": "111.222.333-44",
+            "dir-rg": "12345678",
+            "dir-data_nascimento": "1988-03-02",
+            "dir-estado_civil": "casado",
+            "dir-conjuge_nome": "Cônjuge Teste",   # casado exige o nome
+            "dir-tem_filhos": "sim",
+            "dir-qtd_filhos": "1",
+            "dir-email": "resp@exemplo.com",
+            "dir-whatsapp": "(47) 99999-0000",
+            "dir-endereco": "Rua de Teste",
+            "dir-numero": "100",
+            "dir-bairro": "Centro",
+            "dir-cidade": "Cidade Teste",
+            "dir-cep": "13990-000",
+            "dir-estado": "SP",
+            "dir-escolaridade": "superior",
+            "dir-foto": SimpleUploadedFile(
+                "avatar.png", png.getvalue(), content_type="image/png"
+            ),
+            "med-possui_plano_saude": "nao",
+            "med-cartao_sus": "000000000000000",
+            "med-alergia_pele": "nao",
+            "med-alergia_alimentar": "nao",
+            "med-alergia_medicamentos": "nao",
+            "med-cardiaco": "nao",
+            "med-diabetico": "nao",
+            "med-renais": "nao",
+            "med-psicologicos": "nao",
+            "med-problema_recente": "nao",
+            "med-medicamento_recente": "nao",
+            "med-ferimento_recente": "nao",
+            "med-cirurgia": "nao",
+            "med-internado_5anos": "nao",
+            "med-tipo_sanguineo": "O+",
+            # A ficha médica exige a escolha explícita de "nenhuma" — deixar em
+            # branco é ambíguo entre "não tem" e "esqueci de marcar".
+            "med-sem_doencas": "on",
+            "med-sem_deficiencia": "on",
+            "assinatura_compromisso": assinatura,
+            "assinatura_medica_dir": assinatura,
+            "assinatura_imagem_dir": assinatura,
+        }
+        return dados
+
+
+class MinhasParcelasTests(TestCase):
+    """Card "Minhas parcelas" em Meus Dados: ver e pagar o que se deve.
+
+    Existe porque quem é **só diretoria** não tem tela de mensalidade nenhuma —
+    até aqui, a única forma de pagar era o link que chega na cobrança. O card
+    não inventa fluxo de pagamento: manda para as MESMAS páginas públicas por
+    token que a cobrança usa.
+    """
+
+    def setUp(self):
+        self.pessoa = User.objects.create_user(username="voluntario", password="123456")
+        MembroDiretoria.objects.create(
+            usuario=self.pessoa, nome_completo="Voluntário Teste", cpf="123",
+            data_nascimento=datetime.date(1990, 1, 1),
+        )
+        self.client.login(username="voluntario", password="123456")
+        self.url = reverse("core:inicio")
+
+    def _lancamento(self, **kw):
+        lanc = ParcelamentoClube.objects.create(
+            usuario=self.pessoa, descricao="Acerto do acampamento",
+            valor_total=Decimal("200.00"), qtd_parcelas=2, **kw
+        )
+        hoje = timezone.localdate()
+        for i, venc in enumerate([
+            hoje - datetime.timedelta(days=5), hoje + datetime.timedelta(days=25),
+        ]):
+            ParcelaClube.objects.create(
+                parcelamento=lanc, numero=i + 1, total=2,
+                valor=Decimal("100.00"), vencimento=venc, status="aberta",
+            )
+        return lanc
+
+    def test_sem_dever_nada_o_card_nao_aparece(self):
+        self.assertIsNone(self.client.get(self.url).context["minhas_parcelas"])
+
+    def test_diretoria_ve_as_parcelas_do_clube_e_o_link_de_pagar(self):
+        self._lancamento()
+        dados = self.client.get(self.url).context["minhas_parcelas"]
+        self.assertEqual(len(dados["clube"]), 2)
+        self.assertEqual(dados["total"], Decimal("200.00"))
+        # O link é o da CONTA: abre todos os lançamentos, como o da cobrança.
+        perfil = PerfilUsuario.objects.get(usuario=self.pessoa)
+        self.assertIn(perfil.token_acerto, dados["link_clube"])
+
+    def test_card_marca_o_que_esta_vencido(self):
+        self._lancamento()
+        dados = self.client.get(self.url).context["minhas_parcelas"]
+        self.assertEqual(dados["n_vencidas"], 1)
+        self.assertEqual(dados["total_vencido"], Decimal("100.00"))
+
+    def test_parcela_paga_sai_do_card(self):
+        lanc = self._lancamento()
+        lanc.parcelas.update(status="paga", valor_pago=Decimal("100.00"))
+        self.assertIsNone(self.client.get(self.url).context["minhas_parcelas"])
+
+    def test_lancamento_cancelado_nao_e_cobrado_no_card(self):
+        lanc = self._lancamento()
+        lanc.status = "cancelado"
+        lanc.save(update_fields=["status"])
+        self.assertIsNone(self.client.get(self.url).context["minhas_parcelas"])
+
+    def test_parcela_de_outra_conta_nunca_aparece(self):
+        outra = User.objects.create_user(username="outra", password="123456")
+        lanc = ParcelamentoClube.objects.create(
+            usuario=outra, descricao="Acerto de outra família",
+            valor_total=Decimal("50.00"), qtd_parcelas=1,
+        )
+        ParcelaClube.objects.create(
+            parcelamento=lanc, numero=1, total=1, valor=Decimal("50.00"),
+            vencimento=timezone.localdate(), status="aberta",
+        )
+        self.assertIsNone(self.client.get(self.url).context["minhas_parcelas"])
+
+    def test_parcela_da_inscricao_aparece_com_o_link_da_inscricao(self):
+        """A outra origem: o valor da diretoria parcelado dentro da inscrição."""
+        ev = Evento.objects.create(
+            tipo="inscricao", nome="Acampamento", local="Campo",
+            data=timezone.localdate() + datetime.timedelta(days=10),
+        )
+        insc = Inscricao.objects.create(
+            evento=ev, usuario=self.pessoa, responsavel_nome="Voluntário Teste",
+            codigo=Inscricao.gerar_codigo_unico(), status="confirmada",
+            valor_total=Decimal("120.00"),
+        )
+        ParcelaInscricao.objects.create(
+            inscricao=insc, numero=2, total=2, valor=Decimal("60.00"),
+            vencimento=timezone.localdate() + datetime.timedelta(days=20),
+            status="aberta",
+        )
+        dados = self.client.get(self.url).context["minhas_parcelas"]
+        self.assertEqual(len(dados["inscricoes"]), 1)
+        self.assertEqual(dados["inscricoes"][0]["total"], Decimal("60.00"))
+        self.assertIn(insc.token_parcelas, dados["inscricoes"][0]["link"])
+
+    def test_o_card_sai_renderizado_na_tela(self):
+        self._lancamento()
+        corpo = self.client.get(self.url).content.decode()
+        self.assertIn("Minhas parcelas", corpo)
+        self.assertIn("Acerto do acampamento", corpo)
 
 
 class ParcelamentoClubeTests(TestCase):

@@ -1650,9 +1650,32 @@ class PerfilUsuario(models.Model):
     # Última vez que o clube mandou a mensagem de reengajamento (evita reenviar toda
     # hora enquanto a pessoa não responde).
     reengajado_em = models.DateTimeField("Reengajado em", null=True, blank=True)
+    # Liberação para a pessoa preencher a ficha de DIRETORIA na PRÓPRIA conta
+    # (em "Meus Dados"), virando Responsável + Diretoria num login só. Quem libera
+    # é o Diretor, na tela "Usuários"; vazio = não liberado e o botão nem aparece.
+    # A data é o próprio interruptor (e serve de registro de quando foi liberado).
+    liberacao_diretoria_em = models.DateTimeField(
+        "Cadastro de diretoria liberado em", null=True, blank=True
+    )
+    liberacao_diretoria_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="liberacoes_diretoria",
+        verbose_name="Liberado por",
+    )
 
     def __str__(self):
         return f"Perfil de {self.usuario.username}"
+
+    @property
+    def pode_cadastrar_diretoria(self):
+        """Liberado pelo Diretor E ainda sem ficha — é o que mostra o botão e o
+        que a view confere no POST (esconder no HTML não barra envio forjado)."""
+        return bool(self.liberacao_diretoria_em) and not hasattr(
+            self.usuario, "membro_diretoria"
+        )
 
     def get_token_acerto(self):
         """Retorna o token de acerto, criando um (uuid) na primeira vez."""

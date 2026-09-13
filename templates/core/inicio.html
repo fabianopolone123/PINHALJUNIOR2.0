@@ -1,4 +1,4 @@
-{% load static %}
+{% load static formato %}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -129,6 +129,69 @@
                     <p class="card-texto">
                         Cadastre um aventureiro para completar os dados do responsável.
                     </p>
+                </section>
+                {% endif %}
+
+                {% comment %}
+                Card "Minhas parcelas": o que a pessoa deve, com o link de pagar.
+                É o ÚNICO caminho de quem é só diretoria (não tem tela de
+                mensalidade); o responsável também vê as suas aqui. O pagamento
+                reaproveita as páginas públicas por token — as mesmas que chegam
+                na cobrança —, então não há fluxo de pagamento novo.
+                {% endcomment %}
+                {% if minhas_parcelas %}
+                <section class="card resp-card card-destaque minhas-parcelas">
+                    <h2 class="card-titulo">💳 Minhas parcelas</h2>
+                    <p class="card-texto">
+                        Você tem <strong>R$ {{ minhas_parcelas.total|moeda }}</strong> em parcelas a pagar{% if minhas_parcelas.n_vencidas %},
+                        sendo <strong class="parc-vencido-txt">{{ minhas_parcelas.n_vencidas }} vencida{{ minhas_parcelas.n_vencidas|pluralize }} (R$ {{ minhas_parcelas.total_vencido|moeda }})</strong>{% endif %}.
+                    </p>
+
+                    {% if minhas_parcelas.clube %}
+                    <h3 class="bloco-rotulo">Acertos com o clube</h3>
+                    <ul class="minhas-parcelas-lista">
+                        {% for p in minhas_parcelas.clube %}
+                        <li>
+                            <span class="mp-desc">{{ p.parcelamento.descricao }} — parcela {{ p.rotulo }}{% if p.parcelamento.evento %} · 🎪 {{ p.parcelamento.evento.nome }}{% endif %}</span>
+                            <span class="mp-valor">R$ {{ p.valor|moeda }}</span>
+                            <span class="mp-venc{% if p.vencida %} parc-vencido-txt{% endif %}">{% if p.vencimento %}{% if p.vencida %}venceu{% else %}vence{% endif %} {{ p.vencimento|date:"d/m/Y" }}{% endif %}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ minhas_parcelas.link_clube }}" class="btn-acao">Pagar (Pix ou cartão) — R$ {{ minhas_parcelas.clube_total|moeda }}</a>
+                    {% endif %}
+
+                    {% for i in minhas_parcelas.inscricoes %}
+                    <h3 class="bloco-rotulo">Inscrição {{ i.codigo }}{% if i.evento %} — {{ i.evento }}{% endif %}</h3>
+                    <ul class="minhas-parcelas-lista">
+                        {% for p in i.parcelas %}
+                        <li>
+                            <span class="mp-desc">Parcela {{ p.rotulo }}</span>
+                            <span class="mp-valor">R$ {{ p.valor|moeda }}</span>
+                            <span class="mp-venc{% if p.vencida %} parc-vencido-txt{% endif %}">{% if p.vencimento %}{% if p.vencida %}venceu{% else %}vence{% endif %} {{ p.vencimento|date:"d/m/Y" }}{% endif %}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ i.link }}" class="btn-acao">Pagar (Pix ou cartão) — R$ {{ i.total|moeda }}</a>
+                    {% endfor %}
+                </section>
+                {% endif %}
+
+                {% comment %}
+                Convite para preencher a ficha de diretoria NA PRÓPRIA CONTA. Só
+                aparece para quem o Diretor liberou em "Usuários" e ainda não tem
+                ficha — a view confere a mesma coisa no POST.
+                {% endcomment %}
+                {% if pode_virar_diretoria %}
+                <section class="card resp-card card-destaque convite-diretoria">
+                    <h2 class="card-titulo">⛺ Você também é da diretoria?</h2>
+                    <p class="card-texto">
+                        O Diretor liberou o <strong>cadastro de diretoria</strong> para a sua conta.
+                        Preencha a ficha "Compromisso para Voluntários" e assine os documentos —
+                        é <strong>no mesmo login</strong>, e depois você alterna entre
+                        <strong>Responsável</strong> e <strong>Diretoria</strong> pelo seletor no topo do menu.
+                    </p>
+                    <a href="{% url 'core:minha_ficha_diretoria' %}" class="btn-acao">Preencher minha ficha de diretoria</a>
                 </section>
                 {% endif %}
 
