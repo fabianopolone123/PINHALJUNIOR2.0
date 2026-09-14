@@ -935,3 +935,14 @@ class ReinicioDoServicoTests(TestCase):
         self.lote.refresh_from_db()
         self.assertEqual(self.lote.status, "vendido")
         self.assertEqual(Arremate.objects.filter(lote=self.lote).count(), 1)
+
+
+class EstadoSemLeilaoTests(TestCase):
+    def test_estado_inativo_leva_o_contador_de_online(self):
+        """Antes de o pregão começar é quando o locutor mais quer saber quantos
+        já estão esperando — e é como se confere que o hub não ficou com
+        conexões penduradas depois de um pico."""
+        dados = est.estado_publico(None)
+        self.assertFalse(dados["ativo"])
+        self.assertIn("online", dados)
+        self.assertIn("servidor_em", dados)

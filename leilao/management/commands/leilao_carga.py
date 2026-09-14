@@ -69,9 +69,13 @@ class Command(BaseCommand):
         parser.add_argument("--lances", type=int, default=30)
         parser.add_argument("--intervalo", type=float, default=1.0,
                             help="Segundos entre um lance e o próximo.")
-        parser.add_argument("--cookie", default="",
+        parser.add_argument("--cookie", action="append", default=[],
                             help="Cookie de sessão de um participante já cadastrado "
-                                 "(leilao_sessionid=...). Sem ele, só mede as conexões.")
+                                 "(leilao_sessionid=...). Pode repetir: um leilão de "
+                                 "verdade tem vários disputando, e a regra do pregão "
+                                 "recusa quem tenta cobrir o próprio lance — com um "
+                                 "cookie só, do segundo lance em diante tudo é recusado. "
+                                 "Sem nenhum, só mede as conexões.")
         parser.add_argument("--lote", type=int, default=0, help="Id do lote em pregão.")
 
     def handle(self, *args, **o):
@@ -96,12 +100,18 @@ class Command(BaseCommand):
         atrasos = []
         recusados = 0
 
-        if o["cookie"] and o["lote"]:
-            self.stdout.write(f"Disparando {o['lances']} lances…")
-            for _ in range(o["lances"]):
+        cookies = [c for c in (o["cookie"] or []) if c.strip()]
+        if cookies and o["lote"]:
+            if len(cookies) == 1:
+                self.stdout.write(self.style.WARNING(
+                    "Só um --cookie: do 2º lance em diante o servidor recusa "
+                    "(ninguém cobre o próprio lance). Passe 2 ou mais."
+                ))
+            self.stdout.write(f"Disparando {o['lances']} lances com {len(cookies)} participantes…")
+            for i in range(o["lances"]):
                 antes = len(chegadas)
                 t0 = time.monotonic()
-                ok = self._lance(url, o["cookie"], o["lote"])
+                ok = self._lance(url, cookies[i % len(cookies)], o["lote"])
                 if not ok:
                     recusados += 1
                 # Espera o evento voltar para as conexões abertas.

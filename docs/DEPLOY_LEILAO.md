@@ -253,6 +253,27 @@ python manage.py leilao_carga --url https://pinhaljunior.com.br/leilao --ouvinte
 
 Passa se: nenhuma conexão cair e o atraso p95 do lance ficar **abaixo de 1 s**.
 
+**Medido em produção em 13/09/2026**, de outra máquina, pela internet, com o VPS atendendo os outros
+11 sites normalmente:
+
+| | Resultado |
+|---|---|
+| Conexões abertas / mantidas | **100 / 100** (zero quedas) |
+| Lances disparados / recusados | 40 / **0** |
+| Atraso do lance (p50) | **135 ms** |
+| Atraso do lance (p95) | **254 ms** |
+| Atraso do lance (máximo) | **261 ms** |
+| Memória do processo depois | 65 MB |
+| Carga do servidor depois | 0,05 |
+
+> O `--cookie` é **repetível, e precisa ser**: a regra do pregão recusa quem tenta cobrir o próprio
+> lance, então com um cookie só tudo é recusado do segundo lance em diante. Use 2 ou 3 participantes.
+
+> **Ruído esperado no log:** ao fim de um teste (ou quando muita gente fecha a página de uma vez) o
+> uvicorn registra `socket.send() raised exception.` — é ele tentando escrever num socket que o cliente
+> já fechou. **Não é falha**: conferido que as conexões saem do hub (0 conexões estabelecidas na 8011
+> depois do pico) e a memória não cresce.
+
 Para o áudio não há simulação fiel: junte **10-15 aparelhos reais**, acompanhe
 `mpstat 1` e `nload` no servidor e extrapole pela conta de pacotes (é linear — ~50 pacotes/s por
 ouvinte). É **estimativa, não prova**; se não convencer, a saída já está pronta: preencher

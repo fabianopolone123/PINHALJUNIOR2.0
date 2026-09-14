@@ -95,7 +95,15 @@ def estado_publico(leilao, *, com_chat=True):
     **um cliente que reconecta está sempre correto**.
     """
     if leilao is None:
-        return {"ativo": False, "servidor_em": iso(timezone.now())}
+        # `online` vai junto mesmo sem leilão no ar: antes de começar é
+        # exatamente quando o locutor quer saber quantos já estão esperando na
+        # tela — e é também como se confere que o hub não ficou com conexões
+        # penduradas depois de um pico.
+        return {
+            "ativo": False,
+            "online": HUB.conectados,
+            "servidor_em": iso(timezone.now()),
+        }
 
     lote = leilao.lote_atual
     fila = list(
