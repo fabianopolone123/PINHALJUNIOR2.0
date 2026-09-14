@@ -79,11 +79,6 @@
                 <div class="mesa-botoes">
                     <button type="button" class="btn-mesa abrir" data-acao="abrir">▶ Abrir próximo</button>
                     <button type="button" class="btn-mesa vendido" data-acao="fechar">🔨 VENDIDO</button>
-                    <button type="button" class="btn-mesa desfazer" data-acao="desfazer">↩ Desfazer lance</button>
-                    {% if leilao.fechamento_automatico %}
-                    <button type="button" class="btn-mesa tempo" data-acao="tempo">+{{ leilao.segundos_extra }}s</button>
-                    <button type="button" class="btn-mesa pausa" data-acao="pausar" id="btnPausa">⏸ Pausar</button>
-                    {% endif %}
                 </div>
             </div>
 
@@ -103,19 +98,6 @@
                 </p>
                 <a href="{% url 'leilao:config' %}" class="btn-mini">Configurar áudio</a>
                 {% endif %}
-
-                <h3 class="micro-separador">🎵 Música de fundo</h3>
-                <p class="micro-ajuda">Toca na tela de todos que ligaram o som. Baixinha, para caber debaixo da sua voz.</p>
-                <div class="musica-controle">
-                    <button type="button" class="btn-mesa micro" id="btnMusica">
-                        ▶ Ligar música
-                    </button>
-                    <label class="musica-volume">
-                        <span>Volume <b id="musicaVolumeTexto">{{ leilao.musica_volume }}%</b></span>
-                        <input type="range" id="musicaVolume" min="0" max="60" step="2"
-                               value="{{ leilao.musica_volume }}">
-                    </label>
-                </div>
             </div>
         </div>
 
@@ -170,7 +152,7 @@
                 {% elif l.foto %}<img src="{{ l.foto.url }}" alt="" class="item-foto">
                 {% else %}<span class="item-foto vazia">📦</span>{% endif %}
                 <div class="item-corpo">
-                    <span class="item-nome">{{ l.ordem }}. {{ l.nome }}</span>
+                    <span class="item-nome"><b class="item-numero">nº {{ l.numero }}</b> {{ l.nome }}</span>
                     <span class="item-linha">
                         Inicial R$ {{ l.lance_inicial }} ·
                         <b class="selo selo-{{ l.status }}">{{ l.get_status_display }}</b>

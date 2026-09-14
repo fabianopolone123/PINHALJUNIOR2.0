@@ -19,7 +19,8 @@ import secrets
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
+from django.db.models import F
 from django.utils import timezone
 
 
@@ -88,10 +89,10 @@ class ConfigLeilao(models.Model):
         help_text="Preenchido só se o áudio próprio for descartado. A tela passa a apontar para cá.",
     )
 
-    # --- Música de fundo ---
-    # Sem arquivo, a tela toca uma base ambiente SINTETIZADA (WebAudio): zero
-    # download, zero arquivo no repositório e nenhuma questão de direito autoral.
-    # Com arquivo, toca o que o clube subir — e aí a licença é de quem sobe.
+    # --- Música de fundo: DESLIGADA, o clube ouviu e não quis ---
+    # A coluna fica; o campo saiu do formulário e nada mais o lê. Não religue
+    # sem pedir: a decisão foi de ouvido, com a tela pronta, e é a mais difícil
+    # de tomar por código.
     musica = models.FileField(
         "Música de fundo (opcional)", upload_to="musica/", blank=True,
         help_text=(
@@ -174,6 +175,10 @@ class Leilao(models.Model):
         "Incremento do lance (R$)", max_digits=10, decimal_places=2, default=INCREMENTO_PADRAO,
         help_text="Quanto cada toque no botão soma. Padrão: R$ 5,00.",
     )
+    # --- Cronômetro: NÃO EXISTE MAIS. Colunas dormentes. ---
+    # Quem bate o martelo é o locutor, e o pregão não tem contagem regressiva.
+    # Estes campos saíram do formulário e nada mais os lê. Não religue sem
+    # pedir: foi decisão de quem vai conduzir o evento.
     segundos_por_lote = models.PositiveIntegerField(
         "Cronômetro do lote (segundos)", default=60,
         help_text="Contagem regressiva de cada lote. Padrão: 60 s.",
@@ -199,12 +204,21 @@ class Leilao(models.Model):
         ),
     )
 
-    # --- Música de fundo (controlada ao vivo pelo locutor) ---
+    # --- Música de fundo: DESLIGADA (ver ConfigLeilao.musica) ---
+    # Colunas dormentes. Nada lê nem escreve nelas: não há botão, evento nem
+    # estado de música. Se voltarem a valer, o caminho era locutor → ação
+    # "musica" → `HUB.publicar` → `aplicarMusica()` no leilao.js.
     musica_ligada = models.BooleanField("Música de fundo tocando", default=False)
     musica_volume = models.PositiveSmallIntegerField(
         "Volume da música (%)", default=18,
         help_text="Baixinho de propósito: é fundo, não show. O locutor ajusta ao vivo.",
     )
+
+    # Contador da numeração dos itens. Precisa existir separado do "maior
+    # número em uso": contando pelo maior, apagar o último item faria o próximo
+    # cadastro reaproveitar um número que talvez já esteja COLADO numa caixa.
+    # Este só sobe.
+    ultimo_numero_item = models.PositiveIntegerField("Último nº de item usado", default=0)
 
     # --- Chat entre um lote e outro ---
     chat_segundos = models.PositiveIntegerField(
@@ -241,6 +255,16 @@ class Leilao(models.Model):
 
     @property
     def chat_aberto(self):
+        """Chat de leilão fora do ar NÃO está aberto, por mais que o relógio diga.
+
+        `chat_aberto_ate` é só uma hora futura: ela sobrevive ao leilão sair do
+        ar. Sem esta condição, a tela mostrava a caixa de conversa (o relógio
+        ainda não tinha vencido) e o servidor recusava toda mensagem com
+        "nenhum leilão ao vivo" — a pessoa digitando contra uma porta fechada,
+        sem entender por quê.
+        """
+        if self.status != "ao_vivo":
+            return False
         return bool(self.chat_aberto_ate and self.chat_aberto_ate > timezone.now())
 
     @property
@@ -362,6 +386,17 @@ class Lote(models.Model):
     leilao = models.ForeignKey(Leilao, on_delete=models.CASCADE, related_name="lotes")
     ordem = models.PositiveIntegerField("Ordem na fila", default=0)
 
+    # O número que vai COLADO no objeto físico, para a equipe achar na prateleira
+    # o item que está na tela. Nasce sozinho (1, 2, 3… dentro de cada leilão) e
+    # não é digitado: numeração escrita à mão repete, pula e desencontra, e o
+    # desencontro só aparece na hora de entregar.
+    #
+    # `ordem` é OUTRA coisa e as duas não andam juntas de propósito: a ordem é a
+    # fila e muda quando o locutor reorganiza a noite; o número é a etiqueta do
+    # objeto e **não muda nunca** — se mudasse, a etiqueta na caixa passaria a
+    # apontar para outro item.
+    numero = models.PositiveIntegerField("Nº do item", default=0, editable=False)
+
     nome = models.CharField("Item", max_length=120)
     descricao = models.CharField(
         "Descrição curta", max_length=240, blank=True,
@@ -392,6 +427,8 @@ class Lote(models.Model):
         "Fecha em", null=True, blank=True,
         help_text="Data/hora ABSOLUTA do fim do cronômetro. O cliente só desenha a diferença.",
     )
+    # Coluna dormente: "pausar lances" saiu da mesa. Para segurar o pregão,
+    # o locutor simplesmente não abre o próximo item.
     pausado_restante = models.PositiveIntegerField(
         "Segundos restantes (pausado)", null=True, blank=True,
         help_text="Preenchido só enquanto o locutor pausa o cronômetro.",
@@ -408,9 +445,42 @@ class Lote(models.Model):
         verbose_name = "Lote"
         verbose_name_plural = "Lotes"
         ordering = ["ordem", "id"]
+        constraints = [
+            # Dois itens com a mesma etiqueta é o erro que estraga a entrega:
+            # ninguém descobre qual caixa é de quem. Melhor falhar no cadastro.
+            models.UniqueConstraint(
+                fields=["leilao", "numero"], name="numero_unico_por_leilao"
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.ordem}. {self.nome}"
+        return f"{self.numero}. {self.nome}"
+
+    def save(self, *args, **kwargs):
+        """Dá o número na criação, a partir do contador do leilão.
+
+        Dentro do leilão, e não global: a etiqueta é do evento daquela noite, e
+        começar o leilão de dezembro no item 87 não diz nada a ninguém.
+
+        O número sai de `Leilao.ultimo_numero_item`, **não** do maior número em
+        uso. Pelo maior, apagar o último item faria o próximo cadastro
+        reaproveitar aquele número — e ele pode já estar colado numa caixa. O
+        contador só sobe; número usado não volta.
+
+        O incremento é feito no banco (`F()`), dentro de uma transação: dois
+        cadastros ao mesmo tempo não podem ler o mesmo valor. A constraint de
+        unicidade é a última linha de defesa.
+        """
+        if not self.numero and self.leilao_id:
+            with transaction.atomic():
+                Leilao.objects.filter(pk=self.leilao_id).update(
+                    ultimo_numero_item=F("ultimo_numero_item") + 1
+                )
+                self.numero = Leilao.objects.values_list(
+                    "ultimo_numero_item", flat=True
+                ).get(pk=self.leilao_id)
+                return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
     @property
     def incremento_efetivo(self):

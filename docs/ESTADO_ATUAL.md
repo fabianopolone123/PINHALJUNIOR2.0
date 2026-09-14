@@ -14,7 +14,7 @@ todas as conexões abertas em menos de meio segundo. Quem arremata tem **15 minu
 **Pix** (copiar código ou ver o QR **sem sair da tela**, que continua com o próximo item rolando atrás);
 vencido o prazo, o lote **volta para a fila**. Entre um lote e outro abre um **chat**. A **mesa do
 locutor** (`/leilao/locutor/`, `is_staff`) traz cronômetro grande, abrir/pausar/+tempo/**VENDIDO**,
-**desfazer lance**, fila, histórico ao vivo, controle de **pagamentos** (com baixa manual), lista de
+fila, histórico ao vivo, controle de **pagamentos** (com baixa manual), lista de
 **pessoas** (contato e endereço, para entregar) e o **microfone**: a voz do locutor vai ao vivo por
 **WebRTC/MediaMTX** com atraso de 200-500 ms, em `RTCPeerConnection` puro — **sem biblioteca JS
 externa**. Item é cadastrado pela **câmera do celular** (`capture` nativo) e a foto é reduzida com
@@ -1851,7 +1851,8 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   **absoluta** do fim do cronômetro), `pausado_restante`, `voltas`. `proximo_valor` devolve o **lance
   inicial** enquanto não há lance (somar o incremento faria o item nunca sair pelo preço anunciado) e
   **`lances_da_rodada()`** limita o histórico à vez atual em pregão.
-- `Lance` — imutável, com `cancelado` para o **desfazer** do locutor (histórico não se apaga).
+- `Lance` — imutável. `cancelado` é **coluna dormente**: o "desfazer lance" foi removido da mesa a
+  pedido do clube, e nada mais a escreve.
 - `Arremate` — FK (não OneToOne) com o lote: o item pode voltar para a fila e ser arrematado de novo,
   e o histórico das tentativas é o que embasa bloquear alguém. Tem `expira_em` e `pago_manual`.
 - `PagamentoLeilao` — a cobrança Pix, com o QR pronto (`qr_code` + `qr_code_base64`) e `finalizado`
@@ -1889,10 +1890,10 @@ está calada, contando para **cima**), que é o que diz a hora do "dou-lhe uma, 
 arrematou (`ultimo_vendido`). E a tela do público **não fala "pregão" nem "locutor"** — é jargão da
 equipe.
 
-**Som, música e reações:** a **porta do som** (tela de entrada com um toque) existe porque o navegador
-proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada lance
-nunca tocava. A **música de fundo** é do locutor, para todos junto (liga/desliga/volume, evento
-`musica`); sem arquivo toca uma base **sintetizada em WebAudio** (zero download, zero licença). As
+**Som e reações:** a **porta do som** (tela de entrada com um toque, e **só** esse caminho) existe porque
+o navegador proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada
+lance nunca tocava. Os efeitos são **sintetizados em WebAudio** (zero download, zero licença); **música de
+fundo não existe mais** (ver abaixo). As
 **reações em emoji** sobem na tela de todo mundo e são **agregadas** (`leilao/reacoes.py` + laço
 próprio de 0,5 s, **sem banco**): 50 pessoas martelando viram um resumo por meio segundo, não milhares
 de mensagens.
@@ -1937,14 +1938,59 @@ WhatsApp e endereço) — documento de quem entrega, não texto para grupo abert
 reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa}.js`. Reaproveita `css/base.css`
 (modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.
 
-**Som e música não usam arquivo nenhum** (`som.js`). `SomLeilao` sintetiza os efeitos (lance, superado,
-vendido, arrematei) e `MusicaLeilao` toca uma peça instrumental gerada na hora: 104 BPM, progressão
-I–V–vi–IV, baixo nos tempos 1 e 3, arpejo em colcheias e um pad sustentado por baixo — **sem melodia**, que
-disputaria com a voz de quem narra. Zero download, zero licenciamento. O agendamento é por **lookahead**
-(~120 ms à frente, a cada 25 ms): com `setInterval` disparando nota a nota o ritmo balança, porque o relógio
-do navegador não é preciso e o do WebAudio é. Se o clube subir um arquivo em Configuração, ele toca no lugar
-da peça sintetizada. O volume e o liga/desliga são **do locutor, para todo mundo junto** — chegam pelo
-`estado`, não por aparelho.
+**Os efeitos sonoros não usam arquivo nenhum** (`som.js`): `SomLeilao` sintetiza lance, superado, vendido e
+arrematei em WebAudio — zero download, zero licenciamento, nada de binário no repositório.
+
+**A entrega se divide entre os voluntários** (`leilao/entregas.py`, aba 📦 A entregar do caixa): informa-se
+quantos entregadores e a tela monta uma rota por pessoa, cada uma com o seu botão de copiar. **Não há mapa** —
+o clube guarda rua, número, bairro e cidade, não coordenada, e buscar uma seria dependência externa nova (e
+uma chamada por endereço, na noite do evento). A divisão é por **bairro**, que é o recorte que as pessoas
+usam para falar de região, equilibrando o número de paradas (guloso LPT: a região maior vai para quem está
+mais leve). Três regras: **a unidade é a PESSOA, não o item** (dois itens da mesma casa são uma visita só);
+**bairro nunca é partido** (é o que a divisão existe para evitar); e a chave da região é normalizada sem
+acento e sem caixa, senão "Jd. Paulista" e "jardim paulista" viram duas regiões e o entregador faz a mesma
+rua duas vezes. A tela **declara o limite em voz alta** — precisão inventada é pior que limite declarado. O
+campo de entrega pede só **"Quem recebeu…"**: rastreio saiu, porque a entrega é na mão, por voluntário, e não
+existe código nenhum para anotar.
+
+**Cada item tem um NÚMERO**, gerado sozinho na criação (1, 2, 3… dentro de cada leilão). É a etiqueta que
+vai colada no objeto físico — o que liga o que está na tela ao que está na prateleira. Sai de
+`Leilao.ultimo_numero_item`, um contador que **só sobe**: pelo maior número em uso, apagar o último item
+faria o próximo cadastro repetir um número que talvez já esteja etiquetado. **Não muda nunca** — nem quando
+o item volta para a fila por falta de pagamento, nem quando é arrematado de novo; se mudasse, a caixa na
+prateleira passaria a apontar para outra coisa. Não confundir com `ordem`, que é a fila e muda a cada
+reorganização da noite. Aparece na preparação, na mesa, no caixa e **primeiro na linha** do roteiro de
+entrega (quem separa as caixas procura a etiqueta, não o nome). **Não vai no broadcast**: "item nº 12"
+contaria ao público que existem pelo menos 12 itens — chega à mesa pelo `/locutor/dados/`, junto da fila.
+
+**Não há cronômetro, e não há "pausar".** Nenhum item fecha sozinho: quem bate o martelo é o locutor.
+Saíram os campos de configuração (tempo por lote, tempo extra, reiniciar a cada lance), o botão +Ns, o
+serviço `somar_tempo`, o fechamento por tempo em `verificar_prazos`, a recusa "tempo esgotado", o
+`fecha_em`/`total_segundos`/`fechamento_automatico` do estado transmitido e o anel de cronômetro no CSS.
+**Pausar foi junto**: ele só fazia diferença durante um item já aberto, e para segurar o pregão basta não
+abrir o próximo. Colunas dormentes no banco: `Leilao.segundos_por_lote`, `segundos_extra`,
+`reiniciar_cronometro`, `fechamento_automatico` e `Lote.fecha_em`, `pausado_restante`. O relógio grande da
+mesa **fica** e conta para CIMA — há quanto tempo a sala está calada ("sala calada — martelo?"); é
+sugestão, não fecha nada.
+
+**Não há "desfazer lance".** O botão existia para o caso de o locutor errar; o clube olhou a mesa pronta
+e não quis. Saíram o botão, a confirmação, a ação do servidor, o serviço `desfazer_ultimo_lance` e o
+evento `lance_desfeito` dos dois clientes. `Lance.cancelado` ficou dormente. Guarda: `SemDesfazerLanceTests`.
+
+**O chat não sobrevive ao leilão.** `chat_aberto_ate` é só uma hora futura gravada no banco e não sabe que
+o leilão saiu do ar: a tela mostrava a caixa de conversa (o prazo ainda não tinha vencido) e o servidor
+recusava toda mensagem com "nenhum leilão ao vivo" — duas fontes de verdade discordando, uma abrindo a
+porta e a outra recusando quem passasse. Agora `Leilao.chat_aberto` **exige `status == "ao_vivo"`**,
+`mudar_status` fecha o chat ao sair do ar (e o do leilão que é encerrado para dar lugar a outro) e publica
+`chat_estado` para a caixa sumir da tela; no cliente, `desenharChat` também exige `estado.ativo`. A recusa
+passou a dizer "O leilão foi encerrado.", que é o que quem está olhando a tela precisa ler.
+
+**Não há música de fundo.** Chegou a existir (peça instrumental sintetizada, volume e liga/desliga do
+locutor para todos juntos) e foi **removida depois de ouvida**: com a tela pronta, o clube decidiu que não
+queria. Saíram o player, o botão e o controle de volume da mesa, o evento `musica`, a chave `musica` do
+estado e o campo de arquivo da tela de Configuração. **Ficaram dormentes no banco** as colunas
+`Leilao.musica_ligada`, `Leilao.musica_volume` e `ConfigLeilao.musica`, sem nada que as leia — há testes
+(`SemMusicaDeFundoTests`) para o recurso não voltar por descuido.
 
 **A tela de entrada pede o mínimo que entrega o item**: nome, WhatsApp, rua, número, complemento
 (opcional), bairro e cidade. **CEP e UF saíram** — nenhum dos dois ajuda a achar a casa que os outros já

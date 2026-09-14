@@ -27,7 +27,6 @@
     var EU = parseInt(dados.dataset.eu, 10) || null;
     var EU_CHAVE = dados.dataset.euChave || "";
     var AUDIO_URL = dados.dataset.audio || "";
-    var MUSICA_URL = dados.dataset.musica || "";
 
     var estado = JSON.parse($("estadoInicial").textContent || "{}");
     var offset = 0;            // relógio do servidor − relógio daqui
@@ -141,7 +140,6 @@
         desenharChat();
         desenharBarra();
         precarregarProxima();
-        aplicarMusica();
     }
 
     var festaMostrada = null;
@@ -275,10 +273,9 @@
         $("btnLanceValor").textContent = moeda(lote.proximo_valor);
         $("dicaIncremento").textContent = moeda(lote.incremento);
         btn.classList.toggle("ganhando", euGanhando);
-        btn.disabled = euGanhando || lote.pausado;
+        btn.disabled = euGanhando;
         btn.querySelector(".btn-lance-rotulo").textContent =
             euGanhando ? "VOCÊ ESTÁ GANHANDO"
-            : lote.pausado ? "PAUSADO"
             : superado ? "COBRIR O LANCE"
             : "DAR LANCE";
         $("acaoDica").hidden = euGanhando;
@@ -301,23 +298,15 @@
     }
 
     /* ---------------------------------------------------------------
-       Música de fundo (quem manda é o locutor, para todo mundo junto)
-       --------------------------------------------------------------- */
-    function aplicarMusica() {
-        if (!somLigado || !window.MusicaLeilao) return;
-        var m = (estado && estado.musica) || {};
-        window.MusicaLeilao.volume(m.volume);
-        if (m.ligada) window.MusicaLeilao.ligar();
-        else window.MusicaLeilao.desligar();
-    }
-
-    /* ---------------------------------------------------------------
        Chat (conversa nova a cada intervalo)
        --------------------------------------------------------------- */
     function desenharChat() {
         var chat = $("chat");
         var c = estado && estado.chat;
-        if (!c || !c.aberto) { chat.hidden = true; return; }
+        // `estado.ativo` junto: um `chat_estado` antigo não pode deixar a caixa
+        // de pé depois de o leilão sair do ar — o servidor recusaria tudo que
+        // fosse digitado nela.
+        if (!c || !c.aberto || !(estado && estado.ativo)) { chat.hidden = true; return; }
         chat.hidden = false;
 
         var lista = $("chatLista");
@@ -617,13 +606,6 @@
             vibrar(meTiraram ? [50, 60, 50] : meu ? 40 : 25);
         });
 
-        fonte.addEventListener("lance_desfeito", function (e) {
-            var d = JSON.parse(e.data);
-            estado.lote = d.lote;
-            desenharLote(d.lote);
-            toast("Um lance foi desfeito.", "info");
-        });
-
         fonte.addEventListener("lote_aberto", function (e) {
             render(JSON.parse(e.data));
             toast("Novo item! 🔔", "info");
@@ -652,11 +634,6 @@
             }
         });
 
-        fonte.addEventListener("cronometro", function (e) {
-            var d = JSON.parse(e.data);
-            if (estado && estado.ativo && d.lote) { estado.lote = d.lote; desenharLote(d.lote); }
-        });
-
         fonte.addEventListener("chat", function (e) {
             var m = JSON.parse(e.data);
             if (estado && estado.chat && estado.chat.aberto) empurrarChat(m);
@@ -667,14 +644,6 @@
             // Chat NOVO a cada intervalo: abre limpo, sem arrastar o fio da noite.
             estado.chat = { aberto: d.aberto, ate: d.ate, mensagens: [] };
             desenharChat();
-        });
-
-        fonte.addEventListener("musica", function (e) {
-            var d = JSON.parse(e.data);
-            if (!estado.musica) estado.musica = {};
-            estado.musica.ligada = d.ligada;
-            estado.musica.volume = d.volume;
-            aplicarMusica();
         });
 
         fonte.addEventListener("reacoes", function (e) {
@@ -776,17 +745,12 @@
         if (AUDIO_URL && window.AudioLeilao) {
             window.AudioLeilao.ligar(AUDIO_URL, $("audioLocutor"));
         }
-        if (window.MusicaLeilao) {
-            window.MusicaLeilao.preparar(MUSICA_URL, $("audioMusica"));
-        }
-        aplicarMusica();
     }
 
     function desligarSom() {
         somLigado = false;
         if (window.SomLeilao) window.SomLeilao.desativar();
         if (window.AudioLeilao) window.AudioLeilao.desligar();
-        if (window.MusicaLeilao) window.MusicaLeilao.desligar();
         $("btnSom").textContent = "🔇";
         $("btnSom").setAttribute("aria-pressed", "false");
     }

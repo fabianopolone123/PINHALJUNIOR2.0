@@ -23,7 +23,6 @@
                     {{ l.n_lotes }} item{{ l.n_lotes|pluralize:"ns" }}
                     {% if l.n_vendidos %}({{ l.n_vendidos }} vendido{{ l.n_vendidos|pluralize }}){% endif %} ·
                     lance de R$ {{ l.incremento_padrao }} ·
-                    {{ l.segundos_por_lote }}s por lote ·
                     {{ l.minutos_para_pagar }} min para pagar
                 </span>
             </div>
@@ -66,16 +65,9 @@
             {% include "leilao/_campo.html" with campo=form.descricao %}
             <div class="form-grade">
                 {% include "leilao/_campo.html" with campo=form.incremento_padrao %}
-                {% include "leilao/_campo.html" with campo=form.segundos_por_lote %}
-                {% include "leilao/_campo.html" with campo=form.segundos_extra %}
                 {% include "leilao/_campo.html" with campo=form.minutos_para_pagar %}
                 {% include "leilao/_campo.html" with campo=form.chat_segundos %}
             </div>
-            <label class="check-linha">
-                {{ form.reiniciar_cronometro }}
-                <span>{{ form.reiniciar_cronometro.label }}
-                    <small>{{ form.reiniciar_cronometro.help_text }}</small></span>
-            </label>
             <button type="submit" class="btn-entrar">Criar leilão</button>
         </form>
     </div>

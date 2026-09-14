@@ -22,6 +22,240 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-14 - Leilão: divide as entregas entre os voluntários
+
+### Resumo
+A aba "A entregar" do caixa ganhou um campo **"dividir entre N entregadores"**:
+a tela monta uma rota por voluntário, cada uma com seu botão de copiar, pronta
+para mandar no WhatsApp dele. E o campo de observação da entrega parou de pedir
+**rastreio** — a entrega é na mão, por voluntário, na casa da pessoa: não existe
+código nenhum para anotar, e o campo pedindo um só fazia hesitar quem preenchia
+com pressa. Ficou "Quem recebeu…".
+
+### O que ele faz — e o que NÃO faz
+**Não consulta mapa.** O cadastro guarda rua, número, bairro e cidade, não
+coordenada; buscar uma seria dependência externa nova e uma chamada por endereço
+na noite do evento. Ele faz o que uma pessoa faria com o mapa aberto: **junta por
+bairro** e divide os bairros equilibrando o número de paradas.
+
+**A tela declara esse limite em voz alta**, e isso é parte do recurso: a equipe
+vai confiar no resultado numa mesa de evento, e precisão inventada é pior do que
+limite declarado. Dois bairros vizinhos podem cair com entregadores diferentes —
+quem conhece a cidade ajusta em dez segundos.
+
+### Arquivos criados/alterados
+- `leilao/entregas.py` (novo): `dividir()` e `texto_da_rota()`. Funções puras,
+  fáceis de testar sem subir tela.
+- `leilao/views.py`: `caixa_view` lê `?entregadores=N` e monta as rotas.
+- `templates/leilao/caixa.html`: formulário, o aviso do limite, uma seção por
+  entregador (`<details>`) e o `<textarea>` de cópia de cada rota. Rastreio saiu
+  do campo de observação.
+- `static/leilao/css/locutor.css`: `.form-entregadores`, `.rotas`, `.rota*`.
+- `docs/MANUAL_LEILAO.md`: subseção "Dividir entre os entregadores".
+- `leilao/tests.py`: +16 testes.
+
+### Decisões tomadas
+- **A unidade da divisão é a PESSOA, não o item.** Dois itens da mesma casa são
+  uma visita só; contar itens faria um entregador parecer sobrecarregado sem
+  estar.
+- **Bairro nunca é partido.** Dividir um mesmo bairro entre dois entregadores é
+  exatamente o que a divisão existe para evitar.
+- **A chave da região é normalizada** (sem acento, sem caixa, espaços
+  colapsados). Cada pessoa digita o bairro de um jeito, e "Jd. Paulista" versus
+  "jardim paulista" faria o entregador percorrer a mesma rua duas vezes.
+- **Guloso LPT, não ótimo exato.** A região maior vai para quem está mais leve.
+  Fica perto do equilíbrio ideal e — o que importa mais aqui — é conferível a
+  olho por quem está na mesa do evento.
+- **Determinístico.** O parâmetro vive no GET e o empate desempata pelo índice:
+  a equipe recarrega a tela, manda o link para outra pessoa da mesa e vê a mesma
+  divisão.
+- **Mais entregadores do que bairros deixa alguém sem rota, e a tela mostra.**
+  Inventar uma divisão para preencher seria pior.
+
+### Nota
+O **CEP** seria o único dado do cadastro com noção geográfica automática (ele
+codifica região), e ele saiu do formulário hoje, de propósito — o formulário
+curto vale mais. Fica registrado de onde viria uma divisão mais fina, se um dia
+importar.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+
+---
+
+## 2026-09-14 - Leilão: numeração dos itens e fim do cronômetro
+
+### Resumo
+Duas coisas, as duas vindas de olhar o sistema com o evento na cabeça.
+
+**Cada item ganhou um número** — a etiqueta que vai colada no objeto físico, o
+que liga o que está na tela ao que está na prateleira. Gerado sozinho.
+
+**E o cronômetro foi embora de vez.** Ele já não fechava nada (o locutor é quem
+bate o martelo), mas os restos continuavam na tela: campos de configuração
+pedindo "tempo por lote" e "tempo extra", o botão +Ns, a opção "reiniciar a cada
+lance". Configuração para um recurso que não existe só confunde quem monta o
+leilão. **Pausar foi junto**, pelo mesmo raciocínio: para segurar o pregão basta
+não abrir o próximo item.
+
+### O número do item
+- `Lote.numero`, gerado no `save()` a partir de `Leilao.ultimo_numero_item`.
+- **O contador só sobe.** A primeira versão usava `Max("numero")` do que existe
+  — e o teste pegou: apagando o último item, o próximo cadastro repetia o número
+  dele. Um número que talvez já esteja colado numa caixa. O contador separado é
+  o que garante que número usado não volta.
+- **Não muda nunca**: item que volta para a fila por falta de pagamento volta
+  com a mesma etiqueta, e continua com ela se for arrematado de novo.
+- **Não é `ordem`.** A ordem é a fila e muda a cada reorganização da noite.
+- **Não vai no broadcast**: "item nº 12" contaria ao público que existem pelo
+  menos 12 itens. Chega à mesa pelo `/locutor/dados/`, com a fila.
+- Aparece na preparação, na mesa, no caixa e **primeiro na linha** do roteiro de
+  entrega — quem separa as caixas procura a etiqueta, não o nome. A busca do
+  caixa acha por ele.
+
+### Arquivos criados/alterados
+- `leilao/models.py`: `Lote.numero` + `Leilao.ultimo_numero_item` + `save()` +
+  `UniqueConstraint(leilao, numero)`. Campos do cronômetro marcados dormentes.
+- `leilao/migrations/0006_...`: a ordem das operações importa — o `RunPython` do
+  meio numera o que já existe (e acerta o contador) **antes** de a constraint de
+  unicidade passar a valer; sem ele, todos ficariam com `numero=0` e a criação
+  da constraint quebraria.
+- `leilao/servicos.py`: `somar_tempo` e `pausar_lote` removidos; `abrir_lote` não
+  liga relógio; `dar_lance` perdeu "tempo esgotado" e a recusa por pausa;
+  `verificar_prazos` não olha mais item em pregão.
+- `leilao/views.py`: ações `tempo`, `pausar` e `retomar` removidas; a mesa passou
+  a receber `numero_atual` e o `numero` de cada item da fila.
+- `leilao/estado.py`: saíram `fecha_em`, `total_segundos`, `fechamento_automatico`
+  e `pausado`.
+- `leilao/forms.py`: os três campos de tempo saíram da configuração do leilão.
+- `static/leilao/js/locutor.js`: número na etiqueta e na fila; o desenho da
+  contagem regressiva e o botão de pausa saíram.
+- `static/leilao/js/leilao.js`: o estado "PAUSADO" do botão de lance e o ouvinte
+  de `cronometro` saíram.
+- `static/leilao/css/leilao.css`: o anel de cronômetro inteiro.
+- `static/leilao/css/locutor.css`: `.item-numero` (pílula) entrou; `.mesa-crono.pausado` saiu.
+- `templates/leilao/`: `preparacao`, `locutor`, `lotes`, `caixa`.
+- `docs/MANUAL_LEILAO.md`: seção nova "O número do item" (é a equipe que cola as
+  etiquetas), a tabela de botões e a seção do cronômetro reescritas.
+- `leilao/tests.py`: +19 testes; 8 testes do cronômetro/pausa removidos.
+
+### Decisões tomadas
+- **Contador no leilão, não `Max()`.** É a diferença entre "o próximo número
+  livre" e "o próximo número nunca usado". Só o segundo serve quando o número
+  existe no mundo físico.
+- **Numeração por leilão, começando do 1.** A etiqueta é do evento daquela
+  noite; começar o de dezembro no item 87 não diria nada a ninguém.
+- **A constraint de unicidade fica**, como última linha de defesa: dois itens com
+  a mesma etiqueta é o erro que estraga a entrega, e falhar no cadastro é muito
+  melhor do que descobrir na porta da casa de alguém.
+- **`servidor_em` continua no estado** mesmo sem cronômetro: é por ele que a mesa
+  calcula o silêncio pelo relógio do servidor.
+- **O relógio da mesa fica, contando para cima.** Nunca foi contagem regressiva
+  depois que o martelo virou manual: ele mostra há quanto tempo a sala está
+  calada, que é o que ajuda a decidir. Não fecha nada.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+
+---
+
+## 2026-09-14 - Leilão: tira a música e o desfazer, conserta o chat órfão
+
+### Resumo
+Rodada vinda de usar o sistema de verdade. Saíram dois recursos que o clube
+olhou prontos e não quis — a **música de fundo** e o **desfazer lance** — e
+entrou a correção de um bug que apareceu no teste: **a caixa de conversa ficava
+de pé depois de o leilão sair do ar**, e o servidor recusava tudo que fosse
+digitado nela.
+
+Os dois recursos removidos foram decisão de ouvido/de mesa, não de código: o
+tipo de coisa que só dá para julgar com a tela funcionando. A música chegou a
+ser escrita e refeita antes de sair; o trabalho não foi desperdiçado, foi o que
+permitiu decidir.
+
+### O bug do chat
+`chat_aberto_ate` é só uma hora futura gravada no banco — ela **não sabe que o
+leilão acabou**. `Leilao.chat_aberto` olhava só o relógio; a view de envio
+perguntava outra coisa (`Leilao.ao_vivo()`). Duas fontes de verdade
+discordando: **uma abria a porta e a outra recusava quem passasse por ela**. Na
+tela: a pessoa via o campo de conversa, digitava, e levava "nenhum leilão ao
+vivo" sem entender por quê.
+
+Corrigido nos dois lados e na mensagem:
+- `Leilao.chat_aberto` passou a exigir `status == "ao_vivo"`;
+- `mudar_status` fecha o chat ao sair do ar **e** limpa o `chat_aberto_ate` do
+  leilão que é encerrado para dar lugar a outro (aquele `update` em massa não
+  mexia nisso), publicando `chat_estado` para a caixa sumir da tela em vez de a
+  pessoa descobrir no envio;
+- no cliente, `desenharChat` também exige `estado.ativo`;
+- a recusa passou a dizer **"O leilão foi encerrado."** — "nenhum leilão ao
+  vivo" era verdade para o servidor e mentira para quem estava na tela.
+
+### Arquivos criados/alterados
+- `static/leilao/js/som.js`: `MusicaLeilao` removida. `SomLeilao` (os efeitos
+  de lance, superado, vendido e arremate) **fica** — nunca esteve em questão.
+- `static/leilao/js/leilao.js`: `MUSICA_URL`, `aplicarMusica()` e o ouvinte do
+  evento `musica` saíram.
+- `static/leilao/js/locutor.js`: botão, controle de volume (com o *debounce* de
+  300 ms) e o ouvinte saíram.
+- `templates/leilao/leilao.html`: `<audio id="audioMusica">` e `data-musica`.
+- `templates/leilao/locutor.html`: o bloco 🎵 da mesa.
+- `static/leilao/css/locutor.css`: regras `.musica-*`.
+- `leilao/views.py`: `_musica_url()`, o contexto `musica_url`, a ação `musica`
+  do POST e a linha dela em `ACOES_AREAS`.
+- `leilao/servicos.py`: `ajustar_musica()`.
+- `leilao/estado.py`: a chave `musica` do estado público.
+- `leilao/forms.py`: o campo `musica` da tela de Configuração.
+- `leilao/models.py`: campos mantidos, marcados como **dormentes**.
+- `leilao/tests.py`: `MusicaTests` deu lugar a `SemMusicaDeFundoTests`.
+
+**Desfazer lance (removido):**
+- `templates/leilao/locutor.html`: o botão ↩.
+- `static/leilao/js/locutor.js`: a confirmação e o ouvinte de `lance_desfeito`.
+- `static/leilao/js/leilao.js`: o ouvinte de `lance_desfeito`.
+- `leilao/views.py`: a ação `desfazer` e a linha dela em `ACOES_AREAS`.
+- `leilao/servicos.py`: `desfazer_ultimo_lance()`.
+- `leilao/tests.py`: 5 testes do desfazer deram lugar a `SemDesfazerLanceTests`.
+- `docs/MANUAL_LEILAO.md`: a linha do botão na tabela do locutor.
+
+**Chat órfão (corrigido):**
+- `leilao/models.py`: `chat_aberto` exige leilão no ar.
+- `leilao/servicos.py`: `mudar_status` fecha o chat e avisa.
+- `leilao/views.py`: a recusa explica o que houve.
+- `static/leilao/js/leilao.js`: `desenharChat` exige `estado.ativo`.
+- `leilao/tests.py`: `ChatNaoSobreviveAoLeilaoTests` (6 testes).
+
+- `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`.
+
+### Decisões tomadas
+- **As colunas ficam no banco** (`Leilao.musica_ligada`, `musica_volume`,
+  `ConfigLeilao.musica`), sem nada que as leia. Apagar coluna em SQLite é
+  reconstruir a tabela, e o ganho seria zero — três colunas em branco não
+  custam nada. Estão comentadas como dormentes no model, para ninguém achar
+  que são usadas.
+- **O campo de arquivo saiu do formulário.** Deixá-lo lá permitiria ao clube
+  subir um MP3 que não tocaria em lugar nenhum: pior que não ter o campo.
+- **Testes que guardam a ausência.** Nenhum dos dois recursos pode voltar por
+  descuido — um `data-acao` copiado, uma chave reposta no estado, um botão
+  reaproveitado. `SemMusicaDeFundoTests` e `SemDesfazerLanceTests` cobrem o
+  estado, o mapa de ações, a mesa do locutor, o POST forjado (botão escondido
+  não protege nada) e o código que sobrou.
+- **`Lance.cancelado` fica no banco**, dormente, pelo mesmo motivo das colunas
+  de música: apagar coluna em SQLite é reconstruir a tabela e o ganho é zero.
+- **Toda porta que a tela abre, o servidor tem de aceitar.** É a lição do bug do
+  chat, e virou regra: ao criar controle novo, confira que a condição que o
+  EXIBE é a mesma que o servidor usa para ACEITAR. Mostrar um campo que o
+  servidor vai recusar é pior do que não mostrar — a pessoa digita, envia e não
+  entende.
+
+### Pendências
+- As mesmas de ontem: Pix real de R$ 1, ensaio de áudio com aparelhos de
+  verdade, trocar as senhas `fabiano` e `locutor`, e a data do evento.
+
+---
+
 ## 2026-09-13 - Leilão: música nova, uma porta só, endereço curto e a tela que não apaga
 
 ### Resumo

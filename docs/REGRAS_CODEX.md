@@ -681,8 +681,9 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   explicação própria, senão quem toca duas vezes ouve "Calma!" quando a resposta certa era "você já está
   ganhando".
 - **Lances são por RODADA** (`Lote.lances_da_rodada()`): um item volta para a fila quando o arrematante
-  não paga, e os lances da rodada anulada não podem aparecer na tela nem ser ressuscitados pelo
-  "desfazer".
+  não paga, e os lances da rodada anulada não podem aparecer na tela.
+- **Não há "desfazer lance"**, e a decisão é do clube. `Lance.cancelado` é coluna dormente — não religue
+  por conta própria. `SemDesfazerLanceTests` guarda a porta.
 - **Chamada externa lenta sai do caminho crítico.** O Pix é gerado numa thread **depois** de publicar o
   "vendido" — ninguém espera o Mercado Pago com a tela parada. Sem credencial, o leilão **não para**: o
   locutor dá baixa manual. Thread de fundo **fecha a conexão** no fim (`connections.close_all()`).
@@ -741,6 +742,60 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   quiser, então o `clean` volta ao padrão quando vier vazio — a decisão é do
   servidor, como sempre.
 
+### A divisão das entregas
+
+- **O sistema NÃO consulta mapa, e a tela diz isso.** Não há coordenada no cadastro, e buscar uma seria
+  dependência externa nova. A divisão é por **bairro** e equilibra o número de paradas. Declarar o limite é
+  parte do recurso: precisão inventada é pior do que limite declarado, porque a equipe confia nela.
+- **A unidade da divisão é a PESSOA, não o item.** Dois itens da mesma casa são uma visita só; contar itens
+  faria um entregador parecer sobrecarregado sem estar.
+- **Bairro nunca é partido** entre dois entregadores — é exatamente o que a divisão existe para evitar.
+- **A chave da região é normalizada** (sem acento, sem caixa, espaços colapsados): cada pessoa digita o
+  bairro de um jeito, e o mesmo bairro escrito de duas formas viraria duas regiões.
+- **A divisão é determinística.** A equipe reabre a tela, manda o link para outra pessoa da mesa e precisa
+  ver o mesmo resultado; por isso o empate desempata pelo índice e o parâmetro vive no GET.
+- **Não peça "rastreio" na entrega.** É voluntário levando na casa da pessoa: não existe código para anotar,
+  e o campo pedindo um só fazia hesitar quem preenchia com pressa.
+
+### O número do item
+
+- **É a etiqueta do objeto físico, não a posição na fila.** `Lote.numero` nasce sozinho e **não muda
+  nunca**; `Lote.ordem` é a fila e muda a cada reorganização. Trocar um pelo outro faz a caixa na
+  prateleira apontar para outro item, e o erro só aparece na hora de entregar.
+- **O contador fica no leilão (`Leilao.ultimo_numero_item`) e só sobe.** Numerar pelo `Max()` do que
+  existe parece igual e não é: apagando o último item, o próximo cadastro repete um número que talvez já
+  esteja colado numa caixa. Há teste.
+- **Item que volta para a fila mantém o número.** Não reetiquete nada, e não "corrija" isso.
+- **O número NÃO vai no broadcast.** "Item nº 12" conta ao público que existem pelo menos 12 itens, e
+  quantos faltam é justamente o que ele não pode saber. Vai pelo `/locutor/dados/`, o caminho autenticado
+  que a fila já usa.
+
+### Sem cronômetro, sem pausa
+
+- **Nada fecha sozinho.** Quem bate o martelo é o locutor — é o momento que mais importa para ele, e
+  tirá-lo descaracteriza o leilão. Não recrie contagem regressiva, "fecha sozinho" nem "+tempo": são
+  colunas dormentes (`segundos_por_lote`, `segundos_extra`, `reiniciar_cronometro`,
+  `fechamento_automatico`, `Lote.fecha_em`, `pausado_restante`) e nada as lê.
+- **Também não há "pausar".** Para segurar o pregão, o locutor não abre o próximo item. Pausar só
+  valia durante um item já aberto, e mesmo aí a saída é bater o martelo ou deixar rolar.
+- **O relógio da mesa conta para CIMA**, não para baixo: mostra há quanto tempo ninguém dá lance. É o que
+  ajuda a decidir o martelo — e é sugestão, nunca fechamento.
+- **`servidor_em` continua obrigatório no estado.** Sem cronômetro ele ainda é o que faz a mesa calcular o
+  silêncio pelo relógio do SERVIDOR; pelo do aparelho, quem estivesse com a hora errada veria outro número.
+
+### O chat do intervalo
+
+- **Estado do chat e estado do leilão têm de concordar.** `chat_aberto_ate` é uma hora futura no banco e
+  **não sabe que o leilão acabou**: sozinha, ela deixava a caixa de conversa de pé numa tela cujo envio o
+  servidor recusava com "nenhum leilão ao vivo". `Leilao.chat_aberto` exige `status == "ao_vivo"`, e
+  `mudar_status` fecha o chat ao sair do ar — inclusive o do leilão encerrado para dar lugar a outro (o
+  `update` em massa também limpa `chat_aberto_ate`).
+- **Toda porta que a tela abre, o servidor tem de aceitar.** Mostrar um campo que o servidor vai recusar é
+  pior do que não mostrar: a pessoa digita, envia e não entende. Ao criar controle novo, confira que a
+  condição que o EXIBE é a mesma que o servidor usa para ACEITAR.
+- **Mensagem de recusa é lida por quem está na tela**, não pelo servidor: "nenhum leilão ao vivo" era
+  verdade internamente e mentira para quem estava olhando o leilão. Diga o que aconteceu.
+
 ### Som, música e a tela do celular
 
 - **A porta de entrada tem um caminho só: "Entrar com som".** O botão "entrar sem som" foi removido e
@@ -748,11 +803,12 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   há como a pessoa adivinhar que o silêncio foi escolha dela. A saída continua no 🔇 do topo, onde ela
   sabe o que está desligando. Esse toque é também o **gesto** que o navegador exige para liberar áudio;
   sem ele nada toca, e foi assim que o aviso de lance ficou mudo a primeira vez.
-- **Som e música são sintetizados, sem arquivo nenhum** (`som.js`). Zero download, zero licenciamento e
-  nada de binário no repositório. A música é instrumental **sem melodia** de propósito: melodia disputa
-  com a voz de quem narra, e a voz é que manda.
-- **Música agendada por lookahead**, nunca `setInterval` por nota: o relógio do navegador não é preciso
-  e o do WebAudio é — nota a nota, o ritmo balança de forma audível.
+- **Os efeitos sonoros são sintetizados, sem arquivo nenhum** (`som.js`). Zero download, zero
+  licenciamento e nada de binário no repositório.
+- **Não há música de fundo, e isso foi decidido de ouvido.** Existiu, pronta e funcionando, e o clube
+  ouviu e não quis. Sobraram colunas dormentes (`Leilao.musica_ligada`, `musica_volume`,
+  `ConfigLeilao.musica`) que **nada lê**. Não religue por conta própria — é o tipo de decisão que só quem
+  vai conduzir o evento pode tomar. `SemMusicaDeFundoTests` guarda a porta.
 - **A tela do celular não pode apagar** (`tela_acesa.js`). Entre um lance e outro ninguém toca em nada;
   para o sistema é aparelho ocioso e o protetor entra em 30 s, fazendo a pessoa perder item por
   economizador de bateria. Três coisas, ao mexer nisso:

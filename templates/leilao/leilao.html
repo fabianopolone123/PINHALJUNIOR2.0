@@ -165,7 +165,6 @@ botão de lance, que é o que não pode falhar.
 
 <canvas id="confete" class="confete" aria-hidden="true"></canvas>
 <audio id="audioLocutor" playsinline></audio>
-<audio id="audioMusica" playsinline loop></audio>
 
 {% comment %}
 Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do projeto
@@ -176,8 +175,7 @@ Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do proje
      data-eu="{{ participante.id }}"
      data-eu-chave="{{ participante.chave_pessoa }}"
      data-audio="{{ audio_whep }}"
-     data-audio-externo="{{ audio_externo }}"
-     data-musica="{{ musica_url }}"></div>
+     data-audio-externo="{{ audio_externo }}"></div>
 
 {{ estado_inicial|json_script:"estadoInicial" }}
 {% endblock %}

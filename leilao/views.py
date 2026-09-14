@@ -29,6 +29,7 @@ from django.views.decorators.http import require_POST
 from core import mercadopago
 
 from . import estado as est
+from . import entregas
 from . import papeis
 from . import reacoes
 from . import servicos
@@ -102,19 +103,8 @@ def leilao_view(request):
             # (`/meus-arremates/`), porque ela muda sozinha durante o pregão.
             "estado_inicial": est.estado_publico(leilao),
             "emojis": reacoes.EMOJIS,
-            "musica_url": _musica_url(),
         },
     )
-
-
-def _musica_url():
-    """Arquivo de música, se o clube subiu um. Sem ele, a tela toca a base
-    sintetizada — que não precisa de URL nenhuma."""
-    cfg = ConfigLeilao.get_solo()
-    try:
-        return cfg.musica.url if cfg.musica else ""
-    except ValueError:
-        return ""
 
 
 def _arremates_do(participante, limite=30):
@@ -210,7 +200,12 @@ def chat_enviar_view(request):
         return JsonResponse({"ok": False, "msg": "Entre no leilão para conversar."}, status=401)
     leilao = Leilao.ao_vivo()
     if not leilao:
-        return JsonResponse({"ok": False, "msg": "Nenhum leilão ao vivo."}, status=409)
+        # "Nenhum leilão ao vivo" era verdade para o servidor e mentira para
+        # quem estava na tela do leilão. Quem lê isto está com a caixa de
+        # conversa aberta na frente: o recado tem de explicar o que aconteceu.
+        return JsonResponse(
+            {"ok": False, "msg": "O leilão foi encerrado."}, status=409
+        )
     if not leilao.chat_aberto:
         return JsonResponse({"ok": False, "msg": "O chat está fechado agora."}, status=409)
 
@@ -504,17 +499,23 @@ def locutor_dados_view(request):
     fila = [
         {
             "id": x.id,
+            "numero": x.numero,
             "nome": x.nome,
             "lance_inicial": str(x.lance_inicial),
             "voltas": x.voltas,
         }
         for x in leilao.lotes.filter(status="fila").order_by("ordem", "id")[:40]
     ]
+    # O número do item em pregão vem por AQUI, nunca pelo broadcast: "item 12"
+    # conta que existem pelo menos 12 itens, e quantos faltam é justamente o que
+    # o público não pode saber (muda como a pessoa dá lance).
+    em_pregao = leilao.lote_atual
     return JsonResponse(
         {
             "ok": True,
             "estado": est.estado_publico(leilao),
             "historico": historico,
+            "numero_atual": em_pregao.numero if em_pregao else None,
             "fila": fila,
             "restam_na_fila": leilao.lotes.filter(status="fila").count(),
             # O chat do participante zera a cada intervalo; o do locutor, não.
@@ -534,15 +535,10 @@ def locutor_dados_view(request):
 ACOES_AREAS = {
     "abrir": ("locutor",),
     "fechar": ("locutor",),
-    "pausar": ("locutor",),
-    "retomar": ("locutor",),
-    "tempo": ("locutor",),
-    "desfazer": ("locutor",),
     "chat": ("locutor",),
     "aviso": ("locutor",),
     "mover": ("locutor", "preparacao"),
     "bloquear": ("locutor", "caixa"),
-    "musica": ("locutor",),
     "pago": ("caixa",),
     "combinado": ("caixa",),
     "entregue": ("caixa",),
@@ -588,29 +584,6 @@ def locutor_acao_view(request):
         servicos.fechar_lote(lote, motivo="locutor")
         return JsonResponse({"ok": True, "msg": "Vendido!"})
 
-    if acao in {"pausar", "retomar"}:
-        lote = lote or leilao.lote_atual
-        if not lote:
-            return JsonResponse({"ok": False, "msg": "Nenhum lote em pregão."}, status=409)
-        servicos.pausar_lote(lote, pausar=(acao == "pausar"))
-        return JsonResponse(
-            {"ok": True, "msg": "Cronômetro " + ("pausado." if acao == "pausar" else "retomado.")}
-        )
-
-    if acao == "tempo":
-        lote = lote or leilao.lote_atual
-        if not lote:
-            return JsonResponse({"ok": False, "msg": "Nenhum lote em pregão."}, status=409)
-        servicos.somar_tempo(lote, dados.get("segundos") or leilao.segundos_extra)
-        return JsonResponse({"ok": True, "msg": "Tempo acrescentado."})
-
-    if acao == "desfazer":
-        lote = lote or leilao.lote_atual
-        if not lote:
-            return JsonResponse({"ok": False, "msg": "Nenhum lote em pregão."}, status=409)
-        ok, msg = servicos.desfazer_ultimo_lance(lote)
-        return JsonResponse({"ok": ok, "msg": msg}, status=200 if ok else 409)
-
     if acao == "chat":
         segundos = int(dados.get("segundos") or leilao.chat_segundos or 120)
         if dados.get("fechar"):
@@ -622,23 +595,6 @@ def locutor_acao_view(request):
     if acao == "aviso":
         servicos.enviar_mensagem(leilao, None, dados.get("texto"))
         return JsonResponse({"ok": True, "msg": "Aviso enviado."})
-
-    if acao == "musica":
-        servicos.ajustar_musica(
-            leilao, ligada=dados.get("ligada"), volume=dados.get("volume")
-        )
-        leilao.refresh_from_db()
-        return JsonResponse(
-            {
-                "ok": True,
-                "ligada": leilao.musica_ligada,
-                "volume": leilao.musica_volume,
-                # Sem recado quando é só o volume mexendo: o locutor arrasta o
-                # controle e não precisa de um aviso por pixel.
-                "msg": "" if dados.get("volume") is not None and dados.get("ligada") is None
-                       else ("Música ligada." if leilao.musica_ligada else "Música desligada."),
-            }
-        )
 
     if acao == "mover":
         if not lote:
@@ -748,6 +704,28 @@ def caixa_view(request):
     a_entregar = [a for a in arremates if a.a_entregar]
     entregues = [a for a in arremates if a.entregue]
 
+    # Divisão entre entregadores. Fica no GET para a equipe poder recarregar,
+    # mandar o link para outra pessoa da mesa e ver exatamente a mesma divisão.
+    try:
+        entregadores = int(request.GET.get("entregadores") or 0)
+    except (TypeError, ValueError):
+        entregadores = 0
+    entregadores = max(0, min(20, entregadores))
+
+    rotas = []
+    if entregadores and a_entregar:
+        divididas = entregas.dividir(a_entregar, entregadores)
+        rotas = [
+            {
+                "numero": i,
+                "paradas": paradas,
+                "itens": sum(len(p["itens"]) for p in paradas),
+                "regioes": sorted({p["rotulo"] for p in paradas}),
+                "texto": entregas.texto_da_rota(leilao, i, paradas, entregadores),
+            }
+            for i, paradas in enumerate(divididas, start=1)
+        ]
+
     return render(
         request,
         "leilao/caixa.html",
@@ -758,6 +736,8 @@ def caixa_view(request):
             "a_entregar": a_entregar,
             "entregues": entregues,
             "roteiro": _texto_roteiro_entregas(leilao, a_entregar),
+            "entregadores": entregadores,
+            "rotas": rotas,
         },
     )
 
@@ -788,7 +768,10 @@ def _texto_roteiro_entregas(leilao, pendentes):
         if endereco:
             linhas.append(f"📍 {endereco}")
         for a in dados["itens"]:
-            linhas.append(f"   • {a.lote.nome} — R$ {a.valor}")
+            # O número vem PRIMEIRO: quem separa as caixas procura a etiqueta,
+            # não o nome do item. É o único dado desta linha que existe no
+            # mundo físico.
+            linhas.append(f"   • nº {a.lote.numero} — {a.lote.nome} — R$ {a.valor}")
         linhas.append("")
     return "\n".join(linhas).strip()
 

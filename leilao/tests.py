@@ -31,13 +31,15 @@ if not apps.is_installed("leilao"):
 
 from django.contrib.auth import get_user_model  # noqa: E402
 from django.contrib.auth.models import Group  # noqa: E402
-from django.db import connections  # noqa: E402
+from django.db import IntegrityError, connections  # noqa: E402
 from django.test import Client, TestCase, TransactionTestCase  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
+from . import entregas
 from . import estado as est
 from . import reacoes
 from . import servicos
+from .forms import LeilaoForm
 from .models import Arremate, ConfigLeilao, Lance, Leilao, Lote, PagamentoLeilao, Participante
 from .sessao import CHAVE_SESSAO
 
@@ -146,61 +148,11 @@ class LanceTests(TestCase):
         ok, _, _ = servicos.dar_lance(self.lote.id, self.bruno, valor_visto="40.00")
         self.assertTrue(ok)
 
-    def test_lance_reinicia_o_cronometro_quando_ele_existe(self):
-        # So ha cronometro no modo de fechar sozinho - que nao e o padrao.
-        self.leilao.fechamento_automatico = True
-        self.leilao.save()
-        self.lote.refresh_from_db()
-        self.lote.fecha_em = timezone.now() + timedelta(seconds=5)
-        self.lote.save(update_fields=["fecha_em"])
-        servicos.dar_lance(self.lote.id, self.ana)
-        self.lote.refresh_from_db()
-        restante = (self.lote.fecha_em - timezone.now()).total_seconds()
-        self.assertGreater(restante, 50)
-
-    def test_lance_fora_do_prazo_e_recusado(self):
-        self.lote.fecha_em = timezone.now() - timedelta(seconds=1)
-        self.lote.save(update_fields=["fecha_em"])
-        ok, msg, _ = servicos.dar_lance(self.lote.id, self.ana)
-        self.assertFalse(ok)
-        self.assertIn("Tempo esgotado", msg)
-
     def test_lance_em_lote_fechado_e_recusado(self):
         self.lote.status = "fila"
         self.lote.save(update_fields=["status"])
         ok, _, _ = servicos.dar_lance(self.lote.id, self.ana)
         self.assertFalse(ok)
-
-    def test_lance_com_cronometro_pausado_e_recusado(self):
-        servicos.pausar_lote(self.lote, pausar=True)
-        self.lote.refresh_from_db()
-        ok, msg, _ = servicos.dar_lance(self.lote.id, self.ana)
-        self.assertFalse(ok)
-        # O texto que a PESSOA lê não usa jargão da equipe ("locutor", "pregão").
-        self.assertIn("pausados", msg)
-
-    def test_desfazer_lance_volta_o_lider_anterior(self):
-        servicos.dar_lance(self.lote.id, self.ana)     # 40
-        servicos.dar_lance(self.lote.id, self.bruno)   # 45
-        ok, _ = servicos.desfazer_ultimo_lance(self.lote)
-        self.assertTrue(ok)
-        self.lote.refresh_from_db()
-        self.assertEqual(self.lote.lider_id, self.ana.id)
-        self.assertEqual(self.lote.valor_atual, Decimal("40.00"))
-
-    def test_desfazer_unico_lance_zera_o_lote(self):
-        servicos.dar_lance(self.lote.id, self.ana)
-        servicos.desfazer_ultimo_lance(self.lote)
-        self.lote.refresh_from_db()
-        self.assertIsNone(self.lote.lider_id)
-        self.assertEqual(self.lote.valor_atual, Decimal("0.00"))
-        self.assertEqual(self.lote.proximo_valor, Decimal("40.00"))
-
-    def test_desfazer_nao_apaga_o_lance(self):
-        """Desfeito continua no histórico — é o que responde a 'mas eu dei esse lance!'."""
-        servicos.dar_lance(self.lote.id, self.ana)
-        servicos.desfazer_ultimo_lance(self.lote)
-        self.assertEqual(Lance.objects.filter(cancelado=True).count(), 1)
 
 
 class CorridaDeLancesTests(TransactionTestCase):
@@ -279,39 +231,6 @@ class FechamentoTests(TestCase):
         servicos.fechar_lote(self.lote)
         self.assertIsNone(servicos.fechar_lote(self.lote))
         self.assertEqual(Arremate.objects.count(), 1)
-
-    def test_cronometro_vencido_fecha_so_no_modo_automatico(self):
-        self.leilao.fechamento_automatico = True
-        self.leilao.save()
-        servicos.dar_lance(self.lote.id, self.ana)
-        Lote.objects.filter(pk=self.lote.pk).update(
-            fecha_em=timezone.now() - timedelta(seconds=1)
-        )
-        servicos.verificar_prazos()
-        self.lote.refresh_from_db()
-        self.assertEqual(self.lote.status, "vendido")
-
-    def test_pausado_nao_fecha_sozinho(self):
-        servicos.dar_lance(self.lote.id, self.ana)
-        self.lote.refresh_from_db()
-        servicos.pausar_lote(self.lote, pausar=True)
-        servicos.verificar_prazos()
-        self.lote.refresh_from_db()
-        self.assertEqual(self.lote.status, "aberto")
-
-    def test_pausar_e_retomar_preserva_o_tempo(self):
-        Lote.objects.filter(pk=self.lote.pk).update(
-            fecha_em=timezone.now() + timedelta(seconds=30)
-        )
-        self.lote.refresh_from_db()
-        servicos.pausar_lote(self.lote, pausar=True)
-        self.lote.refresh_from_db()
-        self.assertIsNotNone(self.lote.pausado_restante)
-        self.assertAlmostEqual(self.lote.pausado_restante, 30, delta=2)
-        servicos.pausar_lote(self.lote, pausar=False)
-        self.lote.refresh_from_db()
-        self.assertIsNone(self.lote.pausado_restante)
-        self.assertAlmostEqual((self.lote.fecha_em - timezone.now()).total_seconds(), 30, delta=2)
 
 
 class PrazoDePagamentoTests(TestCase):
@@ -405,10 +324,14 @@ class EstadoPublicoTests(TestCase):
         self.assertEqual(dados["lote"]["lider"]["nome"], "Ana Silva")
 
     def test_estado_leva_o_relogio_do_servidor(self):
-        """Sem isso, celular com a hora errada veria outro cronômetro."""
+        """O relógio é do servidor, não do celular.
+
+        Não há mais cronômetro, mas `servidor_em` continua indispensável: é por
+        ele que a mesa calcula há quanto tempo a sala está calada. Com o relógio
+        do aparelho, quem estivesse com a hora errada veria outro número.
+        """
         dados = est.estado_publico(Leilao.ao_vivo())
         self.assertIn("servidor_em", dados)
-        self.assertIn("total_segundos", dados["lote"])
 
     def test_sem_leilao_ao_vivo_o_estado_diz_inativo(self):
         self.leilao.status = "encerrado"
@@ -1016,21 +939,6 @@ class RodadaTests(TestCase):
         # O lance antigo continua no banco: historico nao se apaga.
         self.assertEqual(Lance.objects.filter(lote=self.lote).count(), 1)
 
-    def test_desfazer_nao_ressuscita_lider_da_rodada_anulada(self):
-        ok, msg = servicos.desfazer_ultimo_lance(self.lote)
-        self.assertFalse(ok)
-        self.assertIn("Não há lance", msg)
-        self.lote.refresh_from_db()
-        self.assertIsNone(self.lote.lider_id)
-
-    def test_desfazer_na_rodada_nova_zera_em_vez_de_voltar_para_a_antiga(self):
-        servicos.dar_lance(self.lote.id, self.bruno)
-        self.lote.refresh_from_db()
-        servicos.desfazer_ultimo_lance(self.lote)
-        self.lote.refresh_from_db()
-        self.assertIsNone(self.lote.lider_id)
-        self.assertEqual(self.lote.valor_atual, Decimal("0.00"))
-
 
 class AbrirOutroLoteTests(TestCase):
     """Abrir outro item com um pregão acontecendo devolve o atual à fila.
@@ -1116,10 +1024,11 @@ class SemMercadoPagoTests(TestCase):
 class ReinicioDoServicoTests(TestCase):
     """O que sobrevive a um restart do serviço no meio do pregão.
 
-    O estado vive no banco (`fecha_em` é data/hora absoluta), então o cronômetro
-    é retomado no ponto certo — mas se o reinício demorar mais do que faltava, o
-    laço central sobe com o prazo vencido e fecha o lote na hora. Está
-    documentado em `docs/DEPLOY_LEILAO.md`; aqui fica fixado em teste.
+    Tudo: o estado vive no banco, não em memória. Item aberto continua aberto,
+    com líder e valor. Sem cronômetro não há nem o risco antigo — um reinício
+    demorado não bate martelo nenhum, porque quem bate é o locutor. O que a
+    equipe perde é só os segundos de reconexão das telas, e isso basta para não
+    reiniciar com disputa rolando (ver `docs/DEPLOY_LEILAO.md`).
     """
 
     def setUp(self):
@@ -1132,25 +1041,25 @@ class ReinicioDoServicoTests(TestCase):
         servicos.dar_lance(self.lote.id, self.ana)
         self.lote.refresh_from_db()
 
-    def test_lote_aberto_continua_aberto_e_com_o_prazo_gravado(self):
-        prazo = self.lote.fecha_em
+    def test_lote_aberto_continua_aberto_com_lider_e_valor(self):
         # Nada de estado em memória: só o que está no banco.
         servicos.limpar_limites()
         de_novo = Lote.objects.get(pk=self.lote.pk)
         self.assertEqual(de_novo.status, "aberto")
-        self.assertEqual(de_novo.fecha_em, prazo)
         self.assertEqual(de_novo.lider_id, self.ana.id)
+        self.assertEqual(de_novo.valor_atual, Decimal("40.00"))
 
-    def test_reinicio_demorado_fecha_o_lote_na_primeira_volta(self):
-        self.leilao.fechamento_automatico = True
-        self.leilao.save()
-        Lote.objects.filter(pk=self.lote.pk).update(
-            fecha_em=timezone.now() - timedelta(seconds=30)
-        )
+    def test_reinicio_demorado_NAO_bate_martelo(self):
+        """O risco antigo era este, e ele não existe mais.
+
+        Com cronômetro, um reinício mais longo do que o tempo restante fazia o
+        laço central subir com o prazo vencido e fechar o item na hora — sem
+        ninguém pedir. Sem cronômetro, o item espera o locutor o tempo que for.
+        """
         servicos.verificar_prazos()
         self.lote.refresh_from_db()
-        self.assertEqual(self.lote.status, "vendido")
-        self.assertEqual(Arremate.objects.filter(lote=self.lote).count(), 1)
+        self.assertEqual(self.lote.status, "aberto")
+        self.assertEqual(Arremate.objects.filter(lote=self.lote).count(), 0)
 
 
 class EstadoSemLeilaoTests(TestCase):
@@ -1548,48 +1457,64 @@ class ReacoesTests(TestCase):
         self.assertEqual(r.status_code, 403)
 
 
-class MusicaTests(TestCase):
-    """A música é do locutor — para todo mundo junto, não por aparelho."""
+class SemMusicaDeFundoTests(TestCase):
+    """Não há música de fundo. O clube ouviu pronta e resolveu que não queria.
+
+    O que sobrou no banco são duas colunas dormentes (`musica_ligada`,
+    `musica_volume`) e o `ConfigLeilao.musica`. Estes testes existem para que o
+    recurso não volte por descuido — por um `data-acao` copiado, uma chave
+    reposta no estado, um botão reaproveitado de outra tela.
+    """
 
     def setUp(self):
         servicos.limpar_limites()
         self.leilao = criar_leilao()
 
-    def test_nasce_desligada_e_baixinha(self):
-        self.assertFalse(self.leilao.musica_ligada)
-        self.assertLessEqual(self.leilao.musica_volume, 30)
+    def test_o_estado_nao_fala_de_musica(self):
+        self.assertNotIn("musica", est.estado_publico(self.leilao))
 
-    def test_ligar_e_ajustar(self):
-        servicos.ajustar_musica(self.leilao, ligada=True, volume=25)
-        self.leilao.refresh_from_db()
-        self.assertTrue(self.leilao.musica_ligada)
-        self.assertEqual(self.leilao.musica_volume, 25)
+    def test_nao_existe_acao_de_musica(self):
+        from .views import ACOES_AREAS
+        self.assertNotIn("musica", ACOES_AREAS)
 
-    def test_volume_fica_no_intervalo(self):
-        servicos.ajustar_musica(self.leilao, volume=999)
-        self.leilao.refresh_from_db()
-        self.assertEqual(self.leilao.musica_volume, 100)
-
-    def test_vai_no_estado_para_todos(self):
-        servicos.ajustar_musica(self.leilao, ligada=True, volume=20)
-        self.leilao.refresh_from_db()
-        dados = est.estado_publico(self.leilao)
-        self.assertEqual(dados["musica"], {"ligada": True, "volume": 20})
-
-    def test_so_o_locutor_mexe(self):
+    def test_a_mesa_do_locutor_nao_tem_controle_de_musica(self):
         User = get_user_model()
-        u = User.objects.create_user("cx_musica", password="segredo-ficticio")
+        u = User.objects.create_user("loc_sem_musica", password="segredo-ficticio")
         u.is_staff = True
         u.save()
-        grupo, _ = Group.objects.get_or_create(name="caixa")
+        grupo, _ = Group.objects.get_or_create(name="locutor")
         u.groups.add(grupo)
         c = Client()
-        c.login(username="cx_musica", password="segredo-ficticio")
+        c.login(username="loc_sem_musica", password="segredo-ficticio")
+
+        html = c.get("/locutor/").content.decode("utf-8")
+        self.assertNotIn("btnMusica", html)
+        self.assertNotIn("musicaVolume", html)
+
+    def test_o_servidor_recusa_a_acao_mesmo_forjada(self):
+        """Botão escondido não protege nada — quem recusa é o servidor."""
+        User = get_user_model()
+        u = User.objects.create_user("loc_forja", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_forja", password="segredo-ficticio")
+
         r = c.post(
-            "/equipe/acao/", data=json.dumps({"acao": "musica", "ligada": True}),
+            "/equipe/acao/",
+            data=json.dumps({"acao": "musica", "ligada": True}),
             content_type="application/json",
         )
-        self.assertEqual(r.status_code, 403)
+        self.assertFalse(r.json()["ok"])
+
+    def test_o_player_saiu_do_javascript(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "som.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("SomLeilao", js)          # os efeitos de lance FICAM
+        self.assertNotIn("MusicaLeilao", js)
 
 
 class FestaDoIntervaloTests(TestCase):
@@ -1964,3 +1889,544 @@ class EnderecoCurtoTests(TestCase):
         dados = dict(self.DADOS, estado="")
         Client().post("/entrar/", dados)
         self.assertEqual(Participante.objects.get(whatsapp="11900000123").estado, "SP")
+
+
+class ChatNaoSobreviveAoLeilaoTests(TestCase):
+    """O chat não pode ficar de pé depois de o leilão sair do ar.
+
+    `chat_aberto_ate` é só uma hora futura gravada no banco: ela não sabe que o
+    leilão acabou. Sem esta regra, a tela continuava mostrando a caixa de
+    conversa (o relógio ainda não tinha vencido) e o servidor recusava cada
+    mensagem com "nenhum leilão ao vivo" — a pessoa digitando contra uma porta
+    fechada, sem entender por quê. Foi exatamente o que aconteceu no teste do
+    clube.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao(chat_segundos=120)
+        self.ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_chat(self.leilao, 120)
+        self.leilao.refresh_from_db()
+
+    def test_com_o_leilao_no_ar_o_chat_esta_aberto(self):
+        self.assertTrue(self.leilao.chat_aberto)
+
+    def test_encerrar_o_leilao_fecha_o_chat(self):
+        servicos.mudar_status(self.leilao, "encerrado")
+        self.leilao.refresh_from_db()
+        self.assertFalse(self.leilao.chat_aberto)
+        self.assertIsNone(self.leilao.chat_aberto_ate)
+
+    def test_o_relogio_futuro_sozinho_nao_abre_o_chat(self):
+        """A trava é de status, não de hora — mesmo com o prazo intacto."""
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="encerrado")
+        self.leilao.refresh_from_db()
+        self.assertIsNotNone(self.leilao.chat_aberto_ate)   # prazo ainda de pé
+        self.assertFalse(self.leilao.chat_aberto)
+
+    def test_sair_do_ar_avisa_as_telas(self):
+        """Quem está com a caixa aberta precisa vê-la sumir, não descobrir no envio."""
+        publicados = []
+        original = servicos.HUB.publicar
+        servicos.HUB.publicar = lambda tipo, dados=None: publicados.append(tipo)
+        try:
+            servicos.mudar_status(self.leilao, "encerrado")
+        finally:
+            servicos.HUB.publicar = original
+        self.assertIn("chat_estado", publicados)
+
+    def test_colocar_outro_no_ar_fecha_o_chat_do_anterior(self):
+        outro = criar_leilao(nome="Outro leilão", status="rascunho")
+        servicos.mudar_status(outro, "ao_vivo")
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.leilao.status, "encerrado")
+        self.assertIsNone(self.leilao.chat_aberto_ate)
+
+    def test_a_recusa_explica_o_que_houve(self):
+        """"Nenhum leilão ao vivo" é verdade para o servidor e mentira para quem lê."""
+        c = Client()
+        c.post("/entrar/", {
+            "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0456",
+            "logradouro": "Rua Exemplo", "numero": "10",
+            "bairro": "Centro", "cidade": "Cidade Exemplo",
+        })
+        servicos.mudar_status(self.leilao, "encerrado")
+        r = c.post(
+            "/chat/enviar/", data=json.dumps({"texto": "oi"}),
+            content_type="application/json",
+        )
+        self.assertFalse(r.json()["ok"])
+        self.assertIn("encerrado", r.json()["msg"].lower())
+
+
+class SemDesfazerLanceTests(TestCase):
+    """Não há "desfazer lance". O clube olhou a mesa e não quis o botão.
+
+    Ele existia para o caso de o locutor errar. Some junto a regra de negócio
+    inteira: sem botão, sem ação no servidor e sem o evento `lance_desfeito`.
+    O que **fica** é `Lance.cancelado` no model — coluna dormente, como as da
+    música.
+    """
+
+    def test_nao_existe_acao_de_desfazer(self):
+        from .views import ACOES_AREAS
+        self.assertNotIn("desfazer", ACOES_AREAS)
+
+    def test_o_servico_saiu(self):
+        self.assertFalse(hasattr(servicos, "desfazer_ultimo_lance"))
+
+    def test_a_mesa_nao_tem_o_botao(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_sem_desfazer", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_sem_desfazer", password="segredo-ficticio")
+
+        html = c.get("/locutor/").content.decode("utf-8")
+        self.assertNotIn('data-acao="desfazer"', html)
+
+    def test_o_servidor_recusa_a_acao_forjada(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_forja_desf", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_forja_desf", password="segredo-ficticio")
+
+        r = c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "desfazer"}),
+            content_type="application/json",
+        )
+        self.assertFalse(r.json()["ok"])
+
+
+class NumeroDoItemTests(TestCase):
+    """Cada item ganha um número, e ele é a etiqueta colada no objeto físico.
+
+    É o que liga o que está na tela ao que está na prateleira. Por isso ele
+    nasce sozinho (numeração escrita à mão repete, pula e desencontra) e **não
+    muda nunca** — se mudasse, a etiqueta na caixa passaria a apontar para
+    outro item, e o desencontro só apareceria na hora de entregar.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+
+    def test_numera_sozinho_a_partir_de_um(self):
+        a = criar_lote(self.leilao, nome="Primeiro")
+        b = criar_lote(self.leilao, nome="Segundo")
+        self.assertEqual(a.numero, 1)
+        self.assertEqual(b.numero, 2)
+
+    def test_cada_leilao_comeca_do_um(self):
+        """A etiqueta é do evento daquela noite — começar em 87 não diz nada."""
+        criar_lote(self.leilao, nome="Item de novembro")
+        outro = criar_leilao(nome="Leilão de dezembro")
+        self.assertEqual(criar_lote(outro, nome="Item de dezembro").numero, 1)
+
+    def test_apagar_um_item_nao_recicla_o_numero(self):
+        """Reaproveitar número já colado numa caixa é o pior dos dois mundos.
+
+        Contar pelo MAIOR número em uso não resolve: apagando o último, o maior
+        volta a ser o anterior e o próximo cadastro repete um número que talvez
+        já esteja etiquetado. Por isso o contador fica no leilão e só sobe.
+        """
+        criar_lote(self.leilao, nome="Primeiro")
+        segundo = criar_lote(self.leilao, nome="Segundo")
+        segundo.delete()
+        self.assertEqual(criar_lote(self.leilao, nome="Terceiro").numero, 3)
+
+    def test_item_que_volta_para_a_fila_mantem_o_numero(self):
+        """O arrematante não pagou: o item volta a leilão — com a MESMA etiqueta.
+
+        A etiqueta está colada no objeto. Se o número mudasse ao voltar para a
+        fila, a caixa na prateleira passaria a apontar para outra coisa.
+        """
+        lote = criar_lote(self.leilao, nome="Cesta fictícia")
+        ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, ana)
+        lote.refresh_from_db()
+        arremate = servicos.fechar_lote(lote, motivo="locutor")
+
+        numero_antes = lote.numero
+        servicos.expirar_arremate(arremate)   # não pagou no prazo
+
+        lote.refresh_from_db()
+        self.assertEqual(lote.status, "fila")     # voltou a leilão
+        self.assertEqual(lote.voltas, 1)
+        self.assertEqual(lote.numero, numero_antes)
+
+    def test_e_continua_o_mesmo_depois_de_arrematado_de_novo(self):
+        lote = criar_lote(self.leilao, nome="Cesta fictícia")
+        ana = criar_pessoa("Ana Fictícia")
+        bruno = criar_pessoa("Bruno Fictício")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, ana)
+        lote.refresh_from_db()
+        servicos.expirar_arremate(servicos.fechar_lote(lote, motivo="locutor"))
+
+        lote.refresh_from_db()
+        servicos.abrir_lote(lote)             # segunda volta
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, bruno)
+        lote.refresh_from_db()
+        servicos.fechar_lote(lote, motivo="locutor")
+
+        lote.refresh_from_db()
+        self.assertEqual(lote.numero, 1)
+
+    def test_o_numero_nao_muda_ao_editar(self):
+        lote = criar_lote(self.leilao, nome="Cesta")
+        lote.nome = "Cesta de café da manhã"
+        lote.ordem = 9
+        lote.save()
+        lote.refresh_from_db()
+        self.assertEqual(lote.numero, 1)
+
+    def test_nao_repete_dentro_do_leilao(self):
+        criar_lote(self.leilao, nome="Primeiro")
+        repetido = Lote(leilao=self.leilao, nome="Clone", numero=1,
+                        lance_inicial=Decimal("10.00"))
+        with self.assertRaises(IntegrityError):
+            repetido.save()
+
+    def test_o_publico_NAO_ve_o_numero(self):
+        """"Item nº 12" conta que existem pelo menos 12 itens.
+
+        Quantos faltam é justamente o que o público não pode saber — quem
+        descobre que falta pouco segura o dinheiro.
+        """
+        lote = criar_lote(self.leilao, nome="Cesta")
+        criar_lote(self.leilao, nome="Outro")
+        criar_lote(self.leilao, nome="Mais outro")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+
+        dados = est.estado_publico(Leilao.ao_vivo())
+        self.assertNotIn("numero", dados["lote"])
+
+    def test_a_mesa_do_locutor_ve(self):
+        lote = criar_lote(self.leilao, nome="Cesta")
+        na_fila = criar_lote(self.leilao, nome="Depois")
+        servicos.abrir_lote(lote)
+
+        User = get_user_model()
+        u = User.objects.create_user("loc_numero", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_numero", password="segredo-ficticio")
+
+        d = c.get("/locutor/dados/").json()
+        self.assertEqual(d["numero_atual"], lote.numero)
+        self.assertEqual([x["numero"] for x in d["fila"]], [na_fila.numero])
+
+    def test_o_roteiro_de_entrega_leva_o_numero(self):
+        """Quem separa as caixas procura a etiqueta, não o nome do item."""
+        lote = criar_lote(self.leilao, nome="Cesta fictícia")
+        ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, ana)
+        lote.refresh_from_db()
+        arremate = servicos.fechar_lote(lote, motivo="locutor")
+        servicos.marcar_pago(arremate, manual=True)
+
+        User = get_user_model()
+        u = User.objects.create_user("cx_numero", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="cx_numero", password="segredo-ficticio")
+
+        self.assertIn(f"nº {lote.numero}", c.get("/caixa/").context["roteiro"])
+
+
+class SemCronometroTests(TestCase):
+    """Não há cronômetro em lugar nenhum do pregão.
+
+    Nenhum item fecha sozinho: quem bate o martelo é o locutor. Os campos de
+    configuração ("tempo por lote", "tempo extra", "reiniciar a cada lance") e o
+    botão +Ns saíram — config para um recurso que não existe só confunde quem
+    monta o leilão. O que ficou no banco são colunas dormentes.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.ana = criar_pessoa("Ana Fictícia")
+
+    def test_o_lote_abre_sem_hora_para_fechar(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        self.assertIsNone(self.lote.fecha_em)
+
+    def test_o_lance_nao_liga_relogio_nenhum(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        self.lote.refresh_from_db()
+        self.assertIsNone(self.lote.fecha_em)
+
+    def test_o_tempo_passa_e_o_item_continua_aberto(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        Lote.objects.filter(pk=self.lote.pk).update(
+            aberto_em=timezone.now() - timedelta(hours=2)
+        )
+        servicos.verificar_prazos()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "aberto")
+        self.assertEqual(Arremate.objects.count(), 0)
+
+    def test_o_estado_nao_transmite_relogio(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        lote = est.estado_publico(Leilao.ao_vivo())["lote"]
+        for chave in ("fecha_em", "total_segundos", "fechamento_automatico"):
+            self.assertNotIn(chave, lote)
+
+    def test_nao_existe_acao_de_tempo(self):
+        from .views import ACOES_AREAS
+        self.assertNotIn("tempo", ACOES_AREAS)
+
+    def test_o_servico_de_somar_tempo_saiu(self):
+        self.assertFalse(hasattr(servicos, "somar_tempo"))
+
+    def test_a_configuracao_nao_pede_tempo(self):
+        campos = LeilaoForm().fields
+        for chave in ("segundos_por_lote", "segundos_extra", "reiniciar_cronometro"):
+            self.assertNotIn(chave, campos)
+
+    def test_nao_existe_mais_pausar(self):
+        """Para segurar o pregão, o locutor simplesmente não abre o próximo item.
+
+        Pausar só fazia diferença DURANTE um item já aberto, e mesmo aí a saída
+        é bater o martelo ou deixar rolar. Um botão a menos numa mesa que se
+        opera falando ao mesmo tempo.
+        """
+        from .views import ACOES_AREAS
+        self.assertNotIn("pausar", ACOES_AREAS)
+        self.assertNotIn("retomar", ACOES_AREAS)
+        self.assertFalse(hasattr(servicos, "pausar_lote"))
+
+    def test_a_mesa_nao_tem_botao_de_pausa(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_sem_pausa", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_sem_pausa", password="segredo-ficticio")
+        html = c.get("/locutor/").content.decode("utf-8")
+        self.assertNotIn("btnPausa", html)
+
+    def test_o_estado_nao_fala_de_pausa(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        self.assertNotIn("pausado", est.estado_publico(Leilao.ao_vivo())["lote"])
+
+class DividirEntregasTests(TestCase):
+    """Dividir as entregas entre os voluntários que vão rodar a cidade.
+
+    **Não há mapa.** O clube guarda rua, número, bairro e cidade — não guarda
+    coordenada. A divisão é por BAIRRO, que é o recorte que as pessoas usam para
+    falar de região, equilibrando o número de paradas. A tela diz isso em voz
+    alta: precisão inventada seria pior que o limite declarado.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+
+    def _entregar(self, nome, bairro, cidade="Cidade Exemplo", quantos=1):
+        """Cria uma pessoa com N itens PAGOS, prontos para entrega."""
+        pessoa = criar_pessoa(nome, bairro=bairro, cidade=cidade,
+                              logradouro="Rua Exemplo", numero="10")
+        arremates = []
+        for i in range(quantos):
+            # O freio de 300 ms entre lances da mesma pessoa é real e vale aqui:
+            # sem zerar, o segundo lance do fixture é recusado e o lote fecha
+            # "sem lance" — e o teste falha por um motivo que não é o dele.
+            servicos.limpar_limites()
+            lote = criar_lote(self.leilao, nome=nome + " item " + str(i))
+            servicos.abrir_lote(lote)
+            lote.refresh_from_db()
+            servicos.dar_lance(lote.id, pessoa)
+            lote.refresh_from_db()
+            a = servicos.fechar_lote(lote, motivo="locutor")
+            servicos.marcar_pago(a, manual=True)
+            a.refresh_from_db()
+            arremates.append(a)
+        return arremates
+
+    def test_um_entregador_leva_tudo(self):
+        a = self._entregar("Ana Fictícia", "Centro")
+        b = self._entregar("Bruno Fictício", "Jardim Exemplo")
+        rotas = entregas.dividir(a + b, 1)
+        self.assertEqual(len(rotas), 1)
+        self.assertEqual(len(rotas[0]), 2)
+
+    def test_bairros_diferentes_vao_para_entregadores_diferentes(self):
+        a = self._entregar("Ana Fictícia", "Centro")
+        b = self._entregar("Bruno Fictício", "Jardim Exemplo")
+        rotas = entregas.dividir(a + b, 2)
+        self.assertEqual([len(r) for r in rotas], [1, 1])
+
+    def test_o_mesmo_bairro_NAO_e_partido(self):
+        """Partir um bairro é o que a divisão existe para evitar."""
+        juntos = []
+        for nome in ("Ana Fictícia", "Bruno Fictício", "Carla Fictícia"):
+            juntos += self._entregar(nome, "Centro")
+        rotas = entregas.dividir(juntos, 3)
+        cheias = [r for r in rotas if r]
+        self.assertEqual(len(cheias), 1)
+        self.assertEqual(len(cheias[0]), 3)
+
+    def test_bairro_escrito_de_outro_jeito_conta_como_o_mesmo(self):
+        """Grafias diferentes do mesmo bairro não podem virar duas regiões."""
+        a = self._entregar("Ana Fictícia", "Jardim Exemplo")
+        b = self._entregar("Bruno Fictício", "  jardim  exemplo ")
+        cheias = [r for r in entregas.dividir(a + b, 2) if r]
+        self.assertEqual(len(cheias), 1)
+
+    def test_acento_tambem_nao_separa(self):
+        a = self._entregar("Ana Fictícia", "Jardim Acadêmico")
+        b = self._entregar("Bruno Fictício", "jardim academico")
+        cheias = [r for r in entregas.dividir(a + b, 2) if r]
+        self.assertEqual(len(cheias), 1)
+
+    def test_dois_itens_da_mesma_casa_sao_UMA_parada(self):
+        """Contar item em vez de visita faria um entregador parecer sobrecarregado."""
+        ana = self._entregar("Ana Fictícia", "Centro", quantos=3)
+        rotas = entregas.dividir(ana, 1)
+        self.assertEqual(len(rotas[0]), 1)
+        self.assertEqual(len(rotas[0][0]["itens"]), 3)
+
+    def test_equilibra_a_carga_entre_os_entregadores(self):
+        todos = []
+        todos += self._entregar("Ana Fictícia", "Centro")
+        todos += self._entregar("Bruno Fictício", "Centro")
+        todos += self._entregar("Carla Fictícia", "Centro")
+        todos += self._entregar("Davi Fictício", "Jardim Exemplo")
+        todos += self._entregar("Elza Fictícia", "Vila Exemplo")
+        rotas = entregas.dividir(todos, 2)
+        tamanhos = sorted(len(r) for r in rotas)
+        # 3 (Centro) de um lado, 1 + 1 do outro: o melhor equilíbrio possível
+        # sem partir bairro nenhum.
+        self.assertEqual(tamanhos, [2, 3])
+
+    def test_mais_entregadores_do_que_bairros_deixa_alguem_sem_rota(self):
+        """E isso tem de aparecer, não quebrar: a tela avisa."""
+        a = self._entregar("Ana Fictícia", "Centro")
+        rotas = entregas.dividir(a, 3)
+        self.assertEqual(len(rotas), 3)
+        self.assertEqual(sum(1 for r in rotas if r), 1)
+
+    def test_a_divisao_e_sempre_a_mesma(self):
+        """A equipe reabre a tela e precisa ver o mesmo resultado."""
+        todos = []
+        for nome, bairro in [("Ana Fictícia", "Centro"),
+                             ("Bruno Fictício", "Vila Exemplo"),
+                             ("Carla Fictícia", "Centro"),
+                             ("Davi Fictício", "Jardim Exemplo")]:
+            todos += self._entregar(nome, bairro)
+        primeira = [[p["pessoa"].id for p in r] for r in entregas.dividir(todos, 2)]
+        segunda = [[p["pessoa"].id for p in r] for r in entregas.dividir(todos, 2)]
+        self.assertEqual(primeira, segunda)
+
+    def test_sem_bairro_cadastrado_nao_quebra(self):
+        pessoa = criar_pessoa("Sem Bairro Fictício", bairro="", cidade="")
+        lote = criar_lote(self.leilao, nome="Cesta")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        a = servicos.fechar_lote(lote, motivo="locutor")
+        servicos.marcar_pago(a, manual=True)
+        a.refresh_from_db()
+
+        rotas = entregas.dividir([a], 1)
+        self.assertEqual(rotas[0][0]["rotulo"], "Sem bairro informado")
+
+    def test_o_texto_da_rota_leva_endereco_e_numero_do_item(self):
+        ana = self._entregar("Ana Fictícia", "Centro")
+        rotas = entregas.dividir(ana, 1)
+        texto = entregas.texto_da_rota(self.leilao, 1, rotas[0], 1)
+        self.assertIn("Ana Fictícia", texto)
+        self.assertIn("Rua Exemplo", texto)
+        self.assertIn("Centro", texto)
+        self.assertIn("nº " + str(ana[0].lote.numero), texto)
+        self.assertIn("1/1", texto)
+
+
+class TelaDeDividirEntregasTests(TestCase):
+    """A divisão pela tela do caixa."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("cx_rotas", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="cx_rotas", password="segredo-ficticio")
+
+        for nome, bairro in [("Ana Fictícia", "Centro"),
+                             ("Bruno Fictício", "Vila Exemplo")]:
+            pessoa = criar_pessoa(nome, bairro=bairro, cidade="Cidade Exemplo",
+                                  logradouro="Rua Exemplo", numero="10")
+            lote = criar_lote(self.leilao, nome="Item de " + nome)
+            servicos.abrir_lote(lote)
+            lote.refresh_from_db()
+            servicos.dar_lance(lote.id, pessoa)
+            lote.refresh_from_db()
+            servicos.marcar_pago(
+                servicos.fechar_lote(lote, motivo="locutor"), manual=True
+            )
+
+    def test_sem_pedir_nao_divide_nada(self):
+        r = self.c.get("/caixa/")
+        self.assertEqual(r.context["rotas"], [])
+
+    def test_dividir_por_dois(self):
+        r = self.c.get("/caixa/?entregadores=2")
+        self.assertEqual(len(r.context["rotas"]), 2)
+        self.assertEqual([len(x["paradas"]) for x in r.context["rotas"]], [1, 1])
+
+    def test_a_tela_avisa_que_nao_ha_mapa(self):
+        """Precisão inventada é pior que limite declarado."""
+        html = self.c.get("/caixa/?entregadores=2").content.decode("utf-8")
+        self.assertIn("não consulta mapa", html)
+
+    def test_numero_invalido_nao_quebra(self):
+        for valor in ("abc", "-3", "0", "999"):
+            r = self.c.get("/caixa/?entregadores=" + valor)
+            self.assertEqual(r.status_code, 200)
+
+    def test_o_campo_de_entrega_nao_pede_mais_rastreio(self):
+        """Entrega é na mão, por voluntário: não existe código de rastreio."""
+        html = self.c.get("/caixa/").content.decode("utf-8")
+        self.assertNotIn("rastreio", html.lower())
+        self.assertIn("Quem recebeu", html)

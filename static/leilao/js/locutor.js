@@ -86,15 +86,15 @@
 
         var foto = $("mesaFoto");
         if (lote) {
-            $("mesaEtiqueta").textContent = "Em pregão" + (lote.voltas ? " · voltou " + lote.voltas + "x" : "");
+            $("mesaEtiqueta").textContent =
+                (numeroAtual ? "Item nº " + numeroAtual + " · " : "") +
+                "Em pregão" + (lote.voltas ? " · voltou " + lote.voltas + "x" : "");
             $("mesaNome").textContent = lote.nome;
             $("mesaDesc").textContent = lote.descricao || "";
             $("mesaValor").textContent = moeda(lote.tem_lance ? lote.valor_atual : lote.lance_inicial);
             $("mesaLider").textContent = lote.lider ? lote.lider.nome : "ninguém ainda";
             $("mesaProximo").textContent = moeda(lote.proximo_valor);
             if (lote.foto) { foto.src = lote.foto; foto.hidden = false; } else { foto.hidden = true; }
-            $("btnPausa").textContent = lote.pausado ? "▶ Retomar" : "⏸ Pausar";
-            $("btnPausa").dataset.acao = lote.pausado ? "retomar" : "pausar";
         } else {
             $("mesaEtiqueta").textContent = "Nenhum item em pregão";
             $("mesaNome").textContent = "—";
@@ -111,6 +111,9 @@
     }
 
     var filaCache = [];
+    // Número do item em pregão. Vem do fetch da mesa, NÃO do broadcast — no
+    // broadcast ele contaria ao público quantos itens existem.
+    var numeroAtual = null;
 
     function desenharFila(fila, restam) {
         var ul = $("fila");
@@ -130,7 +133,10 @@
             var li = document.createElement("li");
             var nome = document.createElement("span");
             nome.className = "nome";
-            nome.textContent = (i + 1) + ". " + l.nome;
+            // O número do ITEM (a etiqueta colada na caixa), não a posição na
+            // fila: é por ele que se acha o objeto na prateleira, e a posição
+            // muda toda vez que a noite é reorganizada.
+            nome.textContent = "nº " + l.numero + " — " + l.nome;
             li.appendChild(nome);
 
             var b = document.createElement("button");
@@ -230,15 +236,9 @@
             return;
         }
 
-        // Modo "fecha sozinho": aí sim é contagem regressiva.
-        if (lote.fechamento_automatico && lote.fecha_em) {
-            var restante = Math.max(0, (Date.parse(lote.fecha_em) - agora()) / 1000);
-            caixa.className = "mesa-crono" + (restante <= 10 ? " final" : restante <= 20 ? " apertado" : "");
-            $("mesaCronoRotulo").textContent = "para fechar sozinho";
-            txt.textContent = mmss(restante);
-            return;
-        }
-
+        // Não é contagem regressiva: é o contrário. Conta para CIMA desde o
+        // último lance, porque o que ajuda a decidir o martelo é há quanto
+        // tempo a sala está calada.
         var parado = lote.parado_desde
             ? Math.max(0, (agora() - Date.parse(lote.parado_desde)) / 1000)
             : 0;
@@ -265,6 +265,9 @@
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (!d.ok) return;
+                    // O número ANTES do render: é ele que a etiqueta do item em
+                    // pregão desenha, e pintar duas vezes só pisca na tela.
+                    numeroAtual = d.numero_atual;
                     render(d.estado);
                     desenharHistorico(d.historico);
                     // A fila e o histórico do chat NÃO vêm no broadcast: o
@@ -286,21 +289,12 @@
         if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
         recarregarDados();
     });
-    fonte.addEventListener("lance_desfeito", function (e) {
-        var d = JSON.parse(e.data);
-        if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
-        recarregarDados();
-    });
     fonte.addEventListener("lote_vendido", function (e) {
         var d = JSON.parse(e.data);
         render(d.estado);
         desenharHistorico([]);
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
         else toast("Item sem lance: voltou para a fila.", "info");
-    });
-    fonte.addEventListener("cronometro", function (e) {
-        var d = JSON.parse(e.data);
-        if (estado && estado.ativo && d.lote) { estado.lote = d.lote; render(estado); }
     });
     fonte.addEventListener("chat", function (e) {
         // Teto: a mesa fica aberta a noite inteira e não pode acumular memória.
@@ -315,16 +309,6 @@
         // O histórico da MESA não zera no intervalo — só o dos participantes.
         desenharChatMesa();
     });
-    fonte.addEventListener("musica", function (e) {
-        var d = JSON.parse(e.data);
-        musicaLigada = d.ligada;
-        pintarMusica();
-        if (slider && document.activeElement !== slider) {
-            slider.value = d.volume;
-            $("musicaVolumeTexto").textContent = d.volume + "%";
-        }
-    });
-
     fonte.addEventListener("online", function (e) {
         var d = JSON.parse(e.data);
         if (estado) estado.online = d.online;
@@ -356,9 +340,8 @@
         if (alvo.dataset.participante) corpo.participante = alvo.dataset.participante;
         if (alvo.dataset.direcao) corpo.direcao = alvo.dataset.direcao;
 
-        // "Vendido" e "desfazer" mexem em dinheiro: confirmam.
+        // Bater o martelo mexe em dinheiro: confirma.
         if (qual === "fechar" && !window.confirm("Bater o martelo e fechar este item?")) return;
-        if (qual === "desfazer" && !window.confirm("Desfazer o último lance?")) return;
 
         // Abrir outro item com um pregão ACONTECENDO joga o atual de volta para a
         // fila e a disputa se perde. É um acidente fácil de cometer falando ao
@@ -425,41 +408,6 @@
     /* ---------------------------------------------------------------
        Microfone (WHIP)
        --------------------------------------------------------------- */
-    /* ---------------------------------------------------------------
-       Música de fundo — o locutor decide, para todo mundo junto
-       --------------------------------------------------------------- */
-    var musicaLigada = false;
-
-    function pintarMusica() {
-        var b = $("btnMusica");
-        if (!b) return;
-        b.textContent = musicaLigada ? "⏸ Parar música" : "▶ Ligar música";
-        b.classList.toggle("ligado", musicaLigada);
-    }
-
-    var btnMusica = $("btnMusica");
-    if (btnMusica) {
-        btnMusica.addEventListener("click", function () {
-            acao({ acao: "musica", ligada: !musicaLigada }).then(function (d) {
-                if (d && d.ok) { musicaLigada = d.ligada; pintarMusica(); }
-            });
-        });
-    }
-
-    var slider = $("musicaVolume");
-    if (slider) {
-        var timerVolume = null;
-        slider.addEventListener("input", function () {
-            $("musicaVolumeTexto").textContent = slider.value + "%";
-            // Agrupa: arrastar o controle dispara dezenas de eventos, e não dá
-            // para mandar um POST por pixel enquanto o pregão acontece.
-            if (timerVolume) clearTimeout(timerVolume);
-            timerVolume = setTimeout(function () {
-                acao({ acao: "musica", volume: parseInt(slider.value, 10) });
-            }, 300);
-        });
-    }
-
     var btnMic = $("btnMicrofone");
     if (btnMic && window.AudioFalar) {
         btnMic.addEventListener("click", function () {
@@ -493,11 +441,6 @@
                 }
             });
         });
-    }
-
-    if (estado && estado.musica) {
-        musicaLigada = !!estado.musica.ligada;
-        pintarMusica();
     }
 
     /* A mesa é a tela que MENOS pode apagar: quem está conduzindo passa minutos

@@ -112,8 +112,11 @@ class LeilaoForm(EstiloMixin, forms.ModelForm):
     class Meta:
         model = Leilao
         fields = [
-            "nome", "descricao", "incremento_padrao", "segundos_por_lote",
-            "reiniciar_cronometro", "segundos_extra", "minutos_para_pagar", "chat_segundos",
+            # Sem `segundos_por_lote`, `segundos_extra` nem `reiniciar_cronometro`:
+            # não há cronômetro no pregão, e campo de configuração para um
+            # recurso que não existe só confunde quem monta o leilão.
+            "nome", "descricao", "incremento_padrao",
+            "minutos_para_pagar", "chat_segundos",
         ]
         widgets = {"descricao": forms.Textarea(attrs={"rows": 2})}
 
@@ -171,7 +174,6 @@ class ConfigLeilaoForm(EstiloMixin, forms.ModelForm):
             "site_url",
             "audio_ativo", "audio_caminho", "audio_publicar_usuario",
             "audio_publicar_senha", "audio_externo_url",
-            "musica",
         ]
 
     SEGREDOS = [

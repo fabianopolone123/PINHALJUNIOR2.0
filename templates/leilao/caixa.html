@@ -31,14 +31,14 @@
 
     {# ================= PAGAMENTOS ================= #}
     <section class="mesa-secao ativa" data-secao="pagamentos">
-        <input type="search" class="busca" id="buscaPagamentos" placeholder="Buscar por nome ou item…">
+        <input type="search" class="busca" id="buscaPagamentos" placeholder="Buscar por nome, item ou nº…">
         <ul class="arremates-mesa" id="listaPagamentos">
             {% for a in arremates %}
             <li class="arremate-linha {{ a.status }}"
-                data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }}">
+                data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }} {{ a.lote.numero }}">
                 <div class="arremate-quem">
                     <b>{{ a.participante.nome }}</b>
-                    <span class="arremate-item">{{ a.lote.nome }}</span>
+                    <span class="arremate-item"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
                     <span class="arremate-contato selecionavel">{{ a.participante.whatsapp }}</span>
                 </div>
                 <div class="arremate-fim">
@@ -80,19 +80,76 @@
                     data-fonte="roteiroEntregas"
                     data-aviso="Roteiro de entrega copiado!"
                     title="Leva nome e endereço: é documento de quem entrega, não texto para grupo aberto.">
-                📋 Copiar roteiro de entrega
+                📋 Copiar roteiro inteiro
             </button>
+
+            <form method="get" class="form-entregadores">
+                <label for="entregadores">Dividir entre</label>
+                <input type="number" id="entregadores" name="entregadores"
+                       min="1" max="20" step="1" inputmode="numeric"
+                       value="{{ entregadores|default:'' }}" placeholder="nº">
+                <span>entregadores</span>
+                <button type="submit" class="btn-mini destaque">Dividir</button>
+            </form>
         </div>
+
+        {% if rotas %}
+        <div class="rotas">
+            <p class="rotas-aviso">
+                A divisão é <b>por bairro</b>, equilibrando o número de paradas — o sistema
+                <b>não consulta mapa</b> e não conhece a distância entre dois pontos. Dois bairros
+                vizinhos podem ter caído com entregadores diferentes: quem conhece a cidade ajusta
+                em dez segundos. Itens da mesma casa contam como <b>uma parada só</b>.
+            </p>
+
+            {% for r in rotas %}
+            <details class="rota" {% if forloop.first %}open{% endif %}>
+                <summary>
+                    <b>Entregador {{ r.numero }}</b>
+                    <span class="rota-resumo">
+                        {{ r.paradas|length }} parada(s) · {{ r.itens }} item(ns)
+                    </span>
+                </summary>
+
+                {% if r.paradas %}
+                <p class="rota-regioes">{{ r.regioes|join:" · " }}</p>
+                <ol class="rota-paradas">
+                    {% for parada in r.paradas %}
+                    <li>
+                        <b>{{ parada.pessoa.nome }}</b>
+                        <span class="pessoa-linha selecionavel">📱 {{ parada.pessoa.whatsapp }}</span>
+                        <span class="pessoa-linha endereco selecionavel">
+                            📍 {{ parada.pessoa.endereco_uma_linha|default:"Sem endereço cadastrado" }}
+                        </span>
+                        {% for a in parada.itens %}
+                        <span class="pessoa-linha"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
+                        {% endfor %}
+                    </li>
+                    {% endfor %}
+                </ol>
+                <button type="button" class="btn-mini btn-copiar-lista"
+                        data-fonte="rota{{ r.numero }}"
+                        data-aviso="Rota do entregador {{ r.numero }} copiada!">
+                    📋 Copiar esta rota
+                </button>
+                <textarea id="rota{{ r.numero }}" class="copiar-fonte" readonly>{{ r.texto }}</textarea>
+                {% else %}
+                <p class="vazio">Sem paradas — há menos bairros do que entregadores.</p>
+                {% endif %}
+            </details>
+            {% endfor %}
+        </div>
+        {% endif %}
         {% endif %}
 
         <ul class="entregas" id="listaEntregas">
             {% for a in a_entregar %}
-            <li class="entrega" data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }}">
+            <li class="entrega" data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }} {{ a.lote.numero }}">
                 <div class="entrega-item">
                     {% if a.lote.foto_mini %}<img src="{{ a.lote.foto_mini.url }}" alt="" class="item-foto">
                     {% else %}<span class="item-foto vazia">📦</span>{% endif %}
                     <div class="item-corpo">
-                        <span class="item-nome">{{ a.lote.nome }}</span>
+                        <span class="item-nome"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
                         <span class="item-linha">R$ {{ a.valor }} · pago {{ a.pago_em|date:"d/m H:i" }}</span>
                     </div>
                 </div>
@@ -106,8 +163,14 @@
                 </div>
 
                 <div class="entrega-acoes">
+                    {% comment %}
+                    Só "quem recebeu". Rastreio saiu: a entrega é feita à mão,
+                    por voluntário do clube, na casa da pessoa — não há código
+                    de rastreio nenhum para anotar, e o campo pedindo um só
+                    fazia hesitar quem estava preenchendo com pressa.
+                    {% endcomment %}
                     <input type="text" class="entrega-obs" maxlength="200"
-                           placeholder="Quem recebeu, rastreio…" value="{{ a.entrega_obs }}">
+                           placeholder="Quem recebeu…" value="{{ a.entrega_obs }}">
                     <button type="button" class="btn-mini destaque"
                             data-acao="entregue" data-arremate="{{ a.id }}">✅ Entregue</button>
                 </div>
@@ -128,7 +191,7 @@
             <li class="arremate-linha pago">
                 <div class="arremate-quem">
                     <b>{{ a.participante.nome }}</b>
-                    <span class="arremate-item">{{ a.lote.nome }}</span>
+                    <span class="arremate-item"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
                     {% if a.entrega_obs %}
                     <span class="arremate-contato">{{ a.entrega_obs }}</span>
                     {% endif %}

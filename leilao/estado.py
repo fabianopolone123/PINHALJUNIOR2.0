@@ -101,11 +101,7 @@ def lote_publico(lote):
         # sozinho. No padrão, quem bate o martelo é o locutor — e o que a mesa
         # dele mostra é há quanto tempo a sala está calada (`parado_desde`),
         # contando para CIMA.
-        "fechamento_automatico": lote.leilao.fechamento_automatico,
-        "fecha_em": iso(lote.fecha_em),
-        "total_segundos": lote.leilao.segundos_por_lote,
         "parado_desde": iso(_parado_desde(lote)),
-        "pausado": lote.pausado,
         "voltas": lote.voltas,
     }
 
@@ -182,10 +178,6 @@ def estado_publico(leilao, *, com_chat=True):
         "proxima_foto": _foto(proximo.foto) if proximo else "",
         "vendidos": leilao.lotes.filter(status="vendido").count(),
         "ultimo_vendido": ultimo_vendido(leilao),
-        "musica": {
-            "ligada": leilao.musica_ligada,
-            "volume": leilao.musica_volume,
-        },
         "online": HUB.conectados,
         "servidor_em": iso(timezone.now()),
     }

@@ -63,7 +63,6 @@ class Command(BaseCommand):
                 "descricao": "Leilão fictício para testar a tela e ensaiar o pregão.",
                 "status": "ao_vivo",
                 "incremento_padrao": Decimal("5.00"),
-                "segundos_por_lote": 60,
                 "minutos_para_pagar": 15,
                 "chat_segundos": 120,
             },

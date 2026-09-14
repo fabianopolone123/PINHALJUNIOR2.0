@@ -143,10 +143,13 @@ def agendar(funcao, *args):
 # Abrir / fechar lote
 # ---------------------------------------------------------------------------
 def abrir_lote(lote, *, segundos=None):
-    """Põe o lote em pregão e liga o cronômetro."""
+    """Põe o lote em pregão.
+
+    Não há cronômetro: quem bate o martelo é o locutor, como num leilão de
+    verdade. O `segundos` sobrou da assinatura antiga e é ignorado.
+    """
     leilao = lote.leilao
     agora = timezone.now()
-    duracao = int(segundos or leilao.segundos_por_lote)
 
     with transaction.atomic():
         # Guarda: só um lote em pregão por vez. Se sobrou outro aberto (queda de
@@ -169,12 +172,7 @@ def abrir_lote(lote, *, segundos=None):
         lote.valor_atual = Decimal("0.00")
         lote.lider = None
         lote.pausado_restante = None
-        # Sem fechamento automático (o padrão), NÃO existe contagem regressiva:
-        # quem bate o martelo é o locutor. O `fecha_em` só é usado por quem
-        # liga a opção de fechar sozinho.
-        lote.fecha_em = (
-            agora + timedelta(seconds=duracao) if leilao.fechamento_automatico else None
-        )
+        lote.fecha_em = None
         lote.save(
             update_fields=[
                 "status", "aberto_em", "fechado_em", "valor_atual",
@@ -243,37 +241,6 @@ def fechar_lote(lote, *, motivo="cronometro"):
     return arremate
 
 
-def pausar_lote(lote, pausar=True):
-    """Congela/retoma o cronômetro sem perder o tempo que faltava."""
-    if lote.status != "aberto":
-        return lote
-    agora = timezone.now()
-    if pausar and lote.pausado_restante is None:
-        restante = max(0, int((lote.fecha_em - agora).total_seconds())) if lote.fecha_em else 0
-        lote.pausado_restante = restante
-        lote.fecha_em = None
-    elif not pausar and lote.pausado_restante is not None:
-        lote.fecha_em = agora + timedelta(seconds=lote.pausado_restante)
-        lote.pausado_restante = None
-    lote.save(update_fields=["pausado_restante", "fecha_em"])
-    HUB.publicar("cronometro", {"lote": est.lote_publico(lote)})
-    return lote
-
-
-def somar_tempo(lote, segundos):
-    """Botão '+tempo' do locutor."""
-    if lote.status != "aberto":
-        return lote
-    if lote.pausado_restante is not None:
-        lote.pausado_restante += int(segundos)
-    else:
-        base = lote.fecha_em or timezone.now()
-        lote.fecha_em = max(base, timezone.now()) + timedelta(seconds=int(segundos))
-    lote.save(update_fields=["pausado_restante", "fecha_em"])
-    HUB.publicar("cronometro", {"lote": est.lote_publico(lote)})
-    return lote
-
-
 # ---------------------------------------------------------------------------
 # O lance
 # ---------------------------------------------------------------------------
@@ -304,10 +271,6 @@ def dar_lance(lote_id, participante, *, valor_visto=None, origem="botao"):
 
             if lote.status != "aberto":
                 return False, "Este lote não está em pregão.", None
-            if lote.pausado:
-                return False, "Os lances estão pausados no momento.", None
-            if lote.fecha_em and lote.fecha_em <= timezone.now():
-                return False, "Tempo esgotado neste lote.", None
             # TRAVA: ninguém cobre o próprio lance.
             #
             # A comparação é pela **pessoa**, não pelo registro. A entrada cria
@@ -349,61 +312,13 @@ def dar_lance(lote_id, participante, *, valor_visto=None, origem="botao"):
             )
             lote.valor_atual = valor
             lote.lider = participante
-            if lote.leilao.fechamento_automatico and lote.leilao.reiniciar_cronometro:
-                lote.fecha_em = timezone.now() + timedelta(
-                    seconds=lote.leilao.segundos_por_lote
-                )
-            lote.save(update_fields=["valor_atual", "lider", "fecha_em"])
+            lote.save(update_fields=["valor_atual", "lider"])
 
         _ultimo_lance[participante.id] = agora_mono
 
     dados = {"lote": est.lote_publico(lote), "lance": est.lance_publico(lance)}
     HUB.publicar("lance", dados)
     return True, "Lance registrado!", dados
-
-
-def desfazer_ultimo_lance(lote):
-    """Desfaz o último lance válido do lote (o locutor erra; acontece).
-
-    Não apaga: marca `cancelado`. O histórico do pregão continua auditável, que
-    é o que responde a "mas eu dei esse lance!" no meio do evento.
-    """
-    with _lock_do_lote(lote.id):
-        with transaction.atomic():
-            lote.refresh_from_db()
-            # Só a rodada atual: se o item voltou para a fila, desfazer não pode
-            # ressuscitar o líder de uma rodada que já foi anulada.
-            ultimo = (
-                lote.lances_da_rodada()
-                .select_related("participante")
-                .order_by("-criado_em", "-id")
-                .first()
-            )
-            if not ultimo:
-                return False, "Não há lance para desfazer."
-
-            ultimo.cancelado = True
-            ultimo.save(update_fields=["cancelado"])
-
-            anterior = (
-                lote.lances_da_rodada()
-                .select_related("participante")
-                .order_by("-criado_em", "-id")
-                .first()
-            )
-            if anterior:
-                lote.valor_atual = anterior.valor
-                lote.lider = anterior.participante
-            else:
-                lote.valor_atual = Decimal("0.00")
-                lote.lider = None
-            lote.save(update_fields=["valor_atual", "lider"])
-
-    HUB.publicar(
-        "lance_desfeito",
-        {"lote": est.lote_publico(lote), "quem": ultimo.participante.nome_curto},
-    )
-    return True, f"Lance de {ultimo.participante.nome_curto} desfeito."
 
 
 # ---------------------------------------------------------------------------
@@ -653,39 +568,28 @@ def mudar_status(leilao, novo):
     celular na mão desde antes continuava vendo a tela de espera.
     """
     if novo == "ao_vivo":
+        # O leilão que sai do ar leva o chat dele junto (ver abaixo).
         Leilao.objects.filter(status="ao_vivo").exclude(pk=leilao.pk).update(
-            status="encerrado"
+            status="encerrado", chat_aberto_ate=None
         )
     leilao.status = novo
-    leilao.save(update_fields=["status"])
+
+    campos = ["status"]
+    if novo != "ao_vivo" and leilao.chat_aberto_ate:
+        # Sair do ar FECHA o chat. `chat_aberto_ate` é uma hora futura gravada
+        # no banco: ela não sabe que o leilão acabou. Deixando-a de pé, a tela
+        # continuava mostrando a caixa de conversa e o servidor recusava cada
+        # mensagem — a pessoa digitava contra uma porta fechada.
+        leilao.chat_aberto_ate = None
+        campos.append("chat_aberto_ate")
+        HUB.publicar("chat_estado", {"aberto": False, "ate": None})
+
+    leilao.save(update_fields=campos)
 
     # Quem sai do ar também precisa avisar: as telas voltam para a espera em vez
     # de ficar congeladas no último item.
     ao_vivo = Leilao.ao_vivo()
     HUB.publicar("estado", est.estado_publico(ao_vivo))
-    return leilao
-
-
-def ajustar_musica(leilao, *, ligada=None, volume=None):
-    """Liga/desliga e ajusta o volume da música de fundo — para TODO MUNDO.
-
-    É controle ao vivo do locutor: ele sente a sala e decide. Por isso o estado
-    mora no leilão (e não no aparelho de cada um) e vai por evento — senão cada
-    pessoa ouviria uma coisa.
-    """
-    campos = []
-    if ligada is not None:
-        leilao.musica_ligada = bool(ligada)
-        campos.append("musica_ligada")
-    if volume is not None:
-        leilao.musica_volume = max(0, min(100, int(volume)))
-        campos.append("musica_volume")
-    if campos:
-        leilao.save(update_fields=campos)
-    HUB.publicar(
-        "musica",
-        {"ligada": leilao.musica_ligada, "volume": leilao.musica_volume},
-    )
     return leilao
 
 
@@ -708,27 +612,19 @@ def enviar_mensagem(leilao, participante, texto):
 def verificar_prazos():
     """Chamado pelo laço central a cada segundo. Fecha o que venceu.
 
-    Tudo que depende do relógio está aqui — cronômetro do lote, prazo de
-    pagamento e fim do chat. Concentrar isso num lugar é o que impede dois
-    caminhos diferentes fecharem o mesmo lote de dois jeitos.
+    Tudo que depende do relógio está aqui — prazo de pagamento e fim do chat.
+    Concentrar isso num lugar é o que impede dois caminhos diferentes fecharem
+    a mesma coisa de dois jeitos.
+
+    **O item em pregão não está nesta lista**, e é de propósito: não há
+    cronômetro. Quem bate o martelo é o locutor, como num leilão de verdade — o
+    "dou-lhe uma, dou-lhe duas" é do leiloeiro, e fechar sozinho tiraria dele o
+    momento que mais importa.
     """
     leilao = Leilao.ao_vivo()
     if not leilao:
         return
     agora = timezone.now()
-
-    # O cronômetro chega a zero e ESPERA: quem bate o martelo é o locutor.
-    # É assim que um leilão de verdade funciona — o "dou-lhe uma, dou-lhe duas"
-    # é do leiloeiro, e fechar sozinho tiraria dele o momento que mais importa.
-    # Quem quiser o fechamento automático liga a opção no leilão.
-    if leilao.fechamento_automatico:
-        lote = (
-            leilao.lotes.select_related("leilao", "lider")
-            .filter(status="aberto", pausado_restante__isnull=True, fecha_em__lte=agora)
-            .first()
-        )
-        if lote:
-            fechar_lote(lote, motivo="cronometro")
 
     # Só quem está `aguardando` vence. Quem combinou de pagar depois fica fora
     # do relógio de propósito — é o acerto que o caixa fez.

@@ -45,16 +45,14 @@ Em **📦 Preparação**, preencha o formulário "Novo leilão":
 |---|---|---|
 | Nome | Aparece na tela de todo mundo | "Leilão do Clube — Novembro" |
 | Incremento do lance | Quanto cada toque no botão soma | R$ 5,00 |
-| Cronômetro do lote | Tempo de cada item | 60 segundos |
-| Botão de tempo extra | Quanto o seu "+30s" acrescenta | 30 segundos |
 | Prazo para pagar | Depois disso o item volta para a fila | 15 minutos |
 | Duração do chat | Bate-papo entre um item e outro | 120 segundos |
 
 Ele nasce em **rascunho** — ninguém de fora vê nada ainda.
 
-> **Reiniciar o cronômetro a cada lance** vem marcado. É a regra clássica: quem
-> dá lance no último segundo reabre o tempo para os outros responderem. Deixe
-> marcado, a não ser que queira leilão de tempo fixo.
+> **Não existe cronômetro.** Nenhum item fecha sozinho: quem bate o martelo é
+> você, no botão **VENDIDO**. É por isso que não há tempo por lote nem botão de
+> tempo extra para configurar aqui.
 
 ### Cadastrar os itens
 
@@ -69,6 +67,26 @@ Na linha do leilão, clique em **📦 Itens** → **+ Cadastrar item**.
   caro, em que R$ 5 por vez demoraria a noite toda.
 
 Use **"Salvar e cadastrar outro"** para emendar vários de uma vez.
+
+### O número do item
+
+Cada item ganha um **número** sozinho, na hora do cadastro: nº 1, nº 2, nº 3…
+Você não digita nada.
+
+**Escreva esse número no próprio objeto** (etiqueta, fita-crepe, o que for). Ele
+é o que liga o que está na tela ao que está na prateleira — e é por ele que a
+pessoa do caixa acha a caixa certa na hora de entregar. O roteiro de entrega sai
+com o número na frente do nome, justamente por isso.
+
+Três coisas que valem saber:
+
+- **O número não é a posição na fila.** A ordem muda toda vez que vocês
+  reorganizam a noite; o número **nunca muda**.
+- **Item que volta para a fila** (o arrematante não pagou) volta com **o mesmo
+  número** — a etiqueta continua valendo, não precisa reetiquetar nada.
+- **Cada leilão começa do nº 1.** Apagar um item não devolve o número dele para
+  a fila: se o nº 5 foi apagado, o próximo cadastro é o 6. É de propósito —
+  número que já foi colado numa caixa não pode reaparecer em outro objeto.
 
 > ⚠️ **O item vai para o leilão que está na tela.** Se você estiver preparando o
 > leilão de dezembro enquanto o de novembro acontece, os itens vão para o de
@@ -104,23 +122,23 @@ Tela: **🎤 Locutor**.
 | Botão | Quando usar |
 |---|---|
 | **▶ Abrir próximo** | Começa o próximo item da fila |
-| **+30s** | Deu vontade de esticar; a plateia está animando |
-| **⏸ Pausar** | Precisou parar para falar, resolver algo |
-| **🔨 VENDIDO** | Bate o martelo agora, sem esperar o cronômetro |
-| **↩ Desfazer lance** | Alguém tocou sem querer, ou você errou |
+| **🔨 VENDIDO** | Bate o martelo: o item é de quem está na frente |
 
 > **"Abrir próximo" com uma disputa acontecendo joga o item atual de volta para a
 > fila e a disputa se perde.** O sistema avisa e pede confirmação. Para vender,
 > use **VENDIDO**.
 
-### O cronômetro
+> **Não existe "pausar".** Para segurar o pregão — falar com alguém, resolver um
+> problema, dar um respiro —, é só **não abrir o próximo item**. Nada fecha
+> sozinho, então você pode demorar o que precisar.
 
-Cada lance **reinicia** os 60 segundos (se a opção estiver marcada). Nos últimos
-10 segundos ele fica vermelho e a tela de todo mundo faz "tique" — é a hora do
-"dou-lhe uma, dou-lhe duas".
+### O relógio da mesa conta para CIMA
 
-Zerou o tempo: o item é **vendido** para quem estava na frente. Se ninguém deu
-lance, ele volta para a fila.
+Não é contagem regressiva: o número grande mostra **há quanto tempo ninguém dá
+lance**. Passando de 30 segundos ele fica vermelho e diz "sala calada — martelo?".
+
+É só uma sugestão, nunca uma ordem: ele **não fecha nada**. O "dou-lhe uma,
+dou-lhe duas" é seu, e o item só é vendido quando você aperta **VENDIDO**.
 
 ### O microfone
 
@@ -166,13 +184,35 @@ Esses aparecem com a etiqueta "na mão", para você saber depois.
 Só aparece aqui o que **já foi pago**. Cada linha traz o item, o nome, o WhatsApp
 e o **endereço**.
 
-- **📋 Copiar roteiro de entrega**: copia tudo formatado, pronto para colar no
-  WhatsApp de quem vai entregar ou montar a rota.
-- **Campo de observação**: anote quem recebeu, o código de rastreio, o combinado.
+- **📋 Copiar roteiro inteiro**: copia tudo formatado, pronto para colar no
+  WhatsApp de quem vai entregar.
+- **Campo de observação**: anote **quem recebeu**.
 - **✅ Entregue**: sai desta lista e vai para "Entregues".
 
 > O roteiro **leva nome e endereço**. É documento de quem entrega — não mande em
 > grupo aberto.
+
+#### Dividir entre os entregadores
+
+Digite **quantos entregadores** vocês têm e clique em **Dividir**. A tela monta
+uma rota para cada um, com o próprio botão de copiar — é só mandar a de cada um
+no WhatsApp dele.
+
+Como ele divide:
+
+- **Junta por bairro.** Todo mundo do mesmo bairro fica com o mesmo entregador.
+- **Equilibra as paradas.** O bairro com mais casas vai para quem estiver mais
+  leve.
+- **Casa com vários itens é uma parada só.** São todos entregues na mesma visita.
+
+> ⚠️ **O sistema não olha mapa.** Ele não sabe a distância entre dois pontos —
+> ele junta por bairro, que é o que vocês usariam para falar de região. Pode
+> acontecer de dois bairros vizinhos caírem com entregadores diferentes. Quem
+> conhece a cidade olha e troca em dez segundos; a divisão é um ponto de
+> partida, não uma ordem.
+
+Se você pedir mais entregadores do que há bairros, alguém fica sem rota — e a
+tela mostra isso, em vez de inventar uma divisão.
 
 ---
 
@@ -209,9 +249,10 @@ não é afetado.
 A tela reconecta sozinha e volta com tudo atualizado. Ele não perde nada.
 
 **"E se eu precisar reiniciar o sistema no meio?"**
-O cronômetro é guardado no servidor, então ele volta no ponto certo. Mas **não
-faça isso com uma disputa rolando**: se demorar mais do que faltava, o item é
-batido na hora. Espere o intervalo.
+Nada se perde: lances, líder e valores estão no banco, e as telas reconectam
+sozinhas. Ainda assim, **não faça isso com uma disputa rolando** — quem estiver
+com o dedo no botão fica alguns segundos sem conseguir dar lance. Espere o
+intervalo.
 
 **"Duas pessoas da mesma casa podem disputar?"**
 Só com **WhatsApp diferente**. Com o mesmo número, o sistema entende que é a mesma

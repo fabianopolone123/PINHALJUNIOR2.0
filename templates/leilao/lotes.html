@@ -26,7 +26,12 @@
             {% else %}<span class="item-foto vazia">📦</span>{% endif %}
 
             <div class="item-corpo">
-                <span class="item-nome">{{ l.ordem }}. {{ l.nome }}</span>
+                {% comment %}
+                O `nº` é a etiqueta COLADA no objeto e não muda nunca; a ordem
+                da fila muda toda vez que a noite é reorganizada. Por isso o
+                número é que aparece aqui — é por ele que se acha a caixa.
+                {% endcomment %}
+                <span class="item-nome"><b class="item-numero">nº {{ l.numero }}</b> {{ l.nome }}</span>
                 <span class="item-linha">{{ l.descricao|default:"—" }}</span>
                 <span class="item-linha">
                     Inicial R$ {{ l.lance_inicial }} ·
