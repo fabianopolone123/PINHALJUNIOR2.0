@@ -796,17 +796,23 @@
         if (porta) porta.hidden = true;
     }
 
+    /* A tela não pode apagar no meio do pregão.
+       Entre um lance e outro ninguém toca em nada, e para o celular isso é
+       aparelho parado: o protetor entra em 30 s e a pessoa perde o item. Vale
+       para quem entrou COM som e para quem entrou no mudo — o toque na porta já
+       é o gesto que a API exige. */
+    function segurarTela() {
+        if (window.TelaAcesa) window.TelaAcesa.ligar();
+    }
+
     /* ---------------------------------------------------------------
        Ligações
        --------------------------------------------------------------- */
     $("btnPortaSom").addEventListener("click", function () {
         ligarSom();
+        segurarTela();
         fecharPorta();
         toast("Som ligado. Bom leilão!", "success");
-    });
-    $("btnPortaMudo").addEventListener("click", function () {
-        fecharPorta();
-        toast("Você pode ligar o som no 🔇 lá em cima.", "info");
     });
 
     $("btnLance").addEventListener("click", darLance);

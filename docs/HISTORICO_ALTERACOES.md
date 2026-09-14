@@ -22,6 +22,78 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Leilão: música nova, uma porta só, endereço curto e a tela que não apaga
+
+### Resumo
+Três acertos que só aparecem com o celular na mão. A música de fundo era lenta
+demais para um pregão e virou uma peça instrumental animada. A porta de entrada
+perdeu o botão "entrar sem som", que só servia para a pessoa entrar num leilão
+mudo achando que o site quebrou. E a tela do celular parou de apagar no meio do
+pregão — o economizador de bateria estava a um passo de fazer gente perder item.
+
+### Arquivos criados/alterados
+- `static/leilao/js/som.js`: `MusicaLeilao` reescrita. 104 BPM, progressão
+  I–V–vi–IV, baixo nos tempos 1 e 3, arpejo em colcheias e pad sustentado —
+  **sem melodia**, que disputaria com a voz de quem narra. Agendada por
+  lookahead (~120 ms à frente, a cada 25 ms). A API pública não mudou
+  (`preparar`/`ligar`/`desligar`/`volume`/`tocando`), incluindo o caminho do
+  arquivo enviado pelo clube.
+- `static/leilao/js/tela_acesa.js` (novo): Screen Wake Lock + plano B de vídeo
+  mudo para iOS anterior ao Safari 16.4.
+- `templates/leilao/leilao.html`: só o botão "Entrar com som"; no lugar do
+  removido, a frase que diz onde desligar depois. Carrega o módulo novo.
+- `templates/leilao/locutor.html`: carrega o módulo novo.
+- `static/leilao/js/leilao.js`: pede o bloqueio de tela no toque da porta;
+  o listener do botão removido saiu junto.
+- `static/leilao/js/locutor.js`: pede o bloqueio ao abrir a mesa e reforça no
+  primeiro clique.
+- `leilao/forms.py`: **CEP e UF saíram da tela de entrada**. A UF continua no
+  formulário como campo **oculto** com `UF_PADRAO = "SP"` (e o `clean` cai nele
+  se vier vazia, porque campo oculto é editável por quem quiser); o CEP saiu
+  inteiro e fica em branco no model.
+- `templates/leilao/entrar.html`, `static/leilao/js/entrar.js`: campos e
+  máscaras dos dois removidos.
+- `static/leilao/css/leilao.css`: `.btn-porta-mudo` virou `.porta-som-pe`;
+  `.col-cep` virou `.col-meia` (ainda usada pelo lance inicial no cadastro de
+  item) e `.col-cidade`/`.col-uf` saíram.
+- `leilao/tests.py`: +6 testes (147 no total).
+- `docs/ESTADO_ATUAL.md`, `docs/REGRAS_CODEX.md`.
+
+### Decisões tomadas
+- **Música sem melodia, de propósito.** O que dá energia é o passo do baixo e o
+  movimento do arpejo; melodia brigaria com o locutor, que é quem tem de ser
+  ouvido. O volume continua sendo dele, para todos juntos.
+- **Lookahead em vez de `setInterval` por nota.** O relógio do navegador não é
+  preciso; o do WebAudio é. Nota a nota, o ritmo balança de forma audível.
+- **Uma porta só.** "Entrar sem som" era uma escolha que a pessoa fazia sem
+  saber o que estava escolhendo, e o resultado parecia defeito do site. A saída
+  continua existindo no 🔇 do topo, onde ela já sabe o que está desligando.
+- **Endereço curto é endereço que a pessoa termina de preencher.** A tela de
+  entrada é preenchida com pressa, com o pregão já rolando: campo que não ajuda
+  a achar a casa só produz desistência. Rua, número, bairro e cidade acham; CEP
+  e UF não acrescentam nada a isso.
+- **Mas o dado não some.** A UF vira campo oculto em vez de sumir, porque o
+  roteiro de entrega é endereço de verdade; o CEP continua no model, em branco,
+  para não apagar o que já estava cadastrado.
+- **`visibilitychange` é obrigatório no wake lock**, não refinamento: o sistema
+  derruba o bloqueio toda vez que a aba sai da frente e **não o devolve**. Sem
+  repor, quem atende uma ligação volta com a tela apagando de novo — e parece
+  que a proteção nunca existiu.
+- **O vídeo do plano B fica visível** (1px, `opacity: .01`). Com `display:none`
+  ou `hidden` o navegador o pausa, e aí ele não segura tela nenhuma.
+- Novo teste varre `$("id").metodo` no JS e cobra o `id` no template: `id` que
+  não existe é `TypeError` em cima de `null`, o arquivo **inteiro** morre naquela
+  linha e nada depois é ligado. Foi o que quase aconteceu ao tirar o botão.
+
+### Pendências
+- Pagamento Pix real de R$ 1 (nunca testado ponta a ponta).
+- Ensaio de áudio com 10-15 aparelhos de verdade.
+- Trocar as senhas `fabiano` e `locutor` antes de divulgar o link.
+- iOS anterior ao 16.4 depende do plano B — confirmar no ensaio se algum
+  aparelho do grupo está nessa faixa.
+
+---
+
 ## 2026-09-13 - Leilão: o martelo é do locutor, a tela do público vira show
 
 ### Resumo

@@ -1771,3 +1771,196 @@ class ColocarNoArAvisaTests(TestCase):
         self.leilao.refresh_from_db()
         self.assertEqual(self.leilao.status, "encerrado")
         self.assertEqual(Leilao.objects.filter(status="ao_vivo").count(), 1)
+
+
+class AcoesDosBotoesTests(TestCase):
+    """Todo `data-acao` de template tem de existir no servidor.
+
+    Sem esta guarda, um nome errado só aparece **no evento**, como um segundo
+    balão dizendo "Ação desconhecida" ao lado do que deu certo — foi assim que o
+    botão da música apareceu quebrado. Erro de digitação aqui é silencioso até
+    alguém clicar.
+    """
+
+    # Ações tratadas só no navegador, que nunca chegam ao servidor com esse nome.
+    SO_NO_CLIENTE = {"chat-fechar"}
+
+    def test_todo_data_acao_existe_no_servidor(self):
+        from .views import ACOES_AREAS
+
+        usados = set()
+        for arquivo in Path(settings.BASE_DIR, "templates", "leilao").rglob("*.html"):
+            usados.update(re.findall(r'data-acao="([^"]+)"', arquivo.read_text(encoding="utf-8")))
+
+        desconhecidos = usados - set(ACOES_AREAS) - self.SO_NO_CLIENTE
+        self.assertEqual(
+            desconhecidos, set(),
+            f"Botões com ação que o servidor não conhece: {sorted(desconhecidos)}",
+        )
+
+    def test_toda_acao_do_servidor_tem_area(self):
+        """Ação sem área seria ação sem dono — e o padrão tem de ser recusar."""
+        from .views import ACOES_AREAS
+
+        for acao, areas in ACOES_AREAS.items():
+            self.assertTrue(areas, f"A ação {acao} não tem área nenhuma.")
+
+
+class ArquivosDeJsExistemTests(TestCase):
+    """`<script src>` apontando para arquivo que não existe é falha silenciosa.
+
+    O Django devolve 404 no estático, o navegador engole e a tela só fica sem
+    aquele pedaço. Nada no log do servidor, nada na tela. Um `{% static %}` com
+    nome errado passaria por todos os outros testes.
+    """
+
+    def test_todo_script_de_template_tem_arquivo(self):
+        padrao = re.compile(r"""\{%\s*static\s*['"](leilao/(?:js|css)/[^'"]+)['"]""")
+        faltando = []
+        for arquivo in Path(settings.BASE_DIR, "templates", "leilao").rglob("*.html"):
+            for caminho in padrao.findall(arquivo.read_text(encoding="utf-8")):
+                if not Path(settings.BASE_DIR, "static", caminho).exists():
+                    faltando.append(f"{arquivo.name} → {caminho}")
+        self.assertEqual(faltando, [], f"Estático citado e inexistente: {faltando}")
+
+
+class TelaNaoApagaTests(TestCase):
+    """O celular não pode apagar a tela no meio do pregão.
+
+    Entre um lance e outro ninguém toca em nada — para o Android/iOS isso é
+    aparelho ocioso, e o protetor de tela entra em 30 s. A pessoa perde o item
+    por causa do economizador de bateria, que é a pior forma de perder.
+    """
+
+    CAMINHO = Path(settings.BASE_DIR, "static", "leilao", "js", "tela_acesa.js")
+
+    def test_o_modulo_existe(self):
+        self.assertTrue(self.CAMINHO.exists())
+
+    def test_repoe_o_bloqueio_quando_a_aba_volta(self):
+        """O sistema DERRUBA o bloqueio toda vez que a aba sai da frente.
+
+        Sem ouvir `visibilitychange`, quem atende uma ligação volta com a tela
+        apagando de novo — e parece que a proteção nunca existiu.
+        """
+        js = self.CAMINHO.read_text(encoding="utf-8")
+        self.assertIn("visibilitychange", js)
+        self.assertIn('wakeLock.request("screen")', js)
+
+    def test_as_duas_telas_carregam_o_modulo(self):
+        for nome in ("leilao.html", "locutor.html"):
+            html = Path(settings.BASE_DIR, "templates", "leilao", nome).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("leilao/js/tela_acesa.js", html, f"{nome} não segura a tela")
+
+    def test_entrar_ja_segura_a_tela(self):
+        """O toque na porta é o gesto que a API exige — é ali que se pede."""
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(
+            encoding="utf-8"
+        )
+        trecho = js[js.index('$("btnPortaSom")'):]
+        trecho = trecho[:trecho.index("});")]
+        self.assertIn("segurarTela()", trecho)
+
+
+class SoSeEntraComSomTests(TestCase):
+    """A porta tem UM caminho, e ele liga o som.
+
+    O botão "entrar sem som" saiu: quem errava o toque caía num leilão mudo e
+    concluía que o site estava quebrado — não há como a pessoa adivinhar que o
+    silêncio foi escolha dela. Sem o som não existe narração, não existe aviso
+    de lance novo; é outro produto.
+    """
+
+    HTML = Path(settings.BASE_DIR, "templates", "leilao", "leilao.html")
+
+    def test_a_porta_nao_tem_saida_muda(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        porta = html[html.index('id="portaSom"'):html.index("<main")]
+        botoes = re.findall(r'<button[^>]*id="(bt[^"]+)"', porta)
+        self.assertEqual(botoes, ["btnPortaSom"], f"Porta com mais de um caminho: {botoes}")
+
+    def test_mas_da_para_desligar_depois(self):
+        """Tirar a saída da porta não é prender ninguém no som."""
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertIn('id="btnSom"', html)
+
+
+class BotoesQueOJsProcuraExistemTests(TestCase):
+    """`$("id").addEventListener` num id que não existe derruba o arquivo TODO.
+
+    É `TypeError` em cima de `null`: o script morre naquela linha e tudo que
+    vinha depois — lance, chat, reações — simplesmente não é ligado. A tela
+    abre bonita e nenhum botão funciona. Foi o que quase aconteceu ao remover
+    o "entrar sem som": o listener dele ficou para trás.
+    """
+
+    def test_ids_do_js_existem_no_template(self):
+        pares = [("leilao.js", "leilao.html"), ("locutor.js", "locutor.html")]
+        faltando = []
+        for js_nome, html_nome in pares:
+            js = Path(settings.BASE_DIR, "static", "leilao", "js", js_nome).read_text(
+                encoding="utf-8"
+            )
+            html = Path(settings.BASE_DIR, "templates", "leilao", html_nome).read_text(
+                encoding="utf-8"
+            )
+            # Só os acessos SEM guarda: `$("x").metodo`. Quem faz `var b = $("x");
+            # if (b)` já está tratando a ausência de propósito.
+            for ident in set(re.findall(r'\$\("([A-Za-z0-9_]+)"\)\s*\.', js)):
+                # `json_script:"x"` só vira `id="x"` na renderização — para o
+                # scanner do arquivo cru os dois valem como declaração do id.
+                if f'id="{ident}"' not in html and f'json_script:"{ident}"' not in html:
+                    faltando.append(f"{js_nome} procura #{ident}, que não existe em {html_nome}")
+        self.assertEqual(faltando, [], "; ".join(faltando))
+
+
+class EnderecoCurtoTests(TestCase):
+    """A entrada pede o mínimo que entrega o item: rua, número, bairro, cidade.
+
+    CEP e UF saíram da tela. Cada campo a menos é uma desistência a menos numa
+    tela preenchida com pressa, com o leilão já rolando — e nenhum dos dois
+    ajuda alguém a achar a casa que os outros quatro já acham. A UF continua
+    gravada (SP), porque o **roteiro de entrega** é endereço de verdade e
+    endereço sem estado é endereço pela metade; o CEP fica em branco no model,
+    para quem já foi cadastrado não perder o que tinha.
+    """
+
+    DADOS = {
+        "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0123",
+        "logradouro": "Rua Exemplo", "numero": "10",
+        "bairro": "Centro", "cidade": "Cidade Exemplo",
+    }
+
+    def test_entra_sem_cep(self):
+        r = Client().post("/entrar/", self.DADOS)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Participante.objects.get(whatsapp="11900000123").cep, "")
+
+    def test_a_tela_nao_pede_cep(self):
+        html = Client().get("/entrar/").content.decode("utf-8")
+        self.assertNotIn('name="cep"', html)
+
+    def test_entra_sem_informar_a_uf(self):
+        r = Client().post("/entrar/", self.DADOS)
+        self.assertEqual(r.status_code, 302)
+        p = Participante.objects.get(whatsapp="11900000123")
+        self.assertEqual(p.estado, "SP")
+
+    def test_o_endereco_da_entrega_sai_completo(self):
+        Client().post("/entrar/", self.DADOS)
+        linha = Participante.objects.get(whatsapp="11900000123").endereco_uma_linha
+        self.assertIn("SP", linha)
+        self.assertIn("Cidade Exemplo", linha)
+
+    def test_nao_ha_campo_de_uf_para_digitar(self):
+        html = Client().get("/entrar/").content.decode("utf-8")
+        self.assertNotIn('placeholder="UF"', html)
+        self.assertIn('name="estado"', html)   # continua indo, oculto
+
+    def test_uf_forjada_vazia_nao_apaga_o_estado(self):
+        """Campo oculto é editável por quem quiser — o servidor decide."""
+        dados = dict(self.DADOS, estado="")
+        Client().post("/entrar/", dados)
+        self.assertEqual(Participante.objects.get(whatsapp="11900000123").estado, "SP")

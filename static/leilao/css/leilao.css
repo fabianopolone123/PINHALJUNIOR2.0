@@ -100,11 +100,11 @@ body.tela-entrada {
    conteúdo e um rótulo comprido estica a grade inteira (armadilha do projeto). */
 .entrada-grade { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 10px; }
 .col-larga { grid-column: span 6; }
-.col-cep { grid-column: span 3; }
+.col-meia { grid-column: span 3; }   /* era `col-cep`, que perdeu o campo de origem */
 .col-num { grid-column: span 2; }
 .col-compl { grid-column: span 4; }
-.col-cidade { grid-column: span 4; }
-.col-uf { grid-column: span 2; }
+/* `col-cidade` e `col-uf` saíram com o campo de UF: a cidade passou a usar
+   `col-larga`, a linha inteira. */
 
 .campo { margin-bottom: 12px; min-width: 0; }
 .campo label {
@@ -806,15 +806,12 @@ body.tela-palco {
 }
 .btn-porta-som:active { transform: scale(0.97); }
 
-.btn-porta-mudo {
-    padding: 8px 14px;
+/* Onde havia o botão "entrar sem som" agora há só um recado: a saída existe,
+   mas não disputa o toque com o botão que faz a pessoa ouvir o leilão. */
+.porta-som-pe {
+    margin: 14px 0 0;
     font-size: 0.85rem;
-    font-family: inherit;
     color: var(--palco-suave);
-    background: transparent;
-    border: none;
-    text-decoration: underline;
-    cursor: pointer;
 }
 
 /* =========================================================

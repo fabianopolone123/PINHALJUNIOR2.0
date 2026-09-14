@@ -17,7 +17,14 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
         <h1>Toque para entrar com som</h1>
         <p>Você vai ouvir a narração ao vivo, a música e o aviso de cada lance novo.</p>
         <button type="button" class="btn-porta-som" id="btnPortaSom">Entrar com som</button>
-        <button type="button" class="btn-porta-mudo" id="btnPortaMudo">Entrar sem som</button>
+        {% comment %}
+        Aqui havia um segundo botão, "Entrar sem som". Saiu de propósito: quem
+        errava o toque entrava num leilão mudo e achava que o site estava
+        quebrado — não há como a pessoa saber que o silêncio foi escolha dela.
+        O som é o leilão. Quem precisar de silêncio desliga no 🔇 do topo, já
+        sabendo o que está desligando.
+        {% endcomment %}
+        <p class="porta-som-pe">Dá para desligar depois no 🔇 lá em cima.</p>
     </div>
 </div>
 
@@ -186,6 +193,7 @@ Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do proje
     "conferir": "{% url 'leilao:arremate_conferir' 0 %}"
 }</script>
 <script src="{% static 'leilao/js/som.js' %}"></script>
+<script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/confete.js' %}"></script>
 <script src="{% static 'leilao/js/reacoes.js' %}"></script>
 <script src="{% static 'leilao/js/audio_ouvir.js' %}"></script>

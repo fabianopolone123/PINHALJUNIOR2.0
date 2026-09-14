@@ -107,7 +107,7 @@
                 <h3 class="micro-separador">🎵 Música de fundo</h3>
                 <p class="micro-ajuda">Toca na tela de todos que ligaram o som. Baixinha, para caber debaixo da sua voz.</p>
                 <div class="musica-controle">
-                    <button type="button" class="btn-mesa micro" id="btnMusica" data-acao="musica-toggle">
+                    <button type="button" class="btn-mesa micro" id="btnMusica">
                         ▶ Ligar música
                     </button>
                     <label class="musica-volume">
@@ -225,6 +225,7 @@
 {% endblock %}
 
 {% block js %}
+<script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/audio_falar.js' %}"></script>
 <script src="{% static 'leilao/js/locutor.js' %}"></script>
 {% endblock %}

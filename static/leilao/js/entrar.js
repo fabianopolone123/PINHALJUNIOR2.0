@@ -22,21 +22,6 @@
         });
     }
 
-    var cep = document.getElementById("id_cep");
-    if (cep) {
-        cep.addEventListener("input", function () {
-            var d = so(cep.value).slice(0, 8);
-            cep.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
-        });
-    }
-
-    var uf = document.getElementById("id_estado");
-    if (uf) {
-        uf.addEventListener("input", function () {
-            uf.value = uf.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
-        });
-    }
-
     // Primeiro campo em foco no computador. No celular NÃO: abrir o teclado
     // sozinho empurra a tela e esconde o formulário antes de a pessoa ler.
     var nome = document.getElementById("id_nome");

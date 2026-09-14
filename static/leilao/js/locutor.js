@@ -500,6 +500,18 @@
         pintarMusica();
     }
 
+    /* A mesa é a tela que MENOS pode apagar: quem está conduzindo passa minutos
+       falando sem tocar no aparelho. O Chrome concede o bloqueio sem gesto
+       quando a aba está à frente; o primeiro clique em qualquer lugar cobre os
+       navegadores que exigem gesto. */
+    if (window.TelaAcesa) {
+        window.TelaAcesa.ligar();
+        document.addEventListener("click", function reforcar() {
+            window.TelaAcesa.ligar();
+            document.removeEventListener("click", reforcar);
+        });
+    }
+
     render(estado);
     recarregarDados();
 })();

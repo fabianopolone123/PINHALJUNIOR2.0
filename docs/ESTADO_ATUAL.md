@@ -1934,8 +1934,38 @@ WhatsApp e endereço) — documento de quem entrega, não texto para grupo abert
 `locutor` (mesa), `caixa` (pagamentos + entrega), `preparacao` (leilões), `lotes`, `lote_form`,
 `config`, `_base`, `_campo`, `_nav_equipe`.
 **Estáticos**: `static/leilao/css/{leilao,locutor}.css` e `static/leilao/js/{leilao,locutor,som,confete,
-audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa}.js`. Reaproveita `css/base.css` (modal + toast) e
-`js/inicio.js` (módulo único de toasts) do sistema do clube.
+reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa}.js`. Reaproveita `css/base.css`
+(modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.
+
+**Som e música não usam arquivo nenhum** (`som.js`). `SomLeilao` sintetiza os efeitos (lance, superado,
+vendido, arrematei) e `MusicaLeilao` toca uma peça instrumental gerada na hora: 104 BPM, progressão
+I–V–vi–IV, baixo nos tempos 1 e 3, arpejo em colcheias e um pad sustentado por baixo — **sem melodia**, que
+disputaria com a voz de quem narra. Zero download, zero licenciamento. O agendamento é por **lookahead**
+(~120 ms à frente, a cada 25 ms): com `setInterval` disparando nota a nota o ritmo balança, porque o relógio
+do navegador não é preciso e o do WebAudio é. Se o clube subir um arquivo em Configuração, ele toca no lugar
+da peça sintetizada. O volume e o liga/desliga são **do locutor, para todo mundo junto** — chegam pelo
+`estado`, não por aparelho.
+
+**A tela de entrada pede o mínimo que entrega o item**: nome, WhatsApp, rua, número, complemento
+(opcional), bairro e cidade. **CEP e UF saíram** — nenhum dos dois ajuda a achar a casa que os outros já
+acham, e cada campo a menos é uma desistência a menos numa tela preenchida com pressa, com o leilão já
+rolando. A UF continua **gravada** (`UF_PADRAO = "SP"` em `leilao/forms.py`, campo oculto no formulário):
+o roteiro de entrega é endereço de verdade, e endereço sem estado é endereço pela metade. O CEP fica em
+branco no model — o campo continua lá, para quem já foi cadastrado não perder o que tinha.
+
+**A porta de entrada tem um caminho só: "Entrar com som".** O botão "entrar sem som" foi removido — quem
+errava o toque caía num leilão mudo e concluía que o site estava quebrado, e não há como a pessoa adivinhar
+que o silêncio foi escolha dela. Sem som não há narração nem aviso de lance novo; é outro produto. Quem
+precisa de silêncio desliga no 🔇 do topo, já sabendo o que desliga. O toque nessa porta é também o **gesto**
+que o navegador exige para liberar áudio.
+
+**A tela não apaga durante o pregão** (`tela_acesa.js`, ligado no pregão e na mesa do locutor). Entre um
+lance e outro ninguém toca em nada — para o celular isso é aparelho ocioso, e o protetor entra em 30 s: a
+pessoa perde o item para o economizador de bateria. Usa a **Screen Wake Lock API**, a mesma do YouTube. Três
+detalhes: o bloqueio **cai sozinho toda vez que a aba sai da frente** e não volta (por isso o
+`visibilitychange` é obrigatório, não capricho); **só existe em HTTPS**; e o iOS só o tem a partir do Safari
+16.4 — para os aparelhos mais velhos há o plano B do vídeo mudo em laço gerado por canvas (`captureStream`),
+que precisa ficar **visível** (1px, `opacity: .01`) porque vídeo tido por invisível é pausado.
 
 **Comandos**: `leilao_demo` (dados fictícios), `leilao_papel` (equipe e papéis) e `leilao_carga` (teste de carga: N conexões SSE + lances
 cronometrados; **rodar de outra máquina, antes do evento**).

@@ -728,3 +728,42 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Bloqueio segue a pessoa.** Cadastro novo de quem está bloqueado já nasce bloqueado
   (`pessoa_bloqueada`), e bloquear pela tela alcança todos os cadastros dela (`bloquear_pessoa`) —
   senão o bloqueio se desfaz com dois toques na tela de entrada.
+
+### A tela de entrada
+
+- **Ela é preenchida com pressa, com o pregão já rolando.** Campo que não ajuda
+  a entregar o item só produz desistência: pedem-se nome, WhatsApp, rua, número,
+  complemento (opcional), bairro e cidade — **CEP e UF não**. Antes de acrescentar
+  campo aqui, pergunte se ele muda a entrega.
+- **Tirar da tela não é apagar o dado.** A UF virou campo **oculto** com
+  `UF_PADRAO` (`leilao/forms.py`), porque o roteiro de entrega é endereço de
+  verdade; o CEP continua no model, em branco. Campo oculto é editável por quem
+  quiser, então o `clean` volta ao padrão quando vier vazio — a decisão é do
+  servidor, como sempre.
+
+### Som, música e a tela do celular
+
+- **A porta de entrada tem um caminho só: "Entrar com som".** O botão "entrar sem som" foi removido e
+  não deve voltar: quem errava o toque caía num leilão mudo e concluía que o site estava quebrado — não
+  há como a pessoa adivinhar que o silêncio foi escolha dela. A saída continua no 🔇 do topo, onde ela
+  sabe o que está desligando. Esse toque é também o **gesto** que o navegador exige para liberar áudio;
+  sem ele nada toca, e foi assim que o aviso de lance ficou mudo a primeira vez.
+- **Som e música são sintetizados, sem arquivo nenhum** (`som.js`). Zero download, zero licenciamento e
+  nada de binário no repositório. A música é instrumental **sem melodia** de propósito: melodia disputa
+  com a voz de quem narra, e a voz é que manda.
+- **Música agendada por lookahead**, nunca `setInterval` por nota: o relógio do navegador não é preciso
+  e o do WebAudio é — nota a nota, o ritmo balança de forma audível.
+- **A tela do celular não pode apagar** (`tela_acesa.js`). Entre um lance e outro ninguém toca em nada;
+  para o sistema é aparelho ocioso e o protetor entra em 30 s, fazendo a pessoa perder item por
+  economizador de bateria. Três coisas, ao mexer nisso:
+  - **`visibilitychange` é obrigatório.** O sistema derruba o bloqueio toda vez que a aba sai da frente
+    e **não o devolve**. Sem repor, quem atende uma ligação volta com a tela apagando — e parece que a
+    proteção nunca existiu.
+  - **Só funciona em HTTPS.** Em `http://` o navegador nem expõe a API; no `runserver` a ausência é
+    normal e não é bug.
+  - **O vídeo do plano B (iOS < 16.4) fica visível** — 1px, `opacity: .01`. Com `display:none` ou
+    `hidden` o navegador o pausa e ele não segura tela nenhuma.
+- **`$("id").metodo` com `id` inexistente mata o arquivo de JS inteiro**: é `TypeError` em cima de
+  `null`, o script morre naquela linha e **nada depois é ligado** — a tela abre bonita e nenhum botão
+  funciona. Ao remover um elemento do template, remova o listener junto. Há teste
+  (`BotoesQueOJsProcuraExistemTests`) varrendo os dois pares template/JS.

@@ -11,6 +11,10 @@ from django import forms
 
 from .models import ConfigLeilao, Leilao, Lote, Participante
 
+# O clube é de SP e o leilão é dele. A UF deixou de ser digitada — está aqui,
+# num lugar só, para o dia em que isso mudar.
+UF_PADRAO = "SP"
+
 
 class EstiloMixin:
     """Classes CSS automáticas por tipo de widget (igual ao `core/forms.py`)."""
@@ -45,7 +49,7 @@ class EntrarForm(EstiloMixin, forms.ModelForm):
         model = Participante
         fields = [
             "nome", "whatsapp",
-            "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "estado",
+            "logradouro", "numero", "complemento", "bairro", "cidade", "estado",
         ]
         widgets = {
             "nome": forms.TextInput(attrs={"placeholder": "Seu nome completo", "autocomplete": "name"}),
@@ -56,21 +60,31 @@ class EntrarForm(EstiloMixin, forms.ModelForm):
                     "autocomplete": "tel",
                 }
             ),
-            "cep": forms.TextInput(attrs={"placeholder": "00000-000", "inputmode": "numeric"}),
             "logradouro": forms.TextInput(attrs={"placeholder": "Rua, avenida…"}),
             "numero": forms.TextInput(attrs={"placeholder": "Nº", "inputmode": "numeric"}),
             "complemento": forms.TextInput(attrs={"placeholder": "Apto, bloco… (opcional)"}),
             "bairro": forms.TextInput(attrs={"placeholder": "Bairro"}),
             "cidade": forms.TextInput(attrs={"placeholder": "Cidade"}),
-            "estado": forms.TextInput(attrs={"placeholder": "UF", "maxlength": 2}),
+            # A UF não é digitada: o leilão é do clube, e o clube é de SP. Um
+            # campo a menos numa tela que a pessoa preenche com pressa, ao vivo,
+            # vale mais do que a chance remota de alguém ser de outro estado.
+            # Continua no formulário como campo oculto para o roteiro de entrega
+            # não sair sem estado — e para o dia em que valer a pena voltar.
+            "estado": forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Endereço é obrigatório (menos o complemento): é por ele que o item chega.
-        for nome in ["cep", "logradouro", "numero", "bairro", "cidade", "estado"]:
+        # Sem CEP: rua, número, bairro e cidade entregam o item, e cada campo a
+        # menos é uma desistência a menos numa tela preenchida com o leilão já
+        # rolando. O campo continua no model, em branco — quem precisar dele um
+        # dia não perde o que já foi cadastrado.
+        for nome in ["logradouro", "numero", "bairro", "cidade"]:
             self.fields[nome].required = True
         self.fields["complemento"].required = False
+        self.fields["estado"].required = False
+        self.fields["estado"].initial = UF_PADRAO
         self._aplicar_estilo()
 
     def clean_whatsapp(self):
@@ -88,7 +102,8 @@ class EntrarForm(EstiloMixin, forms.ModelForm):
         return nome
 
     def clean_estado(self):
-        return (self.cleaned_data.get("estado") or "").upper()[:2]
+        """Campo oculto: vem vazio se alguém mexer no HTML — cai no padrão."""
+        return (self.cleaned_data.get("estado") or "").upper()[:2] or UF_PADRAO
 
 
 class LeilaoForm(EstiloMixin, forms.ModelForm):
