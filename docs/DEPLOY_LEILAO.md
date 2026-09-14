@@ -166,25 +166,53 @@ cd /opt && mkdir -p mediamtx && cd mediamtx
 # baixar o release para linux_amd64 e extrair aqui
 ```
 
-`/opt/mediamtx/mediamtx.yml` (o essencial):
+Config própria em `/opt/mediamtx/leilao.yml` (**não** edite o `mediamtx.yml` que vem no pacote — assim
+uma atualização do binário não apaga a sua configuração):
 
 ```yaml
 logLevel: info
-api: no
-rtsp: no
-rtmp: no
-hls: no
-srt: no
+api: false
+metrics: false
+playback: false
+rtsp: false
+rtmp: false
+hls: false
+srt: false
+moq: false          # sem isto ele abre 8892/8893 sem necessidade
 
-webrtc: yes
-webrtcAddress: 127.0.0.1:8889          # atrás do Nginx
-webrtcLocalUDPAddress: :8189           # a VOZ passa por aqui (abrir no firewall)
-webrtcAdditionalHosts: [SEU.IP.PUBLICO.AQUI]
+webrtc: true
+webrtcAddress: 127.0.0.1:8889     # atrás do Nginx
+webrtcLocalUDPAddress: :8189      # a VOZ passa por aqui (abrir no firewall)
+webrtcAdditionalHosts: [145.223.93.162]
+
+# ATENÇÃO: do MediaMTX v1.x em diante a autenticação é GLOBAL (`authInternalUsers`).
+# O `publishUser`/`publishPass` por caminho, que aparece em tutoriais antigos, não
+# existe mais — a config carrega e a proteção simplesmente não vale.
+authInternalUsers:
+  # Ouvir é liberado: quem está no leilão escuta o locutor, sem senha.
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+        path: leilao
+
+  # Falar exige senha: só o locutor publica.
+  - user: locutor
+    pass: <senha forte, a MESMA da tela /leilao/locutor/config/>
+    ips: []
+    permissions:
+      - action: publish
+        path: leilao
+      - action: read
+        path: leilao
 
 paths:
   leilao:
-    publishUser: locutor
-    publishPass: <senha forte, a mesma da tela de configuração>
+```
+
+```bash
+chmod 600 /opt/mediamtx/leilao.yml     # tem senha dentro
 ```
 
 Serviço `/etc/systemd/system/mediamtx.service`:
@@ -195,7 +223,8 @@ Description=MediaMTX - audio ao vivo do leilao
 After=network.target
 
 [Service]
-ExecStart=/opt/mediamtx/mediamtx /opt/mediamtx/mediamtx.yml
+ExecStart=/opt/mediamtx/mediamtx /opt/mediamtx/leilao.yml
+WorkingDirectory=/opt/mediamtx
 Restart=always
 RestartSec=3
 CPUWeight=500
@@ -211,7 +240,18 @@ ufw allow 8189/udp comment "MediaMTX - audio do leilao"
 ```
 
 Depois, na tela `/leilao/locutor/config/`: ligar **"Transmitir a voz do locutor"**, caminho `leilao`,
-e o usuário/senha de publicação.
+e o usuário/senha de publicação — **os mesmos** do `authInternalUsers`.
+
+Conferência rápida, sem precisar de navegador:
+
+```bash
+# ouvir: 204 no OPTIONS; 404 no POST enquanto ninguém estiver falando (correto)
+curl -s -o /dev/null -w "%{http_code}
+" -X OPTIONS https://pinhaljunior.com.br/leilao/audio/leilao/whep
+# falar sem senha: tem de dar 401
+curl -s -o /dev/null -w "%{http_code}
+" -X POST -H "Content-Type: application/sdp"      --data x https://pinhaljunior.com.br/leilao/audio/leilao/whip
+```
 
 ## 7.1 Atualizar o leilão depois de um deploy — ARMADILHA
 

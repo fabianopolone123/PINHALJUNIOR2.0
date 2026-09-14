@@ -22,6 +22,53 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Leilão publicado no VPS e medido em produção
+
+### Resumo
+O módulo do leilão saiu do "pronto mas não publicado": está **no ar** em
+`https://pinhaljunior.com.br/leilao/`, com áudio, e **medido sob carga real**.
+
+### O que foi instalado no servidor
+- `/etc/pinhaljunior_leilao.env` — `SECRET_KEY` própria, banco em `data/leilao.sqlite3`, prefixo
+  `/leilao`, mídia e estáticos próprios.
+- `pinhaljunior_leilao.service` — uvicorn, **1 worker**, porta 8011, `CPUWeight=300`.
+- Nginx (site `sitepinhal`, backup antes): `/leilao/static/`, `/leilao/media/`, `/leilao/stream/`
+  (com `proxy_buffering off`) e `/leilao/`. **Sem `rewrite`** — o Django tira o prefixo sozinho.
+- `mediamtx.service` — MediaMTX v1.21, só WebRTC, sinalização em `/leilao/audio/` e voz em UDP 8189
+  (liberada no ufw).
+- Usuário `locutor` (`is_staff`) e um leilão de demonstração em **rascunho**, para ensaio.
+
+### Resultado do teste de carga (de outra máquina, pela internet, produção atendendo os 11 sites)
+- **100 / 100** conexões SSE mantidas, **zero quedas**; 40 lances, **zero recusados**.
+- Atraso do lance: **p50 135 ms · p95 254 ms · máx 261 ms** (alvo era abaixo de 1 s).
+- Processo com 65 MB de RSS depois do pico; **zero conexões presas** no hub (confirmado pelo contador
+  de `online` e por `ss`).
+- Ponta a ponta (login do locutor → abrir lote → participante entra → lance → evento no stream):
+  **58 ms** do POST até o evento chegar.
+
+### Decisões e correções durante o deploy
+- **A primeira `SECRET_KEY` gerada vazou** na mensagem de erro do shell (tinha `)`, `&`, `$`, que
+  quebraram o `source` do arquivo de ambiente). Foi **trocada na hora** por uma `token_urlsafe`, que
+  além de não vazar não tem caractere que o shell interprete.
+- **O banco nasceu `root:root`** no `migrate` (rodado como root) e o serviço roda como `www-data` —
+  `chown` é passo obrigatório, não detalhe.
+- **`--cookie` do `leilao_carga` virou repetível**: com um participante só, a própria regra do pregão
+  (ninguém cobre o próprio lance) recusava tudo do 2º lance em diante e a medição não saía.
+- **MediaMTX v1.x mudou a autenticação**: é `authInternalUsers` global, não `publishUser`/`publishPass`
+  por caminho. Com o formato antigo a config **carrega e a proteção não vale** — a documentação foi
+  corrigida. Também entrou `moq: false`, senão ele abre 8892/8893 à toa.
+- **`socket.send() raised exception.`** aparece no log quando muita gente fecha a página de uma vez —
+  é o uvicorn escrevendo em socket já fechado. Conferido que **não** é vazamento.
+
+### Pendências
+- **Credenciais do Mercado Pago** em `/leilao/locutor/config/`. Sem elas o leilão funciona e arremata,
+  mas não gera Pix — a tela diz "combine o pagamento com o locutor" e a baixa é manual.
+- **Ensaio do áudio com aparelhos reais** (a conta de pacotes é linear, mas não substitui o teste).
+- **Trocar a senha do `locutor`**, que foi gerada e exibida no terminal durante o deploy.
+- Definir a data do evento.
+
+---
+
 ## 2026-09-13 - Leilão: refinos para o uso ao vivo
 
 ### Resumo

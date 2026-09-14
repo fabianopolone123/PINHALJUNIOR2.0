@@ -24,9 +24,14 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **75 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **Ainda NÃO está em produção**: falta o
-deploy (`docs/DEPLOY_LEILAO.md`) e o **teste de carga com 100 conexões**, que é obrigatório antes do
-evento. Plano completo em `docs/PLANEJAMENTO_LEILAO.md`.
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **76 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+`https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
+(uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
+e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
+conexões SSE mantidas (zero quedas), 40 lances, p95 de 254 ms** — números em `docs/DEPLOY_LEILAO.md`.
+**Falta configurar as credenciais do Mercado Pago** em `/leilao/locutor/config/` (sem elas o leilão
+funciona, mas não gera Pix: o locutor combina e dá baixa manual) e **ensaiar o áudio com aparelhos
+reais**. Plano completo em `docs/PLANEJAMENTO_LEILAO.md`, deploy em `docs/DEPLOY_LEILAO.md`.
 
 **Atualização anterior:** 2026-09-13 (**Ficha de diretoria na própria conta + card "Minhas parcelas"**): duas
 faltas que apareceram no mesmo caso real — uma responsável que também virou da diretoria. (1) O único caminho
@@ -1917,9 +1922,8 @@ cronometrados; **rodar de outra máquina, antes do evento**).
 - **Cobrança automática das parcelas** (do clube e de inscrição): hoje nada dispara sozinho — o Diretor
   manda pela aba "Cobrar parcelas". É a continuação natural do parcelamento.
 - **Editar um parcelamento lançado** (valor / nº de parcelas): hoje é cancelar e lançar de novo.
-- **Leilão online ao vivo** (`/leilao/`) — **implementado, ainda não publicado**. Ver o resumo no topo,
-  o plano em `docs/PLANEJAMENTO_LEILAO.md` e o deploy em `docs/DEPLOY_LEILAO.md`. Falta: instalar o
-  serviço/Nginx/MediaMTX no VPS e rodar o **teste de carga** (`leilao_carga`) antes do evento.
+- **Leilão online ao vivo** (`/leilao/`) — **no ar**. Falta só: credenciais do **Mercado Pago** na tela
+  de configuração e o **ensaio do áudio** com aparelhos reais. Ver o resumo no topo.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Permitir ao responsável logado escolher o próprio WhatsApp principal (recuperação).
 
