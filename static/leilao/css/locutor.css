@@ -479,3 +479,141 @@ body.tela-locutor {
 @media (prefers-reduced-motion: reduce) {
     .mesa-crono.final { animation: none; }
 }
+
+/* =========================================================
+   Equipe: barra de áreas, hub e tela do caixa
+   ========================================================= */
+
+/* ---- Barra da equipe (topo de todas as telas internas) ---- */
+.equipe-barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--palco-borda);
+}
+.equipe-identidade { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+.equipe-marca { font-size: 1rem; font-weight: 800; }
+.equipe-area { font-size: 0.82rem; color: var(--palco-suave); }
+
+.equipe-areas { display: flex; gap: 6px; flex-wrap: wrap; }
+.equipe-aba {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--palco-suave);
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 999px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.equipe-aba:hover { color: var(--palco-texto); }
+.equipe-aba.ativa {
+    color: var(--branco);
+    background: linear-gradient(135deg, var(--azul), var(--azul-claro));
+    border-color: transparent;
+}
+
+.equipe-conta { display: flex; align-items: center; gap: 8px; }
+.equipe-usuario { font-size: 0.8rem; color: var(--palco-suave); }
+
+.mesa-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.mesa-titulo h1 { font-size: 1.15rem; overflow-wrap: anywhere; }
+
+/* ---- Hub: escolher a área ---- */
+.equipe-boas-vindas { margin-bottom: 16px; }
+.equipe-boas-vindas h1 { font-size: 1.25rem; margin-bottom: 4px; }
+
+/* `minmax(0, 1fr)`: com `1fr` um texto comprido estica a grade e cria rolagem
+   horizontal na página (armadilha registrada nas regras do projeto). */
+.areas-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 12px;
+}
+.area-cartao {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+    min-width: 0;
+    color: var(--palco-texto);
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: transform var(--transicao), border-color var(--transicao);
+}
+.area-cartao:hover { transform: translateY(-2px); border-color: var(--azul-claro); }
+.area-icone { font-size: 2rem; }
+.area-nome { font-size: 1.05rem; font-weight: 800; }
+.area-desc { font-size: 0.85rem; color: var(--palco-suave); line-height: 1.45; }
+.area-alerta {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 3px 9px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #2a1a00;
+    background: var(--ambar);
+    border-radius: 999px;
+}
+
+/* ---- Caixa: lista de entregas ---- */
+.entregas { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.entrega {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 14px;
+}
+@media (min-width: 780px) {
+    .entrega { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; }
+}
+.entrega-item { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.entrega-destino { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.entrega-acoes { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.entrega-obs {
+    width: 100%;
+    padding: 9px 11px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--palco-borda);
+    border-radius: 9px;
+}
+.entrega-obs::placeholder { color: var(--palco-suave); }
+.entrega-obs:focus { outline: none; border-color: var(--azul-claro); }
+
+/* A textarea da cópia fica FORA DA TELA, não `hidden`: a cópia de reserva
+   precisa de select() num campo que exista de fato (convenção do projeto). */
+.copiar-fonte {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.btn-secundario-claro {
+    margin-top: 8px;
+    background: transparent !important;
+    border: 1.5px solid var(--borda) !important;
+    color: var(--azul-escuro) !important;
+    box-shadow: none !important;
+}

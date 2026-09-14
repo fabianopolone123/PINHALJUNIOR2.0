@@ -146,8 +146,30 @@ export $(grep -v '^#' /etc/pinhaljunior_leilao.env | xargs)
 chown -R www-data:www-data /var/www/pinhaljunior2/data /var/www/pinhaljunior2/staticfiles_leilao
 ```
 
-> O `createsuperuser` cria quem entra em `/leilao/locutor/`. O acesso é pelo `is_staff` — a conta do
-> sistema do clube **não serve** aqui (bancos diferentes, de propósito).
+> O `createsuperuser` cria o **Diretor** do leilão (vê as três áreas). A conta do sistema do clube
+> **não serve** aqui — bancos diferentes, de propósito.
+
+### Distribuir os papéis da equipe
+
+`is_staff` **não basta**: sem papel, a pessoa entra e não vê tela nenhuma.
+
+```bash
+python manage.py leilao_papel --listar
+python manage.py leilao_papel maria --dar preparacao --senha   # cria e mostra a senha uma vez
+python manage.py leilao_papel joao  --dar locutor --senha
+python manage.py leilao_papel ana   --dar caixa --senha
+python manage.py leilao_papel joao  --dar caixa                # papéis acumulam
+python manage.py leilao_papel joao  --tirar caixa
+```
+
+| Papel | Abre | Faz |
+|---|---|---|
+| `preparacao` | `/leilao/preparacao/` | cadastra itens, monta a fila, cria leilões, configura |
+| `locutor` | `/leilao/locutor/` | conduz o pregão, chat, microfone |
+| `caixa` | `/leilao/caixa/` | confere pagamento e registra a entrega |
+| `diretor` | as três | distribui os papéis |
+
+Todos entram pelo mesmo endereço, `/leilao/equipe/entrar/`. Quem tem **uma** área só cai direto nela.
 
 O `collectstatic` do leilão usa o mesmo cache-busting do clube (`core.storages`, que é importável sem o
 app `core` instalado) — conferido localmente: 188 arquivos, todos pós-processados.

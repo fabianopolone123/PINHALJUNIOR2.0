@@ -33,10 +33,15 @@ def _foto(campo):
 
 
 def participante_publico(p):
-    """O que pode ser dito em voz alta sobre quem está ganhando."""
+    """O que pode ser dito em voz alta sobre quem está ganhando.
+
+    Vai junto a `chave` — um **hash** do telefone. É o que permite à tela saber
+    "o líder sou eu" mesmo quando a pessoa entrou de novo em outro aparelho (e
+    virou outro registro), sem expor o número para as outras 50 pessoas.
+    """
     if not p:
         return None
-    return {"id": p.id, "nome": p.nome_curto}
+    return {"id": p.id, "nome": p.nome_curto, "chave": p.chave_pessoa}
 
 
 def lote_publico(lote):

@@ -13,6 +13,8 @@ Duas regras atravessam o arquivo inteiro:
    `float`, que arredonda errado em soma de centavos.
 """
 
+import hashlib
+import re
 import secrets
 from decimal import Decimal
 
@@ -272,6 +274,31 @@ class Participante(models.Model):
         return f"{partes[0]} {partes[-1]}"
 
     @property
+    def telefone_normalizado(self):
+        """Só os dígitos, sem o DDI do Brasil — para comparar duas entradas.
+
+        A mesma pessoa digita "(11) 90000-0000" num aparelho e "5511900000000"
+        no outro; sem normalizar, viram dois telefones diferentes.
+        """
+        digitos = re.sub(r"\D", "", self.whatsapp or "")
+        if len(digitos) > 11 and digitos.startswith("55"):
+            digitos = digitos[2:]
+        return digitos
+
+    @property
+    def chave_pessoa(self):
+        """Identidade **estável** da pessoa, segura para ir no broadcast.
+
+        É um hash do telefone: serve para a tela saber "o líder sou eu" mesmo
+        quando a pessoa entrou de novo em outro aparelho (e virou outro
+        registro), **sem** expor o número para as outras 50 pessoas.
+        """
+        tel = self.telefone_normalizado
+        if not tel:
+            return f"id{self.pk}"
+        return hashlib.sha256(tel.encode("utf-8")).hexdigest()[:12]
+
+    @property
     def endereco_uma_linha(self):
         rua = " ".join(p for p in [self.logradouro, self.numero] if p)
         partes = [rua, self.complemento, self.bairro, self.cidade, self.estado, self.cep]
@@ -515,9 +542,23 @@ class Arremate(models.Model):
     pago_em = models.DateTimeField("Pago em", null=True, blank=True)
     pago_manual = models.BooleanField(
         "Baixa manual", default=False,
-        help_text="Marcado pelo locutor (pagou em dinheiro, transferência, etc.).",
+        help_text="Marcado pelo caixa (pagou em dinheiro, transferência, etc.).",
     )
     observacao = models.CharField("Observação", max_length=200, blank=True)
+
+    # --- Entrega ---
+    # O item é entregue **depois**, na casa da pessoa (decisão do clube), por
+    # isso o que importa aqui é o endereço — que já está no `Participante` — e
+    # uma marca de "saiu". Sem `quantidade`: um arremate é sempre um item.
+    entregue_em = models.DateTimeField("Entregue em", null=True, blank=True)
+    entregue_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="entregas_leilao", verbose_name="Entregue por",
+    )
+    entrega_obs = models.CharField(
+        "Observação da entrega", max_length=200, blank=True,
+        help_text="Quem recebeu, código de rastreio, combinado de retirada…",
+    )
 
     pagamento = models.ForeignKey(
         PagamentoLeilao, on_delete=models.SET_NULL, null=True, blank=True,
@@ -536,6 +577,19 @@ class Arremate(models.Model):
     @property
     def aguardando(self):
         return self.status == "aguardando"
+
+    @property
+    def entregue(self):
+        return self.entregue_em is not None
+
+    @property
+    def a_entregar(self):
+        """Pago e ainda não entregue — é isto que vira a lista de envio.
+
+        Só entra quem **pagou**: mandar o item antes de o dinheiro cair é
+        exatamente o erro que o prazo de 15 minutos existe para evitar.
+        """
+        return self.status == "pago" and self.entregue_em is None
 
     @property
     def segundos_para_pagar(self):

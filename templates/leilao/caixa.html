@@ -1,0 +1,151 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Caixa — {{ leilao.nome }}{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    {% include "leilao/_nav_equipe.html" with area_atual="caixa" titulo_area="Caixa" %}
+
+    <div class="kpis">
+        <div class="kpi"><span>Arrematados</span><b>{{ resumo.total|default:0 }}</b></div>
+        <div class="kpi bom"><span>Pagos</span><b>{{ resumo.pagos|default:0 }}</b></div>
+        <div class="kpi atencao"><span>Aguardando</span><b>{{ resumo.aguardando|default:0 }}</b></div>
+        <div class="kpi ruim"><span>Venceu o prazo</span><b>{{ resumo.expirados|default:0 }}</b></div>
+        <div class="kpi bom"><span>Arrecadado</span><b>R$ {{ resumo.arrecadado|default:"0,00" }}</b></div>
+        <div class="kpi atencao"><span>A receber</span><b>R$ {{ resumo.a_receber|default:"0,00" }}</b></div>
+    </div>
+
+    <nav class="mesa-abas" role="tablist">
+        <button type="button" class="mesa-aba ativa" data-aba="pagamentos">💰 Pagamentos</button>
+        <button type="button" class="mesa-aba" data-aba="entregar">
+            📦 A entregar {% if a_entregar %}<b class="alerta">{{ a_entregar|length }}</b>{% endif %}
+        </button>
+        <button type="button" class="mesa-aba" data-aba="entregues">
+            ✅ Entregues <b>{{ entregues|length }}</b>
+        </button>
+    </nav>
+
+    {# ================= PAGAMENTOS ================= #}
+    <section class="mesa-secao ativa" data-secao="pagamentos">
+        <input type="search" class="busca" id="buscaPagamentos" placeholder="Buscar por nome ou item…">
+        <ul class="arremates-mesa" id="listaPagamentos">
+            {% for a in arremates %}
+            <li class="arremate-linha {{ a.status }}"
+                data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }}">
+                <div class="arremate-quem">
+                    <b>{{ a.participante.nome }}</b>
+                    <span class="arremate-item">{{ a.lote.nome }}</span>
+                    <span class="arremate-contato selecionavel">{{ a.participante.whatsapp }}</span>
+                </div>
+                <div class="arremate-fim">
+                    <span class="arremate-preco">R$ {{ a.valor }}</span>
+                    <span class="selo selo-{{ a.status }}">{{ a.get_status_display }}</span>
+                    {% if a.pago_manual %}<span class="selo selo-fila">na mão</span>{% endif %}
+                    {% if a.status == 'aguardando' %}
+                    <button type="button" class="btn-mini destaque"
+                            data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
+                    {% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="vazio">Nada arrematado ainda.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {# ================= A ENTREGAR ================= #}
+    <section class="mesa-secao" data-secao="entregar" hidden>
+        {% if a_entregar %}
+        <div class="secao-barra">
+            <button type="button" class="btn-mesa abrir btn-copiar-lista"
+                    data-fonte="roteiroEntregas"
+                    data-aviso="Roteiro de entrega copiado!"
+                    title="Leva nome e endereço: é documento de quem entrega, não texto para grupo aberto.">
+                📋 Copiar roteiro de entrega
+            </button>
+        </div>
+        {% endif %}
+
+        <ul class="entregas" id="listaEntregas">
+            {% for a in a_entregar %}
+            <li class="entrega" data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }}">
+                <div class="entrega-item">
+                    {% if a.lote.foto_mini %}<img src="{{ a.lote.foto_mini.url }}" alt="" class="item-foto">
+                    {% else %}<span class="item-foto vazia">📦</span>{% endif %}
+                    <div class="item-corpo">
+                        <span class="item-nome">{{ a.lote.nome }}</span>
+                        <span class="item-linha">R$ {{ a.valor }} · pago {{ a.pago_em|date:"d/m H:i" }}</span>
+                    </div>
+                </div>
+
+                <div class="entrega-destino">
+                    <b>{{ a.participante.nome }}</b>
+                    <span class="pessoa-linha selecionavel">📱 {{ a.participante.whatsapp }}</span>
+                    <span class="pessoa-linha endereco selecionavel">
+                        📍 {{ a.participante.endereco_uma_linha|default:"Sem endereço cadastrado" }}
+                    </span>
+                </div>
+
+                <div class="entrega-acoes">
+                    <input type="text" class="entrega-obs" maxlength="200"
+                           placeholder="Quem recebeu, rastreio…" value="{{ a.entrega_obs }}">
+                    <button type="button" class="btn-mini destaque"
+                            data-acao="entregue" data-arremate="{{ a.id }}">✅ Entregue</button>
+                </div>
+            </li>
+            {% empty %}
+            <li class="vazio">
+                Nada a entregar. Só entra aqui o que <b>já foi pago</b> — mandar o item antes do
+                dinheiro cair é o erro que o prazo de 15 minutos existe para evitar.
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {# ================= ENTREGUES ================= #}
+    <section class="mesa-secao" data-secao="entregues" hidden>
+        <ul class="arremates-mesa">
+            {% for a in entregues %}
+            <li class="arremate-linha pago">
+                <div class="arremate-quem">
+                    <b>{{ a.participante.nome }}</b>
+                    <span class="arremate-item">{{ a.lote.nome }}</span>
+                    {% if a.entrega_obs %}
+                    <span class="arremate-contato">{{ a.entrega_obs }}</span>
+                    {% endif %}
+                </div>
+                <div class="arremate-fim">
+                    <span class="arremate-preco">R$ {{ a.valor }}</span>
+                    <span class="selo selo-pago">✅ {{ a.entregue_em|date:"d/m H:i" }}</span>
+                    <button type="button" class="btn-mini"
+                            data-acao="entregue" data-desfazer="1" data-arremate="{{ a.id }}">
+                        Desfazer
+                    </button>
+                </div>
+            </li>
+            {% empty %}
+            <li class="vazio">Nenhuma entrega registrada ainda.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+
+{% comment %}
+O texto do roteiro vem PRONTO do servidor (convenção do projeto: o JS só copia).
+A textarea fica fora da tela em vez de `hidden` porque a cópia de reserva precisa
+de select() num campo que exista de fato.
+{% endcomment %}
+<textarea id="roteiroEntregas" class="copiar-fonte" readonly>{{ roteiro }}</textarea>
+
+<div id="dadosMesa" hidden
+     data-csrf="{{ csrf_token }}"
+     data-acao-url="{% url 'leilao:acao' %}"></div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/copiar_texto.js' %}"></script>
+<script src="{% static 'leilao/js/caixa.js' %}"></script>
+{% endblock %}

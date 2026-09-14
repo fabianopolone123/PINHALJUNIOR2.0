@@ -699,3 +699,32 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   sem tocar no resto.
 - **Teste de carga antes do evento, de outra máquina** (`leilao_carga`). Medir de dentro do VPS esconde
   exatamente o que o teste procura.
+
+### Papéis da equipe do leilão
+
+- **São três áreas, não um "admin"**: `preparacao` (itens e configurações), `locutor` (o pregão) e
+  `caixa` (pagamentos e entrega); `diretor` vê as três. Ficam em `leilao/papeis.py`, como **grupos
+  nativos do Django** no banco do leilão — mesma ideia do `core/menus.py`, sem model novo.
+- **`is_staff` sozinho não dá acesso a nada.** Sem papel, a pessoa entra e não vê tela. É o que impede
+  uma conta esquecida de virar acesso total no dia do evento.
+- **Papéis acumulam** e quem tem **uma** área só pula o hub e cai direto no trabalho — no dia do evento
+  ninguém quer um menu entre o login e a tela.
+- **Quem protege é a view, nunca o menu.** Toda tela da equipe usa `@papeis.exige(...)`, e o POST único
+  (`/equipe/acao/`) confere a área **por ação**, no mapa `ACOES_AREAS`. Ação nova entra nesse mapa —
+  ação fora dele é recusada por padrão, que é o lado seguro.
+- **O locutor não dá baixa de pagamento.** Quem bate o martelo não confirma o recebimento. Ao mexer
+  nisso, lembre que a tela do locutor **não tem** aba de pagamentos de propósito.
+- **Só se entrega o que foi PAGO** (`Arremate.a_entregar`). Mandar o item antes de o dinheiro cair é o
+  erro que o prazo de 15 minutos existe para evitar — e a regra mora no servidor, não na tela.
+- **Tela que trabalha sobre um leilão recebe o id na URL.** O cadastro de item adivinhava ("o que está
+  ao vivo, ou o mais recente") e, com um pregão rolando, jogava item novo **dentro dele**. Rota nova que
+  mexa em leilão/lote segue o mesmo padrão: `/preparacao/<id>/…`.
+- **"Ninguém cobre o próprio lance" compara PESSOA, não registro.** A entrada cria um `Participante`
+  novo a cada vez, então a mesma pessoa no celular e no computador são dois registros; pelo id, ela
+  daria lance contra si mesma. Use `servicos._mesma_pessoa` (id **ou** `telefone_normalizado`). O que
+  vai no broadcast é a `chave_pessoa` — um **hash** —, nunca o telefone: aquele estado é transmitido
+  para 100 pessoas. E **não** "resolva" isso reaproveitando o cadastro de quem tem o mesmo número:
+  quem soubesse o seu WhatsApp tomaria a sua sessão, seus arremates e seu código Pix.
+- **Bloqueio segue a pessoa.** Cadastro novo de quem está bloqueado já nasce bloqueado
+  (`pessoa_bloqueada`), e bloquear pela tela alcança todos os cadastros dela (`bloquear_pessoa`) —
+  senão o bloqueio se desfaz com dois toques na tela de entrada.

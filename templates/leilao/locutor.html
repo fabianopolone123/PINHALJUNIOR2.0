@@ -8,39 +8,32 @@
 {% block conteudo %}
 <div class="mesa">
 
-    <header class="mesa-topo">
-        <div class="mesa-identidade">
-            <h1>{{ leilao.nome }}</h1>
-            <span class="mesa-status status-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
-        </div>
-        <div class="mesa-acoes-topo">
-            <span class="mesa-online">👥 <b id="online">0</b></span>
-            <a href="{% url 'leilao:leiloes' %}" class="btn-mini">Leilões</a>
-            <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️</a>
-            <form method="post" action="{% url 'leilao:sair_locutor' %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="btn-mini">Sair</button>
-            </form>
-        </div>
-    </header>
+    {% include "leilao/_nav_equipe.html" with area_atual="locutor" titulo_area="Mesa do locutor" %}
+
+    <div class="mesa-titulo">
+        <h1>{{ leilao.nome }}</h1>
+        <span class="mesa-status status-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
+        <span class="mesa-online">👥 <b id="online">0</b></span>
+    </div>
 
     {% if leilao.status != 'ao_vivo' %}
     <div class="mesa-aviso">
         Este leilão <b>não está no ar</b> — ninguém vê a tela do pregão ainda.
+        {% if 'preparacao' in meus_papeis %}
         <form method="post" action="{% url 'leilao:leilao_status' leilao.pk %}" class="inline">
             {% csrf_token %}
             <input type="hidden" name="status" value="ao_vivo">
             <button type="submit" class="btn-mini destaque">▶ Colocar no ar</button>
         </form>
+        {% else %}
+        Quem coloca no ar é a <b>preparação</b>.
+        {% endif %}
     </div>
     {% endif %}
 
     <nav class="mesa-abas" role="tablist">
         <button type="button" class="mesa-aba ativa" data-aba="pregao">🎤 Pregão</button>
         <button type="button" class="mesa-aba" data-aba="itens">📦 Itens <b>{{ lotes|length }}</b></button>
-        <button type="button" class="mesa-aba" data-aba="pagamentos">💰 Pagamentos
-            {% if painel.resumo.aguardando %}<b class="alerta">{{ painel.resumo.aguardando }}</b>{% endif %}
-        </button>
         <button type="button" class="mesa-aba" data-aba="pessoas">👥 Pessoas <b>{{ painel.participantes|length }}</b></button>
         <button type="button" class="mesa-aba" data-aba="chat">💬 Chat</button>
     </nav>
@@ -125,8 +118,13 @@
     {# ================= ITENS ================= #}
     <section class="mesa-secao" data-secao="itens" hidden>
         <div class="secao-barra">
-            <a href="{% url 'leilao:lote_novo' %}" class="btn-mesa abrir">+ Cadastrar item</a>
-            <a href="{% url 'leilao:lotes' %}" class="btn-mini">Gerenciar fila</a>
+            {% if 'preparacao' in meus_papeis %}
+            <a href="{% url 'leilao:lotes' leilao.id %}" class="btn-mini">📦 Gerenciar itens</a>
+            {% else %}
+            <span class="micro-ajuda">
+                Quem cadastra e reordena itens é a <b>preparação</b>. Aqui você abre o próximo.
+            </span>
+            {% endif %}
         </div>
         <ul class="itens">
             {% for l in lotes %}
@@ -149,41 +147,6 @@
             </li>
             {% empty %}
             <li class="vazio">Nenhum item cadastrado. Comece por “Cadastrar item”.</li>
-            {% endfor %}
-        </ul>
-    </section>
-
-    {# ================= PAGAMENTOS ================= #}
-    <section class="mesa-secao" data-secao="pagamentos" hidden>
-        <div class="kpis">
-            <div class="kpi"><span>Arrematados</span><b>{{ painel.resumo.total|default:0 }}</b></div>
-            <div class="kpi bom"><span>Pagos</span><b>{{ painel.resumo.pagos|default:0 }}</b></div>
-            <div class="kpi atencao"><span>Aguardando</span><b>{{ painel.resumo.aguardando|default:0 }}</b></div>
-            <div class="kpi ruim"><span>Venceu o prazo</span><b>{{ painel.resumo.expirados|default:0 }}</b></div>
-            <div class="kpi bom"><span>Arrecadado</span><b>R$ {{ painel.resumo.arrecadado|default:"0,00" }}</b></div>
-            <div class="kpi atencao"><span>A receber</span><b>R$ {{ painel.resumo.a_receber|default:"0,00" }}</b></div>
-        </div>
-
-        <ul class="arremates-mesa">
-            {% for a in painel.arremates %}
-            <li class="arremate-linha {{ a.status }}">
-                <div class="arremate-quem">
-                    <b>{{ a.participante.nome }}</b>
-                    <span class="arremate-item">{{ a.lote.nome }}</span>
-                    <span class="arremate-contato selecionavel">{{ a.participante.whatsapp }}</span>
-                </div>
-                <div class="arremate-fim">
-                    <span class="arremate-preco">R$ {{ a.valor }}</span>
-                    <span class="selo selo-{{ a.status }}">{{ a.get_status_display }}</span>
-                    {% if a.status == 'aguardando' %}
-                    <button type="button" class="btn-mini destaque" data-acao="pago" data-arremate="{{ a.id }}">
-                        Marcar pago
-                    </button>
-                    {% endif %}
-                </div>
-            </li>
-            {% empty %}
-            <li class="vazio">Nada arrematado ainda.</li>
             {% endfor %}
         </ul>
     </section>
@@ -233,7 +196,7 @@
 
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
-     data-acao-url="{% url 'leilao:locutor_acao' %}"
+     data-acao-url="{% url 'leilao:acao' %}"
      data-dados-url="{% url 'leilao:locutor_dados' %}"
      data-stream-url="{% url 'leilao:stream' %}"></div>
 

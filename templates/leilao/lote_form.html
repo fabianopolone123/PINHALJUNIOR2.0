@@ -10,7 +10,10 @@
     <div class="entrada-card">
         <header class="entrada-topo">
             <h1>{% if lote %}Editar item{% else %}Cadastrar item{% endif %}</h1>
-            <p class="entrada-sub">{{ leilao.nome }}</p>
+            <p class="entrada-sub">
+                em <b>{{ leilao.nome }}</b>
+                <span class="selo selo-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
+            </p>
         </header>
 
         <form method="post" enctype="multipart/form-data" class="entrada-form" novalidate>
@@ -39,7 +42,12 @@
             <img id="previaFoto" class="previa-foto" alt="" hidden>
 
             <button type="submit" class="btn-entrar">Salvar item</button>
-            <a href="{% url 'leilao:lotes' %}" class="btn-voltar">Voltar para a lista</a>
+            {% if not lote %}
+            <button type="submit" name="salvar_e_novo" value="1" class="btn-entrar btn-secundario-claro">
+                Salvar e cadastrar outro
+            </button>
+            {% endif %}
+            <a href="{% url 'leilao:lotes' leilao.id %}" class="btn-voltar">Voltar para a lista</a>
         </form>
     </div>
 </main>

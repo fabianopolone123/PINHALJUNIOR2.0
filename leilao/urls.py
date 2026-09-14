@@ -1,7 +1,12 @@
 """Rotas do leilão.
 
-Público (sem login): a porta, a tela do pregão, o stream e as ações do
-participante. Restrito ao `is_staff`: tudo em `locutor/`.
+Duas metades:
+
+- **Público** (sem login): a porta, a tela do pregão, o stream e as ações do
+  participante.
+- **Equipe** (login + papel): `preparacao/`, `locutor/` e `caixa/` — uma pasta
+  por área, para ficar óbvio na URL de quem é cada tela. Quem protege é o
+  decorator `papeis.exige` na view, nunca o menu.
 """
 
 from django.urls import path
@@ -23,17 +28,22 @@ urlpatterns = [
     path("arremate/<int:pk>/conferir/", views.arremate_conferir_view, name="arremate_conferir"),
     # --- Webhook público ---
     path("webhooks/mercadopago/", views.webhook_mp_view, name="webhook_mp"),
-    # --- Locutor ---
-    path("locutor/entrar/", views.entrar_locutor_view, name="entrar_locutor"),
-    path("locutor/sair/", views.sair_locutor_view, name="sair_locutor"),
+    # --- Equipe: entrada comum ---
+    path("equipe/entrar/", views.entrar_equipe_view, name="entrar_equipe"),
+    path("equipe/sair/", views.sair_equipe_view, name="sair_equipe"),
+    path("equipe/", views.equipe_view, name="equipe"),
+    path("equipe/acao/", views.locutor_acao_view, name="acao"),
+    # --- Área do locutor ---
     path("locutor/", views.locutor_view, name="locutor"),
     path("locutor/dados/", views.locutor_dados_view, name="locutor_dados"),
-    path("locutor/acao/", views.locutor_acao_view, name="locutor_acao"),
-    path("locutor/lotes/", views.lotes_view, name="lotes"),
-    path("locutor/lotes/novo/", views.lote_form_view, name="lote_novo"),
-    path("locutor/lotes/<int:pk>/editar/", views.lote_form_view, name="lote_editar"),
-    path("locutor/lotes/<int:pk>/excluir/", views.lote_excluir_view, name="lote_excluir"),
-    path("locutor/leiloes/", views.leiloes_view, name="leiloes"),
-    path("locutor/leiloes/<int:pk>/status/", views.leilao_status_view, name="leilao_status"),
-    path("locutor/config/", views.config_view, name="config"),
+    # --- Área do caixa ---
+    path("caixa/", views.caixa_view, name="caixa"),
+    # --- Área da preparação ---
+    path("preparacao/", views.preparacao_view, name="preparacao"),
+    path("preparacao/config/", views.config_view, name="config"),
+    path("preparacao/<int:pk>/status/", views.leilao_status_view, name="leilao_status"),
+    path("preparacao/<int:leilao_id>/itens/", views.lotes_view, name="lotes"),
+    path("preparacao/<int:leilao_id>/itens/novo/", views.lote_form_view, name="lote_novo"),
+    path("preparacao/itens/<int:pk>/editar/", views.lote_form_view, name="lote_editar"),
+    path("preparacao/itens/<int:pk>/excluir/", views.lote_excluir_view, name="lote_excluir"),
 ]

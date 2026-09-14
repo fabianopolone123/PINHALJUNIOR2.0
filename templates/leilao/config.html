@@ -7,12 +7,11 @@
 
 {% block conteudo %}
 <div class="mesa">
-    <header class="mesa-topo">
-        <div class="mesa-identidade"><h1>⚙️ Configuração</h1></div>
-        <div class="mesa-acoes-topo">
-            <a href="{% url 'leilao:locutor' %}" class="btn-mini">← Mesa</a>
-        </div>
-    </header>
+    {% include "leilao/_nav_equipe.html" with area_atual="preparacao" titulo_area="Configuração" %}
+
+    <div class="secao-barra">
+        <a href="{% url 'leilao:preparacao' %}" class="btn-mini">← Leilões</a>
+    </div>
 
     <form method="post" novalidate>
         {% csrf_token %}

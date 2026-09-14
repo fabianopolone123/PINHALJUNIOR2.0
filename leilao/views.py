@@ -29,6 +29,7 @@ from django.views.decorators.http import require_POST
 from core import mercadopago
 
 from . import estado as est
+from . import papeis
 from . import servicos
 from .forms import ConfigLeilaoForm, EntrarForm, LeilaoForm, LoteForm
 from .hub import HUB, garantir_laco, sse
@@ -39,19 +40,6 @@ from .sessao import participante_atual
 from .sessao import sair as sessao_sair
 
 logger = logging.getLogger(__name__)
-
-
-def locutor_required(view):
-    """Só a equipe do leilão. Usa o `is_staff` do Django."""
-
-    @login_required
-    def _wrap(request, *args, **kwargs):
-        if not request.user.is_staff:
-            messages.error(request, "Esta área é da equipe do leilão.")
-            return redirect("leilao:entrar_locutor")
-        return view(request, *args, **kwargs)
-
-    return _wrap
 
 
 def _json(request):
@@ -74,7 +62,12 @@ def entrar_view(request):
     if request.method == "POST":
         form = EntrarForm(request.POST)
         if form.is_valid():
-            participante = form.save()
+            participante = form.save(commit=False)
+            # Entrar de novo NÃO limpa o bloqueio: sem isto, quem o locutor
+            # bloqueou voltava em dois toques com um cadastro novo. O registro é
+            # novo (a sessão é de outro aparelho), mas a PESSOA é a mesma.
+            participante.bloqueado = servicos.pessoa_bloqueada(participante)
+            participante.save()
             sessao_entrar(request, participante)
             messages.success(request, f"Bem-vindo, {participante.nome_curto}!")
             return redirect("leilao:leilao")
@@ -350,12 +343,22 @@ def webhook_mp_view(request):
     return HttpResponse("ok", status=200)
 
 
+
+
 # ===========================================================================
-# Locutor
+# Equipe do leilão — três áreas (ver `leilao/papeis.py`)
+#
+#   Preparação → cadastra itens, monta a fila, configura
+#   Locutor    → conduz o pregão
+#   Caixa      → confere pagamento e cuida da entrega
+#
+# O Diretor abre as três. Cada view diz de qual área ela é; nenhuma confia no
+# menu para se proteger (esconder o botão não barra quem digita a URL).
 # ===========================================================================
-def entrar_locutor_view(request):
-    if request.user.is_authenticated and request.user.is_staff:
-        return redirect("leilao:locutor")
+def entrar_equipe_view(request):
+    """Login da equipe. Depois de entrar, cada um cai na sua área."""
+    if request.user.is_authenticated and papeis.papeis_do(request.user):
+        return redirect("leilao:equipe")
     if request.method == "POST":
         usuario = authenticate(
             request,
@@ -364,23 +367,62 @@ def entrar_locutor_view(request):
         )
         if usuario and usuario.is_staff:
             auth_login(request, usuario)
-            return redirect("leilao:locutor")
+            return redirect("leilao:equipe")
         messages.error(request, "Usuário ou senha inválidos.")
-    return render(request, "leilao/locutor_entrar.html")
+    return render(request, "leilao/equipe_entrar.html")
 
 
 @require_POST
-def sair_locutor_view(request):
+def sair_equipe_view(request):
     auth_logout(request)
-    return redirect("leilao:entrar_locutor")
+    return redirect("leilao:entrar_equipe")
 
 
-@locutor_required
+@login_required
+def equipe_view(request):
+    """Porta de entrada da equipe.
+
+    Quem tem **uma** área só vai direto para ela — no dia do evento ninguém quer
+    um menu entre o login e o trabalho. Com mais de uma, escolhe.
+    """
+    meus = papeis.papeis_do(request.user)
+    if not meus:
+        messages.error(request, "Sua conta ainda não tem papel no leilão.")
+        return redirect("leilao:entrar_equipe")
+
+    areas = papeis.menu_do(request.user)
+    if len(areas) == 1:
+        return redirect(areas[0]["rota"])
+
+    leilao = Leilao.ao_vivo()
+    return render(
+        request,
+        "leilao/equipe.html",
+        {
+            "areas": areas,
+            "leilao_ao_vivo": leilao,
+            "a_pagar": Arremate.objects.filter(status="aguardando").count(),
+            "a_entregar": Arremate.objects.filter(
+                status="pago", entregue_em__isnull=True
+            ).count(),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Área do LOCUTOR
+# ---------------------------------------------------------------------------
+@papeis.exige("locutor")
 def locutor_view(request):
-    """A mesa do locutor: pregão, fila, pagamentos, participantes e chat."""
+    """A mesa: pregão, cronômetro, fila, participantes, chat e microfone.
+
+    **Sem pagamentos**: quem bate o martelo não é quem confirma o recebimento, e
+    o locutor já tem as mãos cheias falando e olhando o cronômetro.
+    """
     leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
     if not leilao:
-        return redirect("leilao:leiloes")
+        messages.info(request, "Nenhum leilão criado ainda.")
+        return redirect("leilao:equipe")
 
     return render(
         request,
@@ -391,36 +433,24 @@ def locutor_view(request):
                 est.estado_publico(leilao), ensure_ascii=False, default=str
             ),
             "lotes": leilao.lotes.all().order_by("ordem", "id"),
-            "form_lote": LoteForm(),
             "painel": _painel_locutor(leilao),
         },
     )
 
 
 def _painel_locutor(leilao):
-    """Números da mesa: quanto foi batido, quanto entrou, quem deve."""
-    arremates = Arremate.objects.filter(lote__leilao=leilao).select_related(
-        "lote", "participante"
-    )
-    resumo = arremates.aggregate(
-        total=Count("id"),
-        pagos=Count("id", filter=Q(status="pago")),
-        aguardando=Count("id", filter=Q(status="aguardando")),
-        expirados=Count("id", filter=Q(status="expirado")),
-        arrecadado=Sum("valor", filter=Q(status="pago")),
-        a_receber=Sum("valor", filter=Q(status="aguardando")),
-    )
+    """Quem está no leilão — para a moderação do pregão."""
     return {
-        "resumo": resumo,
-        "arremates": arremates.order_by("-criado_em")[:60],
         "participantes": Participante.objects.annotate(
-            n_lances=Count("lances", filter=Q(lances__lote__leilao=leilao, lances__cancelado=False)),
+            n_lances=Count(
+                "lances", filter=Q(lances__lote__leilao=leilao, lances__cancelado=False)
+            ),
             n_arremates=Count("arremates", filter=Q(arremates__lote__leilao=leilao)),
         ).order_by("-n_lances", "nome")[:200],
     }
 
 
-@locutor_required
+@papeis.exige("locutor")
 def locutor_dados_view(request):
     """Estado + histórico do pregão para a mesa (recarga por `fetch`)."""
     leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
@@ -430,10 +460,7 @@ def locutor_dados_view(request):
     historico = []
     if lote:
         historico = [
-            {
-                **est.lance_publico(x),
-                "cancelado": x.cancelado,
-            }
+            {**est.lance_publico(x), "cancelado": x.cancelado}
             for x in lote.lances_da_rodada()
             .select_related("participante")
             .order_by("-criado_em", "-id")[:50]
@@ -443,20 +470,47 @@ def locutor_dados_view(request):
     )
 
 
-@locutor_required
+# Qual área pode disparar cada ação da mesa. É aqui que "o locutor não mexe em
+# dinheiro" deixa de ser combinado e vira regra: `pago` é do caixa.
+ACOES_AREAS = {
+    "abrir": ("locutor",),
+    "fechar": ("locutor",),
+    "pausar": ("locutor",),
+    "retomar": ("locutor",),
+    "tempo": ("locutor",),
+    "desfazer": ("locutor",),
+    "chat": ("locutor",),
+    "aviso": ("locutor",),
+    "mover": ("locutor", "preparacao"),
+    "bloquear": ("locutor", "caixa"),
+    "pago": ("caixa",),
+    "entregue": ("caixa",),
+}
+
+
+@login_required
 @require_POST
 def locutor_acao_view(request):
-    """Todos os botões da mesa num POST só (`acao` diz qual)."""
+    """Todos os botões da equipe num POST só (`acao` diz qual)."""
     dados = _json(request) or request.POST
     acao = dados.get("acao")
+
+    permitidas = ACOES_AREAS.get(acao)
+    if permitidas is None:
+        return JsonResponse({"ok": False, "msg": "Ação desconhecida."}, status=400)
+    meus = papeis.papeis_do(request.user)
+    if not meus.intersection(permitidas):
+        rotulos = " ou ".join(papeis.AREAS[a][0] for a in permitidas)
+        return JsonResponse(
+            {"ok": False, "msg": f"Esta ação é de {rotulos}."}, status=403
+        )
+
     leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
     if not leilao:
         return JsonResponse({"ok": False, "msg": "Nenhum leilão."}, status=404)
 
     lote_id = dados.get("lote")
-    lote = None
-    if lote_id:
-        lote = get_object_or_404(Lote, pk=lote_id, leilao=leilao)
+    lote = get_object_or_404(Lote, pk=lote_id, leilao=leilao) if lote_id else None
 
     if acao == "abrir":
         if not lote:
@@ -478,7 +532,9 @@ def locutor_acao_view(request):
         if not lote:
             return JsonResponse({"ok": False, "msg": "Nenhum lote em pregão."}, status=409)
         servicos.pausar_lote(lote, pausar=(acao == "pausar"))
-        return JsonResponse({"ok": True, "msg": "Cronômetro " + ("pausado." if acao == "pausar" else "retomado.")})
+        return JsonResponse(
+            {"ok": True, "msg": "Cronômetro " + ("pausado." if acao == "pausar" else "retomado.")}
+        )
 
     if acao == "tempo":
         lote = lote or leilao.lote_atual
@@ -512,32 +568,34 @@ def locutor_acao_view(request):
         _mover_lote(lote, dados.get("direcao") or "cima")
         return JsonResponse({"ok": True, "msg": "Fila reordenada."})
 
-    if acao == "pago":
-        arremate = get_object_or_404(
-            Arremate, pk=dados.get("arremate"), lote__leilao=leilao
+    if acao == "bloquear":
+        participante = get_object_or_404(Participante, pk=dados.get("participante"))
+        # Bloqueia a PESSOA, não o registro: quem entrou de dois aparelhos tem
+        # dois cadastros, e bloquear só o que está na tela deixaria o outro
+        # dando lance.
+        bloqueado, quantos = servicos.bloquear_pessoa(
+            participante, not participante.bloqueado
         )
+        recado = "Bloqueado." if bloqueado else "Desbloqueado."
+        if quantos > 1:
+            recado += f" ({quantos} cadastros da mesma pessoa)"
+        return JsonResponse({"ok": True, "msg": recado, "bloqueado": bloqueado})
+
+    if acao == "pago":
+        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
         servicos.marcar_pago(arremate, manual=True)
         return JsonResponse({"ok": True, "msg": "Marcado como pago."})
 
-    if acao == "bloquear":
-        participante = get_object_or_404(Participante, pk=dados.get("participante"))
-        participante.bloqueado = not participante.bloqueado
-        participante.save(update_fields=["bloqueado"])
-        return JsonResponse(
-            {
-                "ok": True,
-                "msg": ("Bloqueado." if participante.bloqueado else "Desbloqueado."),
-                "bloqueado": participante.bloqueado,
-            }
-        )
+    if acao == "entregue":
+        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
+        return JsonResponse(_marcar_entrega(arremate, request.user, dados))
 
     return JsonResponse({"ok": False, "msg": "Ação desconhecida."}, status=400)
 
 
 def _mover_lote(lote, direcao):
     """Troca a ordem com o vizinho na fila."""
-    vizinhos = lote.leilao.lotes.filter(status="fila").order_by("ordem", "id")
-    lista = list(vizinhos)
+    lista = list(lote.leilao.lotes.filter(status="fila").order_by("ordem", "id"))
     if lote not in lista:
         return
     i = lista.index(lote)
@@ -551,16 +609,177 @@ def _mover_lote(lote, direcao):
 
 
 # ---------------------------------------------------------------------------
-# Cadastro de lotes e leilões
+# Área do CAIXA — pagamentos e entrega
 # ---------------------------------------------------------------------------
-@locutor_required
-def lote_form_view(request, pk=None):
+def _marcar_entrega(arremate, usuario, dados):
+    """Marca (ou desmarca) a entrega de um arremate.
+
+    **Só entrega o que está pago.** Mandar o item antes de o dinheiro cair é
+    justamente o erro que o prazo de 15 minutos existe para evitar.
+    """
+    if dados.get("desfazer"):
+        arremate.entregue_em = None
+        arremate.entregue_por = None
+        arremate.save(update_fields=["entregue_em", "entregue_por"])
+        return {"ok": True, "msg": "Entrega desmarcada.", "entregue": False}
+
+    if arremate.status != "pago":
+        return {"ok": False, "msg": "Este item ainda não foi pago."}
+
+    arremate.entregue_em = timezone.now()
+    arremate.entregue_por = usuario
+    obs = (dados.get("observacao") or "").strip()[:200]
+    if obs:
+        arremate.entrega_obs = obs
+    arremate.save(update_fields=["entregue_em", "entregue_por", "entrega_obs"])
+    return {"ok": True, "msg": "Entrega registrada!", "entregue": True}
+
+
+@papeis.exige("caixa")
+def caixa_view(request):
+    """Quem pagou, quem falta pagar e o que há para entregar."""
     leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
     if not leilao:
-        messages.error(request, "Crie um leilão antes de cadastrar itens.")
-        return redirect("leilao:leiloes")
+        messages.info(request, "Nenhum leilão criado ainda.")
+        return redirect("leilao:equipe")
 
-    lote = get_object_or_404(Lote, pk=pk, leilao=leilao) if pk else None
+    arremates = (
+        Arremate.objects.filter(lote__leilao=leilao)
+        .select_related("lote", "participante", "pagamento")
+        .order_by("-criado_em")
+    )
+    resumo = arremates.aggregate(
+        total=Count("id"),
+        pagos=Count("id", filter=Q(status="pago")),
+        aguardando=Count("id", filter=Q(status="aguardando")),
+        expirados=Count("id", filter=Q(status="expirado")),
+        arrecadado=Sum("valor", filter=Q(status="pago")),
+        a_receber=Sum("valor", filter=Q(status="aguardando")),
+    )
+
+    a_entregar = [a for a in arremates if a.a_entregar]
+    entregues = [a for a in arremates if a.entregue]
+
+    return render(
+        request,
+        "leilao/caixa.html",
+        {
+            "leilao": leilao,
+            "resumo": resumo,
+            "arremates": arremates,
+            "a_entregar": a_entregar,
+            "entregues": entregues,
+            "roteiro": _texto_roteiro_entregas(leilao, a_entregar),
+        },
+    )
+
+
+def _texto_roteiro_entregas(leilao, pendentes):
+    """Roteiro de entrega pronto para copiar (etiqueta/rota).
+
+    Vem **pronto do servidor**, como manda a convenção do projeto — o JS só
+    copia. Texto raspado do HTML quebraria no próximo ajuste visual.
+
+    **Leva nome e endereço**: é documento de trabalho de quem entrega, não
+    texto para grupo aberto.
+    """
+    if not pendentes:
+        return ""
+
+    linhas = [f"*ENTREGAS — {leilao.nome}*", f"{len(pendentes)} item(ns) a entregar", ""]
+    por_pessoa = {}
+    for a in pendentes:
+        por_pessoa.setdefault(a.participante_id, {"p": a.participante, "itens": []})
+        por_pessoa[a.participante_id]["itens"].append(a)
+
+    for i, dados in enumerate(por_pessoa.values(), start=1):
+        p = dados["p"]
+        linhas.append(f"*{i}. {p.nome}*")
+        linhas.append(f"📱 {p.whatsapp}")
+        endereco = p.endereco_uma_linha
+        if endereco:
+            linhas.append(f"📍 {endereco}")
+        for a in dados["itens"]:
+            linhas.append(f"   • {a.lote.nome} — R$ {a.valor}")
+        linhas.append("")
+    return "\n".join(linhas).strip()
+
+
+# ---------------------------------------------------------------------------
+# Área da PREPARAÇÃO — leilões, itens e configuração
+# ---------------------------------------------------------------------------
+@papeis.exige("preparacao")
+def preparacao_view(request):
+    """Lista de leilões: criar, montar, colocar no ar."""
+    if request.method == "POST":
+        form = LeilaoForm(request.POST)
+        if form.is_valid():
+            novo = form.save(commit=False)
+            novo.criado_por = request.user
+            novo.save()
+            messages.success(request, f"“{novo.nome}” criado. Agora cadastre os itens.")
+            return redirect("leilao:lotes", leilao_id=novo.pk)
+        messages.error(request, "Confira os campos destacados.")
+    else:
+        form = LeilaoForm()
+
+    leiloes = Leilao.objects.annotate(
+        n_lotes=Count("lotes", distinct=True),
+        n_vendidos=Count("lotes", filter=Q(lotes__status="vendido"), distinct=True),
+    ).order_by("-criado_em")
+
+    return render(
+        request, "leilao/preparacao.html", {"form": form, "leiloes": leiloes}
+    )
+
+
+@papeis.exige("preparacao")
+@require_POST
+def leilao_status_view(request, pk):
+    """Coloca no ar / encerra. **Só um leilão ao vivo por vez.**"""
+    leilao = get_object_or_404(Leilao, pk=pk)
+    novo = request.POST.get("status")
+    if novo not in {"rascunho", "ao_vivo", "encerrado"}:
+        raise Http404
+    if novo == "ao_vivo":
+        if not leilao.lotes.exists():
+            messages.error(request, "Cadastre ao menos um item antes de colocar no ar.")
+            return redirect("leilao:lotes", leilao_id=leilao.pk)
+        Leilao.objects.filter(status="ao_vivo").exclude(pk=leilao.pk).update(
+            status="encerrado"
+        )
+    leilao.status = novo
+    leilao.save(update_fields=["status"])
+    messages.success(request, f"{leilao.nome}: {leilao.get_status_display()}.")
+    return redirect("leilao:preparacao")
+
+
+@papeis.exige("preparacao")
+def lotes_view(request, leilao_id):
+    """Itens **de um leilão específico** (o id vem na URL, nunca adivinhado)."""
+    leilao = get_object_or_404(Leilao, pk=leilao_id)
+    return render(
+        request,
+        "leilao/lotes.html",
+        {"leilao": leilao, "lotes": leilao.lotes.all().order_by("ordem", "id")},
+    )
+
+
+@papeis.exige("preparacao")
+def lote_form_view(request, leilao_id=None, pk=None):
+    """Cadastro/edição de item.
+
+    O leilão vem **da URL**. Antes, a view adivinhava ("o que está ao vivo, ou o
+    mais recente") — e assim, preparar o leilão de dezembro com o de novembro
+    rolando jogava os itens novos **dentro do pregão em andamento**.
+    """
+    if pk:
+        lote = get_object_or_404(Lote, pk=pk)
+        leilao = lote.leilao
+    else:
+        lote = None
+        leilao = get_object_or_404(Leilao, pk=leilao_id)
+
     if request.method == "POST":
         form = LoteForm(request.POST, request.FILES, instance=lote)
         if form.is_valid():
@@ -572,7 +791,9 @@ def lote_form_view(request, pk=None):
             novo.save()
             preparar_foto(novo)
             messages.success(request, "Item salvo!")
-            return redirect("leilao:lotes")
+            if "salvar_e_novo" in request.POST:
+                return redirect("leilao:lote_novo", leilao_id=leilao.pk)
+            return redirect("leilao:lotes", leilao_id=leilao.pk)
         messages.error(request, "Confira os campos destacados.")
     else:
         form = LoteForm(instance=lote)
@@ -582,67 +803,20 @@ def lote_form_view(request, pk=None):
     )
 
 
-@locutor_required
-def lotes_view(request):
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
-    if not leilao:
-        return redirect("leilao:leiloes")
-    return render(
-        request,
-        "leilao/lotes.html",
-        {"leilao": leilao, "lotes": leilao.lotes.all().order_by("ordem", "id")},
-    )
-
-
-@locutor_required
+@papeis.exige("preparacao")
 @require_POST
 def lote_excluir_view(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
+    leilao_id = lote.leilao_id
     if lote.lances.exists() or lote.arremates.exists():
         messages.error(request, "Este item já teve lance — não dá para excluir.")
     else:
         lote.delete()
         messages.success(request, "Item removido.")
-    return redirect("leilao:lotes")
+    return redirect("leilao:lotes", leilao_id=leilao_id)
 
 
-@locutor_required
-def leiloes_view(request):
-    if request.method == "POST":
-        form = LeilaoForm(request.POST)
-        if form.is_valid():
-            novo = form.save(commit=False)
-            novo.criado_por = request.user
-            novo.save()
-            messages.success(request, "Leilão criado!")
-            return redirect("leilao:locutor")
-        messages.error(request, "Confira os campos destacados.")
-    else:
-        form = LeilaoForm()
-    return render(
-        request,
-        "leilao/leiloes.html",
-        {"form": form, "leiloes": Leilao.objects.all()},
-    )
-
-
-@locutor_required
-@require_POST
-def leilao_status_view(request, pk):
-    """Coloca no ar / encerra. **Só um leilão ao vivo por vez.**"""
-    leilao = get_object_or_404(Leilao, pk=pk)
-    novo = request.POST.get("status")
-    if novo not in {"rascunho", "ao_vivo", "encerrado"}:
-        raise Http404
-    if novo == "ao_vivo":
-        Leilao.objects.filter(status="ao_vivo").exclude(pk=leilao.pk).update(status="encerrado")
-    leilao.status = novo
-    leilao.save(update_fields=["status"])
-    messages.success(request, f"{leilao.nome}: {leilao.get_status_display()}.")
-    return redirect("leilao:locutor" if novo == "ao_vivo" else "leilao:leiloes")
-
-
-@locutor_required
+@papeis.exige("preparacao")
 def config_view(request):
     cfg = ConfigLeilao.get_solo()
     if request.method == "POST":

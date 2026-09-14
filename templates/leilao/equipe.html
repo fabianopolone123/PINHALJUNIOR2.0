@@ -1,0 +1,47 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Equipe do leilão{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    {% include "leilao/_nav_equipe.html" %}
+
+    <div class="equipe-boas-vindas">
+        <h1>Onde você vai trabalhar hoje?</h1>
+        {% if leilao_ao_vivo %}
+        <p class="micro-ajuda">
+            <b class="selo selo-ao_vivo">AO VIVO</b> {{ leilao_ao_vivo.nome }}
+        </p>
+        {% else %}
+        <p class="micro-ajuda">Nenhum leilão no ar agora.</p>
+        {% endif %}
+    </div>
+
+    <div class="areas-grade">
+        {% for a in menu_equipe %}
+        <a href="{% url a.rota %}" class="area-cartao area-{{ a.chave }}">
+            <span class="area-icone">{{ a.icone }}</span>
+            <span class="area-nome">{{ a.rotulo }}</span>
+            <span class="area-desc">
+                {% if a.chave == 'preparacao' %}
+                    Cadastrar itens, montar a fila, criar e colocar leilões no ar.
+                {% elif a.chave == 'locutor' %}
+                    Conduzir o pregão: abrir lote, cronômetro, martelo, chat e microfone.
+                {% elif a.chave == 'caixa' %}
+                    Conferir quem pagou e cuidar da entrega dos itens.
+                {% endif %}
+            </span>
+            {% if a.chave == 'caixa' and a_pagar %}
+            <span class="area-alerta">{{ a_pagar }} aguardando pagamento</span>
+            {% endif %}
+            {% if a.chave == 'caixa' and a_entregar %}
+            <span class="area-alerta">{{ a_entregar }} a entregar</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

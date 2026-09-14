@@ -63,6 +63,50 @@ def limpar_limites():
     _ultimo_lance.clear()
 
 
+def _mesma_pessoa(a, b):
+    """Duas entradas são da mesma pessoa?
+
+    Pelo id (o caso normal) **ou pelo telefone** — a pessoa que entra no celular
+    e no computador vira dois registros, e sem esta segunda comparação ela
+    cobriria o próprio lance.
+
+    Consequência aceita: duas pessoas que compartilham um WhatsApp (marido e
+    mulher, por exemplo) não disputam entre si. Num leilão isso é o lado certo
+    do erro — inflar o próprio preço é o que a trava existe para impedir.
+    """
+    if a is None or b is None:
+        return False
+    if a.pk and a.pk == b.pk:
+        return True
+    tel_a, tel_b = a.telefone_normalizado, b.telefone_normalizado
+    return bool(tel_a) and tel_a == tel_b
+
+
+def _mesmos_cadastros(participante):
+    """Todos os cadastros da mesma pessoa (ela pode ter entrado de dois aparelhos)."""
+    from .models import Participante
+
+    tel = participante.telefone_normalizado
+    if not tel:
+        return Participante.objects.filter(pk=participante.pk)
+    # O telefone é guardado como veio (com ou sem DDI); busca pelas duas formas.
+    return Participante.objects.filter(whatsapp__in=[tel, f"55{tel}"]) | (
+        Participante.objects.filter(pk=participante.pk)
+    )
+
+
+def pessoa_bloqueada(participante):
+    """Esta PESSOA está bloqueada, mesmo que este cadastro seja novo?"""
+    return _mesmos_cadastros(participante).filter(bloqueado=True).exists()
+
+
+def bloquear_pessoa(participante, bloquear=True):
+    """Bloqueia/desbloqueia todos os cadastros da pessoa. Devolve (estado, quantos)."""
+    alvos = _mesmos_cadastros(participante).distinct()
+    quantos = alvos.update(bloqueado=bloquear)
+    return bloquear, quantos
+
+
 def _lock_do_lote(lote_id):
     """Um cadeado por lote.
 
@@ -258,7 +302,15 @@ def dar_lance(lote_id, participante, *, valor_visto=None, origem="botao"):
                 return False, "O locutor pausou o cronômetro.", None
             if lote.fecha_em and lote.fecha_em <= timezone.now():
                 return False, "Tempo esgotado neste lote.", None
-            if lote.lider_id == participante.id:
+            # TRAVA: ninguém cobre o próprio lance.
+            #
+            # A comparação é pela **pessoa**, não pelo registro. A entrada cria
+            # um `Participante` novo a cada vez, então a mesma pessoa que abre o
+            # leilão no celular E no computador vira dois registros — e, pelo
+            # id, conseguiria dar lance contra si mesma, inflando o próprio
+            # preço. O WhatsApp é a identidade que o clube usa em todo o resto
+            # do sistema; é por ele que se compara.
+            if lote.lider_id and _mesma_pessoa(lote.lider, participante):
                 return False, "Você já está ganhando este lote.", None
 
             # Freio de repetição — DEPOIS das recusas que têm explicação própria.

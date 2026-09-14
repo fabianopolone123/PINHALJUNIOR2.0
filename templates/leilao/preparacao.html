@@ -1,22 +1,17 @@
 {% extends "leilao/_base.html" %}
 {% load static %}
 
-{% block titulo %}Leilões{% endblock %}
+{% block titulo %}Preparação{% endblock %}
 {% block corpo_classe %}tela-locutor{% endblock %}
 {% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
 
 {% block conteudo %}
 <div class="mesa">
-    <header class="mesa-topo">
-        <div class="mesa-identidade"><h1>Leilões</h1></div>
-        <div class="mesa-acoes-topo">
-            <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️ Configuração</a>
-            <form method="post" action="{% url 'leilao:sair_locutor' %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="btn-mini">Sair</button>
-            </form>
-        </div>
-    </header>
+    {% include "leilao/_nav_equipe.html" with area_atual="preparacao" titulo_area="Preparação" %}
+
+    <div class="secao-barra">
+        <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️ Mercado Pago e áudio</a>
+    </div>
 
     <ul class="itens">
         {% for l in leiloes %}
@@ -25,13 +20,15 @@
                 <span class="item-nome">{{ l.nome }}</span>
                 <span class="item-linha">
                     <b class="selo selo-{{ l.status }}">{{ l.get_status_display }}</b> ·
-                    {{ l.lotes.count }} item{{ l.lotes.count|pluralize:"ns" }} ·
+                    {{ l.n_lotes }} item{{ l.n_lotes|pluralize:"ns" }}
+                    {% if l.n_vendidos %}({{ l.n_vendidos }} vendido{{ l.n_vendidos|pluralize }}){% endif %} ·
                     lance de R$ {{ l.incremento_padrao }} ·
                     {{ l.segundos_por_lote }}s por lote ·
                     {{ l.minutos_para_pagar }} min para pagar
                 </span>
             </div>
             <div class="item-acoes">
+                <a href="{% url 'leilao:lotes' l.id %}" class="btn-mini">📦 Itens</a>
                 {% if l.status != 'ao_vivo' %}
                 <form method="post" action="{% url 'leilao:leilao_status' l.pk %}" class="inline"
                       data-confirmar="Colocar “{{ l.nome }}” no ar? Isso encerra o leilão que estiver ao vivo.">
@@ -40,7 +37,9 @@
                     <button type="submit" class="btn-mini destaque">▶ No ar</button>
                 </form>
                 {% else %}
+                {% if 'locutor' in meus_papeis %}
                 <a href="{% url 'leilao:locutor' %}" class="btn-mini destaque">Abrir mesa</a>
+                {% endif %}
                 <form method="post" action="{% url 'leilao:leilao_status' l.pk %}" class="inline"
                       data-confirmar="Encerrar “{{ l.nome }}”?">
                     {% csrf_token %}
@@ -57,6 +56,10 @@
 
     <div class="cartao">
         <h3>Novo leilão</h3>
+        <p class="micro-ajuda">
+            Ele nasce em <b>rascunho</b> — ninguém vê. Depois de criado, cadastre os itens e só
+            então coloque no ar. Colocar um leilão no ar <b>encerra</b> o que estiver rolando.
+        </p>
         <form method="post" novalidate>
             {% csrf_token %}
             {% include "leilao/_campo.html" with campo=form.nome %}

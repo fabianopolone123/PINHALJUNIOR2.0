@@ -1,0 +1,30 @@
+{% comment %}
+Barra da equipe: mostra SÓ as áreas que a pessoa abre (vem do context
+processor, que consulta leilao/papeis.py). Quem tem um papel só nem vê a barra
+de troca — não há para onde ir.
+
+Isto é navegação, não proteção: quem protege é o `papeis.exige` na view.
+{% endcomment %}
+<header class="equipe-barra">
+    <div class="equipe-identidade">
+        <span class="equipe-marca">🔨 Leilão</span>
+        {% if titulo_area %}<span class="equipe-area">{{ titulo_area }}</span>{% endif %}
+    </div>
+
+    <nav class="equipe-areas">
+        {% for a in menu_equipe %}
+        <a href="{% url a.rota %}"
+           class="equipe-aba {% if a.chave == area_atual %}ativa{% endif %}">
+            {{ a.icone }} {{ a.rotulo }}
+        </a>
+        {% endfor %}
+    </nav>
+
+    <div class="equipe-conta">
+        <span class="equipe-usuario">{{ request.user.username }}</span>
+        <form method="post" action="{% url 'leilao:sair_equipe' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="btn-mini">Sair</button>
+        </form>
+    </div>
+</header>

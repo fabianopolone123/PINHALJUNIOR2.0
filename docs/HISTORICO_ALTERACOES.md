@@ -22,6 +22,97 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Leilão: a trava de auto-lance passa a valer por PESSOA
+
+### Resumo
+A trava "ninguém cobre o próprio lance" já existia (servidor + botão travado),
+mas tinha um buraco: a entrada cria um `Participante` novo a cada vez, então a
+mesma pessoa aberta no **celular e no computador** virava dois registros — e
+dava lance contra si mesma, inflando o próprio preço. Agora a comparação é pela
+**pessoa** (telefone), não pelo registro. O **bloqueio** ganhou o mesmo
+tratamento.
+
+### Arquivos criados/alterados
+- `leilao/models.py`: `Participante.telefone_normalizado` e `chave_pessoa`
+  (hash do telefone, seguro para o broadcast).
+- `leilao/servicos.py`: `_mesma_pessoa` na trava do lance; `pessoa_bloqueada` e
+  `bloquear_pessoa`.
+- `leilao/views.py`: entrar de novo **não limpa** o bloqueio; bloquear alcança
+  todos os cadastros da pessoa.
+- `leilao/estado.py` + `templates/leilao/leilao.html` + `static/leilao/js/leilao.js`:
+  a `chave` da pessoa vai no estado, então o botão trava também no 2º aparelho.
+- `leilao/tests.py`: 9 testes novos (e o auxiliar passou a dar telefone
+  **diferente** por pessoa — dava o mesmo para todo mundo, o que é irreal).
+
+### Decisões tomadas
+- **Compara pela pessoa, não reaproveita o cadastro.** Reusar o registro de quem
+  tem o mesmo telefone resolveria também, mas abriria um buraco pior: qualquer
+  um que soubesse o seu número tomaria a sua sessão — e com ela os seus
+  arremates e o seu código Pix. Comparar no momento do lance fecha o
+  auto-lance **sem** risco nenhum de tomada de conta.
+- **O que vai no broadcast é um hash**, nunca o telefone: esse estado é
+  transmitido para 100 pessoas.
+- **Telefone com e sem DDI é a mesma pessoa** (`5511…` = `11…`): um aparelho
+  manda de um jeito, o outro de outro.
+- **Consequência aceita:** duas pessoas que dividem um WhatsApp não disputam
+  entre si. Num leilão é o lado certo do erro — inflar o próprio preço é
+  justamente o que a trava existe para impedir.
+- **Bloqueio que se escapa entrando de novo não é bloqueio.** Agora ele segue a
+  pessoa nos dois sentidos: o cadastro novo já nasce bloqueado, e bloquear pela
+  tela alcança todos os cadastros dela.
+
+### Pendências
+- Nenhuma nova.
+
+---
+
+## 2026-09-13 - Leilão: três papéis na equipe, entrega e o item no leilão certo
+
+### Resumo
+A área da equipe era uma só, atrás de `is_staff`. Virou **três**: **Preparação** (itens e
+configurações), **Locutor** (o pregão) e **Caixa** (pagamentos e **entrega**), com o **Diretor**
+enxergando tudo. Junto, duas coisas que a pergunta do usuário expôs: **não havia controle de entrega**
+e o cadastro de item **adivinhava** em qual leilão gravar.
+
+### Arquivos criados/alterados
+- `leilao/papeis.py`: **novo** — áreas, quem vê o quê, decorator `exige`.
+- `leilao/models.py` + migration **0002**: `Arremate.entregue_em`/`entregue_por`/`entrega_obs` e as
+  props `entregue`/`a_entregar`.
+- `leilao/views.py`: área da equipe reorganizada em três; `caixa_view` nova; `lote_form_view` e
+  `lotes_view` passam a receber o leilão pela **URL**; `ACOES_AREAS` gateia o POST único por ação.
+- `leilao/urls.py`: uma pasta por área (`/equipe/`, `/locutor/`, `/caixa/`, `/preparacao/`).
+- `leilao/management/commands/leilao_papel.py`: **novo** — cria conta e distribui papéis.
+- Telas: `equipe.html`, `caixa.html`, `_nav_equipe.html` (novas); `preparacao.html` (era
+  `leiloes.html`), `equipe_entrar.html` (era `locutor_entrar.html`); `locutor.html` perdeu a aba de
+  pagamentos; `lotes/lote_form/config` ganharam a navegação e o leilão explícito.
+- `static/leilao/js/caixa.js` **novo**; `static/leilao/css/locutor.css` com as áreas e a entrega.
+
+### Decisões tomadas
+- **`is_staff` sozinho não dá acesso a nada.** Sem papel, a pessoa entra e não vê tela — é o que
+  impede uma conta esquecida de virar acesso total no dia do evento.
+- **Papéis acumulam.** No evento pequeno o mesmo voluntário faz duas coisas; obrigar troca de login no
+  meio do pregão seria pior do que não ter separação. Quem tem **uma** área só pula o hub e cai direto
+  no trabalho.
+- **O locutor não mexe em dinheiro** (decisão do usuário): `pago` é do Caixa. E isso é conferido **no
+  POST, por ação** — esconder o botão no HTML nunca foi proteção. Há teste que prova os dois lados.
+- **A entrega é depois, na casa da pessoa** (decisão do usuário): a tela é uma **lista de envio** com
+  endereço em destaque e um **roteiro pronto para copiar**, reusando o `copiar_texto.js` do projeto (o
+  texto vem pronto do servidor; o JS só copia). O roteiro **leva nome e endereço** — é documento de
+  quem entrega, não texto para grupo aberto.
+- **Só entra na lista de entrega o que já foi PAGO.** Mandar o item antes de o dinheiro cair é
+  exatamente o erro que o prazo de 15 minutos existe para evitar; a regra está no servidor, não na tela.
+- **O item vai para o leilão da URL.** Era `Leilao.ao_vivo() or o mais recente`: preparar o leilão de
+  dezembro com o de novembro rolando jogava os itens novos **dentro do pregão em andamento**. Agora o
+  id vem na rota (`/preparacao/<id>/itens/novo/`), e há teste com os dois leilões.
+- **Leilão sem item não vai ao ar** — colocar no ar um leilão vazio encerraria o que estava rolando
+  para mostrar uma tela sem nada.
+
+### Pendências
+- Distribuir os papéis reais no servidor (`leilao_papel`).
+- As mesmas de antes: credenciais do Mercado Pago, ensaio do áudio, data do evento.
+
+---
+
 ## 2026-09-13 - Leilão publicado no VPS e medido em produção
 
 ### Resumo

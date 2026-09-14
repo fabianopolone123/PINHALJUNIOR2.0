@@ -7,6 +7,8 @@ cronômetro, prazo de pagamento, vazamento de dado privado no broadcast e as
 armadilhas de template que este projeto já pagou caro.
 """
 
+import itertools
+import json
 import re
 import threading
 import unittest
@@ -28,6 +30,7 @@ if not apps.is_installed("leilao"):
     )
 
 from django.contrib.auth import get_user_model  # noqa: E402
+from django.contrib.auth.models import Group  # noqa: E402
 from django.db import connections  # noqa: E402
 from django.test import Client, TestCase, TransactionTestCase  # noqa: E402
 from django.utils import timezone  # noqa: E402
@@ -57,10 +60,16 @@ def criar_lote(leilao, **extra):
     return Lote.objects.create(leilao=leilao, **dados)
 
 
+_seq_telefone = itertools.count(1)
+
+
 def criar_pessoa(nome="Fulano de Teste", **extra):
+    # Telefone DIFERENTE por pessoa, como na vida real: a trava de "ninguém
+    # cobre o próprio lance" compara pela pessoa (telefone), então um número
+    # repetido no fixture faria dois participantes virarem um só.
     dados = {
         "nome": nome,
-        "whatsapp": "5511900000000",
+        "whatsapp": "119%08d" % next(_seq_telefone),
         "cep": "00000-000",
         "logradouro": "Rua Fictícia",
         "numero": "1",
@@ -583,62 +592,259 @@ class ViewsParticipanteTests(TestCase):
         r.close()
 
 
-class ViewsLocutorTests(TestCase):
+class ViewsEquipeTests(TestCase):
+    """Área da equipe: quem entra, e em quê.
+
+    O ponto destes testes não é a tela — é a **regra**: esconder o botão no HTML
+    não barra ninguém; quem barra é o `papeis.exige` na view.
+    """
+
     def setUp(self):
         servicos.limpar_limites()
         self.leilao = criar_leilao()
         self.lote = criar_lote(self.leilao)
-        User = get_user_model()
-        self.user = User.objects.create_user("locutor_teste", password="segredo-ficticio")
-        self.user.is_staff = True
-        self.user.save()
         self.c = Client()
 
-    def test_mesa_exige_login(self):
-        r = self.c.get("/locutor/")
-        self.assertEqual(r.status_code, 302)
-        self.assertIn("/locutor/entrar/", r["Location"])
-
-    def test_usuario_comum_nao_entra_na_mesa(self):
+    def _pessoa(self, nome, *quais, staff=True):
         User = get_user_model()
-        User.objects.create_user("comum", password="segredo-ficticio")
-        self.c.login(username="comum", password="segredo-ficticio")
-        r = self.c.get("/locutor/")
-        self.assertEqual(r.status_code, 302)
+        u = User.objects.create_user(nome, password="segredo-ficticio")
+        u.is_staff = staff
+        u.save()
+        for papel in quais:
+            grupo, _ = Group.objects.get_or_create(name=papel)
+            u.groups.add(grupo)
+        return u
 
-    def test_locutor_abre_a_mesa(self):
-        self.c.login(username="locutor_teste", password="segredo-ficticio")
+    # --- acesso às áreas ---
+    def test_sem_login_a_equipe_nao_abre(self):
+        for url in ["/equipe/", "/locutor/", "/caixa/", "/preparacao/"]:
+            self.assertEqual(self.c.get(url).status_code, 302, url)
+
+    def test_conta_sem_papel_nao_ve_area_nenhuma(self):
+        """`is_staff` sozinho não dá acesso: é preciso ter papel."""
+        self._pessoa("semtudo")
+        self.c.login(username="semtudo", password="segredo-ficticio")
+        self.assertRedirects(self.c.get("/equipe/"), "/equipe/entrar/")
+        for url in ["/locutor/", "/caixa/", "/preparacao/"]:
+            self.assertEqual(self.c.get(url).status_code, 302, url)
+
+    def test_cada_papel_abre_so_a_sua_area(self):
+        casos = {
+            "preparacao": ("/preparacao/", ["/locutor/", "/caixa/"]),
+            "locutor": ("/locutor/", ["/preparacao/", "/caixa/"]),
+            "caixa": ("/caixa/", ["/preparacao/", "/locutor/"]),
+        }
+        for papel, (minha, alheias) in casos.items():
+            self._pessoa("user_" + papel, papel)
+            c = Client()
+            c.login(username="user_" + papel, password="segredo-ficticio")
+            self.assertEqual(c.get(minha).status_code, 200, papel + " nao abriu " + minha)
+            for outra in alheias:
+                self.assertEqual(c.get(outra).status_code, 302, papel + " abriu " + outra)
+
+    def test_diretor_abre_as_tres(self):
+        self._pessoa("chefe", "diretor")
+        self.c.login(username="chefe", password="segredo-ficticio")
+        for url in ["/preparacao/", "/locutor/", "/caixa/"]:
+            self.assertEqual(self.c.get(url).status_code, 200, url)
+
+    def test_papeis_acumulam(self):
+        """No evento pequeno, o mesmo voluntário faz duas coisas."""
+        self._pessoa("dupla", "locutor", "caixa")
+        self.c.login(username="dupla", password="segredo-ficticio")
         self.assertEqual(self.c.get("/locutor/").status_code, 200)
+        self.assertEqual(self.c.get("/caixa/").status_code, 200)
+        self.assertEqual(self.c.get("/preparacao/").status_code, 302)
 
-    def test_acao_abrir_poe_o_lote_em_pregao(self):
-        self.c.login(username="locutor_teste", password="segredo-ficticio")
+    def test_quem_tem_uma_area_so_vai_direto_para_ela(self):
+        self._pessoa("soLocutor", "locutor")
+        self.c.login(username="soLocutor", password="segredo-ficticio")
+        self.assertRedirects(self.c.get("/equipe/"), "/locutor/")
+
+    def test_quem_tem_duas_areas_escolhe(self):
+        self._pessoa("duasAreas", "locutor", "caixa")
+        self.c.login(username="duasAreas", password="segredo-ficticio")
+        self.assertEqual(self.c.get("/equipe/").status_code, 200)
+
+    # --- a regra que separa o pregão do dinheiro ---
+    def test_locutor_conduz_o_pregao(self):
+        self._pessoa("loc", "locutor")
+        self.c.login(username="loc", password="segredo-ficticio")
         r = self.c.post(
-            "/locutor/acao/",
-            data='{"acao": "abrir", "lote": %d}' % self.lote.id,
+            "/equipe/acao/",
+            data=json.dumps({"acao": "abrir", "lote": self.lote.id}),
             content_type="application/json",
         )
         self.assertTrue(r.json()["ok"])
         self.lote.refresh_from_db()
         self.assertEqual(self.lote.status, "aberto")
 
-    def test_acao_sem_login_e_barrada(self):
+    def test_locutor_NAO_da_baixa_de_pagamento(self):
+        """Quem bate o martelo não confirma o recebimento."""
+        self._pessoa("loc2", "locutor")
+        self.c.login(username="loc2", password="segredo-ficticio")
+        ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, ana)
+        self.lote.refresh_from_db()
+        arremate = servicos.fechar_lote(self.lote)
+
         r = self.c.post(
-            "/locutor/acao/",
-            data='{"acao": "abrir"}',
+            "/equipe/acao/",
+            data=json.dumps({"acao": "pago", "arremate": arremate.id}),
             content_type="application/json",
         )
-        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r.status_code, 403)
+        arremate.refresh_from_db()
+        self.assertEqual(arremate.status, "aguardando")
 
-    def test_colocar_no_ar_encerra_o_leilao_anterior(self):
-        """Dois leilões ao vivo dariam duas telas de pregão."""
-        self.c.login(username="locutor_teste", password="segredo-ficticio")
-        outro = criar_leilao(nome="Outro leilão", status="rascunho")
-        self.c.post(f"/locutor/leiloes/{outro.pk}/status/", {"status": "ao_vivo"})
-        self.leilao.refresh_from_db()
-        outro.refresh_from_db()
-        self.assertEqual(outro.status, "ao_vivo")
-        self.assertEqual(self.leilao.status, "encerrado")
-        self.assertEqual(Leilao.objects.filter(status="ao_vivo").count(), 1)
+    def test_caixa_da_baixa_mas_nao_abre_lote(self):
+        self._pessoa("cx", "caixa")
+        self.c.login(username="cx", password="segredo-ficticio")
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "abrir", "lote": self.lote.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "fila")
+
+    def test_acao_desconhecida_e_recusada(self):
+        self._pessoa("chefe2", "diretor")
+        self.c.login(username="chefe2", password="segredo-ficticio")
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "formatar_tudo"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+
+
+class PreparacaoTests(TestCase):
+    """O cadastro de item grava no leilão da URL — nunca no adivinhado."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        User = get_user_model()
+        u = User.objects.create_user("prep", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="prep", password="segredo-ficticio")
+
+    def test_item_novo_vai_para_o_leilao_da_url_e_nao_para_o_que_esta_ao_vivo(self):
+        """O bug que isto fixa: preparar o leilão de dezembro com o de novembro
+        rolando jogava os itens novos **dentro do pregão em andamento**."""
+        ao_vivo = criar_leilao(nome="Leilão de novembro", status="ao_vivo")
+        criar_lote(ao_vivo, nome="Item de novembro")
+        proximo = criar_leilao(nome="Leilão de dezembro", status="rascunho")
+
+        r = self.c.post(
+            "/preparacao/%d/itens/novo/" % proximo.pk,
+            {"nome": "Item de dezembro", "descricao": "", "lance_inicial": "30.00"},
+        )
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(proximo.lotes.count(), 1)
+        self.assertEqual(proximo.lotes.first().nome, "Item de dezembro")
+        self.assertEqual(ao_vivo.lotes.count(), 1)
+
+    def test_criar_leilao_leva_para_os_itens_dele(self):
+        r = self.c.post("/preparacao/", {
+            "nome": "Leilão novo", "descricao": "",
+            "incremento_padrao": "5.00", "segundos_por_lote": "60",
+            "segundos_extra": "30", "minutos_para_pagar": "15", "chat_segundos": "120",
+        })
+        novo = Leilao.objects.get(nome="Leilão novo")
+        self.assertRedirects(r, "/preparacao/%d/itens/" % novo.pk)
+
+    def test_nao_coloca_no_ar_leilao_sem_item(self):
+        vazio = criar_leilao(nome="Leilão vazio", status="rascunho")
+        self.c.post("/preparacao/%d/status/" % vazio.pk, {"status": "ao_vivo"})
+        vazio.refresh_from_db()
+        self.assertEqual(vazio.status, "rascunho")
+
+
+class EntregaTests(TestCase):
+    """Entrega é **depois**, na casa da pessoa — e só do que foi pago."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.ana = criar_pessoa("Ana Fictícia")
+
+        User = get_user_model()
+        u = User.objects.create_user("caixa1", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="caixa1", password="segredo-ficticio")
+
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote)
+
+    def _entregar(self, **extra):
+        corpo = {"acao": "entregue", "arremate": self.arremate.id}
+        corpo.update(extra)
+        return self.c.post(
+            "/equipe/acao/", data=json.dumps(corpo), content_type="application/json"
+        )
+
+    def test_nao_entrega_o_que_nao_foi_pago(self):
+        """Mandar o item antes de o dinheiro cair é o erro que o prazo de 15
+        minutos existe para evitar."""
+        r = self._entregar()
+        self.assertFalse(r.json()["ok"])
+        self.arremate.refresh_from_db()
+        self.assertIsNone(self.arremate.entregue_em)
+
+    def test_entrega_o_que_foi_pago(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        r = self._entregar(observacao="Recebido pela vizinha")
+        self.assertTrue(r.json()["ok"])
+        self.arremate.refresh_from_db()
+        self.assertIsNotNone(self.arremate.entregue_em)
+        self.assertEqual(self.arremate.entrega_obs, "Recebido pela vizinha")
+        self.assertEqual(self.arremate.entregue_por.username, "caixa1")
+
+    def test_desfazer_entrega(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        self._entregar()
+        self._entregar(desfazer=True)
+        self.arremate.refresh_from_db()
+        self.assertIsNone(self.arremate.entregue_em)
+
+    def test_a_entregar_e_so_pago_e_nao_entregue(self):
+        self.assertFalse(self.arremate.a_entregar)
+        servicos.marcar_pago(self.arremate, manual=True)
+        self.arremate.refresh_from_db()
+        self.assertTrue(self.arremate.a_entregar)
+        self._entregar()
+        self.arremate.refresh_from_db()
+        self.assertFalse(self.arremate.a_entregar)
+        self.assertTrue(self.arremate.entregue)
+
+    def test_tela_do_caixa_lista_o_que_ha_para_entregar(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        r = self.c.get("/caixa/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.context["a_entregar"]), 1)
+        # O roteiro leva endereço: é documento de quem entrega.
+        self.assertIn("Rua Fictícia", r.context["roteiro"])
+        self.assertIn("Ana Fictícia", r.context["roteiro"])
+
+    def test_roteiro_vazio_quando_nao_ha_entrega(self):
+        r = self.c.get("/caixa/")
+        self.assertEqual(r.context["roteiro"], "")
 
 
 class WebhookTests(TestCase):
@@ -946,3 +1152,179 @@ class EstadoSemLeilaoTests(TestCase):
         self.assertFalse(dados["ativo"])
         self.assertIn("online", dados)
         self.assertIn("servidor_em", dados)
+
+
+class TelasEquipeRenderizamTests(TestCase):
+    """Fumaça: toda tela da equipe abre. Erro de template só aparece rodando."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        User = get_user_model()
+        u = User.objects.create_user("chefao", password="segredo-ficticio")
+        u.is_staff = True
+        u.is_superuser = True
+        u.save()
+        self.c = Client()
+        self.c.login(username="chefao", password="segredo-ficticio")
+
+    def test_todas_as_telas_abrem(self):
+        urls = [
+            "/equipe/",
+            "/locutor/",
+            "/locutor/dados/",
+            "/caixa/",
+            "/preparacao/",
+            "/preparacao/config/",
+            "/preparacao/%d/itens/" % self.leilao.pk,
+            "/preparacao/%d/itens/novo/" % self.leilao.pk,
+            "/preparacao/itens/%d/editar/" % self.lote.pk,
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.c.get(url).status_code, 200, url)
+
+    def test_tela_de_entrada_abre_para_quem_nao_esta_logado(self):
+        self.assertEqual(Client().get("/equipe/entrar/").status_code, 200)
+
+    def test_quem_ja_entrou_nao_ve_a_tela_de_login_de_novo(self):
+        self.assertRedirects(self.c.get("/equipe/entrar/"), "/equipe/")
+
+
+class TravaAutoLanceTests(TestCase):
+    """Ninguém cobre o próprio lance — nem entrando de dois aparelhos.
+
+    A entrada cria um `Participante` novo a cada vez. Comparar só pelo id
+    deixava a mesma pessoa, aberta no celular E no computador, dar lance contra
+    si mesma e inflar o próprio preço.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+
+    def test_mesmo_registro_nao_cobre_o_proprio_lance(self):
+        ana = criar_pessoa("Ana Fictícia", whatsapp="11900000001")
+        servicos.dar_lance(self.lote.id, ana)
+        servicos.limpar_limites()
+        ok, msg, _ = servicos.dar_lance(self.lote.id, ana)
+        self.assertFalse(ok)
+        self.assertIn("já está ganhando", msg)
+
+    def test_mesma_pessoa_em_dois_aparelhos_nao_cobre_a_si_mesma(self):
+        celular = criar_pessoa("Ana Fictícia", whatsapp="11900000001")
+        computador = criar_pessoa("Ana Fictícia", whatsapp="11900000001")
+        self.assertNotEqual(celular.pk, computador.pk)  # são dois registros
+
+        servicos.dar_lance(self.lote.id, celular)
+        servicos.limpar_limites()
+        ok, msg, _ = servicos.dar_lance(self.lote.id, computador)
+        self.assertFalse(ok)
+        self.assertIn("já está ganhando", msg)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.valor_atual, Decimal("40.00"))  # não subiu
+
+    def test_telefone_com_e_sem_ddi_e_a_mesma_pessoa(self):
+        """Um aparelho manda "(11) 90000-0001", o outro "5511900000001"."""
+        um = criar_pessoa("Ana Fictícia", whatsapp="11900000001")
+        outro = criar_pessoa("Ana Fictícia", whatsapp="5511900000001")
+        servicos.dar_lance(self.lote.id, um)
+        servicos.limpar_limites()
+        ok, _, _ = servicos.dar_lance(self.lote.id, outro)
+        self.assertFalse(ok)
+
+    def test_pessoas_diferentes_continuam_disputando(self):
+        """A trava não pode travar o leilão."""
+        ana = criar_pessoa("Ana Fictícia", whatsapp="11900000001")
+        bruno = criar_pessoa("Bruno Fictício", whatsapp="11900000002")
+        servicos.dar_lance(self.lote.id, ana)
+        servicos.limpar_limites()
+        ok, _, _ = servicos.dar_lance(self.lote.id, bruno)
+        self.assertTrue(ok)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.valor_atual, Decimal("45.00"))
+        self.assertEqual(self.lote.lider_id, bruno.pk)
+
+    def test_chave_da_pessoa_nao_expoe_o_telefone(self):
+        """A chave vai no broadcast para 100 pessoas: não pode ser o número."""
+        ana = criar_pessoa("Ana Fictícia", whatsapp="11987654321")
+        chave = ana.chave_pessoa
+        self.assertNotIn("11987654321", chave)
+        self.assertNotIn("987654321", chave)
+        # Estável entre registros diferentes da mesma pessoa.
+        outra_entrada = criar_pessoa("Ana Fictícia", whatsapp="5511987654321")
+        self.assertEqual(chave, outra_entrada.chave_pessoa)
+
+    def test_estado_publico_leva_a_chave_e_nao_o_telefone(self):
+        ana = criar_pessoa("Ana Fictícia", whatsapp="11987654321")
+        servicos.dar_lance(self.lote.id, ana)
+        dados = est.estado_publico(Leilao.ao_vivo())
+        self.assertEqual(dados["lote"]["lider"]["chave"], ana.chave_pessoa)
+        self.assertNotIn("11987654321", str(dados))
+
+
+class BloqueioSegueAPessoaTests(TestCase):
+    """Bloqueio que se escapa entrando de novo não é bloqueio."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        self.c = Client()
+
+    def _entrar(self, nome="Fulano de Teste", tel="(11) 90000-0009"):
+        c = Client()
+        c.post("/entrar/", {
+            "nome": nome, "whatsapp": tel,
+            "cep": "01001-000", "logradouro": "Rua Exemplo", "numero": "10",
+            "bairro": "Centro", "cidade": "Cidade Exemplo", "estado": "SP",
+        })
+        return c
+
+    def test_entrar_de_novo_nao_limpa_o_bloqueio(self):
+        self._entrar()
+        pessoa = Participante.objects.get(whatsapp="11900000009")
+        pessoa.bloqueado = True
+        pessoa.save()
+
+        self._entrar()  # mesma pessoa, outro aparelho
+        novos = Participante.objects.filter(whatsapp="11900000009")
+        self.assertEqual(novos.count(), 2)
+        self.assertTrue(all(p.bloqueado for p in novos))
+
+    def test_bloquear_alcanca_os_dois_cadastros(self):
+        self._entrar()
+        self._entrar()
+        primeiro = Participante.objects.filter(whatsapp="11900000009").first()
+
+        User = get_user_model()
+        u = User.objects.create_user("locbloq", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        self.c.login(username="locbloq", password="segredo-ficticio")
+
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "bloquear", "participante": primeiro.pk}),
+            content_type="application/json",
+        )
+        self.assertTrue(r.json()["ok"])
+        self.assertEqual(
+            Participante.objects.filter(whatsapp="11900000009", bloqueado=True).count(), 2
+        )
+
+    def test_pessoa_diferente_nao_e_afetada(self):
+        self._entrar(tel="(11) 90000-0009")
+        self._entrar(nome="Outra Pessoa", tel="(11) 90000-0008")
+        alvo = Participante.objects.get(whatsapp="11900000009")
+        servicos.bloquear_pessoa(alvo, True)
+        outra = Participante.objects.get(whatsapp="11900000008")
+        self.assertFalse(outra.bloqueado)

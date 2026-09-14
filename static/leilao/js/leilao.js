@@ -24,6 +24,7 @@
     var URLS = JSON.parse($("urlsLeilao").textContent);
     var CSRF = dados.dataset.csrf;
     var EU = parseInt(dados.dataset.eu, 10) || null;
+    var EU_CHAVE = dados.dataset.euChave || "";
     var AUDIO_URL = dados.dataset.audio || "";
 
     var estado = JSON.parse($("estadoInicial").textContent || "{}");
@@ -190,7 +191,14 @@
             desenharUltimos(estado.ultimos_lances || []);
         }
 
-        var euGanhando = !!(lote.lider && EU && lote.lider.id === EU);
+        // "Sou eu que estou ganhando?" — pelo id OU pela chave da pessoa. A
+        // segunda cobre quem abriu o leilão em dois aparelhos: são registros
+        // diferentes, mesma pessoa. Sem ela, o botão ficaria ativo no segundo
+        // aparelho e a pessoa cobriria o próprio lance.
+        var euGanhando = !!(lote.lider && (
+            (EU && lote.lider.id === EU) ||
+            (EU_CHAVE && lote.lider.chave === EU_CHAVE)
+        ));
         if (euGanhando) euJaLiderei = true;
 
         // --- Quem está ganhando ---
@@ -253,7 +261,9 @@
 
     function liderEra(quem) {
         var lote = estado && estado.ativo ? estado.lote : null;
-        return !!(lote && lote.lider && quem && lote.lider.id === quem);
+        if (!lote || !lote.lider) return false;
+        if (quem && lote.lider.id === quem) return true;
+        return !!(EU_CHAVE && lote.lider.chave === EU_CHAVE);
     }
 
     function desenharUltimos(lances) {

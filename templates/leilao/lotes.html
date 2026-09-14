@@ -7,15 +7,16 @@
 
 {% block conteudo %}
 <div class="mesa">
-    <header class="mesa-topo">
-        <div class="mesa-identidade">
-            <h1>Itens — {{ leilao.nome }}</h1>
-        </div>
-        <div class="mesa-acoes-topo">
-            <a href="{% url 'leilao:locutor' %}" class="btn-mini">← Mesa</a>
-            <a href="{% url 'leilao:lote_novo' %}" class="btn-mini destaque">+ Item</a>
-        </div>
-    </header>
+    {% include "leilao/_nav_equipe.html" with area_atual="preparacao" titulo_area="Preparação" %}
+
+    <div class="secao-barra">
+        <a href="{% url 'leilao:preparacao' %}" class="btn-mini">← Leilões</a>
+        <a href="{% url 'leilao:lote_novo' leilao.id %}" class="btn-mesa abrir">+ Cadastrar item</a>
+        <span class="micro-ajuda">
+            Itens de <b>{{ leilao.nome }}</b>
+            (<span class="selo selo-{{ leilao.status }}">{{ leilao.get_status_display }}</span>)
+        </span>
+    </div>
 
     <ul class="itens">
         {% for l in lotes %}
@@ -52,14 +53,14 @@
             </div>
         </li>
         {% empty %}
-        <li class="vazio">Nenhum item ainda. Comece por <a href="{% url 'leilao:lote_novo' %}">cadastrar um item</a>.</li>
+        <li class="vazio">Nenhum item ainda. Comece por <a href="{% url 'leilao:lote_novo' leilao.id %}">cadastrar um item</a>.</li>
         {% endfor %}
     </ul>
 </div>
 
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
-     data-acao-url="{% url 'leilao:locutor_acao' %}"></div>
+     data-acao-url="{% url 'leilao:acao' %}"></div>
 {% endblock %}
 
 {% block js %}

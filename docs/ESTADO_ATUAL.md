@@ -24,7 +24,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **76 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **102 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1821,7 +1821,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 75 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 102 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -1861,19 +1861,52 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
 - `estado.py` — o estado público (o que vai no broadcast). **Só o que pode ser dito em voz alta.**
 - `sessao.py` — o participante deste navegador (token na sessão, sem senha).
 
+**Papéis da equipe** (`leilao/papeis.py`, grupos nativos do Django no banco do leilão) — três funções
+diferentes numa noite de leilão, e raramente a mesma pessoa:
+- **`preparacao`** 📦 — cadastra itens, monta a fila, cria leilões e configura (Mercado Pago, áudio).
+- **`locutor`** 🎤 — conduz o pregão: abre lote, cronômetro, martelo, chat, microfone.
+- **`caixa`** 💰 — confere pagamento e cuida da **entrega**.
+- **`diretor`** — enxerga as três e distribui os papéis (`is_superuser` também).
+
+**Papéis acumulam** (no evento pequeno o mesmo voluntário faz duas coisas) e **`is_staff` sozinho não
+dá acesso a nada**: sem papel, a pessoa entra e não vê tela. Quem tem **uma** área só vai direto para
+ela no login; com mais de uma, escolhe no hub `/equipe/`. Comando: `leilao_papel` (`--listar`,
+`--dar`, `--tirar`, `--senha`).
+
+**Trava de auto-lance:** ninguém cobre o próprio lance, e a comparação é pela **pessoa**
+(`telefone_normalizado`), não pelo registro — a mesma pessoa aberta no celular e no computador vira
+dois `Participante`, e pelo id conseguiria inflar o próprio preço. A `chave_pessoa` (hash do telefone)
+vai no estado público para o **botão travar também no 2º aparelho**; o telefone em si nunca vai. O
+**bloqueio** segue a mesma regra nos dois sentidos: cadastro novo da pessoa já nasce bloqueado, e
+bloquear alcança todos os cadastros dela.
+
+**A regra que a separação existe para garantir:** o locutor **não dá baixa de pagamento** — quem bate o
+martelo não é quem confirma o recebimento. Isso não é só o menu: o `POST` único da equipe
+(`/equipe/acao/`) confere a área **por ação** (mapa `ACOES_AREAS` em `views.py`), então esconder o botão
+não é o que protege. Há teste.
+
 **Rotas** — público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
 `/meus-arremates/`, `/arremate/<id>/pix|conferir/`, `/webhooks/mercadopago/`.
-Locutor (`is_staff`): `/locutor/` (mesa), `/locutor/entrar|sair|dados|acao/`,
-`/locutor/lotes/` (+`novo`/`<id>/editar`/`<id>/excluir`), `/locutor/leiloes/` (+`<id>/status/`),
-`/locutor/config/`.
+Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único);
+`/locutor/` + `/locutor/dados/`; `/caixa/`;
+`/preparacao/` (leilões), `/preparacao/config/`, `/preparacao/<id>/status/`,
+`/preparacao/<id>/itens/` (+`novo/`), `/preparacao/itens/<id>/editar|excluir/`.
 
-**Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `locutor`, `locutor_entrar`, `lotes`,
-`lote_form`, `leiloes`, `config`, `_base`, `_campo`.
+**O item vai para o leilão da URL, nunca para o adivinhado.** Era
+`Leilao.ao_vivo() or o mais recente` — e assim preparar o leilão de dezembro com o de novembro rolando
+jogava os itens novos **dentro do pregão em andamento**. Migration **0002** trouxe junto a **entrega**
+(`Arremate.entregue_em`/`entregue_por`/`entrega_obs`): a entrega é **depois, na casa da pessoa**, e só
+entra na lista **o que já foi pago**. A aba tem o **roteiro de entrega** pronto para copiar (nome,
+WhatsApp e endereço) — documento de quem entrega, não texto para grupo aberto.
+
+**Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `equipe` (hub), `equipe_entrar`,
+`locutor` (mesa), `caixa` (pagamentos + entrega), `preparacao` (leilões), `lotes`, `lote_form`,
+`config`, `_base`, `_campo`, `_nav_equipe`.
 **Estáticos**: `static/leilao/css/{leilao,locutor}.css` e `static/leilao/js/{leilao,locutor,som,confete,
-audio_ouvir,audio_falar,lotes,lote_form,entrar}.js`. Reaproveita `css/base.css` (modal + toast) e
+audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa}.js`. Reaproveita `css/base.css` (modal + toast) e
 `js/inicio.js` (módulo único de toasts) do sistema do clube.
 
-**Comandos**: `leilao_demo` (dados fictícios) e `leilao_carga` (teste de carga: N conexões SSE + lances
+**Comandos**: `leilao_demo` (dados fictícios), `leilao_papel` (equipe e papéis) e `leilao_carga` (teste de carga: N conexões SSE + lances
 cronometrados; **rodar de outra máquina, antes do evento**).
 
 ## Funcionalidades incompletas / não implementadas

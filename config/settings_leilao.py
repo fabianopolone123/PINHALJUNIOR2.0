@@ -148,9 +148,9 @@ MEDIA_ROOT = os.environ.get("DJANGO_LEILAO_MEDIA_ROOT", BASE_DIR / "media_leilao
 # ---------------------------------------------------------------------------
 # Autenticação (só o locutor/administração do leilão)
 # ---------------------------------------------------------------------------
-LOGIN_URL = "leilao:entrar_locutor"
-LOGIN_REDIRECT_URL = "leilao:locutor"
-LOGOUT_REDIRECT_URL = "leilao:entrar_locutor"
+LOGIN_URL = "leilao:entrar_equipe"
+LOGIN_REDIRECT_URL = "leilao:equipe"
+LOGOUT_REDIRECT_URL = "leilao:entrar_equipe"
 
 # ---------------------------------------------------------------------------
 # Ajustes do próprio leilão
