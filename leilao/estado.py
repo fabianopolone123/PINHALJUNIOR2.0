@@ -44,6 +44,43 @@ def participante_publico(p):
     return {"id": p.id, "nome": p.nome_curto, "chave": p.chave_pessoa}
 
 
+def ultimo_vendido(leilao):
+    """A última venda — vira a FESTA do intervalo.
+
+    Entre um item e outro a tela não fica dizendo quantos faltam (isso muda como
+    a pessoa dá lance). Fica comemorando quem acabou de arrematar: é o momento
+    bom do leilão, e o nome da pessoa na tela grande é o que anima a próxima
+    disputa.
+    """
+    lote = (
+        leilao.lotes.filter(status="vendido")
+        .select_related("lider")
+        .order_by("-fechado_em")
+        .first()
+    )
+    if not lote or not lote.lider_id:
+        return None
+    return {
+        "item": lote.nome,
+        "foto": _foto(lote.foto_mini) or _foto(lote.foto),
+        "vencedor": lote.lider.nome_curto,
+        "vencedor_chave": lote.lider.chave_pessoa,
+        "valor": str(lote.valor_atual),
+    }
+
+
+def _parado_desde(lote):
+    """Quando foi o último lance (ou a abertura). O cliente conta a partir daí —
+    o relógio continua sendo o do servidor."""
+    if lote.status != "aberto":
+        return None
+    ultimo = (
+        lote.lances_da_rodada().order_by("-criado_em")
+        .values_list("criado_em", flat=True).first()
+    )
+    return ultimo or lote.aberto_em
+
+
 def lote_publico(lote):
     if not lote:
         return None
@@ -60,24 +97,35 @@ def lote_publico(lote):
         "proximo_valor": str(lote.proximo_valor),
         "tem_lance": lote.tem_lance,
         "lider": participante_publico(lote.lider),
+        # Só existe contagem regressiva quando o leilão está no modo de fechar
+        # sozinho. No padrão, quem bate o martelo é o locutor — e o que a mesa
+        # dele mostra é há quanto tempo a sala está calada (`parado_desde`),
+        # contando para CIMA.
+        "fechamento_automatico": lote.leilao.fechamento_automatico,
         "fecha_em": iso(lote.fecha_em),
-        "segundos": lote.segundos_restantes,
-        # O anel do cronômetro precisa saber a duração CHEIA para desenhar a
-        # fração que falta — senão ele nasceria sempre em 100% ou teria que
-        # adivinhar o total.
         "total_segundos": lote.leilao.segundos_por_lote,
+        "parado_desde": iso(_parado_desde(lote)),
         "pausado": lote.pausado,
         "voltas": lote.voltas,
     }
 
 
 def lance_publico(lance):
+    """Um lance, para o evento em tempo real.
+
+    A tela do participante **não lista lances** — ela usa isto só para saber se
+    o lance foi dela (som e vibração diferentes). Quem exibe a lista é a mesa do
+    locutor, que recebe o histórico por um caminho próprio e autenticado.
+    """
     return {
         "id": lance.id,
         "lote": lance.lote_id,
         "valor": str(lance.valor),
         "quem": lance.participante.nome_curto,
         "quem_id": lance.participante_id,
+        # A chave cobre a pessoa que entrou de dois aparelhos: são registros
+        # diferentes, e sem ela o 2º aparelho acharia que o lance foi de outro.
+        "quem_chave": lance.participante.chave_pessoa,
         "em": iso(lance.criado_em),
     }
 
@@ -111,17 +159,12 @@ def estado_publico(leilao, *, com_chat=True):
         }
 
     lote = leilao.lote_atual
-    fila = list(
-        leilao.lotes.filter(status="fila").order_by("ordem", "id")[:12]
-    )
-    ultimos = []
-    if lote:
-        ultimos = [
-            lance_publico(x)
-            for x in lote.lances_da_rodada()
-            .select_related("participante")
-            .order_by("-criado_em", "-id")[:6]
-        ]
+    # A FILA NÃO VAI NO BROADCAST. Saber quantos itens faltam muda como a
+    # pessoa dá lance — quem descobre que falta pouco segura o dinheiro, e quem
+    # vê 20 itens pela frente economiza no primeiro. O suspense é do leilão.
+    # A mesa do locutor recebe a fila por um caminho PRÓPRIO e autenticado
+    # (`/locutor/dados/`), que não é transmitido para ninguém.
+    proximo = leilao.lotes.filter(status="fila").order_by("ordem", "id").first()
 
     dados = {
         "ativo": True,
@@ -133,34 +176,33 @@ def estado_publico(leilao, *, com_chat=True):
             "minutos_para_pagar": leilao.minutos_para_pagar,
         },
         "lote": lote_publico(lote),
-        "fila": [
-            {
-                "id": x.id,
-                "nome": x.nome,
-                "foto_mini": _foto(x.foto_mini) or _foto(x.foto),
-                # A foto GRANDE do próximo vai junto para a tela poder
-                # pré-carregá-la. Sem isso, o primeiro segundo do lote novo — o
-                # mais importante — mostra um quadro vazio enquanto a imagem
-                # baixa. São ~50 bytes por item; vale a troca.
-                "foto": _foto(x.foto),
-            }
-            for x in fila
-        ],
-        "restam_na_fila": leilao.lotes.filter(status="fila").count(),
+        # Só a FOTO do próximo, para a tela pré-carregar e a troca de item ser
+        # instantânea. Sem nome, sem quantidade: a URL não conta o que vem nem
+        # quantos faltam.
+        "proxima_foto": _foto(proximo.foto) if proximo else "",
         "vendidos": leilao.lotes.filter(status="vendido").count(),
-        "ultimos_lances": ultimos,
+        "ultimo_vendido": ultimo_vendido(leilao),
+        "musica": {
+            "ligada": leilao.musica_ligada,
+            "volume": leilao.musica_volume,
+        },
         "online": HUB.conectados,
         "servidor_em": iso(timezone.now()),
     }
 
     if com_chat:
+        # SÓ as mensagens desta rodada de chat. Cada intervalo abre uma conversa
+        # nova para quem participa — o fio não se arrasta a noite toda. O
+        # histórico completo é da mesa do locutor, por caminho próprio.
+        msgs = leilao.mensagens.filter(removida=False)
+        if leilao.chat_aberto_em:
+            msgs = msgs.filter(criado_em__gte=leilao.chat_aberto_em)
         dados["chat"] = {
             "aberto": leilao.chat_aberto,
             "ate": iso(leilao.chat_aberto_ate) if leilao.chat_aberto else None,
             "mensagens": [
                 mensagem_publica(m)
-                for m in leilao.mensagens.filter(removida=False)
-                .select_related("participante")
+                for m in msgs.select_related("participante")
                 .order_by("-criado_em", "-id")[:40]
             ][::-1],
         }

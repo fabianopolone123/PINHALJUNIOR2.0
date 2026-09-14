@@ -35,7 +35,6 @@
         <button type="button" class="mesa-aba ativa" data-aba="pregao">🎤 Pregão</button>
         <button type="button" class="mesa-aba" data-aba="itens">📦 Itens <b>{{ lotes|length }}</b></button>
         <button type="button" class="mesa-aba" data-aba="pessoas">👥 Pessoas <b>{{ painel.participantes|length }}</b></button>
-        <button type="button" class="mesa-aba" data-aba="chat">💬 Chat</button>
     </nav>
 
     {# ================= PREGÃO ================= #}
@@ -67,17 +66,24 @@
                     </div>
                 </div>
 
+                {% comment %}
+                Conta para CIMA: "sem lance há 0:12". Não existe prazo — quem bate
+                o martelo é você. O que ajuda a decidir é saber há quanto tempo a
+                sala está calada.
+                {% endcomment %}
                 <div class="mesa-crono" id="mesaCrono">
                     <span class="mesa-crono-numero" id="mesaCronoTexto">--</span>
-                    <span class="mesa-crono-rotulo" id="mesaCronoRotulo">cronômetro</span>
+                    <span class="mesa-crono-rotulo" id="mesaCronoRotulo">sem lance há</span>
                 </div>
 
                 <div class="mesa-botoes">
                     <button type="button" class="btn-mesa abrir" data-acao="abrir">▶ Abrir próximo</button>
-                    <button type="button" class="btn-mesa tempo" data-acao="tempo">+{{ leilao.segundos_extra }}s</button>
-                    <button type="button" class="btn-mesa pausa" data-acao="pausar" id="btnPausa">⏸ Pausar</button>
                     <button type="button" class="btn-mesa vendido" data-acao="fechar">🔨 VENDIDO</button>
                     <button type="button" class="btn-mesa desfazer" data-acao="desfazer">↩ Desfazer lance</button>
+                    {% if leilao.fechamento_automatico %}
+                    <button type="button" class="btn-mesa tempo" data-acao="tempo">+{{ leilao.segundos_extra }}s</button>
+                    <button type="button" class="btn-mesa pausa" data-acao="pausar" id="btnPausa">⏸ Pausar</button>
+                    {% endif %}
                 </div>
             </div>
 
@@ -97,15 +103,46 @@
                 </p>
                 <a href="{% url 'leilao:config' %}" class="btn-mini">Configurar áudio</a>
                 {% endif %}
+
+                <h3 class="micro-separador">🎵 Música de fundo</h3>
+                <p class="micro-ajuda">Toca na tela de todos que ligaram o som. Baixinha, para caber debaixo da sua voz.</p>
+                <div class="musica-controle">
+                    <button type="button" class="btn-mesa micro" id="btnMusica" data-acao="musica-toggle">
+                        ▶ Ligar música
+                    </button>
+                    <label class="musica-volume">
+                        <span>Volume <b id="musicaVolumeTexto">{{ leilao.musica_volume }}%</b></span>
+                        <input type="range" id="musicaVolume" min="0" max="60" step="2"
+                               value="{{ leilao.musica_volume }}">
+                    </label>
+                </div>
             </div>
         </div>
 
-        <div class="pregao-grade">
+        <div class="pregao-grade tres">
             <div class="cartao">
                 <h3>Lances deste item</h3>
                 <ul class="historico" id="historico">
                     <li class="vazio">Nenhum lance ainda.</li>
                 </ul>
+            </div>
+
+            {% comment %}
+            O chat fica AQUI, na tela do pregão, e não numa aba: o locutor precisa
+            ver a conversa acontecendo enquanto conduz. Para ele o histórico é o da
+            NOITE inteira — só os participantes é que recomeçam a cada intervalo.
+            {% endcomment %}
+            <div class="cartao">
+                <h3>💬 Chat ao vivo <span class="conta" id="chatEstadoMesa"></span></h3>
+                <ul class="chat-mesa" id="chatMesa"></ul>
+                <form class="aviso-form" id="avisoForm">
+                    <input type="text" id="avisoTexto" maxlength="300" placeholder="Falar com todos…">
+                    <button type="submit" class="btn-mini destaque">Enviar</button>
+                </form>
+                <div class="chat-acoes">
+                    <button type="button" class="btn-mini" data-acao="chat">💬 Abrir {{ leilao.chat_segundos }}s</button>
+                    <button type="button" class="btn-mini" data-acao="chat-fechar">Fechar</button>
+                </div>
             </div>
 
             <div class="cartao">
@@ -176,22 +213,6 @@
         </ul>
     </section>
 
-    {# ================= CHAT ================= #}
-    <section class="mesa-secao" data-secao="chat" hidden>
-        <div class="cartao">
-            <h3>Bate-papo do intervalo</h3>
-            <p class="micro-ajuda" id="chatEstadoMesa">Fechado.</p>
-            <div class="mesa-botoes">
-                <button type="button" class="btn-mesa abrir" data-acao="chat">💬 Abrir por {{ leilao.chat_segundos }}s</button>
-                <button type="button" class="btn-mesa desfazer" data-acao="chat-fechar">Fechar chat</button>
-            </div>
-            <form class="aviso-form" id="avisoForm">
-                <input type="text" id="avisoTexto" maxlength="300" placeholder="Mandar um aviso para todos…">
-                <button type="submit" class="btn-mini destaque">Enviar</button>
-            </form>
-            <ul class="chat-mesa" id="chatMesa"></ul>
-        </div>
-    </section>
 </div>
 
 <div id="dadosMesa" hidden

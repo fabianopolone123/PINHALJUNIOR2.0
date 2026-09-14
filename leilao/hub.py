@@ -143,10 +143,32 @@ async def laco_central(intervalo=1.0):
         await asyncio.sleep(intervalo)
 
 
+async def laco_reacoes(intervalo=0.5):
+    """Despeja as reações acumuladas — **sem tocar no banco**.
+
+    Laço próprio porque é rápido (meio segundo) e barato: o laço central faz
+    consultas a cada volta, e rodá-lo nesse ritmo custaria caro à toa. Aqui só
+    se lê um dicionário em memória.
+    """
+    from . import reacoes
+
+    while True:
+        try:
+            acumulado = reacoes.drenar()
+            if acumulado:
+                HUB.publicar("reacoes", acumulado)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — enfeite não derruba o pregão
+            logger.exception("Falha ao despejar reações")
+        await asyncio.sleep(intervalo)
+
+
 # ---------------------------------------------------------------------------
 # Partida do laço
 # ---------------------------------------------------------------------------
 _tarefa = None
+_tarefa_reacoes = None
 
 
 def garantir_laco(intervalo=1.0):
@@ -156,16 +178,20 @@ def garantir_laco(intervalo=1.0):
     o servidor for subido sem suporte a `lifespan`, o leilão continua com
     cronômetro. Idempotente: chamar dez vezes não cria dez laços.
     """
-    global _tarefa
+    global _tarefa, _tarefa_reacoes
     loop = asyncio.get_running_loop()
     HUB.registrar_loop(loop)
     if _tarefa is None or _tarefa.done():
         _tarefa = loop.create_task(laco_central(intervalo))
+    if _tarefa_reacoes is None or _tarefa_reacoes.done():
+        _tarefa_reacoes = loop.create_task(laco_reacoes())
     return _tarefa
 
 
 def parar_laco():
-    global _tarefa
-    if _tarefa is not None and not _tarefa.done():
-        _tarefa.cancel()
+    global _tarefa, _tarefa_reacoes
+    for t in (_tarefa, _tarefa_reacoes):
+        if t is not None and not t.done():
+            t.cancel()
     _tarefa = None
+    _tarefa_reacoes = None

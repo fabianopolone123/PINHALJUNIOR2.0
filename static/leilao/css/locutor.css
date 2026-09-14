@@ -617,3 +617,36 @@ body.tela-locutor {
     color: var(--azul-escuro) !important;
     box-shadow: none !important;
 }
+
+/* ---- Mesa: três colunas (lances · chat · fila) ---- */
+@media (min-width: 1000px) {
+    .pregao-grade.tres {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+    }
+}
+
+.micro-separador {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--palco-borda);
+}
+
+.musica-controle { display: flex; flex-direction: column; gap: 10px; }
+.musica-volume { display: flex; flex-direction: column; gap: 5px; font-size: 0.8rem; color: var(--palco-suave); }
+.musica-volume b { color: var(--palco-texto); }
+.musica-volume input[type="range"] { width: 100%; accent-color: var(--verde-claro); }
+
+.btn-mesa.micro.ligado { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); }
+
+.chat-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.chat-mesa { max-height: 260px; min-height: 120px; overflow-y: auto; }
+
+/* O estado ao lado do título do cartão não é título: minúsculo e discreto,
+   senão "Chat ao vivo" e "fechado para os participantes" viram uma frase só. */
+.cartao h3 .conta {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+    font-size: 0.92em;
+    color: var(--palco-suave);
+}

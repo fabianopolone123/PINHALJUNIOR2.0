@@ -5,6 +5,22 @@
 {% block corpo_classe %}tela-palco{% endblock %}
 
 {% block conteudo %}
+{% comment %}
+Porta do som: o navegador NÃO deixa tocar áudio sem um gesto da pessoa, e o
+gesto do botão "Entrar" ficou na página anterior. Em vez de um ícone pequeno no
+canto que ninguém acha, esta é a primeira coisa da tela — um toque e liga tudo
+junto: voz do locutor, música de fundo e o aviso de cada lance.
+{% endcomment %}
+<div class="porta-som" id="portaSom">
+    <div class="porta-som-caixa">
+        <div class="porta-som-icone">🔊</div>
+        <h1>Toque para entrar com som</h1>
+        <p>Você vai ouvir a narração ao vivo, a música e o aviso de cada lance novo.</p>
+        <button type="button" class="btn-porta-som" id="btnPortaSom">Entrar com som</button>
+        <button type="button" class="btn-porta-mudo" id="btnPortaMudo">Entrar sem som</button>
+    </div>
+</div>
+
 <main class="palco">
 
     <header class="palco-topo">
@@ -12,21 +28,36 @@
         <span class="palco-nome">{% if leilao %}{{ leilao.nome }}{% else %}Leilão{% endif %}</span>
         <span class="palco-online" title="Pessoas no leilão">👥 <b id="online">1</b></span>
         <button type="button" class="btn-som" id="btnSom" aria-pressed="false"
-                title="Ativar som e a voz do locutor">🔇</button>
+                title="Ligar ou desligar o som">🔇</button>
     </header>
 
     {# Estado vazio: nenhum leilão no ar. #}
     <section class="palco-vazio" id="palcoVazio" hidden>
         <div class="vazio-icone">🎪</div>
-        <h1>Nenhum leilão no ar agora</h1>
-        <p>Assim que o locutor abrir o pregão, esta tela acende sozinha. Pode deixar aberta.</p>
+        <h1>O leilão ainda não começou</h1>
+        <p>Assim que iniciarmos, esta tela acende sozinha. Pode deixar aberta.</p>
     </section>
 
-    {# Entre lotes: o pregão parou, o chat abre. #}
+    {% comment %}
+    Entre um item e outro. NÃO diz quantos faltam — saber o que vem pela frente
+    muda como a pessoa dá lance. No lugar, comemora quem acabou de arrematar:
+    é o momento bom do leilão, e é o que anima a próxima disputa.
+    {% endcomment %}
     <section class="palco-intervalo" id="palcoIntervalo" hidden>
-        <div class="intervalo-icone">⏸️</div>
-        <h1>Intervalo</h1>
-        <p id="intervaloTexto">Preparando o próximo item…</p>
+        <div class="festa" id="festa" hidden>
+            <div class="festa-faixa">🎉 VENDIDO! 🎉</div>
+            <img class="festa-foto" id="festaFoto" alt="" hidden>
+            <div class="festa-item" id="festaItem"></div>
+            <div class="festa-nome" id="festaNome"></div>
+            <div class="festa-valor" id="festaValor"></div>
+            <div class="festa-parabens" id="festaParabens">Parabéns!</div>
+        </div>
+
+        <div class="intervalo-simples" id="intervaloSimples">
+            <div class="intervalo-icone">⏸️</div>
+            <h1>Intervalo</h1>
+            <p>Estamos preparando o próximo item…</p>
+        </div>
     </section>
 
     <div id="palcoPregao" hidden>
@@ -34,22 +65,17 @@
             <div class="lote-foto" id="loteFoto">
                 <img id="loteImg" alt="" hidden>
                 <div class="lote-foto-vazia" id="loteSemFoto">📦</div>
-                <span class="lote-selo-volta" id="loteVolta" hidden>Voltou para a fila</span>
             </div>
             <h1 class="lote-nome" id="loteNome">—</h1>
             <p class="lote-desc" id="loteDesc"></p>
         </section>
 
+        {% comment %}
+        Sem cronômetro: quem bate o martelo é o locutor, e uma contagem
+        regressiva na tela seria uma promessa que o sistema não cumpre. O espaço
+        todo vai para o que importa — quem está ganhando e por quanto.
+        {% endcomment %}
         <section class="pregao">
-            <div class="cronometro" id="cronometro">
-                <svg viewBox="0 0 120 120" aria-hidden="true">
-                    <circle class="crono-trilho" cx="60" cy="60" r="54"></circle>
-                    <circle class="crono-anel" cx="60" cy="60" r="54" pathLength="100"
-                            stroke-dasharray="100 100" id="cronoAnel"></circle>
-                </svg>
-                <span class="crono-texto" id="cronoTexto">--</span>
-            </div>
-
             <div class="lider" id="lider">
                 <span class="lider-rotulo" id="liderRotulo">Lance inicial</span>
                 <span class="lider-nome" id="liderNome">Ninguém ainda</span>
@@ -64,14 +90,9 @@
             </button>
             <p class="acao-dica" id="acaoDica">Cada toque sobe <b id="dicaIncremento">R$ 5,00</b></p>
         </div>
-
-        <section class="ultimos" id="ultimos" hidden>
-            <h2>Últimos lances</h2>
-            <ul id="ultimosLista"></ul>
-        </section>
     </div>
 
-    {# Chat do intervalo #}
+    {# Chat do intervalo — conversa NOVA a cada intervalo. #}
     <section class="chat" id="chat" hidden>
         <h2 class="chat-titulo">💬 Bate-papo <span class="chat-tempo" id="chatTempo"></span></h2>
         <ul class="chat-lista" id="chatLista"></ul>
@@ -89,6 +110,20 @@
         <span class="barra-info" id="barraInfo"></span>
     </footer>
 </main>
+
+{% comment %}
+Reações. O trilho por onde os emojis sobem fica FORA do <main> e com
+`pointer-events:none`: eles passam por cima da tela sem nunca roubar o toque do
+botão de lance, que é o que não pode falhar.
+{% endcomment %}
+<div class="reacoes-trilho" id="reacoesTrilho" aria-hidden="true"></div>
+
+<div class="reacoes-botoes" id="reacoesBotoes" hidden>
+    {% for e in emojis %}
+    <button type="button" class="btn-reacao" data-emoji="{{ e }}"
+            aria-label="Reagir com {{ e }}">{{ e }}</button>
+    {% endfor %}
+</div>
 
 {# ---- Gaveta: meus arremates (abre por cima, o pregão continua atrás) ---- #}
 <aside class="gaveta" id="gaveta" hidden>
@@ -123,17 +158,19 @@
 
 <canvas id="confete" class="confete" aria-hidden="true"></canvas>
 <audio id="audioLocutor" playsinline></audio>
+<audio id="audioMusica" playsinline loop></audio>
 
 {% comment %}
-Dados para o JS: token CSRF e endereço do áudio. Padrão do projeto (data-* num
-elemento, como no presenca.js) — nada de token em variável global.
+Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do projeto
+(data-* num elemento, como no presenca.js) — nada de token em variável global.
 {% endcomment %}
 <div id="dadosLeilao" hidden
      data-csrf="{{ csrf_token }}"
      data-eu="{{ participante.id }}"
      data-eu-chave="{{ participante.chave_pessoa }}"
      data-audio="{{ audio_whep }}"
-     data-audio-externo="{{ audio_externo }}"></div>
+     data-audio-externo="{{ audio_externo }}"
+     data-musica="{{ musica_url }}"></div>
 
 {{ estado_inicial|json_script:"estadoInicial" }}
 {% endblock %}
@@ -143,12 +180,14 @@ elemento, como no presenca.js) — nada de token em variável global.
     "stream": "{% url 'leilao:stream' %}",
     "lance": "{% url 'leilao:lance' %}",
     "chat": "{% url 'leilao:chat_enviar' %}",
+    "reagir": "{% url 'leilao:reagir' %}",
     "arremates": "{% url 'leilao:meus_arremates' %}",
     "pix": "{% url 'leilao:arremate_pix' 0 %}",
     "conferir": "{% url 'leilao:arremate_conferir' 0 %}"
 }</script>
 <script src="{% static 'leilao/js/som.js' %}"></script>
 <script src="{% static 'leilao/js/confete.js' %}"></script>
+<script src="{% static 'leilao/js/reacoes.js' %}"></script>
 <script src="{% static 'leilao/js/audio_ouvir.js' %}"></script>
 <script src="{% static 'leilao/js/leilao.js' %}"></script>
 {% endblock %}

@@ -156,6 +156,7 @@ class ConfigLeilaoForm(EstiloMixin, forms.ModelForm):
             "site_url",
             "audio_ativo", "audio_caminho", "audio_publicar_usuario",
             "audio_publicar_senha", "audio_externo_url",
+            "musica",
         ]
 
     SEGREDOS = [

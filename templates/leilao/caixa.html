@@ -13,6 +13,7 @@
         <div class="kpi"><span>Arrematados</span><b>{{ resumo.total|default:0 }}</b></div>
         <div class="kpi bom"><span>Pagos</span><b>{{ resumo.pagos|default:0 }}</b></div>
         <div class="kpi atencao"><span>Aguardando</span><b>{{ resumo.aguardando|default:0 }}</b></div>
+        <div class="kpi atencao"><span>Vai pagar depois</span><b>{{ resumo.combinados|default:0 }}</b></div>
         <div class="kpi ruim"><span>Venceu o prazo</span><b>{{ resumo.expirados|default:0 }}</b></div>
         <div class="kpi bom"><span>Arrecadado</span><b>R$ {{ resumo.arrecadado|default:"0,00" }}</b></div>
         <div class="kpi atencao"><span>A receber</span><b>R$ {{ resumo.a_receber|default:"0,00" }}</b></div>
@@ -44,9 +45,24 @@
                     <span class="arremate-preco">R$ {{ a.valor }}</span>
                     <span class="selo selo-{{ a.status }}">{{ a.get_status_display }}</span>
                     {% if a.pago_manual %}<span class="selo selo-fila">na mão</span>{% endif %}
-                    {% if a.status == 'aguardando' %}
+                    {% if a.status == 'aguardando' or a.status == 'combinado' %}
                     <button type="button" class="btn-mini destaque"
                             data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
+                    {% endif %}
+                    {% if a.status == 'aguardando' %}
+                    {% comment %}
+                    Sem este botão, quem combinou de pagar amanhã perdia o item
+                    para o relógio dos 15 minutos — o oposto do que você acabou
+                    de acertar com a pessoa.
+                    {% endcomment %}
+                    <button type="button" class="btn-mini"
+                            data-acao="combinado" data-arremate="{{ a.id }}"
+                            title="Falei com a pessoa: ela vai pagar depois. O item não volta para a fila.">
+                        📞 Vai pagar depois
+                    </button>
+                    {% endif %}
+                    {% if a.status == 'combinado' and a.observacao %}
+                    <span class="arremate-contato">{{ a.observacao }}</span>
                     {% endif %}
                 </div>
             </li>

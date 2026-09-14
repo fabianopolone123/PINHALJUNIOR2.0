@@ -63,6 +63,17 @@
             if (!window.confirm("Confirmar que este item foi pago?")) return;
         }
 
+        if (alvo.dataset.acao === "combinado") {
+            // O combinado é o registro do que foi falado — sem ele, daqui a uma
+            // hora ninguém lembra o que a pessoa disse.
+            var obs = window.prompt(
+                "O que ficou combinado? (ex.: paga amanhã de manhã, vai passar no clube)",
+                ""
+            );
+            if (obs === null) return;   // desistiu
+            corpo.observacao = obs;
+        }
+
         if (alvo.dataset.acao === "entregue") {
             if (alvo.dataset.desfazer) {
                 if (!window.confirm("Desmarcar esta entrega?")) return;

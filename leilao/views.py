@@ -30,6 +30,7 @@ from core import mercadopago
 
 from . import estado as est
 from . import papeis
+from . import reacoes
 from . import servicos
 from .forms import ConfigLeilaoForm, EntrarForm, LeilaoForm, LoteForm
 from .hub import HUB, garantir_laco, sse
@@ -100,8 +101,20 @@ def leilao_view(request):
             # A lista de arremates NÃO vai aqui: a tela a busca por `fetch`
             # (`/meus-arremates/`), porque ela muda sozinha durante o pregão.
             "estado_inicial": est.estado_publico(leilao),
+            "emojis": reacoes.EMOJIS,
+            "musica_url": _musica_url(),
         },
     )
+
+
+def _musica_url():
+    """Arquivo de música, se o clube subiu um. Sem ele, a tela toca a base
+    sintetizada — que não precisa de URL nenhuma."""
+    cfg = ConfigLeilao.get_solo()
+    try:
+        return cfg.musica.url if cfg.musica else ""
+    except ValueError:
+        return ""
 
 
 def _arremates_do(participante, limite=30):
@@ -207,6 +220,26 @@ def chat_enviar_view(request):
     return JsonResponse({"ok": True})
 
 
+@require_POST
+def reagir_view(request):
+    """Manda um emoji para a tela de todo mundo.
+
+    De propósito, a view mais barata do sistema: **nenhuma escrita no banco**.
+    Ela só soma num contador em memória, que um laço despeja de meio em meio
+    segundo — é isso que faz 50 pessoas martelando emoji não atrapalharem quem
+    está dando lance.
+    """
+    participante = participante_atual(request)
+    if not participante:
+        return JsonResponse({"ok": False}, status=401)
+    if participante.bloqueado:
+        return JsonResponse({"ok": False}, status=403)
+
+    dados = _json(request)
+    ok = reacoes.registrar(dados.get("emoji"), dados.get("quantos"))
+    return JsonResponse({"ok": ok}, status=200 if ok else 400)
+
+
 def meus_arremates_view(request):
     """Lista do participante — com o que é **privado** (o Pix é dele).
 
@@ -229,6 +262,7 @@ def meus_arremates_view(request):
                 "segundos": a.segundos_para_pagar,
                 "expira_em": est.iso(a.expira_em),
                 "tem_pix": bool(a.pagamento_id and a.pagamento.qr_code),
+                "combinado": a.status == "combinado",
             }
         )
     # Sem Mercado Pago configurado, Pix nenhum vai nascer — e a tela precisa
@@ -262,7 +296,7 @@ def arremate_pix_view(request, pk):
             return JsonResponse({
                 "ok": False,
                 "gerando": False,
-                "msg": "O pagamento deste leilão é combinado com o locutor.",
+                "msg": "O pagamento deste leilão é combinado com a organização.",
             })
         # Pode estar sendo gerado ainda (thread de fundo) — a tela espera e tenta de novo.
         return JsonResponse({"ok": False, "gerando": True, "msg": "Gerando seu Pix…"})
@@ -465,8 +499,33 @@ def locutor_dados_view(request):
             .select_related("participante")
             .order_by("-criado_em", "-id")[:50]
         ]
+    # A FILA vem por aqui, não pelo broadcast: o público não pode saber quantos
+    # itens faltam (muda como a pessoa dá lance), mas a mesa precisa ver.
+    fila = [
+        {
+            "id": x.id,
+            "nome": x.nome,
+            "lance_inicial": str(x.lance_inicial),
+            "voltas": x.voltas,
+        }
+        for x in leilao.lotes.filter(status="fila").order_by("ordem", "id")[:40]
+    ]
     return JsonResponse(
-        {"ok": True, "estado": est.estado_publico(leilao), "historico": historico}
+        {
+            "ok": True,
+            "estado": est.estado_publico(leilao),
+            "historico": historico,
+            "fila": fila,
+            "restam_na_fila": leilao.lotes.filter(status="fila").count(),
+            # O chat do participante zera a cada intervalo; o do locutor, não.
+            # Ele precisa do fio inteiro da noite para moderar.
+            "chat": [
+                est.mensagem_publica(m)
+                for m in leilao.mensagens.filter(removida=False)
+                .select_related("participante")
+                .order_by("-criado_em", "-id")[:120]
+            ][::-1],
+        }
     )
 
 
@@ -483,7 +542,9 @@ ACOES_AREAS = {
     "aviso": ("locutor",),
     "mover": ("locutor", "preparacao"),
     "bloquear": ("locutor", "caixa"),
+    "musica": ("locutor",),
     "pago": ("caixa",),
+    "combinado": ("caixa",),
     "entregue": ("caixa",),
 }
 
@@ -562,6 +623,23 @@ def locutor_acao_view(request):
         servicos.enviar_mensagem(leilao, None, dados.get("texto"))
         return JsonResponse({"ok": True, "msg": "Aviso enviado."})
 
+    if acao == "musica":
+        servicos.ajustar_musica(
+            leilao, ligada=dados.get("ligada"), volume=dados.get("volume")
+        )
+        leilao.refresh_from_db()
+        return JsonResponse(
+            {
+                "ok": True,
+                "ligada": leilao.musica_ligada,
+                "volume": leilao.musica_volume,
+                # Sem recado quando é só o volume mexendo: o locutor arrasta o
+                # controle e não precisa de um aviso por pixel.
+                "msg": "" if dados.get("volume") is not None and dados.get("ligada") is None
+                       else ("Música ligada." if leilao.musica_ligada else "Música desligada."),
+            }
+        )
+
     if acao == "mover":
         if not lote:
             return JsonResponse({"ok": False, "msg": "Lote não informado."}, status=400)
@@ -585,6 +663,15 @@ def locutor_acao_view(request):
         arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
         servicos.marcar_pago(arremate, manual=True)
         return JsonResponse({"ok": True, "msg": "Marcado como pago."})
+
+    if acao == "combinado":
+        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
+        servicos.marcar_combinado(
+            arremate, request.user, (dados.get("observacao") or "").strip()
+        )
+        return JsonResponse(
+            {"ok": True, "msg": "Combinado — o item não volta para a fila."}
+        )
 
     if acao == "entregue":
         arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
@@ -652,9 +739,10 @@ def caixa_view(request):
         total=Count("id"),
         pagos=Count("id", filter=Q(status="pago")),
         aguardando=Count("id", filter=Q(status="aguardando")),
+        combinados=Count("id", filter=Q(status="combinado")),
         expirados=Count("id", filter=Q(status="expirado")),
         arrecadado=Sum("valor", filter=Q(status="pago")),
-        a_receber=Sum("valor", filter=Q(status="aguardando")),
+        a_receber=Sum("valor", filter=Q(status__in=["aguardando", "combinado"])),
     )
 
     a_entregar = [a for a in arremates if a.a_entregar]
@@ -741,15 +829,12 @@ def leilao_status_view(request, pk):
     novo = request.POST.get("status")
     if novo not in {"rascunho", "ao_vivo", "encerrado"}:
         raise Http404
-    if novo == "ao_vivo":
-        if not leilao.lotes.exists():
-            messages.error(request, "Cadastre ao menos um item antes de colocar no ar.")
-            return redirect("leilao:lotes", leilao_id=leilao.pk)
-        Leilao.objects.filter(status="ao_vivo").exclude(pk=leilao.pk).update(
-            status="encerrado"
-        )
-    leilao.status = novo
-    leilao.save(update_fields=["status"])
+    if novo == "ao_vivo" and not leilao.lotes.exists():
+        messages.error(request, "Cadastre ao menos um item antes de colocar no ar.")
+        return redirect("leilao:lotes", leilao_id=leilao.pk)
+
+    # Passa pelo serviço para que as telas que estão esperando sejam avisadas.
+    servicos.mudar_status(leilao, novo)
     messages.success(request, f"{leilao.nome}: {leilao.get_status_display()}.")
     return redirect("leilao:preparacao")
 

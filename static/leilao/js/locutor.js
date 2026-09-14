@@ -110,12 +110,15 @@
         tick();
     }
 
-    function desenharFila() {
+    var filaCache = [];
+
+    function desenharFila(fila, restam) {
         var ul = $("fila");
         if (!ul) return;
+        if (fila) filaCache = fila;
+        fila = filaCache;
         ul.innerHTML = "";
-        var fila = (estado && estado.fila) || [];
-        $("contaFila").textContent = estado && estado.restam_na_fila ? "(" + estado.restam_na_fila + ")" : "";
+        $("contaFila").textContent = restam ? "(" + restam + ")" : "";
         if (!fila.length) {
             var li = document.createElement("li");
             li.className = "vazio";
@@ -170,18 +173,29 @@
         });
     }
 
-    function desenharChatMesa() {
+    var chatCache = [];
+
+    function desenharChatMesa(mensagens) {
         var ul = $("chatMesa");
         if (!ul) return;
+        if (mensagens) chatCache = mensagens;
+
         var c = estado && estado.chat;
         var alvo = $("chatEstadoMesa");
         if (alvo) {
             alvo.textContent = c && c.aberto
-                ? "Aberto — fecha em " + mmss((Date.parse(c.ate) - agora()) / 1000) + "."
-                : "Fechado.";
+                ? "aberto · fecha em " + mmss((Date.parse(c.ate) - agora()) / 1000)
+                : "fechado para os participantes";
         }
         ul.innerHTML = "";
-        ((c && c.mensagens) || []).forEach(function (m) { ul.appendChild(linhaChat(m)); });
+        if (!chatCache.length) {
+            var vazio = document.createElement("li");
+            vazio.className = "vazio";
+            vazio.textContent = "Nenhuma mensagem ainda.";
+            ul.appendChild(vazio);
+        } else {
+            chatCache.forEach(function (m) { ul.appendChild(linhaChat(m)); });
+        }
         ul.scrollTop = ul.scrollHeight;
     }
 
@@ -199,6 +213,10 @@
     /* ---------------------------------------------------------------
        Cronômetro
        --------------------------------------------------------------- */
+    /* Conta para CIMA: há quanto tempo a sala está calada.
+       Sem fechamento automático não existe prazo — o que decide o martelo é o
+       silêncio, e é isso que este número mostra. Passando de 15s ele chama
+       atenção; de 30s, grita. */
     function tick() {
         var lote = estado && estado.ativo ? estado.lote : null;
         var caixa = $("mesaCrono");
@@ -212,20 +230,21 @@
             return;
         }
 
-        var restante;
-        if (lote.pausado) {
-            restante = lote.segundos || 0;
-            caixa.className = "mesa-crono pausado";
-            $("mesaCronoRotulo").textContent = "PAUSADO";
-        } else {
-            restante = lote.fecha_em ? Math.max(0, (Date.parse(lote.fecha_em) - agora()) / 1000) : 0;
+        // Modo "fecha sozinho": aí sim é contagem regressiva.
+        if (lote.fechamento_automatico && lote.fecha_em) {
+            var restante = Math.max(0, (Date.parse(lote.fecha_em) - agora()) / 1000);
             caixa.className = "mesa-crono" + (restante <= 10 ? " final" : restante <= 20 ? " apertado" : "");
-            $("mesaCronoRotulo").textContent = "para fechar";
+            $("mesaCronoRotulo").textContent = "para fechar sozinho";
+            txt.textContent = mmss(restante);
+            return;
         }
-        txt.textContent = mmss(restante);
 
-        var s = Math.ceil(restante);
-        if (s !== ultimoSegundo) ultimoSegundo = s;
+        var parado = lote.parado_desde
+            ? Math.max(0, (agora() - Date.parse(lote.parado_desde)) / 1000)
+            : 0;
+        caixa.className = "mesa-crono" + (parado >= 30 ? " final" : parado >= 15 ? " apertado" : "");
+        $("mesaCronoRotulo").textContent = parado >= 30 ? "sala calada — martelo?" : "sem lance há";
+        txt.textContent = mmss(parado);
     }
     setInterval(tick, 250);
     setInterval(desenharChatMesa, 5000);
@@ -248,6 +267,11 @@
                     if (!d.ok) return;
                     render(d.estado);
                     desenharHistorico(d.historico);
+                    // A fila e o histórico do chat NÃO vêm no broadcast: o
+                    // público não pode saber quantos itens faltam, e o fio da
+                    // conversa da noite é só da mesa.
+                    desenharFila(d.fila, d.restam_na_fila);
+                    desenharChatMesa(d.chat);
                 })
                 .catch(function () { /* a próxima volta resolve */ });
         }, 700);
@@ -279,20 +303,28 @@
         if (estado && estado.ativo && d.lote) { estado.lote = d.lote; render(estado); }
     });
     fonte.addEventListener("chat", function (e) {
-        var m = JSON.parse(e.data);
-        if (!estado.chat) estado.chat = { mensagens: [] };
-        var lista = (estado.chat.mensagens || []).concat([m]);
         // Teto: a mesa fica aberta a noite inteira e não pode acumular memória.
-        estado.chat.mensagens = lista.slice(-80);
+        chatCache = chatCache.concat([JSON.parse(e.data)]).slice(-120);
         desenharChatMesa();
     });
     fonte.addEventListener("chat_estado", function (e) {
         var d = JSON.parse(e.data);
-        if (!estado.chat) estado.chat = { mensagens: [] };
+        if (!estado.chat) estado.chat = {};
         estado.chat.aberto = d.aberto;
         estado.chat.ate = d.ate;
+        // O histórico da MESA não zera no intervalo — só o dos participantes.
         desenharChatMesa();
     });
+    fonte.addEventListener("musica", function (e) {
+        var d = JSON.parse(e.data);
+        musicaLigada = d.ligada;
+        pintarMusica();
+        if (slider && document.activeElement !== slider) {
+            slider.value = d.volume;
+            $("musicaVolumeTexto").textContent = d.volume + "%";
+        }
+    });
+
     fonte.addEventListener("online", function (e) {
         var d = JSON.parse(e.data);
         if (estado) estado.online = d.online;
@@ -393,6 +425,41 @@
     /* ---------------------------------------------------------------
        Microfone (WHIP)
        --------------------------------------------------------------- */
+    /* ---------------------------------------------------------------
+       Música de fundo — o locutor decide, para todo mundo junto
+       --------------------------------------------------------------- */
+    var musicaLigada = false;
+
+    function pintarMusica() {
+        var b = $("btnMusica");
+        if (!b) return;
+        b.textContent = musicaLigada ? "⏸ Parar música" : "▶ Ligar música";
+        b.classList.toggle("ligado", musicaLigada);
+    }
+
+    var btnMusica = $("btnMusica");
+    if (btnMusica) {
+        btnMusica.addEventListener("click", function () {
+            acao({ acao: "musica", ligada: !musicaLigada }).then(function (d) {
+                if (d && d.ok) { musicaLigada = d.ligada; pintarMusica(); }
+            });
+        });
+    }
+
+    var slider = $("musicaVolume");
+    if (slider) {
+        var timerVolume = null;
+        slider.addEventListener("input", function () {
+            $("musicaVolumeTexto").textContent = slider.value + "%";
+            // Agrupa: arrastar o controle dispara dezenas de eventos, e não dá
+            // para mandar um POST por pixel enquanto o pregão acontece.
+            if (timerVolume) clearTimeout(timerVolume);
+            timerVolume = setTimeout(function () {
+                acao({ acao: "musica", volume: parseInt(slider.value, 10) });
+            }, 300);
+        });
+    }
+
     var btnMic = $("btnMicrofone");
     if (btnMic && window.AudioFalar) {
         btnMic.addEventListener("click", function () {
@@ -426,6 +493,11 @@
                 }
             });
         });
+    }
+
+    if (estado && estado.musica) {
+        musicaLigada = !!estado.musica.ligada;
+        pintarMusica();
     }
 
     render(estado);

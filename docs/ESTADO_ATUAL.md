@@ -24,7 +24,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **102 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **137 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1826,7 +1826,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 102 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 137 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -1877,6 +1877,32 @@ diferentes numa noite de leilão, e raramente a mesma pessoa:
 dá acesso a nada**: sem papel, a pessoa entra e não vê tela. Quem tem **uma** área só vai direto para
 ela no login; com mais de uma, escolhe no hub `/equipe/`. Comando: `leilao_papel` (`--listar`,
 `--dar`, `--tirar`, `--senha`).
+
+**O martelo é do locutor:** por padrão (`Leilao.fechamento_automatico=False`) **o tempo não fecha
+nada** — o item fica aberto até o botão VENDIDO. A mesa mostra `Lote.parado_ha` (há quanto tempo a sala
+está calada, contando para **cima**), que é o que diz a hora do "dou-lhe uma, dou-lhe duas".
+
+**A tela do público esconde o que muda o jogo:** a **fila** (quantos faltam e quais são) e o
+**histórico de lances** saíram do broadcast — quem descobre que falta pouco segura o dinheiro. Vai só a
+`proxima_foto`, para a troca de item ser instantânea. A mesa recebe fila e histórico por
+`/locutor/dados/`, autenticado. No intervalo, em vez de "faltam N", a **festa** com o nome de quem
+arrematou (`ultimo_vendido`). E a tela do público **não fala "pregão" nem "locutor"** — é jargão da
+equipe.
+
+**Som, música e reações:** a **porta do som** (tela de entrada com um toque) existe porque o navegador
+proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada lance
+nunca tocava. A **música de fundo** é do locutor, para todos junto (liga/desliga/volume, evento
+`musica`); sem arquivo toca uma base **sintetizada em WebAudio** (zero download, zero licença). As
+**reações em emoji** sobem na tela de todo mundo e são **agregadas** (`leilao/reacoes.py` + laço
+próprio de 0,5 s, **sem banco**): 50 pessoas martelando viram um resumo por meio segundo, não milhares
+de mensagens.
+
+**Chat:** fica na tela principal do locutor, ao vivo. Cada intervalo abre uma **conversa nova** para os
+participantes (`chat_aberto_em`); o locutor vê o fio inteiro da noite.
+
+**Caixa — "vai pagar depois"** (`Arremate.status="combinado"`): a pessoa foi contatada e combinou pagar
+depois, então o item **não volta para a fila** e um **Pix novo de 24 h** é gerado (o original vale 15
+minutos e já venceu). Continua fora da entrega — só se entrega o que foi **pago**.
 
 **Trava de auto-lance:** ninguém cobre o próprio lance, e a comparação é pela **pessoa**
 (`telefone_normalizado`), não pelo registro — a mesma pessoa aberta no celular e no computador vira

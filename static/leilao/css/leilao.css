@@ -763,3 +763,201 @@ body.tela-palco {
     }
     .confete { display: none; }
 }
+
+/* =========================================================
+   9. Porta do som
+   O navegador proíbe tocar áudio sem um gesto. Em vez de um ícone pequeno no
+   canto (que na prática ninguém achou), esta é a primeira coisa da tela.
+   ========================================================= */
+.porta-som {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    background:
+        radial-gradient(900px 500px at 50% 30%, rgba(23, 105, 170, 0.55), transparent 70%),
+        rgba(4, 15, 26, 0.97);
+    backdrop-filter: blur(6px);
+}
+.porta-som[hidden] { display: none !important; }
+
+.porta-som-caixa { max-width: 30ch; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.porta-som-icone { font-size: 3.6rem; animation: pulso 1.8s infinite; }
+.porta-som h1 { font-size: 1.4rem; line-height: 1.25; }
+.porta-som p { color: var(--palco-suave); font-size: 0.93rem; line-height: 1.5; }
+
+.btn-porta-som {
+    width: 100%;
+    margin-top: 6px;
+    padding: 16px 22px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    font-family: inherit;
+    color: var(--branco);
+    background: linear-gradient(135deg, var(--verde), var(--azul));
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 14px 30px rgba(58, 157, 58, 0.4);
+    cursor: pointer;
+}
+.btn-porta-som:active { transform: scale(0.97); }
+
+.btn-porta-mudo {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--palco-suave);
+    background: transparent;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* =========================================================
+   10. Reações (emojis que sobem)
+   ========================================================= */
+.reacoes-trilho {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 120px;
+    height: 70dvh;
+    z-index: 70;
+    /* NUNCA rouba o toque: o botão de lance está atrás e não pode falhar. */
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.reacao-flutua {
+    position: absolute;
+    bottom: 0;
+    right: 46px;
+    font-size: 1.7rem;
+    will-change: transform, opacity;
+    animation-name: sobe-reacao;
+    animation-timing-function: cubic-bezier(0.3, 0.7, 0.5, 1);
+    animation-fill-mode: forwards;
+}
+
+@keyframes sobe-reacao {
+    0%   { transform: translate(var(--saida), 0) scale(0.4); opacity: 0; }
+    12%  { transform: translate(var(--saida), -8vh) scale(var(--escala)); opacity: 1; }
+    100% {
+        transform: translate(calc(var(--saida) + var(--desvio)), -68dvh)
+                   scale(var(--escala)) rotate(var(--giro));
+        opacity: 0;
+    }
+}
+
+.reacoes-botoes {
+    position: fixed;
+    right: 8px;
+    bottom: calc(76px + var(--piso));
+    z-index: 75;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.reacoes-botoes[hidden] { display: none !important; }
+
+.btn-reacao {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+    line-height: 1;
+    background: rgba(7, 26, 44, 0.72);
+    border: 1px solid var(--palco-borda);
+    border-radius: 50%;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: transform 0.12s ease, background var(--transicao);
+}
+.btn-reacao:hover { background: rgba(255, 255, 255, 0.14); }
+.btn-reacao:active { transform: scale(1.25); }
+
+/* =========================================================
+   11. Festa do intervalo
+   ========================================================= */
+.festa[hidden], .intervalo-simples[hidden] { display: none !important; }
+
+.festa {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+}
+.festa.entrando { animation: festa-entra 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+
+.festa-faixa {
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    color: var(--ouro);
+    animation: balanca 1.6s ease-in-out infinite;
+}
+.festa-foto {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 18px;
+    border: 3px solid var(--ouro);
+    box-shadow: 0 0 40px rgba(255, 209, 102, 0.35);
+}
+.festa-item { font-size: 1rem; color: var(--palco-suave); overflow-wrap: anywhere; }
+
+.festa-nome {
+    font-size: 2.1rem;
+    font-weight: 900;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+    background: linear-gradient(100deg, var(--ouro), var(--verde-claro), var(--azul-claro), var(--ouro));
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: brilha 3s linear infinite, pula 1.4s ease-in-out infinite;
+}
+
+.festa-valor {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: var(--ouro);
+    font-variant-numeric: tabular-nums;
+}
+.festa-parabens { font-size: 1.05rem; font-weight: 700; color: var(--verde-claro); }
+
+.intervalo-simples { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+@keyframes festa-entra {
+    from { opacity: 0; transform: scale(0.7) translateY(24px); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes brilha { to { background-position: 300% 0; } }
+@keyframes pula {
+    0%, 100% { transform: translateY(0) rotate(-1deg); }
+    50%      { transform: translateY(-10px) rotate(1deg); }
+}
+@keyframes balanca {
+    0%, 100% { transform: rotate(-3deg) scale(1); }
+    50%      { transform: rotate(3deg) scale(1.06); }
+}
+
+/* Sem cronômetro, o bloco do líder ocupa a largura toda. */
+.pregao { justify-content: center; }
+.lider { text-align: center; align-items: center; }
+.lider-valor { font-size: 2.6rem; }
+
+@media (min-width: 620px) {
+    .lider-valor { font-size: 3.2rem; }
+    .festa-nome { font-size: 2.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .festa-nome, .festa-faixa, .porta-som-icone { animation: none; }
+    .reacoes-trilho { display: none; }
+}

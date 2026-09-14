@@ -23,6 +23,7 @@ urlpatterns = [
     path("stream/", views.stream_view, name="stream"),
     path("lance/", views.lance_view, name="lance"),
     path("chat/enviar/", views.chat_enviar_view, name="chat_enviar"),
+    path("reagir/", views.reagir_view, name="reagir"),
     path("meus-arremates/", views.meus_arremates_view, name="meus_arremates"),
     path("arremate/<int:pk>/pix/", views.arremate_pix_view, name="arremate_pix"),
     path("arremate/<int:pk>/conferir/", views.arremate_conferir_view, name="arremate_conferir"),

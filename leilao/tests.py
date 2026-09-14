@@ -36,6 +36,7 @@ from django.test import Client, TestCase, TransactionTestCase  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
 from . import estado as est
+from . import reacoes
 from . import servicos
 from .models import Arremate, ConfigLeilao, Lance, Leilao, Lote, PagamentoLeilao, Participante
 from .sessao import CHAVE_SESSAO
@@ -145,7 +146,11 @@ class LanceTests(TestCase):
         ok, _, _ = servicos.dar_lance(self.lote.id, self.bruno, valor_visto="40.00")
         self.assertTrue(ok)
 
-    def test_lance_reinicia_o_cronometro(self):
+    def test_lance_reinicia_o_cronometro_quando_ele_existe(self):
+        # So ha cronometro no modo de fechar sozinho - que nao e o padrao.
+        self.leilao.fechamento_automatico = True
+        self.leilao.save()
+        self.lote.refresh_from_db()
         self.lote.fecha_em = timezone.now() + timedelta(seconds=5)
         self.lote.save(update_fields=["fecha_em"])
         servicos.dar_lance(self.lote.id, self.ana)
@@ -171,7 +176,8 @@ class LanceTests(TestCase):
         self.lote.refresh_from_db()
         ok, msg, _ = servicos.dar_lance(self.lote.id, self.ana)
         self.assertFalse(ok)
-        self.assertIn("pausou", msg)
+        # O texto que a PESSOA lê não usa jargão da equipe ("locutor", "pregão").
+        self.assertIn("pausados", msg)
 
     def test_desfazer_lance_volta_o_lider_anterior(self):
         servicos.dar_lance(self.lote.id, self.ana)     # 40
@@ -274,7 +280,9 @@ class FechamentoTests(TestCase):
         self.assertIsNone(servicos.fechar_lote(self.lote))
         self.assertEqual(Arremate.objects.count(), 1)
 
-    def test_cronometro_vencido_fecha_no_laco_central(self):
+    def test_cronometro_vencido_fecha_so_no_modo_automatico(self):
+        self.leilao.fechamento_automatico = True
+        self.leilao.save()
         servicos.dar_lance(self.lote.id, self.ana)
         Lote.objects.filter(pk=self.lote.pk).update(
             fecha_em=timezone.now() - timedelta(seconds=1)
@@ -1003,10 +1011,10 @@ class RodadaTests(TestCase):
         servicos.abrir_lote(self.lote)
         self.lote.refresh_from_db()
 
-    def test_lances_da_rodada_anterior_nao_aparecem(self):
-        dados = est.estado_publico(Leilao.ao_vivo())
-        self.assertEqual(dados["ultimos_lances"], [])
-        self.assertEqual(Lance.objects.filter(lote=self.lote).count(), 1)  # o antigo continua no banco
+    def test_lances_da_rodada_anterior_nao_contam_na_rodada_nova(self):
+        self.assertEqual(self.lote.lances_da_rodada().count(), 0)
+        # O lance antigo continua no banco: historico nao se apaga.
+        self.assertEqual(Lance.objects.filter(lote=self.lote).count(), 1)
 
     def test_desfazer_nao_ressuscita_lider_da_rodada_anulada(self):
         ok, msg = servicos.desfazer_ultimo_lance(self.lote)
@@ -1095,7 +1103,7 @@ class SemMercadoPagoTests(TestCase):
         corpo = r.json()
         self.assertFalse(corpo["ok"])
         self.assertFalse(corpo["gerando"])
-        self.assertIn("locutor", corpo["msg"])
+        self.assertIn("organização", corpo["msg"])
 
     def test_com_credencial_a_lista_libera_o_pix(self):
         cfg = ConfigLeilao.get_solo()
@@ -1134,6 +1142,8 @@ class ReinicioDoServicoTests(TestCase):
         self.assertEqual(de_novo.lider_id, self.ana.id)
 
     def test_reinicio_demorado_fecha_o_lote_na_primeira_volta(self):
+        self.leilao.fechamento_automatico = True
+        self.leilao.save()
         Lote.objects.filter(pk=self.lote.pk).update(
             fecha_em=timezone.now() - timedelta(seconds=30)
         )
@@ -1328,3 +1338,436 @@ class BloqueioSegueAPessoaTests(TestCase):
         servicos.bloquear_pessoa(alvo, True)
         outra = Participante.objects.get(whatsapp="11900000008")
         self.assertFalse(outra.bloqueado)
+
+
+class QuemBateOMarteloTests(TestCase):
+    """Por padrão o tempo NÃO fecha nada — quem bate o martelo é o locutor.
+
+    É assim que um leilão de verdade funciona: o "dou-lhe uma, dou-lhe duas" é
+    do leiloeiro. Fechar sozinho tiraria dele o momento que mais importa.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.ana = criar_pessoa("Ana Fictícia")
+
+    def test_o_padrao_e_fechamento_manual(self):
+        self.assertFalse(self.leilao.fechamento_automatico)
+
+    def test_lote_aberto_nasce_sem_cronometro(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        self.assertIsNone(self.lote.fecha_em)
+
+    def test_o_tempo_passa_e_o_lote_continua_aberto(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        # Uma hora depois da abertura, e nada de martelo.
+        Lote.objects.filter(pk=self.lote.pk).update(
+            aberto_em=timezone.now() - timedelta(hours=1)
+        )
+        servicos.verificar_prazos()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "aberto")
+        self.assertEqual(Arremate.objects.count(), 0)
+
+    def test_o_locutor_fecha_pelo_botao(self):
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        self.lote.refresh_from_db()
+        arremate = servicos.fechar_lote(self.lote, motivo="locutor")
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "vendido")
+        self.assertIsNotNone(arremate)
+
+    def test_parado_ha_conta_para_cima(self):
+        """O que ajuda o locutor a decidir é há quanto tempo a sala está calada."""
+        servicos.abrir_lote(self.lote)
+        Lote.objects.filter(pk=self.lote.pk).update(
+            aberto_em=timezone.now() - timedelta(seconds=40)
+        )
+        self.lote.refresh_from_db()
+        self.assertGreaterEqual(self.lote.parado_ha, 39)
+
+        servicos.dar_lance(self.lote.id, self.ana)
+        self.lote.refresh_from_db()
+        self.assertLess(self.lote.parado_ha, 5)   # o lance zerou o silêncio
+
+
+class TelaDoParticipanteEscondeTests(TestCase):
+    """O que a tela do participante NÃO pode contar.
+
+    Saber o que vem pela frente muda como a pessoa dá lance: quem descobre que
+    falta pouco segura o dinheiro, quem vê 20 itens economiza no primeiro. O
+    suspense é do leilão.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao, nome="Item em pregao", ordem=1)
+        criar_lote(self.leilao, nome="Segredo de dezembro", ordem=2)
+        criar_lote(self.leilao, nome="Outro segredo", ordem=3)
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+
+    def test_nao_diz_quantos_faltam_nem_quais_sao(self):
+        dados = est.estado_publico(Leilao.ao_vivo())
+        bruto = str(dados)
+        self.assertNotIn("restam_na_fila", dados)
+        self.assertNotIn("fila", dados)
+        self.assertNotIn("Segredo de dezembro", bruto)
+        self.assertNotIn("Outro segredo", bruto)
+
+    def test_nao_lista_o_historico_de_lances(self):
+        ana = criar_pessoa("Ana Fictícia")
+        servicos.dar_lance(self.lote.id, ana)
+        dados = est.estado_publico(Leilao.ao_vivo())
+        self.assertNotIn("ultimos_lances", dados)
+
+    def test_manda_so_a_foto_do_proximo_para_precarregar(self):
+        dados = est.estado_publico(Leilao.ao_vivo())
+        self.assertIn("proxima_foto", dados)      # a URL, para a troca ser instantânea
+        self.assertNotIn("Segredo", str(dados))   # mas não o nome
+
+    def test_a_mesa_do_locutor_ve_a_fila_inteira(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_fila", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_fila", password="segredo-ficticio")
+
+        d = c.get("/locutor/dados/").json()
+        nomes = [x["nome"] for x in d["fila"]]
+        self.assertIn("Segredo de dezembro", nomes)
+        self.assertEqual(d["restam_na_fila"], 2)
+
+
+class ChatPorRodadaTests(TestCase):
+    """Cada intervalo é uma conversa NOVA para quem participa."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao(chat_segundos=120)
+        self.ana = criar_pessoa("Ana Fictícia")
+
+    def test_intervalo_novo_abre_o_chat_limpo(self):
+        servicos.abrir_chat(self.leilao, 120)
+        self.leilao.refresh_from_db()
+        servicos.enviar_mensagem(self.leilao, self.ana, "oi do primeiro intervalo")
+        dados = est.estado_publico(self.leilao)
+        self.assertEqual(len(dados["chat"]["mensagens"]), 1)
+
+        # Segundo intervalo: a conversa recomeça.
+        servicos.abrir_chat(self.leilao, 120)
+        self.leilao.refresh_from_db()
+        dados = est.estado_publico(self.leilao)
+        self.assertEqual(dados["chat"]["mensagens"], [])
+
+    def test_o_locutor_continua_vendo_tudo(self):
+        servicos.abrir_chat(self.leilao, 120)
+        self.leilao.refresh_from_db()
+        servicos.enviar_mensagem(self.leilao, self.ana, "primeira rodada")
+        servicos.abrir_chat(self.leilao, 120)
+        self.leilao.refresh_from_db()
+        servicos.enviar_mensagem(self.leilao, self.ana, "segunda rodada")
+
+        User = get_user_model()
+        u = User.objects.create_user("loc_chat", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_chat", password="segredo-ficticio")
+
+        textos = [m["texto"] for m in c.get("/locutor/dados/").json()["chat"]]
+        self.assertIn("primeira rodada", textos)
+        self.assertIn("segunda rodada", textos)
+
+
+class ReacoesTests(TestCase):
+    """Emojis: o que segura isto em pé é a AGREGAÇÃO."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        reacoes.limpar()
+        self.leilao = criar_leilao()
+        self.c = Client()
+        self.c.post("/entrar/", {
+            "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0077",
+            "cep": "01001-000", "logradouro": "Rua Exemplo", "numero": "10",
+            "bairro": "Centro", "cidade": "Cidade Exemplo", "estado": "SP",
+        })
+
+    def test_cem_toques_viram_um_resumo(self):
+        """É isto que impede 50 pessoas martelando emoji de derrubar o pregão."""
+        for _ in range(100):
+            reacoes.registrar("❤️")
+        resumo = reacoes.drenar()
+        self.assertEqual(len(resumo), 1)
+        self.assertEqual(reacoes.drenar(), {})   # drenar esvazia
+
+    def test_o_despejo_tem_teto(self):
+        for _ in range(500):
+            reacoes.registrar("🔥")
+        self.assertLessEqual(reacoes.drenar()["🔥"], reacoes.TETO_POR_DESPEJO)
+
+    def test_emoji_de_fora_da_lista_e_recusado(self):
+        self.assertFalse(reacoes.registrar("💣"))
+        self.assertEqual(reacoes.drenar(), {})
+
+    def test_reagir_pela_view(self):
+        r = self.c.post(
+            "/reagir/", data=json.dumps({"emoji": "👏", "quantos": 3}),
+            content_type="application/json",
+        )
+        self.assertTrue(r.json()["ok"])
+        self.assertEqual(reacoes.drenar(), {"👏": 3})
+
+    def test_sem_entrar_nao_reage(self):
+        r = Client().post(
+            "/reagir/", data=json.dumps({"emoji": "👏"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 401)
+
+    def test_bloqueado_nao_reage(self):
+        Participante.objects.filter(whatsapp="11900000077").update(bloqueado=True)
+        r = self.c.post(
+            "/reagir/", data=json.dumps({"emoji": "👏"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+
+class MusicaTests(TestCase):
+    """A música é do locutor — para todo mundo junto, não por aparelho."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+
+    def test_nasce_desligada_e_baixinha(self):
+        self.assertFalse(self.leilao.musica_ligada)
+        self.assertLessEqual(self.leilao.musica_volume, 30)
+
+    def test_ligar_e_ajustar(self):
+        servicos.ajustar_musica(self.leilao, ligada=True, volume=25)
+        self.leilao.refresh_from_db()
+        self.assertTrue(self.leilao.musica_ligada)
+        self.assertEqual(self.leilao.musica_volume, 25)
+
+    def test_volume_fica_no_intervalo(self):
+        servicos.ajustar_musica(self.leilao, volume=999)
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.leilao.musica_volume, 100)
+
+    def test_vai_no_estado_para_todos(self):
+        servicos.ajustar_musica(self.leilao, ligada=True, volume=20)
+        self.leilao.refresh_from_db()
+        dados = est.estado_publico(self.leilao)
+        self.assertEqual(dados["musica"], {"ligada": True, "volume": 20})
+
+    def test_so_o_locutor_mexe(self):
+        User = get_user_model()
+        u = User.objects.create_user("cx_musica", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="cx_musica", password="segredo-ficticio")
+        r = c.post(
+            "/equipe/acao/", data=json.dumps({"acao": "musica", "ligada": True}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+
+class FestaDoIntervaloTests(TestCase):
+    """O intervalo não diz quantos faltam — comemora quem acabou de arrematar."""
+
+    def test_o_intervalo_comemora_quem_arrematou(self):
+        servicos.limpar_limites()
+        leilao = criar_leilao()
+        lote = criar_lote(leilao, nome="Cesta fictícia")
+        ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, ana)
+        lote.refresh_from_db()
+        servicos.fechar_lote(lote, motivo="locutor")
+
+        v = est.estado_publico(Leilao.ao_vivo())["ultimo_vendido"]
+        self.assertEqual(v["item"], "Cesta fictícia")
+        self.assertEqual(v["vencedor"], "Ana Fictícia")
+        self.assertEqual(v["valor"], "40.00")
+
+    def test_sem_venda_nao_ha_festa(self):
+        leilao = criar_leilao()
+        criar_lote(leilao)
+        self.assertIsNone(est.estado_publico(leilao)["ultimo_vendido"])
+
+
+class PagarDepoisTests(TestCase):
+    """"Falei com a pessoa, ela paga depois."
+
+    Sem este estado, quem combinou de pagar amanhã perdia o item para o relógio
+    dos 15 minutos — o oposto do que o caixa acabou de acertar.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.ana = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.ana)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote, motivo="locutor")
+
+        User = get_user_model()
+        u = User.objects.create_user("caixa_pd", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="caixa_pd", password="segredo-ficticio")
+
+    def test_combinado_NAO_devolve_o_item_para_a_fila(self):
+        servicos.marcar_combinado(self.arremate, observacao="Paga amanhã de manhã")
+        # Mesmo muito depois do prazo original.
+        Arremate.objects.filter(pk=self.arremate.pk).update(
+            expira_em=timezone.now() - timedelta(hours=5)
+        )
+        servicos.verificar_prazos()
+
+        self.arremate.refresh_from_db()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.arremate.status, "combinado")
+        self.assertEqual(self.lote.status, "vendido")
+        self.assertEqual(self.lote.voltas, 0)
+
+    def test_guarda_o_que_foi_combinado_e_quem_falou(self):
+        User = get_user_model()
+        quem = User.objects.get(username="caixa_pd")
+        servicos.marcar_combinado(self.arremate, quem, "Vai passar no clube sábado")
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.observacao, "Vai passar no clube sábado")
+        self.assertEqual(self.arremate.combinado_por, quem)
+        self.assertIsNotNone(self.arremate.combinado_em)
+
+    def test_depois_de_combinado_ainda_da_para_marcar_pago(self):
+        servicos.marcar_combinado(self.arremate)
+        self.arremate.refresh_from_db()
+        servicos.marcar_pago(self.arremate, manual=True)
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "pago")
+
+    def test_combinado_NAO_entra_na_entrega(self):
+        """Entrega é só do que foi PAGO — combinado ainda não é pago."""
+        servicos.marcar_combinado(self.arremate)
+        self.arremate.refresh_from_db()
+        self.assertFalse(self.arremate.a_entregar)
+        self.assertTrue(self.arremate.em_aberto)
+
+    def test_quem_ja_pagou_nao_vira_combinado(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        self.arremate.refresh_from_db()
+        servicos.marcar_combinado(self.arremate)
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "pago")
+
+    def test_pela_tela_do_caixa(self):
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({
+                "acao": "combinado",
+                "arremate": self.arremate.id,
+                "observacao": "Paga na segunda",
+            }),
+            content_type="application/json",
+        )
+        self.assertTrue(r.json()["ok"])
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "combinado")
+        self.assertEqual(self.arremate.observacao, "Paga na segunda")
+
+    def test_o_locutor_nao_combina_pagamento(self):
+        """Combinar pagamento é mexer em dinheiro: é do caixa."""
+        User = get_user_model()
+        u = User.objects.create_user("loc_pd", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="loc_pd", password="segredo-ficticio")
+        r = c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "combinado", "arremate": self.arremate.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+    def test_entra_no_a_receber_do_caixa(self):
+        servicos.marcar_combinado(self.arremate)
+        r = self.c.get("/caixa/")
+        self.assertEqual(r.context["resumo"]["combinados"], 1)
+        self.assertEqual(r.context["resumo"]["a_receber"], self.arremate.valor)
+
+
+class ColocarNoArAvisaTests(TestCase):
+    """A tela diz "assim que iniciarmos, isto acende sozinho" — e tem de acender.
+
+    Antes, colocar o leilão no ar não publicava evento nenhum: quem estava com o
+    celular na mão desde antes continuava vendo a tela de espera até alguém
+    abrir o primeiro item.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao(status="rascunho")
+        criar_lote(self.leilao)
+
+    def test_colocar_no_ar_publica_o_estado(self):
+        publicados = []
+        original = servicos.HUB.publicar
+        servicos.HUB.publicar = lambda tipo, dados=None: publicados.append(tipo)
+        try:
+            servicos.mudar_status(self.leilao, "ao_vivo")
+        finally:
+            servicos.HUB.publicar = original
+
+        self.assertIn("estado", publicados)
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.leilao.status, "ao_vivo")
+
+    def test_tirar_do_ar_tambem_avisa(self):
+        servicos.mudar_status(self.leilao, "ao_vivo")
+        publicados = []
+        original = servicos.HUB.publicar
+        servicos.HUB.publicar = lambda tipo, dados=None: publicados.append(tipo)
+        try:
+            servicos.mudar_status(self.leilao, "encerrado")
+        finally:
+            servicos.HUB.publicar = original
+        self.assertIn("estado", publicados)
+
+    def test_colocar_um_no_ar_encerra_o_outro(self):
+        servicos.mudar_status(self.leilao, "ao_vivo")
+        outro = criar_leilao(nome="Outro leilão", status="rascunho")
+        servicos.mudar_status(outro, "ao_vivo")
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.leilao.status, "encerrado")
+        self.assertEqual(Leilao.objects.filter(status="ao_vivo").count(), 1)

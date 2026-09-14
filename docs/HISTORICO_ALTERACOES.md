@@ -22,6 +22,78 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-13 - Leilão: o martelo é do locutor, a tela do público vira show
+
+### Resumo
+Rodada grande de ajustes vinda de ver o sistema com olhos de evento, não de
+código: o cronômetro saiu, o público parou de ver o que não devia, entraram
+música, reações e a festa do intervalo — e o caixa ganhou o "vai pagar depois".
+
+### O que mudou
+
+**Quem bate o martelo é o locutor.** O tempo não fecha mais nada
+(`Leilao.fechamento_automatico`, **desligado por padrão**). O item fica aberto
+até o botão VENDIDO. Em troca, a mesa mostra **há quanto tempo a sala está
+calada** (`Lote.parado_ha`, contando para CIMA) — é isso que diz a hora do
+"dou-lhe uma, dou-lhe duas", não um relógio.
+
+**A tela do público esconde o que muda o jogo.** Saíram do broadcast: a fila
+(quantos faltam e quais são) e o histórico de lances. Quem descobre que falta
+pouco segura o dinheiro; quem vê 20 itens economiza no primeiro. Vai só a
+**foto** do próximo, para a troca de item ser instantânea. A mesa recebe fila e
+histórico por caminho **próprio e autenticado** (`/locutor/dados/`).
+
+**Porta do som.** O navegador proíbe tocar áudio sem gesto, e o botão 🔇 no canto
+não era achado — era por isso que o sinal sonoro de cada lance nunca tocava. Virou
+uma **tela de entrada**: um toque liga narração, música e efeitos.
+
+**Música de fundo**, controlada ao vivo pelo locutor para todos junto (liga,
+desliga, volume). Sem arquivo, toca uma **base ambiente sintetizada em WebAudio**
+— zero download, zero arquivo no repositório e nenhuma questão de direito
+autoral. Com arquivo (`ConfigLeilao.musica`), toca o que o clube subir.
+
+**Reações em emoji.** Sobem na tela de todo mundo. O que segura isto em pé é a
+**agregação**: os toques caem num contador em memória e saem num resumo a cada
+meio segundo. Sem isso, 50 pessoas martelando emoji dariam dezenas de milhares de
+mensagens por segundo e o pregão morreria junto.
+
+**Festa no intervalo.** No lugar de "faltam N itens", o nome de quem acabou de
+arrematar, grande e se mexendo, com confete.
+
+**Chat**: agora fica na tela principal do locutor, ao vivo, ao lado do histórico
+de lances (a aba sumiu). E cada intervalo abre uma **conversa nova** para os
+participantes (`Leilao.chat_aberto_em`) — o locutor continua vendo o fio inteiro.
+
+**Caixa: "📞 Vai pagar depois"** (`Arremate.status="combinado"`). A pessoa foi
+contatada e combinou pagar depois: o item **não volta para a fila**, e um **Pix
+novo de 24 h** é gerado — o original tinha validade de 15 minutos e já estava
+vencido.
+
+### Bug corrigido
+**Colocar o leilão no ar não avisava ninguém.** A tela dizia "assim que
+iniciarmos, isto acende sozinho" e mentia: só acordava quando o primeiro item
+abria. `servicos.mudar_status` agora publica o estado — e tirar do ar também.
+
+### Linguagem
+A tela do público não fala mais "pregão" nem "locutor" — é jargão da equipe.
+"O leilão ainda não começou", "Assim que iniciarmos…", "Estamos preparando o
+próximo item…", "Combine o pagamento com a organização".
+
+### Arquivos
+- Models: `fechamento_automatico`, `musica_ligada`/`musica_volume`,
+  `chat_aberto_em`, `ConfigLeilao.musica`, `Arremate.combinado_*`, `parado_ha`,
+  `em_aberto`. Migrations **0003**, **0004**, **0005**.
+- `leilao/reacoes.py` **novo**; `hub.laco_reacoes` (laço próprio de 0,5 s, **sem
+  banco**); `servicos.mudar_status`/`ajustar_musica`/`marcar_combinado`.
+- `static/leilao/js/reacoes.js` **novo**; música dentro do `som.js`;
+  `leilao.js` e `locutor.js` reescritos em boa parte.
+- Testes: **137 OK** (+35 nesta rodada).
+
+### Pendências
+- Nenhuma nova. Continuam: Pix real de R$ 1, ensaio do áudio, senha do locutor.
+
+---
+
 ## 2026-09-13 - Leilão: a trava de auto-lance passa a valer por PESSOA
 
 ### Resumo

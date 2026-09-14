@@ -88,6 +88,18 @@ class ConfigLeilao(models.Model):
         help_text="Preenchido só se o áudio próprio for descartado. A tela passa a apontar para cá.",
     )
 
+    # --- Música de fundo ---
+    # Sem arquivo, a tela toca uma base ambiente SINTETIZADA (WebAudio): zero
+    # download, zero arquivo no repositório e nenhuma questão de direito autoral.
+    # Com arquivo, toca o que o clube subir — e aí a licença é de quem sobe.
+    musica = models.FileField(
+        "Música de fundo (opcional)", upload_to="musica/", blank=True,
+        help_text=(
+            "MP3/OGG que o clube tenha direito de usar. Sem arquivo, a tela toca "
+            "uma base ambiente gerada no próprio navegador."
+        ),
+    )
+
     atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
     atualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -178,11 +190,33 @@ class Leilao(models.Model):
         "Prazo para pagar (minutos)", default=15,
         help_text="Passou disso sem pagar, o lote volta para a fila.",
     )
+    fechamento_automatico = models.BooleanField(
+        "Fechar o lote sozinho quando o tempo acabar", default=False,
+        help_text=(
+            "Desligado (padrão): o cronômetro chega a zero e ESPERA — quem bate o "
+            "martelo é o locutor, pelo botão VENDIDO. É assim que um leilão de "
+            "verdade funciona: o 'dou-lhe uma, dou-lhe duas' é do leiloeiro."
+        ),
+    )
+
+    # --- Música de fundo (controlada ao vivo pelo locutor) ---
+    musica_ligada = models.BooleanField("Música de fundo tocando", default=False)
+    musica_volume = models.PositiveSmallIntegerField(
+        "Volume da música (%)", default=18,
+        help_text="Baixinho de propósito: é fundo, não show. O locutor ajusta ao vivo.",
+    )
 
     # --- Chat entre um lote e outro ---
     chat_segundos = models.PositiveIntegerField(
         "Duração do chat entre lotes (segundos)", default=120,
         help_text="Quanto tempo o chat fica aberto no intervalo. 0 = não abre sozinho.",
+    )
+    chat_aberto_em = models.DateTimeField(
+        "Chat aberto em", null=True, blank=True,
+        help_text=(
+            "Marco da rodada atual do chat. Cada intervalo é uma conversa NOVA "
+            "para quem participa — abre limpa. O locutor continua vendo tudo."
+        ),
     )
     chat_aberto_ate = models.DateTimeField("Chat aberto até", null=True, blank=True)
 
@@ -402,6 +436,22 @@ class Lote(models.Model):
     def pausado(self):
         return self.status == "aberto" and self.pausado_restante is not None
 
+    @property
+    def parado_ha(self):
+        """Segundos desde o último lance (ou desde a abertura, se não houve).
+
+        Conta para **cima**, não para baixo: sem fechamento automático não existe
+        prazo, e o que o locutor precisa saber é *há quanto tempo a sala está
+        calada* — é isso que diz a hora de bater o martelo.
+        """
+        if self.status != "aberto" or not self.aberto_em:
+            return 0
+        ultimo = (
+            self.lances_da_rodada().order_by("-criado_em").values_list("criado_em", flat=True).first()
+        )
+        base = ultimo or self.aberto_em
+        return max(0, int((timezone.now() - base).total_seconds()))
+
     def lances_da_rodada(self):
         """Os lances **desta** vez que o item foi a pregão.
 
@@ -524,6 +574,11 @@ class Arremate(models.Model):
 
     STATUS_CHOICES = [
         ("aguardando", "Aguardando pagamento"),
+        # A pessoa foi contatada e combinou pagar depois. NÃO vence, então o
+        # item não volta para a fila — mas também não está pago, então não vai
+        # para a entrega. Sem este estado, quem combinou de pagar amanhã perdia
+        # o item para o relógio.
+        ("combinado", "Combinado — vai pagar depois"),
         ("pago", "Pago"),
         ("expirado", "Não pago (venceu o prazo)"),
         ("cancelado", "Cancelado"),
@@ -544,7 +599,15 @@ class Arremate(models.Model):
         "Baixa manual", default=False,
         help_text="Marcado pelo caixa (pagou em dinheiro, transferência, etc.).",
     )
-    observacao = models.CharField("Observação", max_length=200, blank=True)
+    observacao = models.CharField(
+        "Observação", max_length=200, blank=True,
+        help_text="O que foi combinado com a pessoa sobre o pagamento.",
+    )
+    combinado_em = models.DateTimeField("Combinado em", null=True, blank=True)
+    combinado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="acertos_leilao", verbose_name="Quem falou com a pessoa",
+    )
 
     # --- Entrega ---
     # O item é entregue **depois**, na casa da pessoa (decisão do clube), por
@@ -577,6 +640,11 @@ class Arremate(models.Model):
     @property
     def aguardando(self):
         return self.status == "aguardando"
+
+    @property
+    def em_aberto(self):
+        """Devendo: ou o relógio está correndo, ou ficou combinado para depois."""
+        return self.status in {"aguardando", "combinado"}
 
     @property
     def entregue(self):

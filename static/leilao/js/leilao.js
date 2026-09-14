@@ -4,14 +4,15 @@
  * Recebe os eventos do pregão por SSE (`EventSource`) e redesenha. Decisões que
  * explicam o arquivo inteiro:
  *
- * 1. **O relógio é do servidor.** Cada estado traz `servidor_em`; daí sai um
- *    `offset` que é somado ao relógio do aparelho. Celular com a hora errada
- *    (tem muitos) vê o mesmo cronômetro que todo mundo.
- * 2. **O toque responde na hora** (otimista): o botão pinta o novo valor antes
+ * 1. **O toque responde na hora** (otimista): o botão pinta o novo valor antes
  *    da resposta do servidor, e o evento que volta corrige. A verdade continua
  *    sendo a do servidor — a tela só não fica parada esperando a rede.
- * 3. **Reconexão não tem lógica de replay.** O `EventSource` reconecta sozinho
+ * 2. **Reconexão não tem lógica de replay.** O `EventSource` reconecta sozinho
  *    e o servidor manda o estado INTEIRO; quem volta está sempre correto.
+ * 3. **A tela do participante mostra POUCO de propósito**: o item, quem está
+ *    ganhando, o valor e o botão. Sem cronômetro (quem fecha é o locutor), sem
+ *    histórico de lances e sem quantos itens faltam — saber o que vem pela
+ *    frente muda como a pessoa dá lance, e o suspense é do leilão.
  */
 (function () {
     "use strict";
@@ -26,6 +27,7 @@
     var EU = parseInt(dados.dataset.eu, 10) || null;
     var EU_CHAVE = dados.dataset.euChave || "";
     var AUDIO_URL = dados.dataset.audio || "";
+    var MUSICA_URL = dados.dataset.musica || "";
 
     var estado = JSON.parse($("estadoInicial").textContent || "{}");
     var offset = 0;            // relógio do servidor − relógio daqui
@@ -34,14 +36,13 @@
     var valorMostrado = null;
     var liderMostrado = "-";
     // "Já liderei este item alguma vez" — é o que distingue *perder a liderança*
-    // de *nunca ter dado lance*. Sem isso, quem só está assistindo veria a tela
-    // vermelha de "te superaram".
+    // de *nunca ter dado lance*. Sem isso, quem só assiste veria "te superaram".
     var euJaLiderei = false;
-    var ultimoSegundo = null;
     var somLigado = false;
     var gavetaAberta = false;
     var arremateAberto = null;
     var codigoPix = "";
+    var pixPossivel = true;
 
     /* ---------------------------------------------------------------
        Utilidades
@@ -126,6 +127,7 @@
         $("palcoVazio").hidden = !!temLeilao;
         $("palcoPregao").hidden = !lote;
         $("palcoIntervalo").hidden = !(temLeilao && !lote);
+        $("reacoesBotoes").hidden = !temLeilao;
 
         var selo = $("seloVivo");
         if (selo) selo.classList.toggle("parado", !lote);
@@ -134,30 +136,61 @@
             $("online").textContent = estado.online;
         }
 
-        if (temLeilao && !lote) {
-            var restam = estado.restam_na_fila || 0;
-            $("intervaloTexto").textContent = restam
-                ? "Preparando o próximo item… faltam " + restam + " na fila."
-                : "O locutor está organizando o próximo item.";
-        }
-
         if (lote) desenharLote(lote);
+        if (temLeilao && !lote) desenharFesta();
         desenharChat();
         desenharBarra();
         precarregarProxima();
-        tick();
+        aplicarMusica();
+    }
+
+    var festaMostrada = null;
+
+    /* A festa do intervalo: o nome de quem acabou de arrematar, grande e se
+       mexendo. Sem isso o intervalo é uma tela morta — e o intervalo é
+       justamente quando a sala conversa e se anima para o próximo item. */
+    function desenharFesta() {
+        var v = estado && estado.ultimo_vendido;
+        var festa = $("festa");
+        var simples = $("intervaloSimples");
+        if (!v) {
+            festa.hidden = true;
+            simples.hidden = false;
+            return;
+        }
+        festa.hidden = false;
+        simples.hidden = true;
+
+        $("festaItem").textContent = v.item || "";
+        $("festaNome").textContent = v.vencedor || "";
+        $("festaValor").textContent = moeda(v.valor);
+
+        var foto = $("festaFoto");
+        if (v.foto) { foto.src = v.foto; foto.hidden = false; } else { foto.hidden = true; }
+
+        var euGanhei = souEu({ id: null, chave: v.vencedor_chave });
+        $("festaParabens").textContent = euGanhei ? "Você levou! 🏆" : "Parabéns!";
+
+        // Reinicia a animação só quando a venda é OUTRA — senão ela recomeça a
+        // cada evento que chega e fica tremendo sem parar.
+        var marca = (v.item || "") + "|" + (v.vencedor || "") + "|" + v.valor;
+        if (marca !== festaMostrada) {
+            festaMostrada = marca;
+            festa.classList.remove("entrando");
+            void festa.offsetWidth;
+            festa.classList.add("entrando");
+            if (window.Confete) window.Confete.soltar(2500);
+        }
     }
 
     var precarregadas = {};
 
-    /* Baixa a foto do PRÓXIMO item enquanto o atual ainda está em disputa.
-       Quando o locutor abrir, a imagem já está no cache do navegador e a tela
-       muda no mesmo instante — em vez de piscar um quadro vazio justo no
-       segundo em que todo mundo está olhando. */
+    /* Baixa a foto do PRÓXIMO item enquanto o atual ainda está em disputa —
+       assim a troca é instantânea em vez de piscar um quadro vazio justo no
+       segundo em que todo mundo está olhando. Vem só a URL: nem o nome do
+       próximo item, nem quantos faltam. */
     function precarregarProxima() {
-        var fila = (estado && estado.fila) || [];
-        if (!fila.length) return;
-        var url = fila[0].foto || fila[0].foto_mini;
+        var url = estado && estado.proxima_foto;
         if (!url || precarregadas[url]) return;
         precarregadas[url] = true;
         var img = new Image();
@@ -183,25 +216,18 @@
                 img.removeAttribute("src");
                 vazio.hidden = false;
             }
-            $("loteVolta").hidden = !(lote.voltas > 0);
             valorMostrado = null;
             liderMostrado = "-";
             euJaLiderei = false;
-            ultimoSegundo = null;
-            desenharUltimos(estado.ultimos_lances || []);
         }
 
         // "Sou eu que estou ganhando?" — pelo id OU pela chave da pessoa. A
         // segunda cobre quem abriu o leilão em dois aparelhos: são registros
         // diferentes, mesma pessoa. Sem ela, o botão ficaria ativo no segundo
         // aparelho e a pessoa cobriria o próprio lance.
-        var euGanhando = !!(lote.lider && (
-            (EU && lote.lider.id === EU) ||
-            (EU_CHAVE && lote.lider.chave === EU_CHAVE)
-        ));
+        var euGanhando = souEu(lote.lider);
         if (euGanhando) euJaLiderei = true;
 
-        // --- Quem está ganhando ---
         var rotulo = $("liderRotulo");
         var nome = $("liderNome");
         var valor = $("liderValor");
@@ -236,8 +262,8 @@
         }
 
         // O estado "te superaram" PERMANECE até a pessoa cobrir o lance — não é
-        // um piscar. É a informação mais importante da tela para quem está
-        // disputando, e ela pode estar olhando para o celular só de vez em quando.
+        // um piscar. É a informação mais importante da tela para quem disputa,
+        // e ela pode estar olhando o celular só de vez em quando.
         var superado = !euGanhando && lote.tem_lance && euJaLiderei;
 
         var pregao = document.querySelector(".pregao");
@@ -245,7 +271,6 @@
         pregao.classList.toggle("superado", superado);
         if (superado) rotulo.textContent = "🔴 TE SUPERARAM";
 
-        // --- Botão ---
         var btn = $("btnLance");
         $("btnLanceValor").textContent = moeda(lote.proximo_valor);
         $("dicaIncremento").textContent = moeda(lote.incremento);
@@ -259,98 +284,35 @@
         $("acaoDica").hidden = euGanhando;
     }
 
-    function liderEra(quem) {
-        var lote = estado && estado.ativo ? estado.lote : null;
-        if (!lote || !lote.lider) return false;
-        if (quem && lote.lider.id === quem) return true;
-        return !!(EU_CHAVE && lote.lider.chave === EU_CHAVE);
-    }
-
-    function desenharUltimos(lances) {
-        var lista = $("ultimosLista");
-        var caixa = $("ultimos");
-        if (!lances || !lances.length) { caixa.hidden = true; lista.innerHTML = ""; return; }
-        caixa.hidden = false;
-        lista.innerHTML = "";
-        lances.forEach(function (l) { lista.appendChild(linhaLance(l)); });
-    }
-
-    function linhaLance(l) {
-        var li = document.createElement("li");
-        if (EU && l.quem_id === EU) li.className = "meu";
-        var quem = document.createElement("span");
-        quem.className = "quem";
-        quem.textContent = (EU && l.quem_id === EU) ? "Você" : l.quem;
-        var quanto = document.createElement("span");
-        quanto.className = "quanto";
-        quanto.textContent = moeda(l.valor);
-        li.appendChild(quem);
-        li.appendChild(quanto);
-        return li;
-    }
-
-    function empurrarLance(l) {
-        var lista = $("ultimosLista");
-        $("ultimos").hidden = false;
-        var li = linhaLance(l);
-        li.classList.add("novo");
-        lista.insertBefore(li, lista.firstChild);
-        while (lista.children.length > 6) lista.removeChild(lista.lastChild);
+    /* "Esta pessoa sou eu?" — id ou chave (dois aparelhos = dois registros). */
+    function souEu(pessoa) {
+        if (!pessoa) return false;
+        if (EU && pessoa.id === EU) return true;
+        return !!(EU_CHAVE && pessoa.chave === EU_CHAVE);
     }
 
     function desenharBarra() {
         var info = $("barraInfo");
         if (!estado || !estado.ativo) { info.textContent = ""; return; }
-        var partes = [];
-        if (estado.restam_na_fila) partes.push(estado.restam_na_fila + " na fila");
-        if (estado.vendidos) partes.push(estado.vendidos + " vendidos");
-        info.textContent = partes.join(" · ");
+        // NÃO dizemos quantos faltam. "Vendidos" é o que já aconteceu — não
+        // entrega o que vem pela frente.
+        var n = estado.vendidos || 0;
+        info.textContent = n === 0 ? "" : n === 1 ? "1 já vendido" : n + " já vendidos";
     }
 
     /* ---------------------------------------------------------------
-       Cronômetro (200ms — suficiente para parecer contínuo)
+       Música de fundo (quem manda é o locutor, para todo mundo junto)
        --------------------------------------------------------------- */
-    function tick() {
-        var lote = estado && estado.ativo ? estado.lote : null;
-        var crono = $("cronometro");
-        var txt = $("cronoTexto");
-        var anel = $("cronoAnel");
-        if (!lote || !crono) return;
-
-        var restante;
-        if (lote.pausado) {
-            restante = lote.segundos || 0;
-            crono.classList.add("pausado");
-            txt.textContent = "pausa";
-        } else {
-            crono.classList.remove("pausado");
-            restante = lote.fecha_em
-                ? Math.max(0, (Date.parse(lote.fecha_em) - agora()) / 1000)
-                : 0;
-            txt.textContent = mmss(restante);
-        }
-
-        var total = parseFloat(lote.total_segundos || 60) || 60;
-        var pct = Math.max(0, Math.min(100, (restante / total) * 100));
-        if (anel) anel.setAttribute("stroke-dasharray", pct.toFixed(1) + " 100");
-
-        crono.classList.toggle("apertado", !lote.pausado && restante <= 20 && restante > 10);
-        crono.classList.toggle("final", !lote.pausado && restante <= 10);
-
-        // Tique dos 10 segundos finais — uma vez por segundo, não por quadro.
-        var s = Math.ceil(restante);
-        if (!lote.pausado && s !== ultimoSegundo) {
-            if (s <= 10 && s > 0 && ultimoSegundo !== null && window.SomLeilao) {
-                window.SomLeilao.tique(s <= 3);
-                if (s <= 3) vibrar(30);
-            }
-            ultimoSegundo = s;
-        }
+    function aplicarMusica() {
+        if (!somLigado || !window.MusicaLeilao) return;
+        var m = (estado && estado.musica) || {};
+        window.MusicaLeilao.volume(m.volume);
+        if (m.ligada) window.MusicaLeilao.ligar();
+        else window.MusicaLeilao.desligar();
     }
-    setInterval(tick, 200);
 
     /* ---------------------------------------------------------------
-       Chat
+       Chat (conversa nova a cada intervalo)
        --------------------------------------------------------------- */
     function desenharChat() {
         var chat = $("chat");
@@ -406,8 +368,6 @@
     /* ---------------------------------------------------------------
        Meus arremates
        --------------------------------------------------------------- */
-    var pixPossivel = true;
-
     function carregarArremates() {
         return fetch(URLS.arremates, { headers: { "X-Requested-With": "XMLHttpRequest" } })
             .then(function (r) { return r.json(); })
@@ -467,15 +427,22 @@
         var selo = document.createElement("span");
         selo.className = "arremate-selo " + a.status;
         selo.textContent = a.status === "pago" ? "✅ Pago"
+            : a.status === "combinado" ? "🤝 Pagamento combinado"
             : a.status === "aguardando" ? "⏳ Aguardando pagamento"
             : "⌛ Prazo vencido";
         corpo.appendChild(selo);
 
-        if (a.status === "aguardando") {
+        if (a.status === "aguardando" || a.status === "combinado") {
             var prazo = document.createElement("span");
             prazo.className = "arremate-prazo";
-            prazo.dataset.expira = a.expira_em || "";
-            prazo.textContent = "Pague em " + mmss(a.segundos);
+            if (a.status === "combinado") {
+                // Combinado não tem relógio correndo — dizer "pague em 0:00"
+                // assustaria quem acabou de acertar com a organização.
+                prazo.textContent = "Combinado com a organização.";
+            } else {
+                prazo.dataset.expira = a.expira_em || "";
+                prazo.textContent = "Pague em " + mmss(a.segundos);
+            }
             corpo.appendChild(prazo);
 
             if (!pixPossivel) {
@@ -483,7 +450,7 @@
                 // melhor do que oferecer dois botões que nunca vão funcionar.
                 var aviso = document.createElement("span");
                 aviso.className = "arremate-prazo";
-                aviso.textContent = "Combine o pagamento com o locutor.";
+                aviso.textContent = "Combine o pagamento com a organização.";
                 corpo.appendChild(aviso);
             } else {
                 var acoes = document.createElement("div");
@@ -632,18 +599,18 @@
             var d = JSON.parse(e.data);
             if (!estado || !estado.ativo) return;
 
-            var euLiderava = euJaLiderei && liderEra(EU);
+            var lote = estado.lote;
+            var euLiderava = !!(lote && souEu(lote.lider));
             estado.lote = d.lote;
             desenharLote(d.lote);
-            empurrarLance(d.lance);
 
-            var meu = !!(EU && d.lance.quem_id === EU);
+            var meu = souEu({ id: d.lance.quem_id, chave: d.lance.quem_chave });
             var meTiraram = euLiderava && !meu;
 
             flash();
             if (window.SomLeilao) {
-                // Perder a liderança tem som PRÓPRIO (descendo): a pessoa entende
-                // sem precisar olhar a tela — é para isso que o som existe aqui.
+                // Perder a liderança tem som PRÓPRIO (descendo): a pessoa
+                // entende sem precisar olhar — é para isso que o som existe.
                 if (meTiraram) window.SomLeilao.superado();
                 else window.SomLeilao.lance();
             }
@@ -654,19 +621,19 @@
             var d = JSON.parse(e.data);
             estado.lote = d.lote;
             desenharLote(d.lote);
-            toast("O locutor desfez o lance de " + d.quem + ".", "info");
+            toast("Um lance foi desfeito.", "info");
         });
 
         fonte.addEventListener("lote_aberto", function (e) {
             render(JSON.parse(e.data));
-            toast("Novo item em pregão!", "info");
+            toast("Novo item! 🔔", "info");
             if (window.SomLeilao) window.SomLeilao.lance();
             vibrar([30, 40, 30]);
         });
 
         fonte.addEventListener("lote_vendido", function (e) {
             var d = JSON.parse(e.data);
-            var euGanhei = d.vendido && EU && d.vencedor_id === EU;
+            var euGanhei = d.vendido && souEu({ id: d.vencedor_id, chave: d.vencedor_chave });
             render(d.estado);
 
             if (!d.vendido) {
@@ -687,7 +654,7 @@
 
         fonte.addEventListener("cronometro", function (e) {
             var d = JSON.parse(e.data);
-            if (estado && estado.ativo && d.lote) { estado.lote = d.lote; tick(); desenharLote(d.lote); }
+            if (estado && estado.ativo && d.lote) { estado.lote = d.lote; desenharLote(d.lote); }
         });
 
         fonte.addEventListener("chat", function (e) {
@@ -697,16 +664,35 @@
 
         fonte.addEventListener("chat_estado", function (e) {
             var d = JSON.parse(e.data);
-            if (!estado.chat) estado.chat = { mensagens: [] };
-            estado.chat.aberto = d.aberto;
-            estado.chat.ate = d.ate;
+            // Chat NOVO a cada intervalo: abre limpo, sem arrastar o fio da noite.
+            estado.chat = { aberto: d.aberto, ate: d.ate, mensagens: [] };
             desenharChat();
+        });
+
+        fonte.addEventListener("musica", function (e) {
+            var d = JSON.parse(e.data);
+            if (!estado.musica) estado.musica = {};
+            estado.musica.ligada = d.ligada;
+            estado.musica.volume = d.volume;
+            aplicarMusica();
+        });
+
+        fonte.addEventListener("reacoes", function (e) {
+            if (window.Reacoes) window.Reacoes.receber(JSON.parse(e.data));
         });
 
         fonte.addEventListener("online", function (e) {
             var d = JSON.parse(e.data);
             if (estado) estado.online = d.online;
             $("online").textContent = d.online;
+        });
+
+        fonte.addEventListener("arremate_combinado", function (e) {
+            var d = JSON.parse(e.data);
+            if (EU && d.participante === EU) {
+                toast("Pagamento combinado com a organização. 🤝", "success");
+                carregarArremates();
+            }
         });
 
         fonte.addEventListener("arremate_pix", function (e) {
@@ -749,7 +735,6 @@
         onda(btn, evento);
         vibrar(20);
 
-        // Otimista: a tela responde já; o evento do servidor corrige em seguida.
         var pretendido = lote.proximo_valor;
         btn.disabled = true;
 
@@ -780,31 +765,54 @@
         document.body.classList.remove("modal-aberto");
     }
 
-    function alternarSom() {
-        var btn = $("btnSom");
-        if (!somLigado) {
-            somLigado = window.SomLeilao ? window.SomLeilao.ativar() : false;
-            btn.textContent = "🔊";
-            btn.setAttribute("aria-pressed", "true");
-            if (AUDIO_URL && window.AudioLeilao) {
-                window.AudioLeilao.ligar(AUDIO_URL, $("audioLocutor"));
-            }
-            toast("Som ligado.", "success");
-        } else {
-            somLigado = false;
-            if (window.SomLeilao) window.SomLeilao.desativar();
-            if (window.AudioLeilao) window.AudioLeilao.desligar();
-            btn.textContent = "🔇";
-            btn.setAttribute("aria-pressed", "false");
-            toast("Som desligado.", "info");
+    /* ---------------------------------------------------------------
+       Som: a porta de entrada
+       --------------------------------------------------------------- */
+    function ligarSom() {
+        somLigado = window.SomLeilao ? window.SomLeilao.ativar() : false;
+        $("btnSom").textContent = "🔊";
+        $("btnSom").setAttribute("aria-pressed", "true");
+
+        if (AUDIO_URL && window.AudioLeilao) {
+            window.AudioLeilao.ligar(AUDIO_URL, $("audioLocutor"));
         }
+        if (window.MusicaLeilao) {
+            window.MusicaLeilao.preparar(MUSICA_URL, $("audioMusica"));
+        }
+        aplicarMusica();
+    }
+
+    function desligarSom() {
+        somLigado = false;
+        if (window.SomLeilao) window.SomLeilao.desativar();
+        if (window.AudioLeilao) window.AudioLeilao.desligar();
+        if (window.MusicaLeilao) window.MusicaLeilao.desligar();
+        $("btnSom").textContent = "🔇";
+        $("btnSom").setAttribute("aria-pressed", "false");
+    }
+
+    function fecharPorta() {
+        var porta = $("portaSom");
+        if (porta) porta.hidden = true;
     }
 
     /* ---------------------------------------------------------------
        Ligações
        --------------------------------------------------------------- */
+    $("btnPortaSom").addEventListener("click", function () {
+        ligarSom();
+        fecharPorta();
+        toast("Som ligado. Bom leilão!", "success");
+    });
+    $("btnPortaMudo").addEventListener("click", function () {
+        fecharPorta();
+        toast("Você pode ligar o som no 🔇 lá em cima.", "info");
+    });
+
     $("btnLance").addEventListener("click", darLance);
-    $("btnSom").addEventListener("click", alternarSom);
+    $("btnSom").addEventListener("click", function () {
+        if (somLigado) desligarSom(); else ligarSom();
+    });
     $("btnArremates").addEventListener("click", function () {
         carregarArremates();
         abrirGaveta();
@@ -846,6 +854,19 @@
             if (!d.ok) toast(d.msg || "Não deu para enviar.", "error");
         });
     });
+
+    /* Reações */
+    if (window.Reacoes) {
+        window.Reacoes.ligar($("reacoesTrilho"), function (emoji, quantos) {
+            post(URLS.reagir, { emoji: emoji, quantos: quantos });
+        });
+        $("reacoesBotoes").addEventListener("click", function (e) {
+            var btn = e.target.closest(".btn-reacao");
+            if (!btn) return;
+            window.Reacoes.tocar(btn.dataset.emoji);
+            vibrar(12);
+        });
+    }
 
     /* Voltou do segundo plano (celular bloqueado, outro app): o estado pode ter
        envelhecido. Recarrega em vez de mostrar um pregão congelado. */
