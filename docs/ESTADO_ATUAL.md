@@ -29,9 +29,14 @@ nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suí
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
 conexões SSE mantidas (zero quedas), 40 lances, p95 de 254 ms** — números em `docs/DEPLOY_LEILAO.md`.
-**Falta configurar as credenciais do Mercado Pago** em `/leilao/locutor/config/` (sem elas o leilão
-funciona, mas não gera Pix: o locutor combina e dá baixa manual) e **ensaiar o áudio com aparelhos
-reais**. Plano em `docs/PLANEJAMENTO_LEILAO.md`, deploy em `docs/DEPLOY_LEILAO.md` e **manual da equipe** (para os voluntários, não para quem programa) em `docs/MANUAL_LEILAO.md`.
+**Mercado Pago já configurado** (13/09): as credenciais foram **copiadas da configuração do clube** —
+é a mesma conta, então o dinheiro do leilão cai no mesmo lugar. Modo **Produção**, e os dois slots
+estão corretos (sandbox `TEST-…` no de teste, `APP_USR-…` no de produção), então dá para ensaiar em
+modo Teste sem cobrar. Conferido que o token **autentica a partir do serviço do leilão** (consulta a um
+pagamento inexistente devolve 404, não 401). O webhook é apontado **por cobrança**
+(`notification_url` = `/leilao/webhooks/mercadopago/`), então não disputa com o webhook do clube — e os
+dois endpoints ignoram pagamento que não é deles. **Falta o teste com uma cobrança real** (uma de R$ 1
+prova a cadeia inteira) e **ensaiar o áudio com aparelhos reais**. Plano em `docs/PLANEJAMENTO_LEILAO.md`, deploy em `docs/DEPLOY_LEILAO.md` e **manual da equipe** (para os voluntários, não para quem programa) em `docs/MANUAL_LEILAO.md`.
 
 **Atualização anterior:** 2026-09-13 (**Ficha de diretoria na própria conta + card "Minhas parcelas"**): duas
 faltas que apareceram no mesmo caso real — uma responsável que também virou da diretoria. (1) O único caminho

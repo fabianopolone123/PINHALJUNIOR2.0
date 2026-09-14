@@ -220,6 +220,13 @@ pessoa e trava — é o preço de impedir que alguém infle o próprio preço.
 **"O item apareceu com 'Voltou para a fila'. Por quê?"**
 Alguém arrematou e não pagou em 15 minutos.
 
+**"O dinheiro cai onde?"**
+Na **mesma conta** do Mercado Pago que o clube já usa para mensalidades, loja e eventos.
+
+**"Dá para ensaiar sem cobrar de verdade?"**
+Dá: em Preparação → Configuração, mude o modo para **Teste**. Aí o Pix é de sandbox e não move
+dinheiro. **Volte para Produção antes do evento** — em modo Teste, ninguém consegue pagar de verdade.
+
 **"Quantas pessoas aguenta?"**
 Testado com **100 pessoas ao mesmo tempo**, e o lance chega em menos de um quarto
 de segundo para todo mundo.
@@ -229,8 +236,7 @@ de segundo para todo mundo.
 ## 7. Antes do dia — lista de conferência
 
 - [ ] Leilão criado, itens cadastrados **com foto**, fila na ordem
-- [ ] Credenciais do **Mercado Pago** preenchidas em Preparação → Configuração
-      (sem elas o leilão funciona, mas **não gera Pix** — o caixa dá baixa na mão)
+- [x] Credenciais do **Mercado Pago** — já configuradas (mesma conta do clube, modo Produção)
 - [ ] Uma cobrança **real de R$ 1** feita e confirmada, para provar o Pix
 - [ ] Papéis distribuídos e **cada voluntário já entrou uma vez** na sua tela
 - [ ] Microfone testado **com o celular de outra pessoa** ouvindo
