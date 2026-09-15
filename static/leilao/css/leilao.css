@@ -84,6 +84,15 @@ body.tela-entrada {
 .entrada-logo { width: 74px; height: auto; margin-bottom: 10px; filter: drop-shadow(0 6px 14px rgba(9, 42, 74, 0.28)); }
 .entrada-topo h1 { font-size: 1.45rem; color: var(--azul-escuro); line-height: 1.2; }
 .entrada-sub { margin-top: 6px; color: var(--texto-suave); font-size: 0.92rem; }
+/* O "Voltar" da troca de senha: link azul do sistema, não o azul do navegador. */
+.entrada-voltar {
+    display: block;
+    margin-top: 12px;
+    text-align: center;
+    font-size: 0.86rem;
+    color: var(--azul);
+    text-decoration: none;
+}
 
 .entrada-bloco { margin-bottom: 14px; }
 .entrada-secao {

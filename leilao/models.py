@@ -767,3 +767,49 @@ class MensagemChat(models.Model):
     @property
     def autor(self):
         return self.participante.nome_curto if self.participante_id else "Locutor"
+
+
+# ---------------------------------------------------------------------------
+# Contas da equipe
+# ---------------------------------------------------------------------------
+class ContaEquipe(models.Model):
+    """O que o leilão sabe sobre uma conta da equipe além do `User` do Django.
+
+    Existe por causa de **uma** pergunta que o `User` não responde: *esta pessoa
+    ainda está com a senha que o diretor entregou?*
+
+    Não dá para deduzir isso de `last_login`: o Django o preenche **no momento
+    do login**, antes de a pessoa trocar a senha. Quem entrasse e fechasse o
+    navegador no meio da troca ficaria com a senha padrão para sempre, e o
+    sistema acharia que já estava resolvido.
+
+    **Quem não tem registro aqui não é cobrado.** As contas criadas antes desta
+    tela (e as do comando `leilao_papel`, que sorteia uma senha forte) não
+    passam pela troca obrigatória — elas nunca tiveram senha padrão.
+    """
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="conta_leilao",
+        verbose_name="Conta",
+    )
+    nome = models.CharField(
+        "Nome da pessoa", max_length=150, blank=True,
+        help_text="Como o diretor escreveu no cadastro — é o que a equipe lê na lista.",
+    )
+    senha_provisoria = models.BooleanField(
+        "Ainda com a senha padrão", default=True,
+        help_text="Enquanto verdadeiro, a pessoa só abre a tela de trocar a senha.",
+    )
+    criado_em = models.DateTimeField("Criada em", auto_now_add=True)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="contas_leilao_criadas", verbose_name="Criada por",
+    )
+
+    class Meta:
+        verbose_name = "Conta da equipe"
+        verbose_name_plural = "Contas da equipe"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome or self.usuario.get_username()

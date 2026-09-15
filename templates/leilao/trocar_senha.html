@@ -1,0 +1,37 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Trocar a senha{% endblock %}
+{% block corpo_classe %}tela-entrada{% endblock %}
+
+{% block conteudo %}
+<main class="entrada">
+    <div class="entrada-card">
+        <header class="entrada-topo">
+            <img src="{% static 'img/logo.png' %}" alt="" class="entrada-logo" onerror="this.style.display='none'">
+            {% if pendente %}
+            <h1>Escolha a sua senha</h1>
+            <p class="entrada-sub">
+                Você entrou com a senha <b>{{ senha_padrao }}</b>, que é a mesma de todo mundo.
+                Escolha uma sua para continuar — pode ser curta, só precisa ser uma que você lembre.
+            </p>
+            {% else %}
+            <h1>Trocar a senha</h1>
+            <p class="entrada-sub">Escolha uma nova senha para a sua conta da equipe.</p>
+            {% endif %}
+        </header>
+
+        <form method="post" class="entrada-form" novalidate>
+            {% csrf_token %}
+            {% include "leilao/_campo.html" with campo=form.senha %}
+            {% include "leilao/_campo.html" with campo=form.repetir %}
+            {% if form.non_field_errors %}<div class="erros">{{ form.non_field_errors }}</div>{% endif %}
+            <button type="submit" class="btn-entrar">Salvar e entrar</button>
+        </form>
+
+        {% if not pendente %}
+        <a href="{% url 'leilao:equipe' %}" class="entrada-voltar">Voltar</a>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}

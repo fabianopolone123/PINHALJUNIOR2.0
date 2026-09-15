@@ -34,6 +34,10 @@ urlpatterns = [
     path("equipe/sair/", views.sair_equipe_view, name="sair_equipe"),
     path("equipe/", views.equipe_view, name="equipe"),
     path("equipe/acao/", views.locutor_acao_view, name="acao"),
+    path("equipe/senha/", views.trocar_senha_view, name="trocar_senha"),
+    # --- Equipe: contas (só diretor) ---
+    path("equipe/usuarios/", views.usuarios_view, name="usuarios"),
+    path("equipe/usuarios/<int:pk>/", views.usuario_acao_view, name="usuario_acao"),
     # --- Área do locutor ---
     path("locutor/", views.locutor_view, name="locutor"),
     path("locutor/dados/", views.locutor_dados_view, name="locutor_dados"),

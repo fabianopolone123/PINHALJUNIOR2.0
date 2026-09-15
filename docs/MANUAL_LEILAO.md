@@ -21,7 +21,7 @@ um entra no **mesmo endereço** e cai direto na sua tela.
 | 🎤 | **Locutor** | Conduz o pregão: abre o item, bate o martelo, fala ao microfone |
 | 💰 | **Caixa** | Confere quem pagou e cuida da entrega |
 
-O **Diretor** enxerga as três e é quem distribui as funções.
+O **Diretor** enxerga as três, **cadastra a equipe** (aba 👤 Usuários) e distribui as funções.
 
 **Uma pessoa pode ter mais de uma função.** Se você tem só uma, o sistema já te
 joga direto nela ao entrar.
@@ -32,6 +32,39 @@ joga direto nela ao entrar.
   dinheiro — e quem está conduzindo já tem trabalho suficiente.
 - **Só se entrega o que foi pago.** O item só aparece na lista de entrega depois
   que o pagamento caiu.
+
+---
+
+## 1.1 Cadastrar quem vai ajudar (Diretor)
+
+Aba **👤 Usuários**. Só o diretor vê.
+
+1. Digite o **nome** da pessoa e marque **o que ela vai fazer** (pode marcar mais de uma).
+2. Clique em **Cadastrar**. Pronto: a tela mostra o **usuário** dela e a senha.
+
+O **usuário sai do nome** — "Maria Souza" vira `maria`. Se já existir uma Maria, o sistema usa
+`maria.souza`. Quem preferir escolher o login digita no campo "Usuário de acesso".
+
+**A senha é sempre `1234`.** Ela não é segredo nenhum: é um bilhete para a pessoa entrar a primeira
+vez. **No primeiro acesso o sistema obriga a pessoa a escolher outra**, e até ela fazer isso nenhuma
+outra tela abre para ela. A senha nova pode ser curta — o que importa é ela lembrar.
+
+Use o **📋 Copiar acesso** (dentro de "Alterar") para mandar o link, o usuário e a senha no WhatsApp
+da pessoa.
+
+### O que mais dá para fazer ali
+
+| Botão | Para quê |
+|---|---|
+| **Salvar funções** | Mudar o que a pessoa faz (marcar/desmarcar) |
+| **🔑 Resetar senha** | Ela esqueceu a senha: volta para `1234` e ela escolhe outra ao entrar |
+| **⛔ Desligar** | Tira o acesso sem apagar nada. Dá para religar depois |
+
+> **Cadastre sempre com uma função marcada.** Conta sem função entra e não vê tela nenhuma — o
+> sistema nem deixa salvar assim.
+
+> Você **não consegue** desligar a sua própria conta nem tirar a sua própria função de diretor. É de
+> propósito: seria perder o acesso no meio do evento, com a tela aberta.
 
 ---
 
@@ -279,6 +312,7 @@ de segundo para todo mundo.
 - [ ] Leilão criado, itens cadastrados **com foto**, fila na ordem
 - [x] Credenciais do **Mercado Pago** — já configuradas (mesma conta do clube, modo Produção)
 - [ ] Uma cobrança **real de R$ 1** feita e confirmada, para provar o Pix
-- [ ] Papéis distribuídos e **cada voluntário já entrou uma vez** na sua tela
+- [ ] Equipe cadastrada na aba **👤 Usuários**, com a função de cada um
+- [ ] **Cada voluntário já entrou uma vez** e **já trocou a senha `1234`** pela dele
 - [ ] Microfone testado **com o celular de outra pessoa** ouvindo
 - [ ] Link do leilão divulgado

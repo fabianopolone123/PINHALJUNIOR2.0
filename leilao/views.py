@@ -15,9 +15,10 @@ import logging
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
@@ -28,12 +29,20 @@ from django.views.decorators.http import require_POST
 
 from core import mercadopago
 
+from . import equipe
 from . import estado as est
 from . import entregas
 from . import papeis
 from . import reacoes
 from . import servicos
-from .forms import ConfigLeilaoForm, EntrarForm, LeilaoForm, LoteForm
+from .forms import (
+    ConfigLeilaoForm,
+    EntrarForm,
+    LeilaoForm,
+    LoteForm,
+    TrocarSenhaForm,
+    UsuarioEquipeForm,
+)
 from .hub import HUB, garantir_laco, sse
 from .imagens import preparar_foto
 from .models import Arremate, ConfigLeilao, Leilao, Lote, PagamentoLeilao, Participante
@@ -414,6 +423,12 @@ def equipe_view(request):
     Quem tem **uma** área só vai direto para ela — no dia do evento ninguém quer
     um menu entre o login e o trabalho. Com mais de uma, escolhe.
     """
+    # Mesma guarda do `papeis.exige`: com a senha padrão na mão, a única tela
+    # que abre é a da troca. Aqui o decorator é o `login_required` puro, então a
+    # checagem precisa ser explícita.
+    if papeis.senha_pendente(request.user):
+        return redirect("leilao:trocar_senha")
+
     meus = papeis.papeis_do(request.user)
     if not meus:
         messages.error(request, "Sua conta ainda não tem papel no leilão.")
@@ -555,6 +570,12 @@ def locutor_acao_view(request):
     permitidas = ACOES_AREAS.get(acao)
     if permitidas is None:
         return JsonResponse({"ok": False, "msg": "Ação desconhecida."}, status=400)
+    # A trava da senha provisória vale para o POST também: esconder a tela não
+    # protege nada se o botão continuar respondendo por `fetch`.
+    if papeis.senha_pendente(request.user):
+        return JsonResponse(
+            {"ok": False, "msg": "Troque a sua senha para continuar."}, status=403
+        )
     meus = papeis.papeis_do(request.user)
     if not meus.intersection(permitidas):
         rotulos = " ou ".join(papeis.AREAS[a][0] for a in permitidas)
@@ -899,3 +920,162 @@ def config_view(request):
     else:
         form = ConfigLeilaoForm(instance=cfg)
     return render(request, "leilao/config.html", {"form": form, "config": cfg})
+
+
+# ---------------------------------------------------------------------------
+# Área do DIRETOR — contas da equipe
+# ---------------------------------------------------------------------------
+def _pode_mexer(request, alvo):
+    """Guarda das ações sobre uma conta. Devolve o motivo da recusa, ou "".
+
+    Duas travas, as duas para o diretor não se trancar do lado de fora nem
+    mexer em quem está acima dele:
+
+    - **ninguém desliga a própria conta** — seria perder o acesso no meio do
+      evento, com a tela aberta;
+    - **conta de superusuário só é alterada por superusuário** — um diretor
+      voluntário não reseta a senha de quem administra o sistema.
+    """
+    if alvo.is_superuser and not request.user.is_superuser:
+        return "Esta conta é de administrador do sistema."
+    return ""
+
+
+@papeis.exige_diretor
+def usuarios_view(request):
+    """Cadastro da equipe: cria a conta com a senha padrão e dá as funções."""
+    if request.method == "POST":
+        form = UsuarioEquipeForm(request.POST)
+        if form.is_valid():
+            novo = equipe.criar_conta(
+                form.cleaned_data["nome"],
+                form.cleaned_data["papeis"],
+                usuario=form.cleaned_data["usuario"],
+                criado_por=request.user,
+            )
+            messages.success(
+                request,
+                f"{equipe.nome_de(novo)} cadastrada(o). Usuário: {novo.get_username()} · "
+                f"senha: {equipe.SENHA_PADRAO} — ela troca no primeiro acesso.",
+            )
+            return redirect("leilao:usuarios")
+        messages.error(request, "Confira os campos destacados.")
+    else:
+        form = UsuarioEquipeForm()
+
+    site_url = ConfigLeilao.get_solo().site_url
+    pessoas = []
+    for u in equipe.equipe():
+        meus = papeis.papeis_do(u)
+        conta = getattr(u, "conta_leilao", None)
+        pessoas.append(
+            {
+                "user": u,
+                "nome": equipe.nome_de(u),
+                # A LINHA mostra o que a pessoa enxerga (`papeis_do`); as CAIXAS
+                # de seleção mostram os grupos que ela tem de fato. São coisas
+                # diferentes para quem é diretor: ele abre as três áreas sem
+                # estar em nenhuma delas, e marcar tudo na edição faria parecer
+                # que os grupos estão lá.
+                "papeis": sorted(
+                    set(u.groups.values_list("name", flat=True))
+                    & set(equipe.PAPEIS_VALIDOS)
+                ),
+                # O que a linha mostra: o rótulo curto de cada função.
+                "rotulos": [
+                    papeis.AREAS[p][1] + " " + papeis.AREAS[p][0]
+                    for p in papeis.ORDEM
+                    if p in meus
+                ] + (["👑 Diretor"] if papeis.DIRETOR in meus else []),
+                "provisoria": bool(conta and conta.senha_provisoria),
+                "recado": equipe.recado_de_acesso(u, site_url),
+                "eu": u.pk == request.user.pk,
+            }
+        )
+
+    return render(
+        request,
+        "leilao/usuarios.html",
+        {
+            "form": form,
+            "pessoas": pessoas,
+            "escolhas": equipe.escolhas_de_papel(),
+            "senha_padrao": equipe.SENHA_PADRAO,
+        },
+    )
+
+
+@papeis.exige_diretor
+@require_POST
+def usuario_acao_view(request, pk):
+    """Funções, reset de senha e ligar/desligar a conta."""
+    User = get_user_model()
+    alvo = get_object_or_404(User, pk=pk)
+    acao = request.POST.get("acao")
+
+    recusa = _pode_mexer(request, alvo)
+    if recusa:
+        messages.error(request, recusa)
+        return redirect("leilao:usuarios")
+
+    if acao == "papeis":
+        escolhidos = request.POST.getlist("papeis")
+        # Tirar o próprio "diretor" é perder esta tela — e com ela o caminho de
+        # volta. O erro seria descoberto no clique seguinte, sem saída.
+        if alvo.pk == request.user.pk and papeis.DIRETOR not in escolhidos:
+            messages.error(request, "Você não pode tirar a sua própria função de diretor.")
+            return redirect("leilao:usuarios")
+        equipe.definir_papeis(alvo, escolhidos)
+        messages.success(request, f"Funções de {equipe.nome_de(alvo)} atualizadas.")
+
+    elif acao == "resetar":
+        equipe.resetar_senha(alvo)
+        messages.success(
+            request,
+            f"Senha de {alvo.get_username()} voltou para {equipe.SENHA_PADRAO} — "
+            "ela escolhe outra ao entrar.",
+        )
+
+    elif acao == "ativo":
+        if alvo.pk == request.user.pk:
+            messages.error(request, "Você não pode desligar a sua própria conta.")
+            return redirect("leilao:usuarios")
+        alvo.is_active = not alvo.is_active
+        alvo.save(update_fields=["is_active"])
+        messages.success(
+            request,
+            f"{equipe.nome_de(alvo)} {'liberada(o)' if alvo.is_active else 'desligada(o)'}.",
+        )
+    else:
+        messages.error(request, "Ação desconhecida.")
+
+    return redirect("leilao:usuarios")
+
+
+@login_required
+def trocar_senha_view(request):
+    """A troca obrigatória do primeiro acesso — e a tela de trocar por vontade.
+
+    Quem chega aqui pelas próprias pernas (já trocou um dia) também consegue
+    trocar de novo: é a mesma tela, só sem a porta trancada atrás.
+    """
+    pendente = papeis.senha_pendente(request.user)
+
+    if request.method == "POST":
+        form = TrocarSenhaForm(request.POST)
+        if form.is_valid():
+            equipe.definir_senha(request.user, form.cleaned_data["senha"])
+            # Sem isto o Django invalida a sessão ao trocar a senha e a pessoa
+            # cai no login — logo depois de fazer o que o sistema exigiu.
+            update_session_auth_hash(request, request.user)
+            messages.success(request, "Senha trocada! Bom leilão.")
+            return redirect("leilao:equipe")
+        messages.error(request, "Confira os campos destacados.")
+    else:
+        form = TrocarSenhaForm()
+
+    return render(
+        request,
+        "leilao/trocar_senha.html",
+        {"form": form, "pendente": pendente, "senha_padrao": equipe.SENHA_PADRAO},
+    )

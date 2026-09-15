@@ -38,6 +38,17 @@ AREAS = {
 
 DIRETOR = "diretor"
 
+# A tela de Usuários é do **diretor**, e por isso não entra em `AREAS`: ela não
+# é um papel que se distribua (ninguém é "o usuário de usuários"), é o que o
+# diretor faz por ser diretor. Fica aqui para aparecer na barra e no hub pelo
+# mesmo caminho das áreas — o template itera o menu, nunca chumba `{% if %}`.
+ITEM_USUARIOS = {
+    "chave": "usuarios",
+    "rotulo": "Usuários",
+    "icone": "👤",
+    "rota": "leilao:usuarios",
+}
+
 # Ordem em que as áreas aparecem no menu e em que se escolhe a tela inicial de
 # quem tem mais de um papel: quem prepara chega antes; quem conduz, durante.
 ORDEM = ["preparacao", "locutor", "caixa"]
@@ -78,11 +89,26 @@ def area_inicial(user):
 def menu_do(user):
     """Itens de menu da pessoa — só as áreas que ela realmente abre."""
     meus = papeis_do(user)
-    return [
+    itens = [
         {"chave": a, "rotulo": AREAS[a][0], "icone": AREAS[a][1], "rota": AREAS[a][2]}
         for a in ORDEM
         if a in meus
     ]
+    # Usuários vem por último: é trabalho de antes e de socorro, não do pregão.
+    if DIRETOR in meus:
+        itens.append(dict(ITEM_USUARIOS))
+    return itens
+
+
+def senha_pendente(user):
+    """A pessoa ainda está com a senha que o diretor entregou?
+
+    Import tardio de propósito: `equipe.py` importa daqui (papéis válidos), e
+    importar de volta no topo fecharia o ciclo.
+    """
+    from .equipe import precisa_trocar_senha
+
+    return precisa_trocar_senha(user)
 
 
 def exige(*areas):
@@ -96,6 +122,11 @@ def exige(*areas):
         @login_required
         @wraps(view)
         def _wrap(request, *args, **kwargs):
+            # A senha padrão vale para UMA entrada. Enquanto ela não for
+            # trocada, a única tela que abre é a da troca — senão a conta
+            # continuaria funcionando com a senha que a mesa inteira ouviu.
+            if senha_pendente(request.user):
+                return redirect("leilao:trocar_senha")
             meus = papeis_do(request.user)
             if not meus:
                 messages.error(request, "Sua conta ainda não tem papel no leilão.")
@@ -109,3 +140,23 @@ def exige(*areas):
         return _wrap
 
     return decorador
+
+
+def exige_diretor(view):
+    """Decorator das telas que só o **diretor** abre (hoje: Usuários).
+
+    Separado do `exige(...)` porque `diretor` não é uma das `AREAS`: é quem
+    distribui as áreas. A guarda da senha provisória vale aqui também.
+    """
+
+    @login_required
+    @wraps(view)
+    def _wrap(request, *args, **kwargs):
+        if senha_pendente(request.user):
+            return redirect("leilao:trocar_senha")
+        if not eh_diretor(request.user):
+            messages.error(request, "Só o diretor cadastra a equipe.")
+            return redirect("leilao:equipe")
+        return view(request, *args, **kwargs)
+
+    return _wrap

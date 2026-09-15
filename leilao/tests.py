@@ -36,7 +36,9 @@ from django.test import Client, TestCase, TransactionTestCase  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
 from . import entregas
+from . import equipe
 from . import estado as est
+from . import papeis
 from . import reacoes
 from . import servicos
 from .forms import LeilaoForm
@@ -1091,6 +1093,8 @@ class TelasEquipeRenderizamTests(TestCase):
     def test_todas_as_telas_abrem(self):
         urls = [
             "/equipe/",
+            "/equipe/usuarios/",
+            "/equipe/senha/",
             "/locutor/",
             "/locutor/dados/",
             "/caixa/",
@@ -2430,3 +2434,277 @@ class TelaDeDividirEntregasTests(TestCase):
         html = self.c.get("/caixa/").content.decode("utf-8")
         self.assertNotIn("rastreio", html.lower())
         self.assertIn("Quem recebeu", html)
+
+
+class ContasDaEquipeTests(TestCase):
+    """A tela de Usuários: o diretor cria a conta de quem vai ajudar hoje.
+
+    O que estes testes seguram é a regra, não a tela: a senha padrão vale para
+    **uma** entrada, e enquanto ela não for trocada nada mais abre — nem pelo
+    botão, nem por POST forjado.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        self.chefe = User.objects.create_user("diretora", password="segredo-ficticio")
+        self.chefe.is_staff = True
+        self.chefe.save()
+        grupo, _ = Group.objects.get_or_create(name="diretor")
+        self.chefe.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="diretora", password="segredo-ficticio")
+
+    def _criar(self, nome="Maria Fictícia", usuario="", papeis=("caixa",)):
+        return self.c.post(
+            "/equipe/usuarios/",
+            {"nome": nome, "usuario": usuario, "papeis": list(papeis)},
+        )
+
+    # --- quem abre a tela ---
+    def test_a_tela_abre_para_o_diretor(self):
+        self.assertEqual(self.c.get("/equipe/usuarios/").status_code, 200)
+
+    def test_quem_nao_e_diretor_nao_abre(self):
+        """Ter papel não basta: cadastrar equipe é do diretor."""
+        User = get_user_model()
+        u = User.objects.create_user("so_caixa", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="so_caixa", password="segredo-ficticio")
+        # `target_status_code=302`: quem tem UMA área só não para no hub — ele
+        # manda direto para a tela dela (aqui, /caixa/).
+        self.assertRedirects(
+            c.get("/equipe/usuarios/"), "/equipe/", target_status_code=302
+        )
+
+    def test_sem_login_nao_abre(self):
+        self.assertEqual(Client().get("/equipe/usuarios/").status_code, 302)
+
+    def test_a_aba_aparece_para_o_diretor_e_some_para_os_outros(self):
+        html = self.c.get("/equipe/").content.decode("utf-8")
+        self.assertIn("/equipe/usuarios/", html)
+
+        User = get_user_model()
+        u = User.objects.create_user("so_loc", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="so_loc", password="segredo-ficticio")
+        self.assertNotIn("/equipe/usuarios/", c.get("/locutor/").content.decode("utf-8"))
+
+    # --- cadastro ---
+    def test_cadastro_cria_a_conta_com_a_senha_padrao(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        User = get_user_model()
+        u = User.objects.get(username="maria")
+        self.assertTrue(u.is_staff)
+        self.assertTrue(u.check_password(equipe.SENHA_PADRAO))
+        self.assertEqual(papeis.papeis_do(u), {"caixa"})
+        self.assertTrue(u.conta_leilao.senha_provisoria)
+
+    def test_o_usuario_sai_do_nome_quando_nao_e_digitado(self):
+        self._criar(nome="Joana Fictícia da Silva")
+        self.assertTrue(get_user_model().objects.filter(username="joana").exists())
+
+    def test_nome_repetido_nao_derruba_o_cadastro(self):
+        """Duas Marias na mesma noite acontece — a segunda vira maria.souza."""
+        self._criar(nome="Maria Fictícia")
+        self._criar(nome="Maria Souza")
+        nomes = set(get_user_model().objects.values_list("username", flat=True))
+        self.assertIn("maria", nomes)
+        self.assertIn("maria.souza", nomes)
+
+    def test_da_para_escolher_o_usuario(self):
+        self._criar(nome="Pedro Fictício", usuario="pedrinho")
+        self.assertTrue(get_user_model().objects.filter(username="pedrinho").exists())
+
+    def test_usuario_repetido_e_recusado(self):
+        self._criar(nome="Pedro Fictício", usuario="pedrinho")
+        r = self._criar(nome="Outro Fictício", usuario="pedrinho")
+        self.assertEqual(r.status_code, 200)  # volta com erro, não redireciona
+        self.assertEqual(get_user_model().objects.filter(username="pedrinho").count(), 1)
+
+    def test_papeis_acumulam(self):
+        self._criar(nome="Duas Funcoes", papeis=("locutor", "caixa"))
+        u = get_user_model().objects.get(username="duas")
+        self.assertEqual(papeis.papeis_do(u), {"locutor", "caixa"})
+
+    def test_sem_funcao_o_cadastro_e_recusado(self):
+        """Conta sem papel entra e não vê tela nenhuma — não é cadastro, é armadilha."""
+        r = self._criar(nome="Ninguem Fictício", papeis=())
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(get_user_model().objects.filter(username="ninguem").exists())
+
+    # --- a troca obrigatória ---
+    def test_a_conta_nova_so_abre_a_tela_de_senha(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa", "locutor"))
+        c = Client()
+        self.assertTrue(c.login(username="maria", password=equipe.SENHA_PADRAO))
+        for url in ["/equipe/", "/caixa/", "/locutor/", "/equipe/usuarios/"]:
+            with self.subTest(url=url):
+                self.assertRedirects(c.get(url), "/equipe/senha/")
+
+    def test_o_post_da_equipe_tambem_e_barrado_ate_a_troca(self):
+        """Esconder a tela não protege: o botão responde por fetch."""
+        self._criar(nome="Maria Fictícia", papeis=("locutor",))
+        lote = criar_lote(self.leilao)
+        c = Client()
+        c.login(username="maria", password=equipe.SENHA_PADRAO)
+        r = c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "abrir", "lote": lote.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+        lote.refresh_from_db()
+        self.assertEqual(lote.status, "fila")
+
+    def test_depois_de_trocar_as_telas_abrem(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        c = Client()
+        c.login(username="maria", password=equipe.SENHA_PADRAO)
+        r = c.post("/equipe/senha/", {"senha": "123", "repetir": "123"})
+        self.assertRedirects(r, "/equipe/", target_status_code=302)
+        self.assertEqual(c.get("/caixa/").status_code, 200)
+
+    def test_a_sessao_sobrevive_a_troca(self):
+        """Sem `update_session_auth_hash` a pessoa cai no login logo depois de obedecer."""
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        c = Client()
+        c.login(username="maria", password=equipe.SENHA_PADRAO)
+        c.post("/equipe/senha/", {"senha": "123", "repetir": "123"})
+        self.assertEqual(c.get("/caixa/").status_code, 200)
+
+    def test_senha_curta_e_aceita(self):
+        """Decisão do clube: voluntário no celular, no meio do evento."""
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        c = Client()
+        c.login(username="maria", password=equipe.SENHA_PADRAO)
+        c.post("/equipe/senha/", {"senha": "123", "repetir": "123"})
+        u = get_user_model().objects.get(username="maria")
+        self.assertTrue(u.check_password("123"))
+        self.assertFalse(u.conta_leilao.senha_provisoria)
+
+    def test_repetir_a_senha_padrao_e_recusado(self):
+        """Aceitar faria a troca não trocar nada."""
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        c = Client()
+        c.login(username="maria", password=equipe.SENHA_PADRAO)
+        r = c.post(
+            "/equipe/senha/",
+            {"senha": equipe.SENHA_PADRAO, "repetir": equipe.SENHA_PADRAO},
+        )
+        self.assertEqual(r.status_code, 200)
+        u = get_user_model().objects.get(username="maria")
+        self.assertTrue(u.conta_leilao.senha_provisoria)
+
+    def test_senhas_diferentes_sao_recusadas(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        c = Client()
+        c.login(username="maria", password=equipe.SENHA_PADRAO)
+        r = c.post("/equipe/senha/", {"senha": "abc", "repetir": "abd"})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(
+            get_user_model().objects.get(username="maria").conta_leilao.senha_provisoria
+        )
+
+    def test_quem_ja_tinha_conta_nao_e_obrigado_a_trocar(self):
+        """Conta antiga (ou do `leilao_papel`) nunca teve senha padrão."""
+        self.assertFalse(equipe.precisa_trocar_senha(self.chefe))
+        self.assertEqual(self.c.get("/equipe/usuarios/").status_code, 200)
+
+    # --- manutenção ---
+    def test_trocar_as_funcoes(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        u = get_user_model().objects.get(username="maria")
+        self.c.post(
+            "/equipe/usuarios/%d/" % u.pk, {"acao": "papeis", "papeis": ["locutor"]}
+        )
+        self.assertEqual(papeis.papeis_do(u), {"locutor"})
+
+    def test_resetar_a_senha_devolve_o_bilhete(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        u = get_user_model().objects.get(username="maria")
+        equipe.definir_senha(u, "minha-senha")
+        self.c.post("/equipe/usuarios/%d/" % u.pk, {"acao": "resetar"})
+        u.refresh_from_db()
+        self.assertTrue(u.check_password(equipe.SENHA_PADRAO))
+        self.assertTrue(u.conta_leilao.senha_provisoria)
+
+    def test_desligar_e_religar_a_conta(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        u = get_user_model().objects.get(username="maria")
+        self.c.post("/equipe/usuarios/%d/" % u.pk, {"acao": "ativo"})
+        u.refresh_from_db()
+        self.assertFalse(u.is_active)
+        self.assertFalse(Client().login(username="maria", password=equipe.SENHA_PADRAO))
+
+    def test_ninguem_desliga_a_propria_conta(self):
+        self.c.post("/equipe/usuarios/%d/" % self.chefe.pk, {"acao": "ativo"})
+        self.chefe.refresh_from_db()
+        self.assertTrue(self.chefe.is_active)
+
+    def test_ninguem_tira_o_proprio_diretor(self):
+        """Seria perder esta tela — e com ela o caminho de volta."""
+        self.c.post(
+            "/equipe/usuarios/%d/" % self.chefe.pk,
+            {"acao": "papeis", "papeis": ["locutor"]},
+        )
+        self.assertTrue(papeis.eh_diretor(self.chefe))
+
+    def test_diretor_comum_nao_mexe_em_superusuario(self):
+        User = get_user_model()
+        dono = User.objects.create_user("dono_ficticio", password="segredo-ficticio")
+        dono.is_staff = True
+        dono.is_superuser = True
+        dono.save()
+        self.c.post("/equipe/usuarios/%d/" % dono.pk, {"acao": "resetar"})
+        dono.refresh_from_db()
+        self.assertFalse(dono.check_password(equipe.SENHA_PADRAO))
+
+    # --- o bilhete ---
+    def test_o_recado_traz_usuario_e_senha(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        u = get_user_model().objects.get(username="maria")
+        texto = equipe.recado_de_acesso(u, "https://exemplo.com/leilao")
+        self.assertIn("maria", texto)
+        self.assertIn(equipe.SENHA_PADRAO, texto)
+        self.assertIn("https://exemplo.com/leilao/equipe/entrar/", texto)
+
+    def test_a_lista_marca_quem_ainda_esta_com_a_senha_padrao(self):
+        self._criar(nome="Maria Fictícia", papeis=("caixa",))
+        html = self.c.get("/equipe/usuarios/").content.decode("utf-8")
+        self.assertIn("senha %s" % equipe.SENHA_PADRAO, html)
+
+
+class UsuarioSugeridoTests(TestCase):
+    """A geração do login, sem tocar no banco (`ocupado` injetado)."""
+
+    def test_primeiro_nome_minusculo_e_sem_acento(self):
+        self.assertEqual(
+            equipe.usuario_sugerido("José Fictício", ocupado=lambda u: False), "jose"
+        )
+
+    def test_repetido_cai_no_sobrenome(self):
+        ocupados = {"jose"}
+        self.assertEqual(
+            equipe.usuario_sugerido("José Fictício", ocupado=lambda u: u in ocupados),
+            "jose.ficticio",
+        )
+
+    def test_repetido_duas_vezes_ganha_numero(self):
+        ocupados = {"jose", "jose.ficticio"}
+        self.assertEqual(
+            equipe.usuario_sugerido("José Fictício", ocupado=lambda u: u in ocupados),
+            "jose.ficticio2",
+        )
+
+    def test_nome_so_de_simbolos_nao_gera_login_vazio(self):
+        self.assertEqual(equipe.usuario_sugerido("!!!", ocupado=lambda u: False), "equipe")

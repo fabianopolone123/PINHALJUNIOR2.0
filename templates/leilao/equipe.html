@@ -32,6 +32,8 @@
                     Conduzir o pregão: abrir lote, cronômetro, martelo, chat e microfone.
                 {% elif a.chave == 'caixa' %}
                     Conferir quem pagou e cuidar da entrega dos itens.
+                {% elif a.chave == 'usuarios' %}
+                    Cadastrar quem vai ajudar hoje e dizer o que cada um faz.
                 {% endif %}
             </span>
             {% if a.chave == 'caixa' and a_pagar %}

@@ -22,6 +22,103 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-15 - Leilão: o diretor cadastra a equipe pela tela (aba Usuários)
+
+### Resumo
+Até aqui, dar acesso a um voluntário do leilão só era possível pelo comando
+`leilao_papel`, no terminal do servidor — o que significa que **ninguém da
+equipe conseguia fazer isso**, e que um ajudante que aparecesse na hora do
+evento ficava de fora. Entrou a aba **👤 Usuários** na barra da equipe, visível
+só para o **diretor**: nome, função e pronto.
+
+A conta nasce com a senha **`1234`**, igual para todo mundo, e **no primeiro
+acesso o sistema exige que a pessoa troque**. Enquanto ela não trocar, a única
+tela que abre é a da troca.
+
+### A senha padrão é um bilhete, não um segredo
+É o desenho todo em uma frase. `1234` existe para ser **dita em voz alta** numa
+mesa de evento ("seu usuário é maria, senha 1234") e digitada no celular em três
+segundos. O que a torna segura não é ela — é o fato de **valer uma entrada só**:
+
+- a guarda está em `papeis.exige`, `papeis.exige_diretor` e no `equipe_view`, e
+  também **no POST único da equipe** (`/equipe/acao/`), que devolve 403. Esconder
+  a tela não protege nada se o botão continuar respondendo por `fetch`;
+- a senha nova **pode ser fraca** — `123` passa. Decisão do clube, e ela tem
+  motivo: quem digita é um voluntário, no celular, no meio de um evento, numa
+  conta que abre telas de leilão. Exigir oito caracteres com número e símbolo ali
+  produz senha anotada em papel, que é pior. Os validadores do Django ficam de
+  fora **de propósito**;
+- a **única** senha recusada é a própria `1234`: aceitá-la faria a troca não
+  trocar nada, e a conta seguiria com a senha que a mesa inteira ouviu.
+
+### Por que um model novo (e não `last_login`)
+`ContaEquipe.senha_provisoria` responde a pergunta que o `User` do Django não
+responde: *esta pessoa ainda está com a senha que o diretor entregou?*
+
+`last_login` parece servir e não serve: o Django o preenche **no momento do
+login**, antes da troca. Quem entrasse e fechasse o navegador no meio ficaria com
+a senha padrão para sempre, e o sistema acharia que já estava resolvido.
+
+**Quem não tem registro não é cobrado.** As contas que já existiam — e as do
+`leilao_papel`, que sorteia senha forte — nunca tiveram senha padrão; forçá-las
+a trocar seria inventar um problema no dia do evento.
+
+### O usuário de acesso sai do nome
+O diretor digita **nome e função**; o login é gerado (`maria`). Repetiu, vira
+`maria.souza`; repetiu de novo, entra o número. O campo de usuário continua lá,
+**opcional**, para quem quiser escolher.
+
+Curto porque é **ditado em voz alta**: nessa hora, curto vale mais que único.
+
+### Arquivos criados/alterados
+- `leilao/equipe.py` (novo): `SENHA_PADRAO`, `criar_conta`, `definir_papeis`,
+  `resetar_senha`, `definir_senha`, `precisa_trocar_senha`, `usuario_sugerido` e
+  `recado_de_acesso`. Serviço, como `servicos.py` e `entregas.py` — a view não
+  tem regra.
+- `leilao/models.py`: `ContaEquipe` (OneToOne com o `User`).
+- `leilao/migrations/0007_contaequipe.py`.
+- `leilao/papeis.py`: `ITEM_USUARIOS` no menu do diretor, `senha_pendente`,
+  `exige_diretor` e a guarda da senha dentro do `exige`.
+- `leilao/forms.py`: `UsuarioEquipeForm` e `TrocarSenhaForm`.
+- `leilao/views.py`: `usuarios_view`, `usuario_acao_view`, `trocar_senha_view`,
+  `_pode_mexer`; guarda no `equipe_view` e no `locutor_acao_view`.
+- `leilao/urls.py`: `/equipe/usuarios/`, `/equipe/usuarios/<pk>/`, `/equipe/senha/`.
+- `templates/leilao/usuarios.html`, `templates/leilao/trocar_senha.html` (novos);
+  `equipe.html` ganhou a descrição do cartão.
+- `static/leilao/js/usuarios.js` (novo) e `static/leilao/css/locutor.css`.
+- `leilao/tests.py`: +27 testes.
+
+### Decisões tomadas
+- **Usuários não é um papel, é o que o diretor faz por ser diretor.** Por isso
+  não entrou em `AREAS` (ninguém é "o usuário de usuários") e sim num item de
+  menu próprio, com decorator próprio. O template continua iterando o menu —
+  nada de `{% if %}` por papel chumbado no HTML.
+- **Funções acumulam, e a tela mostra isso** (caixas de seleção, não uma lista
+  suspensa): no evento pequeno o mesmo voluntário faz duas coisas, regra que o
+  módulo já seguia.
+- **Cadastro sem função é recusado.** Conta sem papel entra e não vê tela
+  nenhuma — não seria um cadastro, seria uma armadilha para descobrir no dia.
+- **Formulários POST comuns, sem `fetch`.** Esta tela não está no pregão; um
+  POST com recarga é mais robusto do que JSON no meio de um evento com internet
+  ruim. O JS novo só confirma o destrutivo e filtra a lista.
+- **Duas travas contra o diretor se trancar fora**: ninguém desliga a própria
+  conta, e ninguém tira a própria função de diretor. As duas no servidor.
+- **Conta de superusuário só é alterada por superusuário** — um diretor
+  voluntário não reseta a senha de quem administra o sistema.
+- **O bilhete vem pronto do servidor** (`recado_de_acesso`) numa
+  `<textarea class="copiar-fonte">` com o `copiar_texto.js` do clube, como manda
+  a convenção. Ele leva **uma** pessoa: usuário, senha e link — nada de terceiro.
+- **`update_session_auth_hash` na troca.** Sem ele o Django invalida a sessão e
+  a pessoa cai no login logo depois de fazer o que o sistema exigiu. Há teste.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+- A tela **não exclui** conta, só desliga (`is_active`). Desligar é reversível e
+  preserva o histórico de quem deu baixa e quem entregou.
+
+---
+
 ## 2026-09-14 - Leilão: divide as entregas entre os voluntários
 
 ### Resumo

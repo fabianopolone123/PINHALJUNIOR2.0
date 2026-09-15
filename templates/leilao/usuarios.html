@@ -1,0 +1,127 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Usuários{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    {% include "leilao/_nav_equipe.html" with area_atual="usuarios" titulo_area="Usuários" %}
+
+    <div class="cartao">
+        <h3>Cadastrar alguém da equipe</h3>
+        <p class="micro-ajuda">
+            A conta nasce com a senha <b>{{ senha_padrao }}</b>, igual para todo mundo — ela não é
+            segredo, é um bilhete. <b>No primeiro acesso o sistema exige que a pessoa troque</b>, e só
+            então as telas abrem para ela.
+        </p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="form-grade">
+                {% include "leilao/_campo.html" with campo=form.nome %}
+                {% include "leilao/_campo.html" with campo=form.usuario %}
+            </div>
+
+            <div class="campo">
+                <label>{{ form.papeis.label }} <span class="obrigatorio">*</span></label>
+                {% for opcao in form.papeis %}
+                <label class="check-linha">{{ opcao.tag }} <span>{{ opcao.choice_label }}</span></label>
+                {% endfor %}
+                <small class="ajuda">{{ form.papeis.help_text }}</small>
+                {% if form.papeis.errors %}<div class="erros">{{ form.papeis.errors }}</div>{% endif %}
+            </div>
+
+            <button type="submit" class="btn-entrar">Cadastrar</button>
+        </form>
+    </div>
+
+    <div class="cartao">
+    <h3>Equipe <span class="conta">{{ pessoas|length }}</span></h3>
+    <input type="text" id="buscaEquipe" class="busca" placeholder="Buscar por nome ou usuário…">
+
+    <ul class="itens" id="listaEquipe">
+        {% for p in pessoas %}
+        <li class="pessoa-conta {% if not p.user.is_active %}desligada{% endif %}"
+            data-busca="{{ p.nome }} {{ p.user.username }}">
+            <div class="conta-cabeca">
+                <div class="pessoa-corpo">
+                    <span class="item-nome">
+                        {{ p.nome }}
+                        {% if p.eu %}<span class="conta-eu">você</span>{% endif %}
+                    </span>
+                    <span class="pessoa-linha">
+                        usuário: <b>{{ p.user.username }}</b>
+                        {% if p.rotulos %}· {{ p.rotulos|join:" · " }}
+                        {% else %}· <b class="sem-funcao">sem função — não vê tela nenhuma</b>{% endif %}
+                    </span>
+                </div>
+                <div class="conta-selos">
+                    {% if p.provisoria %}<b class="selo selo-provisoria">senha {{ senha_padrao }}</b>{% endif %}
+                    {% if not p.user.is_active %}<b class="selo selo-sem_lance">desligada</b>{% endif %}
+                    {% if p.user.is_superuser %}<b class="selo selo-ao_vivo">admin</b>{% endif %}
+                </div>
+            </div>
+
+            <details class="conta-detalhe">
+                <summary>Alterar</summary>
+
+                <form method="post" action="{% url 'leilao:usuario_acao' p.user.pk %}" class="conta-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="papeis">
+                    {% for valor, rotulo in escolhas %}
+                    <label class="check-linha">
+                        <input type="checkbox" name="papeis" value="{{ valor }}" class="campo-check"
+                               {% if valor in p.papeis %}checked{% endif %}>
+                        <span>{{ rotulo }}</span>
+                    </label>
+                    {% endfor %}
+                    <button type="submit" class="btn-mini destaque">Salvar funções</button>
+                </form>
+
+                <div class="conta-acoes">
+                    <form method="post" action="{% url 'leilao:usuario_acao' p.user.pk %}" class="inline"
+                          data-confirmar="Voltar a senha de {{ p.user.username }} para {{ senha_padrao }}? Ela vai escolher outra ao entrar.">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="resetar">
+                        <button type="submit" class="btn-mini">🔑 Resetar senha</button>
+                    </form>
+
+                    {% if not p.eu %}
+                    <form method="post" action="{% url 'leilao:usuario_acao' p.user.pk %}" class="inline"
+                          data-confirmar="{% if p.user.is_active %}Desligar{% else %}Religar{% endif %} a conta de {{ p.nome }}?">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="ativo">
+                        <button type="submit" class="btn-mini {% if p.user.is_active %}perigo{% endif %}">
+                            {% if p.user.is_active %}⛔ Desligar{% else %}✅ Religar{% endif %}
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <button type="button" class="btn-mini btn-copiar-lista"
+                            data-fonte="recado{{ p.user.pk }}"
+                            data-aviso="Recado copiado! Mande no WhatsApp da pessoa.">
+                        📋 Copiar acesso
+                    </button>
+                </div>
+
+                {% comment %}
+                O recado vem PRONTO do servidor (convenção do projeto): o JS só copia.
+                A textarea fica fora da tela em vez de `hidden` porque a cópia de
+                reserva precisa de `select()` num campo que exista de fato.
+                {% endcomment %}
+                <textarea id="recado{{ p.user.pk }}" class="copiar-fonte" readonly>{{ p.recado }}</textarea>
+            </details>
+        </li>
+        {% empty %}
+        <li class="vazio">Ninguém cadastrado ainda.</li>
+        {% endfor %}
+    </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/copiar_texto.js' %}"></script>
+<script src="{% static 'leilao/js/usuarios.js' %}"></script>
+{% endblock %}

@@ -197,3 +197,112 @@ class ConfigLeilaoForm(EstiloMixin, forms.ModelForm):
             if not (dados.get(nome) or "").strip():
                 dados[nome] = getattr(self.instance, nome, "")
         return dados
+
+
+class UsuarioEquipeForm(EstiloMixin, forms.Form):
+    """Cadastro de uma pessoa da equipe: nome e função.
+
+    **O usuário de acesso é opcional.** Em branco, o sistema tira do nome
+    (`equipe.usuario_sugerido`) — o diretor cadastra com dois campos, que é o
+    que se consegue fazer com o leilão já rolando. Quem quiser escolher o login
+    escolhe.
+    """
+
+    nome = forms.CharField(
+        label="Nome da pessoa", max_length=150,
+        widget=forms.TextInput(attrs={"placeholder": "Ex.: Maria Souza", "autocomplete": "off"}),
+    )
+    usuario = forms.CharField(
+        label="Usuário de acesso", max_length=150, required=False,
+        help_text="Deixe em branco para o sistema criar a partir do nome.",
+        widget=forms.TextInput(
+            attrs={"placeholder": "em branco = automático", "autocapitalize": "none",
+                   "autocomplete": "off"}
+        ),
+    )
+    papeis = forms.MultipleChoiceField(
+        label="O que ela vai fazer", choices=[], widget=forms.CheckboxSelectMultiple,
+        help_text="Pode marcar mais de uma — no evento pequeno a mesma pessoa faz duas coisas.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Import tardio: `equipe.py` lê os papéis, e o `forms` é importado pelo
+        # `views` antes de tudo estar de pé.
+        from .equipe import escolhas_de_papel
+
+        self.fields["papeis"].choices = escolhas_de_papel()
+        # `CheckboxSelectMultiple` herda de `Select`, então o mixin o trataria
+        # como lista suspensa e daria `campo-select` a CADA caixinha — que é
+        # largura total e padding de campo. Resultado: o quadradinho vira uma
+        # barra e o rótulo cai para a linha de baixo. Definir antes basta, o
+        # mixin usa `setdefault`.
+        self.fields["papeis"].widget.attrs["class"] = "campo-check"
+        self._aplicar_estilo()
+
+    def clean_nome(self):
+        return " ".join((self.cleaned_data.get("nome") or "").split())
+
+    def clean_usuario(self):
+        from django.contrib.auth import get_user_model
+
+        from .equipe import limpar_usuario
+
+        bruto = (self.cleaned_data.get("usuario") or "").strip()
+        if not bruto:
+            return ""
+        login = limpar_usuario(bruto)
+        if not login:
+            raise forms.ValidationError("Use letras e números, sem espaço nem acento.")
+        if get_user_model().objects.filter(username__iexact=login).exists():
+            raise forms.ValidationError(f"Já existe alguém com o usuário “{login}”.")
+        return login
+
+
+class TrocarSenhaForm(forms.Form):
+    """A troca obrigatória do primeiro acesso.
+
+    **Não passa pelos validadores do Django** (`validate_password`), e isso é
+    decisão do clube: quem digita aqui é um voluntário, no celular, no meio de
+    um evento, numa conta que abre telas de leilão. Exigir oito caracteres com
+    número e símbolo ali produz senha anotada em papel — que é pior do que uma
+    senha curta que a pessoa lembra.
+
+    A única senha recusada é **a padrão**: aceitá-la faria a troca não trocar
+    nada, e a conta seguiria com a senha que a mesa inteira ouviu.
+    """
+
+    senha = forms.CharField(
+        label="Sua nova senha", strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    repetir = forms.CharField(
+        label="Repita a senha", strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in self.fields.values():
+            campo.widget.attrs.setdefault("class", "campo-input")
+
+    def clean(self):
+        from .equipe import SENHA_PADRAO, TAMANHO_MINIMO_SENHA
+
+        dados = super().clean()
+        senha = dados.get("senha") or ""
+        repetir = dados.get("repetir") or ""
+
+        if len(senha) < TAMANHO_MINIMO_SENHA:
+            self.add_error(
+                "senha", f"Use pelo menos {TAMANHO_MINIMO_SENHA} caracteres."
+            )
+        elif senha == SENHA_PADRAO:
+            self.add_error(
+                "senha",
+                "Essa é a senha que todo mundo recebe. Escolha outra, "
+                "qualquer uma que você lembre.",
+            )
+        elif senha != repetir:
+            self.add_error("repetir", "As duas senhas não são iguais.")
+        return dados

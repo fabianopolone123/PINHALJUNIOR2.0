@@ -300,7 +300,10 @@ Testes: `DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test lei
 - **`uvicorn` é a única dependência nova**, isolada em `requirements-leilao.txt` para não mexer no
   ambiente do sistema do clube.
 - **Sempre um worker só**: o hub de eventos e o relógio do pregão vivem na memória do processo.
+- **O diretor cadastra a equipe pela tela** (aba 👤 Usuários): nome + função, senha padrão `1234` e
+  **troca obrigatória no primeiro acesso**. O comando `leilao_papel` continua existindo para o terminal.
 - Plano e decisões: `docs/PLANEJAMENTO_LEILAO.md`. Deploy: `docs/DEPLOY_LEILAO.md`.
+  Manual dos voluntários: `docs/MANUAL_LEILAO.md`.
 
 ## Rotas existentes
 

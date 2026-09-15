@@ -730,6 +730,39 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   (`pessoa_bloqueada`), e bloquear pela tela alcança todos os cadastros dela (`bloquear_pessoa`) —
   senão o bloqueio se desfaz com dois toques na tela de entrada.
 
+### Contas da equipe e a senha padrão
+
+- **A senha `1234` é um bilhete, não um segredo.** Ela existe para ser dita em voz alta numa mesa de
+  evento e digitada no celular em três segundos. O que a torna segura é **valer uma entrada só**: enquanto
+  `ContaEquipe.senha_provisoria` for verdadeiro, a única tela que abre é `/equipe/senha/`.
+- **A guarda está em quatro lugares, e todos são necessários**: `papeis.exige`, `papeis.exige_diretor`,
+  o `equipe_view` (que usa `login_required` puro) e o **POST único da equipe** (`/equipe/acao/`, que
+  devolve 403). Esconder a tela não protege nada se o botão continua respondendo por `fetch` — é a mesma
+  lição do mapa `ACOES_AREAS`. Rota nova da equipe **repete a checagem**.
+- **A senha nova pode ser fraca, e isso é decisão do clube.** `validate_password` fica **de fora de
+  propósito**: quem digita é um voluntário, no celular, no meio de um evento, numa conta que abre telas de
+  leilão. Exigir oito caracteres com número e símbolo ali produz senha anotada em papel — que é pior. Não
+  "conserte" isso ligando os validadores. A **única** senha recusada é a própria padrão: aceitá-la faria a
+  troca não trocar nada.
+- **A trava é um campo, não o `last_login`.** O Django preenche `last_login` **no momento do login**,
+  antes da troca: quem entrasse e fechasse o navegador no meio ficaria com a senha padrão para sempre, e o
+  sistema acharia que estava resolvido.
+- **Conta sem registro em `ContaEquipe` não é cobrada.** As contas antigas e as do `leilao_papel` (que
+  sorteia senha forte) nunca tiveram senha padrão; forçá-las a trocar seria inventar um problema no dia do
+  evento.
+- **`update_session_auth_hash` depois de trocar a senha.** Sem ele o Django invalida a sessão e a pessoa
+  cai no login logo depois de fazer o que o sistema exigiu. Há teste.
+- **Usuários não é uma área, é o que o diretor faz por ser diretor.** Não entra em `AREAS` (ninguém é "o
+  usuário de usuários"): é `ITEM_USUARIOS` no menu + `exige_diretor`. O template continua **iterando o
+  menu** — nada de `{% if %}` por papel chumbado no HTML.
+- **Duas travas contra o diretor se trancar do lado de fora**, as duas no servidor: ninguém desliga a
+  própria conta, ninguém tira a própria função de diretor. E **conta de superusuário só é alterada por
+  superusuário** — um diretor voluntário não reseta a senha de quem administra o sistema.
+- **Cadastro sem função é recusado.** Conta sem papel entra e não vê tela nenhuma: seria uma armadilha
+  para descobrir no dia do evento, não um cadastro.
+- **A tela desliga a conta, não exclui.** Desligar é reversível e preserva quem deu baixa de pagamento e
+  quem entregou item.
+
 ### A tela de entrada
 
 - **Ela é preenchida com pressa, com o pregão já rolando.** Campo que não ajuda

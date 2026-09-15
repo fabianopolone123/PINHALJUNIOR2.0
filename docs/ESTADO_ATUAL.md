@@ -2,7 +2,30 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-13 (**Leilão online ao vivo — módulo novo em `/leilao/`**): módulo
+**Última atualização:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
+**👤 Usuários** na barra da equipe do leilão, visível só para o **diretor** (`/equipe/usuarios/`). Até
+aqui, dar acesso a um voluntário só era possível pelo comando `leilao_papel`, no terminal do servidor —
+ou seja, ninguém da equipe conseguia, e o ajudante que aparecesse na hora ficava de fora. Agora é
+**nome + função** e pronto; o **usuário de acesso sai do nome** (`Maria Fictícia` → `maria`; repetido
+vira `maria.souza`, depois entra o número), com o campo de login **opcional** para quem quiser escolher.
+A conta nasce com a senha **`1234`**, igual para todo mundo — ela **é um bilhete, não um segredo**: serve
+para ser dita em voz alta na mesa e digitada no celular em três segundos. O que a torna segura é **valer
+uma entrada só**: no primeiro acesso o sistema **exige a troca**, e enquanto ela não acontece a única tela
+que abre é a da troca — inclusive para o **POST único da equipe**, que devolve 403 (esconder a tela não
+protege nada se o botão responde por `fetch`). A senha nova **pode ser fraca** (`123` passa): os
+validadores do Django ficam de fora **de propósito**, porque quem digita é um voluntário no celular, no
+meio de um evento, e exigir oito caracteres com símbolo ali produz senha anotada em papel. A **única**
+recusada é a própria `1234`. A trava mora em `ContaEquipe.senha_provisoria` (migration **0007**) e não em
+`last_login` — o Django preenche `last_login` **no login**, antes da troca, então quem fechasse o
+navegador no meio ficaria com a senha padrão para sempre; e **quem não tem registro não é cobrado**, para
+as contas antigas (e as do `leilao_papel`, que sorteia senha forte) não caírem numa troca obrigatória no
+dia do evento. A tela ainda **reseta a senha** (devolve o bilhete a quem esqueceu), **liga/desliga** a
+conta e tem o **📋 Copiar acesso** com o recado pronto para o WhatsApp da pessoa. Duas travas contra o
+diretor se trancar do lado de fora, as duas no servidor: ninguém desliga a própria conta nem tira a
+própria função de diretor; e conta de **superusuário** só é alterada por superusuário. Suíte do leilão:
+**219 testes OK**.
+
+**Atualização anterior:** 2026-09-13 (**Leilão online ao vivo — módulo novo em `/leilao/`**): módulo
 **independente** do sistema do clube, para leilão beneficente ao vivo com o público **todo remoto** (~50
 pessoas, teto de projeto 100). É uma **segunda aplicação** na mesma base de código: app `leilao`, **banco
 SQLite próprio** (`leilao.sqlite3`) e **serviço ASGI próprio** (uvicorn, porta 8011) — 50 pessoas
@@ -24,7 +47,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **137 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **219 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1826,7 +1849,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 137 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 219 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -1858,6 +1881,11 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
 - `PagamentoLeilao` — a cobrança Pix, com o QR pronto (`qr_code` + `qr_code_base64`) e `finalizado`
   como trava de idempotência do webhook.
 - `MensagemChat` — `participante` vazio = locutor; `removida` em vez de apagar.
+- `ContaEquipe` — o que o leilão sabe de uma conta da equipe além do `User` (migration **0007**):
+  `nome`, **`senha_provisoria`** e quem criou. Existe por **uma** pergunta que o `User` não responde:
+  *esta pessoa ainda está com a senha que o diretor entregou?* — `last_login` não serve, porque o
+  Django o preenche **no login**, antes da troca. **Quem não tem registro não é cobrado** (contas
+  antigas e as do `leilao_papel`, que sorteia senha forte, nunca tiveram senha padrão).
 
 **Arquitetura** (o que não pode ser mexido sem entender)
 - `hub.py` — pub/sub **em memória** + `laco_central` (1 s) que fecha lote vencido, expira arremate e
@@ -1878,6 +1906,26 @@ diferentes numa noite de leilão, e raramente a mesma pessoa:
 dá acesso a nada**: sem papel, a pessoa entra e não vê tela. Quem tem **uma** área só vai direto para
 ela no login; com mais de uma, escolhe no hub `/equipe/`. Comando: `leilao_papel` (`--listar`,
 `--dar`, `--tirar`, `--senha`).
+
+**O diretor cadastra a equipe pela tela** (aba **👤 Usuários**, `/equipe/usuarios/`): nome + função, e o
+**usuário de acesso sai do nome** (`maria`; repetido vira `maria.souza`, depois entra o número), com o
+campo de login **opcional**. Antes disso o único caminho era o `leilao_papel`, no terminal do servidor —
+ninguém da equipe conseguia, e o ajudante que aparecia na hora ficava de fora. Usuários **não é um
+papel** (ninguém é "o usuário de usuários"): é `ITEM_USUARIOS` no menu do diretor + `papeis.exige_diretor`.
+A tela também **reseta a senha**, **liga/desliga** a conta (nunca exclui) e tem o **📋 Copiar acesso**,
+com o recado pronto do servidor. Regra em `leilao/equipe.py`; a view não decide nada.
+
+**A senha padrão `1234` é um bilhete, não um segredo.** Ela existe para ser dita em voz alta na mesa e
+digitada no celular em três segundos, e o que a torna segura é **valer uma entrada só**: no primeiro
+acesso o sistema **exige a troca** (`papeis.senha_pendente` em `exige`, `exige_diretor`, `equipe_view` e
+**no POST único da equipe**, que devolve 403 — esconder a tela não protege quem chama por `fetch`). A
+senha nova **pode ser fraca** (`123` passa): os validadores do Django ficam de fora **de propósito**,
+porque quem digita é um voluntário no celular no meio de um evento, e exigir oito caracteres com símbolo
+ali produz senha anotada em papel. A **única** recusada é a própria `1234` — aceitá-la faria a troca não
+trocar nada. A troca chama `update_session_auth_hash` (sem ele a pessoa cai no login logo depois de
+obedecer) e mora em `/equipe/senha/`, que serve também para trocar por vontade. Duas travas contra o
+diretor se trancar fora, as duas no servidor: **ninguém desliga a própria conta** nem **tira a própria
+função de diretor**; e conta de **superusuário** só é alterada por superusuário.
 
 **O martelo é do locutor:** por padrão (`Leilao.fechamento_automatico=False`) **o tempo não fecha
 nada** — o item fica aberto até o botão VENDIDO. A mesa mostra `Lote.parado_ha` (há quanto tempo a sala
@@ -1919,7 +1967,8 @@ não é o que protege. Há teste.
 
 **Rotas** — público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
 `/meus-arremates/`, `/arremate/<id>/pix|conferir/`, `/webhooks/mercadopago/`.
-Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único);
+Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único), `/equipe/senha/`
+(troca obrigatória no 1º acesso); **só diretor**: `/equipe/usuarios/` (+ `/equipe/usuarios/<pk>/`);
 `/locutor/` + `/locutor/dados/`; `/caixa/`;
 `/preparacao/` (leilões), `/preparacao/config/`, `/preparacao/<id>/status/`,
 `/preparacao/<id>/itens/` (+`novo/`), `/preparacao/itens/<id>/editar|excluir/`.
@@ -1933,9 +1982,9 @@ WhatsApp e endereço) — documento de quem entrega, não texto para grupo abert
 
 **Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `equipe` (hub), `equipe_entrar`,
 `locutor` (mesa), `caixa` (pagamentos + entrega), `preparacao` (leilões), `lotes`, `lote_form`,
-`config`, `_base`, `_campo`, `_nav_equipe`.
+`config`, `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`.
 **Estáticos**: `static/leilao/css/{leilao,locutor}.css` e `static/leilao/js/{leilao,locutor,som,confete,
-reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa}.js`. Reaproveita `css/base.css`
+reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa,usuarios}.js`. Reaproveita `css/base.css`
 (modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.
 
 **Os efeitos sonoros não usam arquivo nenhum** (`som.js`): `SomLeilao` sintetiza lance, superado, vendido e
