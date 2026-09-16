@@ -117,12 +117,29 @@ class LeilaoForm(EstiloMixin, forms.ModelForm):
             # recurso que não existe só confunde quem monta o leilão.
             "nome", "descricao", "incremento_padrao",
             "minutos_para_pagar", "chat_segundos",
+            "boas_vindas_titulo", "boas_vindas_texto",
         ]
-        widgets = {"descricao": forms.Textarea(attrs={"rows": 2})}
+        widgets = {
+            "descricao": forms.Textarea(attrs={"rows": 2}),
+            "boas_vindas_texto": forms.Textarea(
+                attrs={"rows": 5, "placeholder": "Uma informação por linha…"}
+            ),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Campo com `default` no model continua OBRIGATÓRIO no ModelForm — e a
+        # tela de CRIAR leilão nem mostra estes dois (é a tela curta; quem
+        # escreve as boas-vindas é a de editar). Sem isto, criar leilão passa a
+        # falhar por um campo que não está na tela. Um teste pegou.
+        self.fields["boas_vindas_titulo"].required = False
+        self.fields["boas_vindas_texto"].required = False
         self._aplicar_estilo()
+
+    def clean_boas_vindas_titulo(self):
+        """Vazio cai no padrão — a tela de espera nunca fica sem título."""
+        titulo = (self.cleaned_data.get("boas_vindas_titulo") or "").strip()
+        return titulo or Leilao._meta.get_field("boas_vindas_titulo").default
 
 
 class LoteForm(EstiloMixin, forms.ModelForm):

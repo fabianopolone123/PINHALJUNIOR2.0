@@ -28,6 +28,7 @@
             </div>
             <div class="item-acoes">
                 <a href="{% url 'leilao:lotes' l.id %}" class="btn-mini">📦 Itens</a>
+                <a href="{% url 'leilao:leilao_editar' l.pk %}" class="btn-mini">✏️ Editar</a>
                 {% if l.status != 'ao_vivo' %}
                 <form method="post" action="{% url 'leilao:leilao_status' l.pk %}" class="inline"
                       data-confirmar="Colocar “{{ l.nome }}” no ar? Isso encerra o leilão que estiver ao vivo.">

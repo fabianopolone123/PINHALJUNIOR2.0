@@ -220,6 +220,26 @@ class Leilao(models.Model):
     # Este só sobe.
     ultimo_numero_item = models.PositiveIntegerField("Último nº de item usado", default=0)
 
+    # --- A tela de quem chega antes de o pregão começar ---
+    # Antes isto dizia "Intervalo", que é mentira para quem acabou de entrar:
+    # não há intervalo nenhum, o leilão ainda não começou. A espera é o primeiro
+    # contato da pessoa com o clube — vale um "bem-vindo" e as informações que
+    # ela precisa (como funciona o lance, a que horas começa, o Pix).
+    boas_vindas_titulo = models.CharField(
+        "Título da tela de espera", max_length=80, default="Seja bem-vindo!",
+        help_text="Aparece grande para quem entra antes do primeiro item.",
+    )
+    boas_vindas_texto = models.TextField(
+        "Informações úteis", blank=True,
+        default=(
+            "O leilão começa em instantes — pode deixar esta tela aberta.\n"
+            "Cada toque no botão soma R$ 5 ao lance.\n"
+            "Quem arremata paga por Pix na hora, sem sair da tela.\n"
+            "Ligue o som para ouvir o locutor ao vivo."
+        ),
+        help_text="Uma informação por linha. Dá para editar com o leilão já no ar.",
+    )
+
     # --- Chat entre um lote e outro ---
     chat_segundos = models.PositiveIntegerField(
         "Duração do chat entre lotes (segundos)", default=120,
@@ -270,6 +290,16 @@ class Leilao(models.Model):
     @property
     def lote_atual(self):
         return self.lotes.filter(status="aberto").order_by("ordem").first()
+
+    def ja_comecou(self):
+        """Algum item já foi a pregão nesta noite?
+
+        É o que separa **espera** de **intervalo**: antes do primeiro item a
+        tela diz "bem-vindo"; entre um item e outro, "já já abrimos o próximo".
+        Dizer "intervalo" a quem acabou de chegar é dar a impressão de que ela
+        perdeu o começo.
+        """
+        return self.lotes.exclude(status="fila").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +385,19 @@ class Participante(models.Model):
         if not tel:
             return f"id{self.pk}"
         return hashlib.sha256(tel.encode("utf-8")).hexdigest()[:12]
+
+    @property
+    def whatsapp_link(self):
+        """Link que abre a conversa com esta pessoa no WhatsApp.
+
+        O caixa precisa falar com quem arrematou — e digitar número no celular,
+        com o leilão rolando, é onde a conversa morre. Sem DDI cadastrado, o
+        **55** do Brasil é acrescentado aqui: o cadastro pede só DDD + número.
+        """
+        tel = self.telefone_normalizado
+        if len(tel) < 10:
+            return ""
+        return f"https://wa.me/55{tel}"
 
     @property
     def endereco_uma_linha(self):

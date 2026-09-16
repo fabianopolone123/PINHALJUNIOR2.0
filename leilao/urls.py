@@ -43,10 +43,12 @@ urlpatterns = [
     path("locutor/dados/", views.locutor_dados_view, name="locutor_dados"),
     # --- Área do caixa ---
     path("caixa/", views.caixa_view, name="caixa"),
+    path("caixa/arremate/<int:pk>/pix/", views.caixa_pix_view, name="caixa_pix"),
     # --- Área da preparação ---
     path("preparacao/", views.preparacao_view, name="preparacao"),
     path("preparacao/config/", views.config_view, name="config"),
     path("preparacao/<int:pk>/status/", views.leilao_status_view, name="leilao_status"),
+    path("preparacao/<int:pk>/editar/", views.leilao_editar_view, name="leilao_editar"),
     path("preparacao/<int:leilao_id>/itens/", views.lotes_view, name="lotes"),
     path("preparacao/<int:leilao_id>/itens/novo/", views.lote_form_view, name="lote_novo"),
     path("preparacao/itens/<int:pk>/editar/", views.lote_form_view, name="lote_editar"),

@@ -45,6 +45,11 @@ logger = logging.getLogger(__name__)
 # script — sem atrapalhar quem está disputando de verdade.
 INTERVALO_MIN_LANCE = 0.3
 
+# Validade do Pix de quem combinou pagar depois. O relógio dos 15 minutos não
+# vale mais para essa pessoa (o item não volta para a fila), então o código
+# precisa durar o quanto a conversa durar — uma hora, três, amanhã de manhã.
+MINUTOS_PIX_COMBINADO = 60 * 24 * 7
+
 _locks = {}
 _locks_guard = threading.Lock()
 _ultimo_lance = {}
@@ -344,10 +349,52 @@ def marcar_combinado(arremate, usuario=None, observacao=""):
         arremate.observacao = observacao[:200]
     arremate.save(update_fields=["status", "combinado_em", "combinado_por", "observacao"])
 
-    agendar(garantir_cobranca, arremate.id, 60 * 24, True)
+    # Sete dias, não 24 horas: "vai pagar depois" na prática é "pago hoje à
+    # noite, amanhã, ou quando a pessoa conseguir". Um código que vence antes
+    # disso faz o caixa refazer tudo — e, pior, entrega à pessoa um copia e cola
+    # que o banco recusa.
+    agendar(garantir_cobranca, arremate.id, MINUTOS_PIX_COMBINADO, True)
     HUB.publicar(
         "arremate_combinado",
-        {"arremate": arremate.id, "participante": arremate.participante_id},
+        {
+            "arremate": arremate.id,
+            "participante": arremate.participante_id,
+            "situacao": "combinado",
+        },
+    )
+    return arremate
+
+
+def estender_prazo(arremate, minutos):
+    """Dá mais tempo a quem pediu mais tempo — e **refaz o Pix**.
+
+    Esticar só o `expira_em` seria meia solução: o código Pix do arremate foi
+    criado com a validade do prazo original e vence junto com ele. A pessoa
+    ficaria com mais tempo na tela e um copia e cola que o banco recusa.
+
+    Vale só para quem ainda está no relógio: quem já combinou de pagar depois
+    não tem prazo para esticar, e quem pagou não precisa.
+    """
+    minutos = max(1, min(int(minutos or 0), 60 * 24))
+    if arremate.status != "aguardando":
+        return arremate
+
+    # A partir de AGORA, não do prazo antigo: o caso real é o prazo prestes a
+    # vencer (ou vencido há segundos), e somar ao passado daria tempo nenhum.
+    base = max(arremate.expira_em, timezone.now())
+    arremate.expira_em = base + timedelta(minutes=minutos)
+    arremate.save(update_fields=["expira_em"])
+
+    restante = int((arremate.expira_em - timezone.now()).total_seconds() // 60) + 1
+    agendar(garantir_cobranca, arremate.id, restante, True)
+    HUB.publicar(
+        "arremate_prazo",
+        {
+            "arremate": arremate.id,
+            "participante": arremate.participante_id,
+            "expira_em": est.iso(arremate.expira_em),
+            "segundos": arremate.segundos_para_pagar,
+        },
     )
     return arremate
 

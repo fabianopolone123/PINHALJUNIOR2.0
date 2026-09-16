@@ -171,6 +171,22 @@ def estado_publico(leilao, *, com_chat=True):
             "status": leilao.status,
             "minutos_para_pagar": leilao.minutos_para_pagar,
         },
+        # Espera e intervalo são coisas diferentes, e a tela precisa saber qual
+        # das duas mostrar: antes do primeiro item a pessoa acabou de chegar
+        # ("bem-vindo"), depois dele ela está esperando o próximo ("já já").
+        # Chamar as duas de "intervalo" dá a quem chega a impressão de que
+        # perdeu o começo.
+        "comecou": leilao.ja_comecou(),
+        "boas_vindas": {
+            "titulo": leilao.boas_vindas_titulo,
+            # Uma informação por linha, como o campo é preenchido. A tela monta
+            # a lista; o servidor não manda HTML.
+            "linhas": [
+                linha.strip()
+                for linha in (leilao.boas_vindas_texto or "").splitlines()
+                if linha.strip()
+            ],
+        },
         "lote": lote_publico(lote),
         # Só a FOTO do próximo, para a tela pré-carregar e a troca de item ser
         # instantânea. Sem nome, sem quantidade: a URL não conta o que vem nem

@@ -60,10 +60,23 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
             <div class="festa-parabens" id="festaParabens">Parabéns!</div>
         </div>
 
-        <div class="intervalo-simples" id="intervaloSimples">
+        <div class="intervalo-simples" id="intervaloSimples" hidden>
             <div class="intervalo-icone">⏸️</div>
             <h1>Intervalo</h1>
             <p>Estamos preparando o próximo item…</p>
+        </div>
+
+        {% comment %}
+        ANTES do primeiro item: quem chega não está num intervalo, está
+        chegando. O texto é do clube e sai da preparação (editável com o leilão
+        já no ar) — aqui só o esqueleto; o JS preenche pelo estado, então mudar
+        o texto atualiza a tela de todo mundo sem ninguém recarregar nada.
+        {% endcomment %}
+        <div class="boas-vindas" id="boasVindas" hidden>
+            <div class="bv-icone">👋</div>
+            <h1 id="bvTitulo">Seja bem-vindo!</h1>
+            <ul class="bv-lista" id="bvLista"></ul>
+            <p class="bv-online" id="bvOnline">Você já está aqui. O pessoal vai chegando…</p>
         </div>
     </section>
 

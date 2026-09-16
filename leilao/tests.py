@@ -2708,3 +2708,255 @@ class UsuarioSugeridoTests(TestCase):
 
     def test_nome_so_de_simbolos_nao_gera_login_vazio(self):
         self.assertEqual(equipe.usuario_sugerido("!!!", ocupado=lambda u: False), "equipe")
+
+
+class BoasVindasTests(TestCase):
+    """A tela de quem chega ANTES do primeiro item.
+
+    "Intervalo" é mentira para quem acabou de entrar — não há intervalo nenhum,
+    o leilão ainda não começou, e a palavra dá a impressão de que ela perdeu o
+    começo.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+
+    def test_antes_do_primeiro_item_o_leilao_nao_comecou(self):
+        self.assertFalse(est.estado_publico(self.leilao)["comecou"])
+
+    def test_depois_de_abrir_um_item_comecou(self):
+        servicos.abrir_lote(self.lote)
+        self.assertTrue(est.estado_publico(self.leilao)["comecou"])
+
+    def test_continua_comecado_depois_de_vender(self):
+        """O intervalo entre itens não pode voltar a dizer 'bem-vindo'."""
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, criar_pessoa())
+        self.lote.refresh_from_db()
+        servicos.fechar_lote(self.lote, motivo="locutor")
+        self.assertTrue(est.estado_publico(self.leilao)["comecou"])
+
+    def test_o_texto_vai_no_estado_em_linhas(self):
+        self.leilao.boas_vindas_titulo = "Bem-vindo ao leilão!"
+        self.leilao.boas_vindas_texto = "Primeira linha\n\nSegunda linha  \n"
+        self.leilao.save()
+        bv = est.estado_publico(self.leilao)["boas_vindas"]
+        self.assertEqual(bv["titulo"], "Bem-vindo ao leilão!")
+        self.assertEqual(bv["linhas"], ["Primeira linha", "Segunda linha"])
+
+    def test_a_tela_do_participante_traz_o_bloco(self):
+        c = Client()
+        p = criar_pessoa()
+        sessao = c.session
+        sessao[CHAVE_SESSAO] = p.token
+        sessao.save()
+        html = c.get("/").content.decode("utf-8")
+        self.assertIn('id="boasVindas"', html)
+        self.assertIn('id="bvOnline"', html)
+
+
+class EditarLeilaoTests(TestCase):
+    """Editar o leilão — inclusive com ele no ar (é o caso de uso, não a exceção)."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        criar_lote(self.leilao)
+        User = get_user_model()
+        u = User.objects.create_user("prep_edit", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        g, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(g)
+        self.c = Client()
+        self.c.login(username="prep_edit", password="segredo-ficticio")
+
+    def test_a_tela_abre(self):
+        r = self.c.get("/preparacao/%d/editar/" % self.leilao.pk)
+        self.assertEqual(r.status_code, 200)
+
+    def test_salvar_muda_as_boas_vindas_com_o_leilao_no_ar(self):
+        r = self.c.post(
+            "/preparacao/%d/editar/" % self.leilao.pk,
+            {
+                "nome": self.leilao.nome,
+                "descricao": "",
+                "incremento_padrao": "5.00",
+                "minutos_para_pagar": "15",
+                "chat_segundos": "0",
+                "boas_vindas_titulo": "Boa noite!",
+                "boas_vindas_texto": "Começamos às 20h",
+            },
+        )
+        self.assertEqual(r.status_code, 302)
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.leilao.boas_vindas_titulo, "Boa noite!")
+        self.assertEqual(self.leilao.status, "ao_vivo")
+
+    def test_quem_e_so_caixa_nao_edita(self):
+        User = get_user_model()
+        u = User.objects.create_user("cx_edit", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        g, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(g)
+        c = Client()
+        c.login(username="cx_edit", password="segredo-ficticio")
+        r = c.get("/preparacao/%d/editar/" % self.leilao.pk)
+        self.assertEqual(r.status_code, 302)
+
+
+class CaixaAoVivoTests(TestCase):
+    """O caixa: WhatsApp, Pix na mão e prazo esticado."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.pessoa = criar_pessoa("Maria Fictícia")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.pessoa)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote, motivo="locutor")
+
+        User = get_user_model()
+        u = User.objects.create_user("cx_vivo", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        g, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(g)
+        self.c = Client()
+        self.c.login(username="cx_vivo", password="segredo-ficticio")
+
+    # --- WhatsApp ---
+    def test_o_link_do_whatsapp_sai_com_o_ddi(self):
+        p = criar_pessoa(whatsapp="11988887777")
+        self.assertEqual(p.whatsapp_link, "https://wa.me/5511988887777")
+
+    def test_telefone_incompleto_nao_vira_link_quebrado(self):
+        p = criar_pessoa(whatsapp="123")
+        self.assertEqual(p.whatsapp_link, "")
+
+    def test_a_tela_do_caixa_traz_o_botao_de_whatsapp(self):
+        html = self.c.get("/caixa/").content.decode("utf-8")
+        self.assertIn("wa.me/", html)
+
+    def test_a_tela_do_caixa_ouve_o_stream(self):
+        """Sem isto o caixa só via 'Pago' depois de apertar F5."""
+        html = self.c.get("/caixa/").content.decode("utf-8")
+        self.assertIn("data-stream=", html)
+
+    # --- Pix na mão do caixa ---
+    def test_sem_pix_gerado_a_resposta_explica(self):
+        r = self.c.get("/caixa/arremate/%d/pix/" % self.arremate.id)
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.json()["ok"])
+
+    def test_com_pix_o_caixa_recebe_codigo_e_mensagem_pronta(self):
+        pagamento = PagamentoLeilao.objects.create(
+            referencia="LEILAO-TESTE-1", valor_bruto=self.arremate.valor,
+            qr_code="00020126ficticio5204000053039865802BR",
+        )
+        self.arremate.pagamento = pagamento
+        self.arremate.save(update_fields=["pagamento"])
+
+        d = self.c.get("/caixa/arremate/%d/pix/" % self.arremate.id).json()
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["copia_e_cola"], pagamento.qr_code)
+        self.assertIn("wa.me/", d["whatsapp"])
+        # A mensagem termina NO código: é assim que a pessoa consegue copiá-lo
+        # no celular sem pegar texto junto.
+        self.assertTrue(d["texto"].rstrip().endswith(pagamento.qr_code))
+        self.assertIn(self.lote.nome, d["texto"])
+
+    def test_o_pix_do_caixa_e_so_da_equipe(self):
+        self.assertEqual(
+            Client().get("/caixa/arremate/%d/pix/" % self.arremate.id).status_code, 302
+        )
+
+    def test_locutor_nao_abre_o_pix_do_caixa(self):
+        """Quem bate o martelo não cuida do dinheiro — regra do módulo."""
+        User = get_user_model()
+        u = User.objects.create_user("loc_pix", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        g, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(g)
+        c = Client()
+        c.login(username="loc_pix", password="segredo-ficticio")
+        r = c.get("/caixa/arremate/%d/pix/" % self.arremate.id)
+        self.assertEqual(r.status_code, 302)
+
+    # --- Prazo esticado ---
+    def test_esticar_o_prazo_soma_a_partir_de_agora(self):
+        self.arremate.expira_em = timezone.now() - timedelta(minutes=5)
+        self.arremate.save(update_fields=["expira_em"])
+        servicos.estender_prazo(self.arremate, 15)
+        self.arremate.refresh_from_db()
+        # Somar ao prazo VENCIDO daria tempo nenhum: o caso real é a pessoa
+        # pedindo mais tempo justamente quando o relógio está no fim.
+        self.assertGreater(self.arremate.segundos_para_pagar, 14 * 60)
+
+    def test_o_item_nao_volta_para_a_fila_depois_de_esticar(self):
+        self.arremate.expira_em = timezone.now() - timedelta(minutes=1)
+        self.arremate.save(update_fields=["expira_em"])
+        servicos.estender_prazo(self.arremate, 20)
+        servicos.verificar_prazos()
+        self.arremate.refresh_from_db()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.arremate.status, "aguardando")
+        self.assertEqual(self.lote.status, "vendido")
+
+    def test_esticar_pela_tela_e_do_caixa(self):
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id, "minutos": 30}),
+            content_type="application/json",
+        )
+        self.assertTrue(r.json()["ok"])
+        self.arremate.refresh_from_db()
+        self.assertGreater(self.arremate.segundos_para_pagar, 25 * 60)
+
+    def test_quem_ja_pagou_nao_tem_prazo_para_esticar(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 409)
+
+    def test_o_locutor_nao_estica_prazo(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_prazo", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        g, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(g)
+        c = Client()
+        c.login(username="loc_prazo", password="segredo-ficticio")
+        r = c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+    # --- Combinado ---
+    def test_combinado_nao_vence_nunca(self):
+        servicos.marcar_combinado(self.arremate, None, "paga amanhã")
+        self.arremate.expira_em = timezone.now() - timedelta(hours=5)
+        self.arremate.save(update_fields=["expira_em"])
+        servicos.verificar_prazos()
+        self.arremate.refresh_from_db()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.arremate.status, "combinado")
+        self.assertEqual(self.lote.status, "vendido")
+
+    def test_o_pix_do_combinado_dura_dias_nao_minutos(self):
+        """15 minutos era o prazo que o caixa acabou de dispensar."""
+        self.assertGreaterEqual(servicos.MINUTOS_PIX_COMBINADO, 60 * 24)

@@ -1,0 +1,49 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Editar {{ leilao.nome }}{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    {% include "leilao/_nav_equipe.html" with area_atual="preparacao" titulo_area="Preparação" %}
+
+    <div class="cartao">
+        <h3>Editar leilão</h3>
+        {% if leilao.status == 'ao_vivo' %}
+        <p class="micro-ajuda">
+            <b class="selo selo-ao_vivo">AO VIVO</b>
+            Pode salvar com o leilão rolando: a tela de quem está esperando se
+            <b>atualiza sozinha</b>, sem ninguém precisar recarregar nada.
+        </p>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% include "leilao/_campo.html" with campo=form.nome %}
+            {% include "leilao/_campo.html" with campo=form.descricao %}
+            <div class="form-grade">
+                {% include "leilao/_campo.html" with campo=form.incremento_padrao %}
+                {% include "leilao/_campo.html" with campo=form.minutos_para_pagar %}
+                {% include "leilao/_campo.html" with campo=form.chat_segundos %}
+            </div>
+
+            <div class="micro-separador">
+                <h3>Tela de quem chega antes de começar</h3>
+                <p class="micro-ajuda">
+                    É o primeiro contato da pessoa com o leilão — ela entra pelo link e fica
+                    esperando. Em vez de "intervalo" (que dá a impressão de que ela perdeu o
+                    começo), ela lê isto aqui.
+                </p>
+                {% include "leilao/_campo.html" with campo=form.boas_vindas_titulo %}
+                {% include "leilao/_campo.html" with campo=form.boas_vindas_texto %}
+            </div>
+
+            <button type="submit" class="btn-entrar">Salvar</button>
+        </form>
+    </div>
+
+    <a href="{% url 'leilao:preparacao' %}" class="btn-voltar">Voltar</a>
+</div>
+{% endblock %}

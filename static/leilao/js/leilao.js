@@ -151,6 +151,19 @@
         var v = estado && estado.ultimo_vendido;
         var festa = $("festa");
         var simples = $("intervaloSimples");
+        var boas = $("boasVindas");
+
+        // ANTES do primeiro item isto não é intervalo — é gente chegando. Quem
+        // entra e lê "Intervalo" acha que perdeu o começo do leilão.
+        var comecou = estado && estado.comecou;
+        if (boas) boas.hidden = Boolean(comecou);
+        if (!comecou) {
+            festa.hidden = true;
+            simples.hidden = true;
+            desenharBoasVindas();
+            return;
+        }
+
         if (!v) {
             festa.hidden = true;
             simples.hidden = false;
@@ -178,6 +191,44 @@
             void festa.offsetWidth;
             festa.classList.add("entrando");
             if (window.Confete) window.Confete.soltar(2500);
+        }
+    }
+
+    var boasVindasMarca = null;
+
+    /* A tela de quem chega antes de começar. O texto é do clube (editável na
+       preparação, inclusive com o leilão no ar) e vem em LINHAS — a tela monta
+       a lista; o servidor não manda HTML. */
+    function desenharBoasVindas() {
+        var bv = (estado && estado.boas_vindas) || {};
+        var titulo = $("bvTitulo");
+        var lista = $("bvLista");
+        if (titulo) titulo.textContent = bv.titulo || "Seja bem-vindo!";
+
+        var marca = JSON.stringify(bv.linhas || []);
+        if (lista && marca !== boasVindasMarca) {
+            boasVindasMarca = marca;
+            lista.innerHTML = "";
+            (bv.linhas || []).forEach(function (linha) {
+                var li = document.createElement("li");
+                li.textContent = linha;
+                lista.appendChild(li);
+            });
+        }
+
+        // Quantas pessoas já estão esperando. É o número que o locutor usa para
+        // decidir a hora de começar — e, para quem está na tela, é o que mostra
+        // que o leilão está vivo antes de o primeiro item abrir.
+        var quantos = $("bvOnline");
+        if (quantos && estado && typeof estado.online === "number") {
+            // A frase inteira, com o plural certo. "0 pessoa(s)" é o tipo de
+            // texto que denuncia sistema — e esta é a primeira tela que a
+            // pessoa vê do clube.
+            var n = estado.online;
+            quantos.textContent =
+                n <= 1 ? "Você já está aqui. O pessoal vai chegando…"
+                       : n === 2 ? "Você e mais 1 pessoa já estão aqui"
+                                 : "Você e mais " + (n - 1) + " pessoas já estão aqui";
         }
     }
 
@@ -306,8 +357,16 @@
         // `estado.ativo` junto: um `chat_estado` antigo não pode deixar a caixa
         // de pé depois de o leilão sair do ar — o servidor recusaria tudo que
         // fosse digitado nela.
-        if (!c || !c.aberto || !(estado && estado.ativo)) { chat.hidden = true; return; }
+        if (!c || !c.aberto || !(estado && estado.ativo)) {
+            chat.hidden = true;
+            document.body.classList.remove("chat-aberto");
+            return;
+        }
         chat.hidden = false;
+        // Com o chat aberto, a coluna de emojis muda de lado: ela mora no canto
+        // inferior DIREITO, que é exatamente onde fica o botão de enviar a
+        // mensagem — no celular um cobria o outro e o ➤ não recebia o toque.
+        document.body.classList.add("chat-aberto");
 
         var lista = $("chatLista");
         lista.innerHTML = "";

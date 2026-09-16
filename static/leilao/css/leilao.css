@@ -942,3 +942,61 @@ body.tela-palco {
     .festa-nome, .festa-faixa, .porta-som-icone { animation: none; }
     .reacoes-trilho { display: none; }
 }
+
+/* =========================================================
+   Chat aberto: os emojis saem da frente do botão de enviar
+   =========================================================
+   A coluna de reações e o trilho por onde os emojis sobem moram no canto
+   inferior DIREITO — que é exatamente onde fica o ➤ do chat. No celular um
+   cobria o outro: a pessoa escrevia a mensagem e o toque de enviar caía num
+   emoji. Com o chat aberto (classe posta pelo `desenharChat`), os dois trocam
+   de lado; o botão de lance não está na tela nessa hora, então a esquerda está
+   livre. */
+body.chat-aberto .reacoes-botoes { left: 8px; right: auto; }
+body.chat-aberto .reacoes-trilho { left: 0; right: auto; }
+body.chat-aberto .reacao-flutua { right: auto; left: 46px; }
+
+/* =========================================================
+   Boas-vindas (antes do primeiro item)
+   ========================================================= */
+.boas-vindas[hidden] { display: none !important; }
+.boas-vindas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 26px 18px;
+    text-align: center;
+}
+.bv-icone { font-size: 2.6rem; }
+.boas-vindas h1 { font-size: 1.5rem; overflow-wrap: anywhere; }
+.bv-lista {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    width: 100%;
+    max-width: 420px;
+    text-align: left;
+}
+.bv-lista li {
+    position: relative;
+    padding: 11px 13px 11px 38px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: var(--palco-texto);
+    background: var(--palco-card);
+    border: 1px solid var(--palco-borda);
+    border-radius: 14px;
+    overflow-wrap: anywhere;
+}
+.bv-lista li::before {
+    content: "•";
+    position: absolute;
+    left: 16px;
+    font-size: 1.3rem;
+    line-height: 1.1;
+    color: var(--ouro);
+}
+.bv-online { font-size: 0.88rem; color: var(--palco-suave); }
+.bv-online b { color: var(--verde-claro); font-size: 1.05rem; }

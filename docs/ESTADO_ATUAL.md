@@ -2,7 +2,29 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
+**Última atualização:** 2026-09-15 (**Leilão: o caixa vira mesa de trabalho e quem chega é recebido**):
+rodada vinda de usar a tela no celular — o sistema estava certo e quem opera ficava sem o que precisa na
+mão. (1) **Os emojis cobriam o botão de enviar do chat**: a coluna de reações mora no canto inferior
+direito, onde fica o ➤; com o chat aberto os dois **trocam de lado** (`body.chat-aberto`), e o botão de
+lance não está na tela nessa hora. (2) **O caixa só via "Pago" depois do F5** — a tela era estática de
+propósito e isso virou gente recarregando a página para saber se o Pix caiu (ou cobrando quem já pagou).
+Agora ela **ouve o mesmo stream (SSE)** do pregão: a linha muda na hora (selo, cor, os botões de cobrança
+somem) e **pisca uma vez** para o caixa ver *onde* mudou; a recarga da página — que os totais e a aba "A
+entregar" exigem — é **adiada** enquanto alguém digita ou está com o Pix aberto, caindo no botão 🔄 **Há
+novidades**. (3) **💬 WhatsApp** em cada arremate e ao lado de cada telefone da entrega
+(`Participante.whatsapp_link`, que acrescenta o **55**). (4) **"Vai pagar depois" agora entrega o Pix**:
+botão **📋 Pix** com o copia e cola e o **"mandar no WhatsApp da pessoa"** com a mensagem pronta do
+servidor (que **termina no código**, para o dedo conseguir copiá-lo no celular); o código passou a valer
+**7 dias**, e o arremate combinado **nunca vence**. (5) **⏱️ +15 min** (`estender_prazo`, ação de
+**caixa**, nunca do locutor): soma **a partir de agora** — somar ao prazo vencido daria tempo nenhum — e
+**refaz o Pix**, porque o código antigo vence junto com o prazo antigo. (6) **Quem chega antes do leilão
+lia "Intervalo"**, o que dá a impressão de ter perdido o começo: agora há uma tela de **boas-vindas** com
+título e informações **escritas pelo clube**, editáveis em `/preparacao/<id>/editar/` **com o leilão no
+ar** (ao salvar, o estado é publicado e as telas abertas se redesenham sozinhas), mais a **contagem de
+quem já está esperando em tempo real** — é o número que o locutor usa para decidir a hora de começar. O
+separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **242 testes OK**.
+
+**Atualização anterior:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
 **👤 Usuários** na barra da equipe do leilão, visível só para o **diretor** (`/equipe/usuarios/`). Até
 aqui, dar acesso a um voluntário só era possível pelo comando `leilao_papel`, no terminal do servidor —
 ou seja, ninguém da equipe conseguia, e o ajudante que aparecesse na hora ficava de fora. Agora é
@@ -47,7 +69,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **219 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **242 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1849,7 +1871,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 219 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 242 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -1965,12 +1987,32 @@ martelo não é quem confirma o recebimento. Isso não é só o menu: o `POST` �
 (`/equipe/acao/`) confere a área **por ação** (mapa `ACOES_AREAS` em `views.py`), então esconder o botão
 não é o que protege. Há teste.
 
+**A tela do caixa é AO VIVO** (`caixa.js` ouve o `/stream/`): pagamento confirmado muda a linha na hora
+(selo, cor, botões de cobrança somem) e ela **pisca**; a recarga da página — necessária para os totais e
+para o item entrar na aba "A entregar" — é **adiada** enquanto alguém digita ou está com o modal do Pix
+aberto, virando o botão 🔄 **Há novidades**. Cada arremate tem **💬 WhatsApp** (`Participante.whatsapp_link`),
+**📋 Pix** (`/caixa/arremate/<id>/pix/`: copia e cola + mensagem pronta para mandar na conversa) e, enquanto
+está no relógio, **⏱️ +15 min** (`servicos.estender_prazo`, ação `prazo`, **do caixa**): ela soma a partir de
+**agora** e **refaz a cobrança**, porque o código Pix nasce com a validade do prazo e venceria junto. O Pix de
+quem **combinou pagar depois** dura **7 dias** (`MINUTOS_PIX_COMBINADO`) — 15 minutos era justamente o prazo
+que o caixa acabou de dispensar.
+
+**Antes do primeiro item a tela não diz "intervalo"** — diz **bem-vindo**. `Leilao.ja_comecou()` separa as
+duas coisas (chegar × esperar o próximo), e o texto é do clube: `boas_vindas_titulo`/`boas_vindas_texto`
+(migration **0008**, uma informação por linha), editáveis em `/preparacao/<id>/editar/` **com o leilão no
+ar** — ao salvar, o `estado` é publicado e quem está com a tela aberta vê a mudança sem recarregar. A tela
+mostra também **quantos já estão esperando**, em tempo real (a frase é montada no cliente, com plural certo).
+
+**Os emojis saem da frente do chat:** a coluna de reações e o trilho ficam no canto inferior direito, onde
+mora o **➤** de enviar — no celular um cobria o outro. Com o chat aberto (`body.chat-aberto`, posta pelo
+`desenharChat`) os dois passam para a **esquerda**; o botão de lance não está na tela nesse momento.
+
 **Rotas** — público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
 `/meus-arremates/`, `/arremate/<id>/pix|conferir/`, `/webhooks/mercadopago/`.
 Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único), `/equipe/senha/`
 (troca obrigatória no 1º acesso); **só diretor**: `/equipe/usuarios/` (+ `/equipe/usuarios/<pk>/`);
-`/locutor/` + `/locutor/dados/`; `/caixa/`;
-`/preparacao/` (leilões), `/preparacao/config/`, `/preparacao/<id>/status/`,
+`/locutor/` + `/locutor/dados/`; `/caixa/` + `/caixa/arremate/<id>/pix/`;
+`/preparacao/` (leilões), `/preparacao/config/`, `/preparacao/<id>/status|editar/`,
 `/preparacao/<id>/itens/` (+`novo/`), `/preparacao/itens/<id>/editar|excluir/`.
 
 **O item vai para o leilão da URL, nunca para o adivinhado.** Era
@@ -1982,7 +2024,7 @@ WhatsApp e endereço) — documento de quem entrega, não texto para grupo abert
 
 **Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `equipe` (hub), `equipe_entrar`,
 `locutor` (mesa), `caixa` (pagamentos + entrega), `preparacao` (leilões), `lotes`, `lote_form`,
-`config`, `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`.
+`config`, `leilao_form` (editar), `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`.
 **Estáticos**: `static/leilao/css/{leilao,locutor}.css` e `static/leilao/js/{leilao,locutor,som,confete,
 reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa,usuarios}.js`. Reaproveita `css/base.css`
 (modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.

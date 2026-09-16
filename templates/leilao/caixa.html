@@ -34,7 +34,8 @@
         <input type="search" class="busca" id="buscaPagamentos" placeholder="Buscar por nome, item ou nº…">
         <ul class="arremates-mesa" id="listaPagamentos">
             {% for a in arremates %}
-            <li class="arremate-linha {{ a.status }}"
+            <li class="arremate-linha {{ a.status }}" id="arremate{{ a.id }}"
+                data-arremate="{{ a.id }}"
                 data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }} {{ a.lote.numero }}">
                 <div class="arremate-quem">
                     <b>{{ a.participante.nome }}</b>
@@ -43,13 +44,37 @@
                 </div>
                 <div class="arremate-fim">
                     <span class="arremate-preco">R$ {{ a.valor }}</span>
-                    <span class="selo selo-{{ a.status }}">{{ a.get_status_display }}</span>
+                    <span class="selo selo-{{ a.status }}" data-selo>{{ a.get_status_display }}</span>
                     {% if a.pago_manual %}<span class="selo selo-fila">na mão</span>{% endif %}
+
+                    {% comment %}
+                    Falar com a pessoa é metade do trabalho do caixa, e digitar
+                    número de celular com o leilão rolando é onde a conversa
+                    morre. O link abre a conversa dela direto.
+                    {% endcomment %}
+                    {% if a.participante.whatsapp_link %}
+                    <a href="{{ a.participante.whatsapp_link }}" target="_blank" rel="noopener"
+                       class="btn-mini" title="Abrir a conversa desta pessoa no WhatsApp">💬 WhatsApp</a>
+                    {% endif %}
+
                     {% if a.status == 'aguardando' or a.status == 'combinado' %}
                     <button type="button" class="btn-mini destaque"
                             data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
+                    {% comment %}
+                    O Pix de quem vai pagar depois é o que o caixa precisa TER NA
+                    MÃO: sem ele, "vai pagar depois" vira "some do mapa".
+                    {% endcomment %}
+                    <button type="button" class="btn-mini" data-pix="{{ a.id }}"
+                            title="Ver e copiar o Pix deste arremate para mandar na conversa">
+                        📋 Pix
+                    </button>
                     {% endif %}
                     {% if a.status == 'aguardando' %}
+                    <button type="button" class="btn-mini"
+                            data-acao="prazo" data-arremate="{{ a.id }}" data-minutos="15"
+                            title="A pessoa pediu mais tempo: soma 15 minutos e refaz o Pix.">
+                        ⏱️ +15 min
+                    </button>
                     {% comment %}
                     Sem este botão, quem combinou de pagar amanhã perdia o item
                     para o relógio dos 15 minutos — o oposto do que você acabou
@@ -83,13 +108,28 @@
                 📋 Copiar roteiro inteiro
             </button>
 
+        </div>
+
+        {% comment %}
+        A divisão é trabalho de DEPOIS do leilão: só entra aqui o que já foi
+        pago, e no meio do pregão a lista ainda está crescendo. Por isso ela não
+        acontece sozinha — quem aperta o botão é a equipe, quando a noite acaba.
+        {% endcomment %}
+        <div class="cartao">
+            <h3>📦 Dividir as entregas entre os voluntários</h3>
+            <p class="micro-ajuda">
+                Faça isto <b>quando o leilão terminar</b> e todo mundo já tiver pago: o sistema
+                agrupa as pessoas <b>por bairro</b> e monta uma rota para cada entregador, com o
+                botão de copiar de cada uma. Rodar antes divide só o que já está pago.
+            </p>
             <form method="get" class="form-entregadores">
-                <label for="entregadores">Dividir entre</label>
+                <label for="entregadores">Quantos entregadores vocês têm?</label>
                 <input type="number" id="entregadores" name="entregadores"
                        min="1" max="20" step="1" inputmode="numeric"
-                       value="{{ entregadores|default:'' }}" placeholder="nº">
-                <span>entregadores</span>
-                <button type="submit" class="btn-mini destaque">Dividir</button>
+                       value="{{ entregadores|default:'' }}" placeholder="nº" required>
+                <button type="submit" class="btn-mesa abrir">
+                    📦 Montar as rotas ({{ a_entregar|length }} item{{ a_entregar|length|pluralize:"ns" }})
+                </button>
             </form>
         </div>
 
@@ -117,7 +157,12 @@
                     {% for parada in r.paradas %}
                     <li>
                         <b>{{ parada.pessoa.nome }}</b>
-                        <span class="pessoa-linha selecionavel">📱 {{ parada.pessoa.whatsapp }}</span>
+                        <span class="pessoa-linha selecionavel">📱 {{ parada.pessoa.whatsapp }}
+                            {% if parada.pessoa.whatsapp_link %}
+                            <a href="{{ parada.pessoa.whatsapp_link }}" target="_blank" rel="noopener"
+                               class="link-whats" title="Combinar a entrega no WhatsApp">💬</a>
+                            {% endif %}
+                        </span>
                         <span class="pessoa-linha endereco selecionavel">
                             📍 {{ parada.pessoa.endereco_uma_linha|default:"Sem endereço cadastrado" }}
                         </span>
@@ -156,7 +201,12 @@
 
                 <div class="entrega-destino">
                     <b>{{ a.participante.nome }}</b>
-                    <span class="pessoa-linha selecionavel">📱 {{ a.participante.whatsapp }}</span>
+                    <span class="pessoa-linha selecionavel">📱 {{ a.participante.whatsapp }}
+                        {% if a.participante.whatsapp_link %}
+                        <a href="{{ a.participante.whatsapp_link }}" target="_blank" rel="noopener"
+                           class="link-whats" title="Combinar a entrega no WhatsApp">💬</a>
+                        {% endif %}
+                    </span>
                     <span class="pessoa-linha endereco selecionavel">
                         📍 {{ a.participante.endereco_uma_linha|default:"Sem endereço cadastrado" }}
                     </span>
@@ -219,8 +269,33 @@ de select() num campo que exista de fato.
 {% endcomment %}
 <textarea id="roteiroEntregas" class="copiar-fonte" readonly>{{ roteiro }}</textarea>
 
+{# ---- Modal do Pix (o caixa manda o código para a pessoa) ---- #}
+<div class="modal-overlay" id="modalPix" hidden>
+    <div class="modal-caixa" role="dialog" aria-label="Pix do arremate">
+        <div class="modal-topo">
+            <h2 class="modal-titulo">Pix do arremate</h2>
+            <button type="button" class="modal-fechar" id="pixFechar" aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo qr-corpo">
+            <p class="qr-item" id="pixItem"></p>
+            <p class="qr-valor" id="pixValor"></p>
+            <textarea id="pixCodigo" class="pix-codigo" readonly rows="3"></textarea>
+            <button type="button" class="btn-copiar" id="pixCopiar">📋 Copiar código Pix</button>
+            <a href="#" target="_blank" rel="noopener" class="btn-mesa abrir" id="pixWhatsapp">
+                💬 Mandar no WhatsApp da pessoa
+            </a>
+            <p class="qr-ajuda" id="pixAjuda">
+                O código de quem combinou pagar depois vale <b>7 dias</b> — dá tempo de a pessoa
+                pagar hoje à noite ou amanhã.
+            </p>
+        </div>
+    </div>
+</div>
+
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
+     data-stream="{% url 'leilao:stream' %}"
+     data-pix-url="{% url 'leilao:caixa_pix' 0 %}"
      data-acao-url="{% url 'leilao:acao' %}"></div>
 {% endblock %}
 

@@ -22,6 +22,114 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-15 - Leilão: o caixa vira mesa de trabalho e quem chega é recebido
+
+### Resumo
+Rodada vinda de usar a tela no celular. Seis coisas, todas do mesmo tipo: o
+sistema estava certo e a **pessoa operando** ficava sem o que precisava na mão.
+
+### 1. Os emojis cobriam o botão de enviar a mensagem
+A coluna de reações e o trilho por onde os emojis sobem moram no canto inferior
+**direito** — que é exatamente onde fica o **➤** do chat. No celular um cobria o
+outro: a pessoa escrevia e o toque de enviar caía num emoji.
+
+Com o chat aberto, os dois **trocam de lado** (`body.chat-aberto`, posta pelo
+`desenharChat`). O botão de lance não está na tela nessa hora, então a esquerda
+está livre. Não foi preciso esconder nada.
+
+### 2. O caixa só via "Pago" depois do F5
+A tela era estática **de propósito** ("tela de conferência, não de pregão"), e na
+prática isso virou o caixa recarregando a página para saber se o Pix caiu — ou
+pior, não recarregando e cobrando quem já tinha pagado.
+
+Agora ela ouve o **mesmo stream (SSE)** do pregão, com duas regras:
+
+- **a linha muda na hora** (selo, cor, os botões de cobrança somem) — é o retorno
+  que o caixa precisa ver no segundo em que acontece, e ela **pisca uma vez**
+  para ele saber *onde* mudou numa lista grande;
+- **a recarga é adiada** enquanto alguém digita ou está com o Pix aberto. O item
+  pago precisa entrar na aba "A entregar" e os totais têm de fechar, mas nada
+  disso justifica apagar o "quem recebeu" no meio de uma frase. Não dando, entra
+  o botão **🔄 Há novidades — atualizar**.
+
+### 3. Falar com a pessoa: um toque
+Botão **💬 WhatsApp** em cada arremate (e ao lado de cada telefone na entrega),
+com `wa.me` montado no servidor (`Participante.whatsapp_link`, que acrescenta o
+**55** — o cadastro pede só DDD + número). Digitar celular com o leilão rolando é
+onde a conversa morre.
+
+### 4. "Vai pagar depois" agora entrega o Pix
+O botão existia e resolvia metade: o item não voltava para a fila, mas o caixa
+ficava sem nada para **mandar** para a pessoa. Entrou o **📋 Pix**, que abre o
+copia e cola do arremate e o botão **💬 Mandar no WhatsApp da pessoa**, com a
+mensagem pronta do servidor.
+
+E o código passou a valer **7 dias** (`MINUTOS_PIX_COMBINADO`), não 24 h: "vai
+pagar depois" na prática é hoje à noite, amanhã, ou quando a pessoa conseguir.
+O **arremate combinado nunca vence** — já era assim, e agora há teste.
+
+### 5. "Me dá mais uns minutos" — botão ⏱️ +15 min
+`servicos.estender_prazo` soma o tempo **e refaz o Pix**. Esticar só o `expira_em`
+seria meia solução: o código foi criado com a validade do prazo antigo e vence
+junto. A pessoa ficaria com mais tempo na tela e um copia e cola que o banco
+recusa.
+
+Soma **a partir de agora**, não do prazo antigo: o caso real é o prazo prestes a
+vencer (ou vencido há segundos), e somar ao passado daria tempo nenhum.
+
+### 6. Quem chega antes do leilão lê "Intervalo"
+E "intervalo" é mentira para quem acabou de entrar: não há intervalo nenhum, o
+leilão não começou — a palavra dá a impressão de que ela perdeu o começo.
+
+Agora, antes do primeiro item, a tela mostra **boas-vindas**: título e uma lista
+de informações úteis, **escritas pelo clube** e editáveis em
+`/preparacao/<id>/editar/` — inclusive **com o leilão no ar** (ao salvar, o estado
+é publicado e as telas abertas se redesenham sozinhas). Junto vai a **contagem de
+quem já está esperando**, em tempo real: é o número que o locutor usa para
+decidir a hora de começar, e para quem espera é o sinal de que o leilão está
+vivo. O separador é `Leilao.ja_comecou()`, não "existe último vendido".
+
+### Arquivos criados/alterados
+- `leilao/models.py`: `Leilao.boas_vindas_titulo`/`boas_vindas_texto`,
+  `Leilao.ja_comecou()`, `Participante.whatsapp_link`.
+- `leilao/migrations/0008_…`: os dois campos de boas-vindas.
+- `leilao/servicos.py`: `estender_prazo()`, `MINUTOS_PIX_COMBINADO`, evento
+  `arremate_prazo`, `situacao` no `arremate_combinado`.
+- `leilao/estado.py`: `comecou` e `boas_vindas` no estado público.
+- `leilao/views.py`: `caixa_pix_view`, `_texto_pix_whatsapp`, `leilao_editar_view`,
+  ação `prazo` no POST da equipe (área **caixa**).
+- `leilao/urls.py`: `/caixa/arremate/<pk>/pix/` e `/preparacao/<pk>/editar/`.
+- `leilao/forms.py`: os campos de boas-vindas no `LeilaoForm`.
+- `templates/leilao/`: `caixa` (botões, modal do Pix, cartão de dividir entregas),
+  `leilao` (bloco de boas-vindas), `leilao_form` (novo), `preparacao` (✏️ Editar).
+- `static/leilao/js/caixa.js`: SSE, modal do Pix, recarga adiada.
+- `static/leilao/js/leilao.js`: `desenharBoasVindas`, `body.chat-aberto`.
+- `static/leilao/css/{leilao,locutor}.css`.
+- `leilao/tests.py`: +23 testes.
+
+### Decisões tomadas
+- **A divisão das entregas continua sendo um botão que alguém aperta**, e a tela
+  agora diz por quê: só entra o que **já foi pago**, e no meio do pregão a lista
+  ainda está crescendo. Rodar sozinha dividiria uma lista pela metade.
+- **Esticar prazo é do caixa**, não do locutor (`ACOES_AREAS`): é conversa de
+  quem cuida do dinheiro. Há teste com o locutor levando 403.
+- **A mensagem do Pix termina no código.** É assim que a pessoa consegue segurar
+  o dedo em cima dele e copiar no celular; qualquer texto depois atrapalha a
+  seleção.
+- **A tela de boas-vindas é texto do clube, não do sistema.** Quem sabe o que a
+  pessoa precisa ler é quem vai conduzir a noite — e ele muda de ideia com o
+  evento rolando, por isso a edição funciona com o leilão no ar.
+- **"0 pessoa(s)" não vai para a tela.** A frase inteira é montada no cliente,
+  com plural certo: é a primeira coisa que a pessoa vê do clube.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+- A recarga do caixa é a página inteira. Funciona e é simples; um endpoint JSON
+  só para a lista seria o passo seguinte, se a tela crescer.
+
+---
+
 ## 2026-09-15 - Leilão: o diretor cadastra a equipe pela tela (aba Usuários)
 
 ### Resumo

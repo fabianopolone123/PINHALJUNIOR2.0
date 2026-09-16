@@ -556,6 +556,9 @@ ACOES_AREAS = {
     "bloquear": ("locutor", "caixa"),
     "pago": ("caixa",),
     "combinado": ("caixa",),
+    # Esticar o prazo é conversa de caixa ("me dá mais uns minutos"), não de
+    # quem está com o martelo na mão.
+    "prazo": ("caixa",),
     "entregue": ("caixa",),
 }
 
@@ -648,6 +651,23 @@ def locutor_acao_view(request):
         )
         return JsonResponse(
             {"ok": True, "msg": "Combinado — o item não volta para a fila."}
+        )
+
+    if acao == "prazo":
+        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
+        if arremate.status != "aguardando":
+            return JsonResponse(
+                {"ok": False, "msg": "Só dá para esticar o prazo de quem ainda está no relógio."},
+                status=409,
+            )
+        servicos.estender_prazo(arremate, dados.get("minutos") or 15)
+        arremate.refresh_from_db()
+        return JsonResponse(
+            {
+                "ok": True,
+                "msg": "Prazo esticado — o Pix novo chega em segundos.",
+                "segundos": arremate.segundos_para_pagar,
+            }
         )
 
     if acao == "entregue":
@@ -1078,4 +1098,83 @@ def trocar_senha_view(request):
         request,
         "leilao/trocar_senha.html",
         {"form": form, "pendente": pendente, "senha_padrao": equipe.SENHA_PADRAO},
+    )
+
+
+@papeis.exige("caixa")
+def caixa_pix_view(request, pk):
+    """O código Pix de um arremate, **para o caixa mandar para a pessoa**.
+
+    Existe separada da `arremate_pix_view` (que é do dono) porque aqui quem
+    pergunta é a equipe, e o que ela precisa é diferente: além do copia e cola,
+    o **link do WhatsApp da pessoa com a mensagem pronta**. É a diferença entre
+    "resolvi agora" e "depois eu vejo isso".
+    """
+    arremate = get_object_or_404(
+        Arremate.objects.select_related("pagamento", "lote", "participante"), pk=pk
+    )
+    pagamento = arremate.pagamento
+    if not pagamento or not pagamento.qr_code:
+        if not ConfigLeilao.get_solo().configurado:
+            return JsonResponse(
+                {"ok": False, "msg": "Sem Mercado Pago configurado — o acerto é por fora."}
+            )
+        return JsonResponse({"ok": False, "gerando": True, "msg": "O Pix ainda está sendo gerado…"})
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "arremate": arremate.id,
+            "lote": arremate.lote.nome,
+            "numero": arremate.lote.numero,
+            "valor": str(arremate.valor),
+            "status": arremate.status,
+            "copia_e_cola": pagamento.qr_code,
+            "whatsapp": arremate.participante.whatsapp_link,
+            # A mensagem vem PRONTA do servidor, como o roteiro de entrega: o JS
+            # só abre o WhatsApp com ela.
+            "texto": _texto_pix_whatsapp(arremate, pagamento),
+        }
+    )
+
+
+def _texto_pix_whatsapp(arremate, pagamento):
+    """A mensagem que o caixa manda para quem vai pagar depois.
+
+    O código Pix vai numa **linha sozinha, no fim**: é assim que a pessoa
+    consegue segurar o dedo em cima dele e copiar no celular. Qualquer coisa
+    depois dele atrapalha a seleção.
+    """
+    return "\n".join(
+        [
+            f"Oi, {arremate.participante.nome_curto}! Aqui é do leilão do clube.",
+            f"Seu item: nº {arremate.lote.numero} — {arremate.lote.nome} (R$ {arremate.valor}).",
+            "É só pagar com o Pix copia e cola abaixo 👇",
+            "",
+            pagamento.qr_code,
+        ]
+    )
+
+
+@papeis.exige("preparacao")
+def leilao_editar_view(request, pk):
+    """Editar um leilão — inclusive **com ele no ar**.
+
+    É o caminho de mudar a tela de boas-vindas no meio do evento ("começamos
+    22h", "o Pix é na hora"). Ao salvar, o estado é publicado: as telas que já
+    estão abertas se redesenham sozinhas, sem ninguém pedir para atualizar.
+    """
+    leilao = get_object_or_404(Leilao, pk=pk)
+    if request.method == "POST":
+        form = LeilaoForm(request.POST, instance=leilao)
+        if form.is_valid():
+            form.save()
+            HUB.publicar("estado", est.estado_publico(Leilao.ao_vivo()))
+            messages.success(request, f"“{leilao.nome}” atualizado.")
+            return redirect("leilao:preparacao")
+        messages.error(request, "Confira os campos destacados.")
+    else:
+        form = LeilaoForm(instance=leilao)
+    return render(
+        request, "leilao/leilao_form.html", {"form": form, "leilao": leilao}
     )

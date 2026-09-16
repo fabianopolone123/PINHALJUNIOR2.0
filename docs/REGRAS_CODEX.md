@@ -730,6 +730,41 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   (`pessoa_bloqueada`), e bloquear pela tela alcança todos os cadastros dela (`bloquear_pessoa`) —
   senão o bloqueio se desfaz com dois toques na tela de entrada.
 
+### A mesa do caixa
+
+- **Pagamento aparece sozinho.** `caixa.js` ouve o `/stream/`: a linha muda na hora e **pisca**. A tela
+  era estática de propósito e isso virou gente apertando F5 para saber se o Pix caiu — ou cobrando quem
+  já havia pagado.
+- **Recarga automática cede a quem está trabalhando.** Ela é necessária (totais, aba "A entregar"), mas
+  **nunca** com um campo em foco ou o modal aberto: apagaria o "quem recebeu" no meio da frase. Não
+  dando, aparece o botão 🔄. Ao ligar atualização automática em tela nova, repita a guarda.
+- **Esticar prazo refaz o Pix** (`estender_prazo`). O código nasce com a validade do prazo e vence junto:
+  esticar só o `expira_em` entrega à pessoa mais tempo na tela e um copia e cola que o banco recusa. E
+  soma **a partir de agora** — o caso real é o prazo prestes a vencer, e somar ao passado daria nada.
+- **Esticar prazo é do CAIXA** (`ACOES_AREAS`), não do locutor: é conversa de quem cuida do dinheiro.
+- **"Vai pagar depois" precisa entregar o Pix.** Sem o código na mão do caixa, o botão só tira o item da
+  fila e a cobrança some do mapa. O código do combinado vale **7 dias**: 15 minutos é o prazo que aquele
+  botão acabou de dispensar.
+- **Mensagem com código Pix termina NO código.** É assim que a pessoa segura o dedo em cima e copia no
+  celular; texto depois dele atrapalha a seleção.
+- **Falar com a pessoa é um toque** (`Participante.whatsapp_link`, com o `55` acrescentado no servidor).
+  Digitar número de celular com o leilão rolando é onde a conversa morre.
+- **A divisão das entregas continua sendo um botão que alguém aperta**, depois do leilão: só entra o que
+  **já foi pago**, e durante o pregão a lista ainda cresce. Automatizar dividiria uma lista pela metade.
+
+### A tela de quem chega
+
+- **Antes do primeiro item não é intervalo, é chegada.** `Leilao.ja_comecou()` separa as duas; "Intervalo"
+  para quem acabou de entrar dá a impressão de que ela perdeu o começo.
+- **O texto é do clube, não do sistema** (`boas_vindas_titulo`/`boas_vindas_texto`, uma informação por
+  linha) e é editável **com o leilão no ar** — quem conduz muda de ideia durante o evento. Salvar publica
+  o `estado`: as telas abertas se redesenham sozinhas. O servidor manda **linhas**, nunca HTML.
+- **"0 pessoa(s)" não vai para a tela.** Frase montada no cliente, com plural certo — é a primeira coisa
+  que a pessoa vê do clube.
+- **Os emojis não podem cobrir controle nenhum.** A coluna de reações mora à direita, onde fica o ➤ do
+  chat; com o chat aberto (`body.chat-aberto`) os dois trocam de lado. Controle novo no canto inferior
+  direito precisa considerar isso.
+
 ### Contas da equipe e a senha padrão
 
 - **A senha `1234` é um bilhete, não um segredo.** Ela existe para ser dita em voz alta numa mesa de

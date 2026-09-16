@@ -130,6 +130,24 @@ Três coisas que valem saber:
 Na lista de itens, os botões ▲▼ mudam a ordem. É a ordem em que o locutor vai
 abrindo. Deixe os itens mais fortes para o fim — quando há mais gente na sala.
 
+### A tela de quem chega antes de começar
+
+Quem entra pelo link antes do primeiro item vê uma tela de **boas-vindas** — não
+"intervalo", que faria a pessoa achar que perdeu o começo.
+
+O que ela lê é **escrito por vocês**, na linha do leilão → **✏️ Editar**:
+
+- **Título** (ex.: "Seja bem-vindo ao leilão do clube!")
+- **Informações úteis**: uma por linha (a que horas começa, como funciona o
+  lance, que o pagamento é por Pix na hora…)
+
+> **Dá para editar com o leilão já no ar.** Ao salvar, a tela de todo mundo que
+> está esperando muda sozinha — ninguém precisa recarregar nada.
+
+Nessa tela aparece também **quantas pessoas já estão esperando**, ao vivo. É por
+esse número que o locutor decide a hora de começar — e ele aparece o tempo todo
+lá no alto da mesa do locutor também (👥).
+
 ### Colocar no ar
 
 De volta em **📦 Preparação**, botão **▶ No ar**.
@@ -204,13 +222,38 @@ Cada item batido vira um **arremate** com **15 minutos** para pagar. Na tela do
 arrematante aparecem dois botões — copiar o código Pix e mostrar o QR Code —
 **sem sair do leilão**, para ele continuar disputando os próximos itens.
 
-Quando o Pix cai, o selo muda para **Pago** sozinho.
+**Quando o Pix cai, a linha muda sozinha na sua tela** e pisca em verde. Você não
+precisa recarregar nada nem ficar apertando F5. Se você estiver digitando alguma
+coisa na hora, aparece um botão **🔄 Há novidades — atualizar**: aperte quando
+terminar.
 
-**Marcar pago** é para quem acertou por fora (dinheiro, transferência, etc.).
-Esses aparecem com a etiqueta "na mão", para você saber depois.
+Em cada linha você tem:
+
+| Botão | Para quê |
+|---|---|
+| **💬 WhatsApp** | Abre a conversa da pessoa direto, sem você digitar o número |
+| **Marcar pago** | Ela acertou por fora (dinheiro, transferência). Fica com a etiqueta "na mão" |
+| **📋 Pix** | Mostra o código Pix dela e deixa você **mandar no WhatsApp** com a mensagem pronta |
+| **⏱️ +15 min** | Ela pediu mais tempo: soma 15 minutos **e refaz o código** |
+| **📞 Vai pagar depois** | Você falou com ela e ficou acertado. O item **não volta para a fila** |
 
 > **Não pagou em 15 minutos?** O arremate vence, o item **volta para a fila** e
 > pode ser leiloado de novo. Nada para você fazer.
+
+> **Precisa dar mais tempo?** Use o **⏱️ +15 min** — pode apertar mais de uma
+> vez. O código Pix antigo vence junto com o prazo antigo, por isso o sistema faz
+> um novo; espere uns segundos antes de mandar para a pessoa.
+
+### "Vai pagar depois": como fica
+
+Depois de apertar **📞 Vai pagar depois**, o item para de correr contra o relógio
+— ela pode pagar em uma hora, em três, amanhã. Aí:
+
+1. Aperte **📋 Pix** na linha dela.
+2. Aperte **💬 Mandar no WhatsApp da pessoa** — a mensagem já vai pronta, com o
+   código no fim (é assim que ela consegue copiar no celular).
+
+O código de quem combinou pagar depois vale **7 dias**.
 
 ### Aba A entregar
 
@@ -227,7 +270,10 @@ e o **endereço**.
 
 #### Dividir entre os entregadores
 
-Digite **quantos entregadores** vocês têm e clique em **Dividir**. A tela monta
+**Faça isso quando o leilão terminar** e todo mundo já tiver pago — só entra na
+divisão o que **já foi pago**, e no meio do leilão a lista ainda está crescendo.
+
+Digite **quantos entregadores** vocês têm e clique em **📦 Montar as rotas**. A tela monta
 uma rota para cada um, com o próprio botão de copiar — é só mandar a de cada um
 no WhatsApp dele.
 

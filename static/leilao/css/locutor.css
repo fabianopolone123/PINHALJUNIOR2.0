@@ -417,6 +417,8 @@ body.tela-locutor {
 .selo-aberto, .selo-ao_vivo { background: rgba(58, 157, 58, 0.26); color: var(--verde-claro); }
 .selo-vendido, .selo-pago { background: rgba(58, 157, 58, 0.26); color: var(--verde-claro); }
 .selo-aguardando { background: rgba(240, 162, 2, 0.24); color: var(--ambar); }
+/* "Vai pagar depois" também é dinheiro que não entrou: mesma cor de atenção. */
+.selo-combinado { background: rgba(240, 162, 2, 0.24); color: var(--ambar); }
 .selo-expirado, .selo-cancelado, .selo-sem_lance { background: rgba(226, 69, 47, 0.22); color: var(--vermelho-claro); }
 .selo-rascunho, .selo-encerrado { background: rgba(255, 255, 255, 0.1); color: var(--palco-suave); }
 
@@ -783,4 +785,58 @@ body.tela-locutor {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--palco-borda);
+}
+
+/* ---- Caixa: Pix do arremate e o aviso de novidade ---- */
+.pix-codigo {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--palco-borda);
+    border-radius: 10px;
+    resize: vertical;
+    word-break: break-all;
+}
+
+/* Quando a recarga não pode acontecer (alguém digitando, modal aberto), o
+   caixa decide a hora. Fixo no rodapé porque é onde a mão está. */
+.aviso-novidade {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 200;
+    padding: 11px 18px;
+    font: inherit;
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: #06202f;
+    background: var(--ambar);
+    border: none;
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+}
+
+/* A linha que acabou de mudar pisca uma vez: o caixa está olhando a lista
+   inteira e precisa ver ONDE mudou, não só que mudou. */
+@keyframes piscou-linha {
+    0%   { background: rgba(58, 157, 58, 0.5); }
+    100% { background: var(--palco-card); }
+}
+.arremate-linha.piscou { animation: piscou-linha 1.6s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+    .arremate-linha.piscou { animation: none; }
+}
+
+/* O 💬 ao lado do telefone: abre a conversa sem sair da linha. */
+.link-whats {
+    margin-left: 6px;
+    font-size: 0.95rem;
+    text-decoration: none;
 }
