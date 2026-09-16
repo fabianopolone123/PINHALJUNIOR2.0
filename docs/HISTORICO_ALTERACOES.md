@@ -22,6 +22,115 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-15 - Leilão: revisão de bugs (dinheiro no chão, porta lateral e contagem inflada)
+
+### Resumo
+Revisão do módulo inteiro depois das duas rodadas de hoje. Nove correções; três
+delas são de dinheiro ou de acesso, e nenhuma aparecia na tela.
+
+### 1. Pagar o Pix ANTIGO não dava baixa (o mais grave)
+Refazer a cobrança — que é o que "+15 min" e "vai pagar depois" fazem — troca a
+FK `Arremate.pagamento` para o código novo. A cobrança anterior fica **sem
+arremate nenhum**, e ela é justamente a que está **na tela da pessoa** no
+instante em que o caixa aperta o botão.
+
+Resultado: ela paga aquele código, o webhook chega, o pagamento é aprovado — e
+**ninguém é marcado como pago**. O dinheiro entra e o caixa continua cobrando.
+
+Agora o arremate é recuperado da **referência** (`LEILAO-<id>`,
+`LEILAO-<id>-R<timestamp>`), que nasce na criação e não muda:
+
+- `_arremates_do_pagamento` fecha o caminho do **webhook**;
+- `cobrancas_do_arremate` fecha o da **consulta de reforço** — que vira o único
+  caminho do dinheiro quando `site_url` está vazio e **não existe webhook**;
+- `marcar_pago` passou a apontar para a cobrança que foi **realmente paga**: é
+  dela que sai a taxa, e apontar para a que ninguém pagou mente no extrato.
+- O prefixo da referência é conferido pelo id de verdade — `LEILAO-1` não pode
+  pescar `LEILAO-12`.
+
+### 2. Dois cliques em "vai pagar depois" = dois Pix vivos
+`marcar_combinado` não era idempotente e emitia um código novo a cada chamada. O
+botão continua na tela até a página se refazer, então bastava o segundo clique
+para existirem dois códigos válidos do mesmo item — e o caixa sem saber qual a
+pessoa pagou. Agora ele sai cedo se o arremate já está combinado (ou pago), e o
+`caixa.js` tira os botões da linha assim que ela vira "combinado".
+
+### 3. A senha `1234` tinha duas portas laterais
+- **Sem freio de tentativas**, dava para varrer `maria/1234` da internet. E quem
+  acertasse **primeiro** trocaria a senha, **trancando a voluntária de verdade
+  do lado de fora**. Entrou um freio em memória (10 erros por IP em 5 min, zerado
+  no acerto). Não é proteção contra ataque distribuído — é o suficiente para o
+  que este sistema é.
+- **O `/admin/` do leilão aceitava a conta**, porque o Django o abre para
+  qualquer `is_staff` — e `is_staff` é exatamente o que toda conta da equipe tem.
+  Agora o admin deste serviço é **só de superusuário**.
+
+### 4. O recado prometia a senha `1234` para quem já tinha trocado
+"📋 Copiar acesso" mandava sempre `Senha: 1234`. Para quem já escolheu a dela,
+isso é entregar uma credencial que não funciona — e fazer a pessoa achar que o
+acesso quebrou. A senha só entra no recado **enquanto é a provisória**.
+
+### 5. A contagem de gente incluía a equipe
+`HUB.conectados` contava todas as conexões, e as telas da mesa do locutor e do
+caixa ficam abertas a noite toda. Três voluntários viravam três pessoas
+esperando — justo no número que o locutor usa para decidir **a hora de começar**.
+As telas da equipe passam `?equipe=1` e ficam fora da contagem. O **teto** de
+conexões continua olhando o total (é limite de recurso, não número sobre gente).
+
+### 6. A frase "já estão aqui" congelava
+O evento `online` atualizava só o contador do topo. Na tela de espera — a fase em
+que esse número muda o tempo todo — a frase ficava parada no valor de quando a
+pessoa conectou.
+
+### 7. A linha filtrada reaparecia sozinha
+`pintarLinha` reescrevia `className` inteiro e apagava o `busca-oculto`: quem
+tinha filtrado a lista via a linha voltar quando o pagamento dela caía.
+
+### 8. A recarga do caixa jogava fora a aba aberta
+As abas são só JS. Com a recarga automática, quem tinha acabado de montar as
+rotas de entrega voltava para "Pagamentos" no meio do trabalho. A aba agora fica
+no `sessionStorage` (com try/catch — aba anônima pode não ter), e quem pede a
+divisão volta direto nela.
+
+### 9. Entradas da internet que viravam 500
+`minutos` (esticar prazo) e `quantos` (reação) iam direto para `int()`. Um valor
+não numérico devolvia um 500 de HTML numa view cujas recusas são todas JSON — a
+tela ficaria muda no meio do evento.
+
+### Arquivos alterados
+- `leilao/servicos.py`: `_arremates_do_pagamento`, `cobrancas_do_arremate`,
+  `_id_da_referencia`, `conferir_pagamento` reescrito, `marcar_combinado`
+  idempotente, `marcar_pago` aponta para a cobrança paga.
+- `leilao/hub.py`: `_assinantes` virou dict (fila → é público?), `conectados` e
+  `total` separados, `assinar(publico=…)`.
+- `leilao/views.py`: `?equipe=1` no stream, teto pelo `total`, `minutos`
+  validado, freio de login com `_ip_do`.
+- `leilao/equipe.py`: freio de tentativas, recado condicional à senha provisória.
+- `leilao/reacoes.py`: `quantos` inválido não estoura.
+- `config/urls_leilao.py`: admin só de superusuário.
+- `templates/leilao/{locutor,caixa}.html`: `?equipe=1`.
+- `static/leilao/js/caixa.js`: aba lembrada, `pintarLinha` preserva o filtro,
+  "combinado" limpa os botões e agenda recarga.
+- `static/leilao/js/leilao.js`: `online` redesenha as boas-vindas; `arremate_pix`
+  reabre o QR quando o código foi refeito; ouvinte de `arremate_prazo`.
+- `leilao/tests.py`: +15 testes.
+
+### Decisões tomadas
+- **A referência é a âncora do dinheiro**, não a FK. A FK aponta para uma
+  cobrança e é trocada quando o Pix é refeito; a referência guarda o id do
+  arremate e nunca muda. Cobrança nova que se crie por outro caminho **precisa
+  manter esse formato**.
+- **O freio de login mora na memória do processo**, como o hub e o cadeado de
+  lance — o serviço roda com um worker só. Sem Redis, sem peça nova.
+- **O teto de conexões e a contagem de pessoas são números diferentes.** Misturar
+  os dois foi o que deixou a equipe entrar na conta.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+
+---
+
 ## 2026-09-15 - Leilão: o caixa vira mesa de trabalho e quem chega é recebido
 
 ### Resumo

@@ -340,7 +340,11 @@ def marcar_combinado(arremate, usuario=None, observacao=""):
     validade de 15 minutos e já está vencido. Oferecer um botão de copiar que
     entrega um código morto é pior do que não oferecer nada.
     """
-    if arremate.status == "pago":
+    if arremate.status in {"pago", "combinado"}:
+        # Idempotente de propósito: o botão continua na tela até a página se
+        # refazer, e um segundo clique geraria um SEGUNDO Pix válido para o
+        # mesmo item — dois códigos vivos, e o caixa sem saber qual a pessoa
+        # pagou.
         return arremate
     arremate.status = "combinado"
     arremate.combinado_em = timezone.now()
@@ -484,7 +488,9 @@ def marcar_pago(arremate, *, manual=False, pagamento=None):
     arremate.status = "pago"
     arremate.pago_em = timezone.now()
     arremate.pago_manual = manual
-    if pagamento and not arremate.pagamento_id:
+    if pagamento:
+        # Aponta para a cobrança que foi REALMENTE paga, mesmo que não seja a
+        # última gerada: é dela que sai a taxa e é ela que o extrato explica.
         arremate.pagamento = pagamento
     arremate.save(update_fields=["status", "pago_em", "pago_manual", "pagamento"])
     HUB.publicar(
@@ -539,25 +545,100 @@ def expirar_arremate(arremate):
     return arremate
 
 
+def cobrancas_do_arremate(arremate):
+    """**Todas** as cobranças que já foram criadas para este arremate.
+
+    Não só a atual: refazer o Pix (esticar o prazo, combinar de pagar depois)
+    deixa a anterior para trás, e é ela que está **na tela da pessoa** no
+    instante em que o caixa aperta o botão. Se ela pagar aquele código, é por
+    esta lista que o sistema descobre.
+
+    A ligação é a `referencia`, que nasce do id do arremate (`LEILAO-<id>` e
+    `LEILAO-<id>-R<timestamp>`) e não muda.
+    """
+    refs = PagamentoLeilao.objects.filter(
+        referencia__startswith=f"LEILAO-{arremate.id}"
+    ).exclude(mp_payment_id="")
+    # A referência com prefixo pega "LEILAO-1" e "LEILAO-1-R…", mas pegaria
+    # "LEILAO-12" junto. Confere o id de verdade.
+    achadas = [p for p in refs if _id_da_referencia(p.referencia) == arremate.id]
+    if arremate.pagamento_id and arremate.pagamento.mp_payment_id:
+        if all(p.pk != arremate.pagamento_id for p in achadas):
+            achadas.append(arremate.pagamento)
+    return achadas
+
+
+def _id_da_referencia(referencia):
+    """O id do arremate dentro de `LEILAO-<id>` / `LEILAO-<id>-R<timestamp>`."""
+    partes = (referencia or "").split("-")
+    if len(partes) < 2 or partes[0] != "LEILAO" or not partes[1].isdigit():
+        return None
+    return int(partes[1])
+
+
 def conferir_pagamento(arremate):
     """Consulta o Mercado Pago na marra (reforço para webhook atrasado).
 
     O webhook é o caminho normal, mas ele atrasa — e quem acabou de pagar está
     olhando a tela esperando o selo mudar. Esta consulta é o que fecha esse
     buraco enquanto o painel de pagamento está aberto.
+
+    **Sem `site_url` configurado não existe webhook nenhum**, e esta consulta
+    passa a ser o único caminho do dinheiro: por isso ela pergunta por **todas**
+    as cobranças do arremate, não só a última.
     """
     if arremate.status == "pago":
         return True
-    pagamento = arremate.pagamento
-    if not pagamento or not pagamento.mp_payment_id:
-        return False
     cfg = ConfigLeilao.get_solo()
     if not cfg.configurado:
         return False
-    r = mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)
-    if not r.get("ok"):
-        return False
-    return _aplicar_retorno(pagamento, r)
+
+    for pagamento in cobrancas_do_arremate(arremate):
+        if pagamento.status == "aprovado" and not pagamento.finalizado:
+            if _aplicar_retorno(pagamento, {"status": "aprovado"}):
+                return True
+            continue
+        r = mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)
+        if r.get("ok") and _aplicar_retorno(pagamento, r):
+            return True
+    return False
+
+
+def _arremates_do_pagamento(pagamento):
+    """Quem este pagamento quita — **inclusive quando o Pix foi refeito**.
+
+    O caminho normal é a FK (`Arremate.pagamento`). Só que ela aponta para **uma**
+    cobrança, e refazer o Pix (esticar o prazo, combinar de pagar depois) troca
+    esse ponteiro: a cobrança antiga fica sem arremate nenhum.
+
+    Isso é dinheiro no chão. O código antigo continua válido no Mercado Pago por
+    algum tempo, e é justamente o que está **na tela da pessoa** quando o caixa
+    aperta "+15 min" — ela paga aquele, o webhook chega, o pagamento é aprovado,
+    e ninguém é marcado como pago. O sistema segue cobrando quem já pagou.
+
+    Por isso, não achando pela FK, o arremate é recuperado da **referência**
+    (`LEILAO-<id>` ou `LEILAO-<id>-R<timestamp>`), que é gravada na criação e
+    não muda.
+    """
+    ligados = list(pagamento.arremates.select_related("lote", "participante"))
+    if ligados:
+        return ligados
+
+    arremate_id = _id_da_referencia(pagamento.referencia)
+    if arremate_id is None:
+        return []
+    arremate = (
+        Arremate.objects.select_related("lote", "participante")
+        .filter(pk=arremate_id)
+        .first()
+    )
+    if arremate:
+        logger.warning(
+            "Leilão: pagamento %s quitou o arremate %s pela referência "
+            "(o Pix tinha sido refeito).",
+            pagamento.referencia, arremate.id,
+        )
+    return [arremate] if arremate else []
 
 
 def _aplicar_retorno(pagamento, r):
@@ -572,7 +653,7 @@ def _aplicar_retorno(pagamento, r):
     if not pagamento.finalizado:
         pagamento.finalizado = True
         pagamento.save(update_fields=["finalizado"])
-    for arremate in pagamento.arremates.select_related("lote", "participante"):
+    for arremate in _arremates_do_pagamento(pagamento):
         marcar_pago(arremate, pagamento=pagamento)
     return True
 

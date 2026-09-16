@@ -1461,6 +1461,11 @@ class ReacoesTests(TestCase):
         self.assertEqual(r.status_code, 403)
 
 
+    def test_quantos_invalido_nao_derruba_a_view(self):
+        """Vem de JSON da internet: texto, lista ou nada. Um 500 por um emoji, não."""
+        for valor in ("abc", [1, 2], {"a": 1}):
+            self.assertFalse(reacoes.registrar("❤️", valor))
+
 class SemMusicaDeFundoTests(TestCase):
     """Não há música de fundo. O clube ouviu pronta e resolveu que não queria.
 
@@ -2960,3 +2965,210 @@ class CaixaAoVivoTests(TestCase):
     def test_o_pix_do_combinado_dura_dias_nao_minutos(self):
         """15 minutos era o prazo que o caixa acabou de dispensar."""
         self.assertGreaterEqual(servicos.MINUTOS_PIX_COMBINADO, 60 * 24)
+
+
+class PixRefeitoTests(TestCase):
+    """Quando o Pix é refeito, o código ANTIGO continua na tela da pessoa.
+
+    Ela pode pagar aquele. Se o sistema só olhar a cobrança mais nova, o
+    dinheiro entra e ninguém é marcado como pago — o caixa segue cobrando quem
+    já pagou. Este é o caminho que estes testes seguram.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.pessoa = criar_pessoa("Maria Fictícia")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.pessoa)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote, motivo="locutor")
+
+        # A cobrança original (a que está na tela da pessoa)…
+        self.velha = PagamentoLeilao.objects.create(
+            referencia="LEILAO-%d" % self.arremate.id,
+            mp_payment_id="1111", valor_bruto=self.arremate.valor,
+            qr_code="00020126velho",
+        )
+        # …e a refeita, depois de esticar o prazo.
+        self.nova = PagamentoLeilao.objects.create(
+            referencia="LEILAO-%d-R999" % self.arremate.id,
+            mp_payment_id="2222", valor_bruto=self.arremate.valor,
+            qr_code="00020126novo",
+        )
+        self.arremate.pagamento = self.nova
+        self.arremate.save(update_fields=["pagamento"])
+
+    def test_pagar_o_codigo_antigo_da_baixa(self):
+        servicos._aplicar_retorno(self.velha, {"status": "aprovado"})
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "pago")
+
+    def test_a_baixa_aponta_para_a_cobranca_que_foi_paga(self):
+        """É dela que sai a taxa — apontar para a que ninguém pagou mente no extrato."""
+        servicos._aplicar_retorno(self.velha, {"status": "aprovado"})
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.pagamento_id, self.velha.id)
+
+    def test_a_lista_de_cobrancas_traz_as_duas(self):
+        refs = {p.id for p in servicos.cobrancas_do_arremate(self.arremate)}
+        self.assertEqual(refs, {self.velha.id, self.nova.id})
+
+    def test_nao_confunde_o_arremate_12_com_o_1(self):
+        """`startswith("LEILAO-1")` pegaria LEILAO-12 junto."""
+        outra = PagamentoLeilao.objects.create(
+            referencia="LEILAO-%d0" % self.arremate.id,
+            mp_payment_id="3333", valor_bruto=Decimal("1.00"),
+        )
+        refs = {p.id for p in servicos.cobrancas_do_arremate(self.arremate)}
+        self.assertNotIn(outra.id, refs)
+
+    def test_referencia_estranha_nao_quebra_o_webhook(self):
+        estranho = PagamentoLeilao.objects.create(
+            referencia="QUALQUER-COISA", mp_payment_id="4444", valor_bruto=Decimal("1.00")
+        )
+        self.assertEqual(servicos._arremates_do_pagamento(estranho), [])
+
+
+class CombinadoIdempotenteTests(TestCase):
+    """Dois cliques em "vai pagar depois" não podem gerar dois Pix vivos."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        pessoa = criar_pessoa("João Fictício")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, pessoa)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote, motivo="locutor")
+
+    def test_o_segundo_clique_nao_muda_nada(self):
+        servicos.marcar_combinado(self.arremate, None, "paga amanhã")
+        self.arremate.refresh_from_db()
+        quando = self.arremate.combinado_em
+
+        servicos.marcar_combinado(self.arremate, None, "outra coisa")
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.combinado_em, quando)
+        self.assertEqual(self.arremate.observacao, "paga amanhã")
+
+    def test_quem_ja_pagou_nao_vira_combinado(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        servicos.marcar_combinado(self.arremate, None, "")
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "pago")
+
+
+class ContagemDeGenteTests(TestCase):
+    """O número que o locutor usa para decidir a hora de começar.
+
+    As telas da equipe também ficam conectadas o tempo todo; contá-las faria
+    três voluntários parecerem três pessoas esperando.
+    """
+
+    def setUp(self):
+        from leilao.hub import HUB
+
+        self.HUB = HUB
+
+    def test_a_equipe_nao_entra_na_contagem(self):
+        import asyncio
+
+        async def cenario():
+            publico = self.HUB.assinar()
+            equipe_fila = self.HUB.assinar(publico=False)
+            try:
+                return self.HUB.conectados, self.HUB.total
+            finally:
+                self.HUB.cancelar(publico)
+                self.HUB.cancelar(equipe_fila)
+
+        conectados, total = asyncio.run(cenario())
+        self.assertEqual(conectados, 1)
+        self.assertEqual(total, 2)
+
+    def test_cancelar_tira_das_duas_contas(self):
+        import asyncio
+
+        async def cenario():
+            fila = self.HUB.assinar()
+            self.HUB.cancelar(fila)
+            return self.HUB.conectados, self.HUB.total
+
+        self.assertEqual(asyncio.run(cenario()), (0, 0))
+
+
+class RevisaoDaEquipeTests(TestCase):
+    """O que a revisão pegou nas contas da equipe."""
+
+    def setUp(self):
+        from leilao import equipe as eq
+
+        eq.limpar_tentativas()
+        self.eq = eq
+        User = get_user_model()
+        self.chefe = User.objects.create_user("dir_rev", password="segredo-ficticio")
+        self.chefe.is_staff = True
+        self.chefe.save()
+        g, _ = Group.objects.get_or_create(name="diretor")
+        self.chefe.groups.add(g)
+        self.c = Client()
+        self.c.login(username="dir_rev", password="segredo-ficticio")
+
+    def test_o_recado_para_de_prometer_a_senha_padrao_depois_da_troca(self):
+        novo = self.eq.criar_conta("Maria Fictícia", ["caixa"])
+        self.assertIn(self.eq.SENHA_PADRAO, self.eq.recado_de_acesso(novo))
+
+        self.eq.definir_senha(novo, "escolhida")
+        texto = self.eq.recado_de_acesso(novo)
+        self.assertNotIn("Senha: %s" % self.eq.SENHA_PADRAO, texto)
+        self.assertIn(novo.get_username(), texto)
+
+    def test_muitas_tentativas_travam_o_login(self):
+        self.eq.criar_conta("Maria Fictícia", ["caixa"])
+        c = Client()
+        for _ in range(self.eq.MAX_TENTATIVAS):
+            c.post("/equipe/entrar/", {"usuario": "maria", "senha": "errada"})
+        # Agora nem a senha CERTA passa — é isso que impede varrer 1234 de fora.
+        c.post("/equipe/entrar/", {"usuario": "maria", "senha": self.eq.SENHA_PADRAO})
+        self.assertNotIn("_auth_user_id", c.session)
+
+    def test_acertar_a_senha_limpa_o_freio(self):
+        self.eq.criar_conta("Maria Fictícia", ["caixa"])
+        c = Client()
+        c.post("/equipe/entrar/", {"usuario": "maria", "senha": "errada"})
+        c.post("/equipe/entrar/", {"usuario": "maria", "senha": self.eq.SENHA_PADRAO})
+        self.assertIn("_auth_user_id", c.session)
+
+    def test_o_admin_do_leilao_e_so_de_superusuario(self):
+        """`is_staff` é o que toda conta da equipe tem — não pode abrir o admin."""
+        self.eq.criar_conta("Maria Fictícia", ["caixa"])
+        c = Client()
+        c.login(username="maria", password=self.eq.SENHA_PADRAO)
+        r = c.get("/admin/", follow=True)
+        self.assertNotContains(r, "Administração do leilão", status_code=200)
+        # O admin manda para a própria tela de login quando não há permissão.
+        self.assertTrue(r.redirect_chain)
+
+    def test_tempo_invalido_no_prazo_devolve_json(self):
+        """Toda recusa desta view é JSON — um 500 de HTML deixaria a tela muda."""
+        leilao = criar_leilao()
+        lote = criar_lote(leilao)
+        pessoa = criar_pessoa("Ana Fictícia")
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        arremate = servicos.fechar_lote(lote, motivo="locutor")
+
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "prazo", "arremate": arremate.id, "minutos": "abc"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(r.json()["ok"])

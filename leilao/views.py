@@ -141,8 +141,14 @@ async def stream_view(request):
     garantir_laco(getattr(settings, "LEILAO_TICK_SEGUNDOS", 1))
 
     teto = getattr(settings, "LEILAO_MAX_CONEXOES", 300)
-    if HUB.conectados >= teto:
+    # O teto olha TODAS as conexões (é um limite de recurso); a contagem que vai
+    # para a tela olha só o público (é um número sobre gente).
+    if HUB.total >= teto:
         return HttpResponse("Leilão lotado. Tente novamente em instantes.", status=503)
+
+    # A tela da equipe se identifica: ela acompanha o pregão, mas não é alguém
+    # que chegou para dar lance.
+    publico = request.GET.get("equipe") != "1"
 
     ping = getattr(settings, "LEILAO_PING_SEGUNDOS", 15)
     montar = sync_to_async(
@@ -150,7 +156,7 @@ async def stream_view(request):
     )
 
     async def gerador():
-        fila = HUB.assinar()
+        fila = HUB.assinar(publico=publico)
         HUB.publicar("online", {"online": HUB.conectados})
         try:
             yield sse({"seq": 0, "tipo": "estado", "dados": await montar()})
@@ -398,16 +404,40 @@ def entrar_equipe_view(request):
     if request.user.is_authenticated and papeis.papeis_do(request.user):
         return redirect("leilao:equipe")
     if request.method == "POST":
+        chave = _ip_do(request)
+        if equipe.login_barrado(chave):
+            # A senha padrão é curta e o usuário sai do nome: sem freio, dá para
+            # varrer da internet até acertar — e quem acertasse primeiro
+            # trocaria a senha, trancando a pessoa de verdade do lado de fora.
+            messages.error(
+                request, "Muitas tentativas. Espere alguns minutos e tente de novo."
+            )
+            return render(request, "leilao/equipe_entrar.html")
+
         usuario = authenticate(
             request,
             username=request.POST.get("usuario", "").strip(),
             password=request.POST.get("senha", ""),
         )
         if usuario and usuario.is_staff:
+            equipe.limpar_tentativas(chave)
             auth_login(request, usuario)
             return redirect("leilao:equipe")
+        equipe.registrar_erro_de_login(chave)
         messages.error(request, "Usuário ou senha inválidos.")
     return render(request, "leilao/equipe_entrar.html")
+
+
+def _ip_do(request):
+    """O IP de quem está batendo na porta, atrás do Nginx.
+
+    `X-Forwarded-For` vem do nosso próprio proxy; o primeiro da lista é o
+    cliente. Sem ele (desenvolvimento), o `REMOTE_ADDR` serve.
+    """
+    encaminhado = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if encaminhado:
+        return encaminhado.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "") or "?"
 
 
 @require_POST
@@ -660,7 +690,13 @@ def locutor_acao_view(request):
                 {"ok": False, "msg": "Só dá para esticar o prazo de quem ainda está no relógio."},
                 status=409,
             )
-        servicos.estender_prazo(arremate, dados.get("minutos") or 15)
+        try:
+            minutos = int(dados.get("minutos") or 15)
+        except (TypeError, ValueError):
+            # Toda recusa desta view é JSON; um 500 de HTML aqui deixaria a tela
+            # sem explicação nenhuma no meio do evento.
+            return JsonResponse({"ok": False, "msg": "Tempo inválido."}, status=400)
+        servicos.estender_prazo(arremate, minutos)
         arremate.refresh_from_db()
         return JsonResponse(
             {

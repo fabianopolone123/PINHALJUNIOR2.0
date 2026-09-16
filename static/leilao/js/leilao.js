@@ -713,6 +713,10 @@
             var d = JSON.parse(e.data);
             if (estado) estado.online = d.online;
             $("online").textContent = d.online;
+            // A frase "já estão aqui" é da tela de espera — justamente a fase
+            // em que este número muda o tempo todo. Sem redesenhar, ela
+            // congelava no valor de quando a pessoa conectou.
+            if (estado && estado.ativo && !estado.comecou) desenharBoasVindas();
         });
 
         fonte.addEventListener("arremate_combinado", function (e) {
@@ -725,7 +729,21 @@
 
         fonte.addEventListener("arremate_pix", function (e) {
             var d = JSON.parse(e.data);
-            if (EU && d.participante === EU) carregarArremates();
+            if (!EU || d.participante !== EU) return;
+            carregarArremates();
+            // O Pix pode ter sido REFEITO (prazo esticado, pagamento combinado).
+            // Com o modal aberto, a pessoa ficaria olhando um código que já não
+            // é o dela — e copiaria esse.
+            if (arremateAberto && String(arremateAberto) === String(d.arremate)) {
+                abrirQr(d.arremate);
+            }
+        });
+
+        fonte.addEventListener("arremate_prazo", function (e) {
+            var d = JSON.parse(e.data);
+            if (!EU || d.participante !== EU) return;
+            toast("A organização te deu mais tempo para pagar. ⏱️", "success");
+            carregarArremates();
         });
 
         fonte.addEventListener("pagamento", function (e) {

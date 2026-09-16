@@ -294,7 +294,7 @@ de select() num campo que exista de fato.
 
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
-     data-stream="{% url 'leilao:stream' %}"
+     data-stream="{% url 'leilao:stream' %}?equipe=1"
      data-pix-url="{% url 'leilao:caixa_pix' 0 %}"
      data-acao-url="{% url 'leilao:acao' %}"></div>
 {% endblock %}

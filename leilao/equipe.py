@@ -178,6 +178,47 @@ def precisa_trocar_senha(user):
     return bool(conta and conta.senha_provisoria)
 
 
+# ---------------------------------------------------------------------------
+# Freio de tentativas de login
+# ---------------------------------------------------------------------------
+# A senha padrão é curta e o usuário sai do nome da pessoa: sem um freio, dá
+# para varrer "maria/1234" da internet até acertar — e quem acertasse PRIMEIRO
+# trocaria a senha, trancando a voluntária de verdade do lado de fora.
+#
+# Em memória do processo, como o hub e o cadeado de lance: o serviço roda com
+# **um worker só** (ver `config/settings_leilao.py`). Não é proteção contra
+# ataque distribuído — é o suficiente para o que este sistema é.
+MAX_TENTATIVAS = 10
+JANELA_TENTATIVAS = 300  # segundos
+
+_tentativas = {}
+
+
+def _agora():
+    import time
+
+    return time.monotonic()
+
+
+def login_barrado(chave):
+    """Este IP já errou demais nos últimos minutos?"""
+    marcas = [t for t in _tentativas.get(chave, []) if _agora() - t < JANELA_TENTATIVAS]
+    _tentativas[chave] = marcas
+    return len(marcas) >= MAX_TENTATIVAS
+
+
+def registrar_erro_de_login(chave):
+    _tentativas.setdefault(chave, []).append(_agora())
+
+
+def limpar_tentativas(chave=None):
+    """Zera o freio (acerto de senha, e o teste)."""
+    if chave is None:
+        _tentativas.clear()
+    else:
+        _tentativas.pop(chave, None)
+
+
 def equipe():
     """Todo mundo que tem conta de equipe, com o que a lista precisa mostrar."""
     User = get_user_model()
@@ -203,13 +244,24 @@ def recado_de_acesso(user, site_url=""):
     """
     base = (site_url or "").rstrip("/")
     link = f"{base}/equipe/entrar/" if base else "(link da equipe do leilão)"
-    return "\n".join(
-        [
-            "*Leilão do clube — seu acesso*",
-            f"Link: {link}",
-            f"Usuário: {user.get_username()}",
+    linhas = [
+        "*Leilão do clube — seu acesso*",
+        f"Link: {link}",
+        f"Usuário: {user.get_username()}",
+    ]
+    # A senha só entra no recado ENQUANTO ela é a provisória. Para quem já
+    # escolheu a dela, mandar "Senha: 1234" é entregar uma credencial que não
+    # funciona — e fazer a pessoa achar que o acesso quebrou.
+    if precisa_trocar_senha(user):
+        linhas += [
             f"Senha: {SENHA_PADRAO}",
             "",
             "No primeiro acesso o sistema pede para você trocar a senha.",
         ]
-    )
+    else:
+        linhas += [
+            "",
+            "A senha é a que você mesmo escolheu. Esqueceu? Peça para o "
+            "diretor resetar.",
+        ]
+    return "\n".join(linhas)

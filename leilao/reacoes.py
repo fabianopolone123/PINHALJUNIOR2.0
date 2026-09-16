@@ -30,7 +30,12 @@ def registrar(emoji, quantos=1):
     """Soma toques ao balde. Chamado pela view — barato de propósito."""
     if emoji not in EMOJIS:
         return False
-    quantos = max(1, min(int(quantos or 1), 10))
+    try:
+        quantos = max(1, min(int(quantos or 1), 10))
+    except (TypeError, ValueError):
+        # Vem de JSON da internet: "quantos" pode chegar como texto, lista ou
+        # nada. Um 500 aqui seria por causa de um emoji.
+        return False
     with _lock:
         _contagem[emoji] = _contagem.get(emoji, 0) + quantos
     return True

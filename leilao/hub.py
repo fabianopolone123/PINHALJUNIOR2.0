@@ -33,7 +33,12 @@ class Hub:
     """Publicador/assinante em memória para os eventos do leilão."""
 
     def __init__(self):
-        self._assinantes = set()
+        # fila -> é do PÚBLICO? As telas da equipe (mesa do locutor, caixa)
+        # também ficam conectadas, e contá-las estragaria o único número que o
+        # locutor usa para decidir a hora de começar: "quantas pessoas já
+        # chegaram". Três voluntários com a tela aberta viravam três
+        # participantes.
+        self._assinantes = {}
         self._loop = None
         self._seq = 0
         self._lock = threading.Lock()
@@ -45,6 +50,12 @@ class Hub:
 
     @property
     def conectados(self):
+        """Quantas PESSOAS estão no leilão (a equipe não conta)."""
+        return sum(1 for publico in self._assinantes.values() if publico)
+
+    @property
+    def total(self):
+        """Todas as conexões abertas — é o que o teto do serviço limita."""
         return len(self._assinantes)
 
     # -- publicação --------------------------------------------------------
@@ -84,14 +95,18 @@ class Hub:
                     pass
 
     # -- assinatura --------------------------------------------------------
-    def assinar(self):
-        """Devolve uma fila nova já inscrita. Lembre de `cancelar()` no fim."""
+    def assinar(self, publico=True):
+        """Devolve uma fila nova já inscrita. Lembre de `cancelar()` no fim.
+
+        `publico=False` para as telas da equipe: elas recebem tudo, mas não
+        entram na contagem de gente no leilão.
+        """
         fila = asyncio.Queue(maxsize=FILA_MAX)
-        self._assinantes.add(fila)
+        self._assinantes[fila] = bool(publico)
         return fila
 
     def cancelar(self, fila):
-        self._assinantes.discard(fila)
+        self._assinantes.pop(fila, None)
 
 
 def _esvaziar(fila):

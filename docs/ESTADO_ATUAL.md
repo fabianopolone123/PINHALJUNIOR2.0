@@ -2,7 +2,31 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-15 (**Leilão: o caixa vira mesa de trabalho e quem chega é recebido**):
+**Última atualização:** 2026-09-15 (**Leilão: revisão de bugs — dinheiro no chão, porta lateral e
+contagem inflada**): revisão do módulo inteiro depois das duas rodadas do dia; nove correções, e nenhuma
+delas aparecia na tela. A mais grave: **pagar o Pix ANTIGO não dava baixa**. Refazer a cobrança (o que
+"+15 min" e "vai pagar depois" fazem) troca a FK `Arremate.pagamento`, e a cobrança anterior — que é
+justamente a que está **na tela da pessoa** naquele instante — ficava sem arremate nenhum: ela pagava, o
+webhook aprovava e **ninguém era marcado como pago**. Agora o arremate é recuperado da **referência**
+(`LEILAO-<id>`, que nasce na criação e não muda) nos **dois** caminhos —
+`_arremates_do_pagamento` no webhook e `cobrancas_do_arremate` na consulta de reforço, que é o **único**
+caminho do dinheiro quando `site_url` está vazio —, e `marcar_pago` passou a apontar para a cobrança
+**realmente paga** (é dela que sai a taxa). **`marcar_combinado` virou idempotente**: o botão fica na tela
+até a página se refazer, e o segundo clique gerava um **segundo Pix vivo** do mesmo item. A senha padrão
+tinha **duas portas laterais**: sem freio de tentativas dava para varrer `maria/1234` da internet — e quem
+acertasse **primeiro trancaria a voluntária de verdade do lado de fora** (entrou um freio de 10 erros por
+IP em 5 min, em memória) — e o **`/admin/` do leilão aceitava a conta**, porque o Django o abre para
+qualquer `is_staff`, que é o que toda conta da equipe tem (agora é **só superusuário**). O "📋 Copiar
+acesso" **prometia `Senha: 1234` para quem já tinha trocado**. A **contagem de gente incluía a equipe**
+(mesa e caixa ficam conectados a noite toda, e o locutor decide a hora de começar por esse número): as
+telas da equipe passam `?equipe=1` e saem da conta — o **teto** de conexões continua olhando o total,
+porque é limite de recurso, não número sobre gente. Mais: a frase "já estão aqui" **congelava** (o evento
+`online` não redesenhava a tela de espera), a linha **filtrada reaparecia** quando o pagamento dela caía
+(`pintarLinha` apagava o `busca-oculto`), a recarga do caixa **jogava fora a aba aberta** (agora ela fica
+no `sessionStorage`) e `minutos`/`quantos` vindos da internet viravam **500** em vez de JSON. Suíte do
+leilão: **257 testes OK**.
+
+**Atualização anterior:** 2026-09-15 (**Leilão: o caixa vira mesa de trabalho e quem chega é recebido**):
 rodada vinda de usar a tela no celular — o sistema estava certo e quem opera ficava sem o que precisa na
 mão. (1) **Os emojis cobriam o botão de enviar do chat**: a coluna de reações mora no canto inferior
 direito, onde fica o ➤; com o chat aberto os dois **trocam de lado** (`body.chat-aberto`), e o botão de
@@ -22,7 +46,7 @@ lia "Intervalo"**, o que dá a impressão de ter perdido o começo: agora há um
 título e informações **escritas pelo clube**, editáveis em `/preparacao/<id>/editar/` **com o leilão no
 ar** (ao salvar, o estado é publicado e as telas abertas se redesenham sozinhas), mais a **contagem de
 quem já está esperando em tempo real** — é o número que o locutor usa para decidir a hora de começar. O
-separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **242 testes OK**.
+separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **257 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
 **👤 Usuários** na barra da equipe do leilão, visível só para o **diretor** (`/equipe/usuarios/`). Até
@@ -69,7 +93,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **242 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **257 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1871,7 +1895,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 242 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 257 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -1986,6 +2010,25 @@ bloquear alcança todos os cadastros dela.
 martelo não é quem confirma o recebimento. Isso não é só o menu: o `POST` único da equipe
 (`/equipe/acao/`) confere a área **por ação** (mapa `ACOES_AREAS` em `views.py`), então esconder o botão
 não é o que protege. Há teste.
+
+**O dinheiro é ancorado na REFERÊNCIA, não na FK.** `Arremate.pagamento` aponta para **uma** cobrança e é
+**trocado** quando o Pix é refeito (esticar prazo, combinar pagar depois) — a anterior fica órfã, e é ela
+que está na tela da pessoa naquele momento. Por isso `_arremates_do_pagamento` (webhook) e
+`cobrancas_do_arremate` (consulta de reforço) recuperam o arremate de `LEILAO-<id>` /
+`LEILAO-<id>-R<timestamp>`, conferindo o id de verdade (`LEILAO-1` não pode pescar `LEILAO-12`). Cobrança
+nova criada por outro caminho **precisa manter esse formato de referência**. `marcar_combinado` é
+**idempotente** — o botão sobrevive na tela até a recarga, e o segundo clique geraria um segundo Pix vivo.
+
+**A contagem de gente e o teto de conexões são números diferentes.** `HUB.conectados` conta só o
+**público** (as telas da equipe assinam com `?equipe=1` → `HUB.assinar(publico=False)`), porque é o número
+pelo qual o locutor decide começar; `HUB.total` é o que o teto do serviço limita. Sem isso, três
+voluntários com a tela aberta viravam três pessoas esperando.
+
+**A senha padrão tem freio**: 10 erros por IP em 5 minutos (`equipe.login_barrado`, memória do processo,
+como o hub), zerado no acerto — sem ele dava para varrer `maria/1234` de fora, e quem acertasse primeiro
+trocaria a senha e trancaria a pessoa de verdade. E o **`/admin/` deste serviço é só de superusuário**
+(`config/urls_leilao.py`): o Django o abre para qualquer `is_staff`, que é exatamente o que toda conta da
+equipe tem.
 
 **A tela do caixa é AO VIVO** (`caixa.js` ouve o `/stream/`): pagamento confirmado muda a linha na hora
 (selo, cor, botões de cobrança somem) e ela **pisca**; a recarga da página — necessária para os totais e

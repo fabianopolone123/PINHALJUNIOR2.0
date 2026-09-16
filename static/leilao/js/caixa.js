@@ -52,17 +52,50 @@
             });
     }
 
-    /* ---- Abas ---- */
+    /* ---- Abas ----
+       A aba fica guardada na sessão do navegador porque esta tela **recarrega
+       sozinha** quando um pagamento cai: sem isso, quem montou as rotas de
+       entrega era jogado de volta para "Pagamentos" no meio do trabalho.
+       `sessionStorage` pode estourar (aba anônima, cookies bloqueados), então
+       toda leitura e escrita vai em try/catch — a tela precisa funcionar sem. */
+    var CHAVE_ABA = "leilao_caixa_aba";
+
+    function lembrarAba(nome) {
+        try { sessionStorage.setItem(CHAVE_ABA, nome); } catch (e) { /* sem storage */ }
+    }
+
+    function abaLembrada() {
+        try { return sessionStorage.getItem(CHAVE_ABA); } catch (e) { return null; }
+    }
+
+    function mostrarAba(nome) {
+        var botao = document.querySelector('.mesa-aba[data-aba="' + nome + '"]');
+        if (!botao) return false;
+        document.querySelectorAll(".mesa-aba").forEach(function (x) { x.classList.remove("ativa"); });
+        botao.classList.add("ativa");
+        document.querySelectorAll(".mesa-secao").forEach(function (s) {
+            s.hidden = s.dataset.secao !== nome;
+            s.classList.toggle("ativa", !s.hidden);
+        });
+        return true;
+    }
+
     document.querySelectorAll(".mesa-aba").forEach(function (b) {
         b.addEventListener("click", function () {
-            document.querySelectorAll(".mesa-aba").forEach(function (x) { x.classList.remove("ativa"); });
-            b.classList.add("ativa");
-            document.querySelectorAll(".mesa-secao").forEach(function (s) {
-                s.hidden = s.dataset.secao !== b.dataset.aba;
-                s.classList.toggle("ativa", !s.hidden);
-            });
+            mostrarAba(b.dataset.aba);
+            lembrarAba(b.dataset.aba);
         });
     });
+
+    // Quem acabou de pedir a divisão das entregas está olhando as rotas: a
+    // página volta nelas, não na primeira aba.
+    var guardada = abaLembrada();
+    if (window.location.search.indexOf("entregadores=") !== -1) {
+        mostrarAba("entregar");
+        lembrarAba("entregar");
+    } else if (guardada) {
+        mostrarAba(guardada);
+    }
 
     /* ---- Ações ---- */
     document.addEventListener("click", function (e) {
@@ -256,7 +289,11 @@
     function pintarLinha(id, situacao, rotulo) {
         var li = $("arremate" + id);
         if (!li) return false;
-        li.className = "arremate-linha " + situacao;
+        // Reescrever `className` inteiro apagava o `busca-oculto`: a linha
+        // filtrada pela busca voltava a aparecer sozinha quando o pagamento
+        // dela caía.
+        var oculto = li.classList.contains("busca-oculto");
+        li.className = "arremate-linha " + situacao + (oculto ? " busca-oculto" : "");
         var selo = li.querySelector("[data-selo]");
         if (selo) {
             selo.className = "selo selo-" + situacao;
@@ -266,6 +303,11 @@
             // Os botões de cobrança somem na hora: insistir com quem acabou de
             // pagar é o erro que esta tela existe para evitar.
             li.querySelectorAll("[data-acao], [data-pix]").forEach(function (b) { b.remove(); });
+        } else if (situacao === "combinado") {
+            // O "vai pagar depois" já foi dado, e o prazo deixou de correr.
+            // Deixar os dois botões de pé convida um segundo clique.
+            li.querySelectorAll('[data-acao="combinado"], [data-acao="prazo"]')
+                .forEach(function (b) { b.remove(); });
         }
         li.classList.add("piscou");
         return true;
@@ -284,6 +326,9 @@
         fonte.addEventListener("arremate_combinado", function (e) {
             var d = JSON.parse(e.data || "{}");
             pintarLinha(d.arremate, "combinado", "Combinado — vai pagar depois");
+            // Pode ter sido OUTRA pessoa do caixa que combinou: os totais
+            // fecham na recarga.
+            agendarRecarga();
         });
 
         // Linha NOVA (item batido) ou linha que sumiu (prazo vencido): não dá

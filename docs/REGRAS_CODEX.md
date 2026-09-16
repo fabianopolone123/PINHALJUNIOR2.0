@@ -730,6 +730,21 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   (`pessoa_bloqueada`), e bloquear pela tela alcança todos os cadastros dela (`bloquear_pessoa`) —
   senão o bloqueio se desfaz com dois toques na tela de entrada.
 
+### O dinheiro quando o Pix é refeito
+
+- **A âncora é a `referencia`, não a FK.** `Arremate.pagamento` aponta para UMA cobrança e é trocado ao
+  refazer o Pix; a anterior fica órfã — e é ela que está **na tela da pessoa** no instante em que o caixa
+  aperta "+15 min" ou "vai pagar depois". Pagar aquele código e ninguém ser marcado como pago já foi bug
+  real. Os dois caminhos (`_arremates_do_pagamento` no webhook, `cobrancas_do_arremate` na consulta de
+  reforço) recuperam o arremate de `LEILAO-<id>` / `LEILAO-<id>-R<timestamp>`.
+- **Sem `site_url` não existe webhook**, e a consulta de reforço vira o único caminho do dinheiro. Ela
+  precisa olhar **todas** as cobranças do arremate, não só a última.
+- **Confira o id, não o prefixo**: `startswith("LEILAO-1")` pesca `LEILAO-12`.
+- **`marcar_pago` aponta para a cobrança que foi paga**, mesmo que não seja a última: é dela que sai a
+  taxa e é ela que o extrato explica.
+- **Ação que muda estado e continua visível precisa ser idempotente.** O botão sobrevive na tela até a
+  recarga: `marcar_combinado` chamado duas vezes emitia dois Pix vivos do mesmo item.
+
 ### A mesa do caixa
 
 - **Pagamento aparece sozinho.** `caixa.js` ouve o `/stream/`: a linha muda na hora e **pisca**. A tela
@@ -765,6 +780,13 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   chat; com o chat aberto (`body.chat-aberto`) os dois trocam de lado. Controle novo no canto inferior
   direito precisa considerar isso.
 
+### Contagem de gente × teto de conexões
+
+- **São números diferentes e não podem virar um só.** `HUB.conectados` conta o **público** (é por ele que
+  o locutor decide a hora de começar); `HUB.total` conta tudo e é o que o teto limita. As telas da equipe
+  assinam com `?equipe=1` (`HUB.assinar(publico=False)`) — sem isso, três voluntários com a mesa aberta
+  viram três pessoas esperando. Tela nova da equipe que ouça o stream **passa `?equipe=1`**.
+
 ### Contas da equipe e a senha padrão
 
 - **A senha `1234` é um bilhete, não um segredo.** Ela existe para ser dita em voz alta numa mesa de
@@ -795,6 +817,16 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   superusuário** — um diretor voluntário não reseta a senha de quem administra o sistema.
 - **Cadastro sem função é recusado.** Conta sem papel entra e não vê tela nenhuma: seria uma armadilha
   para descobrir no dia do evento, não um cadastro.
+- **A senha padrão tem freio de tentativas** (`equipe.login_barrado`: 10 erros por IP em 5 min, memória
+  do processo, zerado no acerto). Sem ele dava para varrer `maria/1234` da internet — e o dano não é só
+  entrar: quem acertasse **primeiro** trocaria a senha e trancaria a voluntária de verdade do lado de fora.
+- **O `/admin/` do serviço do leilão é só de superusuário** (`config/urls_leilao.py`). O Django abre o
+  admin para qualquer `is_staff`, e `is_staff` é exatamente o que toda conta da equipe tem: seria uma porta
+  que nenhuma tela mostra e que a troca obrigatória de senha não protege.
+- **Recado de acesso não promete senha que não vale**: `recado_de_acesso` só inclui a padrão enquanto a
+  conta está com `senha_provisoria`.
+- **Entrada da internet não vai direto para `int()`** (`minutos`, `quantos`): view cujas recusas são JSON
+  não pode devolver um 500 de HTML no meio do evento.
 - **A tela desliga a conta, não exclui.** Desligar é reversível e preserva quem deu baixa de pagamento e
   quem entregou item.
 
