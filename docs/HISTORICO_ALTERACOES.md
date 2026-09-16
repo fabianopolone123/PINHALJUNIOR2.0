@@ -22,6 +22,52 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-15 - Leilão: cada toque de emoji vira uma rajada (sem custo novo)
+
+### Resumo
+O emoji subia **um por toque** e sumia no meio do pregão. Agora cada toque solta
+**4** (`reacoes.EMOJIS_POR_TOQUE`), e isso **não custa uma requisição a mais**:
+o que viaja é a **contagem** dentro do resumo que já ia de meio em meio segundo.
+A agregação — que é o que segura o módulo em pé com 50 pessoas — continua
+exatamente igual.
+
+### De quebra, o em-dobro de quem toca
+O resumo é um **broadcast**: ele volta para todo mundo, inclusive para quem
+mandou. Como a tela já desenha o próprio emoji na hora (para o toque responder
+sem esperar a ida e volta), quem tocava via **duas** vezes o mesmo emoji.
+
+Agora o que sai da tela fica anotado como **crédito** e é descontado do próximo
+resumo. Provado no navegador: 1 toque → 4 na tela; o resumo com o meu toque
+dentro → continua 4; o resumo de outra pessoa → 8.
+
+O crédito **expira em 4 s**. Se a requisição não chegar (rede ruim), aquele
+emoji nunca voltará no resumo — e um crédito pendurado comeria os emojis **dos
+outros** pela noite inteira.
+
+### Arquivos alterados
+- `leilao/reacoes.py`: `EMOJIS_POR_TOQUE` e a multiplicação dentro do `registrar`.
+- `leilao/views.py` + `templates/leilao/leilao.html`: o número vai para a tela
+  em `data-rajada`.
+- `static/leilao/js/reacoes.js`: rajada local, crédito e desconto.
+- `static/leilao/js/leilao.js`: passa o número na ligação.
+- `leilao/tests.py`: +6 testes (um antigo ajustado).
+
+### Decisões tomadas
+- **A multiplicação é do servidor.** O cliente manda **toques** (no máximo 10
+  por requisição) e lê o `data-rajada` só para descontar o que já desenhou.
+  Deixar o cliente mandar o total permitiria a um toque forjado encher a tela de
+  todo mundo — e o teto por despejo é a última linha, não a primeira.
+- **Os dois tetos ficam como estão** (40 por despejo no servidor, 30 na tela).
+  Com rajada eles são alcançados mais rápido, e é isso que se quer: em momento
+  de euforia a tela satura cheia, em vez de tentar desenhar tudo e travar o
+  celular fraco.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+
+---
+
 ## 2026-09-15 - Leilão: revisão de bugs (dinheiro no chão, porta lateral e contagem inflada)
 
 ### Resumo

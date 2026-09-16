@@ -780,6 +780,21 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   chat; com o chat aberto (`body.chat-aberto`) os dois trocam de lado. Controle novo no canto inferior
   direito precisa considerar isso.
 
+### As reações (emoji)
+
+- **Mais emoji na tela não pode virar mais requisição.** Cada toque solta uma **rajada**
+  (`EMOJIS_POR_TOQUE`), e o que viaja continua sendo a **contagem** dentro do resumo de 0,5 s. Se um dia
+  quiserem "mais emoji ainda", mexa nesse número — nunca na frequência de envio.
+- **A multiplicação é do SERVIDOR.** O cliente manda **toques** (teto de 10 por requisição); o
+  `data-rajada` existe só para a tela descontar o que já desenhou. Se o cliente mandasse o total, um toque
+  forjado encheria a tela de todo mundo.
+- **O resumo volta para quem mandou** (é broadcast — o servidor não sabe, nem deve saber, quem tocou o
+  quê). Por isso a tela credita o que envia e desconta do próximo resumo; sem isso, quem toca vê em dobro.
+  O crédito **expira**: requisição perdida deixaria um crédito pendurado comendo os emojis dos outros.
+- **Os dois tetos são a proteção final** (`TETO_POR_DESPEJO` no servidor, `TETO_NA_TELA` no cliente), e
+  saturar é o comportamento certo — reação atrasada não é reação, então o excedente é **descartado**, não
+  enfileirado.
+
 ### Contagem de gente × teto de conexões
 
 - **São números diferentes e não podem virar um só.** `HUB.conectados` conta o **público** (é por ele que

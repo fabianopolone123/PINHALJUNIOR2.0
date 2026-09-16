@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-15 (**Leilão: revisão de bugs — dinheiro no chão, porta lateral e
+**Última atualização:** 2026-09-15 (**Leilão: cada toque de emoji vira uma rajada**): o emoji subia
+**um por toque** e sumia no meio do pregão. Agora cada toque solta **4** (`reacoes.EMOJIS_POR_TOQUE`), e
+isso **não custa requisição nenhuma** — o que viaja é a **contagem** dentro do resumo que já ia de meio em
+meio segundo, então a agregação que segura o módulo com 50 pessoas continua igual. A **multiplicação é do
+servidor**: o cliente manda **toques** (10 no máximo por requisição) e lê o mesmo número por `data-rajada`
+apenas para **descontar o que ele já desenhou** — deixar o cliente mandar o total permitiria a um toque
+forjado encher a tela de todo mundo. Esse desconto conserta de quebra um **em-dobro** que existia desde
+sempre: o resumo é broadcast e volta para quem mandou, e a tela já desenha o próprio emoji na hora (para o
+toque responder sem esperar a ida e volta), então quem tocava via duas vezes o mesmo emoji. O crédito
+**expira em 4 s** — se a requisição não chegar, um crédito pendurado comeria os emojis **dos outros** pela
+noite inteira. Os dois tetos ficam (40 por despejo, 30 na tela): com rajada são alcançados mais rápido, e
+é isso que se quer — a tela satura cheia em vez de travar o celular fraco. Suíte do leilão: **263 testes
+OK**.
+
+**Atualização anterior:** 2026-09-15 (**Leilão: revisão de bugs — dinheiro no chão, porta lateral e
 contagem inflada**): revisão do módulo inteiro depois das duas rodadas do dia; nove correções, e nenhuma
 delas aparecia na tela. A mais grave: **pagar o Pix ANTIGO não dava baixa**. Refazer a cobrança (o que
 "+15 min" e "vai pagar depois" fazem) troca a FK `Arremate.pagamento`, e a cobrança anterior — que é
@@ -24,7 +38,7 @@ porque é limite de recurso, não número sobre gente. Mais: a frase "já estão
 `online` não redesenhava a tela de espera), a linha **filtrada reaparecia** quando o pagamento dela caía
 (`pintarLinha` apagava o `busca-oculto`), a recarga do caixa **jogava fora a aba aberta** (agora ela fica
 no `sessionStorage`) e `minutos`/`quantos` vindos da internet viravam **500** em vez de JSON. Suíte do
-leilão: **257 testes OK**.
+leilão: **263 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o caixa vira mesa de trabalho e quem chega é recebido**):
 rodada vinda de usar a tela no celular — o sistema estava certo e quem opera ficava sem o que precisa na
@@ -46,7 +60,7 @@ lia "Intervalo"**, o que dá a impressão de ter perdido o começo: agora há um
 título e informações **escritas pelo clube**, editáveis em `/preparacao/<id>/editar/` **com o leilão no
 ar** (ao salvar, o estado é publicado e as telas abertas se redesenham sozinhas), mais a **contagem de
 quem já está esperando em tempo real** — é o número que o locutor usa para decidir a hora de começar. O
-separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **257 testes OK**.
+separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **263 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
 **👤 Usuários** na barra da equipe do leilão, visível só para o **diretor** (`/equipe/usuarios/`). Até
@@ -93,7 +107,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **257 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **263 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1895,7 +1909,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 257 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 263 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -1988,7 +2002,10 @@ equipe.
 o navegador proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada
 lance nunca tocava. Os efeitos são **sintetizados em WebAudio** (zero download, zero licença); **música de
 fundo não existe mais** (ver abaixo). As
-**reações em emoji** sobem na tela de todo mundo e são **agregadas** (`leilao/reacoes.py` + laço
+**reações em emoji** sobem na tela de todo mundo, **4 por toque**
+(`reacoes.EMOJIS_POR_TOQUE`; a multiplicação é do **servidor**, e o cliente lê `data-rajada` só para
+descontar o que já desenhou — o resumo é broadcast e volta para quem mandou, o que fazia quem tocava ver
+tudo em dobro), e são **agregadas** (`leilao/reacoes.py` + laço
 próprio de 0,5 s, **sem banco**): 50 pessoas martelando viram um resumo por meio segundo, não milhares
 de mensagens.
 

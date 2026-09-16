@@ -112,6 +112,9 @@ def leilao_view(request):
             # (`/meus-arremates/`), porque ela muda sozinha durante o pregão.
             "estado_inicial": est.estado_publico(leilao),
             "emojis": reacoes.EMOJIS,
+            # Quantos emojis cada toque solta. O número é do servidor; a tela
+            # só o lê para não desenhar duas vezes o que ela mesma mandou.
+            "rajada_reacoes": reacoes.EMOJIS_POR_TOQUE,
         },
     )
 

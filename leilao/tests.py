@@ -1443,7 +1443,9 @@ class ReacoesTests(TestCase):
             content_type="application/json",
         )
         self.assertTrue(r.json()["ok"])
-        self.assertEqual(reacoes.drenar(), {"👏": 3})
+        # Três TOQUES, cada um valendo uma rajada: o que o servidor guarda é o
+        # que vai subir na tela, não o número de toques.
+        self.assertEqual(reacoes.drenar(), {"👏": 3 * reacoes.EMOJIS_POR_TOQUE})
 
     def test_sem_entrar_nao_reage(self):
         r = Client().post(
@@ -3172,3 +3174,64 @@ class RevisaoDaEquipeTests(TestCase):
         )
         self.assertEqual(r.status_code, 400)
         self.assertFalse(r.json()["ok"])
+
+
+class RajadaDeReacoesTests(TestCase):
+    """Cada toque solta vários emojis — **sem** requisição a mais.
+
+    O que viaja é a contagem dentro do resumo que já ia de meio em meio
+    segundo; o número de mensagens no stream não muda.
+    """
+
+    def setUp(self):
+        reacoes.limpar()
+
+    def tearDown(self):
+        reacoes.limpar()
+
+    def test_um_toque_vale_uma_rajada(self):
+        reacoes.registrar("❤️", 1)
+        self.assertEqual(reacoes.drenar(), {"❤️": reacoes.EMOJIS_POR_TOQUE})
+
+    def test_a_rajada_multiplica_o_numero_de_toques(self):
+        reacoes.registrar("👏", 3)
+        self.assertEqual(reacoes.drenar(), {"👏": 3 * reacoes.EMOJIS_POR_TOQUE})
+
+    def test_o_teto_do_despejo_continua_valendo(self):
+        """Com rajada o teto é alcançado mais rápido — e é ele que segura a tela."""
+        for _ in range(50):
+            reacoes.registrar("🔥", 10)
+        self.assertEqual(reacoes.drenar(), {"🔥": reacoes.TETO_POR_DESPEJO})
+
+    def test_a_multiplicacao_e_do_servidor(self):
+        """Toque forjado com `quantos` alto não pode encher a tela de todo mundo.
+
+        O limite por chamada continua sendo o de TOQUES (10); a rajada é
+        aplicada depois, e o despejo tem teto.
+        """
+        reacoes.registrar("🎉", 9999)
+        self.assertLessEqual(reacoes.drenar()["🎉"], reacoes.TETO_POR_DESPEJO)
+
+    def test_a_tela_recebe_o_numero_da_rajada(self):
+        """O cliente precisa do mesmo número para não desenhar em dobro o que mandou."""
+        c = Client()
+        p = criar_pessoa()
+        sessao = c.session
+        sessao[CHAVE_SESSAO] = p.token
+        sessao.save()
+        html = c.get("/").content.decode("utf-8")
+        self.assertIn('data-rajada="%d"' % reacoes.EMOJIS_POR_TOQUE, html)
+
+    def test_reagir_pela_view_tambem_multiplica(self):
+        c = Client()
+        p = criar_pessoa()
+        sessao = c.session
+        sessao[CHAVE_SESSAO] = p.token
+        sessao.save()
+        r = c.post(
+            "/reagir/",
+            data=json.dumps({"emoji": "❤️", "quantos": 2}),
+            content_type="application/json",
+        )
+        self.assertTrue(r.json()["ok"])
+        self.assertEqual(reacoes.drenar(), {"❤️": 2 * reacoes.EMOJIS_POR_TOQUE})

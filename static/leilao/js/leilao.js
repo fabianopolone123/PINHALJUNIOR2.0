@@ -906,7 +906,7 @@
     if (window.Reacoes) {
         window.Reacoes.ligar($("reacoesTrilho"), function (emoji, quantos) {
             post(URLS.reagir, { emoji: emoji, quantos: quantos });
-        });
+        }, dados.dataset.rajada);
         $("reacoesBotoes").addEventListener("click", function (e) {
             var btn = e.target.closest(".btn-reacao");
             if (!btn) return;

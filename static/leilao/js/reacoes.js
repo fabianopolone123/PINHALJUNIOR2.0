@@ -10,8 +10,19 @@
  *    na tela e derruba celular fraco. O excedente é descartado no desenho, não
  *    enfileirado: reação atrasada não é reação.
  *
- * Quem toca vê o próprio emoji na hora (não espera a ida e volta), e o que
+ * Quem toca vê os próprios emojis na hora (não espera a ida e volta), e o que
  * volta do servidor é o dos outros.
+ *
+ * **Cada toque solta uma rajada** (o servidor multiplica; a tela lê o mesmo
+ * número em `data-rajada` para não desenhar duas vezes). Um emoji sozinho some
+ * no meio do pregão, e o efeito existe para a sala parecer cheia — mas isso não
+ * custa uma requisição a mais: o que muda é a CONTAGEM dentro do resumo que já
+ * ia de meio em meio segundo.
+ *
+ * **O que eu mandei volta para mim.** O resumo é um broadcast: o servidor não
+ * sabe (nem deve saber) quem tocou o quê. Por isso o que sai daqui fica anotado
+ * como crédito e é descontado do próximo resumo — senão quem toca vê tudo em
+ * dobro, que é como estava antes.
  */
 window.Reacoes = (function () {
     var trilho = null;
@@ -22,6 +33,13 @@ window.Reacoes = (function () {
 
     var TETO_NA_TELA = 30;
     var INTERVALO_ENVIO = 500;  // ms
+    var rajada = 1;             // quantos por toque (vem do servidor)
+    var credito = {};           // emoji -> {quantos, em} já desenhado aqui
+
+    // Crédito velho é crédito perdido: se a requisição não chegou (rede ruim), o
+    // resumo nunca virá com aquele emoji, e um crédito pendurado comeria os
+    // emojis DOS OUTROS pela noite inteira.
+    var VALIDADE_CREDITO = 4000;  // ms
 
     function reduzido() {
         return window.matchMedia &&
@@ -71,23 +89,46 @@ window.Reacoes = (function () {
         });
     }
 
+    /* Quanto deste emoji EU já desenhei e ainda não vi voltar. */
+    function descontar(emoji, quantos) {
+        var c = credito[emoji];
+        if (!c) return quantos;
+        if (Date.now() - c.em > VALIDADE_CREDITO) {
+            delete credito[emoji];
+            return quantos;
+        }
+        var usado = Math.min(c.quantos, quantos);
+        c.quantos -= usado;
+        if (c.quantos <= 0) delete credito[emoji];
+        return quantos - usado;
+    }
+
     return {
-        ligar: function (elementoTrilho, aoEnviar) {
+        ligar: function (elementoTrilho, aoEnviar, porToque) {
             trilho = elementoTrilho;
             enviar = aoEnviar;
+            rajada = Math.max(1, Math.min(parseInt(porToque, 10) || 1, 10));
         },
 
-        /* Alguém daqui tocou: mostra na hora e junta para mandar. */
+        /* Alguém daqui tocou: mostra a rajada na hora e junta para mandar. */
         tocar: function (emoji) {
-            soltar(emoji);
+            soltarVarios(emoji, rajada);
+            var c = credito[emoji];
+            if (c && Date.now() - c.em <= VALIDADE_CREDITO) {
+                c.quantos += rajada;
+                c.em = Date.now();
+            } else {
+                credito[emoji] = { quantos: rajada, em: Date.now() };
+            }
             pendentes[emoji] = (pendentes[emoji] || 0) + 1;
             if (!timerEnvio) timerEnvio = setTimeout(despachar, INTERVALO_ENVIO);
         },
 
-        /* Chegou o resumo do servidor (o que os outros mandaram). */
+        /* Chegou o resumo do servidor (o que TODO MUNDO mandou, inclusive eu). */
         receber: function (resumo) {
             Object.keys(resumo || {}).forEach(function (emoji) {
-                soltarVarios(emoji, resumo[emoji]);
+                var quantos = descontar(emoji, resumo[emoji]);
+                if (quantos > 0) soltarVarios(emoji, quantos);
             });
         }
     };
