@@ -248,6 +248,13 @@ def reagir_view(request):
     if participante.bloqueado:
         return JsonResponse({"ok": False}, status=403)
 
+    # Descartar reação NÃO é erro: quem tocou já viu o próprio emoji subir (a
+    # tela desenha na hora), e o que se ganha é processador para o lance e para
+    # a voz ao vivo. Por isso a resposta é 200 mesmo quando o freio segura —
+    # avisar a tela só faria o celular tentar de novo, que é o oposto.
+    if not reacoes.aceitar(participante.id):
+        return JsonResponse({"ok": True, "freio": True})
+
     dados = _json(request)
     ok = reacoes.registrar(dados.get("emoji"), dados.get("quantos"))
     return JsonResponse({"ok": ok}, status=200 if ok else 400)

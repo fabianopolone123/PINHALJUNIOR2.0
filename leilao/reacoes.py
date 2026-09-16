@@ -14,6 +14,7 @@ escrita em disco por coraçãozinho.
 """
 
 import threading
+import time
 
 # Poucos e claros. Emoji demais vira paleta de pintura e ninguém usa.
 EMOJIS = ["❤️", "👏", "🔥", "😮", "🎉", "👍"]
@@ -34,8 +35,64 @@ EMOJIS_POR_TOQUE = 4
 # mais fraco da sala, que é justamente quem não pode travar.
 TETO_POR_DESPEJO = 40
 
+# --- O freio da porta de entrada -------------------------------------------
+#
+# No dia do evento este processo não está fazendo só emoji: ele carrega o
+# pregão (lance), o stream de todo mundo e divide o vCPU com o MediaMTX, que
+# precisa entregar um pacote de voz a cada 20 ms. A ordem de importância é
+# clara e não é opinião: **voz e lance são o leilão; emoji é enfeite.**
+#
+# Por isso a reação é a primeira coisa a ser descartada quando aperta — e é
+# descartada **calada**, sem erro na tela de ninguém: quem tocou já viu o
+# próprio emoji subir (a tela desenha na hora), então ele não perde nada.
+#
+# Duas travas, nesta ordem:
+#
+# 1. **Por pessoa**: o `reacoes.js` já manda no máximo 2 por segundo, mas o
+#    servidor não pode acreditar no cliente — um `fetch` num console faria 200.
+# 2. **Do processo inteiro**: um teto de requisições por segundo somando todo
+#    mundo. Passou disso, o resto do segundo é descartado. É o que garante que
+#    uma sala eufórica não roube o processador de quem está dando lance.
+INTERVALO_MIN_POR_PESSOA = 0.4   # segundos
+TETO_POR_SEGUNDO = 150
+
 _contagem = {}
 _lock = threading.Lock()
+_ultimo_toque = {}
+_janela = [0.0, 0]               # [segundo, quantas neste segundo]
+_freio = threading.Lock()
+
+
+def aceitar(participante_id):
+    """A porta: esta reação entra ou é descartada?
+
+    Fica **fora** do `registrar` de propósito: `registrar` é a regra do balde
+    (e é o que os testes exercitam); isto aqui é proteção de tráfego, e vale só
+    para quem chega pela rede.
+    """
+    agora = time.monotonic()
+    with _freio:
+        ultimo = _ultimo_toque.get(participante_id, 0.0)
+        if agora - ultimo < INTERVALO_MIN_POR_PESSOA:
+            return False
+        segundo = int(agora)
+        if _janela[0] != segundo:
+            _janela[0] = segundo
+            _janela[1] = 0
+        if _janela[1] >= TETO_POR_SEGUNDO:
+            # A sala inteira martelando ao mesmo tempo. O pregão vem primeiro.
+            return False
+        _janela[1] += 1
+        _ultimo_toque[participante_id] = agora
+    return True
+
+
+def limpar_freio():
+    """Zera o freio (teste e começo de leilão, como o `limpar_limites` do lance)."""
+    with _freio:
+        _ultimo_toque.clear()
+        _janela[0] = 0.0
+        _janela[1] = 0
 
 
 def registrar(emoji, quantos=1):
@@ -82,6 +139,13 @@ def drenar():
 
 
 def limpar():
-    """Zera o balde (teste e começo de leilão)."""
+    """Zera o balde **e o freio** (teste e começo de leilão).
+
+    O freio guarda o último toque por id de participante, em memória do
+    processo. Entre um teste e outro (onde os ids se repetem) isso viraria
+    estado velho descartando reação legítima — o mesmo cuidado que o
+    `servicos.limpar_limites` tem com o lance.
+    """
     with _lock:
         _contagem.clear()
+    limpar_freio()

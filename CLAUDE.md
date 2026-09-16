@@ -21,6 +21,35 @@ inscrição+mensalidade, valores configuráveis, isenção/desconto, controle de
 (📈, Diretor): resumo por fonte, gráficos, extrato consolidado e lançamento de custos do clube. Ver
 `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md` e `docs/ESTADO_ATUAL.md`.
 
+## Leilão online ao vivo (`/leilao/`) — **segunda aplicação**
+
+Módulo **independente**, na mesma base de código, para o leilão beneficente do clube com o público
+remoto no celular. **Não compartilha banco com o clube**: app `leilao`, `leilao.sqlite3`, settings/URLs/
+cookies próprios e **serviço ASGI próprio** (uvicorn, **1 worker**, porta 8011). Já está **em produção**.
+Antes de mexer, ler `docs/PLANEJAMENTO_LEILAO.md` (o porquê), `docs/DEPLOY_LEILAO.md` (como publicar) e a
+seção "Módulo de Leilão" do `docs/ESTADO_ATUAL.md`.
+
+```bash
+pip install -r requirements-leilao.txt
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # suíte própria
+DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
+  python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
+```
+
+As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
+
+- **Um worker só, sempre.** O hub de eventos e o relógio vivem na memória do processo.
+- **Tempo real é SSE** (`/leilao/stream/`); o lance é `POST`. O **relógio é do servidor**.
+- **O broadcast só leva o que pode ser dito em voz alta** — Pix, telefone e endereço saem por `GET`
+  autenticado.
+- **A prioridade do dia é: voz ao vivo e lance primeiro; emoji e enfeite depois** — e é o enfeite que o
+  servidor descarta quando aperta.
+- **O dinheiro é ancorado na `referencia` do pagamento**, não na FK (refazer o Pix troca a FK).
+- **Três áreas de equipe** (preparação/locutor/caixa) + diretor; quem protege é a view, nunca o menu.
+- **Deploy tem passo extra**: o `pinhaljunior2-deploy` **não** reinicia o serviço do leilão nem coleta os
+  estáticos dele (ver `docs/DEPLOY_LEILAO.md` §7.1).
+
 ## Stack
 - Django 5.2 / Python 3.10+ · SQLite · Pillow (foto 3x4)
 - HTML + **CSS próprio** (sem Bootstrap/Tailwind/libs) + JS puro

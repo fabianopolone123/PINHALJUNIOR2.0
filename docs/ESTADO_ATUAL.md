@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-16 (**Leilão: o teto das reações passa a valer para o resumo
+**Última atualização:** 2026-09-16 (**Leilão: o emoji cede a vez para a voz e para o lance**): a rajada
+de reações estava provada barata **sozinha**; faltava garantir **em código** que ela não roube o
+processador quando tudo acontece junto — voz ao vivo, lance e emoji, no mesmo vCPU. A ordem de
+importância virou regra: **voz e lance são o leilão; emoji é enfeite**, e enfeite é o primeiro a ser
+descartado. Duas travas na **porta de entrada** (`reacoes.aceitar`, fora do `registrar`, que continua
+sendo só a regra do balde): **0,4 s por pessoa** — o `reacoes.js` já se segura em 2/s, mas o servidor
+**não pode acreditar no cliente**, já que um `fetch` num console faria 200/s sozinho — e **150 por
+segundo no processo inteiro**, somando todo mundo; passou disso, o resto do segundo cai. O descarte é
+**calado** (resposta 200): quem tocou já viu o próprio emoji subir, e devolver erro só faria o celular
+tentar de novo. O **freio do lance é outro** (`INTERVALO_MIN_LANCE`) e não divide contador — há teste
+provando que encher o teto de emoji não atrapalha um lance legítimo. O **áudio é outro processo**
+(MediaMTX): o que o leilão faz por ele é não gastar CPU à toa. O **`CLAUDE.md` passou a descrever o
+módulo de leilão**, que não estava lá. Suíte do leilão: **271 testes OK**.
+
+**Atualização anterior:** 2026-09-16 (**Leilão: o teto das reações passa a valer para o resumo
 inteiro**): pergunta do clube — *e se 50 pessoas apertarem o emoji ao mesmo tempo?* Medido: **840
 requisições em 10 s (84/s)**, despejo custando **0,06 ms** e **2 despejos por segundo**, número que **não
 depende de quanta gente toca** (é para isso que a agregação existe). O servidor nunca foi o problema; a
@@ -16,7 +30,7 @@ livre** (antes agendava 30 relógios por emoji, 180 no total, para descobrir que
 cinco não apareciam). E `leilao_carga` ganhou **`--reacoes`**: a sala inteira martelando emoji, que é o
 **pior caso de requisições por segundo** do módulo — o lance é raro, o emoji não. Se um dia apertar, o
 número a mexer **não** é `EMOJIS_POR_TOQUE` (ele não muda o nº de requisições) e sim o `INTERVALO_ENVIO`
-do `reacoes.js`. Suíte do leilão: **266 testes OK**.
+do `reacoes.js`. Suíte do leilão: **271 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: cada toque de emoji vira uma rajada**): o emoji subia
 **um por toque** e sumia no meio do pregão. Agora cada toque solta **4** (`reacoes.EMOJIS_POR_TOQUE`), e
@@ -54,7 +68,7 @@ porque é limite de recurso, não número sobre gente. Mais: a frase "já estão
 `online` não redesenhava a tela de espera), a linha **filtrada reaparecia** quando o pagamento dela caía
 (`pintarLinha` apagava o `busca-oculto`), a recarga do caixa **jogava fora a aba aberta** (agora ela fica
 no `sessionStorage`) e `minutos`/`quantos` vindos da internet viravam **500** em vez de JSON. Suíte do
-leilão: **266 testes OK**.
+leilão: **271 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o caixa vira mesa de trabalho e quem chega é recebido**):
 rodada vinda de usar a tela no celular — o sistema estava certo e quem opera ficava sem o que precisa na
@@ -76,7 +90,7 @@ lia "Intervalo"**, o que dá a impressão de ter perdido o começo: agora há um
 título e informações **escritas pelo clube**, editáveis em `/preparacao/<id>/editar/` **com o leilão no
 ar** (ao salvar, o estado é publicado e as telas abertas se redesenham sozinhas), mais a **contagem de
 quem já está esperando em tempo real** — é o número que o locutor usa para decidir a hora de começar. O
-separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **266 testes OK**.
+separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **271 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
 **👤 Usuários** na barra da equipe do leilão, visível só para o **diretor** (`/equipe/usuarios/`). Até
@@ -123,7 +137,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **266 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **271 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1925,7 +1939,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 266 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 271 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2018,6 +2032,14 @@ equipe.
 o navegador proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada
 lance nunca tocava. Os efeitos são **sintetizados em WebAudio** (zero download, zero licença); **música de
 fundo não existe mais** (ver abaixo). As
+**No dia, o processo não está fazendo só emoji** — ele carrega o pregão, o stream de todo mundo e divide
+o vCPU com o MediaMTX, que entrega um pacote de voz a cada 20 ms. A ordem é **voz e lance primeiro,
+enfeite depois**, e está no código: `reacoes.aceitar` (a porta, fora do `registrar`) descarta reação
+**por pessoa** (0,4 s — o cliente já se segura, mas o servidor não acredita nele) e **por processo**
+(`TETO_POR_SEGUNDO`, somando todo mundo). O descarte é **calado**, com resposta 200: quem tocou já viu o
+emoji subir, e erro visível em cima de enfeite só gera retentativa — mais tráfego com menos CPU. O freio
+do **lance** é outro (`INTERVALO_MIN_LANCE`) e não divide contador com este; há teste.
+
 **reações em emoji** sobem na tela de todo mundo, **4 por toque**
 (`reacoes.EMOJIS_POR_TOQUE`; a multiplicação é do **servidor**, e o cliente lê `data-rajada` só para
 descontar o que já desenhou — o resumo é broadcast e volta para quem mandou, o que fazia quem tocava ver

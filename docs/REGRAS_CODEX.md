@@ -780,6 +780,22 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   chat; com o chat aberto (`body.chat-aberto`) os dois trocam de lado. Controle novo no canto inferior
   direito precisa considerar isso.
 
+### A ordem de importância do dia
+
+- **Voz ao vivo e lance são o leilão; chat, emoji e enfeite vêm depois.** Não é opinião: o áudio precisa
+  entregar um pacote a cada 20 ms e o lance é o que a pessoa foi lá fazer. Recurso novo que gere tráfego
+  **entra abaixo dessa linha** e precisa poder ser descartado.
+- **Enfeite se descarta CALADO.** Erro visível em cima de enfeite faz o celular tentar de novo — mais
+  tráfego exatamente quando há menos CPU. A reação descartada responde 200.
+- **O servidor não acredita no cliente para ritmo.** O `reacoes.js` manda 2 por segundo; um `fetch` num
+  console manda 200. Todo caminho de escrita chamado por JS precisa do freio **no servidor**
+  (`reacoes.aceitar`, `INTERVALO_MIN_LANCE`, `equipe.login_barrado`).
+- **Freio de enfeite e freio de pregão são contadores separados.** Se dividissem, encher a tela de emoji
+  recusaria lance — o oposto do que se quer. Há teste.
+- **Teto por segundo, nunca fila.** Reação atrasada não é reação: o excedente é jogado fora.
+- **O teste de carga do dia é COMBINADO**: SSE + lances + `--reacoes`, com o MediaMTX no ar. Medir uma
+  coisa de cada vez esconde justamente a disputa de CPU que o evento tem.
+
 ### As reações (emoji)
 
 - **Mais emoji na tela não pode virar mais requisição.** Cada toque solta uma **rajada**

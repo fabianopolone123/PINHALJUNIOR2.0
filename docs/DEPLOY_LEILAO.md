@@ -315,6 +315,22 @@ python manage.py leilao_carga --url https://pinhaljunior.com.br/leilao --ouvinte
 
 Passa se: nenhuma conexão cair e o atraso p95 do lance ficar **abaixo de 1 s**.
 
+**Meça COMBINADO, não uma coisa de cada vez.** A noite tem voz ao vivo, lances e emoji ao mesmo tempo,
+disputando um vCPU compartilhado — medir cada coisa isolada esconde exatamente isso:
+
+```bash
+python manage.py leilao_carga --url https://pinhaljunior.com.br/leilao \
+    --ouvintes 100 --lote <id> \
+    --cookie "leilao_sessionid=..." --cookie "leilao_sessionid=..." \
+    --lances 40 --reacoes 20
+```
+
+…com o **MediaMTX transmitindo** e alguém falando ao microfone. O que olhar, nesta ordem: o **áudio
+picotou?** (é o mais sensível); o **p95 do lance** passou de 1 s?; e só então o número das reações — se
+elas apertarem, o que se ajusta é o `INTERVALO_ENVIO` do `reacoes.js`, **não** o `EMOJIS_POR_TOQUE` (que
+não muda quantas requisições chegam). O servidor já descarta reação sozinho quando o processo aperta
+(`reacoes.TETO_POR_SEGUNDO`): o pregão vem primeiro.
+
 **Medido em produção em 13/09/2026**, de outra máquina, pela internet, com o VPS atendendo os outros
 11 sites normalmente:
 

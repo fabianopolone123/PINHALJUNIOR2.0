@@ -22,6 +22,67 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-16 - Leilão: o emoji cede a vez para a voz e para o lance
+
+### Resumo
+Pergunta do clube, e a certa: *no dia não tem só emoji — tem voz ao vivo, lance,
+tudo junto.* A rajada de reações estava provada como barata **sozinha**; o que
+faltava era garantir, **em código**, que ela não roube o processador do que
+importa quando tudo acontece ao mesmo tempo.
+
+### A ordem de importância vira regra
+**Voz e lance são o leilão; emoji é enfeite.** Então o enfeite é a primeira
+coisa a ser descartada quando aperta — e descartada **calada**: quem tocou já
+viu o próprio emoji subir (a tela desenha na hora, sem esperar o servidor),
+então ele não perde nada e a tela não tem o que avisar.
+
+Duas travas na **porta de entrada** da reação (`reacoes.aceitar`), fora do
+`registrar` — que continua sendo só a regra do balde:
+
+1. **Por pessoa** (0,4 s entre reações). O `reacoes.js` já se segura em 2 por
+   segundo, mas o servidor **não pode acreditar no cliente**: um `fetch` num
+   console faria 200 por segundo sozinho.
+2. **Do processo inteiro** (150 por segundo, somando todo mundo). Passou disso,
+   o resto do segundo cai. É o que garante que uma sala eufórica não atrase o
+   lance de quem está disputando nem o pacote de voz que sai a cada 20 ms.
+
+A resposta continua **200** quando o freio segura: devolver erro só faria o
+celular tentar de novo, que é o oposto do que se quer.
+
+### O que NÃO foi mexido
+- **O freio do lance é outro** (`INTERVALO_MIN_LANCE`) e não divide contador com
+  o do emoji — há teste provando que encher o teto de reações não atrapalha um
+  lance legítimo.
+- **O áudio é outro processo** (MediaMTX). O que o leilão faz por ele é não
+  gastar CPU à toa — e é isso que este freio garante. A prioridade de CPU
+  (`CPUWeight`) e o "parar os outros serviços no dia" continuam em
+  `docs/DEPLOY_LEILAO.md`.
+
+### Arquivos alterados
+- `leilao/reacoes.py`: `aceitar()`, `limpar_freio()`, `INTERVALO_MIN_POR_PESSOA`,
+  `TETO_POR_SEGUNDO`; `limpar()` zera o freio junto.
+- `leilao/views.py`: `reagir_view` passa pela porta antes de registrar.
+- `leilao/tests.py`: +5 testes (`EmojiNaoAtrapalhaOPregaoTests`).
+- `CLAUDE.md`: o módulo de leilão **passou a existir** no arquivo de contexto do
+  projeto, com as regras que não se negociam e o passo extra do deploy.
+
+### Decisões tomadas
+- **O freio fica na view, não no `registrar`.** `registrar` é a regra do balde e
+  é o que os testes exercitam; `aceitar` é proteção de tráfego e vale só para
+  quem chega pela rede.
+- **Descartar em silêncio.** Erro visível em cima de enfeite gera retentativa —
+  mais tráfego exatamente quando há menos CPU.
+- **Teto por segundo, não fila.** Reação atrasada não é reação: o excedente é
+  jogado fora, nunca guardado para depois.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento.
+- **O teste de carga do dia deve ser combinado**: SSE + lances + `--reacoes` ao
+  mesmo tempo, com o MediaMTX no ar — é assim que a noite vai ser.
+
+---
+
 ## 2026-09-16 - Leilão: o teto das reações passa a valer para o resumo inteiro
 
 ### Resumo

@@ -3269,3 +3269,62 @@ class TetoDoResumoTests(TestCase):
     def test_abaixo_do_teto_nada_e_cortado(self):
         reacoes.registrar("👏", 1)
         self.assertEqual(reacoes.drenar(), {"👏": reacoes.EMOJIS_POR_TOQUE})
+
+
+class EmojiNaoAtrapalhaOPregaoTests(TestCase):
+    """A ordem de importância do dia, em teste: **voz e lance são o leilão;
+    emoji é enfeite** — e enfeite é a primeira coisa que se descarta quando o
+    processo aperta.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        reacoes.limpar()
+        self.leilao = criar_leilao()
+        self.c = Client()
+        self.c.post("/entrar/", {
+            "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0099",
+            "logradouro": "Rua Exemplo", "numero": "10",
+            "bairro": "Centro", "cidade": "Cidade Exemplo", "estado": "SP",
+        })
+
+    def tearDown(self):
+        reacoes.limpar()
+
+    def test_uma_pessoa_sozinha_nao_passa_de_duas_por_segundo(self):
+        """O `reacoes.js` já se segura, mas o servidor não acredita no cliente."""
+        aceitas = sum(1 for _ in range(20) if reacoes.aceitar(1))
+        self.assertEqual(aceitas, 1)
+
+    def test_pessoas_diferentes_nao_atrapalham_uma_a_outra(self):
+        self.assertTrue(reacoes.aceitar(1))
+        self.assertTrue(reacoes.aceitar(2))
+        self.assertTrue(reacoes.aceitar(3))
+
+    def test_a_sala_inteira_martelando_tem_teto_no_processo(self):
+        """Passou do teto do segundo, o resto é descartado — o lance vem antes."""
+        aceitas = sum(1 for i in range(reacoes.TETO_POR_SEGUNDO * 3) if reacoes.aceitar(i))
+        self.assertLessEqual(aceitas, reacoes.TETO_POR_SEGUNDO)
+
+    def test_a_reacao_descartada_nao_vira_erro_na_tela(self):
+        """Quem tocou já viu o emoji subir; um erro só faria o celular insistir."""
+        corpo = json.dumps({"emoji": "❤️"})
+        primeira = self.c.post("/reagir/", data=corpo, content_type="application/json")
+        segunda = self.c.post("/reagir/", data=corpo, content_type="application/json")
+        self.assertEqual(primeira.status_code, 200)
+        self.assertEqual(segunda.status_code, 200)
+        self.assertTrue(segunda.json()["ok"])
+        self.assertTrue(segunda.json().get("freio"))
+
+    def test_o_freio_do_emoji_nao_encosta_no_lance(self):
+        """O lance tem o freio DELE (`INTERVALO_MIN_LANCE`) e não divide contador."""
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+
+        for i in range(reacoes.TETO_POR_SEGUNDO * 2):
+            reacoes.aceitar(i)
+
+        pessoa = criar_pessoa("Maria Fictícia")
+        ok, msg, _ = servicos.dar_lance(lote.id, pessoa)
+        self.assertTrue(ok, msg)
