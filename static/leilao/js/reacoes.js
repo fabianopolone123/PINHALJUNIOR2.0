@@ -71,9 +71,14 @@ window.Reacoes = (function () {
     }
 
     /* Vários de uma vez (o que vem do servidor): espalha no tempo em vez de
-       despejar tudo no mesmo quadro, que é o que faz parecer natural. */
+       despejar tudo no mesmo quadro, que é o que faz parecer natural.
+
+       O teto olha o ESPAÇO LIVRE, não o total da tela: com a sala inteira
+       reagindo chegam seis emojis diferentes no mesmo resumo, e agendar 30
+       relógios de cada um deixaria o celular fraco com centenas de timers que
+       só existem para descobrir que não há mais lugar. */
     function soltarVarios(emoji, quantos) {
-        var total = Math.min(quantos, TETO_NA_TELA);
+        var total = Math.min(quantos, Math.max(0, TETO_NA_TELA - vivos));
         for (var i = 0; i < total; i++) {
             setTimeout(function () { soltar(emoji); }, i * 90);
         }
@@ -124,11 +129,36 @@ window.Reacoes = (function () {
             if (!timerEnvio) timerEnvio = setTimeout(despachar, INTERVALO_ENVIO);
         },
 
-        /* Chegou o resumo do servidor (o que TODO MUNDO mandou, inclusive eu). */
+        /* Chegou o resumo do servidor (o que TODO MUNDO mandou, inclusive eu).
+
+           Numa sala eufórica o resumo vem com vários emojis de uma vez. O
+           espaço livre é repartido ENTRE eles, proporcionalmente: sem isso o
+           primeiro da lista tomaria a tela toda e os outros cinco não
+           apareceriam — a tela mostraria um emoji quando a sala mandou seis. */
         receber: function (resumo) {
-            Object.keys(resumo || {}).forEach(function (emoji) {
+            var nomes = Object.keys(resumo || {});
+            var pedidos = [];
+            var total = 0;
+            nomes.forEach(function (emoji) {
                 var quantos = descontar(emoji, resumo[emoji]);
-                if (quantos > 0) soltarVarios(emoji, quantos);
+                if (quantos > 0) {
+                    pedidos.push({ emoji: emoji, quantos: quantos });
+                    total += quantos;
+                }
+            });
+            if (!pedidos.length) return;
+
+            var espaco = Math.max(0, TETO_NA_TELA - vivos);
+            if (!espaco) return;
+
+            pedidos.forEach(function (p) {
+                var fatia = p.quantos;
+                if (total > espaco) {
+                    // Pelo menos 1 de cada: o emoji que alguém mandou tem de
+                    // aparecer, nem que seja um.
+                    fatia = Math.max(1, Math.round(p.quantos * espaco / total));
+                }
+                soltarVarios(p.emoji, fatia);
             });
         }
     };

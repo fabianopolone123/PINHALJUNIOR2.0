@@ -26,8 +26,12 @@ EMOJIS = ["❤️", "👏", "🔥", "😮", "🎉", "👍"]
 # preço de rede, que é o ponto do desenho agregado.
 EMOJIS_POR_TOQUE = 4
 
-# Teto por despejo: mais que isto não cabe na tela e só derruba o celular
-# fraco. O contador segue somando; o que passa disso é descartado no desenho.
+# Teto por despejo — **do resumo inteiro**, não de cada emoji.
+#
+# Por emoji parecia a mesma coisa e não era: são seis emojis, então um resumo
+# podia mandar 240 desenhos para um celular que só mostra 30. O excedente não
+# ia para lugar nenhum — só engordava a mensagem e dava trabalho ao aparelho
+# mais fraco da sala, que é justamente quem não pode travar.
 TETO_POR_DESPEJO = 40
 
 _contagem = {}
@@ -54,13 +58,27 @@ def registrar(emoji, quantos=1):
 
 
 def drenar():
-    """Devolve o acumulado e zera. Chamado pelo laço, não pela view."""
+    """Devolve o acumulado e zera. Chamado pelo laço, não pela view.
+
+    O teto é aplicado ao **resumo inteiro** e repartido entre os emojis na
+    proporção em que foram tocados — quem reagiu mais aparece mais. Cada emoji
+    que alguém tocou sai com **pelo menos 1**: a tela precisa mostrar que a
+    sala mandou seis coisas diferentes, e não só a mais votada.
+    """
     with _lock:
         if not _contagem:
             return {}
         saida = dict(_contagem)
         _contagem.clear()
-    return {e: min(q, TETO_POR_DESPEJO) for e, q in saida.items()}
+
+    total = sum(saida.values())
+    if total <= TETO_POR_DESPEJO:
+        return saida
+
+    resumo = {}
+    for emoji, quantos in saida.items():
+        resumo[emoji] = max(1, round(quantos * TETO_POR_DESPEJO / total))
+    return resumo
 
 
 def limpar():

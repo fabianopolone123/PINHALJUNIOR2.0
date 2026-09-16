@@ -2,7 +2,23 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-15 (**Leilão: cada toque de emoji vira uma rajada**): o emoji subia
+**Última atualização:** 2026-09-16 (**Leilão: o teto das reações passa a valer para o resumo
+inteiro**): pergunta do clube — *e se 50 pessoas apertarem o emoji ao mesmo tempo?* Medido: **840
+requisições em 10 s (84/s)**, despejo custando **0,06 ms** e **2 despejos por segundo**, número que **não
+depende de quanta gente toca** (é para isso que a agregação existe). O servidor nunca foi o problema; a
+medição achou outra coisa: o `TETO_POR_DESPEJO` limitava **cada emoji** a 40 e, como são seis, um resumo
+podia pedir **240** desenhos a um celular que mostra **30** — o excedente só engordava a mensagem e dava
+trabalho ao aparelho mais fraco da sala. Agora o teto é do **resumo inteiro**, repartido na proporção dos
+toques e com **pelo menos 1 por emoji** (a tela precisa mostrar que a sala mandou coisas diferentes, não
+só a mais votada); o despejo caiu de 240 para **42**. No celular, `soltarVarios` passou a olhar o **espaço
+livre** (antes agendava 30 relógios por emoji, 180 no total, para descobrir que não havia lugar) e
+`receber` **reparte** esse espaço entre os emojis do resumo (antes o primeiro tomava a tela e os outros
+cinco não apareciam). E `leilao_carga` ganhou **`--reacoes`**: a sala inteira martelando emoji, que é o
+**pior caso de requisições por segundo** do módulo — o lance é raro, o emoji não. Se um dia apertar, o
+número a mexer **não** é `EMOJIS_POR_TOQUE` (ele não muda o nº de requisições) e sim o `INTERVALO_ENVIO`
+do `reacoes.js`. Suíte do leilão: **266 testes OK**.
+
+**Atualização anterior:** 2026-09-15 (**Leilão: cada toque de emoji vira uma rajada**): o emoji subia
 **um por toque** e sumia no meio do pregão. Agora cada toque solta **4** (`reacoes.EMOJIS_POR_TOQUE`), e
 isso **não custa requisição nenhuma** — o que viaja é a **contagem** dentro do resumo que já ia de meio em
 meio segundo, então a agregação que segura o módulo com 50 pessoas continua igual. A **multiplicação é do
@@ -38,7 +54,7 @@ porque é limite de recurso, não número sobre gente. Mais: a frase "já estão
 `online` não redesenhava a tela de espera), a linha **filtrada reaparecia** quando o pagamento dela caía
 (`pintarLinha` apagava o `busca-oculto`), a recarga do caixa **jogava fora a aba aberta** (agora ela fica
 no `sessionStorage`) e `minutos`/`quantos` vindos da internet viravam **500** em vez de JSON. Suíte do
-leilão: **263 testes OK**.
+leilão: **266 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o caixa vira mesa de trabalho e quem chega é recebido**):
 rodada vinda de usar a tela no celular — o sistema estava certo e quem opera ficava sem o que precisa na
@@ -60,7 +76,7 @@ lia "Intervalo"**, o que dá a impressão de ter perdido o começo: agora há um
 título e informações **escritas pelo clube**, editáveis em `/preparacao/<id>/editar/` **com o leilão no
 ar** (ao salvar, o estado é publicado e as telas abertas se redesenham sozinhas), mais a **contagem de
 quem já está esperando em tempo real** — é o número que o locutor usa para decidir a hora de começar. O
-separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **263 testes OK**.
+separador é `Leilao.ja_comecou()`. Migration **0008**. Suíte do leilão: **266 testes OK**.
 
 **Atualização anterior:** 2026-09-15 (**Leilão: o diretor cadastra a equipe pela tela**): entrou a aba
 **👤 Usuários** na barra da equipe do leilão, visível só para o **diretor** (`/equipe/usuarios/`). Até
@@ -107,7 +123,7 @@ de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
 — leva `SQLITE_BUSY` **sem** respeitar o `busy_timeout`); **o relógio é do servidor**; e o **broadcast só
 leva o que pode ser dito em voz alta** (Pix, telefone e endereço saem por `GET` autenticado). Dependência
-nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **263 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
+nova **autorizada**: `uvicorn`, num `requirements-leilao.txt` **separado**. Suíte do leilão: **266 testes OK** (roda com `DJANGO_SETTINGS_MODULE=config.settings_leilao`). **JÁ ESTÁ EM PRODUÇÃO** em
 `https://pinhaljunior.com.br/leilao/` (deploy em 13/09/2026): serviço `pinhaljunior_leilao.service`
 (uvicorn, 1 worker, porta 8011), banco `data/leilao.sqlite3`, Nginx com `proxy_buffering off` no stream
 e **MediaMTX v1.21** rodando o áudio. **Teste de carga feito de outra máquina, contra a produção: 100
@@ -1909,7 +1925,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 263 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 266 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2164,8 +2180,10 @@ detalhes: o bloqueio **cai sozinho toda vez que a aba sai da frente** e não vol
 16.4 — para os aparelhos mais velhos há o plano B do vídeo mudo em laço gerado por canvas (`captureStream`),
 que precisa ficar **visível** (1px, `opacity: .01`) porque vídeo tido por invisível é pausado.
 
-**Comandos**: `leilao_demo` (dados fictícios), `leilao_papel` (equipe e papéis) e `leilao_carga` (teste de carga: N conexões SSE + lances
-cronometrados; **rodar de outra máquina, antes do evento**).
+**Comandos**: `leilao_demo` (dados fictícios), `leilao_papel` (equipe e papéis) e `leilao_carga` (teste
+de carga: N conexões SSE, lances cronometrados e **`--reacoes`**, a rajada de emoji — que é o **pior caso
+de requisições por segundo** do módulo, já que o lance é raro e o emoji não; **rodar de outra máquina,
+antes do evento**).
 
 ## Funcionalidades incompletas / não implementadas
 - Recuperação de senha ("Esqueci minha senha") — **IMPLEMENTADA** pelo WhatsApp (código de 4 dígitos), tanto

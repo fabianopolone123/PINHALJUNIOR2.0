@@ -22,6 +22,72 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-16 - Leilão: o teto das reações passa a valer para o resumo inteiro
+
+### Resumo
+Pergunta do clube depois da rajada: *e se 50 pessoas apertarem o emoji ao mesmo
+tempo?* Foi medido, e a medição achou um exagero que estava lá desde o começo.
+
+### O que a medição mostrou (50 pessoas martelando por 10 s)
+| | |
+|---|---|
+| Requisições atendidas | **840** (84/s) |
+| Custo de um despejo (o que vai no stream) | **0,06 ms** |
+| Despejos por segundo | **2** (fixo, não depende de quanta gente toca) |
+| Emojis pedidos num despejo | **240** → agora **42** |
+
+O servidor nunca foi o problema: a view de reação é a mais barata do sistema
+(não toca no banco) e o broadcast é **um** resumo a cada meio segundo,
+**independente de quantas pessoas tocaram** — é para isso que a agregação existe.
+
+### O exagero: o teto era por emoji, não do resumo
+`TETO_POR_DESPEJO` limitava **cada emoji** a 40. Como são seis emojis, um resumo
+podia mandar **240** desenhos para um celular que mostra 30. O excedente não ia
+para lugar nenhum: só engordava a mensagem e dava trabalho ao aparelho mais
+fraco da sala — justamente quem não pode travar.
+
+Agora o teto é do **resumo inteiro**, repartido entre os emojis na proporção em
+que foram tocados, com **pelo menos 1 para cada** (a tela precisa mostrar que a
+sala mandou seis coisas diferentes, não só a mais votada).
+
+### E o mesmo cuidado no celular
+- `soltarVarios` passou a olhar o **espaço livre** (`TETO_NA_TELA - vivos`), não
+  o total: sem isso, seis emojis chegando juntos agendavam 30 relógios cada um,
+  180 no total, só para descobrir que não havia mais lugar.
+- `receber` **reparte o espaço livre** entre os emojis do resumo. Antes o
+  primeiro da lista tomava a tela toda e os outros cinco não apareciam.
+
+### Prova antes do evento: `leilao_carga --reacoes`
+O comando de carga ganhou a rajada de emoji: todos os `--cookie` martelando ao
+mesmo tempo, medindo requisições por segundo e o tempo de resposta. **O lance é
+raro** (um por vez, e a pessoa pensa antes); **o emoji é o contrário** — se
+alguma coisa vai apertar o servidor no dia, é ela. Rodar de outra máquina,
+contra a produção, antes do evento.
+
+    python manage.py leilao_carga --url https://pinhaljunior.com.br/leilao \
+        --ouvintes 100 --cookie "leilao_sessionid=..." --cookie "..." --reacoes 20
+
+### Arquivos alterados
+- `leilao/reacoes.py`: `drenar()` com teto do resumo inteiro e reparte proporcional.
+- `static/leilao/js/reacoes.js`: espaço livre em `soltarVarios`, reparte em `receber`.
+- `leilao/management/commands/leilao_carga.py`: `--reacoes` e o `_rajada`.
+- `leilao/tests.py`: +3 testes.
+
+### Decisões tomadas
+- **Se um dia apertar, o número a mexer NÃO é `EMOJIS_POR_TOQUE`.** Ele não muda
+  quantas requisições chegam — muda só o que já viaja dentro do resumo. Quem
+  controla a pressão sobre o servidor é o `INTERVALO_ENVIO` do `reacoes.js` (o
+  espaçamento dos envios). Está escrito no aviso do próprio comando de carga.
+- **Saturar é o comportamento certo**: reação atrasada não é reação, então o
+  excedente é descartado, nunca enfileirado.
+
+### Pendências
+- As mesmas: Pix real de R$ 1, ensaio de áudio com aparelhos de verdade, trocar
+  as senhas `fabiano` e `locutor`, e a data do evento. A rajada de emoji entra
+  no mesmo teste de carga.
+
+---
+
 ## 2026-09-15 - Leilão: cada toque de emoji vira uma rajada (sem custo novo)
 
 ### Resumo

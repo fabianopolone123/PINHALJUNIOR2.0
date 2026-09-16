@@ -3235,3 +3235,37 @@ class RajadaDeReacoesTests(TestCase):
         )
         self.assertTrue(r.json()["ok"])
         self.assertEqual(reacoes.drenar(), {"❤️": 2 * reacoes.EMOJIS_POR_TOQUE})
+
+
+class TetoDoResumoTests(TestCase):
+    """O resumo tem teto no TODO, não em cada emoji.
+
+    Por emoji parecia igual e não era: são seis emojis, e um resumo podia pedir
+    240 desenhos a um celular que mostra 30.
+    """
+
+    def setUp(self):
+        reacoes.limpar()
+
+    def tearDown(self):
+        reacoes.limpar()
+
+    def test_o_resumo_inteiro_respeita_o_teto(self):
+        for emoji in reacoes.EMOJIS:
+            for _ in range(50):
+                reacoes.registrar(emoji, 10)
+        resumo = reacoes.drenar()
+        self.assertLessEqual(sum(resumo.values()), reacoes.TETO_POR_DESPEJO + len(reacoes.EMOJIS))
+
+    def test_todo_emoji_tocado_aparece_pelo_menos_uma_vez(self):
+        """A tela precisa mostrar que a sala mandou coisas diferentes."""
+        reacoes.registrar("❤️", 10)
+        for _ in range(200):
+            reacoes.registrar("🔥", 10)
+        resumo = reacoes.drenar()
+        self.assertGreaterEqual(resumo.get("❤️", 0), 1)
+        self.assertGreater(resumo["🔥"], resumo["❤️"])
+
+    def test_abaixo_do_teto_nada_e_cortado(self):
+        reacoes.registrar("👏", 1)
+        self.assertEqual(reacoes.drenar(), {"👏": reacoes.EMOJIS_POR_TOQUE})

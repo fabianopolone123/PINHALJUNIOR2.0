@@ -791,6 +791,16 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **O resumo volta para quem mandou** (é broadcast — o servidor não sabe, nem deve saber, quem tocou o
   quê). Por isso a tela credita o que envia e desconta do próximo resumo; sem isso, quem toca vê em dobro.
   O crédito **expira**: requisição perdida deixaria um crédito pendurado comendo os emojis dos outros.
+- **O teto do despejo é do RESUMO INTEIRO, não de cada emoji.** Por emoji parecia igual e não era: são
+  seis, então o resumo podia pedir 240 desenhos a um celular que mostra 30. Ele é repartido na proporção
+  dos toques, com **pelo menos 1 por emoji** — a tela tem de mostrar que a sala mandou coisas diferentes.
+- **No cliente, o teto é o ESPAÇO LIVRE** (`TETO_NA_TELA - vivos`), e `receber` reparte esse espaço entre
+  os emojis do resumo: sem isso o primeiro da lista toma a tela e os outros não aparecem, e agendam-se
+  centenas de relógios que só descobrem que não há lugar.
+- **Se a rajada apertar o servidor, o número a mexer NÃO é `EMOJIS_POR_TOQUE`** — ele não muda quantas
+  requisições chegam. Quem controla a pressão é o `INTERVALO_ENVIO` do `reacoes.js`.
+- **A rajada de emoji é o pior caso de requisições por segundo do módulo** (o lance é raro; o emoji não).
+  Está no `leilao_carga --reacoes` — rode junto do resto, de outra máquina, antes do evento.
 - **Os dois tetos são a proteção final** (`TETO_POR_DESPEJO` no servidor, `TETO_NA_TELA` no cliente), e
   saturar é o comportamento certo — reação atrasada não é reação, então o excedente é **descartado**, não
   enfileirado.
