@@ -17,7 +17,7 @@ propósito: a isenção recalcula todos os meses em aberto do ano, e atualizar i
 repetir em JS o desenho das linhas de mês — o redirect devolve os valores já recalculados. O card que voltou
 aberto **escapa do "só quem deve"** até a pessoa mexer no filtro (isentar zera a dívida, e o card sumir logo
 depois de salvar parece que a edição falhou), e `av` inválido na URL **não é 404**, é só um card a menos
-aberto. Suíte: **456 testes OK** (+8). **Sem migration.**
+aberto. Suíte: **456 testes OK** (+8). **Em produção** no commit `9c7adb9` (17/09/2026), healthcheck OK — **sem migration**.
 
 **Atualização anterior:** 2026-09-17 (**Cobrança de parcelas: só o que venceu e o que vence neste mês**):
 relatado pelo clube — a cobrança da aba **📨 Cobrar parcelas** levava o **parcelamento inteiro** (um acerto

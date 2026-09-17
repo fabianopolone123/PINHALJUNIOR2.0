@@ -65,6 +65,9 @@ sofria disso porque é AJAX — fica na página.
   que a edição falhou.
 - **`av` inválido na URL não é 404** — é só um card a menos aberto.
 
+### Deploy
+Em produção em 17/09/2026, commit `9c7adb9`, healthcheck OK. **Sem migration.**
+
 ### Pendências
 - As mesmas da aba de cobrança de parcelas (filtro client-side; a linha não diz
   de qual lançamento veio a parcela).
