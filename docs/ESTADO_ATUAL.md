@@ -15,7 +15,12 @@ Agora `_whatsapp_familia` cai na ficha, e **as duas abas** de cobrança (mensali
 mesmo degrau — antes só a de parcelas tentava. Junto, um bug irmão: `_resolver_origem_numero` só olhava o
 **responsável legal** e desistia, então a ficha preenchida apenas com o WhatsApp **do pai ou o da mãe**
 também virava "sem número"; agora, sem escolha e sem `resp`, usa o primeiro que existir. Suíte: **443
-testes OK**.
+testes OK**. **Em produção** no commit `8cbfc6a` (17/09/2026), healthcheck OK (sem migration: a correção
+não mexe em model). No mesmo dia, a pedido do clube, **todos os lançamentos de parcelamento foram
+apagados** da produção para recadastro (20 lançamentos / 89 parcelas, backup em
+`backup/db_antes_limpar_parcelamentos_20260917_023938.sqlite3`) — conferido antes que **não havia nenhuma
+parcela paga**, nenhum `Pagamento` vinculado e nenhum histórico de cobrança, então nada de dinheiro saiu
+do caixa nem do extrato.
 
 **Atualização anterior:** 2026-09-17 (**Parcelas: o lançamento volta no nome de quem combinou**): bug
 relatado pelo clube — lançar um parcelamento para um **pai** e ele aparecer na lista com o nome da

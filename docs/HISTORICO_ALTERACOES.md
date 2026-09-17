@@ -85,6 +85,25 @@ classe de erro: dizer que não há número quando há.
 - **`_whatsapp_diretoria` é o degrau canônico** de quem não tem aventureiro —
   não reescrever essa busca em cada tela.
 
+### Deploy
+Em produção em 17/09/2026, commit `8cbfc6a`, healthcheck OK. **Sem migration** —
+a correção não mexe em model, só na resolução do número.
+
+### Limpeza dos parcelamentos (a pedido do clube, no mesmo dia)
+Todos os lançamentos foram apagados da produção para recadastro do zero: **20
+lançamentos e 89 parcelas** (14 ativos + 6 cancelados). Antes de apagar foi
+conferido que **não havia nenhuma parcela paga**, nenhum `Pagamento` vinculado e
+nenhum `CobrancaParcelaEnviada` — ou seja, nada de dinheiro saiu do caixa nem do
+extrato, e nenhum histórico de cobrança foi perdido.
+
+Backup em `/var/www/pinhaljunior2/backup/db_antes_limpar_parcelamentos_20260917_023938.sqlite3`,
+feito pela **API de backup do SQLite**, não por cópia de arquivo: com o serviço
+rodando, um `cp` pode gravar um arquivo inconsistente.
+
+> **Ao repetir uma limpeza dessas, confira as parcelas PAGAS primeiro.** Apagar
+> uma parcela paga apaga uma entrada do caixa e do extrato do clube, e o número
+> só volta a fechar com o backup.
+
 ### Pendências
 - As da revisão de cobrança, ainda abertas: o filtro "só quem já me mandou
   mensagem" é **client-side** (o botão individual não o respeita e o servidor não
