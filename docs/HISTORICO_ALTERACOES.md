@@ -70,6 +70,12 @@ meses à frente"*. As parcelas do clube nunca ganharam o equivalente.
   o que a mensagem leva agora, e mexer nas constantes `MENSAGEM_*_PADRAO` pediria
   migration (são `default=` de campo).
 
+### Deploy
+Em produção em 17/09/2026, commit `e3a2598`, healthcheck OK. **Sem migration** —
+a correção não mexe em model, só na query que monta a lista de cobrança. O VPS
+vinha do `8cbfc6a`: o `c435333` era só documentação e não chegou a ser publicado
+sozinho.
+
 ### Pendências
 - Continua valendo: o filtro "só quem já me mandou mensagem" é **client-side**
   (o botão individual não o respeita e o servidor não tem gate de WhatsApp); e a

@@ -17,7 +17,7 @@ vence agora, a página mostra o acerto todo, e há teste para cada uma. A trava 
 monta os destinatários pela mesma função, então `usuario_id` forjado no POST não cobra quem está em dia. Os
 textos padrão **não** mudaram (mexer nas constantes `MENSAGEM_*_PADRAO` pediria migration). Na tela, a barra
 agora diz "pessoa(s) com parcela **vencida ou deste mês**", o detalhe virou "A cobrar:", o card vazio virou
-"Nada para cobrar agora" e uma nota explica a regra. Suíte: **448 testes OK** (+6). **Sem migration.**
+"Nada para cobrar agora" e uma nota explica a regra. Suíte: **448 testes OK** (+6). **Em produção** no commit `e3a2598` (17/09/2026), healthcheck OK — **sem migration** (a correção não mexe em model, só na query da cobrança).
 
 **Atualização anterior:** 2026-09-17 (**Cobrança: "sem WhatsApp cadastrado" para quem tem o número na
 ficha**): relatado pelo clube e **confirmado no banco de produção** — das 10 contas com parcela em aberto,
