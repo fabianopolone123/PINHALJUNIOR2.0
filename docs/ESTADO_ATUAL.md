@@ -22,7 +22,8 @@ que usar o nome genérico. De quebra, id forjado no alvo (`av:abc`) deixou de es
 (`_aventureiro_do_alvo` confere `isdigit` antes do `filter`) e papel que a ficha não tem preenchido é
 **recusado** em vez de gravar um lançamento sem nome. **Lançamento anterior à migration fica com `pessoa`
 vazia** e continua mostrando o `resp_nome`: a escolha daquele dia não foi gravada e não há como recuperá-la
-— para corrigir um lançamento já feito, cancele e lance de novo. Suíte: **441 testes OK**.
+— para corrigir um lançamento já feito, cancele e lance de novo. Suíte: **441 testes OK**. **Em produção**
+no commit `6770e13` (17/09/2026), com a migration **0074** aplicada e healthcheck OK.
 
 **Atualização anterior:** 2026-09-16 (**Leilão: o emoji cede a vez para a voz e para o lance**): a rajada
 de reações estava provada barata **sozinha**; faltava garantir **em código** que ela não roube o

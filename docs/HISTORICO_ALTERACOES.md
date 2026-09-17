@@ -84,6 +84,19 @@ legal, o degrau em que as duas regras coincidem.
   chamar quem recebe a mensagem pelo nome errado é pior do que usar o genérico.
 - **Papel do alvo é resolvido no servidor**, nunca aceito do cliente.
 
+### Deploy
+Em produção em 17/09/2026, commit `6770e13`: migration **0074** aplicada,
+estáticos coletados e healthcheck OK.
+
+**Pendência operacional do leilão.** O deploy trouxe junto o commit `e0d5350`
+(leilão — o emoji cedendo a vez para a voz e para o lance), que estava no `main`
+e ainda não tinha ido ao ar. Como a pasta é a **mesma** dos dois serviços, o
+código novo do leilão **já está no disco**, mas o `pinhaljunior_leilao.service`
+**não foi reiniciado** e continua rodando o anterior em memória — é exatamente a
+armadilha da §7.1 do `docs/DEPLOY_LEILAO.md`. O passo extra (migrate +
+collectstatic com as settings do leilão + restart) **ainda não foi rodado**;
+sem ele, os freios de reação novos não estão valendo em produção.
+
 ### Pendências
 - **Lançamento anterior à migration fica com `pessoa` vazia** e continua
   mostrando o `resp_nome` — a escolha daquele dia não foi gravada e não há como
