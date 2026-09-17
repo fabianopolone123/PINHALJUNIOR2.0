@@ -187,6 +187,11 @@
     function normal(s) {
         return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     }
+    // Card que voltou aberto de uma edição: fica de fora do "só quem deve" até a
+    // pessoa mexer no filtro. Isentar zera a dívida, e ver o card sumir logo
+    // depois de salvar parece que a edição deu errado.
+    var protegido = lista ? lista.querySelector(".mens-av[open]") : null;
+
     function filtrar() {
         if (!lista) return;
         var q = normal(busca ? busca.value.trim() : "");
@@ -194,12 +199,39 @@
         var achou = 0;
         Array.prototype.forEach.call(lista.querySelectorAll(".mens-av"), function (c) {
             var ok = (!q || normal(c.dataset.busca).indexOf(q) !== -1) &&
-                     (!deve || c.dataset.deve === "1");
+                     (!deve || c.dataset.deve === "1" || c === protegido);
             c.hidden = !ok;
             if (ok) achou++;
         });
         if (vazio) vazio.hidden = achou !== 0;
     }
-    if (busca) busca.addEventListener("input", filtrar);
-    if (soDeve) soDeve.addEventListener("change", filtrar);
+    function filtrarDoUsuario() {
+        protegido = null;
+        filtrar();
+    }
+    if (busca) busca.addEventListener("input", filtrarDoUsuario);
+    if (soDeve) soDeve.addEventListener("change", filtrarDoUsuario);
+
+    // O que a tela sabe e o servidor não: a busca, o "só quem deve" e a aba.
+    // Vai junto do POST para a edição voltar ao mesmo lugar — quem isenta um mês
+    // quase sempre vai isentar o seguinte, e voltar ao topo obriga a procurar o
+    // aventureiro de novo a cada clique. (O aventureiro em si o servidor já
+    // sabe: é o dono da cobrança editada.)
+    document.addEventListener("submit", function (e) {
+        var f = e.target;
+        if (!f || !f.hasAttribute || !f.hasAttribute("data-volta")) return;
+        var q = f.querySelector("[data-volta-q]");
+        var d = f.querySelector("[data-volta-deve]");
+        var a = f.querySelector("[data-volta-aba]");
+        if (q) q.value = busca ? busca.value.trim() : "";
+        if (d) d.value = soDeve && soDeve.checked ? "1" : "";
+        var ativa = document.querySelector(".mens-aba.ativa");
+        if (a && ativa && ativa.dataset.aba) a.value = ativa.dataset.aba;
+    });
+
+    // Chegada: refaz o filtro que estava na tela e leva o card reaberto à vista.
+    filtrar();
+    if (protegido && !protegido.hidden && protegido.scrollIntoView) {
+        protegido.scrollIntoView({ block: "center" });
+    }
 })();

@@ -216,15 +216,15 @@
                 <div class="secao-cabecalho">
                     <h2 class="secao-titulo">Aventureiros</h2>
                     <div class="mens-filtros">
-                        <input type="search" id="mensBusca" class="loja-busca" placeholder="🔎 Buscar aventureiro…" aria-label="Buscar aventureiro">
-                        <label class="mens-filtro-deve"><input type="checkbox" id="mensSoDeve"> Só quem deve</label>
+                        <input type="search" id="mensBusca" class="loja-busca" placeholder="🔎 Buscar aventureiro…" aria-label="Buscar aventureiro" value="{{ busca }}">
+                        <label class="mens-filtro-deve"><input type="checkbox" id="mensSoDeve"{% if so_deve %} checked{% endif %}> Só quem deve</label>
                     </div>
                 </div>
 
                 {% if linhas %}
                 <div class="mens-lista" id="mensLista" data-pagar-url="{% url 'core:mensalidade_pagar' %}">
                     {% for l in linhas %}
-                    <details class="card mens-av" data-busca="{{ l.av.nome_completo|lower }}" data-deve="{% if l.resumo.aberto_valor %}1{% else %}0{% endif %}">
+                    <details class="card mens-av" id="av-{{ l.av.id }}" data-busca="{{ l.av.nome_completo|lower }}" data-deve="{% if l.resumo.aberto_valor %}1{% else %}0{% endif %}"{% if l.av.id == av_aberto %} open{% endif %}>
                         <summary class="mens-av-topo">
                             <span class="mens-av-nome">{{ l.av.nome_completo }}</span>
                             {% if l.av.mensalidade_isento %}<span class="mens-badge mens-badge-isento">Isento</span>
@@ -236,10 +236,11 @@
                         </summary>
                         <div class="mens-av-corpo">
                             <!-- Isenção / desconto -->
-                            <form method="post" action="{% url 'core:mensalidade_isencao' %}" class="mens-isencao">
+                            <form method="post" action="{% url 'core:mensalidade_isencao' %}" class="mens-isencao" data-volta>
                                 {% csrf_token %}
                                 <input type="hidden" name="aventureiro_id" value="{{ l.av.id }}">
                                 <input type="hidden" name="ano" value="{{ ano }}">
+                                {% include "core/_mens_volta.html" %}
                                 <label class="mens-chk"><input type="checkbox" name="isento"{% if l.av.mensalidade_isento %} checked{% endif %}> Isento</label>
                                 <label>Desconto <input type="number" min="0" max="100" name="desconto_pct" value="{{ l.av.mensalidade_desconto_pct }}" class="mens-input-pct">%</label>
                                 <button type="submit" class="btn-secundario btn-acao-pequeno">Aplicar</button>
@@ -289,10 +290,11 @@
                             {% else %}
                             <div class="mens-vazio-av">
                                 <span>Sem cobranças em {{ ano }}.</span>
-                                <form method="post" action="{% url 'core:mensalidades_gerar' %}">
+                                <form method="post" action="{% url 'core:mensalidades_gerar' %}" data-volta>
                                     {% csrf_token %}
                                     <input type="hidden" name="ano" value="{{ ano }}">
                                     <input type="hidden" name="aventureiro_id" value="{{ l.av.id }}">
+                                    {% include "core/_mens_volta.html" %}
                                     <button type="submit" class="btn-secundario btn-acao-pequeno">Gerar {{ ano }}</button>
                                 </form>
                             </div>
@@ -798,9 +800,10 @@
                 </div>
                 <div class="modal-corpo">
                     <p class="mens-editar-sub" id="modalEditarSub"></p>
-                    <form method="post" action="{% url 'core:mensalidade_editar' %}" class="mens-editar-form">
+                    <form method="post" action="{% url 'core:mensalidade_editar' %}" class="mens-editar-form" data-volta>
                         {% csrf_token %}
                         <input type="hidden" name="mensalidade_id" id="editarId">
+                        {% include "core/_mens_volta.html" %}
                         <label class="mens-editar-campo">Desconto neste mês (%)
                             <input type="number" step="1" min="0" max="100" name="desconto_pct" id="editarPct" class="mens-input-pct">
                         </label>

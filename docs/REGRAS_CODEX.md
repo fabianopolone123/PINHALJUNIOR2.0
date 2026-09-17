@@ -542,6 +542,24 @@ internas ou no fluxo de login, seguir estas regras:
   messages** (mostra "Senha redefinida…" e não deixa a mensagem sobrar para telas seguintes).
 
 
+## Edição na tela de Mensalidades: voltar para onde a pessoa estava
+
+- **Ação de card devolve o card, não o topo da tela.** Isenção/desconto, ✏️ editar o mês e "Gerar {ano}" são
+  POST + redirect; o redirect passa por **`_volta_mensalidades(request, ano, av_id)`**, que remonta `aba`,
+  `ano`, `av`, `q` e `deve`. Redirecionar só para `?ano=` devolve o painel na aba **Resumo** (o padrão), com o
+  card fechado e a busca apagada — e isentar o ano de uma criança é **mês a mês**. Ação nova nesse card usa o
+  mesmo helper.
+- **O aventureiro sai do SERVIDOR** (`m.aventureiro_id`, `av.id`): o card certo reabre **mesmo sem JS**, e um
+  destino vindo do formulário seria uma forma de mandar o usuário para outro lugar. **Só estado de tela**
+  viaja em campo oculto (busca, "só quem deve" e a aba, em `templates/core/_mens_volta.html`, nos formulários
+  com `data-volta`) — é o que o servidor não tem como adivinhar.
+- **O card que volta aberto escapa do "só quem deve"** até a pessoa mexer no filtro: isentar zera a dívida, e
+  ver o card sumir logo depois de salvar parece que a edição falhou.
+- **Não transformar essas ações em AJAX sem pensar duas vezes.** A isenção recalcula **todos** os meses em
+  aberto do ano; atualizar isso no navegador significa repetir em JS o desenho das linhas de mês. "Marcar
+  pago" é AJAX porque mexe em **uma** linha e devolve o resumo pronto (`mensalidade_pagar_view`).
+- **`av` inválido na URL não é 404** — é um card a menos aberto. A URL é colável e editável.
+
 ## Parcelamento lançado pelo clube (Mensalidades → Parcelas)
 
 Lançamento **manual** de parcelas para uma conta (família ou diretoria), dividido no dia

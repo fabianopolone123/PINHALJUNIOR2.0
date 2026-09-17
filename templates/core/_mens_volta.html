@@ -1,0 +1,9 @@
+{% comment %}
+Estado de tela que o servidor não tem como adivinhar (busca, "só quem deve" e a
+aba), para a edição voltar exatamente para onde a pessoa estava. Preenchido pelo
+JS no submit; vazio, a volta só perde o filtro — nunca o aventureiro, que vem do
+próprio objeto editado. Ver `_volta_mensalidades` em views.py.
+{% endcomment %}
+<input type="hidden" name="voltar_q" value="{{ busca }}" data-volta-q>
+<input type="hidden" name="voltar_deve" value="{% if so_deve %}1{% endif %}" data-volta-deve>
+<input type="hidden" name="voltar_aba" value="{{ aba }}" data-volta-aba>

@@ -8716,11 +8716,22 @@ def mensalidades_view(request):
     if aba_atual not in ABAS:
         aba_atual = "resumo"
     parcelamentos = _parcelamentos_painel()
+
+    # De onde a pessoa veio: quem edita um mês volta para cá com o aventureiro
+    # aberto e a mesma busca na tela (ver `_volta_mensalidades`). `av` inválido
+    # é só um card a menos aberto — não vale 404.
+    try:
+        av_aberto = int(request.GET.get("av") or 0)
+    except (TypeError, ValueError):
+        av_aberto = 0
     contexto = {
         "config": cfg_mens,
         "ano": ano,
         "anos": anos,
         "linhas": linhas,
+        "av_aberto": av_aberto,
+        "busca": (request.GET.get("q") or "").strip()[:80],
+        "so_deve": request.GET.get("deve") == "1",
         "totais": tot,
         "taxa": taxa,
         "dashboard": _mensalidades_dashboard(mens),
@@ -8851,6 +8862,29 @@ def mensalidade_reajustar_view(request):
     return redirect(f"{reverse('core:mensalidades')}?ano={ano}&aba=aventureiros")
 
 
+def _volta_mensalidades(request, ano, av_id=None, aba="aventureiros"):
+    """URL de volta da tela de Mensalidades preservando **onde a pessoa estava**.
+
+    Isentar/editar um mês é quase sempre o primeiro de vários (isentar o ano de
+    uma criança é mês a mês), e voltar para o topo obrigava a buscar o
+    aventureiro de novo a cada clique — o painel voltava até na aba errada, já
+    que o padrão é o Resumo.
+
+    O **aventureiro vem do servidor**: o objeto editado sabe de quem é, então o
+    card certo reabre mesmo sem JS. O que é estado de tela (o texto da busca, o
+    "só quem deve" e a aba) viaja em campos ocultos do formulário — o servidor
+    não tem como adivinhá-los."""
+    params = [("ano", str(ano)), ("aba", request.POST.get("voltar_aba") or aba)]
+    if av_id:
+        params.append(("av", str(av_id)))
+    q = (request.POST.get("voltar_q") or "").strip()
+    if q:
+        params.append(("q", q[:80]))
+    if request.POST.get("voltar_deve") == "1":
+        params.append(("deve", "1"))
+    return f"{reverse('core:mensalidades')}?{urllib.parse.urlencode(params)}"
+
+
 @diretor_required
 @require_POST
 def mensalidades_gerar_view(request):
@@ -8868,7 +8902,7 @@ def mensalidades_gerar_view(request):
     for av in alvos:
         total += _gerar_mensalidades(av, ano)
     messages.success(request, f"{total} cobrança(s) gerada(s) para {ano}.")
-    return redirect(f"{reverse('core:mensalidades')}?ano={ano}")
+    return redirect(_volta_mensalidades(request, ano, av_id or None))
 
 
 @diretor_required
@@ -8936,7 +8970,7 @@ def mensalidade_isencao_view(request):
         f"Atualizado: {'isento' if av.mensalidade_isento else (str(av.mensalidade_desconto_pct) + '% de desconto' if av.mensalidade_desconto_pct else 'sem desconto')}. "
         f"{afetadas} cobrança(s) em aberto recalculada(s).",
     )
-    return redirect(f"{reverse('core:mensalidades')}?ano={ano}")
+    return redirect(_volta_mensalidades(request, ano, av.id))
 
 
 @diretor_required
@@ -8947,7 +8981,7 @@ def mensalidade_editar_view(request):
     m = get_object_or_404(Mensalidade, pk=request.POST.get("mensalidade_id"))
     if m.status == "paga":
         messages.error(request, "Essa cobrança está paga. Desfaça o pagamento antes de editar.")
-        return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")
+        return redirect(_volta_mensalidades(request, m.ano, m.aventureiro_id))
     if request.POST.get("isento"):
         m.isento = True
         m.valor = Decimal("0")
@@ -8962,7 +8996,7 @@ def mensalidade_editar_view(request):
         m.valor = (base * (100 - pct) / Decimal("100")).quantize(Decimal("0.01"))
     m.save(update_fields=["isento", "valor"])
     messages.success(request, f"{m.mes_nome}/{m.ano} de {m.aventureiro.nome_completo} atualizado.")
-    return redirect(f"{reverse('core:mensalidades')}?ano={m.ano}")
+    return redirect(_volta_mensalidades(request, m.ano, m.aventureiro_id))
 
 
 def _fmt_moeda(valor):

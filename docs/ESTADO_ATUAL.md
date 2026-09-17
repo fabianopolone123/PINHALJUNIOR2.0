@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-17 (**Cobrança de parcelas: só o que venceu e o que vence neste mês**):
+**Última atualização:** 2026-09-17 (**Mensalidades: editar um mês não joga mais a pessoa para o topo**):
+relatado pelo clube — em **Mensalidades → Aventureiros**, procurar a criança, abrir o card e isentar um mês
+devolvia o painel **na aba Resumo**, com o card fechado e a busca apagada; como isentar o ano de uma criança
+é **mês a mês**, era procurar o nome de novo a cada clique. Causa: as três ações do card (isenção/desconto,
+✏️ editar o mês e "Gerar {ano}") são POST + redirect e o redirect levava só `?ano=` — e o padrão da tela é o
+Resumo, então a volta caía ainda mais longe. ("Marcar pago" nunca sofreu disso: é AJAX.) Agora
+**`_volta_mensalidades(request, ano, av_id)`** monta a volta com `aba`, `ano`, `av`, `q` e `deve`; o
+`<details>` do aventureiro reabre sozinho, a busca e o "só quem deve" voltam preenchidos e o JS rola até o
+card. **O aventureiro vem do servidor** (a cobrança editada sabe de quem é), então o card certo reabre
+**mesmo sem JS**; só o que o servidor não tem como saber — busca, filtro e aba — viaja em campos ocultos
+(`templates/core/_mens_volta.html`, nos formulários marcados com `data-volta`). **Não virou AJAX** de
+propósito: a isenção recalcula todos os meses em aberto do ano, e atualizar isso no navegador significaria
+repetir em JS o desenho das linhas de mês — o redirect devolve os valores já recalculados. O card que voltou
+aberto **escapa do "só quem deve"** até a pessoa mexer no filtro (isentar zera a dívida, e o card sumir logo
+depois de salvar parece que a edição falhou), e `av` inválido na URL **não é 404**, é só um card a menos
+aberto. Suíte: **456 testes OK** (+8). **Sem migration.**
+
+**Atualização anterior:** 2026-09-17 (**Cobrança de parcelas: só o que venceu e o que vence neste mês**):
 relatado pelo clube — a cobrança da aba **📨 Cobrar parcelas** levava o **parcelamento inteiro** (um acerto
 em 10x saía com as 10 parcelas e um `{total}` que a pessoa não deve hoje) e, pior, **cobrava quem já tinha
 pagado a parcela do mês**, porque bastava uma parcela **futura** em aberto para a conta continuar na lista.

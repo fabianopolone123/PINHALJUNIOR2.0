@@ -383,6 +383,100 @@ class PagamentoLojinhaTests(TestCase):
         self.assertEqual(PedidoLoja.objects.count(), 1)
 
 
+class MensalidadeVoltaEdicaoTests(TestCase):
+    """Editar um mês não pode jogar a pessoa de volta ao topo da tela.
+
+    Relatado pelo clube: isentar um mês devolvia o painel na aba **Resumo**, sem
+    o aventureiro aberto e com a busca apagada — e isentar o ano de uma criança é
+    mês a mês, então era procurar o nome de novo a cada clique."""
+
+    def setUp(self):
+        grupo = Group.objects.get_or_create(name="Diretor")[0]
+        self.diretor = User.objects.create_user("dirvolta", password="123456")
+        self.diretor.groups.add(grupo)
+        self.client.force_login(self.diretor)
+        self.av = Aventureiro.objects.create(
+            usuario=self.diretor, nome_completo="Aventureiro Volta", sexo="M",
+            data_nascimento=datetime.date(2015, 1, 1), cpf="000",
+            resp_nome="Resp", resp_cpf="111", resp_whatsapp="4799",
+        )
+        self.m = Mensalidade.objects.create(
+            aventureiro=self.av, ano=2026, mes=7, tipo="mensalidade",
+            valor=Decimal("30.00"), status="aberta",
+        )
+
+    def test_isentar_volta_com_o_aventureiro_aberto(self):
+        r = self.client.post(
+            reverse("core:mensalidade_isencao"),
+            {"aventureiro_id": self.av.id, "ano": 2026, "isento": "on"},
+        )
+        self.assertIn(f"av={self.av.id}", r.url)
+        self.assertIn("aba=aventureiros", r.url)
+        self.assertIn("ano=2026", r.url)
+
+    def test_editar_um_mes_volta_com_o_aventureiro_aberto(self):
+        r = self.client.post(
+            reverse("core:mensalidade_editar"),
+            {"mensalidade_id": self.m.id, "isento": "on"},
+        )
+        self.assertIn(f"av={self.av.id}", r.url)
+
+    def test_editar_cobranca_paga_tambem_volta_para_o_aventureiro(self):
+        """O caminho de erro não pode ser o único que perde o lugar."""
+        self.m.status = "paga"
+        self.m.save(update_fields=["status"])
+        r = self.client.post(
+            reverse("core:mensalidade_editar"),
+            {"mensalidade_id": self.m.id, "isento": "on"},
+        )
+        self.assertIn(f"av={self.av.id}", r.url)
+
+    def test_volta_preserva_busca_filtro_e_aba(self):
+        """Busca e "só quem deve" são estado de TELA: o servidor só os conhece
+        porque o formulário os manda de volta."""
+        r = self.client.post(
+            reverse("core:mensalidade_editar"),
+            {"mensalidade_id": self.m.id, "isento": "on",
+             "voltar_q": "volta", "voltar_deve": "1", "voltar_aba": "aventureiros"},
+        )
+        self.assertIn("q=volta", r.url)
+        self.assertIn("deve=1", r.url)
+        self.assertIn("aba=aventureiros", r.url)
+
+    def test_sem_os_campos_de_volta_o_aventureiro_ainda_reabre(self):
+        """Sem JS os ocultos vão vazios — mas o aventureiro vem do objeto
+        editado, então o card certo continua reabrindo."""
+        r = self.client.post(
+            reverse("core:mensalidade_editar"),
+            {"mensalidade_id": self.m.id, "isento": "on", "voltar_q": "", "voltar_deve": ""},
+        )
+        self.assertIn(f"av={self.av.id}", r.url)
+        self.assertNotIn("q=", r.url)
+        self.assertNotIn("deve=", r.url)
+
+    def test_tela_reabre_o_card_pedido(self):
+        r = self.client.get(
+            reverse("core:mensalidades") + f"?ano=2026&aba=aventureiros&av={self.av.id}"
+        )
+        self.assertEqual(r.context["av_aberto"], self.av.id)
+        self.assertContains(r, f'id="av-{self.av.id}"')
+        self.assertContains(r, f'data-deve="1" open')
+
+    def test_av_invalido_na_url_nao_quebra_a_tela(self):
+        """`av` vem de URL colada/editada: card a menos aberto, nunca erro."""
+        r = self.client.get(reverse("core:mensalidades") + "?aba=aventureiros&av=abc")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context["av_aberto"], 0)
+
+    def test_busca_volta_preenchida_na_tela(self):
+        r = self.client.get(
+            reverse("core:mensalidades") + "?aba=aventureiros&q=volta&deve=1"
+        )
+        self.assertEqual(r.context["busca"], "volta")
+        self.assertTrue(r.context["so_deve"])
+        self.assertContains(r, 'value="volta"')
+
+
 class MensalidadePixTests(TestCase):
     """Etapa 2: cobrar varias mensalidades numa cobranca Pix so; baixa multipla."""
 

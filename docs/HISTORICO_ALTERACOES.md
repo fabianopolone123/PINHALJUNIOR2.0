@@ -22,6 +22,55 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-17 - Mensalidades: editar um mês não joga mais a pessoa para o topo
+
+### Resumo
+Relatado pelo clube: em **Mensalidades → Aventureiros**, procurar a criança,
+abrir o card e isentar um mês devolvia o painel **na aba Resumo**, com o card
+fechado e a busca apagada. Como isentar o ano de uma criança é **mês a mês**, era
+procurar o nome de novo a cada clique.
+
+### A causa
+As três ações do card (isenção/desconto, ✏️ editar o mês e "Gerar {ano}") são
+POST + redirect, e o redirect levava só `?ano=`. O padrão da tela é a aba
+**Resumo**, então a volta caía ainda mais longe do que parecia. "Marcar pago" não
+sofria disso porque é AJAX — fica na página.
+
+### Arquivos alterados
+- `core/views.py`: novo `_volta_mensalidades(request, ano, av_id)`, usado pelos
+  três redirects (o de erro do editar também). A view passa `av_aberto`, `busca`
+  e `so_deve` ao template.
+- `templates/core/mensalidades.html`: o `<details>` do aventureiro ganhou `id` e
+  abre sozinho (`av_aberto`); a busca e o "só quem deve" voltam preenchidos.
+- `templates/core/_mens_volta.html` (novo): os três campos ocultos de estado de
+  tela, incluídos pelos formulários marcados com `data-volta`.
+- `static/js/mensalidades.js`: preenche os ocultos no submit, refaz o filtro na
+  chegada e rola até o card reaberto.
+- `core/tests.py`: +8 testes (`MensalidadeVoltaEdicaoTests`).
+- `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`.
+
+### Decisões tomadas
+- **O aventureiro vem do SERVIDOR, não da tela.** A cobrança editada sabe de quem
+  é (`m.aventureiro_id`), então o card certo reabre **mesmo sem JS** — e um
+  campo oculto a mais não vira uma forma de mandar o usuário para outro lugar.
+- **Só o que o servidor não tem como saber viaja no formulário**: o texto da
+  busca, o "só quem deve" e a aba. É estado de tela; sem JS a volta perde só o
+  filtro, nunca o aventureiro.
+- **Não virou AJAX.** Seria mais liso, mas a isenção recalcula **todos** os meses
+  em aberto do ano: atualizar isso no navegador significaria repetir em JS o
+  desenho das linhas de mês. O redirect devolve os valores já recalculados pelo
+  servidor, e o toast continua saindo pelo `messages`.
+- **O card que voltou aberto escapa do "só quem deve"** até a pessoa mexer no
+  filtro: isentar zera a dívida, e ver o card sumir logo depois de salvar parece
+  que a edição falhou.
+- **`av` inválido na URL não é 404** — é só um card a menos aberto.
+
+### Pendências
+- As mesmas da aba de cobrança de parcelas (filtro client-side; a linha não diz
+  de qual lançamento veio a parcela).
+
+---
+
 ## 2026-09-17 - Cobrança de parcelas: só o que venceu e o que vence neste mês
 
 ### Resumo
