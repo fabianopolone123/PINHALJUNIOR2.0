@@ -22,6 +22,61 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-17 - Cobrança de parcelas: só o que venceu e o que vence neste mês
+
+### Resumo
+Relatado pelo clube, dois sintomas do mesmo problema na aba **📨 Cobrar parcelas**:
+
+1. a mensagem levava o **parcelamento inteiro** — um acerto em 10x saía com as
+   **10** parcelas e um `{total}` que a pessoa não deve hoje;
+2. **quem já pagou a parcela do mês continuava sendo cobrado**, por causa das
+   parcelas dos meses seguintes, que ainda nem venceram.
+
+### A causa
+`_cobrancas_parcelas_familias` filtrava só por `status="aberta"`. Parcela
+"aberta" inclui a que vence daqui a oito meses, então:
+
+- a lista de itens da mensagem (e o `{total}`, que é a soma dela) trazia tudo; e
+- bastava **uma** parcela futura em aberto para a conta continuar na lista de
+  cobrança, mesmo com a do mês quitada.
+
+A regra certa já existia do outro lado da mesma tela: as mensalidades usam
+`_q_mens_vencidas()` — *"cobra o mês atual e os meses anteriores em aberto, NUNCA
+meses à frente"*. As parcelas do clube nunca ganharam o equivalente.
+
+### Arquivos alterados
+- `core/views.py`: novo `_q_parcelas_cobraveis()` (vencidas + as que vencem
+  **dentro do mês atual**; parcela **sem vencimento** entra), aplicado em
+  `_cobrancas_parcelas_familias`.
+- `templates/core/mensalidades.html`: a barra passa a dizer "pessoa(s) com
+  parcela **vencida ou deste mês**", o detalhe vira "A cobrar:", o card vazio
+  vira "Nada para cobrar agora" e uma nota explica a regra — senão o Diretor
+  estranha não achar alguém que ele sabe que tem parcelamento.
+- `core/tests.py`: +6 testes; o `setUp` da classe passou a vencer a 1ª parcela
+  **neste mês** (um lançamento todo no futuro não aparece mais na cobrança).
+- `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`.
+
+### Decisões tomadas
+- **A página pública NÃO encolheu.** `_parcelas_abertas_conta` continua
+  mostrando o lançamento inteiro: lá a pessoa **pode adiantar** parcela, e é o
+  mesmo link que a cobrança manda. A cobrança diz o que vence agora; a página
+  mostra o acerto todo. São perguntas diferentes, e há teste para cada uma.
+- **Parcela sem vencimento é cobrada.** O campo é `null=True`; dívida sem data é
+  dívida de agora, e a decisão contrária a esconderia da cobrança para sempre.
+- **A trava é do servidor.** Quem não deve nada este mês some da lista *e* do
+  envio: o `parcela_cobranca_enviar_view` monta os destinatários pela mesma
+  função, então `usuario_id` forjado no POST não cobra ninguém (há teste).
+- **Os textos padrão não mudaram** — "parcelas em aberto" continua verdade para
+  o que a mensagem leva agora, e mexer nas constantes `MENSAGEM_*_PADRAO` pediria
+  migration (são `default=` de campo).
+
+### Pendências
+- Continua valendo: o filtro "só quem já me mandou mensagem" é **client-side**
+  (o botão individual não o respeita e o servidor não tem gate de WhatsApp); e a
+  linha da cobrança não diz **de qual lançamento** a parcela veio.
+
+---
+
 ## 2026-09-17 - Cobrança: "sem WhatsApp cadastrado" para quem tem o número
 
 ### Resumo

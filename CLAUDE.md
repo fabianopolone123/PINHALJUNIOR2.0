@@ -248,7 +248,10 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   `dividir_em_parcelas` (sobra dos centavos na 1ª), **compartilhada** com o evento: ela cai para 1 parcela
   quando o valor não dá R$ 0,01 por parcela, então quem exige um número de parcelas **confere o tamanho da
   lista**. A **cobrança tem aba, mensagem, alavanca de IA e histórico próprios** (`CobrancaParcelaEnviada`) —
-  contar junto com a mensalidade faria uma silenciar a outra no "já cobrei este mês". Pagamento online:
+  contar junto com a mensalidade faria uma silenciar a outra no "já cobrei este mês" — e leva **só a
+  parcela vencida ou que vence dentro do mês** (`_q_parcelas_cobraveis`), como a mensalidade: sem isso a
+  mensagem sai com o parcelamento inteiro e quem já pagou o mês continua sendo cobrado pelas parcelas
+  futuras. A **página pública mostra tudo** de propósito (dá para adiantar parcela). Pagamento online:
   `tipo="parcela_clube"`, finalizado por `_finalizar_parcela_clube` (idempotente). Toda estatística nova
   passa por `_q_parcelamentos_clube()` (exclui `demo`).
 - **Regra do clube: aventureiro INATIVO não é cobrado**, mesmo com mês em aberto — quem saiu não recebe

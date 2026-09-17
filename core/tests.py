@@ -5743,10 +5743,13 @@ class CobrancaParcelaClubeTests(TestCase):
             valor_total=Decimal("200.00"), qtd_parcelas=2,
         )
         self.lanc.get_token()
+        # A 1ª vence NESTE mês: a cobrança só leva o que já venceu e o que vence
+        # dentro do mês, então um lançamento todo no futuro não apareceria aqui.
+        self.venc_mes = timezone.localdate().replace(day=DIA_VENCIMENTO_PARCELA)
         for i, v in enumerate(dividir_em_parcelas(Decimal("200.00"), 2)):
             ParcelaClube.objects.create(
                 parcelamento=self.lanc, numero=i + 1, total=2, valor=v,
-                vencimento=views._somar_meses(views._vencimento_diferido(), i),
+                vencimento=views._somar_meses(self.venc_mes, i),
             )
         self.url = reverse("core:parcela_cobranca_enviar")
 
@@ -5754,8 +5757,61 @@ class CobrancaParcelaClubeTests(TestCase):
         r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
         familias = r.context["cobrancas_parcelas"]
         self.assertEqual(len(familias), 1)
-        self.assertEqual(familias[0]["total"], Decimal("200.00"))
-        self.assertEqual(familias[0]["n_parcelas"], 2)
+        # Só a 1ª: a 2ª vence no mês que vem e não é cobrada agora.
+        self.assertEqual(familias[0]["total"], Decimal("100.00"))
+        self.assertEqual(familias[0]["n_parcelas"], 1)
+
+    # --- o que a cobrança leva: o que venceu e o que vence NESTE mês ---
+
+    def test_parcela_que_ainda_nao_venceu_nao_entra_na_cobranca(self):
+        """Um acerto em 10x não pode virar uma mensagem com as 10 parcelas e um
+        total que a pessoa não deve hoje."""
+        familia = views._cobrancas_parcelas_familias()[0]
+        self.assertEqual([p.numero for p in familia["parcelas"]], [1])
+        self.assertEqual(familia["total"], Decimal("100.00"))
+
+    def test_quem_pagou_a_parcela_do_mes_sai_da_lista(self):
+        """O bug relatado pelo clube: quem estava em dia continuava recebendo
+        cobrança por causa das parcelas **futuras**, que ainda nem venceram."""
+        p1 = self.lanc.parcelas.get(numero=1)
+        p1.status = "paga"
+        p1.pago_em = timezone.now()
+        p1.save(update_fields=["status", "pago_em"])
+        self.assertEqual(views._cobrancas_parcelas_familias(), [])
+
+    def test_envio_a_quem_nao_deve_nada_este_mes_nao_manda_nada(self):
+        """A trava é do servidor, não da tela: `usuario_id` forjado no POST não
+        cobra quem só tem parcela a vencer."""
+        self.lanc.parcelas.filter(numero=1).update(status="paga")
+        with mock.patch.object(views, "_enviar_whatsapp", return_value=(True, "ok")) as env:
+            r = self.client.post(
+                self.url, {"canal": "whatsapp", "usuario_id": self.resp.id}
+            )
+        self.assertEqual(r.json()["enviados"], 0)
+        env.assert_not_called()
+        self.assertEqual(CobrancaParcelaEnviada.objects.count(), 0)
+
+    def test_parcela_vencida_de_mes_anterior_continua_sendo_cobrada(self):
+        """Atrasada é justamente o que mais precisa de cobrança."""
+        self.lanc.parcelas.filter(numero=1).update(
+            vencimento=views._somar_meses(self.venc_mes, -2)
+        )
+        familia = views._cobrancas_parcelas_familias()[0]
+        self.assertEqual(familia["n_vencidas"], 1)
+        self.assertEqual(familia["total"], Decimal("100.00"))
+
+    def test_parcela_sem_vencimento_e_cobrada(self):
+        """Dívida sem data é dívida de agora — o contrário a esconderia da
+        cobrança para sempre."""
+        self.lanc.parcelas.update(vencimento=None)
+        familia = views._cobrancas_parcelas_familias()[0]
+        self.assertEqual(familia["n_parcelas"], 2)
+
+    def test_pagina_publica_continua_mostrando_o_lancamento_inteiro(self):
+        """A cobrança encolheu; a página do link **não** — lá a pessoa pode
+        adiantar parcela."""
+        parcelas = views._parcelas_abertas_conta(self.resp)
+        self.assertEqual([p.numero for p in parcelas], [1, 2])
 
     def test_diretoria_sem_filho_no_clube_nao_fica_sem_whatsapp(self):
         """`_numeros_conta` lê só os aventureiros: numa conta de diretoria sem
@@ -5773,7 +5829,7 @@ class CobrancaParcelaClubeTests(TestCase):
         )
         ParcelaClube.objects.create(
             parcelamento=lanc, numero=1, total=1, valor=Decimal("100.00"),
-            vencimento=views._vencimento_diferido(),
+            vencimento=self.venc_mes,
         )
         familia = next(
             f for f in views._cobrancas_parcelas_familias()
@@ -5814,7 +5870,7 @@ class CobrancaParcelaClubeTests(TestCase):
         )
         ParcelaClube.objects.create(
             parcelamento=outro, numero=1, total=1, valor=Decimal("50.00"),
-            vencimento=views._vencimento_diferido(),
+            vencimento=self.venc_mes,
         )
         r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
         self.assertEqual(
@@ -5840,7 +5896,12 @@ class CobrancaParcelaClubeTests(TestCase):
             self.client.post(self.url, {"canal": "whatsapp"})
         texto = capturado["texto"]
         self.assertIn("Acerto de julho", texto)
-        self.assertIn("200,00", texto)
+        # Só a parcela do mês: a 2ª vence no mês que vem e não entra nem na
+        # lista nem no {total} — cobrar o acerto inteiro assusta quem está em dia.
+        self.assertIn("100,00", texto)
+        self.assertNotIn("200,00", texto)
+        self.assertIn("parcela 1/2", texto)
+        self.assertNotIn("parcela 2/2", texto)
         # O link é o da CONTA (o mesmo token do acerto): a mensagem lista as
         # parcelas de todos os lançamentos, então o link tem de abrir todos.
         perfil = PerfilUsuario.objects.get(usuario=self.resp)

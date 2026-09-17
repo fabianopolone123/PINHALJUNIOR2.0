@@ -9565,13 +9565,37 @@ def _parcelas_abertas_conta(usuario):
     )
 
 
+def _q_parcelas_cobraveis(hoje=None):
+    """Q das parcelas que já dá para **cobrar**: as vencidas e as que vencem
+    dentro do mês atual. Parcela de mês à frente fica de fora.
+
+    É a mesma regra do `_q_mens_vencidas` das mensalidades, e pelo mesmo motivo:
+    a cobrança é do que está devendo **hoje**. Sem ela, a mensagem listava o
+    parcelamento **inteiro** (um acerto em 10x saía com as 10 parcelas e um
+    `{total}` que a pessoa não deve este mês) e, pior, a conta que **já pagou a
+    parcela do mês** continuava na lista — cobrada por causa das parcelas
+    futuras, que ainda não venceram.
+
+    Parcela **sem vencimento** entra: dívida sem data é dívida de agora, e o
+    contrário a esconderia da cobrança para sempre.
+
+    Não confundir com `_parcelas_abertas_conta`, que é a **página pública** e
+    mostra tudo de propósito — lá a pessoa pode adiantar parcela."""
+    hoje = hoje or timezone.localdate()
+    fim = hoje.replace(day=calendar.monthrange(hoje.year, hoje.month)[1])
+    return Q(vencimento__isnull=True) | Q(vencimento__lte=fim)
+
+
 def _cobrancas_parcelas_familias():
-    """Contas com parcelas em aberto: dados da aba de cobrança de parcelas
-    (nome, total, WhatsApp/e-mail, link e nº de cobranças enviadas no mês)."""
+    """Contas com parcela **vencida ou deste mês**: dados da aba de cobrança de
+    parcelas (nome, total, WhatsApp/e-mail, link e nº de cobranças no mês).
+
+    Quem só tem parcela a vencer **não aparece** — ver `_q_parcelas_cobraveis`."""
     hoje = timezone.localdate()
     abertas = (
         ParcelaClube.objects.filter(status="aberta", parcelamento__status="ativo")
         .filter(parcelamento__in=_q_parcelamentos_clube())
+        .filter(_q_parcelas_cobraveis(hoje))
         .select_related("parcelamento", "parcelamento__aventureiro",
                         "parcelamento__evento")
         .order_by("vencimento", "numero")

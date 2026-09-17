@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-17 (**Cobrança: "sem WhatsApp cadastrado" para quem tem o número na
+**Última atualização:** 2026-09-17 (**Cobrança de parcelas: só o que venceu e o que vence neste mês**):
+relatado pelo clube — a cobrança da aba **📨 Cobrar parcelas** levava o **parcelamento inteiro** (um acerto
+em 10x saía com as 10 parcelas e um `{total}` que a pessoa não deve hoje) e, pior, **cobrava quem já tinha
+pagado a parcela do mês**, porque bastava uma parcela **futura** em aberto para a conta continuar na lista.
+Causa: `_cobrancas_parcelas_familias` filtrava só por `status="aberta"`, e "aberta" inclui a parcela que
+vence daqui a oito meses. A regra certa já existia do outro lado da mesma tela — as mensalidades usam
+`_q_mens_vencidas()` ("cobra o mês atual e os meses anteriores, NUNCA meses à frente") —, só que as parcelas
+do clube nunca ganharam o equivalente. Agora há **`_q_parcelas_cobraveis()`**: vencidas + as que vencem
+**dentro do mês atual**, com a parcela **sem vencimento** entrando (dívida sem data é dívida de agora; o
+contrário a esconderia da cobrança para sempre). A **página pública não encolheu**: `_parcelas_abertas_conta`
+continua mostrando o lançamento inteiro, porque lá a pessoa **pode adiantar** parcela — a cobrança diz o que
+vence agora, a página mostra o acerto todo, e há teste para cada uma. A trava é do **servidor**: o envio
+monta os destinatários pela mesma função, então `usuario_id` forjado no POST não cobra quem está em dia. Os
+textos padrão **não** mudaram (mexer nas constantes `MENSAGEM_*_PADRAO` pediria migration). Na tela, a barra
+agora diz "pessoa(s) com parcela **vencida ou deste mês**", o detalhe virou "A cobrar:", o card vazio virou
+"Nada para cobrar agora" e uma nota explica a regra. Suíte: **448 testes OK** (+6). **Sem migration.**
+
+**Atualização anterior:** 2026-09-17 (**Cobrança: "sem WhatsApp cadastrado" para quem tem o número na
 ficha**): relatado pelo clube e **confirmado no banco de produção** — das 10 contas com parcela em aberto,
 **2** são diretoria **sem filho no clube** e apareciam sem número, com o botão de enviar desabilitado,
 tendo o WhatsApp gravado na ficha. Causa: `_numeros_conta` lê **só os aventureiros**, então numa conta

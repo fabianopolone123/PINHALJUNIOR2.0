@@ -645,6 +645,15 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
 - **A regra "aventureiro inativo não é cobrado" NÃO vale aqui.** Ela é da cobrança **recorrente** de quem saiu
   do clube; um parcelamento é dívida **combinada** e continua devida, como as parcelas de inscrição. Há teste
   documentando a diferença — não "conserte" isso adicionando `aventureiro__ativo=True`.
+- **A cobrança leva só o que VENCEU e o que vence DENTRO do mês** (`_q_parcelas_cobraveis`, em
+  `_cobrancas_parcelas_familias`). Filtrar só por `status="aberta"` põe na mensagem o parcelamento
+  **inteiro** — um acerto em 10x com as 10 parcelas e um `{total}` que a pessoa não deve hoje — e, pior,
+  mantém na lista **quem já pagou a parcela do mês**, porque sobrou parcela futura em aberto. É a mesma
+  regra do `_q_mens_vencidas()` das mensalidades, pelo mesmo motivo. Parcela **sem vencimento** entra:
+  dívida sem data é dívida de agora. A **página pública é o contrário** (`_parcelas_abertas_conta` mostra o
+  lançamento inteiro, porque lá a pessoa pode **adiantar** parcela) — não "uniformize" as duas; há teste
+  para cada uma. O envio monta os destinatários pela **mesma função**, então a trava vale também para
+  `usuario_id` forjado no POST.
 - **A cobrança tem aba, mensagem e histórico PRÓPRIOS** (`CobrancaParcelaEnviada`). Contar junto com a
   mensalidade faria "já cobrei este mês" de uma **silenciar** a outra — é o mesmo motivo pelo qual o canal faz
   parte da identidade do registro. Mantenha o padrão de lote: **1 por request + 10s no front**.

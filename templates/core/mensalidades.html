@@ -642,7 +642,7 @@
 
                     {% if cobrancas_parcelas %}
                     <div class="card mens-cobranca-barra">
-                        <span><strong>{{ cobrancas_parcelas|length }}</strong> pessoa(s) com parcela em aberto.</span>
+                        <span><strong>{{ cobrancas_parcelas|length }}</strong> pessoa(s) com parcela <strong>vencida ou deste mês</strong>.</span>
                         <label class="mens-chk">Enviar por
                             <select id="parcCobrancaCanal" class="mens-cob-canal-sel">
                                 <option value="whatsapp">💬 WhatsApp</option>
@@ -654,6 +654,7 @@
                         <label class="mens-chk"><input type="checkbox" id="parcCobrancaSoLiberados" checked> Só quem já me mandou mensagem <span class="mens-chk-dica">(evita bloqueio; só vale no WhatsApp)</span></label>
                         <button type="button" class="btn-acao" id="parcCobrancaEnviarTodos">📤 Enviar a todos</button>
                     </div>
+                    <p class="painel-nota">📆 A cobrança leva só o que já venceu e o que vence <strong>neste mês</strong>. Parcela de mês à frente não é cobrada — e quem já pagou a do mês sai da lista. No link, a pessoa continua vendo o lançamento inteiro e pode adiantar parcela se quiser.</p>
 
                     <input type="search" id="parcCobrancaBusca" class="loja-busca mens-cobranca-busca" placeholder="🔎 Buscar por pessoa ou lançamento…" aria-label="Buscar pessoa">
 
@@ -681,7 +682,7 @@
                                 </span>
                             </div>
                             <div class="mens-cobranca-det">
-                                <span>Em aberto: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_parcelas }} parcela{{ f.n_parcelas|pluralize }}{% if f.n_vencidas %} · <strong class="parc-vencido-txt">{{ f.n_vencidas }} vencida{{ f.n_vencidas|pluralize }} (R$ {{ f.vencido|moeda }})</strong>{% endif %}</span>
+                                <span>A cobrar: <strong>R$ {{ f.total|moeda }}</strong> · {{ f.n_parcelas }} parcela{{ f.n_parcelas|pluralize }}{% if f.n_vencidas %} · <strong class="parc-vencido-txt">{{ f.n_vencidas }} vencida{{ f.n_vencidas|pluralize }} (R$ {{ f.vencido|moeda }})</strong>{% endif %}</span>
                                 {% if f.numeros|length > 1 %}
                                 <label class="mens-cob-tel">📱 Enviar para:
                                     <select class="mens-cob-tel-sel" data-usuario="{{ f.usuario_id }}" data-origem-atual="{{ f.origem_atual }}">
@@ -723,8 +724,8 @@
                     {% else %}
                     <section class="card vazio-card">
                         <span class="vazio-icone" aria-hidden="true">✅</span>
-                        <h2 class="card-titulo">Nenhuma parcela em aberto</h2>
-                        <p class="card-texto">Não há parcelas do clube para cobrar agora.</p>
+                        <h2 class="card-titulo">Nada para cobrar agora</h2>
+                        <p class="card-texto">Nenhuma parcela vencida ou com vencimento neste mês. As parcelas dos próximos meses aparecem aqui quando chegar a vez delas.</p>
                     </section>
                     {% endif %}
                 </section>
