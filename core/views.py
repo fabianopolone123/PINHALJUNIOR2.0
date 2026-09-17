@@ -6480,13 +6480,20 @@ def _finalizar_loja_clube(pagamento):
 
 
 def _whatsapp_familia(usuario):
-    """WhatsApp de cobrança da família (responsável financeiro), normalizado."""
+    """WhatsApp de cobrança da família (responsável financeiro), normalizado.
+
+    Cai na **ficha de diretoria** quando a conta não tem número em aventureiro
+    nenhum. `_numeros_conta` lê só os aventureiros, então numa conta de
+    diretoria **sem filho no clube** ele devolve vazio — e sem este degrau a
+    tela dizia "sem WhatsApp cadastrado" para quem tem o número gravado na
+    ficha, com o botão de enviar desabilitado. É a mesma armadilha que a
+    recuperação de senha já tinha documentado em `_whatsapp_recuperacao`."""
     if usuario is None:
         return ""
     perfil = PerfilUsuario.objects.filter(usuario=usuario).first()
     origem = perfil.cobranca_whatsapp_origem if perfil else ""
     _, numero = _resolver_origem_numero(_numeros_conta(usuario), origem or "")
-    return numero
+    return numero or _whatsapp_diretoria(usuario)
 
 
 def _email_familia(usuario):
@@ -6905,6 +6912,9 @@ def _cobrancas_familias():
         perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
         numeros = _numeros_conta(u)
         origem_atual, numero = _resolver_origem_numero(numeros, perfil.cobranca_whatsapp_origem or "")
+        # Mesmo degrau da aba de parcelas: as duas telas de cobrança precisam
+        # achar o mesmo número para a mesma conta.
+        numero = numero or _whatsapp_diretoria(u)
         # Detalhe por criança (aventureiro): nome, total em aberto e meses.
         por_av = {}
         for m in mens:
@@ -7397,14 +7407,20 @@ def _numeros_conta(usuario):
 def _resolver_origem_numero(numeros, escolhido):
     """(origem_efetiva, número normalizado) dada a lista `numeros` de `_numeros_conta`
     e a origem `escolhido`. Se a escolhida tiver número usa ela; senão cai no
-    responsável legal; senão "" (nenhum número disponível)."""
+    responsável legal; senão no primeiro que existir; senão "" (a conta não tem
+    número nenhum).
+
+    O último degrau importa: antes, sem escolha e sem o número do responsável
+    legal, a função desistia — e a ficha que só tem o WhatsApp do pai ou o da
+    mãe aparecia como "sem WhatsApp cadastrado", escondendo um número que está
+    gravado ali."""
     mapa = {n["origem"]: n["numero"] for n in numeros}
     if escolhido and mapa.get(escolhido):
         origem = escolhido
     elif mapa.get("resp"):
         origem = "resp"
     else:
-        origem = ""
+        origem = next((n["origem"] for n in numeros if n["numero"]), "")
     return origem, normalizar_telefone(mapa.get(origem) or "")
 
 
@@ -9583,9 +9599,10 @@ def _cobrancas_parcelas_familias():
         origem_atual, numero = _resolver_origem_numero(
             numeros, perfil.cobranca_whatsapp_origem or ""
         )
-        # Sem número nos aventureiros (conta só de diretoria), usa o da ficha.
-        if not numero:
-            numero = _whatsapp_familia(u)
+        # Sem número em aventureiro nenhum (conta de diretoria sem filho no
+        # clube), vale o da ficha de diretoria — senão a pessoa aparece como
+        # "sem WhatsApp cadastrado" tendo o número gravado.
+        numero = numero or _whatsapp_diretoria(u)
         email = _email_familia(u)
         contagens = cont_canal[uid]
         familias.append({

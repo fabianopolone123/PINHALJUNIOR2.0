@@ -22,6 +22,78 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-17 - Cobrança: "sem WhatsApp cadastrado" para quem tem o número
+
+### Resumo
+Relatado pelo clube: pessoas da **diretoria** aparecendo na cobrança como "sem
+WhatsApp cadastrado", com o botão de enviar desabilitado, tendo o número gravado
+na ficha.
+
+Confirmado no banco de produção: das **10** contas com parcela em aberto, **2**
+são diretoria **sem filho no clube** — nenhum aventureiro, WhatsApp preenchido na
+ficha.
+
+### A causa: um fallback que prometia e não fazia
+`_numeros_conta` lê **só a tabela de aventureiros** (pai/mãe/responsável legal das
+fichas). Numa conta de diretoria sem filho no clube ele devolve lista vazia, e a
+tela conclui que não há número.
+
+Havia até um degrau escrito para isso:
+
+```python
+# Sem número nos aventureiros (conta só de diretoria), usa o da ficha.
+if not numero:
+    numero = _whatsapp_familia(u)
+```
+
+Só que `_whatsapp_familia` fazia **exatamente a mesma conta** que acabara de
+falhar — `_resolver_origem_numero(_numeros_conta(usuario), origem)` — e devolvia
+a mesma string vazia. O comentário dizia "usa o da ficha"; o código nunca tocava
+na ficha.
+
+O degrau que faltava (**`_whatsapp_diretoria`**) já existia, e é o que a
+recuperação de senha usa desde sempre. A armadilha inclusive já estava escrita lá:
+*"`_numeros_conta` não basta: ele só lê os aventureiros e devolve vazio numa conta
+só de diretoria."*
+
+### O bug irmão
+`_resolver_origem_numero` olhava só o **responsável legal** e desistia:
+
+```python
+elif mapa.get("resp"): origem = "resp"
+else:                  origem = ""      # ← ignorava pai e mãe
+```
+
+Ou seja, a ficha preenchida apenas com o WhatsApp **do pai** ou **da mãe** também
+virava "sem número". Nenhuma conta em produção cai nisso hoje, mas é a mesma
+classe de erro: dizer que não há número quando há.
+
+### Arquivos alterados
+- `core/views.py`: `_whatsapp_familia` cai em `_whatsapp_diretoria`;
+  `_resolver_origem_numero` usa o primeiro número disponível; `_cobrancas_familias`
+  e `_cobrancas_parcelas_familias` aplicam o mesmo degrau (antes só a segunda
+  tentava, e sem efeito).
+- `core/tests.py`: +2 testes.
+- `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`.
+
+### Decisões tomadas
+- **As duas abas de cobrança resolvem o número igual.** Achar números diferentes
+  para a mesma conta em telas diferentes é o tipo de divergência que ninguém
+  percebe até mandar a mensagem para o lugar errado.
+- **Escolher um número é melhor do que dizer que não há.** Quando não há escolha
+  nem responsável legal, vale o primeiro que existir.
+- **`_whatsapp_diretoria` é o degrau canônico** de quem não tem aventureiro —
+  não reescrever essa busca em cada tela.
+
+### Pendências
+- As da revisão de cobrança, ainda abertas: o filtro "só quem já me mandou
+  mensagem" é **client-side** (o botão individual não o respeita e o servidor não
+  tem gate de WhatsApp); a cobrança de parcelas soma no `{total}` as parcelas
+  **que ainda não venceram**; e a linha da cobrança não diz **de qual lançamento**
+  a parcela veio (duas iguais ficam indistinguíveis).
+
+---
+
 ## 2026-09-17 - Parcelas: o lançamento volta no nome de quem combinou
 
 ### Resumo

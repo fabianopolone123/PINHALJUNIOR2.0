@@ -5757,6 +5757,42 @@ class CobrancaParcelaClubeTests(TestCase):
         self.assertEqual(familias[0]["total"], Decimal("200.00"))
         self.assertEqual(familias[0]["n_parcelas"], 2)
 
+    def test_diretoria_sem_filho_no_clube_nao_fica_sem_whatsapp(self):
+        """`_numeros_conta` lê só os aventureiros: numa conta de diretoria sem
+        filho no clube ele devolve vazio, e a tela dizia "sem WhatsApp
+        cadastrado" para quem tem o número na ficha — com o botão de enviar
+        desabilitado. O número sai da ficha de diretoria."""
+        conta = User.objects.create_user(username="sodiretoria", password="123456")
+        MembroDiretoria.objects.create(
+            usuario=conta, nome_completo="Voluntária Teste", cpf="321",
+            whatsapp="47988887777", data_nascimento=datetime.date(1990, 1, 1),
+        )
+        lanc = ParcelamentoClube.objects.create(
+            usuario=conta, descricao="Acerto", valor_total=Decimal("100.00"),
+            qtd_parcelas=1,
+        )
+        ParcelaClube.objects.create(
+            parcelamento=lanc, numero=1, total=1, valor=Decimal("100.00"),
+            vencimento=views._vencimento_diferido(),
+        )
+        familia = next(
+            f for f in views._cobrancas_parcelas_familias()
+            if f["usuario_id"] == conta.id
+        )
+        self.assertTrue(familia["tem_numero"])
+        self.assertEqual(familia["numero"], "5547988887777")
+
+    def test_ficha_so_com_o_whatsapp_da_mae_nao_fica_sem_numero(self):
+        """Sem escolha e sem o número do responsável legal, a resolução desistia
+        — escondendo um número que está gravado na ficha."""
+        self.av.resp_whatsapp = ""
+        self.av.pai_whatsapp = ""
+        self.av.mae_whatsapp = "47999991111"
+        self.av.save(update_fields=["resp_whatsapp", "pai_whatsapp", "mae_whatsapp"])
+        origem, numero = views._resolver_origem_numero(views._numeros_conta(self.resp), "")
+        self.assertEqual(origem, "mae")
+        self.assertEqual(numero, "5547999991111")
+
     def test_cobranca_chama_quem_combinou_o_acerto(self):
         """A mensagem é da conta, mas a conta atende três adultos: com todos os
         lançamentos apontando para a mesma pessoa, é ela quem é chamada pelo

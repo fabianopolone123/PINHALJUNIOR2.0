@@ -2,7 +2,22 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-17 (**Parcelas: o lançamento volta no nome de quem combinou**): bug
+**Última atualização:** 2026-09-17 (**Cobrança: "sem WhatsApp cadastrado" para quem tem o número na
+ficha**): relatado pelo clube e **confirmado no banco de produção** — das 10 contas com parcela em aberto,
+**2** são diretoria **sem filho no clube** e apareciam sem número, com o botão de enviar desabilitado,
+tendo o WhatsApp gravado na ficha. Causa: `_numeros_conta` lê **só os aventureiros**, então numa conta
+dessas devolve lista vazia. Havia até um `if not numero: numero = _whatsapp_familia(u)` com o comentário
+"usa o da ficha" — só que `_whatsapp_familia` refazia **exatamente a mesma conta**
+(`_resolver_origem_numero(_numeros_conta(...))`) e devolvia a mesma string vazia: um fallback que
+prometia e não fazia. O degrau que faltava, **`_whatsapp_diretoria`**, já existia e é o que a recuperação
+de senha usa desde sempre (`_whatsapp_recuperacao`) — a armadilha inclusive já estava documentada lá.
+Agora `_whatsapp_familia` cai na ficha, e **as duas abas** de cobrança (mensalidades e parcelas) aplicam o
+mesmo degrau — antes só a de parcelas tentava. Junto, um bug irmão: `_resolver_origem_numero` só olhava o
+**responsável legal** e desistia, então a ficha preenchida apenas com o WhatsApp **do pai ou o da mãe**
+também virava "sem número"; agora, sem escolha e sem `resp`, usa o primeiro que existir. Suíte: **443
+testes OK**.
+
+**Atualização anterior:** 2026-09-17 (**Parcelas: o lançamento volta no nome de quem combinou**): bug
 relatado pelo clube — lançar um parcelamento para um **pai** e ele aparecer na lista com o nome da
 **responsável legal**. A causa: o seletor "para quem" oferece pai, mãe e responsável legal como opções
 **diferentes**, mas as três mandavam o **mesmo** `conta:<id>` — o nome escolhido morria no POST

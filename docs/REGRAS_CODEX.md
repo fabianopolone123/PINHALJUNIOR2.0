@@ -577,6 +577,16 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
 - **Id vindo do POST passa por `isdigit` antes do `filter`** (`_aventureiro_do_alvo`). Um alvo forjado
   (`av:abc`) estoura `ValueError` dentro do ORM e vira **500 de HTML** numa view cuja recusa é uma mensagem
   na tela — a mesma lição de `minutos`/`quantos` no leilão.
+- **`_numeros_conta` NÃO basta para achar o WhatsApp de uma conta** — ele lê só os **aventureiros**, então
+  numa conta de **diretoria sem filho no clube** devolve lista vazia. A cobrança dizia "sem WhatsApp
+  cadastrado" (com o botão de enviar desabilitado) para quem tem o número gravado na ficha; havia até um
+  `if not numero: numero = _whatsapp_familia(u)` que **não resolvia nada**, porque o helper refazia a mesma
+  conta. O degrau que falta é sempre **`_whatsapp_diretoria(usuario)`**, como a recuperação de senha já
+  fazia. Quem for buscar o número de uma conta: `_whatsapp_familia` (que agora já cai na ficha) ou
+  `numero or _whatsapp_diretoria(u)`.
+- **Sem escolha e sem responsável legal, `_resolver_origem_numero` usa o primeiro número que existir.**
+  Antes ele só olhava `resp` e desistia: a ficha preenchida apenas com o WhatsApp do pai ou o da mãe
+  aparecia como "sem número". Dizer que não há número quando há é pior do que escolher um.
 - **Virar diretoria numa conta que já existe passa por `/meus-dados/diretoria/`, nunca pelo
   `/cadastro/diretoria/`.** Aquele **cria conta** (`User.objects.create_user`) — usá-lo para quem já tem login
   parte a família em dois cadastros. O caminho novo tem três donos: o **Diretor** libera a conta em Usuários
