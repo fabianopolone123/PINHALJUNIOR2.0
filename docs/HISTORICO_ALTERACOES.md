@@ -22,6 +22,78 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-17 - Parcelas: o lançamento volta no nome de quem combinou
+
+### Resumo
+Bug relatado pelo clube: lançar um parcelamento para um **pai** e ele aparecer na
+lista com o nome da **responsável legal** da mesma família.
+
+### O que acontecia
+O seletor "para quem" oferece **pai, mãe e responsável legal** como opções
+diferentes — quem lança lembra do adulto com quem combinou, e nem sempre é o
+responsável legal. Mas as três mandavam o **mesmo** `conta:<id>`:
+
+1. `_resolver_alvo` devolvia só `(usuario, aventureiro)` — **o nome escolhido
+   morria no POST**;
+2. `pessoa_nome` então **recalculava** o nome pela ficha e caía sempre no
+   `resp_nome`.
+
+Ou seja, a escolha nunca chegava ao banco. O nome errado saía em tudo o que lê
+`pessoa_nome` — painel de Parcelas, a busca da lista, "📋 Copiar resumo", extrato
+do Financeiro, extrato do evento e o próprio toast de confirmação — e, pela mesma
+regra dentro de `_nome_da_conta`, também na aba **Cobrar parcelas** e na
+**saudação da página pública de pagamento**.
+
+A suíte não pegava porque o único teste do caso escolhia justamente a responsável
+legal, o degrau em que as duas regras coincidem.
+
+### A correção
+- A opção de Responsáveis passa a carregar o **papel**: `resp:<av_id>:<papel>`.
+- `_resolver_alvo` devolve **`(usuario, aventureiro, pessoa)`**, com o nome lido
+  **da ficha, no servidor** — um rótulo que o navegador mandasse junto não é
+  fonte de verdade.
+- O nome é gravado em **`ParcelamentoClube.pessoa`** (migration **0074**) e
+  `pessoa_nome` o usa **depois** do aventureiro e **antes** da ficha.
+- `_nome_da_conta(usuario, lancamentos)` segue essa pessoa na cobrança e na
+  página pública, **só quando todos os lançamentos da conta apontam para ela**.
+
+**O vínculo continua sendo com a CONTA** — mudou só o que a lista mostra.
+
+### De quebra
+- Alvo forjado com id não numérico (`av:abc`) estourava `ValueError` dentro do
+  `filter` e virava **500 de HTML** numa view cuja recusa é uma mensagem na tela.
+  Agora passa por `isdigit` (`_aventureiro_do_alvo`).
+- Papel que a ficha não tem preenchido é **recusado**, em vez de gravar um
+  lançamento sem nome nenhum na lista.
+
+### Arquivos alterados
+- `core/models.py`: campo `pessoa` e a nova ordem do `pessoa_nome`.
+- `core/migrations/0074_parcelamentoclube_pessoa.py`: o campo (`AddField`).
+- `core/views.py`: `_alvos_responsaveis` (alvo por papel), `_resolver_alvo`
+  (3-tupla + validação do id), `_aventureiro_do_alvo`, `CAMPOS_ADULTO_FICHA`,
+  `parcelamento_novo_view` (grava `pessoa`) e `_nome_da_conta` (+ as 3 chamadas).
+- `core/tests.py`: 3 testes ajustados ao alvo novo e **7** acrescentados.
+- `CLAUDE.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`: a regra e o estado.
+
+### Decisões tomadas
+- **`pessoa` é snapshot**, como os outros nomes do sistema: corrigir a ficha
+  depois não reescreve o que foi combinado.
+- **A conta continua sendo o vínculo.** Guardar o nome é para a tela; trocar o
+  vínculo para a pessoa quebraria diretoria sem filho no clube e o link público.
+- **Nome divergente entre lançamentos volta ao nome da conta** na cobrança:
+  chamar quem recebe a mensagem pelo nome errado é pior do que usar o genérico.
+- **Papel do alvo é resolvido no servidor**, nunca aceito do cliente.
+
+### Pendências
+- **Lançamento anterior à migration fica com `pessoa` vazia** e continua
+  mostrando o `resp_nome` — a escolha daquele dia não foi gravada e não há como
+  recuperá-la. Para corrigir um lançamento já feito, cancelar e lançar de novo.
+- Continua valendo a pendência antiga: **editar** um parcelamento já lançado
+  (hoje é cancelar e lançar de novo) — é o que resolveria o caso acima sem
+  refazer.
+
+---
+
 ## 2026-09-16 - Leilão: o emoji cede a vez para a voz e para o lance
 
 ### Resumo

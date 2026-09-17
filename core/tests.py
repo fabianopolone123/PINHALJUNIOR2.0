@@ -5232,7 +5232,7 @@ class ParcelamentoClubeTests(TestCase):
         rotulos = [r["rotulo"] for r in alvos["responsaveis"]]
         self.assertIn("Responsável Teste", rotulos)
         resp = next(r for r in alvos["responsaveis"] if r["rotulo"] == "Responsável Teste")
-        self.assertEqual(resp["valor"], f"conta:{self.resp.id}")
+        self.assertEqual(resp["valor"], f"resp:{self.av.id}:resp")
         self.assertIn("Criança Teste", resp["detalhe"])
 
     def test_seletor_lista_pai_e_mae_alem_do_responsavel_legal(self):
@@ -5243,9 +5243,16 @@ class ParcelamentoClubeTests(TestCase):
         self.av.save(update_fields=["pai_nome", "mae_nome"])
         alvos = views._alvos_parcelamento()["responsaveis"]
         por_nome = {r["rotulo"]: r for r in alvos}
-        for nome in ("Pai Teste", "Mãe Teste", "Responsável Teste"):
+        for nome, papel in (
+            ("Pai Teste", "pai"), ("Mãe Teste", "mae"), ("Responsável Teste", "resp"),
+        ):
             self.assertIn(nome, por_nome)
-            self.assertEqual(por_nome[nome]["valor"], f"conta:{self.resp.id}")
+            # Cada opção manda o PAPEL, não só a conta: é o que faz o nome
+            # escolhido chegar ao lançamento (todas levam à mesma conta).
+            self.assertEqual(por_nome[nome]["valor"], f"resp:{self.av.id}:{papel}")
+            usuario, _, pessoa = views._resolver_alvo(por_nome[nome]["valor"])
+            self.assertEqual(usuario, self.resp)
+            self.assertEqual(pessoa, nome)
         self.assertEqual(por_nome["Pai Teste"]["detalhe"], "pai de Criança Teste")
         self.assertEqual(por_nome["Mãe Teste"]["detalhe"], "mãe de Criança Teste")
 
@@ -5301,7 +5308,10 @@ class ParcelamentoClubeTests(TestCase):
         self.av.save(update_fields=["ativo"])
         alvos = views._alvos_parcelamento()
         self.assertNotIn(f"av:{self.av.id}", [a["valor"] for a in alvos["aventureiros"]])
-        self.assertIn(f"conta:{self.resp.id}", [r["valor"] for r in alvos["responsaveis"]])
+        # O que importa é a CONTA continuar alcançável — o alvo agora vem pelo
+        # papel do adulto, mas resolve para a mesma conta.
+        contas = [views._resolver_alvo(r["valor"])[0] for r in alvos["responsaveis"]]
+        self.assertIn(self.resp, contas)
 
     def test_lancamento_para_a_conta_da_familia_mostra_o_responsavel(self):
         """Sem aventureiro e sem ficha de diretoria, a lista mostraria o nome de
@@ -5311,6 +5321,49 @@ class ParcelamentoClubeTests(TestCase):
         self.assertEqual(lanc.usuario, self.resp)
         self.assertIsNone(lanc.aventureiro)
         self.assertEqual(lanc.pessoa_nome, "Responsável Teste")
+
+    def test_lancamento_para_o_pai_nao_volta_no_nome_da_responsavel_legal(self):
+        """O caso que motivou o campo `pessoa`: pai, mãe e responsável legal
+        dividem a MESMA conta, e o lançamento guardava só ela. A lista
+        recalculava o nome pelo `resp_nome`, então o acerto combinado com um
+        adulto reaparecia no nome de outro."""
+        self.av.pai_nome = "Pai Teste"
+        self.av.save(update_fields=["pai_nome"])
+        self._lancar(alvo=f"resp:{self.av.id}:pai")
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.usuario, self.resp)   # o vínculo continua na conta
+        self.assertIsNone(lanc.aventureiro)
+        self.assertEqual(lanc.pessoa, "Pai Teste")
+        self.assertEqual(lanc.pessoa_nome, "Pai Teste")
+
+    def test_corrigir_a_ficha_depois_nao_reescreve_o_acerto(self):
+        """`pessoa` é snapshot: quem combinou é quem combinou."""
+        self.av.mae_nome = "Mãe Teste"
+        self.av.save(update_fields=["mae_nome"])
+        self._lancar(alvo=f"resp:{self.av.id}:mae")
+        self.av.mae_nome = "Outro Nome"
+        self.av.save(update_fields=["mae_nome"])
+        self.assertEqual(ParcelamentoClube.objects.get().pessoa_nome, "Mãe Teste")
+
+    def test_escolher_o_aventureiro_continua_mostrando_a_crianca(self):
+        """O campo novo não pode atropelar o nome do aventureiro."""
+        self._lancar()
+        lanc = ParcelamentoClube.objects.get()
+        self.assertEqual(lanc.pessoa, "")
+        self.assertEqual(lanc.pessoa_nome, "Criança Teste")
+
+    def test_alvo_de_papel_que_a_ficha_nao_tem_nao_cria_nada(self):
+        """Ficha sem pai preenchido: gravar em silêncio deixaria o lançamento
+        sem nome nenhum na lista."""
+        self._lancar(alvo=f"resp:{self.av.id}:pai")
+        self.assertFalse(ParcelamentoClube.objects.exists())
+
+    def test_alvo_forjado_nao_derruba_a_view(self):
+        """Id não numérico vindo da internet estourava ValueError dentro do
+        `filter` — 500 numa view cuja recusa é uma mensagem na tela."""
+        for alvo in ("av:abc", "conta:abc", "resp:abc:pai", f"resp:{self.av.id}:chefe"):
+            self._lancar(alvo=alvo)
+        self.assertFalse(ParcelamentoClube.objects.exists())
 
     def test_valor_baixo_para_o_numero_de_parcelas_e_recusado(self):
         """O nº de parcelas foi pedido: cair para 1 silenciosamente seria pior."""
@@ -5703,6 +5756,34 @@ class CobrancaParcelaClubeTests(TestCase):
         self.assertEqual(len(familias), 1)
         self.assertEqual(familias[0]["total"], Decimal("200.00"))
         self.assertEqual(familias[0]["n_parcelas"], 2)
+
+    def test_cobranca_chama_quem_combinou_o_acerto(self):
+        """A mensagem é da conta, mas a conta atende três adultos: com todos os
+        lançamentos apontando para a mesma pessoa, é ela quem é chamada pelo
+        nome — não a responsável legal da ficha."""
+        self.lanc.aventureiro = None
+        self.lanc.pessoa = "Pai Teste"
+        self.lanc.save(update_fields=["aventureiro", "pessoa"])
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
+        self.assertEqual(r.context["cobrancas_parcelas"][0]["resp_nome"], "Pai Teste")
+
+    def test_com_lancamentos_de_adultos_diferentes_volta_ao_nome_da_conta(self):
+        """Chamar pelo nome errado é pior do que usar o nome genérico."""
+        self.lanc.aventureiro = None
+        self.lanc.pessoa = "Pai Teste"
+        self.lanc.save(update_fields=["aventureiro", "pessoa"])
+        outro = ParcelamentoClube.objects.create(
+            usuario=self.resp, pessoa="Mãe Teste", descricao="Outro acerto",
+            valor_total=Decimal("50.00"), qtd_parcelas=1,
+        )
+        ParcelaClube.objects.create(
+            parcelamento=outro, numero=1, total=1, valor=Decimal("50.00"),
+            vencimento=views._vencimento_diferido(),
+        )
+        r = self.client.get(reverse("core:mensalidades") + "?aba=cobrar-parcelas")
+        self.assertEqual(
+            r.context["cobrancas_parcelas"][0]["resp_nome"], "Responsável Teste"
+        )
 
     def test_envio_registra_historico_proprio(self):
         with mock.patch.object(views, "_enviar_whatsapp", return_value=(True, "ok")):

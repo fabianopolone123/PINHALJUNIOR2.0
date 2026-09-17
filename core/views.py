@@ -9189,9 +9189,14 @@ def _alvos_responsaveis(ja_listadas):
     específico.
 
     Os três nomes viram opções separadas porque quem lança lembra do adulto com
-    quem combinou, e nem sempre é o responsável legal. Todas apontam para a
-    mesma `conta:<id>` do aventureiro: muda só como o Diretor acha a família na
-    lista. **Não** filtra `ativo`: dívida combinada continua devida depois de a
+    quem combinou, e nem sempre é o responsável legal. Todas levam à mesma
+    **conta**, mas cada uma manda o **papel** de onde o nome saiu
+    (`resp:<av_id>:<papel>`): o vínculo continua sendo com a conta e o nome é
+    guardado no lançamento. Antes as três mandavam `conta:<id>` puro, o nome
+    escolhido se perdia no POST e a lista recalculava pelo `resp_nome` — o
+    acerto combinado com o pai voltava com o nome da responsável legal.
+
+    **Não** filtra `ativo`: dívida combinada continua devida depois de a
     criança sair do clube (a exceção do parcelamento). A conta que já aparece
     em "Diretoria" fica de fora, senão seria a mesma opção duas vezes."""
     familias = {}
@@ -9203,16 +9208,22 @@ def _alvos_responsaveis(ja_listadas):
         if a.usuario_id in ja_listadas:
             continue
         f = familias.setdefault(a.usuario_id, {"usuario": a.usuario, "pessoas": {}})
-        for papel, nome in (
-            ("pai", a.pai_nome), ("mãe", a.mae_nome), ("resp. legal", a.resp_nome),
+        for chave, papel, nome in (
+            ("pai", "pai", a.pai_nome),
+            ("mae", "mãe", a.mae_nome),
+            ("resp", "resp. legal", a.resp_nome),
         ):
             nome = " ".join((nome or "").split())
             if not nome:
                 continue
             # A mesma pessoa costuma ser mãe numa ficha e responsável legal na
-            # mesma: é UMA opção, com os dois papéis no detalhe.
+            # mesma: é UMA opção, com os dois papéis no detalhe. O alvo fica
+            # ancorado no PRIMEIRO par (ficha, papel) que trouxe o nome — os
+            # outros só acrescentam papel e filho ao rótulo.
             p = f["pessoas"].setdefault(
-                nome.casefold(), {"nome": nome, "papeis": [], "filhos": []}
+                nome.casefold(),
+                {"nome": nome, "papeis": [], "filhos": [],
+                 "alvo": f"resp:{a.id}:{chave}"},
             )
             if papel not in p["papeis"]:
                 p["papeis"].append(papel)
@@ -9227,6 +9238,7 @@ def _alvos_responsaveis(ja_listadas):
             u = f["usuario"]
             pessoas = [{
                 "nome": u.get_full_name() or u.username, "papeis": [], "filhos": [],
+                "alvo": f"conta:{uid}",
             }]
         for p in pessoas:
             filhos = ", ".join(p["filhos"][:2])
@@ -9235,25 +9247,56 @@ def _alvos_responsaveis(ja_listadas):
             papeis = "/".join(p["papeis"])
             detalhe = f"{papeis} de {filhos}" if papeis and filhos else filhos
             alvos.append({
-                "valor": f"conta:{uid}", "rotulo": p["nome"], "detalhe": detalhe,
+                "valor": p["alvo"], "rotulo": p["nome"], "detalhe": detalhe,
             })
     alvos.sort(key=lambda a: (a["rotulo"].lower(), a["detalhe"].lower()))
     return alvos
 
 
+# Papel do adulto na ficha → campo de onde sai o nome. Dita o que o alvo
+# "resp:<av_id>:<papel>" aceita: papel fora daqui não casa com nada.
+CAMPOS_ADULTO_FICHA = {"pai": "pai_nome", "mae": "mae_nome", "resp": "resp_nome"}
+
+
 def _resolver_alvo(valor):
-    """"av:<id>"/"conta:<id>" → (usuario, aventureiro|None). (None, None) se não
-    casar — o POST é validado por aqui, não pelo HTML."""
+    """"av:<id>" / "resp:<av_id>:<papel>" / "conta:<id>" →
+    (usuario, aventureiro|None, pessoa). (None, None, "") se não casar — o POST
+    é validado por aqui, não pelo HTML.
+
+    O "resp:" traz a **conta** do aventureiro e o **nome** do adulto daquele
+    papel, lido da ficha **no servidor**: o rótulo que o navegador poderia
+    mandar junto não é fonte de verdade. O vínculo continua sendo com a conta —
+    o nome serve para o lançamento dizer com quem o acerto foi combinado."""
     tipo, _, ident = (valor or "").partition(":")
     if tipo == "av":
-        av = Aventureiro.objects.filter(
-            pk=ident or 0, usuario__isnull=False
-        ).select_related("usuario").first()
-        return (av.usuario, av) if av else (None, None)
+        av = _aventureiro_do_alvo(ident)
+        return (av.usuario, av, "") if av else (None, None, "")
+    if tipo == "resp":
+        av_id, _, papel = ident.partition(":")
+        campo = CAMPOS_ADULTO_FICHA.get(papel)
+        av = _aventureiro_do_alvo(av_id) if campo else None
+        if av is None:
+            return None, None, ""
+        nome = " ".join((getattr(av, campo) or "").split())
+        # Ficha sem esse adulto: o alvo aponta para um nome que não existe, e
+        # gravar o lançamento em silêncio deixaria a lista sem nome nenhum.
+        return (av.usuario, None, nome) if nome else (None, None, "")
     if tipo == "conta":
-        u = User.objects.filter(pk=ident or 0).first()
-        return (u, None) if u else (None, None)
-    return None, None
+        u = User.objects.filter(pk=ident).first() if ident.isdigit() else None
+        return (u, None, "") if u else (None, None, "")
+    return None, None, ""
+
+
+def _aventureiro_do_alvo(ident):
+    """O aventureiro de um id vindo do POST, ou None. O `isdigit` importa: um id
+    não numérico forjado estoura `ValueError` dentro do `filter` e vira 500 numa
+    view cuja recusa é uma mensagem na tela."""
+    if not (ident or "").isdigit():
+        return None
+    return (
+        Aventureiro.objects.filter(pk=ident, usuario__isnull=False)
+        .select_related("usuario").first()
+    )
 
 
 def _q_parcelamentos_clube():
@@ -9368,7 +9411,7 @@ def parcelamento_novo_view(request):
     """Lança um parcelamento na mão: valor total ÷ nº de parcelas, vencendo no
     dia `DIA_VENCIMENTO_PARCELA` a partir do mês escolhido."""
     volta = reverse("core:mensalidades") + "?aba=parcelas"
-    usuario, aventureiro = _resolver_alvo(request.POST.get("alvo"))
+    usuario, aventureiro, pessoa = _resolver_alvo(request.POST.get("alvo"))
     if usuario is None:
         messages.error(request, "Escolha para quem é o lançamento.")
         return redirect(volta)
@@ -9407,6 +9450,7 @@ def parcelamento_novo_view(request):
     lanc = ParcelamentoClube.objects.create(
         usuario=usuario,
         aventureiro=aventureiro,
+        pessoa=pessoa,
         evento=evento,
         descricao=descricao,
         observacao=(request.POST.get("observacao") or "").strip(),
@@ -9533,7 +9577,7 @@ def _cobrancas_parcelas_familias():
         u = users.get(uid)
         if u is None:
             continue
-        nome = _nome_da_conta(u)
+        nome = _nome_da_conta(u, {p.parcelamento for p in parcelas})
         perfil, _ = PerfilUsuario.objects.get_or_create(usuario=u)
         numeros = _numeros_conta(u)
         origem_atual, numero = _resolver_origem_numero(
@@ -9573,9 +9617,20 @@ def _cobrancas_parcelas_familias():
     return familias
 
 
-def _nome_da_conta(usuario):
+def _nome_da_conta(usuario, lancamentos=None):
     """Nome de quem responde pela conta: o responsável dos aventureiros ou, numa
-    conta só de diretoria, o nome da ficha."""
+    conta só de diretoria, o nome da ficha.
+
+    Com `lancamentos`, quem manda é a **pessoa escolhida no lançamento** — mas
+    só quando **todos** apontam para a mesma: a conta atende pai, mãe e
+    responsável legal, e a cobrança é uma mensagem só para a conta inteira.
+    Divergindo (ou faltando o nome em algum, que é o caso dos lançamentos
+    anteriores ao campo), volta ao responsável da família — chamar a pessoa pelo
+    nome errado é pior do que usar o nome genérico da conta."""
+    if lancamentos:
+        nomes = {(l.pessoa or "").strip() for l in lancamentos}
+        if len(nomes) == 1 and "" not in nomes:
+            return nomes.pop()
     nome, _ = _responsavel_da_familia(usuario)
     membro = getattr(usuario, "membro_diretoria", None)
     if membro is not None and (not nome or nome == usuario.username):
@@ -9889,7 +9944,7 @@ def parcelas_clube_view(request, token):
             "abertas": abertas,
             "cancelado": lanc.status == "cancelado",
         })
-    nome = _nome_da_conta(usuario)
+    nome = _nome_da_conta(usuario, lancamentos)
     return render(request, "core/parcelas_clube.html", {
         "token": token,
         "blocos": blocos,
@@ -9924,7 +9979,7 @@ def parcela_clube_pagar_view(request, token):
     forma = request.POST.get("forma_pagamento") or "pix"
     if forma not in {"pix", "cartao"}:
         forma = "pix"
-    nome = _nome_da_conta(lanc.usuario)
+    nome = _nome_da_conta(lanc.usuario, [lanc])
     descricao = f"Parcela {parcela.rotulo} — {lanc.descricao}"
     payload = {
         "parcela_clube_id": parcela.id,

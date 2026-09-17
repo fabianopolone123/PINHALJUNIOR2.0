@@ -2,7 +2,29 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-16 (**Leilão: o emoji cede a vez para a voz e para o lance**): a rajada
+**Última atualização:** 2026-09-17 (**Parcelas: o lançamento volta no nome de quem combinou**): bug
+relatado pelo clube — lançar um parcelamento para um **pai** e ele aparecer na lista com o nome da
+**responsável legal**. A causa: o seletor "para quem" oferece pai, mãe e responsável legal como opções
+**diferentes**, mas as três mandavam o **mesmo** `conta:<id>` — o nome escolhido morria no POST
+(`_resolver_alvo` devolvia só conta + aventureiro) e `pessoa_nome` o **recalculava** pela ficha, caindo
+sempre no `resp_nome`. O nome errado aparecia em tudo o que lê `pessoa_nome`: painel de Parcelas, busca,
+"📋 Copiar resumo", extrato do Financeiro, extrato do evento e o toast de confirmação; e, pela mesma regra
+em `_nome_da_conta`, também na aba **Cobrar parcelas** e na **saudação da página pública**. A suíte não
+pegava porque o único teste do caso escolhia justamente a responsável legal. Agora a opção carrega o
+**papel** (`resp:<av_id>:<papel>`), `_resolver_alvo` devolve **`(usuario, aventureiro, pessoa)`** com o nome
+lido **da ficha, no servidor** (o rótulo que o navegador mandasse não é fonte de verdade) e ele é gravado em
+**`ParcelamentoClube.pessoa`** (mig. **0074**), **snapshot** — corrigir a ficha depois não reescreve o que
+foi combinado. **O vínculo continua sendo com a CONTA**: mudou só o que a lista mostra. `pessoa` vem
+**depois** do aventureiro e **antes** da ficha em `pessoa_nome`. Na cobrança e na página pública,
+`_nome_da_conta(usuario, lancamentos)` usa a pessoa **só quando todos os lançamentos apontam para ela** —
+com adultos diferentes na mesma conta volta ao responsável da família, porque chamar pelo nome errado é pior
+que usar o nome genérico. De quebra, id forjado no alvo (`av:abc`) deixou de estourar **500**
+(`_aventureiro_do_alvo` confere `isdigit` antes do `filter`) e papel que a ficha não tem preenchido é
+**recusado** em vez de gravar um lançamento sem nome. **Lançamento anterior à migration fica com `pessoa`
+vazia** e continua mostrando o `resp_nome`: a escolha daquele dia não foi gravada e não há como recuperá-la
+— para corrigir um lançamento já feito, cancele e lance de novo. Suíte: **441 testes OK**.
+
+**Atualização anterior:** 2026-09-16 (**Leilão: o emoji cede a vez para a voz e para o lance**): a rajada
 de reações estava provada barata **sozinha**; faltava garantir **em código** que ela não roube o
 processador quando tudo acontece junto — voz ao vivo, lance e emoji, no mesmo vCPU. A ordem de
 importância virou regra: **voz e lance são o leilão; emoji é enfeite**, e enfeite é o primeiro a ser
@@ -1915,7 +1937,9 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
     via property `ProdutoLoja.capa`). Mig. **0022**. Suporta várias fotos + lightbox na vitrine.
 
   - **Parcelamento lançado pelo clube** (mig. **0071**): `ParcelamentoClube` — o lançamento manual (FK
-    `usuario` = a **conta**, `aventureiro` e `evento` **opcionais**, `descricao`, `observacao`,
+    `usuario` = a **conta**, `aventureiro` e `evento` **opcionais**, **`pessoa`** (mig. **0074**) = o adulto
+    escolhido no seletor quando o alvo é pai/mãe/resp. legal — a conta é a mesma para os três, e sem o
+    snapshot a lista recalculava pelo `resp_nome` e mostrava o adulto errado —, `descricao`, `observacao`,
     `valor_total`, `qtd_parcelas`, `status` ativo/cancelado, `token` do link público, `criado_por`). Props
     `total_recebido`/`total_aberto`/`total_vencido`/`n_abertas`/`n_pagas`/`quitado`/`proximo_vencimento`/
     `pessoa_nome`. `ParcelaClube` — a parcela (FK `parcelamento`, `numero`/`total`, `valor`, `vencimento`,

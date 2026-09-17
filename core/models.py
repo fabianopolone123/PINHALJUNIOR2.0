@@ -3766,6 +3766,13 @@ class ParcelamentoClube(models.Model):
         related_name="parcelamentos",
         verbose_name="Evento (opcional)",
     )
+    # Qual ADULTO da ficha foi escolhido no seletor "para quem" (pai, mãe ou
+    # responsável legal). A mesma conta atende os três, e sem guardar o nome não
+    # há como saber com quem o acerto foi combinado: a lista recalculava pelo
+    # `resp_nome` e o lançamento do pai aparecia com o nome da responsável
+    # legal. É um **snapshot**, como os outros nomes do sistema — corrigir a
+    # ficha depois não reescreve o que foi combinado.
+    pessoa = models.CharField("Pessoa do acerto", max_length=150, blank=True)
     descricao = models.CharField("Descrição", max_length=150)
     observacao = models.TextField("Observação", blank=True)
     valor_total = models.DecimalField(
@@ -3847,9 +3854,18 @@ class ParcelamentoClube(models.Model):
 
     @property
     def pessoa_nome(self):
-        """Por quem é o acerto: o aventureiro, quando há; senão a conta."""
+        """Por quem é o acerto: o aventureiro, quando há; senão o adulto
+        escolhido no seletor; senão a conta.
+
+        A `pessoa` vem **antes** da ficha de propósito: a conta é a mesma para
+        pai, mãe e responsável legal, e recalcular pelo `resp_nome` mostraria
+        sempre o responsável legal — o acerto do pai apareceria no nome dela.
+        Lançamento antigo (anterior ao campo) tem `pessoa` vazia e continua
+        caindo nos degraus de baixo."""
         if self.aventureiro_id:
             return self.aventureiro.nome_completo
+        if self.pessoa:
+            return self.pessoa
         membro = getattr(self.usuario, "membro_diretoria", None)
         if membro is not None:
             return membro.nome_completo

@@ -229,8 +229,15 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   O vínculo é com a **conta** (`usuario`), não com o aventureiro — é o que faz servir para família **e** para
   diretoria sem filho no clube; `aventureiro` e `evento` são **opcionais**. O seletor "para quem" tem **três
   grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`), **Responsáveis** (a família pelos adultos da
-  ficha — pai, mãe e resp. legal, `_alvos_responsaveis`) e Diretoria — os dois últimos dão o **mesmo** `conta:<id>`, então o grupo novo é só
-  outro caminho para a mesma conta. Responsáveis **não filtra `ativo`** (a exceção do parcelamento) e não
+  ficha — pai, mãe e resp. legal, `_alvos_responsaveis`, que manda `resp:<av_id>:<papel>`) e Diretoria
+  (`conta:<id>`). Os três levam à **mesma conta**, mas o alvo de Responsáveis carrega o **papel**, e o nome
+  daquele adulto é gravado em **`ParcelamentoClube.pessoa`** (mig. **0074**), que `pessoa_nome` usa logo
+  depois do aventureiro: sem isso o nome era recalculado pelo `resp_nome` e **o acerto do pai voltava no
+  nome da responsável legal** (bug real). É snapshot — corrigir a ficha depois não reescreve o combinado —,
+  e `_nome_da_conta(usuario, lancamentos)` segue a mesma pessoa na cobrança e na página pública, **só quando
+  todos os lançamentos apontam para ela** (divergindo, volta ao nome da conta: chamar pelo nome errado é
+  pior). Lançamento anterior à migration tem `pessoa` vazia e continua caindo no `resp_nome`.
+  Responsáveis **não filtra `ativo`** (a exceção do parcelamento) e não
   repete quem já está em Diretoria. **Não** é uma `Mensalidade`
   (uma por aventureiro/ano/mês, sem vencimento nem descrição, amarrada ao aventureiro) nem uma
   `ParcelaInscricao` (exige `Inscricao`, e o dinheiro dela entra pelo evento). **O lançamento nasce 100% a

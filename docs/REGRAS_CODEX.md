@@ -552,12 +552,31 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
   lançamento servir para família e para **diretoria sem filho no clube**. `aventureiro` é opcional (diz *por
   quem* é o acerto) e `evento` é opcional (diz *de onde* veio a dívida).
 - **O seletor "para quem" tem TRÊS grupos** (`_alvos_parcelamento`): Aventureiros (`av:<id>`, ativos),
-  **Responsáveis** (`conta:<id>`, a família pelos adultos da ficha — **pai, mãe e responsável legal**, uma
-  opção cada, em `_alvos_responsaveis`; quem acumula papéis vira uma opção só) e Diretoria
-  (`conta:<id>`). Os dois últimos produzem o **mesmo** alvo: o grupo novo é só outro caminho para a mesma
-  conta, e por isso `_resolver_alvo` não mudou. A conta que já está em Diretoria **não** se repete em
+  **Responsáveis** (`resp:<av_id>:<papel>`, a família pelos adultos da ficha — **pai, mãe e responsável
+  legal**, uma opção cada, em `_alvos_responsaveis`; quem acumula papéis vira uma opção só) e Diretoria
+  (`conta:<id>`). Os três levam à **mesma conta**. A conta que já está em Diretoria **não** se repete em
   Responsáveis, e esse grupo **não filtra `ativo`** — é a exceção do parcelamento (dívida combinada continua
   devida), então a família cujo aventureiro saiu ainda precisa ser alcançável. `demo` fica fora dos três.
+- **Escolher uma PESSOA e guardar só a CONTA perde a escolha.** Pai, mãe e responsável legal dividem a
+  mesma conta: enquanto as três opções mandavam `conta:<id>` puro, o nome escolhido morria no POST e
+  `pessoa_nome` o recalculava pelo `resp_nome` — **o acerto combinado com o pai reaparecia no nome da
+  responsável legal**, no painel, no resumo copiado, nos dois extratos, na aba de cobrança e na saudação da
+  página pública. Foi bug real. Por isso o alvo carrega o **papel** e `_resolver_alvo` devolve
+  `(usuario, aventureiro, pessoa)`, com o nome lido **da ficha, no servidor** — rótulo que o navegador
+  mandasse não é fonte de verdade. **Opção de seletor que o usuário distingue pelo nome precisa gravar esse
+  nome**; se o alvo não o carrega, ele se perde.
+- **`ParcelamentoClube.pessoa` é snapshot** (mig. **0074**), como os outros nomes do sistema: corrigir a
+  ficha depois não reescreve o que foi combinado. Vem **antes** da ficha em `pessoa_nome` e **depois** do
+  aventureiro (escolher a criança deixa `pessoa` vazia, então não há disputa). Lançamento anterior à
+  migration tem o campo vazio e continua caindo nos degraus de baixo — a escolha daquele dia não foi
+  gravada e não há como recuperá-la.
+- **Mensagem para a CONTA só chama alguém pelo nome quando a conta tem um dono só.**
+  `_nome_da_conta(usuario, lancamentos)` usa a `pessoa` apenas se **todos** os lançamentos apontam para ela;
+  com adultos diferentes na mesma conta, volta ao responsável da família. Errar o nome de quem recebe a
+  cobrança é pior do que usar o nome genérico.
+- **Id vindo do POST passa por `isdigit` antes do `filter`** (`_aventureiro_do_alvo`). Um alvo forjado
+  (`av:abc`) estoura `ValueError` dentro do ORM e vira **500 de HTML** numa view cuja recusa é uma mensagem
+  na tela — a mesma lição de `minutos`/`quantos` no leilão.
 - **Virar diretoria numa conta que já existe passa por `/meus-dados/diretoria/`, nunca pelo
   `/cadastro/diretoria/`.** Aquele **cria conta** (`User.objects.create_user`) — usá-lo para quem já tem login
   parte a família em dois cadastros. O caminho novo tem três donos: o **Diretor** libera a conta em Usuários
@@ -596,8 +615,9 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
   pública do inativo é bloqueada (e a do evento simples não existe). Mandar link que não abre é pior do que
   não mandar.
 - **Lançamento numa conta sem aventureiro precisa de um nome legível**: `pessoa_nome` tenta, nesta ordem,
-  aventureiro → ficha de diretoria → **`resp_nome` da família** → `get_full_name()`/username. Sem o penúltimo
-  degrau a lista de parcelas mostrava o **nome de acesso** da conta.
+  aventureiro → **`pessoa` escolhida no seletor** → ficha de diretoria → **`resp_nome` da família** →
+  `get_full_name()`/username. Sem o último degrau útil a lista de parcelas mostrava o **nome de acesso** da
+  conta; sem o segundo, mostrava o adulto errado da mesma família.
 - **Não vire uma `Mensalidade`.** Ela é **uma por (aventureiro, ano, mês)** — colidiria com a mensalidade do
   mês —, não tem vencimento nem descrição, e é amarrada ao `Aventureiro`. E não vire uma `ParcelaInscricao`:
   ela exige uma `Inscricao` e o dinheiro dela entra no caixa **pelo evento**.
