@@ -88,6 +88,15 @@ ele que a equipe decide o que é perto do quê.
   caixa, acento e espaço, não abreviação). Reescrito, dizendo quem resolve esse
   caso — o quadro.
 
+### Deploy
+Em produção em 17/09/2026, commit `4e75a19`. **Tem migration**, então valeu o
+passo extra do leilão (`docs/DEPLOY_LEILAO.md` §7.1): depois do
+`pinhaljunior2-deploy`, `migrate` (aplicou a `leilao/0009`), `collectstatic` com
+as settings do leilão e `restart` do `pinhaljunior_leilao.service`. Conferido
+**antes de reiniciar que não havia pregão ao vivo** — reiniciar no meio de um
+lote pode fechá-lo no ato, se o prazo vencer durante a subida. Os dois sites
+responderam 200.
+
 ### Pendências
 - O ponto 3 da conferência continua aberto por escolha: **um bairro dominante
   deixa a divisão automática muito desigual** (12/2/0 com 3 entregadores). Agora

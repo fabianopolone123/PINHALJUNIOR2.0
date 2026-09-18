@@ -20,8 +20,9 @@ servidor**, refeito a cada movimento, com o **nome do entregador** no cabeçalho
 por decisão do clube. Junto, dois achados da conferência do módulo: o mesmo bairro escrito de jeitos
 diferentes abria **um cabeçalho por grafia** na rota impressa (agora é **um rótulo por região**, a grafia
 mais usada, preferindo nome próprio) e o docstring de `_chave_regiao` prometia juntar "Jd. Paulista" com
-"Jardim Paulista", o que ele **não** faz. Suíte do leilão: **288 testes OK** (+17). **Com migration
-(`leilao/0009`)** — e o deploy do leilão é o passo extra (ver `docs/DEPLOY_LEILAO.md`).
+"Jardim Paulista", o que ele **não** faz. Suíte do leilão: **288 testes OK** (+17). **Em produção** no commit `4e75a19` (17/09/2026), com a migration **`leilao/0009`** aplicada, os
+estáticos do leilão coletados e o `pinhaljunior_leilao.service` reiniciado (o passo extra do
+`docs/DEPLOY_LEILAO.md` §7.1); os dois sites responderam 200.
 
 **Atualização anterior:** 2026-09-17 (**Mensalidades: editar um mês não joga mais a pessoa para o topo**):
 relatado pelo clube — em **Mensalidades → Aventureiros**, procurar a criança, abrir o card e isentar um mês
