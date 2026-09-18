@@ -945,6 +945,26 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **O sistema NÃO consulta mapa, e a tela diz isso.** Não há coordenada no cadastro, e buscar uma seria
   dependência externa nova. A divisão é por **bairro** e equilibra o número de paradas. Declarar o limite é
   parte do recurso: precisão inventada é pior do que limite declarado, porque a equipe confia nela.
+- **A divisão automática é PONTO DE PARTIDA; a palavra final é do quadro** (`/caixa/entregas/`). Sem mapa, o
+  servidor compara **nomes** de bairro — ele nunca vai saber que um bairro é perto do outro, nem juntar
+  "Jd. Exemplo" com "Jardim Exemplo". Quem sabe isso é a equipe, e o quadro é onde ela arrasta. Não tente
+  fazer o algoritmo adivinhar proximidade: ou se compra mapa (dependência nova, chamada por endereço na noite
+  do evento) ou se aceita que a decisão é humana.
+- **O quadro nasce preenchido e só semeia UMA vez** (`_semear_quadro`): parada que aparecer depois (quem pagou
+  mais tarde) cai em "a distribuir". Resemear por cima apagaria o trabalho manual, que é o que o quadro existe
+  para guardar. O botão "refazer por bairro" apaga de propósito — e pergunta antes.
+- **Cada arrastada salva na hora**, e se o servidor recusar a tela **desfaz**. A divisão que está na tela é a
+  que vira a mensagem mandada ao voluntário: uma tela que mostre o que o banco não tem manda o voluntário para
+  a casa errada.
+- **A unidade do quadro é a mesma da divisão: a PESSOA** (`AtribuicaoEntrega.participante`). Arrastar leva
+  tudo o que ela arrematou junto.
+- **Diminuir o número de colunas não apaga atribuição**: a parada volta para "a distribuir" (quem faz isso é
+  `entregas.quadro`, ignorando número que não existe mais). Apagar faria a equipe perder trabalho por um
+  clique de configuração.
+- **UM rótulo por região** (`_uniformizar_rotulos`). Agrupar pela chave normalizada resolve a divisão, mas o
+  rótulo é a grafia de quem cadastrou: sem uniformizar, a rota impressa abre um cabeçalho de região por
+  variação ("Centro", "centro", "CENTRO") e quem entrega lê três regiões. Vence a mais usada; no empate, a
+  escrita como nome próprio.
 - **A unidade da divisão é a PESSOA, não o item.** Dois itens da mesma casa são uma visita só; contar itens
   faria um entregador parecer sobrecarregado sem estar.
 - **Bairro nunca é partido** entre dois entregadores — é exatamente o que a divisão existe para evitar.

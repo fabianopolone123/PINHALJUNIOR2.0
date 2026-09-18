@@ -1,0 +1,16 @@
+{% comment %}
+Um cartão do quadro de entregas: a PARADA, que é a pessoa com tudo o que ela
+arrematou. O bairro vem em destaque porque é por ele que a equipe decide o que
+é perto do quê — o sistema não sabe isso, quem sabe é quem conhece a cidade.
+{% endcomment %}
+<article class="parada" draggable="true" data-participante="{{ p.pessoa.id }}">
+    <span class="parada-bairro">{{ p.rotulo }}</span>
+    <b class="parada-nome">{{ p.pessoa.nome }}</b>
+    <span class="parada-endereco">📍 {{ p.pessoa.endereco_uma_linha|default:"Sem endereço cadastrado" }}</span>
+    <span class="parada-tel">📱 {{ p.pessoa.whatsapp }}</span>
+    <ul class="parada-itens">
+        {% for a in p.itens %}
+        <li>nº {{ a.lote.numero }} — {{ a.lote.nome }}</li>
+        {% endfor %}
+    </ul>
+</article>

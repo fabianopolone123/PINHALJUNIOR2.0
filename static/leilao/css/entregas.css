@@ -1,0 +1,210 @@
+/* =========================================================
+   Quadro de entregas — uma coluna por entregador e as
+   paradas para arrastar entre elas.
+
+   É tela de COMPUTADOR, de propósito: arrastar é a interação,
+   e a equipe monta as rotas sentada, depois do leilão. Por
+   isso as colunas rolam na horizontal em vez de empilhar —
+   ver duas colunas ao mesmo tempo é o que torna o arrastar
+   possível.
+   ========================================================= */
+
+.quadro-topo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.quadro-titulo {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+}
+
+.quadro-topo .micro-ajuda {
+    max-width: 62ch;
+    margin: 0;
+}
+
+.quadro-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.quadro-acoes .form-entregadores {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.quadro-acoes label {
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+.quadro-acoes input[type="number"] {
+    width: 68px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(0, 0, 0, 0.25);
+    color: inherit;
+    font: inherit;
+}
+
+/* --- o quadro --- */
+.quadro {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-bottom: 12px;
+}
+
+.coluna {
+    /* minmax(0,…) não se aplica a flex-basis, mas o min-width: 0 tem o mesmo
+       papel: sem ele um endereço comprido estica a coluna e estoura o quadro. */
+    flex: 0 0 300px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.coluna-fila {
+    background: rgba(255, 196, 0, 0.1);
+    border-color: rgba(255, 196, 0, 0.35);
+}
+
+.coluna-topo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.coluna-nome {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+}
+
+.coluna-nome::placeholder {
+    font-weight: 700;
+    opacity: 0.55;
+}
+
+.coluna-contagem {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.coluna-regioes {
+    margin: 0;
+    font-size: 0.78rem;
+    opacity: 0.75;
+    min-height: 1em;
+}
+
+.coluna-paradas {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 90px;
+    border-radius: 10px;
+    transition: background 0.12s ease;
+}
+
+/* Onde a parada vai cair, enquanto o arrasto está no ar. */
+.coluna-paradas.alvo {
+    background: rgba(90, 200, 120, 0.18);
+    outline: 2px dashed rgba(90, 200, 120, 0.6);
+    outline-offset: 3px;
+}
+
+.coluna-vazia {
+    margin: 0;
+    font-size: 0.8rem;
+    opacity: 0.6;
+    text-align: center;
+}
+
+/* A frase de coluna vazia só aparece quando a coluna está vazia mesmo. */
+.coluna-paradas:not(:empty) + .coluna-vazia {
+    display: none;
+}
+
+/* --- o cartão que se arrasta --- */
+.parada {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: grab;
+}
+
+.parada:active {
+    cursor: grabbing;
+}
+
+.parada.arrastando {
+    opacity: 0.45;
+}
+
+.parada-bairro {
+    align-self: flex-start;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(90, 160, 255, 0.25);
+    border: 1px solid rgba(90, 160, 255, 0.45);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.parada-nome {
+    font-size: 0.95rem;
+}
+
+.parada-endereco,
+.parada-tel {
+    font-size: 0.78rem;
+    opacity: 0.85;
+    overflow-wrap: anywhere;
+}
+
+.parada-itens {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 0.78rem;
+    opacity: 0.85;
+}
+
+.copiar-fonte {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+}
+
+/* Tela estreita: o quadro continua rolando na horizontal, mas com colunas um
+   pouco mais magras — não é a tela recomendada, e sim a que não quebra. */
+@media (max-width: 720px) {
+    .coluna {
+        flex-basis: 250px;
+    }
+}

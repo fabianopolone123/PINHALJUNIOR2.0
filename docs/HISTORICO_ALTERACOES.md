@@ -22,6 +22,81 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-17 - Leilão: quadro de entregas (arrastar quem leva o quê)
+
+### Resumo
+Pergunta do clube, conferindo a divisão de entregas: *"se não há cálculo de
+rota, como ele sabe que um endereço é perto do outro?"*. A resposta honesta é
+**ele não sabe** — compara o **nome** do bairro, e é tudo o que dá para fazer sem
+mapa. Dois bairros vizinhos são, para o código, tão distantes quanto dois nos
+extremos da cidade.
+
+Comprar mapa seria dependência externa nova, chave paga e uma chamada por
+endereço na noite do evento. A decisão foi outra: **a divisão automática vira
+ponto de partida e a palavra final passa a ser da equipe**, que conhece a cidade.
+
+### O que foi feito
+Um **quadro** em `/caixa/entregas/`: coluna "a distribuir" + uma coluna por
+entregador, com as paradas em cartões que se arrastam entre elas. Cada cartão é
+uma **pessoa** (com todos os itens dela) e traz o **bairro em destaque** — é por
+ele que a equipe decide o que é perto do quê.
+
+### Arquivos criados/alterados
+- `leilao/models.py`: `EntregadorLeilao` (a coluna — rótulo, não cadastro) e
+  `AtribuicaoEntrega` (a parada e o seu entregador). Migration **0009**.
+- `leilao/entregas.py`: `paradas_de`/`ordenar_paradas` extraídos de `dividir`,
+  novo `quadro()`, `texto_da_rota(..., nome=)` e `_uniformizar_rotulos`.
+- `leilao/views.py`: `entregas_quadro_view`, `entregas_redistribuir_view` e as
+  ações `entrega_mover`/`entrega_nome` no POST único da equipe. A divisão saiu
+  da tela do caixa.
+- `templates/leilao/entregas_quadro.html`, `_parada_entrega.html`, `caixa.html`.
+- `static/leilao/css/entregas.css`, `static/leilao/js/entregas_quadro.js`.
+- `leilao/tests.py`: +17 testes (`QuadroDeEntregasTests`, 17 casos) e a
+  adaptação dos dois de `TelaDeDividirEntregasTests` que liam `context["rotas"]`,
+  agora apontando para o quadro. Suíte do leilão: 271 → **288, tudo OK**.
+- `docs/MANUAL_LEILAO.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`,
+  `CLAUDE.md`.
+
+### Decisões tomadas
+- **Cada arrastada salva na hora, e a recusa desfaz na tela.** Não há botão
+  "salvar": a equipe monta rota no fim de uma noite longa. E a tela não pode
+  mostrar uma divisão que o banco não tem — é ela que vira a mensagem mandada ao
+  voluntário.
+- **Semeia uma vez só.** O quadro nasce dividido por bairro; quem paga depois cai
+  em "a distribuir". Resemear por cima apagaria o trabalho manual, que é o que o
+  quadro existe para guardar. Para recomeçar existe o botão, que pergunta antes.
+- **Diminuir colunas devolve a parada para a fila**, não apaga a atribuição: um
+  clique de configuração não pode custar o trabalho das outras colunas.
+- **O entregador é rótulo, não cadastro.** Nome digitado na hora, valendo só
+  naquele leilão — os voluntários mudam a cada evento, e uma agenda seria mais
+  uma tela para manter o ano inteiro. O nome entra no topo da mensagem.
+- **Tela de computador, por decisão do clube.** Arrastar com o mouse; as colunas
+  rolam na horizontal em vez de empilhar, porque ver duas colunas ao mesmo tempo
+  é o que torna o arrastar possível.
+- **A conferência é do servidor**: `entrega_mover` recusa quem não tem entrega
+  pendente naquele leilão e entregador que não existe. Esconder o cartão não
+  protege nada.
+
+### Corrigido junto (achado na conferência do módulo)
+- **O mesmo bairro abria um cabeçalho por grafia** na rota impressa ("Centro",
+  "centro", "CENTRO" viravam três regiões para quem lê). O agrupamento sempre
+  esteve certo; o rótulo é que era por pessoa. Agora é **um por região**, a
+  grafia mais usada, preferindo a escrita como nome próprio. O teste que existia
+  só conferia que caíam na mesma rota, nunca o rótulo.
+- **O docstring de `_chave_regiao` prometia o que não fazia**: dava como exemplo
+  "Jd. Paulista" × "jardim paulista", que a normalização **não** junta (ela trata
+  caixa, acento e espaço, não abreviação). Reescrito, dizendo quem resolve esse
+  caso — o quadro.
+
+### Pendências
+- O ponto 3 da conferência continua aberto por escolha: **um bairro dominante
+  deixa a divisão automática muito desigual** (12/2/0 com 3 entregadores). Agora
+  incomoda menos, porque o quadro é feito para corrigir isso na mão, mas a tela
+  não avisa antes.
+- A UF é campo oculto fixo em `"SP"` e entra em toda linha de endereço da rota.
+
+---
+
 ## 2026-09-17 - Mensalidades: editar um mês não joga mais a pessoa para o topo
 
 ### Resumo

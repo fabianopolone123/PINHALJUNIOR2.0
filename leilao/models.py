@@ -856,3 +856,81 @@ class ContaEquipe(models.Model):
 
     def __str__(self):
         return self.nome or self.usuario.get_username()
+
+
+# ---------------------------------------------------------------------------
+# Quadro de entregas — quem leva o quê
+#
+# A divisão automática (`entregas.dividir`) agrupa por bairro e equilibra o
+# número de paradas, mas **não sabe que um bairro é perto do outro**: ela só
+# compara o nome do bairro, e nomes iguais ou diferentes é tudo o que ela vê.
+# Quem sabe que "isso aqui é tudo o mesmo lado" é a equipe.
+#
+# Por isso a divisão virou ponto de partida, e a palavra final é do quadro: a
+# equipe arrasta as paradas entre os entregadores e o resultado fica salvo.
+# Estes dois models são o que ela arrasta e onde isso para em pé.
+# ---------------------------------------------------------------------------
+class EntregadorLeilao(models.Model):
+    """Uma coluna do quadro: o voluntário que vai rodar a cidade.
+
+    É **rótulo, não cadastro**: o nome é digitado na hora e vale só para aquele
+    leilão. Guardar uma agenda de entregadores seria uma tela a mais para manter
+    o ano inteiro, quando o que a equipe precisa é escrever "Marcos" na coluna 2
+    e mandar a rota — os voluntários mudam a cada evento.
+    """
+
+    leilao = models.ForeignKey(
+        Leilao, on_delete=models.CASCADE, related_name="entregadores",
+        verbose_name="Leilão",
+    )
+    numero = models.PositiveSmallIntegerField("Entregador")
+    nome = models.CharField("Nome", max_length=80, blank=True)
+
+    class Meta:
+        verbose_name = "Entregador"
+        verbose_name_plural = "Entregadores"
+        unique_together = [("leilao", "numero")]
+        ordering = ["numero"]
+
+    def __str__(self):
+        return self.rotulo
+
+    @property
+    def rotulo(self):
+        """O que aparece na coluna e no topo da mensagem do WhatsApp."""
+        return (self.nome or "").strip() or f"Entregador {self.numero}"
+
+
+class AtribuicaoEntrega(models.Model):
+    """Para qual entregador ficou uma parada do quadro.
+
+    A parada é a **PESSOA**, não o item — dois itens da mesma casa são uma
+    visita só, e é assim que a divisão automática também conta. Por isso a chave
+    é o participante: arrastar a pessoa leva tudo o que ela arrematou junto.
+
+    `entregador = 0` é "ainda a distribuir", a coluna da esquerda. Vale também
+    para quem foi tirado de uma coluna que deixou de existir: a atribuição não é
+    apagada quando a equipe diminui o número de entregadores, ela **volta para a
+    fila** — o trabalho das outras colunas não pode se perder por causa disso.
+    """
+
+    SEM_ENTREGADOR = 0
+
+    leilao = models.ForeignKey(
+        Leilao, on_delete=models.CASCADE, related_name="atribuicoes_entrega",
+        verbose_name="Leilão",
+    )
+    participante = models.ForeignKey(
+        Participante, on_delete=models.CASCADE, related_name="atribuicoes_entrega",
+        verbose_name="Quem recebe",
+    )
+    entregador = models.PositiveSmallIntegerField("Entregador", default=SEM_ENTREGADOR)
+    atualizado_em = models.DateTimeField("Movida em", auto_now=True)
+
+    class Meta:
+        verbose_name = "Parada do quadro de entregas"
+        verbose_name_plural = "Paradas do quadro de entregas"
+        unique_together = [("leilao", "participante")]
+
+    def __str__(self):
+        return f"{self.participante} → {self.entregador or 'a distribuir'}"

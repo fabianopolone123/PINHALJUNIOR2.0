@@ -44,6 +44,9 @@ urlpatterns = [
     # --- Área do caixa ---
     path("caixa/", views.caixa_view, name="caixa"),
     path("caixa/arremate/<int:pk>/pix/", views.caixa_pix_view, name="caixa_pix"),
+    path("caixa/entregas/", views.entregas_quadro_view, name="entregas_quadro"),
+    path("caixa/entregas/redistribuir/", views.entregas_redistribuir_view,
+         name="entregas_redistribuir"),
     # --- Área da preparação ---
     path("preparacao/", views.preparacao_view, name="preparacao"),
     path("preparacao/config/", views.config_view, name="config"),

@@ -1,0 +1,86 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}Quadro de entregas — {{ leilao.nome }}{% endblock %}
+{% block corpo_classe %}tela-locutor{% endblock %}
+{% block css %}
+<link rel="stylesheet" href="{% static 'leilao/css/locutor.css' %}">
+<link rel="stylesheet" href="{% static 'leilao/css/entregas.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="mesa">
+    {% include "leilao/_nav_equipe.html" with area_atual="caixa" titulo_area="Caixa" %}
+
+    <div class="quadro-topo">
+        <div>
+            <h2 class="quadro-titulo">📦 Quem leva o quê</h2>
+            <p class="micro-ajuda">
+                O quadro já veio dividido <b>por bairro</b>, mas o sistema <b>não consulta mapa</b>:
+                ele não sabe que um bairro é perto do outro. Quem sabe é você — arraste as paradas
+                para o entregador certo. <b>Cada arrastada já fica salva.</b>
+            </p>
+        </div>
+        <div class="quadro-acoes">
+            <a class="btn-mesa" href="{% url 'leilao:caixa' %}">← Voltar ao caixa</a>
+            <form method="get" class="form-entregadores">
+                <label for="entregadores">Entregadores</label>
+                <input type="number" id="entregadores" name="entregadores"
+                       min="1" max="20" step="1" inputmode="numeric" value="{{ quantos }}">
+                <button type="submit" class="btn-mesa">Mudar</button>
+            </form>
+            <form method="post" action="{% url 'leilao:entregas_redistribuir' %}"
+                  data-confirmar="Isto joga fora o que já foi arrastado e refaz a divisão por bairro. Continuar?">
+                {% csrf_token %}
+                <button type="submit" class="btn-mesa">🔄 Refazer por bairro</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="quadro" id="quadro">
+        <section class="coluna coluna-fila" data-entregador="0">
+            <header class="coluna-topo">
+                <b>📋 A distribuir</b>
+                <span class="coluna-contagem" data-contagem>{{ a_distribuir|length }} parada(s)</span>
+            </header>
+            <div class="coluna-paradas" data-solta>
+                {% for p in a_distribuir %}{% include "leilao/_parada_entrega.html" %}{% endfor %}
+            </div>
+            <p class="coluna-vazia">Tudo distribuído. 🎉</p>
+        </section>
+
+        {% for c in colunas %}
+        <section class="coluna" data-entregador="{{ c.entregador.numero }}">
+            <header class="coluna-topo">
+                <input type="text" class="coluna-nome" value="{{ c.entregador.nome }}"
+                       placeholder="Entregador {{ c.entregador.numero }}" maxlength="80"
+                       aria-label="Nome do entregador {{ c.entregador.numero }}"
+                       data-nome="{{ c.entregador.numero }}">
+                <span class="coluna-contagem" data-contagem>{{ c.paradas|length }} parada(s) · {{ c.itens }} item(ns)</span>
+            </header>
+            <p class="coluna-regioes" data-regioes>{{ c.regioes|join:" · " }}</p>
+            <div class="coluna-paradas" data-solta>
+                {% for p in c.paradas %}{% include "leilao/_parada_entrega.html" %}{% endfor %}
+            </div>
+            <p class="coluna-vazia">Arraste paradas para cá.</p>
+            <button type="button" class="btn-mesa abrir btn-copiar-lista"
+                    data-fonte="rota{{ c.entregador.numero }}"
+                    data-aviso="Rota copiada! Agora é só colar na conversa.">
+                📋 Copiar a rota deste entregador
+            </button>
+            <textarea id="rota{{ c.entregador.numero }}" class="copiar-fonte" readonly
+                      data-texto="{{ c.entregador.numero }}">{{ c.texto }}</textarea>
+        </section>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="dadosQuadro" hidden
+     data-csrf="{{ csrf_token }}"
+     data-acao-url="{% url 'leilao:acao' %}"></div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/copiar_texto.js' %}"></script>
+<script src="{% static 'leilao/js/entregas_quadro.js' %}"></script>
+{% endblock %}

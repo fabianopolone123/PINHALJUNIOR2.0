@@ -273,25 +273,43 @@ e o **endereço**.
 **Faça isso quando o leilão terminar** e todo mundo já tiver pago — só entra na
 divisão o que **já foi pago**, e no meio do leilão a lista ainda está crescendo.
 
-Digite **quantos entregadores** vocês têm e clique em **📦 Montar as rotas**. A tela monta
-uma rota para cada um, com o próprio botão de copiar — é só mandar a de cada um
-no WhatsApp dele.
+Digite **quantos entregadores** vocês têm e clique em **📦 Abrir o quadro de
+entregas**. Abre um quadro com uma **coluna por entregador**, já preenchido.
 
-Como ele divide:
+**O quadro é o lugar de mexer.** Cada cartão é uma casa, com o **bairro em
+destaque** no alto, e você **arrasta** o cartão para a coluna do entregador que
+vai levar. **Cada arrastada já fica salva** — não existe botão de salvar, e dá
+para fechar a tela e voltar depois.
+
+Na coluna de cada entregador dá para **escrever o nome dele**. O nome entra no
+topo da mensagem, para ele saber que aquela rota é a dele.
+
+Como ele monta o ponto de partida:
 
 - **Junta por bairro.** Todo mundo do mesmo bairro fica com o mesmo entregador.
 - **Equilibra as paradas.** O bairro com mais casas vai para quem estiver mais
   leve.
 - **Casa com vários itens é uma parada só.** São todos entregues na mesma visita.
 
-> ⚠️ **O sistema não olha mapa.** Ele não sabe a distância entre dois pontos —
-> ele junta por bairro, que é o que vocês usariam para falar de região. Pode
-> acontecer de dois bairros vizinhos caírem com entregadores diferentes. Quem
-> conhece a cidade olha e troca em dez segundos; a divisão é um ponto de
-> partida, não uma ordem.
+> ⚠️ **O sistema não olha mapa, e é por isso que o quadro existe.** Ele não sabe
+> a distância entre dois pontos: compara o **nome** do bairro, e só. Dois bairros
+> vizinhos podem cair com entregadores diferentes, e o mesmo bairro escrito de
+> forma abreviada ("Jd. Exemplo" e "Jardim Exemplo") vira duas regiões. **Quem
+> sabe o que é perto do quê é você** — arraste e resolva.
 
-Se você pedir mais entregadores do que há bairros, alguém fica sem rota — e a
-tela mostra isso, em vez de inventar uma divisão.
+No fim, cada coluna tem o botão **📋 Copiar a rota deste entregador**: copia a
+lista pronta (nome, telefone, endereço e os itens com o número) para colar no
+WhatsApp da pessoa.
+
+Duas coisas que acontecem sem avisar:
+
+- **Quem pagar depois** que o quadro foi montado aparece em **📋 A distribuir**,
+  esperando você arrastar. Ninguém entra sozinho na rota de alguém.
+- **Diminuir o número de entregadores** devolve as paradas daquela coluna para
+  "A distribuir" — o que estava nas outras colunas continua onde estava.
+
+E se vocês se perderem no meio, **🔄 Refazer por bairro** joga fora o que foi
+arrastado e recomeça do ponto de partida. Ele pergunta antes.
 
 ---
 

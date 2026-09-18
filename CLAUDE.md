@@ -47,6 +47,9 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   servidor descarta quando aperta.
 - **O dinheiro é ancorado na `referencia` do pagamento**, não na FK (refazer o Pix troca a FK).
 - **Três áreas de equipe** (preparação/locutor/caixa) + diretor; quem protege é a view, nunca o menu.
+- **A entrega não tem mapa**: a divisão por bairro é ponto de partida e a palavra final é do **quadro**
+  (`/caixa/entregas/`), onde a equipe arrasta as paradas entre os entregadores e cada arrastada já salva
+  (`EntregadorLeilao` + `AtribuicaoEntrega`, mig. **0009**). A unidade é a **pessoa**, não o item.
 - **Deploy tem passo extra**: o `pinhaljunior2-deploy` **não** reinicia o serviço do leilão nem coleta os
   estáticos dele (ver `docs/DEPLOY_LEILAO.md` §7.1).
 

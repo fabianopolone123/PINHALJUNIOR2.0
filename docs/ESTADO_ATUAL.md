@@ -2,7 +2,28 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-17 (**Mensalidades: editar um mês não joga mais a pessoa para o topo**):
+**Última atualização:** 2026-09-17 (**Leilão: quadro de entregas — a equipe arrasta quem leva o quê**):
+pergunta do clube ao conferir a divisão de entregas — *"se não há cálculo de rota, como ele sabe que um
+endereço é perto do outro?"*. A resposta honesta é **ele não sabe**: compara o **nome** do bairro, e sem
+mapa é tudo o que dá para fazer — dois bairros vizinhos são, para o código, tão distantes quanto dois nos
+extremos da cidade. Comprar mapa seria dependência nova, chave paga e uma chamada por endereço na noite do
+evento; a decisão foi outra: **a divisão automática virou ponto de partida e a palavra final é da equipe**.
+Novo **quadro** em `/leilao/caixa/entregas/`: coluna "📋 a distribuir" + uma coluna por entregador, cartões
+que se **arrastam** entre elas, cada cartão uma **pessoa** (com todos os itens dela) e o **bairro em
+destaque**. Models `EntregadorLeilao` (a coluna: rótulo digitado na hora, não cadastro) e `AtribuicaoEntrega`
+(a parada e o seu entregador), migration **0009**. **Cada arrastada salva na hora** e a recusa do servidor
+**desfaz na tela** — a divisão que aparece é a que vira a mensagem mandada ao voluntário. O quadro **semeia
+uma vez só**: quem paga depois cai em "a distribuir" (entrar sozinho na rota de alguém é o que ninguém
+confere), e para recomeçar há o botão "🔄 refazer por bairro", que pergunta antes. **Diminuir colunas devolve
+a parada para a fila**, não apaga a atribuição. O botão de copiar de cada coluna traz o texto pronto **do
+servidor**, refeito a cada movimento, com o **nome do entregador** no cabeçalho. É tela de **computador**,
+por decisão do clube. Junto, dois achados da conferência do módulo: o mesmo bairro escrito de jeitos
+diferentes abria **um cabeçalho por grafia** na rota impressa (agora é **um rótulo por região**, a grafia
+mais usada, preferindo nome próprio) e o docstring de `_chave_regiao` prometia juntar "Jd. Paulista" com
+"Jardim Paulista", o que ele **não** faz. Suíte do leilão: **288 testes OK** (+17). **Com migration
+(`leilao/0009`)** — e o deploy do leilão é o passo extra (ver `docs/DEPLOY_LEILAO.md`).
+
+**Atualização anterior:** 2026-09-17 (**Mensalidades: editar um mês não joga mais a pessoa para o topo**):
 relatado pelo clube — em **Mensalidades → Aventureiros**, procurar a criança, abrir o card e isentar um mês
 devolvia o painel **na aba Resumo**, com o card fechado e a busca apagada; como isentar o ano de uma criança
 é **mês a mês**, era procurar o nome de novo a cada clique. Causa: as três ações do card (isenção/desconto,
@@ -2209,17 +2230,27 @@ reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa,usuarios
 **Os efeitos sonoros não usam arquivo nenhum** (`som.js`): `SomLeilao` sintetiza lance, superado, vendido e
 arrematei em WebAudio — zero download, zero licenciamento, nada de binário no repositório.
 
-**A entrega se divide entre os voluntários** (`leilao/entregas.py`, aba 📦 A entregar do caixa): informa-se
-quantos entregadores e a tela monta uma rota por pessoa, cada uma com o seu botão de copiar. **Não há mapa** —
-o clube guarda rua, número, bairro e cidade, não coordenada, e buscar uma seria dependência externa nova (e
-uma chamada por endereço, na noite do evento). A divisão é por **bairro**, que é o recorte que as pessoas
-usam para falar de região, equilibrando o número de paradas (guloso LPT: a região maior vai para quem está
-mais leve). Três regras: **a unidade é a PESSOA, não o item** (dois itens da mesma casa são uma visita só);
-**bairro nunca é partido** (é o que a divisão existe para evitar); e a chave da região é normalizada sem
-acento e sem caixa, senão "Jd. Paulista" e "jardim paulista" viram duas regiões e o entregador faz a mesma
-rua duas vezes. A tela **declara o limite em voz alta** — precisão inventada é pior que limite declarado. O
-campo de entrega pede só **"Quem recebeu…"**: rastreio saiu, porque a entrega é na mão, por voluntário, e não
-existe código nenhum para anotar.
+**A entrega se divide entre os voluntários** (`leilao/entregas.py` + o **quadro** em `/caixa/entregas/`):
+informa-se quantos entregadores e abre um quadro com uma coluna por entregador, onde a equipe **arrasta** as
+paradas. **Não há mapa** — o clube guarda rua, número, bairro e cidade, não coordenada, e buscar uma seria
+dependência externa nova (e uma chamada por endereço, na noite do evento). Por isso o servidor **compara
+nomes de bairro e nada mais**: ele nunca vai saber que um bairro é perto do outro. A divisão automática
+(guloso LPT: a região maior vai para quem está mais leve) é **ponto de partida**; a palavra final é da equipe,
+que conhece a cidade. Regras da divisão: **a unidade é a PESSOA, não o item** (dois itens da mesma casa são
+uma visita só); **bairro nunca é partido**; a chave da região é normalizada sem acento e sem caixa (mas
+**abreviação ela não junta** — "Jd. Exemplo" e "Jardim Exemplo" seguem sendo duas regiões, e é o quadro que
+resolve isso); e vale **um rótulo por região**, a grafia mais usada, senão a rota impressa abre um cabeçalho
+por variação. Do quadro: `EntregadorLeilao` é a coluna (**rótulo digitado na hora, não cadastro** — os
+voluntários mudam a cada evento) e `AtribuicaoEntrega` é a parada e o seu entregador (mig. **0009**).
+**Cada arrastada salva na hora** e a recusa do servidor **desfaz na tela**, porque a divisão que aparece é a
+que vira a mensagem do voluntário; o quadro **semeia uma vez só** (quem paga depois cai em "a distribuir");
+**diminuir colunas devolve a parada para a fila** em vez de apagar a atribuição; e `entrega_mover` **confere
+no servidor** que a pessoa tem entrega pendente naquele leilão. O texto copiável de cada coluna vem **pronto
+do servidor**, refeito a cada movimento, com o nome do entregador no cabeçalho. É tela de **computador**
+(arrastar com o mouse), e as colunas rolam na horizontal em vez de empilhar — ver duas ao mesmo tempo é o que
+torna o arrastar possível. A tela **declara o limite em voz alta** — precisão inventada é pior que limite
+declarado. O campo de entrega pede só **"Quem recebeu…"**: rastreio saiu, porque a entrega é na mão, por
+voluntário, e não existe código nenhum para anotar.
 
 **Cada item tem um NÚMERO**, gerado sozinho na criação (1, 2, 3… dentro de cada leilão). É a etiqueta que
 vai colada no objeto físico — o que liga o que está na tela ao que está na prateleira. Sai de

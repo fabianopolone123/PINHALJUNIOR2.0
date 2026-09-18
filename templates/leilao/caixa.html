@@ -118,73 +118,22 @@
         <div class="cartao">
             <h3>📦 Dividir as entregas entre os voluntários</h3>
             <p class="micro-ajuda">
-                Faça isto <b>quando o leilão terminar</b> e todo mundo já tiver pago: o sistema
-                agrupa as pessoas <b>por bairro</b> e monta uma rota para cada entregador, com o
-                botão de copiar de cada uma. Rodar antes divide só o que já está pago.
+                Faça isto <b>quando o leilão terminar</b> e todo mundo já tiver pago: o quadro abre
+                com as pessoas agrupadas <b>por bairro</b>, uma coluna por entregador, e vocês
+                arrastam o que estiver errado — o sistema <b>não consulta mapa</b> e não sabe que um
+                bairro é perto do outro. Cada arrastada já fica salva. Abrir antes leva só quem já pagou.
             </p>
-            <form method="get" class="form-entregadores">
+            <form method="get" action="{% url 'leilao:entregas_quadro' %}" class="form-entregadores">
                 <label for="entregadores">Quantos entregadores vocês têm?</label>
                 <input type="number" id="entregadores" name="entregadores"
                        min="1" max="20" step="1" inputmode="numeric"
                        value="{{ entregadores|default:'' }}" placeholder="nº" required>
                 <button type="submit" class="btn-mesa abrir">
-                    📦 Montar as rotas ({{ a_entregar|length }} item{{ a_entregar|length|pluralize:"ns" }})
+                    📦 Abrir o quadro de entregas ({{ a_entregar|length }} item{{ a_entregar|length|pluralize:"ns" }})
                 </button>
             </form>
         </div>
 
-        {% if rotas %}
-        <div class="rotas">
-            <p class="rotas-aviso">
-                A divisão é <b>por bairro</b>, equilibrando o número de paradas — o sistema
-                <b>não consulta mapa</b> e não conhece a distância entre dois pontos. Dois bairros
-                vizinhos podem ter caído com entregadores diferentes: quem conhece a cidade ajusta
-                em dez segundos. Itens da mesma casa contam como <b>uma parada só</b>.
-            </p>
-
-            {% for r in rotas %}
-            <details class="rota" {% if forloop.first %}open{% endif %}>
-                <summary>
-                    <b>Entregador {{ r.numero }}</b>
-                    <span class="rota-resumo">
-                        {{ r.paradas|length }} parada(s) · {{ r.itens }} item(ns)
-                    </span>
-                </summary>
-
-                {% if r.paradas %}
-                <p class="rota-regioes">{{ r.regioes|join:" · " }}</p>
-                <ol class="rota-paradas">
-                    {% for parada in r.paradas %}
-                    <li>
-                        <b>{{ parada.pessoa.nome }}</b>
-                        <span class="pessoa-linha selecionavel">📱 {{ parada.pessoa.whatsapp }}
-                            {% if parada.pessoa.whatsapp_link %}
-                            <a href="{{ parada.pessoa.whatsapp_link }}" target="_blank" rel="noopener"
-                               class="link-whats" title="Combinar a entrega no WhatsApp">💬</a>
-                            {% endif %}
-                        </span>
-                        <span class="pessoa-linha endereco selecionavel">
-                            📍 {{ parada.pessoa.endereco_uma_linha|default:"Sem endereço cadastrado" }}
-                        </span>
-                        {% for a in parada.itens %}
-                        <span class="pessoa-linha"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
-                        {% endfor %}
-                    </li>
-                    {% endfor %}
-                </ol>
-                <button type="button" class="btn-mini btn-copiar-lista"
-                        data-fonte="rota{{ r.numero }}"
-                        data-aviso="Rota do entregador {{ r.numero }} copiada!">
-                    📋 Copiar esta rota
-                </button>
-                <textarea id="rota{{ r.numero }}" class="copiar-fonte" readonly>{{ r.texto }}</textarea>
-                {% else %}
-                <p class="vazio">Sem paradas — há menos bairros do que entregadores.</p>
-                {% endif %}
-            </details>
-            {% endfor %}
-        </div>
-        {% endif %}
         {% endif %}
 
         <ul class="entregas" id="listaEntregas">

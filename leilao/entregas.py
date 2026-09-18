@@ -23,8 +23,14 @@ def _chave_regiao(participante):
     """Bairro + cidade, normalizados, como identidade da região.
 
     Sem acento e sem caixa porque cada pessoa digita o bairro de um jeito
-    ("Jd. Paulista", "jardim paulista") e um mesmo bairro escrito de duas
-    formas viraria duas regiões — o entregador faria a mesma rua duas vezes.
+    ("Centro", "centro", "CENTRO", " Jardim  Exemplo ") e o mesmo bairro escrito
+    de dois modos viraria duas regiões — o entregador faria a mesma rua duas
+    vezes.
+
+    **O que isto NÃO resolve: abreviação.** "Jd. Paulista" e "Jardim Paulista"
+    continuam sendo duas regiões, porque adivinhar abreviação é adivinhar
+    (e "Sto." pode ser Santo ou Santos). Quem arruma isso é o quadro de
+    entregas, onde a equipe arrasta as duas para o mesmo entregador.
     """
     def limpar(texto):
         texto = (texto or "").strip().lower()
@@ -46,6 +52,70 @@ def _rotulo_regiao(participante):
     return bairro or cidade or "Sem bairro informado"
 
 
+def _uniformizar_rotulos(paradas):
+    """UM rótulo por região, para todas as paradas dela.
+
+    O rótulo é a grafia de quem cadastrou, e o mesmo bairro chega escrito de
+    vários jeitos ("Centro", "centro", "CENTRO"). Agrupar por chave normalizada
+    resolve a **divisão**, mas cada parada continuava carregando a sua grafia —
+    e a rota impressa abria um cabeçalho de região por variação, como se fossem
+    três bairros diferentes. Quem entrega lê isso como três regiões.
+
+    Vence a grafia **mais usada**. No empate, a que está escrita como nome
+    próprio — "Centro" ganha de "centro" e de "CENTRO", que numa lista impressa
+    parecem descuido ou grito. Só depois disso desempata pelo texto, para a
+    escolha nunca depender da ordem em que as paradas chegaram.
+    """
+    def preferencia(par):
+        rotulo, quantas = par
+        # Palavra inteira em maiúscula é grito numa lista impressa. Conta por
+        # PALAVRA porque o rótulo junta bairro e cidade, e o descuido costuma
+        # estar só em um dos dois ("CENTRO — Rio Negrinho").
+        gritos = sum(1 for w in rotulo.split() if len(w) > 1 and w.isupper())
+        return (-quantas, gritos, rotulo)
+
+    contagem = {}
+    for parada in paradas:
+        chave = parada["regiao"]
+        contagem.setdefault(chave, {})
+        contagem[chave][parada["rotulo"]] = contagem[chave].get(parada["rotulo"], 0) + 1
+    escolhido = {
+        chave: min(rotulos.items(), key=preferencia)[0]
+        for chave, rotulos in contagem.items()
+    }
+    for parada in paradas:
+        parada["rotulo"] = escolhido[parada["regiao"]]
+    return paradas
+
+
+def paradas_de(pendentes):
+    """Uma parada por PESSOA, com os itens dela juntos.
+
+    É a unidade de todo o módulo: dois itens da mesma casa são **uma visita**, e
+    contá-los como duas faria um entregador parecer sobrecarregado sem estar.
+    Serve tanto para a divisão automática quanto para o quadro manual.
+    """
+    paradas_por_pessoa = {}
+    for a in pendentes:
+        p = a.participante
+        if p.id not in paradas_por_pessoa:
+            paradas_por_pessoa[p.id] = {
+                "pessoa": p,
+                "itens": [],
+                "regiao": _chave_regiao(p),
+                "rotulo": _rotulo_regiao(p),
+            }
+        paradas_por_pessoa[p.id]["itens"].append(a)
+    return _uniformizar_rotulos(list(paradas_por_pessoa.values()))
+
+
+def ordenar_paradas(paradas):
+    """Região primeiro, rua depois: é como quem entrega lê a lista."""
+    return sorted(paradas, key=lambda x: (x["rotulo"].lower(),
+                                          (x["pessoa"].logradouro or "").lower(),
+                                          (x["pessoa"].nome or "").lower()))
+
+
 def dividir(pendentes, quantos):
     """Divide os arremates a entregar entre `quantos` entregadores.
 
@@ -63,21 +133,9 @@ def dividir(pendentes, quantos):
     quantos = max(1, int(quantos or 1))
 
     # 1. Uma parada por PESSOA, com os itens dela juntos.
-    paradas_por_pessoa = {}
-    for a in pendentes:
-        p = a.participante
-        if p.id not in paradas_por_pessoa:
-            paradas_por_pessoa[p.id] = {
-                "pessoa": p,
-                "itens": [],
-                "regiao": _chave_regiao(p),
-                "rotulo": _rotulo_regiao(p),
-            }
-        paradas_por_pessoa[p.id]["itens"].append(a)
-
     # 2. Paradas agrupadas por região.
     regioes = {}
-    for parada in paradas_por_pessoa.values():
+    for parada in paradas_de(pendentes):
         regioes.setdefault(parada["regiao"], []).append(parada)
 
     # Dentro da região, ordena por rua: quem entrega anda por rua, não por nome.
@@ -101,16 +159,24 @@ def dividir(pendentes, quantos):
     return rotas
 
 
-def texto_da_rota(leilao, numero, paradas, total_rotas):
+def texto_da_rota(leilao, numero, paradas, total_rotas, nome=""):
     """A rota de UM entregador, pronta para copiar e mandar para ele.
 
     Vem pronta do servidor (convenção do projeto: o JS só copia). Leva nome,
     telefone e endereço — é documento de trabalho de quem entrega, não texto
     para grupo aberto.
+
+    Com `nome`, o cabeçalho chama o voluntário pelo nome: a mensagem vai para
+    ele no particular, e "ENTREGAS 2/4" não diz a quem ela pertence quando a
+    pessoa reabre a conversa dois dias depois.
     """
     itens = sum(len(p["itens"]) for p in paradas)
+    quem = (nome or "").strip()
+    cabecalho = f"*ENTREGAS {numero}/{total_rotas} — {leilao.nome}*"
+    if quem:
+        cabecalho = f"*ENTREGAS DE {quem.upper()} — {leilao.nome}*"
     linhas = [
-        f"*ENTREGAS {numero}/{total_rotas} — {leilao.nome}*",
+        cabecalho,
         f"{len(paradas)} parada(s) · {itens} item(ns)",
         "",
     ]
@@ -132,3 +198,27 @@ def texto_da_rota(leilao, numero, paradas, total_rotas):
         linhas.append("")
 
     return "\n".join(linhas).strip()
+
+
+def quadro(pendentes, atribuicoes, quantos):
+    """As colunas do quadro manual: `{0: [a distribuir], 1: [...], ...}`.
+
+    `atribuicoes` é `{participante_id: numero_do_entregador}` — o que a equipe
+    já arrastou. Quem não está lá (pagou depois de o quadro ser montado) cai na
+    coluna **0**, "a distribuir": entrar sozinho na rota de alguém seria pior,
+    porque ninguém repara no que aparece já resolvido.
+
+    Coluna que não existe mais (a equipe diminuiu o número de entregadores)
+    também volta para a 0 — a atribuição no banco é preservada, mas a tela nunca
+    mostra uma parada num entregador que não está lá.
+    """
+    quantos = max(0, int(quantos or 0))
+    colunas = {i: [] for i in range(quantos + 1)}
+    for parada in paradas_de(pendentes):
+        numero = atribuicoes.get(parada["pessoa"].id, 0)
+        if numero not in colunas:
+            numero = 0
+        colunas[numero].append(parada)
+    for numero in colunas:
+        colunas[numero] = ordenar_paradas(colunas[numero])
+    return colunas

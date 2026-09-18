@@ -42,7 +42,17 @@ from . import papeis
 from . import reacoes
 from . import servicos
 from .forms import LeilaoForm
-from .models import Arremate, ConfigLeilao, Lance, Leilao, Lote, PagamentoLeilao, Participante
+from .models import (  # noqa: E402
+    Arremate,
+    AtribuicaoEntrega,
+    ConfigLeilao,
+    EntregadorLeilao,
+    Lance,
+    Leilao,
+    Lote,
+    PagamentoLeilao,
+    Participante,
+)
 from .sessao import CHAVE_SESSAO
 
 
@@ -2417,14 +2427,18 @@ class TelaDeDividirEntregasTests(TestCase):
                 servicos.fechar_lote(lote, motivo="locutor"), manual=True
             )
 
-    def test_sem_pedir_nao_divide_nada(self):
-        r = self.c.get("/caixa/")
-        self.assertEqual(r.context["rotas"], [])
+    def test_sem_entregador_nenhum_o_quadro_manda_de_volta(self):
+        """O quadro precisa saber quantas colunas desenhar; quem chega sem dizer
+        volta para a tela que pergunta."""
+        r = self.c.get("/caixa/entregas/")
+        self.assertRedirects(r, "/caixa/")
 
     def test_dividir_por_dois(self):
-        r = self.c.get("/caixa/?entregadores=2")
-        self.assertEqual(len(r.context["rotas"]), 2)
-        self.assertEqual([len(x["paradas"]) for x in r.context["rotas"]], [1, 1])
+        r = self.c.get("/caixa/entregas/?entregadores=2")
+        self.assertEqual(len(r.context["colunas"]), 2)
+        self.assertEqual([len(c["paradas"]) for c in r.context["colunas"]], [1, 1])
+        # Nasce já distribuído: a divisão por bairro é o ponto de partida.
+        self.assertEqual(r.context["a_distribuir"], [])
 
     def test_a_tela_avisa_que_nao_ha_mapa(self):
         """Precisão inventada é pior que limite declarado."""
@@ -2441,6 +2455,215 @@ class TelaDeDividirEntregasTests(TestCase):
         html = self.c.get("/caixa/").content.decode("utf-8")
         self.assertNotIn("rastreio", html.lower())
         self.assertIn("Quem recebeu", html)
+
+
+class QuadroDeEntregasTests(TestCase):
+    """O quadro onde a equipe arrasta quem leva o quê.
+
+    A divisão automática **não sabe que um bairro é perto do outro** — ela só
+    compara nomes de bairro, que é tudo o que dá para fazer sem mapa. O quadro é
+    onde quem conhece a cidade corrige isso, e o que ele guarda é essa correção.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("cx_quadro", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="caixa")[0])
+        self.c = Client()
+        self.c.login(username="cx_quadro", password="segredo-ficticio")
+        self.ana = self._entregar("Ana Fictícia", "Centro")
+        self.bruno = self._entregar("Bruno Fictício", "Vila Exemplo")
+
+    def _entregar(self, nome, bairro):
+        """Uma pessoa com um item PAGO, pronta para entrega."""
+        servicos.limpar_limites()
+        pessoa = criar_pessoa(nome, bairro=bairro, cidade="Cidade Exemplo",
+                              logradouro="Rua Exemplo", numero="10")
+        lote = criar_lote(self.leilao, nome="Item de " + nome)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        servicos.marcar_pago(servicos.fechar_lote(lote, motivo="locutor"), manual=True)
+        return pessoa
+
+    def _abrir(self, quantos=2):
+        return self.c.get("/caixa/entregas/?entregadores=" + str(quantos))
+
+    def _mover(self, pessoa, entregador):
+        return self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "entrega_mover", "participante": pessoa.id,
+                             "entregador": entregador}),
+            content_type="application/json",
+        )
+
+    # --- montagem ---
+
+    def test_o_quadro_nasce_dividido_por_bairro(self):
+        """Ponto de partida: corrigir o que já está quase certo é mais rápido do
+        que montar do zero."""
+        self._abrir(2)
+        self.assertEqual(AtribuicaoEntrega.objects.filter(leilao=self.leilao).count(), 2)
+        self.assertEqual(AtribuicaoEntrega.objects.filter(entregador=0).count(), 0)
+
+    def test_abrir_de_novo_nao_desfaz_o_que_foi_arrastado(self):
+        """O quadro é a memória do trabalho manual: resemear por cima apagaria
+        exatamente aquilo que ele existe para guardar."""
+        self._abrir(2)
+        self._mover(self.ana, 2)
+        self._abrir(2)
+        self.assertEqual(
+            AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 2
+        )
+
+    def test_quem_paga_depois_cai_em_a_distribuir(self):
+        """Entrar sozinho na rota de alguém seria pior: ninguém repara no que
+        aparece já resolvido."""
+        self._abrir(2)
+        atrasada = self._entregar("Carla Fictícia", "Centro")
+        r = self._abrir(2)
+        nomes = [p["pessoa"].nome for p in r.context["a_distribuir"]]
+        self.assertEqual(nomes, [atrasada.nome])
+
+    # --- arrastar ---
+
+    def test_arrastar_salva_na_hora(self):
+        self._abrir(2)
+        r = self._mover(self.ana, 2)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["ok"])
+        self.assertEqual(
+            AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 2
+        )
+
+    def test_arrastar_de_volta_para_a_fila(self):
+        self._abrir(2)
+        self._mover(self.ana, 0)
+        self.assertEqual(
+            AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 0
+        )
+        self.assertEqual(len(self._abrir(2).context["a_distribuir"]), 1)
+
+    def test_a_resposta_traz_o_texto_novo_da_rota(self):
+        """O texto copiável vem do servidor a cada movimento — se o navegador o
+        montasse, a mensagem do WhatsApp e a tela poderiam discordar."""
+        self._abrir(2)
+        dados = self._mover(self.ana, 2).json()
+        coluna2 = next(c for c in dados["colunas"] if c["numero"] == 2)
+        self.assertIn("Ana Fictícia", coluna2["texto"])
+        self.assertEqual(coluna2["paradas"], 2)
+
+    def test_pessoa_sem_entrega_pendente_e_recusada(self):
+        """Esconder o cartão não protege nada: a conferência é do servidor."""
+        self._abrir(2)
+        estranha = criar_pessoa("Estranha Fictícia", bairro="Centro",
+                                cidade="Cidade Exemplo")
+        r = self._mover(estranha, 1)
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(AtribuicaoEntrega.objects.filter(participante=estranha).exists())
+
+    def test_entregador_que_nao_existe_e_recusado(self):
+        self._abrir(2)
+        r = self._mover(self.ana, 9)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(
+            AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 1
+        )
+
+    def test_o_locutor_nao_mexe_no_quadro(self):
+        """Quem protege é a view, nunca o menu."""
+        self._abrir(2)
+        User = get_user_model()
+        loc = User.objects.create_user("loc_quadro", password="segredo-ficticio")
+        loc.is_staff = True
+        loc.save()
+        loc.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        outro = Client()
+        outro.login(username="loc_quadro", password="segredo-ficticio")
+        r = outro.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "entrega_mover", "participante": self.ana.id,
+                             "entregador": 2}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+    # --- nome do entregador ---
+
+    def test_nome_do_entregador_entra_no_texto_da_rota(self):
+        """A mensagem vai no particular do voluntário: "ENTREGAS 2/4" não diz a
+        quem ela pertence quando ele reabre a conversa dois dias depois."""
+        self._abrir(2)
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "entrega_nome", "entregador": 1,
+                             "nome": "Voluntária Fictícia"}),
+            content_type="application/json",
+        )
+        dados = r.json()
+        self.assertEqual(dados["rotulo"], "Voluntária Fictícia")
+        coluna1 = next(c for c in dados["colunas"] if c["numero"] == 1)
+        self.assertIn("ENTREGAS DE VOLUNTÁRIA FICTÍCIA", coluna1["texto"])
+
+    def test_sem_nome_a_coluna_continua_sendo_o_numero(self):
+        self._abrir(2)
+        coluna = EntregadorLeilao.objects.get(leilao=self.leilao, numero=2)
+        self.assertEqual(coluna.rotulo, "Entregador 2")
+
+    # --- mudar o número de colunas ---
+
+    def test_diminuir_as_colunas_devolve_as_paradas_para_a_fila(self):
+        """A atribuição não é apagada, mas a tela nunca mostra parada num
+        entregador que não está mais lá."""
+        self._abrir(2)
+        self._mover(self.ana, 2)
+        r = self._abrir(1)
+        self.assertEqual(len(r.context["colunas"]), 1)
+        nomes = [p["pessoa"].nome for p in r.context["a_distribuir"]]
+        self.assertIn(self.ana.nome, nomes)
+
+    def test_aumentar_as_colunas_nao_remexe_no_que_ja_estava(self):
+        self._abrir(2)
+        r = self._abrir(4)
+        self.assertEqual(len(r.context["colunas"]), 4)
+        self.assertEqual(
+            AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 1
+        )
+
+    def test_numero_invalido_de_entregadores_nao_quebra(self):
+        self._abrir(2)
+        for valor in ("abc", "-3", "999"):
+            r = self.c.get("/caixa/entregas/?entregadores=" + valor)
+            self.assertEqual(r.status_code, 200)
+
+    # --- recomeçar ---
+
+    def test_refazer_por_bairro_joga_fora_o_que_foi_arrastado(self):
+        self._abrir(2)
+        self._mover(self.ana, 2)
+        r = self.c.post("/caixa/entregas/redistribuir/")
+        self.assertRedirects(r, "/caixa/entregas/")
+        self.assertEqual(
+            AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 1
+        )
+
+    # --- a tela ---
+
+    def test_a_tela_diz_que_nao_ha_mapa(self):
+        """Precisão inventada é pior que limite declarado — e é o motivo de o
+        quadro existir."""
+        self.assertIn("não consulta mapa", self._abrir(2).content.decode("utf-8"))
+
+    def test_a_tela_mostra_o_bairro_em_destaque(self):
+        """É por ele que a equipe decide o que é perto do quê."""
+        html = self._abrir(2).content.decode("utf-8")
+        self.assertIn("parada-bairro", html)
+        self.assertIn("Centro — Cidade Exemplo", html)
 
 
 class ContasDaEquipeTests(TestCase):

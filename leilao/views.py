@@ -45,7 +45,16 @@ from .forms import (
 )
 from .hub import HUB, garantir_laco, sse
 from .imagens import preparar_foto
-from .models import Arremate, ConfigLeilao, Leilao, Lote, PagamentoLeilao, Participante
+from .models import (
+    Arremate,
+    AtribuicaoEntrega,
+    ConfigLeilao,
+    EntregadorLeilao,
+    Leilao,
+    Lote,
+    PagamentoLeilao,
+    Participante,
+)
 from .sessao import entrar as sessao_entrar
 from .sessao import participante_atual
 from .sessao import sair as sessao_sair
@@ -600,6 +609,9 @@ ACOES_AREAS = {
     # quem está com o martelo na mão.
     "prazo": ("caixa",),
     "entregue": ("caixa",),
+    # Quadro de entregas: arrastar uma parada e nomear a coluna.
+    "entrega_mover": ("caixa",),
+    "entrega_nome": ("caixa",),
 }
 
 
@@ -678,6 +690,49 @@ def locutor_acao_view(request):
         if quantos > 1:
             recado += f" ({quantos} cadastros da mesma pessoa)"
         return JsonResponse({"ok": True, "msg": recado, "bloqueado": bloqueado})
+
+    if acao == "entrega_mover":
+        try:
+            pessoa_id = int(dados.get("participante") or 0)
+            numero = int(dados.get("entregador") or 0)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "msg": "Parada inválida."}, status=400)
+        # A parada tem de ser deste leilão e estar de fato a entregar: sem esta
+        # conferência, um POST forjado encheria o quadro de gente que não tem
+        # nada para receber.
+        pendente = Arremate.objects.filter(
+            lote__leilao=leilao, participante_id=pessoa_id,
+            status="pago", entregue_em__isnull=True,
+        ).exists()
+        if not pendente:
+            return JsonResponse(
+                {"ok": False, "msg": "Essa pessoa não tem entrega pendente."}, status=404
+            )
+        if numero and not leilao.entregadores.filter(numero=numero).exists():
+            return JsonResponse(
+                {"ok": False, "msg": "Esse entregador não existe."}, status=400
+            )
+        AtribuicaoEntrega.objects.update_or_create(
+            leilao=leilao, participante_id=pessoa_id,
+            defaults={"entregador": numero},
+        )
+        return JsonResponse({"ok": True, **_resumo_colunas(leilao)})
+
+    if acao == "entrega_nome":
+        try:
+            numero = int(dados.get("entregador") or 0)
+        except (TypeError, ValueError):
+            numero = 0
+        coluna = leilao.entregadores.filter(numero=numero).first()
+        if coluna is None:
+            return JsonResponse(
+                {"ok": False, "msg": "Esse entregador não existe."}, status=404
+            )
+        coluna.nome = (dados.get("nome") or "").strip()[:80]
+        coluna.save(update_fields=["nome"])
+        return JsonResponse(
+            {"ok": True, "rotulo": coluna.rotulo, **_resumo_colunas(leilao)}
+        )
 
     if acao == "pago":
         arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
@@ -791,28 +846,10 @@ def caixa_view(request):
     a_entregar = [a for a in arremates if a.a_entregar]
     entregues = [a for a in arremates if a.entregue]
 
-    # Divisão entre entregadores. Fica no GET para a equipe poder recarregar,
-    # mandar o link para outra pessoa da mesa e ver exatamente a mesma divisão.
-    try:
-        entregadores = int(request.GET.get("entregadores") or 0)
-    except (TypeError, ValueError):
-        entregadores = 0
-    entregadores = max(0, min(20, entregadores))
-
-    rotas = []
-    if entregadores and a_entregar:
-        divididas = entregas.dividir(a_entregar, entregadores)
-        rotas = [
-            {
-                "numero": i,
-                "paradas": paradas,
-                "itens": sum(len(p["itens"]) for p in paradas),
-                "regioes": sorted({p["rotulo"] for p in paradas}),
-                "texto": entregas.texto_da_rota(leilao, i, paradas, entregadores),
-            }
-            for i, paradas in enumerate(divididas, start=1)
-        ]
-
+    # A divisão em si saiu daqui: ela virou o **quadro** (`entregas_quadro_view`),
+    # onde a equipe arrasta e o resultado fica salvo. Aqui ficou só a porta de
+    # entrada — duas divisões na mesma tela, uma salva e outra não, seria a
+    # receita para mandar ao voluntário a que não valia.
     return render(
         request,
         "leilao/caixa.html",
@@ -823,10 +860,167 @@ def caixa_view(request):
             "a_entregar": a_entregar,
             "entregues": entregues,
             "roteiro": _texto_roteiro_entregas(leilao, a_entregar),
-            "entregadores": entregadores,
-            "rotas": rotas,
+            "entregadores": leilao.entregadores.count(),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Quadro de entregas — a equipe arrasta quem leva o quê
+#
+# A divisão automática não sabe que um bairro é perto do outro: ela compara
+# NOMES de bairro, e é tudo o que ela pode fazer sem mapa. Quem sabe que "isso
+# aqui é tudo o mesmo lado" é a equipe, que conhece a cidade.
+#
+# Então a divisão virou **ponto de partida** e a palavra final é do quadro: o
+# quadro abre já preenchido por bairro e a equipe arrasta o que estiver errado.
+# Cada arrastada salva na hora — a noite do evento não é hora de descobrir que
+# faltou apertar "salvar".
+# ---------------------------------------------------------------------------
+def _pendentes_do_leilao(leilao):
+    """Os arremates a entregar: pagos e ainda não entregues."""
+    return [
+        a
+        for a in Arremate.objects.filter(lote__leilao=leilao)
+        .select_related("lote", "participante")
+        .order_by("-criado_em")
+        if a.a_entregar
+    ]
+
+
+def _ajustar_entregadores(leilao, quantos):
+    """Deixa exatamente `quantos` colunas, numeradas de 1 a N.
+
+    Diminuir **apaga a coluna, não a atribuição**: as paradas dela voltam para
+    "a distribuir" (é o que `entregas.quadro` faz com número que não existe
+    mais) e o trabalho das outras colunas fica de pé. Aumentar de novo devolve a
+    coluna vazia — o que estava nela já voltou para a fila e é arrastado de novo,
+    que é melhor do que ressuscitar uma divisão que a equipe já desfez.
+    """
+    atuais = {e.numero: e for e in leilao.entregadores.all()}
+    for numero in range(1, quantos + 1):
+        if numero not in atuais:
+            EntregadorLeilao.objects.create(leilao=leilao, numero=numero)
+    leilao.entregadores.filter(numero__gt=quantos).delete()
+
+
+def _semear_quadro(leilao, quantos):
+    """Primeira montagem: a divisão por bairro entra como ponto de partida.
+
+    Só na primeira — depois disso, parada nova (quem pagou mais tarde) cai em
+    "a distribuir". Redividir por cima apagaria o trabalho manual, que é
+    justamente o que o quadro existe para guardar.
+    """
+    pendentes = _pendentes_do_leilao(leilao)
+    if not pendentes:
+        return
+    for numero, paradas in enumerate(entregas.dividir(pendentes, quantos), start=1):
+        for parada in paradas:
+            AtribuicaoEntrega.objects.update_or_create(
+                leilao=leilao, participante=parada["pessoa"],
+                defaults={"entregador": numero},
+            )
+
+
+def _colunas_quadro(leilao):
+    """`(a_distribuir, colunas)` — cada coluna com o texto pronto do WhatsApp.
+
+    O texto vem **do servidor**, como todo texto copiável do projeto: depois de
+    cada arrastada o servidor devolve o texto novo, e o botão de copiar nunca
+    monta frase nenhuma.
+    """
+    lista = list(leilao.entregadores.all())
+    atribuicoes = dict(
+        AtribuicaoEntrega.objects.filter(leilao=leilao)
+        .values_list("participante_id", "entregador")
+    )
+    colunas = entregas.quadro(_pendentes_do_leilao(leilao), atribuicoes, len(lista))
+    montadas = []
+    for e in lista:
+        paradas = colunas.get(e.numero, [])
+        montadas.append({
+            "entregador": e,
+            "paradas": paradas,
+            "itens": sum(len(p["itens"]) for p in paradas),
+            "regioes": sorted({p["rotulo"] for p in paradas}),
+            "texto": entregas.texto_da_rota(
+                leilao, e.numero, paradas, len(lista), nome=e.nome
+            ),
+        })
+    return colunas.get(0, []), montadas
+
+
+def _resumo_colunas(leilao):
+    """O que o JS precisa depois de uma arrastada: contagens e textos novos."""
+    a_distribuir, colunas = _colunas_quadro(leilao)
+    return {
+        "a_distribuir": len(a_distribuir),
+        "colunas": [
+            {
+                "numero": c["entregador"].numero,
+                "rotulo": c["entregador"].rotulo,
+                "paradas": len(c["paradas"]),
+                "itens": c["itens"],
+                "regioes": c["regioes"],
+                "texto": c["texto"],
+            }
+            for c in colunas
+        ],
+    }
+
+
+@papeis.exige("caixa")
+def entregas_quadro_view(request):
+    """O quadro: uma coluna por entregador e as paradas para arrastar."""
+    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+    if not leilao:
+        messages.info(request, "Nenhum leilão criado ainda.")
+        return redirect("leilao:equipe")
+
+    try:
+        pedido = int(request.GET.get("entregadores") or 0)
+    except (TypeError, ValueError):
+        pedido = 0
+    pedido = max(0, min(20, pedido))
+    if pedido:
+        _ajustar_entregadores(leilao, pedido)
+
+    quantos = leilao.entregadores.count()
+    if not quantos:
+        messages.info(request, "Diga quantos entregadores vocês têm para montar o quadro.")
+        return redirect("leilao:caixa")
+
+    if not AtribuicaoEntrega.objects.filter(leilao=leilao).exists():
+        _semear_quadro(leilao, quantos)
+
+    a_distribuir, colunas = _colunas_quadro(leilao)
+    return render(
+        request,
+        "leilao/entregas_quadro.html",
+        {
+            "leilao": leilao,
+            "a_distribuir": a_distribuir,
+            "colunas": colunas,
+            "quantos": quantos,
+        },
+    )
+
+
+@papeis.exige("caixa")
+@require_POST
+def entregas_redistribuir_view(request):
+    """Joga fora o que foi arrastado e refaz a divisão por bairro.
+
+    Existe para a equipe que se perdeu no meio e quer recomeçar. Apaga trabalho,
+    então o botão pergunta antes.
+    """
+    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+    if not leilao:
+        return redirect("leilao:caixa")
+    AtribuicaoEntrega.objects.filter(leilao=leilao).delete()
+    _semear_quadro(leilao, leilao.entregadores.count())
+    messages.success(request, "Quadro refeito pela divisão por bairro.")
+    return redirect("leilao:entregas_quadro")
 
 
 def _texto_roteiro_entregas(leilao, pendentes):
