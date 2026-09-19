@@ -2,7 +2,33 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-17 (**Leilão: quadro de entregas — a equipe arrasta quem leva o quê**):
+**Última atualização:** 2026-09-19 (**Leilão: peso e dimensões do item, obrigatórios no cadastro**):
+pedido do clube. O cadastro de item passou a **exigir** o **peso** (kg) e as **três dimensões** (altura,
+largura, profundidade, em cm). O motivo é a **entrega**, que acontece depois e longe: o voluntário escolhe o
+carro **antes de sair de casa**, e descobrir na porta que o item não cabe custa a viagem inteira — de quebra,
+quem dá lance passa a ver o tamanho do que está comprando. A medida aparece em **todas** as telas pedidas:
+tela pública do pregão, mesa do locutor, tela do caixa, roteiro/quadro de entrega, além do cadastro e da
+lista da preparação. **A obrigatoriedade mora no `LoteForm`, não no model**: no banco os quatro campos
+aceitam vazio porque os itens cadastrados antes da migration **0010** existem e continuam válidos, e gravar
+`0` neles seria inventar uma medida para quem vai dirigir até lá — a lista da preparação mostra
+"sem peso/medidas — completar ao editar", que é onde se descobre o que falta antes da noite da entrega.
+`0 kg`/`0 cm` **não passam** (obrigatório que aceita zero não obriga nada). O peso é `CharField` no form, e
+não `DecimalField` com `localize=True`, por uma armadilha real: em **pt-BR o Django lê `"1.5"` como
+separador de milhar** e devolveria **15** — um item de 1,5 kg viraria um de 15 kg calado; `peso_para_decimal`
+aceita **vírgula e ponto** como decimal, e há teste. A **máscara `moeda_br.js` não entra** (é de valor em R$,
+leria "40" como R$ 0,40); centímetro é inteiro com `min="1"`. O texto é montado **num lugar só**
+(`Lote.medidas_texto` → `1,5 kg · 40 × 30 × 25 cm`) e é ele que vai no broadcast (chave `medidas`) — medida
+**pode ser dita em voz alta**, ao contrário de Pix/telefone/endereço. Meia dimensão **não** vira texto
+(`40 × ? × 25` parece defeito), e `10,00` vira `10 kg`, nunca `1`. Os campos têm **teto**
+(`MAX_PESO_KG` 1.000 kg / `MAX_LADO_CM` 1.000 cm): não é regra de negócio, é o freio do **dígito a mais** —
+sem ele `999999999999 cm` passava e quebrava a tela do pregão para as 100 pessoas que estão olhando.
+Conferindo os caminhos de entrada um a um apareceu ainda um **500**: `Decimal("nan")` não levanta na
+conversão, levanta na comparação `peso <= 0` — `peso_para_decimal` agora recusa tudo o que não é finito.
+Suíte do leilão: **313 testes OK** (+25).
+**Ainda não publicado** — o deploy do leilão tem o passo extra do `docs/DEPLOY_LEILAO.md` §7.1 e a migration
+**`leilao/0010`** a aplicar.
+
+**Atualização anterior:** 2026-09-17 (**Leilão: quadro de entregas — a equipe arrasta quem leva o quê**):
 pergunta do clube ao conferir a divisão de entregas — *"se não há cálculo de rota, como ele sabe que um
 endereço é perto do outro?"*. A resposta honesta é **ele não sabe**: compara o **nome** do bairro, e sem
 mapa é tudo o que dá para fazer — dois bairros vizinhos são, para o código, tão distantes quanto dois nos
@@ -2040,7 +2066,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 271 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 313 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2065,6 +2091,13 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   **absoluta** do fim do cronômetro), `pausado_restante`, `voltas`. `proximo_valor` devolve o **lance
   inicial** enquanto não há lance (somar o incremento faria o item nunca sair pelo preço anunciado) e
   **`lances_da_rodada()`** limita o histórico à vez atual em pregão.
+  **Peso e dimensões** (mig. **0010**): `peso_kg` + `altura_cm`/`largura_cm`/`profundidade_cm`, com
+  `MinValueValidator` (zero é campo vazio disfarçado) e `MaxValueValidator`
+  (`MAX_PESO_KG` 1.000 kg / `MAX_LADO_CM` 1.000 cm — o freio do dígito a mais, não regra de negócio). São **obrigatórios no `LoteForm`**, não no model —
+  item anterior à migration continua válido e a lista da preparação o marca como
+  "sem peso/medidas — completar ao editar". As properties `peso_numero` (`1,5`, o que volta para dentro do
+  campo na edição), `peso_texto`, `dimensoes` e **`medidas_texto`** (`1,5 kg · 40 × 30 × 25 cm`) são a
+  **fonte única** do texto em todas as telas.
 - `Lance` — imutável. `cancelado` é **coluna dormente**: o "desfazer lance" foi removido da mesa a
   pedido do clube, e nada mais a escreve.
 - `Arremate` — FK (não OneToOne) com o lote: o item pode voltar para a fila e ser arrematado de novo,
@@ -2121,6 +2154,12 @@ função de diretor**; e conta de **superusuário** só é alterada por superusu
 **O martelo é do locutor:** por padrão (`Leilao.fechamento_automatico=False`) **o tempo não fecha
 nada** — o item fica aberto até o botão VENDIDO. A mesa mostra `Lote.parado_ha` (há quanto tempo a sala
 está calada, contando para **cima**), que é o que diz a hora do "dou-lhe uma, dou-lhe duas".
+
+**A medida do item é pública, o endereço não.** Peso e dimensões vão no broadcast
+(`estado.lote_publico`, chave **`medidas`**, texto pronto) porque são o **tamanho do que está à venda** —
+cabe na regra "só o que pode ser dito em voz alta". Existem por causa da **entrega**: o voluntário escolhe o
+carro antes de sair de casa, e por isso a medida também aparece no roteiro copiável (linha recuada sob o
+item), no cartão do quadro de entregas e na tela do caixa, de onde se combina a entrega no WhatsApp.
 
 **A tela do público esconde o que muda o jogo:** a **fila** (quantos faltam e quais são) e o
 **histórico de lances** saíram do broadcast — quem descobre que falta pouco segura o dinheiro. Vai só a

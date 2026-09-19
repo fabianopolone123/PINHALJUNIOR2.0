@@ -88,6 +88,12 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
             </div>
             <h1 class="lote-nome" id="loteNome">—</h1>
             <p class="lote-desc" id="loteDesc"></p>
+            {% comment %}
+            Tamanho e peso: quem dá lance está comprando algo que vai chegar na
+            casa dele. Fica escondido (o JS mostra) quando o item é antigo e não
+            tem medida — linha vazia embaixo do nome parece falha de carregamento.
+            {% endcomment %}
+            <p class="lote-medidas" id="loteMedidas" hidden></p>
         </section>
 
         {% comment %}

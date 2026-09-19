@@ -40,6 +40,14 @@
                 <div class="arremate-quem">
                     <b>{{ a.participante.nome }}</b>
                     <span class="arremate-item"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
+                    {% comment %}
+                    É daqui que o caixa abre a conversa para combinar a entrega,
+                    e "cabe no seu carro?" é a primeira pergunta. Sai da linha
+                    quando o item é antigo e não tem medida cadastrada.
+                    {% endcomment %}
+                    {% if a.lote.medidas_texto %}
+                    <span class="arremate-medidas">📦 {{ a.lote.medidas_texto }}</span>
+                    {% endif %}
                     <span class="arremate-contato selecionavel">{{ a.participante.whatsapp }}</span>
                 </div>
                 <div class="arremate-fim">
@@ -144,6 +152,9 @@
                     {% else %}<span class="item-foto vazia">📦</span>{% endif %}
                     <div class="item-corpo">
                         <span class="item-nome"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
+                        {% if a.lote.medidas_texto %}
+                        <span class="item-linha">📦 {{ a.lote.medidas_texto }}</span>
+                        {% endif %}
                         <span class="item-linha">R$ {{ a.valor }} · pago {{ a.pago_em|date:"d/m H:i" }}</span>
                     </div>
                 </div>

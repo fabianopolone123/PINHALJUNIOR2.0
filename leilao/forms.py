@@ -6,8 +6,10 @@ validação autoritativa no servidor.
 """
 
 import re
+from decimal import Decimal, InvalidOperation
 
 from django import forms
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 from .models import ConfigLeilao, Leilao, Lote, Participante
 
@@ -36,6 +38,36 @@ class EstiloMixin:
 
 def so_digitos(valor):
     return re.sub(r"\D", "", valor or "")
+
+
+def peso_para_decimal(texto):
+    """`"1,5"` e `"1.5"` viram `Decimal("1.5")`. Vazio ou lixo devolve `None`.
+
+    Os **dois** separadores valem. Quem cadastra item está no celular, e o
+    teclado numérico de boa parte dos aparelhos oferece o ponto, não a vírgula
+    do português — recusar "1.5" faria a pessoa brigar com o teclado no meio do
+    cadastro.
+
+    Separador de MILHAR não entra na conta, e é por isso que este helper existe
+    em vez do `localize=True` do Django: em pt-BR ele lê "1.5" como milhar e
+    devolve **15**, transformando um item de 1,5 kg num de 15 kg sem avisar
+    ninguém. O clube não leiloa nada de mil quilos; trocar essa hipótese
+    impossível por um erro real de peso não vale a pena.
+    """
+    texto = (texto or "").strip().replace(",", ".")
+    if not texto:
+        return None
+    try:
+        valor = Decimal(texto)
+    except InvalidOperation:
+        return None
+    # `Decimal("nan")` **não** levanta na conversão — levanta depois, na
+    # primeira comparação de ordem (`peso <= 0`), e aí já é um 500 na tela de
+    # cadastro. `"inf"` converte e compara, mas não é peso de coisa nenhuma.
+    # Os dois saem aqui, virando a mesma recusa educada de `"abc"`.
+    if not valor.is_finite():
+        return None
+    return valor
 
 
 class EntrarForm(EstiloMixin, forms.ModelForm):
@@ -147,11 +179,32 @@ class LoteForm(EstiloMixin, forms.ModelForm):
 
     A foto abre a **câmera do celular** direto (`capture`), sem biblioteca: é
     atributo nativo do `<input type="file">`.
+
+    **Peso e dimensões são obrigatórios AQUI**, e não no model. No banco eles
+    aceitam vazio porque os itens cadastrados antes deles existem e continuam
+    válidos; o que não pode mais acontecer é um item **novo** chegar na entrega
+    sem medida. Editar item antigo, portanto, pede o preenchimento — é a hora
+    natural de completar o que falta.
     """
+
+    # Peso é texto, não `DecimalField`: o campo precisa aceitar a vírgula do
+    # teclado português E o ponto do teclado numérico, e nenhum dos dois
+    # caminhos prontos do Django faz isso sem ler "1.5" como milhar. Ver
+    # `peso_para_decimal`.
+    peso_kg = forms.CharField(
+        label="Peso (kg)",
+        widget=forms.TextInput(
+            attrs={"inputmode": "decimal", "placeholder": "Ex.: 1,5"}
+        ),
+        help_text="Aproximado. Vírgula ou ponto.",
+    )
 
     class Meta:
         model = Lote
-        fields = ["nome", "descricao", "lance_inicial", "incremento", "foto"]
+        fields = [
+            "nome", "descricao", "lance_inicial", "incremento",
+            "peso_kg", "altura_cm", "largura_cm", "profundidade_cm", "foto",
+        ]
         widgets = {
             "nome": forms.TextInput(attrs={"placeholder": "Ex.: Cesta de café da manhã"}),
             "descricao": forms.TextInput(
@@ -161,6 +214,8 @@ class LoteForm(EstiloMixin, forms.ModelForm):
                 attrs={"accept": "image/*", "capture": "environment"}
             ),
         }
+
+    LADOS = ["altura_cm", "largura_cm", "profundidade_cm"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -172,7 +227,48 @@ class LoteForm(EstiloMixin, forms.ModelForm):
             self.fields[nome].widget = forms.TextInput(
                 attrs={"data-moeda": "1", "inputmode": "decimal", "placeholder": "0,00"}
             )
+        # Centímetro é número inteiro e NÃO leva a máscara de moeda: ela é de
+        # valor em R$ (regra do projeto) e leria "40" como R$ 0,40.
+        for nome in self.LADOS:
+            campo = self.fields[nome]
+            campo.required = True
+            # `min_value=1` explícito: o `PositiveIntegerField` entrega o campo
+            # com `min_value=0`, e é ESSE validador que responde primeiro a um
+            # número negativo — a pessoa digitava `-5` e lia "maior ou igual a
+            # 0", quando o mínimo de verdade é 1.
+            campo.min_value = 1
+            campo.max_value = Lote.MAX_LADO_CM
+            campo.validators = [
+                v for v in campo.validators
+                if not isinstance(v, (MinValueValidator, MaxValueValidator))
+            ]
+            campo.validators += [
+                MinValueValidator(1), MaxValueValidator(Lote.MAX_LADO_CM)
+            ]
+            campo.widget.attrs.update({
+                "min": "1", "max": str(Lote.MAX_LADO_CM),
+                "inputmode": "numeric", "placeholder": "0",
+            })
+        # Na edição o campo volta com a vírgula ("1,5"), não com o `Decimal`
+        # cru do banco ("1.50") — é o mesmo texto que a pessoa digitou.
+        if self.instance and self.instance.pk:
+            self.initial["peso_kg"] = self.instance.peso_numero
         self._aplicar_estilo()
+
+    def clean_peso_kg(self):
+        peso = peso_para_decimal(self.cleaned_data.get("peso_kg"))
+        if peso is None:
+            raise forms.ValidationError("Informe o peso em quilos (ex.: 1,5).")
+        if peso <= 0:
+            raise forms.ValidationError("O peso precisa ser maior que zero.")
+        if peso > Lote.MAX_PESO_KG:
+            raise forms.ValidationError(
+                # `int`, e não `normalize()`: este devolve `Decimal("1E+3")`
+                # e a mensagem sairia "Peso acima de 1E+3 kg".
+                "Peso acima de %d kg — confira se não sobrou um dígito."
+                % int(Lote.MAX_PESO_KG)
+            )
+        return peso
 
 
 class ConfigLeilaoForm(EstiloMixin, forms.ModelForm):

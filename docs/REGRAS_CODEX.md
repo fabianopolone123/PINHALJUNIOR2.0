@@ -975,6 +975,43 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Não peça "rastreio" na entrega.** É voluntário levando na casa da pessoa: não existe código para anotar,
   e o campo pedindo um só fazia hesitar quem preenchia com pressa.
 
+### Peso e dimensões do item
+
+- **São obrigatórios no `LoteForm`, NÃO no model.** No banco os quatro campos aceitam vazio de propósito:
+  os itens cadastrados antes da migration **0010** existem e continuam válidos. Gravar `0` neles seria
+  inventar um dado — e quem lê a medida é quem vai **dirigir até a casa da pessoa**. A tela desses itens
+  antigos diz "—" (e, na lista da preparação, "sem peso/medidas — completar ao editar", que é onde se
+  descobre o que falta antes da noite da entrega).
+- **"Obrigatório" que aceita zero não obriga nada.** `0 kg` e `0 cm` são campo vazio disfarçado e chegam na
+  entrega valendo o mesmo que em branco — por isso os `MinValueValidator` no model e a recusa no form.
+- **O peso aceita vírgula E ponto** (`forms.peso_para_decimal`), e é por isso que ele é `CharField` no form
+  em vez de `DecimalField` com `localize=True`: em pt-BR o Django lê `"1.5"` como **separador de milhar** e
+  devolve **15** — um item de 1,5 kg vira um de 15 kg sem avisar ninguém. O clube não leiloa nada de mil
+  quilos; trocar essa hipótese impossível por um erro real de peso não vale a pena. Há teste.
+  A **máscara `moeda_br.js` não entra aqui**: ela é de valor em R$ (regra do projeto) e leria "40" como
+  R$ 0,40. Centímetro é inteiro e usa `NumberInput` com `min="1"`.
+- **Há teto, e ele não é regra de negócio: é o freio do dígito a mais.** `Lote.MAX_PESO_KG` (1.000 kg) e
+  `Lote.MAX_LADO_CM` (1.000 cm = 10 m). Sem eles o campo aceitava `999999999999`, e uma medida dessas
+  **quebra a tela do pregão para as 100 pessoas** que estão olhando. Nenhum item de leilão de clube chega
+  perto do teto; o que chega perto é o dedo escorregando no teclado do celular. O mínimo `1` é declarado
+  **no form também**: o `PositiveIntegerField` entrega o campo com `min_value=0` e é esse validador que
+  responde primeiro ao negativo, dizendo "maior ou igual a 0" quando o mínimo de verdade é 1.
+- **Na edição, o campo volta com a vírgula** (`Lote.peso_numero` → `"1,5"`), não com o `Decimal` cru do banco
+  (`1.50`): é o mesmo texto que a pessoa digitou.
+- **O texto é montado num lugar só** — `Lote.medidas_texto` (`"1,5 kg · 40 × 30 × 25 cm"`), que vale para
+  **todas** as telas: cadastro, lista da preparação, pregão público, mesa do locutor, caixa e roteiro de
+  entrega. Formatar no template ou no JS faria a mesma medida aparecer de jeitos diferentes, e a equipe
+  desconfia do número quando ele muda de cara. **Tela nova usa a property**, não os quatro campos.
+- **Meia dimensão não vira texto**: `40 × ? × 25` parece defeito do sistema, não item incompleto. `dimensoes`
+  só devolve algo com os **três** lados preenchidos, e `peso_texto` corta os zeros à direita parando no ponto
+  decimal (`10,00` → `10 kg`, nunca `1`).
+- **Vai no broadcast** (`estado.lote_publico`, chave `medidas`) porque é o **tamanho do que está à venda** —
+  pode ser dito em voz alta, ao contrário de Pix, telefone e endereço. Vai o **texto pronto**, não os quatro
+  números: o broadcast é lido por 100 celulares e o formato já foi decidido no servidor.
+- **O motivo de tudo isso é a ENTREGA**, que acontece depois e longe: o voluntário escolhe o carro antes de
+  sair de casa, e descobrir na porta que o item não cabe custa a viagem inteira. Por isso a medida aparece
+  também no roteiro copiável (linha recuada sob o item) e no cartão do quadro.
+
 ### O número do item
 
 - **É a etiqueta do objeto físico, não a posição na fila.** `Lote.numero` nasce sozinho e **não muda

@@ -19,6 +19,7 @@ import secrets
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import F
 from django.utils import timezone
@@ -448,6 +449,41 @@ class Lote(models.Model):
     foto = models.ImageField("Foto", upload_to="lotes/", blank=True)
     foto_mini = models.ImageField("Miniatura", upload_to="lotes/mini/", blank=True)
 
+    # PESO E DIMENSÕES existem por causa da ENTREGA, que é a parte do leilão que
+    # acontece depois e longe: o voluntário escolhe o carro antes de sair, e
+    # descobrir na porta que o item não cabe custa a viagem inteira. De quebra,
+    # quem dá lance passa a saber o tamanho do que está comprando.
+    #
+    # São **obrigatórios no cadastro** — a exigência está no `LoteForm`, não
+    # aqui. No banco eles aceitam vazio de propósito: os itens cadastrados antes
+    # desta migration não têm a informação, e gravar `0` neles seria inventar um
+    # dado — a tela prefere dizer "—" a mentir uma medida para quem vai dirigir.
+    # Os tetos (1.000 kg e 1.000 cm = 10 m) não são regra de negócio: são o
+    # freio do dígito a mais. Sem eles o campo aceita `999999999999`, e uma
+    # medida assim **quebra a tela do pregão para as 100 pessoas** que estão
+    # olhando. Nenhum item de leilão de clube chega perto disso; o que chega
+    # perto é o dedo escorregando no teclado do celular.
+    MAX_PESO_KG = Decimal("1000")
+    MAX_LADO_CM = 1000
+
+    peso_kg = models.DecimalField(
+        "Peso (kg)", max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal("0.01")), MaxValueValidator(MAX_PESO_KG)],
+        help_text="Aproximado, em quilos. Pode usar vírgula (ex.: 1,5).",
+    )
+    altura_cm = models.PositiveIntegerField(
+        "Altura (cm)", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_LADO_CM)],
+    )
+    largura_cm = models.PositiveIntegerField(
+        "Largura (cm)", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_LADO_CM)],
+    )
+    profundidade_cm = models.PositiveIntegerField(
+        "Profundidade (cm)", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_LADO_CM)],
+    )
+
     lance_inicial = models.DecimalField(
         "Lance inicial (R$)", max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
@@ -524,6 +560,48 @@ class Lote(models.Model):
                 ).get(pk=self.leilao_id)
                 return super().save(*args, **kwargs)
         return super().save(*args, **kwargs)
+
+    @property
+    def peso_numero(self):
+        """Só o número, como se escreve em português: `1,5` (sem a unidade).
+
+        É o que volta para dentro do campo quando alguém edita o item. Os zeros
+        à direita caem (`15,00` vira `15`) porque peso arredondado com duas
+        casas fixas parece precisão de balança de farmácia, que não é o caso.
+        O ponto sobrevive ao `rstrip` e por isso `10,00` não vira `1`.
+        """
+        if self.peso_kg is None:
+            return ""
+        texto = f"{self.peso_kg:.2f}".rstrip("0").rstrip(".")
+        return texto.replace(".", ",")
+
+    @property
+    def peso_texto(self):
+        return f"{self.peso_numero} kg" if self.peso_numero else ""
+
+    @property
+    def dimensoes(self):
+        """`40 × 30 × 25 cm`. Vazio quando falta qualquer uma das três.
+
+        Meia medida não ajuda ninguém a escolher o carro, e "40 × ? × 25" na
+        tela parece defeito do sistema em vez de item antigo sem cadastro.
+        """
+        lados = [self.altura_cm, self.largura_cm, self.profundidade_cm]
+        if not all(lados):
+            return ""
+        return " × ".join(str(x) for x in lados) + " cm"
+
+    @property
+    def medidas_texto(self):
+        """Peso e dimensões numa linha só — o formato que TODA tela usa.
+
+        O texto é montado aqui, num lugar só, e não em cada template/JS: a tela
+        do público, a mesa, o caixa e o roteiro de entrega precisam dizer a
+        mesma coisa do mesmo jeito, senão a equipe compara medidas escritas de
+        formas diferentes e desconfia do número.
+        """
+        partes = [x for x in (self.peso_texto, self.dimensoes) if x]
+        return " · ".join(partes)
 
     @property
     def incremento_efetivo(self):

@@ -10,7 +10,11 @@ arrematou. O bairro vem em destaque porque é por ele que a equipe decide o que
     <span class="parada-tel">📱 {{ p.pessoa.whatsapp }}</span>
     <ul class="parada-itens">
         {% for a in p.itens %}
-        <li>nº {{ a.lote.numero }} — {{ a.lote.nome }}</li>
+        <li>nº {{ a.lote.numero }} — {{ a.lote.nome }}
+            {% if a.lote.medidas_texto %}
+            <span class="parada-medidas">📦 {{ a.lote.medidas_texto }}</span>
+            {% endif %}
+        </li>
         {% endfor %}
     </ul>
 </article>

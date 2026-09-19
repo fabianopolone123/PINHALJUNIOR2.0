@@ -143,6 +143,9 @@ body.tela-entrada {
 }
 .campo-textarea { resize: vertical; min-height: 70px; }
 .ajuda { display: block; margin-top: 4px; font-size: 0.76rem; color: var(--texto-suave); }
+/* A ajuda que explica o BLOCO inteiro (não um campo) vem antes dos campos e
+   por isso respira embaixo, não em cima. */
+.ajuda-bloco { margin: 0 0 10px; line-height: 1.4; }
 .erros { margin-top: 4px; font-size: 0.8rem; color: var(--vermelho); }
 .erros ul { list-style: none; }
 
@@ -163,6 +166,23 @@ body.tela-entrada {
 }
 .btn-entrar:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(15, 76, 129, 0.4); }
 .btn-entrar:active { transform: translateY(0); }
+
+/* Bloco de campos com cerca e título ("Tamanho e peso"): agrupa o que só faz
+   sentido junto. O `fieldset` nativo tem borda e margem próprias do navegador
+   — zeradas aqui para ele seguir o desenho dos cards do leilão. */
+.medidas {
+    margin: 0 0 12px;
+    padding: 12px 13px 2px;
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-campo);
+    min-width: 0;
+}
+.medidas legend {
+    padding: 0 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--azul-escuro);
+}
 
 .entrada-aviso {
     margin-top: 12px;
@@ -319,6 +339,9 @@ body.tela-palco {
     overflow-wrap: anywhere;
 }
 .lote-desc { margin-top: 4px; color: var(--palco-suave); font-size: 0.9rem; line-height: 1.4; }
+/* Tamanho e peso: informação de apoio, um degrau abaixo da descrição — ela
+   conta o que é o item, esta conta o que vai chegar na casa da pessoa. */
+.lote-medidas { margin-top: 4px; color: var(--palco-suave); font-size: 0.8rem; opacity: 0.85; }
 
 /* ---- Pregão: cronômetro + líder ---- */
 .pregao {

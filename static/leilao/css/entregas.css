@@ -193,6 +193,9 @@
     font-size: 0.78rem;
     opacity: 0.85;
 }
+/* Peso e tamanho em linha própria, recuados sob o item: é o que diz se a
+   parada cabe no carro, e no cartão o espaço horizontal é curto. */
+.parada-medidas { display: block; font-size: 0.74rem; opacity: 0.8; }
 
 .copiar-fonte {
     position: absolute;

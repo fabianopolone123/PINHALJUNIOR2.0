@@ -26,6 +26,37 @@
                 <div class="col-num">{% include "leilao/_campo.html" with campo=form.incremento %}</div>
             </div>
 
+            {% comment %}
+            Peso e dimensões são para a ENTREGA: o voluntário escolhe o carro
+            antes de sair de casa, e descobrir na porta que o item não cabe
+            custa a viagem toda. Por isso são obrigatórios — a exigência está no
+            LoteForm, o asterisco aqui só a anuncia.
+            {% endcomment %}
+            <fieldset class="medidas">
+                <legend>Tamanho e peso</legend>
+                <small class="ajuda ajuda-bloco">
+                    É o que diz se o item cabe no carro de quem vai entregar.
+                    Medida aproximada serve; em branco, não.
+                </small>
+
+                {% comment %}
+                Duas grades, e não uma: a `.entrada-grade` tem 6 colunas e a
+                `.col-num` ocupa 2, então os quatro campos juntos somariam 8 e
+                quebrariam a linha no meio das dimensões. Peso é uma medida;
+                altura/largura/profundidade são outra, e as três cabem exatas
+                numa linha (2+2+2).
+                {% endcomment %}
+                <div class="entrada-grade">
+                    <div class="col-num">{% include "leilao/_campo.html" with campo=form.peso_kg %}</div>
+                </div>
+
+                <div class="entrada-grade">
+                    <div class="col-num">{% include "leilao/_campo.html" with campo=form.altura_cm %}</div>
+                    <div class="col-num">{% include "leilao/_campo.html" with campo=form.largura_cm %}</div>
+                    <div class="col-num">{% include "leilao/_campo.html" with campo=form.profundidade_cm %}</div>
+                </div>
+            </fieldset>
+
             <div class="campo">
                 <label for="{{ form.foto.id_for_label }}">Foto do item</label>
                 {% comment %}

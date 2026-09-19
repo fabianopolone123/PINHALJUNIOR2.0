@@ -253,6 +253,11 @@
         if (trocouLote) {
             $("loteNome").textContent = lote.nome || "—";
             $("loteDesc").textContent = lote.descricao || "";
+            // Item antigo (cadastrado antes de peso/dimensões existirem) fica
+            // sem a linha, em vez de mostrar uma vazia.
+            var medidas = $("loteMedidas");
+            medidas.textContent = lote.medidas || "";
+            medidas.hidden = !lote.medidas;
             var img = $("loteImg");
             var vazio = $("loteSemFoto");
             if (lote.foto) {

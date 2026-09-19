@@ -22,6 +22,107 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-19 - Leilão: peso e dimensões do item, obrigatórios no cadastro
+
+### Resumo
+Pedido do clube: o cadastro de item do leilão passou a **exigir** o **peso**
+(kg) e as **três dimensões** (altura, largura e profundidade, em cm), e a
+medida passou a aparecer em todas as telas em que o item aparece.
+
+O motivo é a **entrega**, que é a parte do leilão que acontece depois e longe:
+o voluntário escolhe o carro **antes de sair de casa**, e descobrir na porta da
+pessoa que o item não cabe custa a viagem inteira. De quebra, quem dá lance
+passa a saber o tamanho do que está comprando.
+
+### O que foi feito
+Quatro campos novos no `Lote` e uma property que monta o texto
+(`1,5 kg · 40 × 30 × 25 cm`) para **todas** as telas: cadastro, lista da
+preparação, tela pública do pregão, mesa do locutor, tela do caixa e
+roteiro/quadro de entrega.
+
+### Arquivos criados/alterados
+- `leilao/models.py`: `peso_kg`, `altura_cm`, `largura_cm`, `profundidade_cm`
+  (com `MinValueValidator` e `MaxValueValidator`; constantes `MAX_PESO_KG` e
+  `MAX_LADO_CM`) e as properties `peso_numero`, `peso_texto`, `dimensoes` e
+  `medidas_texto`. Migration **0010**.
+- `leilao/forms.py`: `peso_para_decimal` (vírgula **e** ponto) e o `LoteForm`
+  exigindo os quatro campos; `clean_peso_kg` recusa vazio e zero.
+- `leilao/estado.py`: chave **`medidas`** no `lote_publico` (texto pronto).
+- `leilao/entregas.py`: a medida entra no `texto_da_rota`, recuada sob o item.
+- `templates/leilao/lote_form.html`: `fieldset` "Tamanho e peso" (duas grades,
+  ver Decisões), `lotes.html`, `leilao.html`, `locutor.html`, `caixa.html` e
+  `_parada_entrega.html`.
+- `static/leilao/js/leilao.js` e `locutor.js`: desenham a linha e a **escondem**
+  quando o item não tem medida.
+- `static/leilao/css/leilao.css` (`.medidas`, `.ajuda-bloco`, `.lote-medidas`),
+  `locutor.css` (`.mesa-medidas`, `.arremate-medidas`), `entregas.css`
+  (`.parada-medidas`).
+- `leilao/management/commands/leilao_demo.py`: os 6 itens fictícios nascem com
+  peso e medidas (e o comando completa os que já existiam).
+- `leilao/tests.py`: `PesoEDimensoesTests` (**25 casos**), o fixture `criar_lote`
+  passou a preencher as medidas e o POST do `PreparacaoTests` ganhou os campos
+  novos. Suíte do leilão: 288 → **313, tudo OK**.
+- `docs/MANUAL_LEILAO.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`.
+
+### Decisões tomadas
+- **A obrigatoriedade está no `LoteForm`, não no model.** No banco os quatro
+  campos aceitam vazio: os itens cadastrados antes da migration existem e
+  continuam válidos, e gravar `0` neles seria **inventar uma medida** para quem
+  vai dirigir até a casa da pessoa. A lista da preparação marca esses itens com
+  "sem peso/medidas — completar ao editar", que é onde se descobre o que falta
+  antes da noite da entrega. Editar um item antigo pede o preenchimento — é a
+  hora natural de completar.
+- **Zero não passa.** "Obrigatório" que aceita `0 kg`/`0 cm` não obriga nada:
+  chega na entrega valendo o mesmo que em branco.
+- **O peso é `CharField` no form, e não `DecimalField` com `localize=True`.**
+  Em pt-BR o Django lê `"1.5"` como **separador de milhar** e devolve **15** —
+  um item de 1,5 kg viraria um de 15 kg sem avisar ninguém. `peso_para_decimal`
+  trata vírgula e ponto como decimal; o clube não leiloa nada de mil quilos,
+  então a hipótese perdida é impossível e o erro evitado é real. Há teste.
+- **A máscara `moeda_br.js` ficou de fora**: ela é de valor em **R$** (regra do
+  projeto) e leria "40" como R$ 0,40. Centímetro é inteiro, `NumberInput`
+  com `min="1"`.
+- **O texto é montado num lugar só** (`Lote.medidas_texto`). Formatar no
+  template ou no JS faria a mesma medida aparecer de jeitos diferentes em telas
+  diferentes, e a equipe desconfia do número quando ele muda de cara.
+- **Vai no broadcast** porque medida **pode ser dita em voz alta** — é o tamanho
+  do que está à venda, não dado de ninguém (ao contrário de Pix, telefone e
+  endereço). Vai o **texto pronto**, não os quatro números.
+- **Meia dimensão não vira texto.** `40 × ? × 25` parece defeito do sistema, não
+  item incompleto; `dimensoes` exige os três lados.
+- **`10,00` vira `10 kg`, nunca `1`.** O corte dos zeros à direita para no ponto
+  decimal — há teste para as quatro variações.
+- **Duas grades no formulário, não uma.** A `.entrada-grade` tem 6 colunas e a
+  `.col-num` ocupa 2: os quatro campos juntos somariam 8 e quebrariam a linha no
+  meio das dimensões. Peso é uma medida; altura/largura/profundidade são outra,
+  e as três cabem exatas numa linha.
+- **Há teto, e ele não é regra de negócio: é o freio do dígito a mais.**
+  Conferindo os caminhos de entrada um a um, `999999999999` passava na altura —
+  e uma medida dessas quebra a tela do pregão para as 100 pessoas que estão
+  olhando. Teto em 1.000 kg e 1.000 cm (10 m): nenhum item de leilão de clube
+  chega perto, o que chega perto é o dedo escorregando no teclado. No mesmo
+  passe, o mínimo `1` passou a ser declarado no **form** — o
+  `PositiveIntegerField` entrega o campo com `min_value=0` e era esse validador
+  que respondia ao negativo, dizendo "maior ou igual a 0".
+- **Um 500 encontrado e fechado no caminho**: `Decimal("nan")` **não** levanta
+  na conversão — levanta na primeira comparação de ordem (`peso <= 0`), e aí já
+  é erro 500 na tela de cadastro. `peso_para_decimal` passou a recusar tudo o
+  que não é finito (`nan`, `inf`), virando a mesma recusa educada de `"abc"`.
+  Há teste.
+- **Conferido sem navegador**: formulário renderizado pelo test client +
+  Chrome headless, e a **sonda de overflow** (`scrollWidth` × `clientWidth`) não
+  acusou estouro em 500px nem em 1280px.
+
+### Pendências
+- **Ainda não publicado.** O deploy do leilão tem o passo extra do
+  `docs/DEPLOY_LEILAO.md` §7.1 (o `pinhaljunior2-deploy` **não** reinicia o
+  serviço do leilão nem coleta os estáticos dele), e a migration
+  **`leilao/0010`** precisa ser aplicada.
+- Os itens **já cadastrados em produção** ficam sem medida até alguém editá-los.
+  Não há migração de dados possível: ninguém sabe o peso deles.
+
+---
+
 ## 2026-09-17 - Leilão: quadro de entregas (arrastar quem leva o quê)
 
 ### Resumo

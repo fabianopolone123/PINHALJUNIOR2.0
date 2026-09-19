@@ -38,6 +38,7 @@ from django.utils import timezone  # noqa: E402
 from . import entregas
 from . import equipe
 from . import estado as est
+from . import forms
 from . import papeis
 from . import reacoes
 from . import servicos
@@ -70,7 +71,18 @@ def criar_leilao(**extra):
 
 
 def criar_lote(leilao, **extra):
-    dados = {"nome": "Cesta fictícia", "lance_inicial": Decimal("40.00"), "ordem": 1}
+    # Peso e dimensões vêm preenchidos porque é assim que todo item cadastrado
+    # a partir de agora nasce (o `LoteForm` os exige). Quem for testar o item
+    # ANTIGO, anterior a esses campos, passa `peso_kg=None` de propósito.
+    dados = {
+        "nome": "Cesta fictícia",
+        "lance_inicial": Decimal("40.00"),
+        "ordem": 1,
+        "peso_kg": Decimal("2.50"),
+        "altura_cm": 20,
+        "largura_cm": 35,
+        "profundidade_cm": 25,
+    }
     dados.update(extra)
     return Lote.objects.create(leilao=leilao, **dados)
 
@@ -688,7 +700,12 @@ class PreparacaoTests(TestCase):
 
         r = self.c.post(
             "/preparacao/%d/itens/novo/" % proximo.pk,
-            {"nome": "Item de dezembro", "descricao": "", "lance_inicial": "30.00"},
+            {
+                "nome": "Item de dezembro", "descricao": "", "lance_inicial": "30.00",
+                # Peso e dimensões passaram a ser obrigatórios no cadastro.
+                "peso_kg": "1,5", "altura_cm": "20",
+                "largura_cm": "30", "profundidade_cm": "25",
+            },
         )
         self.assertEqual(r.status_code, 302)
         self.assertEqual(proximo.lotes.count(), 1)
@@ -3551,3 +3568,259 @@ class EmojiNaoAtrapalhaOPregaoTests(TestCase):
         pessoa = criar_pessoa("Maria Fictícia")
         ok, msg, _ = servicos.dar_lance(lote.id, pessoa)
         self.assertTrue(ok, msg)
+
+
+class PesoEDimensoesTests(TestCase):
+    """Peso e dimensões do item — obrigatórios, e presentes em toda tela.
+
+    Existem por causa da **entrega**: o voluntário escolhe o carro antes de
+    sair de casa, e descobrir na porta que o item não cabe custa a viagem
+    inteira. De quebra, quem dá lance passa a saber o tamanho do que compra.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("prep_medidas", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="prep_medidas", password="segredo-ficticio")
+
+    def _post(self, **extra):
+        dados = {
+            "nome": "Item fictício", "descricao": "", "lance_inicial": "30.00",
+            "peso_kg": "1,5", "altura_cm": "20",
+            "largura_cm": "30", "profundidade_cm": "25",
+        }
+        dados.update(extra)
+        return self.c.post("/preparacao/%d/itens/novo/" % self.leilao.pk, dados)
+
+    # ---------- obrigatoriedade ----------
+
+    def test_cadastro_completo_salva(self):
+        self.assertEqual(self._post().status_code, 302)
+        lote = self.leilao.lotes.get(nome="Item fictício")
+        self.assertEqual(lote.peso_kg, Decimal("1.5"))
+        self.assertEqual((lote.altura_cm, lote.largura_cm, lote.profundidade_cm),
+                         (20, 30, 25))
+
+    def test_nao_salva_sem_peso(self):
+        r = self._post(peso_kg="")
+        self.assertEqual(r.status_code, 200)   # volta com erro, não redireciona
+        self.assertFalse(self.leilao.lotes.exists())
+
+    def test_nao_salva_sem_cada_uma_das_dimensoes(self):
+        for lado in ["altura_cm", "largura_cm", "profundidade_cm"]:
+            with self.subTest(lado=lado):
+                r = self._post(**{lado: "", "nome": "Item " + lado})
+                self.assertEqual(r.status_code, 200)
+                self.assertFalse(self.leilao.lotes.filter(nome="Item " + lado).exists())
+
+    def test_peso_zero_nao_passa(self):
+        """"Obrigatório" que aceita zero não obriga nada — 0 kg é campo vazio
+        disfarçado, e chega na entrega valendo o mesmo que em branco."""
+        self.assertEqual(self._post(peso_kg="0").status_code, 200)
+        self.assertFalse(self.leilao.lotes.exists())
+
+    def test_dimensao_zero_nao_passa(self):
+        self.assertEqual(self._post(altura_cm="0").status_code, 200)
+        self.assertFalse(self.leilao.lotes.exists())
+
+    def test_dedo_escorregado_no_teclado_nao_passa(self):
+        """`999999999999 cm` na tela do pregão quebra o layout para as 100
+        pessoas que estão olhando. O teto (1.000 kg / 1.000 cm = 10 m) não é
+        regra de negócio: é o freio do dígito a mais."""
+        self.assertEqual(self._post(altura_cm="999999999999").status_code, 200)
+        self.assertEqual(self._post(peso_kg="99999999").status_code, 200)
+        self.assertFalse(self.leilao.lotes.exists())
+
+    def test_negativo_avisa_o_minimo_certo(self):
+        """O `PositiveIntegerField` entrega o campo com `min_value=0` e era
+        esse validador que respondia primeiro: a pessoa lia "maior ou igual a
+        0" quando o mínimo de verdade é 1."""
+        r = self._post(altura_cm="-5")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("1", str(r.context["form"].errors["altura_cm"]))
+        self.assertNotIn("igual a 0", str(r.context["form"].errors["altura_cm"]))
+
+    def test_entrada_estranha_nao_estoura_a_tela(self):
+        """Nenhum caminho de entrada pode virar 500 — a recusa é uma mensagem
+        no formulário."""
+        for campo, valor in [
+            ("peso_kg", "abc"), ("peso_kg", "1,23456"), ("peso_kg", "-2"),
+            ("altura_cm", "abc"), ("altura_cm", "1,5"), ("largura_cm", "-1"),
+        ]:
+            with self.subTest(campo=campo, valor=valor):
+                r = self._post(**{campo: valor})
+                self.assertEqual(r.status_code, 200)
+        self.assertFalse(self.leilao.lotes.exists())
+
+    # ---------- o peso aceita os dois separadores ----------
+
+    def test_peso_aceita_virgula_e_ponto(self):
+        """A vírgula é a do teclado português; o ponto é o que muitos teclados
+        numéricos de celular oferecem. Recusar um dos dois faz a pessoa brigar
+        com o teclado no meio do cadastro."""
+        for digitado, esperado in [("1,5", "1.5"), ("1.5", "1.5"), ("12", "12")]:
+            with self.subTest(digitado=digitado):
+                self.assertEqual(
+                    forms.peso_para_decimal(digitado), Decimal(esperado)
+                )
+
+    def test_peso_com_ponto_nao_e_lido_como_milhar(self):
+        """A armadilha que fez este campo NÃO usar `localize=True`: em pt-BR o
+        Django lê "1.5" como separador de milhar e devolve 15 — um item de
+        1,5 kg viraria um de 15 kg sem avisar ninguém."""
+        self.assertEqual(forms.peso_para_decimal("1.5"), Decimal("1.5"))
+
+    def test_peso_invalido_nao_estoura(self):
+        self.assertIsNone(forms.peso_para_decimal("abc"))
+        self.assertIsNone(forms.peso_para_decimal(""))
+        self.assertIsNone(forms.peso_para_decimal(None))
+
+    def test_nan_e_infinito_nao_derrubam_a_tela(self):
+        """Bug encontrado conferindo os caminhos de entrada: `Decimal("nan")`
+        **não** levanta na conversão — levanta na primeira comparação de ordem
+        (`peso <= 0`), e aí já era **500 na tela de cadastro**. `"inf"` converte
+        e compara, mas não é peso de coisa nenhuma."""
+        for texto in ["nan", "NaN", "-nan", "snan", "inf", "-inf", "Infinity"]:
+            with self.subTest(texto=texto):
+                self.assertIsNone(forms.peso_para_decimal(texto))
+
+    def test_nan_no_formulario_e_recusa_educada_e_nao_500(self):
+        r = self._post(peso_kg="nan")
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(self.leilao.lotes.exists())
+
+    # ---------- o texto, decidido num lugar só ----------
+
+    def test_texto_das_medidas(self):
+        lote = criar_lote(self.leilao, peso_kg=Decimal("1.50"),
+                          altura_cm=40, largura_cm=30, profundidade_cm=25)
+        self.assertEqual(lote.peso_texto, "1,5 kg")
+        self.assertEqual(lote.dimensoes, "40 × 30 × 25 cm")
+        self.assertEqual(lote.medidas_texto, "1,5 kg · 40 × 30 × 25 cm")
+
+    def test_peso_redondo_nao_perde_o_zero_da_dezena(self):
+        """`10,00` não pode virar `1`: o corte dos zeros à direita para no
+        ponto decimal."""
+        for guardado, esperado in [("10.00", "10 kg"), ("100.00", "100 kg"),
+                                   ("0.50", "0,5 kg"), ("15.25", "15,25 kg")]:
+            with self.subTest(guardado=guardado):
+                lote = Lote(peso_kg=Decimal(guardado))
+                self.assertEqual(lote.peso_texto, esperado)
+
+    def test_item_antigo_sem_medida_nao_inventa_texto(self):
+        """Item cadastrado antes destes campos existirem. A tela diz "—"; o
+        sistema não chuta uma medida para quem vai dirigir até lá."""
+        antigo = criar_lote(self.leilao, peso_kg=None, altura_cm=None,
+                            largura_cm=None, profundidade_cm=None)
+        self.assertEqual(antigo.medidas_texto, "")
+
+    def test_meia_dimensao_nao_vira_texto_quebrado(self):
+        """"40 × ? × 25" parece defeito do sistema, não item incompleto."""
+        meio = criar_lote(self.leilao, altura_cm=40, largura_cm=None,
+                          profundidade_cm=25)
+        self.assertEqual(meio.dimensoes, "")
+
+    # ---------- onde aparece ----------
+
+    def test_vai_no_broadcast_do_pregao(self):
+        """Medida pode ser dita em voz alta: é o tamanho do que está à venda,
+        não dado de ninguém."""
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        dados = est.estado_publico(self.leilao)
+        self.assertEqual(dados["lote"]["medidas"], lote.medidas_texto)
+        self.assertTrue(dados["lote"]["medidas"])
+
+    def test_a_mesa_do_locutor_recebe_pelo_mesmo_caminho(self):
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        self.assertEqual(
+            est.lote_publico(Lote.objects.get(pk=lote.pk))["medidas"],
+            lote.medidas_texto,
+        )
+
+    def test_aparece_na_lista_da_preparacao(self):
+        criar_lote(self.leilao)
+        r = self.c.get("/preparacao/%d/itens/" % self.leilao.pk)
+        self.assertContains(r, "2,5 kg · 20 × 35 × 25 cm")
+
+    def test_a_lista_avisa_quando_o_item_antigo_esta_sem_medida(self):
+        """A linha não some: é nela que se descobre o que falta completar
+        antes da noite da entrega."""
+        criar_lote(self.leilao, peso_kg=None, altura_cm=None,
+                   largura_cm=None, profundidade_cm=None)
+        r = self.c.get("/preparacao/%d/itens/" % self.leilao.pk)
+        self.assertContains(r, "sem peso/medidas")
+
+    def test_editar_devolve_o_peso_com_virgula_no_campo(self):
+        """O campo volta com o texto que a pessoa digitou, não com o `Decimal`
+        cru do banco (`1.50`)."""
+        lote = criar_lote(self.leilao, peso_kg=Decimal("1.50"))
+        r = self.c.get("/preparacao/itens/%d/editar/" % lote.pk)
+        self.assertEqual(r.context["form"].initial["peso_kg"], "1,5")
+
+    def test_aparece_na_tela_do_caixa(self):
+        """O caixa combina a entrega no WhatsApp a partir dessa lista, e
+        "cabe no seu carro?" é a primeira pergunta da conversa."""
+        User = get_user_model()
+        cx = User.objects.create_user("cx_medidas", password="segredo-ficticio")
+        cx.is_staff = True
+        cx.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        cx.groups.add(grupo)
+        cliente = Client()
+        cliente.login(username="cx_medidas", password="segredo-ficticio")
+
+        pessoa = criar_pessoa("Carla Fictícia")
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        servicos.fechar_lote(lote, motivo="locutor")
+
+        r = cliente.get("/caixa/")
+        self.assertContains(r, lote.medidas_texto)
+
+    def test_vai_no_roteiro_de_entrega(self):
+        """É o que diz se a parada cabe no carro — e o roteiro é lido longe do
+        sistema, na rua, pelo voluntário."""
+        pessoa = criar_pessoa("Ana Fictícia", bairro="Centro",
+                              logradouro="Rua Exemplo", numero="10")
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        arremate = servicos.fechar_lote(lote, motivo="locutor")
+        servicos.marcar_pago(arremate, manual=True)
+        arremate.refresh_from_db()
+
+        rotas = entregas.dividir([arremate], 1)
+        texto = entregas.texto_da_rota(self.leilao, 1, rotas[0], 1)
+        self.assertIn(lote.medidas_texto, texto)
+
+    def test_o_roteiro_do_item_antigo_nao_ganha_linha_vazia(self):
+        pessoa = criar_pessoa("Bruno Fictício", bairro="Centro",
+                              logradouro="Rua Exemplo", numero="10")
+        lote = criar_lote(self.leilao, peso_kg=None, altura_cm=None,
+                          largura_cm=None, profundidade_cm=None)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        arremate = servicos.fechar_lote(lote, motivo="locutor")
+        servicos.marcar_pago(arremate, manual=True)
+        arremate.refresh_from_db()
+
+        texto = entregas.texto_da_rota(
+            self.leilao, 1, entregas.dividir([arremate], 1)[0], 1
+        )
+        self.assertNotIn("📦", texto)

@@ -17,13 +17,23 @@ from PIL import Image, ImageDraw
 
 from leilao.models import Leilao, Lote, Participante
 
+# Nome, descrição, lance inicial, cor da foto fictícia, peso (kg) e as três
+# medidas em cm. O peso e o tamanho entram aqui porque o cadastro passou a
+# exigi-los: dados de demonstração sem eles mostrariam "sem peso/medidas" em
+# todas as telas e dariam a impressão de recurso quebrado.
 ITENS = [
-    ("Cesta de café da manhã", "Pães, geleias, frios e um bolo caseiro.", "40.00", (214, 160, 92)),
-    ("Bolo de cenoura com brigadeiro", "Feito no dia, tamanho família.", "25.00", (166, 106, 62)),
-    ("Kit churrasco", "Tábua, faca e garfo em madeira.", "60.00", (122, 92, 72)),
-    ("Almoço para duas pessoas", "Vale para o restaurante do clube.", "50.00", (92, 138, 108)),
-    ("Camiseta do Pinhal Júnior", "Tamanho à escolha do arrematante.", "30.00", (58, 110, 165)),
-    ("Caixa de chocolates", "Sortidos, 500 g.", "35.00", (110, 72, 96)),
+    ("Cesta de café da manhã", "Pães, geleias, frios e um bolo caseiro.", "40.00",
+     (214, 160, 92), "3.5", 25, 40, 30),
+    ("Bolo de cenoura com brigadeiro", "Feito no dia, tamanho família.", "25.00",
+     (166, 106, 62), "1.2", 10, 30, 22),
+    ("Kit churrasco", "Tábua, faca e garfo em madeira.", "60.00",
+     (122, 92, 72), "2.8", 8, 45, 25),
+    ("Almoço para duas pessoas", "Vale para o restaurante do clube.", "50.00",
+     (92, 138, 108), "0.05", 1, 21, 10),
+    ("Camiseta do Pinhal Júnior", "Tamanho à escolha do arrematante.", "30.00",
+     (58, 110, 165), "0.25", 4, 30, 25),
+    ("Caixa de chocolates", "Sortidos, 500 g.", "35.00",
+     (110, 72, 96), "0.6", 7, 24, 18),
 ]
 
 PESSOAS = [
@@ -73,15 +83,29 @@ class Command(BaseCommand):
             f"{'Criado' if criado else 'Reaproveitado'}: {leilao.nome} ({leilao.get_status_display()})"
         ))
 
-        for i, (nome, descricao, valor, cor) in enumerate(ITENS, start=1):
+        for i, (nome, descricao, valor, cor, peso, alt, larg, prof) in enumerate(
+            ITENS, start=1
+        ):
             lote, novo = Lote.objects.get_or_create(
                 leilao=leilao, nome=nome,
                 defaults={
                     "descricao": descricao,
                     "lance_inicial": Decimal(valor),
                     "ordem": i,
+                    "peso_kg": Decimal(peso),
+                    "altura_cm": alt,
+                    "largura_cm": larg,
+                    "profundidade_cm": prof,
                 },
             )
+            # O comando é idempotente: item já criado numa rodada anterior
+            # (antes destes campos existirem) recebe as medidas agora.
+            if lote.peso_kg is None:
+                lote.peso_kg = Decimal(peso)
+                lote.altura_cm, lote.largura_cm, lote.profundidade_cm = alt, larg, prof
+                lote.save(update_fields=[
+                    "peso_kg", "altura_cm", "largura_cm", "profundidade_cm"
+                ])
             if novo or not lote.foto:
                 lote.foto.save(
                     f"demo-{lote.pk}.jpg", ContentFile(_foto_ficticia(nome, cor)), save=True

@@ -76,6 +76,16 @@
     /* ---------------------------------------------------------------
        Desenho
        --------------------------------------------------------------- */
+    /* Tamanho e peso do item em pregão. Some quando o item é antigo e não tem
+       medida cadastrada — rótulo sem valor na mesa faz o locutor procurar na
+       tela um dado que não existe. */
+    function medidasMesa(texto) {
+        var el = $("mesaMedidas");
+        if (!el) return;
+        el.textContent = texto || "";
+        el.hidden = !texto;
+    }
+
     function render(novo) {
         if (novo) { estado = novo; calibrar(novo); }
         var lote = estado && estado.ativo ? estado.lote : null;
@@ -91,6 +101,7 @@
                 "Em pregão" + (lote.voltas ? " · voltou " + lote.voltas + "x" : "");
             $("mesaNome").textContent = lote.nome;
             $("mesaDesc").textContent = lote.descricao || "";
+            medidasMesa(lote.medidas);
             $("mesaValor").textContent = moeda(lote.tem_lance ? lote.valor_atual : lote.lance_inicial);
             $("mesaLider").textContent = lote.lider ? lote.lider.nome : "ninguém ainda";
             $("mesaProximo").textContent = moeda(lote.proximo_valor);
@@ -99,6 +110,7 @@
             $("mesaEtiqueta").textContent = "Nenhum item em pregão";
             $("mesaNome").textContent = "—";
             $("mesaDesc").textContent = "";
+            medidasMesa("");
             $("mesaValor").textContent = moeda(0);
             $("mesaLider").textContent = "—";
             $("mesaProximo").textContent = moeda(0);

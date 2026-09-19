@@ -178,6 +178,7 @@ body.tela-locutor {
 }
 .lote-atual-info h2 { font-size: 1.2rem; line-height: 1.2; overflow-wrap: anywhere; }
 .mesa-desc { font-size: 0.86rem; color: var(--palco-suave); margin-top: 3px; }
+.mesa-medidas { font-size: 0.8rem; color: var(--palco-suave); margin-top: 3px; opacity: 0.85; }
 
 .mesa-numeros {
     display: grid;
@@ -465,7 +466,8 @@ body.tela-locutor {
 .arremate-linha.aguardando { border-color: rgba(240, 162, 2, 0.45); }
 .arremate-linha.expirado { opacity: 0.6; }
 .arremate-quem { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.arremate-item, .arremate-contato { font-size: 0.8rem; color: var(--palco-suave); overflow-wrap: anywhere; }
+.arremate-item, .arremate-contato, .arremate-medidas { font-size: 0.8rem; color: var(--palco-suave); overflow-wrap: anywhere; }
+.arremate-medidas { opacity: 0.85; }
 .arremate-fim { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .arremate-preco { font-weight: 800; color: var(--ouro); font-variant-numeric: tabular-nums; }
 

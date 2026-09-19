@@ -195,6 +195,12 @@ def texto_da_rota(leilao, numero, paradas, total_rotas, nome=""):
         for a in parada["itens"]:
             # O número na frente: quem separa as caixas procura a etiqueta.
             linhas.append(f"   • nº {a.lote.numero} — {a.lote.nome}")
+            # Peso e tamanho vão na linha de baixo, recuados: é por eles que o
+            # voluntário decide o carro ANTES de sair — descobrir na porta que
+            # não cabe custa a viagem inteira. Item antigo, sem medida
+            # cadastrada, simplesmente não ganha a linha.
+            if a.lote.medidas_texto:
+                linhas.append(f"     📦 {a.lote.medidas_texto}")
         linhas.append("")
 
     return "\n".join(linhas).strip()

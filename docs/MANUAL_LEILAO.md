@@ -98,8 +98,30 @@ Na linha do leilão, clique em **📦 Itens** → **+ Cadastrar item**.
   soma o incremento).
 - **Incremento próprio**: deixe vazio para usar o do leilão. Preencha só num item
   caro, em que R$ 5 por vez demoraria a noite toda.
+- **Tamanho e peso** (obrigatórios): peso em quilos e as três medidas em
+  centímetros — altura, largura e profundidade. **Medida aproximada serve; em
+  branco, não.** No peso vale vírgula ou ponto (`1,5` ou `1.5`, tanto faz).
 
 Use **"Salvar e cadastrar outro"** para emendar vários de uma vez.
+
+### Por que o sistema pede peso e tamanho
+
+Porque a **entrega** acontece depois, e longe. O voluntário escolhe o carro
+**antes de sair de casa** — e descobrir na porta da pessoa que o item não cabe
+custa a viagem inteira. Por isso a medida aparece no roteiro que vocês mandam
+para ele, no quadro de entregas e na tela do caixa (que é de onde se combina a
+entrega no WhatsApp).
+
+De quebra, quem está dando lance passa a ver o tamanho e o peso na tela: ela
+está comprando algo que vai chegar na casa dela.
+
+Não precisa de balança nem de trena. "Uns 2 kg, do tamanho de uma caixa de
+sapato" já resolve — arredonde e siga. O que não pode é ficar em branco.
+
+> **Item cadastrado antes disso** (de um leilão anterior) continua valendo, mas
+> aparece na lista como **"sem peso/medidas — completar ao editar"**. Vale passar
+> o olho na lista antes da noite da entrega e completar o que falta: é só abrir
+> o item em **Editar** e preencher.
 
 ### O número do item
 

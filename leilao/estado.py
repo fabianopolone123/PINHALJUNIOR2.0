@@ -88,6 +88,12 @@ def lote_publico(lote):
         "id": lote.id,
         "nome": lote.nome,
         "descricao": lote.descricao,
+        # Peso e dimensões podem ser ditos em voz alta: são o tamanho do que
+        # está sendo vendido, não dado de ninguém. Vai o TEXTO já montado, e
+        # não os quatro números: o formato é decidido num lugar só
+        # (`Lote.medidas_texto`), senão a tela do público, a mesa, o caixa e o
+        # roteiro de entrega escrevem a mesma medida de quatro jeitos.
+        "medidas": lote.medidas_texto,
         "foto": _foto(lote.foto),
         "foto_mini": _foto(lote.foto_mini) or _foto(lote.foto),
         "status": lote.status,

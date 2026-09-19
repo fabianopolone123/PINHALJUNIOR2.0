@@ -33,6 +33,14 @@
                 {% endcomment %}
                 <span class="item-nome"><b class="item-numero">nº {{ l.numero }}</b> {{ l.nome }}</span>
                 <span class="item-linha">{{ l.descricao|default:"—" }}</span>
+                {% comment %}
+                Item sem medida é sempre item ANTIGO (o cadastro passou a exigir
+                as duas coisas). A linha diz isso em vez de sumir: é aqui que se
+                descobre o que falta completar antes da noite da entrega.
+                {% endcomment %}
+                <span class="item-linha">
+                    📦 {{ l.medidas_texto|default:"sem peso/medidas — completar ao editar" }}
+                </span>
                 <span class="item-linha">
                     Inicial R$ {{ l.lance_inicial }} ·
                     incremento R$ {{ l.incremento_efetivo }} ·
