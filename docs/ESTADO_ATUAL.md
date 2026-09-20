@@ -25,8 +25,12 @@ sem ele `999999999999 cm` passava e quebrava a tela do pregão para as 100 pesso
 Conferindo os caminhos de entrada um a um apareceu ainda um **500**: `Decimal("nan")` não levanta na
 conversão, levanta na comparação `peso <= 0` — `peso_para_decimal` agora recusa tudo o que não é finito.
 Suíte do leilão: **313 testes OK** (+25).
-**Ainda não publicado** — o deploy do leilão tem o passo extra do `docs/DEPLOY_LEILAO.md` §7.1 e a migration
-**`leilao/0010`** a aplicar.
+**Em produção** no commit `2843f91` (19/09/2026), com a migration **`leilao/0010`** aplicada, os estáticos do
+leilão coletados e o `pinhaljunior_leilao.service` reiniciado (o passo extra do `docs/DEPLOY_LEILAO.md` §7.1);
+os dois sites responderam 200 e o SSE devolveu `event: estado`. Conferido antes de reiniciar que **nenhum
+leilão estava ao vivo** (os três em produção estão encerrados — só dados de teste). Backup do banco do leilão
+em `backup/leilao_antes_medidas_20260920_002539.sqlite3`, porque o `pinhaljunior2-deploy` faz backup **só do
+banco do clube**. Os **16 lotes já cadastrados** ficaram sem medida, como previsto: quem editá-los preenche.
 
 **Atualização anterior:** 2026-09-17 (**Leilão: quadro de entregas — a equipe arrasta quem leva o quê**):
 pergunta do clube ao conferir a divisão de entregas — *"se não há cálculo de rota, como ele sabe que um
@@ -2376,41 +2380,43 @@ antes do evento**).
   **Ficou mais caro em 15/08**: como a etapa 2 passou a mostrar o **usuário de acesso**, quem tiver o CPF de
   um responsável também descobre o login. Um limite por IP/CPF nessa tela é a próxima coisa a fazer ali.
 - **`SECURE_HSTS_SECONDS`** ainda sem valor (ver "Configurações importantes").
-- **Ambiente local diferente do de produção** (Django 6.0.5/Python 3.14 aqui × 5.2.15/3.12 no VPS) — testar
-  local não garante o comportamento em produção.
+- **Ambiente local × produção** (conferido em 19/09/2026): a **venv do projeto** roda **Django 5.2.16 /
+  Python 3.13.14** e produção, **5.2.15 / 3.12.3** — o Django já casa (5.2.x), o Python ainda não. O
+  `python` do sistema é outro (3.13) e **não tem Django**: rodar `manage.py` fora da `.venv` falha com
+  "Não foi possível importar o Django".
 - `core/middleware.py`: `request.path.startswith("/static")` ignora o `FORCE_SCRIPT_NAME`. Hoje não morde
   porque o Nginx serve os estáticos, mas é latente.
-- `core/views.py` com ~7.000 linhas; vale dividir por domínio quando houver folga.
+- `core/views.py` com **~10.400 linhas** (eram ~7.000 em 08/2026 — segue crescendo); vale dividir por
+  domínio quando houver folga.
 
 ## Próximas etapas previstas
-- **🎉 Lojinha (Fase 4) concluída** (produtos, comprar na página, junto da inscrição, PDV de vendas,
-  PDV de inscrição, operadores).
-- **Fase 5 — Financeiro**: parte 1 (**extrato** na aba Financeiro), parte 2 (**Resumo/dashboard**:
-  KPIs, gráficos CSS/SVG, cobertura do clube + buscas) e parte 3 (**cupons de desconto** — por
-  participante, com faixa, geração em lote e validação ao vivo) **CONCLUÍDAS**. **Fase 5.4 (Check-in +
-  Retirada) CONCLUÍDA** (5.4a console + campos; 5.4b marcar check-in/entrega; 5.4c "entregar agora" no
-  balcão; 5.4d contadores do dia no painel). Guarda de exclusão por presença em **evento simples** fica
-  como item futuro (depende de presença em evento simples, que não existe). **Próximos:** pagamentos reais
-  (gateway) e loja oficial do clube (uniformes, separada).
-- **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha.
-- **Depois**: pagamentos reais (gateway); loja oficial do clube (uniformes) — separada da lojinha de evento.
-- Possíveis refinos das inscrições: gating de "diretoria" por perfil real, editar inscrição,
-  e-mail de confirmação. **Levar a lista para fora do sistema saiu em 2026-08-18** pelos botões de
-  cópia (colunas para planilha e agrupada para WhatsApp); exportação por **arquivo** (CSV) não foi
-  feita — só compensa se pedirem a lista com valores e situação de pagamento.
-- **Evento complexo — Fase 2.4**: inscrição de fato (participantes por faixa/diretoria, pagamento
-  simulado, código), lista de inscritos no painel e contagem/arrecadação no dashboard.
+
+> **Faxina em 19/09/2026.** Esta lista vinha carregando itens **já concluídos** como se fossem próximos
+> passos — evento complexo Fases 1 a 5.4, pagamentos reais (Mercado Pago está no ar) e a loja oficial do
+> clube —, além de uma linha repetida. O histórico de cada fase está no `HISTORICO_ALTERACOES.md`; aqui
+> fica só o que **falta**.
+
 - **Cobrança automática das parcelas** (do clube e de inscrição): hoje nada dispara sozinho — o Diretor
   manda pela aba "Cobrar parcelas". É a continuação natural do parcelamento.
 - **Editar um parcelamento lançado** (valor / nº de parcelas): hoje é cancelar e lançar de novo.
-- **Leilão online ao vivo** (`/leilao/`) — **no ar**. Falta só: credenciais do **Mercado Pago** na tela
-  de configuração e o **ensaio do áudio** com aparelhos reais. Ver o resumo no topo.
+- **Leilão online ao vivo** (`/leilao/`) — **no ar**. Falta: credenciais do **Mercado Pago** na tela de
+  configuração e o **ensaio do áudio** com aparelhos reais (`docs/DEPLOY_LEILAO.md` §8, obrigatório e
+  não no dia). Os **16 itens** já cadastrados estão sem peso/dimensões — completar ao editar.
+- **Refinos de inscrição ainda em aberto**: gating de "diretoria" por perfil real, editar inscrição e
+  e-mail de confirmação. Exportação da lista por **arquivo** (CSV) não foi feita — os botões de cópia
+  (planilha / WhatsApp) resolveram o caso de uso em 08/2026; só compensa se pedirem valores e situação
+  de pagamento junto.
+- **Guarda de exclusão por presença em evento simples** — depende de presença em evento simples, que
+  não existe.
 - (A definir) Permitir editar os dados do aventureiro pela área logada.
 - (A definir) Permitir ao responsável logado escolher o próprio WhatsApp principal (recuperação).
 
 ## Apps existentes
-- `config` — projeto Django (settings, urls, wsgi, asgi).
+- `config` — projeto Django (settings, urls, wsgi, asgi). Guarda também as settings/URLs/ASGI do **segundo
+  serviço**: `settings_leilao.py`, `urls_leilao.py` e `asgi_leilao.py`.
 - `core` — app principal (views de login, tela inicial e cadastro; models de aventureiro).
+- `leilao` — **módulo de leilão online ao vivo** (`/leilao/`), aplicação separada com banco e serviço
+  próprios. Ver a seção "Módulo de Leilão" acima.
 
 ## Templates existentes
 - `templates/core/login.html` (login real, com mensagem de erro)
@@ -2629,9 +2635,10 @@ antes do evento**).
   Já `SECURE_PROXY_SSL_HEADER` **precisa** existir: sem ele o Django não reconhece a requisição como HTTPS.
 - **Pendente:** `SECURE_HSTS_SECONDS` sem valor (`security.W004`). HSTS mal configurado é irreversível por
   meses no navegador de quem já visitou — se ligar, começar baixo e **sem** `includeSubDomains`.
-- **Ambiente divergente:** produção roda **Django 5.2.15 / Python 3.12.3**; a máquina de desenvolvimento
-  está em **6.0.5 / 3.14.3**. O `requirements.txt` (`>=5.2,<6.0`) casa com produção. No VPS cada aplicação
-  tem venv própria (rodam de 5.2.11 a 6.1 lado a lado), então o certo é **igualar o local**, não o servidor.
+- **Ambiente local × produção** (19/09/2026): produção roda **Django 5.2.15 / Python 3.12.3**; a `.venv`
+  do projeto, **5.2.16 / 3.13.14**. O `requirements.txt` (`>=5.2,<6.0`) casa com produção e o Django já está
+  alinhado; resta o Python. No VPS cada aplicação tem venv própria, então o certo é **igualar o local**, não
+  o servidor. Rode sempre pela `.venv` — o Python do sistema não tem Django instalado.
 - Idioma: `pt-br`. Fuso horário: `America/Sao_Paulo`.
 - Banco: SQLite (`db.sqlite3`), já com os models de cadastro migrados.
 - `STATICFILES_DIRS` aponta para a pasta `static/`.

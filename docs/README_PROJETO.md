@@ -69,7 +69,8 @@ com CSS próprio (sem frameworks externos).
     por evento (diretoria selecionada + ajudantes externos com conta temporária/senha `1234`/troca
     obrigatória).
   - **Notificações**: toasts flutuantes no canto da tela (padrão único do sistema).
-  - **Próximo**: **Fase 5 (Financeiro/gráficos)**. Plano completo em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
+  - **Fase 5 (Financeiro)**: extrato, dashboard/gráficos, cupons e check-in/retirada — **concluída**.
+    Plano completo em `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
 - **Migração** dos cadastros do sistema antigo via comando `importar_migracao` (dados reais ficam só
   local; nada de dados de menores no Git).
 
@@ -419,16 +420,18 @@ Outros scripts inline: em `login.html` (redireciona para `/inicio/`) e em `inici
 - **Editar** um parcelamento já lançado (valor / nº de parcelas): hoje é cancelar e lançar de novo.
 - Edição dos dados do aventureiro pela área logada (hoje é somente visualização).
 - Permissões dos **demais perfis** (por enquanto só o Diretor tem acesso; Responsável/Diretoria/Professor/
-  Tesoureiro/Secretário existem com acesso mínimo). **Alternância de perfil** (Diretoria ↔ Responsável) já
-  funciona para quem tem os dois. **Falta:** UI do Diretor para atribuir o papel específico da diretoria.
-- **Cadastro de diretoria** e "diretoria + aventureiro": **implementados** (base) em 2026-07-11 — ver
-  `docs/PLANEJAMENTO_CADASTRO_DIRETORIA.md` e `docs/ESTADO_ATUAL.md`.
-- **Evento complexo — Fase 5** (em andamento): a parte do **Financeiro** (aba com o **extrato completo**
-  do evento — resultado, resumos e lançamentos) já está **concluída**; faltam **dashboard/gráficos** no
-  Resumo, **cupons de desconto** e **presença/check-in**. Depois, **pagamentos reais** (gateway) e **loja
-  oficial do clube** (uniformes, separada da lojinha de evento) — ver `docs/PLANEJAMENTO_EVENTO_COMPLEXO.md`.
-  (Fases 1, 2/Inscrições, "3"/página pública e 4/Lojinha já estão **concluídas**.)
-- Validação avançada de CPF e envio de e-mail.
+  Tesoureiro/Secretário existem com acesso mínimo). **Alternância de perfil** (Diretoria ↔ Responsável) e a
+  **UI do Diretor para atribuir o papel** (`/usuarios/diretoria/`) já existem; falta o módulo de permissões
+  de verdade, que encaixa em `perfil_efetivo`/`ACESSO_PADRAO` sem mexer em menu/views.
+- Validação avançada de CPF.
+- **Throttle** no login e na etapa 1 da recuperação de senha (cada POST válido dispara um WhatsApp real e
+  revela um login) — ver "Dívida técnica conhecida" no `ESTADO_ATUAL.md`.
+
+> **Corrigido em 2026-09-19:** esta lista dava o **evento complexo Fase 5** como "em andamento", faltando
+> dashboard/gráficos, cupons e check-in, e listava **pagamentos reais** e a **loja oficial do clube** como
+> futuros. Os quatro estão **prontos** há tempo (Fases 5.1 a 5.4, Mercado Pago no ar e a Loja do Clube
+> completa), assim como o **cadastro de diretoria** e o **envio de e-mail**. A seção tinha ficado para trás —
+> a fonte da verdade é o `ESTADO_ATUAL.md`.
 
 ## Observações importantes para futuros desenvolvimentos
 

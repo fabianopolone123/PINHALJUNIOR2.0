@@ -179,24 +179,44 @@ Agendar (ex.: **todo dia às 09:00**) com `crontab -e`:
 
 ## O VPS é compartilhado com outros projetos
 
-Este servidor **não é exclusivo** do Pinhal Júnior. Em 2026-07-31 havia **11 aplicações Django** ativas, todas
-em Gunicorn atrás do mesmo Nginx:
+Este servidor **não é exclusivo** do Pinhal Júnior. Levantamento de **2026-09-19**: **11 sites** habilitados no
+Nginx e ~50 serviços ativos no total (o número de *sites* é menor que o de *serviços* — há worker, scheduler e
+API que não têm domínio próprio).
 
-| Serviço | Domínio / porta |
-|---|---|
-| `pinhaljunior2` | pinhaljunior.com.br → 8010 |
-| `site_inscricao` / `site_inscricao_v2` | inscriçãoandrews.com.br |
-| `sitemissao` | missaoandrewsc.com.br |
-| `italiano`, `mapa`, `polloniflow`, `beezap`, `trade`, `treinartrade`, `site_samela_orcamento` | fabianopolone.com.br e outros |
-| `sitepinhal` | sistema antigo, deve ficar **parado** |
+| Site (Nginx) | Domínio | Back-end |
+|---|---|---|
+| `sitepinhal` | pinhaljunior.com.br | **este sistema** → 8010 (e `/leilao/` → 8011) |
+| `compraquerende` | compraquerende.com.br | Flask/gunicorn → 8131 (`compraquerende-api.service`) |
+| `docuras-ana` | docurasdaana.com.br | 8125 |
+| `gm3d` | gm3d.com.br | 8113 |
+| `site_idiomas` | fabianopolone.com.br | 8121 |
+| `advministerioesperanca` | advministerioesperanca.com.br | estático |
+| `ppm` | fabianopolloni.com.br | estático |
+| `procuroprofissional` | api.fabianopolone.com.br | estático |
+| `samelapolloni` | samelapolloni.com.br | estático |
+| `site_inscricao` | inscriçãoandrews.com.br (punycode `xn--inscriaoandrews-jmb`) | estático |
+| `sitemissao` | missaoandrewsc.com.br | estático |
 
-**Recursos apertados:** 1 vCPU, 3,8 GB de RAM, **sem swap**, ~38 processos gunicorn no total. Disco em 30% de
-48 GB (folgado). Implicações práticas:
+> O nome do arquivo do Nginx **não** é o nome do serviço systemd. O nosso domínio é servido pelo site
+> `sitepinhal` (nome herdado do sistema antigo) e atendido pelo `pinhaljunior2.service`; o
+> `sitepinhal.service` é outra coisa e deve continuar **parado** (conferido inativo em 19/09).
 
-- Nunca parar/reiniciar serviço que não seja o `pinhaljunior2` sem saber a quem pertence.
-- Sem swap não há rede de proteção: um pico de memória mata processo direto (não houve OOM até hoje, mas a
-  margem é pequena — ~2 GB disponíveis).
-- Um `systemctl restart` do nosso serviço é seguro; um `reboot` derruba os 11 sites e precisa de janela.
+Outros serviços ativos sem site próprio: `beezap`, `italiano`/`italiano-ti`, `polloniflow`, `tradeanalise`,
+`treinartrade`, `madson`, `marcelochaveiros`, `missaoesperanca`, `zappoint`, `searchwork`(+`-scheduler`),
+`form-desenv`, `site_inscricao_africa`, `site_inscricao_v2`, `mediamtx` (áudio do leilão), além de
+`postgresql@16`, `redis-server` e os agentes `beszel`.
+
+**Recursos:** 1 vCPU, 3,8 GB de RAM, **2 GB de swap**, ~72 processos gunicorn. Disco em 42% de 48 GB.
+Implicações práticas:
+
+- Nunca parar/reiniciar serviço que não seja o `pinhaljunior2` sem saber a quem pertence. Para descobrir de
+  quem é uma porta: `ss -ltnp | grep <porta>` e depois
+  `grep -rl "<porta>" /etc/systemd/system/*.service`.
+- **Já existe swap** (não existia em 07/2026), então um pico de memória agora degrada em vez de matar o
+  processo. Ainda assim a margem é curta: ~1,3 GB disponíveis com 254 MB de swap já em uso.
+- Um `systemctl restart` de um serviço é seguro; um `reboot` derruba os 11 sites e precisa de janela.
+- **Ao inspecionar o Nginx, use `grep -R` (maiúsculo).** O `sites-enabled` é só de symlinks e o `grep -r`
+  **não os segue** — uma busca por `server_name` ali volta vazia e dá a impressão de que o site não existe.
 
 ## Dependências externas que expiram
 

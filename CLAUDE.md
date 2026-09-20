@@ -292,7 +292,7 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   desenhada + `titulo/texto_documento` snapshot do termo no ato + assinante nome/CPF + data; único por
   aventureiro+documento). No cadastro a assinatura **substitui o checkbox** de aceite (assinar = aceitar) nos 3
   documentos; o responsável não vê a própria assinatura depois; só o Diretor gera o termo assinado.
-  (migrations até `0062`). Detalhes em ESTADO_ATUAL.
+  (migrations do `core` até **`0074`**). Detalhes em ESTADO_ATUAL.
 - **Evento ligado/desligado**: `Evento.ativo` (padrão `True`, migration **0063**) é o "inativar evento".
   Inativo, o evento **sai do menu** (`_eventos_menu` filtra `ativo=True`) e as telas públicas **não abrem**
   (`_evento_inativo_bloqueio` em `views.py`: 404 para visitante, volta ao `/inicio/` para quem está logado; o

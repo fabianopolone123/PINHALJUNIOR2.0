@@ -113,13 +113,26 @@ roteiro/quadro de entrega.
   Chrome headless, e a **sonda de overflow** (`scrollWidth` × `clientWidth`) não
   acusou estouro em 500px nem em 1280px.
 
+### Deploy
+**Publicado em 19/09/2026**, commit `2843f91`. Sequência:
+
+1. Conferido que **nenhum leilão estava ao vivo** (§7.1 avisa que reiniciar com
+   um lote aberto pode fazer o laço central subir com o prazo vencido e bater o
+   martelo na hora). Os três leilões em produção estão encerrados.
+2. Backup do banco do leilão em
+   `backup/leilao_antes_medidas_20260920_002539.sqlite3` — o
+   `pinhaljunior2-deploy` faz backup **só do `db.sqlite3` do clube**.
+3. `pinhaljunior2-deploy` (4e75a19 → 2843f91), healthcheck OK.
+4. O passo extra do §7.1: `migrate` (aplicou `leilao/0010`), `collectstatic`
+   (67 arquivos), `chown` e restart do `pinhaljunior_leilao.service`.
+5. Conferência: `/leilao/entrar/` e `/` em **200**, SSE devolvendo
+   `event: estado`, **um worker só** e os três serviços ativos. Confirmado em
+   produção que o formulário exige os quatro campos e que a vírgula é aceita.
+
 ### Pendências
-- **Ainda não publicado.** O deploy do leilão tem o passo extra do
-  `docs/DEPLOY_LEILAO.md` §7.1 (o `pinhaljunior2-deploy` **não** reinicia o
-  serviço do leilão nem coleta os estáticos dele), e a migration
-  **`leilao/0010`** precisa ser aplicada.
-- Os itens **já cadastrados em produção** ficam sem medida até alguém editá-los.
-  Não há migração de dados possível: ninguém sabe o peso deles.
+- Os **16 itens já cadastrados em produção** ficaram sem medida, como previsto.
+  Não há migração de dados possível: ninguém sabe o peso deles. A lista da
+  preparação os marca com "sem peso/medidas — completar ao editar".
 
 ---
 
