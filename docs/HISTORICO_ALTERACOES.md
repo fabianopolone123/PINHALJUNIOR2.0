@@ -71,11 +71,14 @@ Então a escolha saiu do menu do sistema e veio para a tela: **dois botões** e
   para 147px e fazendo a captura parecer vazia. Sonda agora reporta pelo
   `document.title`.
 
-### Pendências
-- **Deploy NÃO feito**, a pedido do clube: o sistema estava em uso no VPS e o
-  passo do leilão (§7.1) reinicia o `pinhaljunior_leilao.service`. O código
-  está commitado e no GitHub; falta rodar o deploy + o passo extra quando
-  houver janela.
+### Deploy
+Feito no commit `fcb1b6a`, **algumas horas depois do commit**: o clube estava
+usando o sistema no VPS, e o passo do leilão (§7.1) reinicia o
+`pinhaljunior_leilao.service` — reiniciar com gente dentro é o que aquele
+parágrafo manda evitar. Rodado depois da liberação, com nenhum leilão ao vivo e
+nenhum lote aberto. Conferido no servidor que a tela renderiza os cinco ids
+novos, que o input da câmera sai sem `name` e que o JS servido pelo Nginx traz
+o `DataTransfer`.
 
 ---
 

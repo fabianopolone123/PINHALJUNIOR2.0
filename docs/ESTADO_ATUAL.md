@@ -17,9 +17,15 @@ biblioteca**. É **melhoria progressiva**: os botões nascem `hidden` e só apar
 fica sem conseguir mandar foto. Como o input nativo some quando os botões entram, some junto o nome do
 arquivo que ele mostrava: entrou o `#fotoNome`, que é o que deixa conferir se pegou a foto certa da galeria.
 Verificado com **render real + sonda headless**: dois botões de 202px lado a lado, campo nativo escondido,
-zero estouro horizontal. Suíte do leilão: **323 testes OK**. **NÃO foi feito deploy** a pedido do clube (o
-sistema estava em uso no VPS e o passo do leilão reinicia o serviço) — está commitado e no GitHub,
-aguardando liberação.
+zero estouro horizontal. Suíte do leilão: **323 testes OK**.
+**Em produção** no commit `fcb1b6a` (21/09/2026): sem migration, estáticos do leilão coletados e o
+`pinhaljunior_leilao.service` reiniciado (o passo extra do `docs/DEPLOY_LEILAO.md` §7.1). O deploy ficou
+**adiado algumas horas** a pedido do clube, que estava usando o sistema — o passo do leilão reinicia o
+serviço, e reiniciar com gente dentro é o que o §7.1 manda evitar; foi rodado depois da liberação, com
+**nenhum leilão ao vivo e nenhum lote aberto**. Conferido depois **no próprio servidor** que a tela
+renderiza os cinco ids novos e que o input da câmera sai **sem `name`** (só o do formulário é enviado), que
+o JS servido pelo Nginx traz o `DataTransfer`, e que os dois sites responderam 200 com o SSE devolvendo
+`event: estado`.
 
 **Atualização anterior:** 2026-09-21 (**Leilão: a foto do item aceita a galeria, não só a câmera**):
 pedido do clube. O campo de foto do cadastro de item nasceu com `capture="environment"`, que **força** o
