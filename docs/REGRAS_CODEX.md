@@ -1014,13 +1014,35 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 
 ### A foto do item
 
-- **`accept` sim, `capture` não.** O campo nasceu com `capture="environment"` e isso **força** a câmera no
-  celular, escondendo a galeria. Parecia ajudar (o item costuma estar na mesa) e barrava o caminho mais
-  comum: foto já tirada antes, ou recebida por WhatsApp. Só o `accept="image/*"` dá **os dois** caminhos —
-  e no computador vira o seletor de arquivo normal. Guarda: `FotoDoItemAceitaGaleriaTests`.
+- **Nem `capture`, nem a falta dele: são DOIS inputs.** Com `capture="environment"` o celular abre a câmera
+  e **esconde a galeria**; sem `capture`, o **Android 13+** abre o **seletor de fotos do sistema**, que
+  **não tem câmera**. Os dois caminhos foram tentados em produção, nesta ordem, e **cada um perdeu metade
+  do problema**. O que aparece varia por aparelho e por versão, então não dá para confiar no menu do
+  sistema para oferecer as duas coisas.
+- **A escolha vem para a tela**: dois botões (📷 Tirar foto · 🖼️ Escolher arquivo) e dois
+  `<input type="file">`, um com `capture` e outro sem. Guarda: `FotoDoItemCameraOuArquivoTests`.
+- **Só o input do formulário tem `name`.** O da câmera não é enviado — se tivesse `name="foto"`, os dois
+  iriam no POST e o vazio poderia sobrescrever a foto escolhida. O arquivo da câmera é copiado para o campo
+  de verdade com **`DataTransfer`**, que é a única forma de escrever em `input.files`.
+- **É melhoria progressiva, e isso não é enfeite.** Os botões nascem `hidden` e só aparecem se houver JS
+  **e** `DataTransfer`. Sem isso o seletor nativo continua visível e funcionando: um cadastro que depende de
+  JS para aceitar foto deixaria alguém sem conseguir cadastrar, e descobriríamos na véspera do evento.
+- **Escondeu o input nativo, escondeu o nome do arquivo junto.** Quem escolhe da galeria precisa conferir
+  que pegou a foto certa — daí o `#fotoNome` ao lado da prévia. Ao trocar um controle nativo por um próprio,
+  liste o que o nativo dava de graça.
 - **Atributo que fecha uma porta precisa de motivo forte.** `capture` não decide melhor que a pessoa com o
-  celular na mão: ela sabe se a foto já existe. Antes de restringir um seletor nativo, pergunte o que
-  acontece com quem está no caso que você não imaginou.
+  celular na mão: ela sabe se a foto já existe.
+
+### Verificar layout com sonda: não injete no `<body>`
+
+- **`body` pode ser um contêiner flex** (`tela-entrada` é), e todo elemento que a sonda acrescenta ao
+  `<body>` vira **irmão flex**: o card real foi espremido de 411px para 147px e empurrado para fora da tela,
+  e a captura saiu "vazia". Perdeu-se tempo procurando um defeito de layout que era **da bancada**.
+- **A sonda reporta sem tocar no DOM** — escreva em `document.title` e leia do `--dump-dom`. Se precisar
+  mesmo de um elemento, use `position: fixed`, que o tira do fluxo.
+- **Confirme a geometria, não só a captura**: `getBoundingClientRect()` dos elementos que interessam
+  (largura, x, y) prova que estão na tela e do tamanho certo. Imagem vazia não distingue "não renderizou" de
+  "renderizou fora da vista".
 
 ### O número do item
 

@@ -551,6 +551,45 @@ body.tela-locutor {
 .check-linha input { margin-top: 3px; flex-shrink: 0; }
 .check-linha small { display: block; font-size: 0.76rem; color: var(--palco-suave); }
 
+/* Os dois caminhos da foto do item. Lado a lado porque são a MESMA decisão
+   ("de onde vem a foto"), e do mesmo tamanho porque nenhum dos dois é o
+   preferido: quem tem o item na mão fotografa, quem já tem a foto escolhe. */
+.foto-botoes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.btn-foto {
+    padding: 13px 10px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--azul-escuro);
+    background: #fff;
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-campo);
+    cursor: pointer;
+    transition: border-color var(--transicao), background var(--transicao);
+}
+.btn-foto:hover { border-color: var(--azul-claro); background: rgba(74, 144, 217, 0.06); }
+.btn-foto:active { transform: scale(0.98); }
+.btn-foto:focus-visible {
+    outline: none;
+    border-color: var(--azul-claro);
+    box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.18);
+}
+/* Com os botões ligados o input nativo fica escondido, e com ele o nome do
+   arquivo que ele mostrava — quem escolheu da galeria precisa conferir que
+   pegou a foto certa. */
+.foto-nome {
+    margin: 0 0 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--azul-escuro);
+    overflow-wrap: anywhere;
+}
+
 .previa-foto { width: 100%; border-radius: 12px; margin-bottom: 12px; }
 .btn-voltar {
     display: block;

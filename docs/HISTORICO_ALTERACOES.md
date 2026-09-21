@@ -22,6 +22,63 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-21 - Leilão: a foto do item ganha dois botões (câmera e arquivo)
+
+### Resumo
+Correção do que subiu poucas horas antes. Tirar o `capture` devolveu a galeria
+e **custou a câmera**: o clube testou no celular e só apareceu "escolher
+arquivos".
+
+### O que foi feito
+O motivo é do sistema, não do site: no **Android 13+** o navegador abre o
+**seletor de fotos do Android** para `accept="image/*"`, e esse seletor não tem
+câmera. Juntando com o comportamento anterior:
+
+- **com** `capture`: abre a câmera, esconde a galeria;
+- **sem** `capture`: abre o seletor de fotos, esconde a câmera.
+
+Nenhum dos dois sozinho serve, e o que aparece muda de aparelho para aparelho.
+Então a escolha saiu do menu do sistema e veio para a tela: **dois botões** e
+**dois inputs**, um com `capture` e outro sem.
+
+### Arquivos criados/alterados
+- `templates/leilao/lote_form.html`: os dois botões, o input da câmera (sem
+  `name`) e o `#fotoNome`.
+- `static/leilao/js/lote_form.js`: reescrito — copia o arquivo da câmera para o
+  campo do formulário com `DataTransfer` e liga os botões; só se ativa quando
+  `DataTransfer` existe.
+- `static/leilao/css/locutor.css`: `.foto-botoes`, `.btn-foto`, `.foto-nome`.
+- `leilao/tests.py`: `FotoDoItemCameraOuArquivoTests` (4 testes) no lugar do
+  `FotoDoItemAceitaGaleriaTests`, que guardava a solução anterior.
+- `docs/MANUAL_LEILAO.md`: instrução da equipe.
+
+### Decisões tomadas
+- **Só o input do formulário tem `name`.** Dois inputs com `name="foto"` iriam
+  os dois no POST, e o vazio poderia sobrescrever a foto escolhida.
+- **Melhoria progressiva.** Os botões nascem `hidden` e só aparecem com JS +
+  `DataTransfer`; sem isso o seletor nativo fica de pé. Cadastro que depende de
+  JS para aceitar foto deixaria alguém travado na véspera do evento.
+- **Entrou o `#fotoNome`**: escondendo o input nativo, escondeu-se junto o nome
+  do arquivo que ele mostrava, e quem escolhe da galeria precisa conferir que
+  pegou a foto certa.
+
+### Verificação
+- Suíte do leilão: **323 testes OK**.
+- **Render real + sonda headless** (485px): botões de 202px lado a lado, campo
+  nativo escondido, input da câmera presente, `ESTOURA=false`.
+- Aprendizado de bancada registrado no `REGRAS_CODEX`: `body.tela-entrada` é
+  **flex**, e a sonda injetada no `<body>` virava irmã flex, espremendo o card
+  para 147px e fazendo a captura parecer vazia. Sonda agora reporta pelo
+  `document.title`.
+
+### Pendências
+- **Deploy NÃO feito**, a pedido do clube: o sistema estava em uso no VPS e o
+  passo do leilão (§7.1) reinicia o `pinhaljunior_leilao.service`. O código
+  está commitado e no GitHub; falta rodar o deploy + o passo extra quando
+  houver janela.
+
+---
+
 ## 2026-09-21 - Leilão: a foto do item aceita a galeria, não só a câmera
 
 ### Resumo

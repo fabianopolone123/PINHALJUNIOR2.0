@@ -3645,33 +3645,66 @@ class EmojiNaoAtrapalhaOPregaoTests(TestCase):
         self.assertTrue(ok, msg)
 
 
-class FotoDoItemAceitaGaleriaTests(TestCase):
-    """A foto do item não pode exigir a câmera.
+class FotoDoItemCameraOuArquivoTests(TestCase):
+    """A foto do item precisa dos DOIS caminhos — e o celular não os dá sozinho.
 
-    O campo nasceu com `capture="environment"`, que **força** o celular a abrir
-    a câmera e tira a galeria da frente. Na prática isso barrava o caminho mais
-    comum: quem já fotografou o item antes, ou recebeu a foto por WhatsApp, não
-    conseguia cadastrar pelo celular — tinha de fotografar de novo, ali, com o
-    item na mão.
+    História, porque ela explica o desenho:
 
-    Só o `accept="image/*"` faz o que se quer: o celular oferece **os dois**
-    caminhos e o computador abre o seletor de arquivo normal. Este teste existe
-    para o `capture` não voltar por descuido.
+    1. o campo nasceu com `capture="environment"`, que **força** a câmera e
+       esconde a galeria: quem já tinha a foto do item (tirada antes, ou
+       recebida por WhatsApp) não conseguia cadastrar pelo celular;
+    2. tirar o `capture` resolveu a galeria e **custou a câmera**: no Android
+       13+ o navegador passa a abrir o seletor de fotos do sistema, que não tem
+       câmera nenhuma.
+
+    Nenhum dos dois sozinho serve, e o que o menu do celular oferece varia de
+    aparelho para aparelho. Por isso a escolha saiu do menu do sistema e veio
+    para a tela: dois botões, dois inputs (um com `capture`, outro sem), e o
+    `lote_form.js` copia o da câmera para o campo que é enviado.
     """
 
-    def test_o_campo_de_foto_nao_forca_a_camera(self):
+    def setUp(self):
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("prep_foto", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="prep_foto", password="segredo-ficticio")
+
+    def test_o_campo_enviado_nao_forca_a_camera(self):
+        """O input do formulário é o caminho do ARQUIVO — sem `capture`."""
         widget = forms.LoteForm().fields["foto"].widget
         self.assertNotIn("capture", widget.attrs)
-
-    def test_o_campo_de_foto_continua_aceitando_so_imagem(self):
-        widget = forms.LoteForm().fields["foto"].widget
         self.assertEqual(widget.attrs.get("accept"), "image/*")
 
-    def test_a_tela_nao_promete_so_a_camera(self):
-        """O texto de ajuda é lido por quem está com o celular na mão."""
-        html = str(forms.LoteForm()["foto"])
-        self.assertNotIn("capture", html)
+    def test_a_tela_oferece_os_dois_caminhos(self):
+        r = self.c.get(f"/preparacao/{self.leilao.id}/itens/novo/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        for ident in ("btnFotoCamera", "btnFotoArquivo", "fotoCamera", "fotoBotoes"):
+            self.assertIn(f'id="{ident}"', html, f"falta #{ident} na tela")
 
+    def test_so_o_campo_do_formulario_tem_name(self):
+        """O input da câmera não pode ser enviado: quem vai no POST é `id_foto`.
+
+        Se ele tivesse `name="foto"`, os dois seriam enviados e o vazio poderia
+        sobrescrever a foto escolhida.
+        """
+        r = self.c.get(f"/preparacao/{self.leilao.id}/itens/novo/")
+        html = r.content.decode()
+        camera = re.search(r'<input[^>]*id="fotoCamera"[^>]*>', html).group(0)
+        self.assertIn("capture", camera)
+        self.assertNotIn("name=", camera)
+
+    def test_os_botoes_nascem_escondidos(self):
+        """Sem JS (ou sem `DataTransfer`), o seletor nativo tem de continuar de pé."""
+        r = self.c.get(f"/preparacao/{self.leilao.id}/itens/novo/")
+        html = r.content.decode()
+        bloco = re.search(r'<div class="foto-botoes"[^>]*>', html).group(0)
+        self.assertIn("hidden", bloco)
 
 
 class PesoEDimensoesTests(TestCase):

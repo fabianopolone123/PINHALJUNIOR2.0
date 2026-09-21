@@ -2,7 +2,26 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-21 (**Leilão: a foto do item aceita a galeria, não só a câmera**):
+**Última atualização:** 2026-09-21 (**Leilão: a foto do item ganha DOIS botões — câmera e arquivo**):
+correção do que subiu poucas horas antes. Tirar o `capture` devolveu a galeria e **custou a câmera**: o clube
+testou no celular e **só apareceu "escolher arquivos"**. O motivo é do sistema, não do site — no **Android
+13+** o navegador passa a abrir o **seletor de fotos** do Android para `accept="image/*"`, e esse seletor
+**não tem câmera**. Ou seja: `capture` esconde a galeria, e a ausência dele esconde a câmera; **nenhum dos
+dois sozinho oferece os dois caminhos**, e o que aparece muda de aparelho para aparelho.
+A escolha então **saiu do menu do sistema e veio para a tela**: dois botões — **📷 Tirar foto** e
+**🖼️ Escolher arquivo** — e dois `<input type="file">`, um com `capture` e outro sem. **Só o do formulário
+tem `name`** (é ele que vai no POST); o da câmera não é enviado, e o `lote_form.js` copia o arquivo dele para
+o de verdade com **`DataTransfer`**, que é a única forma de escrever em `input.files`. Continua **sem
+biblioteca**. É **melhoria progressiva**: os botões nascem `hidden` e só aparecem se houver JS **e**
+`DataTransfer` — sem isso o seletor nativo continua visível e o cadastro funciona como sempre, então ninguém
+fica sem conseguir mandar foto. Como o input nativo some quando os botões entram, some junto o nome do
+arquivo que ele mostrava: entrou o `#fotoNome`, que é o que deixa conferir se pegou a foto certa da galeria.
+Verificado com **render real + sonda headless**: dois botões de 202px lado a lado, campo nativo escondido,
+zero estouro horizontal. Suíte do leilão: **323 testes OK**. **NÃO foi feito deploy** a pedido do clube (o
+sistema estava em uso no VPS e o passo do leilão reinicia o serviço) — está commitado e no GitHub,
+aguardando liberação.
+
+**Atualização anterior:** 2026-09-21 (**Leilão: a foto do item aceita a galeria, não só a câmera**):
 pedido do clube. O campo de foto do cadastro de item nasceu com `capture="environment"`, que **força** o
 celular a abrir a câmera e **tira a galeria da frente** — e com isso barrava o caminho mais comum: quem já
 tinha fotografado o item antes, ou recebeu a foto por WhatsApp, não conseguia cadastrar pelo celular sem
@@ -303,8 +322,8 @@ locutor** (`/leilao/locutor/`, `is_staff`) traz cronômetro grande, abrir/pausar
 fila, histórico ao vivo, controle de **pagamentos** (com baixa manual), lista de
 **pessoas** (contato e endereço, para entregar) e o **microfone**: a voz do locutor vai ao vivo por
 **WebRTC/MediaMTX** com atraso de 200-500 ms, em `RTCPeerConnection` puro — **sem biblioteca JS
-externa**. Item é cadastrado com foto **tirada na hora ou escolhida da galeria** (`accept` nativo, sem
-`capture` — ver abaixo) e a foto é reduzida com Pillow. Efeitos: som **sintetizado em WebAudio** (zero arquivo para baixar), vibração, confete e o par
+externa**. Item é cadastrado com foto **tirada na hora ou escolhida do aparelho** (dois botões, dois inputs — ver
+abaixo) e a foto é reduzida com Pillow. Efeitos: som **sintetizado em WebAudio** (zero arquivo para baixar), vibração, confete e o par
 de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que mais importam: **um worker só**
 (o hub de eventos e o relógio vivem na memória do processo — dois seriam dois leilões paralelos);
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
@@ -2114,7 +2133,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 322 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 323 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens

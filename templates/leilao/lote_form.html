@@ -60,17 +60,37 @@
             <div class="campo">
                 <label for="{{ form.foto.id_for_label }}">Foto do item</label>
                 {% comment %}
-                Sem o atributo `capture`: ele forçava a CÂMERA e escondia a galeria, então
-                quem já tinha a foto do item no celular não conseguia cadastrar. Só o
-                `accept="image/*"` (no widget, em forms.py) é o que faz o celular oferecer
-                os dois caminhos — tirar na hora ou escolher uma existente. É nativo do
-                <input type="file">, nenhuma biblioteca envolvida. No computador, vira um
-                seletor de arquivo normal.
+                DOIS CAMINHOS, EXPLÍCITOS — e a razão é de campo, não de gosto.
+
+                Com `capture="environment"` o celular abre a câmera e ESCONDE a galeria:
+                quem já tinha a foto do item não conseguia cadastrar. Tirando o `capture`,
+                o Android 13+ passa a abrir o SELETOR DE FOTOS do sistema, que não tem
+                câmera nenhuma — some o outro caminho. Ou seja: o menu do celular não é
+                confiável para oferecer os dois, e varia de aparelho para aparelho.
+
+                Então a escolha sai do menu do sistema e vem para a tela: dois botões,
+                dois `<input type="file">` (um com `capture`, outro sem). O de baixo é o
+                do formulário e é o único com `name` — o da câmera não é enviado, o
+                `lote_form.js` copia o arquivo dele para o de verdade.
+
+                Os botões nascem ESCONDIDOS de propósito: sem JS (ou sem `DataTransfer`,
+                que é o que faz a cópia), eles não aparecem e o seletor nativo continua
+                visível e funcionando. Ninguém fica sem conseguir mandar foto.
                 {% endcomment %}
+                <div class="foto-botoes" id="fotoBotoes" hidden>
+                    <button type="button" class="btn-foto" id="btnFotoCamera">📷 Tirar foto</button>
+                    <button type="button" class="btn-foto" id="btnFotoArquivo">🖼️ Escolher arquivo</button>
+                </div>
+                <p class="foto-nome" id="fotoNome" hidden></p>
+
                 {{ form.foto }}
-                <small class="ajuda">No celular, dá para tirar a foto na hora ou escolher
-                    uma da galeria. A imagem é reduzida automaticamente para carregar
-                    rápido na tela de todo mundo.</small>
+
+                {# Só a fonte da câmera. Sem `name`: não é enviado. #}
+                <input type="file" id="fotoCamera" accept="image/*" capture="environment" hidden>
+
+                <small class="ajuda">Tire a foto na hora ou escolha uma que já esteja no
+                    aparelho. A imagem é reduzida automaticamente para carregar rápido na
+                    tela de todo mundo.</small>
                 {% if form.foto.errors %}<div class="erros">{{ form.foto.errors }}</div>{% endif %}
             </div>
 
