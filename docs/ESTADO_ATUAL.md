@@ -24,6 +24,13 @@ não empurra o layout, mas conta para a área rolável, e nome muito comprido no
 na página inteira** — resolvido com `overflow-x: clip` + `overflow-clip-margin: 24px` no card `.pregao`
 (`clip`, não `hidden`: não cria caixa de rolagem, e a margem deixa o brilho vazar). Medido: nome de 60 letras
 sem espaço, zero estouro. Suíte do leilão: **319 testes OK** (+6, `PregaoNaoSobreviveAoLeilaoTests`).
+**Em produção** no commit `d82eb70` (21/09/2026): sem migration nova, estáticos do leilão coletados e o
+`pinhaljunior_leilao.service` reiniciado (o passo extra do `docs/DEPLOY_LEILAO.md` §7.1). Conferido antes de
+reiniciar que **nenhum leilão estava ao vivo**; backup do banco do leilão em
+`backup/leilao_antes_pregao_orfao_20260921_203801.sqlite3`. O **órfão foi limpo com a própria função nova**
+(`_devolver_lotes_abertos`), para o resultado ser idêntico ao que o código faz daqui em diante. Depois:
+os dois sites responderam 200, o SSE devolveu `event: estado` com `ativo: false` (nenhum leilão no ar — que
+era exatamente o que a mesa negava antes) e o CSS servido já traz o `assume-a-ponta` e o `overflow-clip-margin`.
 
 **Atualização anterior:** 2026-09-19 (**Leilão: peso e dimensões do item, obrigatórios no cadastro**):
 pedido do clube. O cadastro de item passou a **exigir** o **peso** (kg) e as **três dimensões** (altura,
