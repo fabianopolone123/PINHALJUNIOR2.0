@@ -344,6 +344,29 @@ não muda quantas requisições chegam). O servidor já descarta reação sozinh
 | Memória do processo depois | 65 MB |
 | Carga do servidor depois | 0,05 |
 
+**Medido de novo em 21/09/2026**, de outra máquina, com o VPS ocioso (load 0,04) e os outros sites
+atendendo — desta vez subindo até o **dobro** do teto de projeto:
+
+| | 100 conexões | 200 conexões |
+|---|---|---|
+| Abertas / mantidas | **100/100** | **200/200** |
+| Quedas | 0 | 0 |
+| Eventos recebidos | 5.183 | 19.854 |
+| CPU ocupada em regime | ~5-10% | **~2-7%** |
+| CPU no pico de entrada | ~35% | **84%** (1 s) |
+| Memória do uvicorn | 60,8 → 65,5 MB | → 68,5 MB |
+
+> **O custo é a pessoa CHEGANDO, não a conectada.** Com 200 gente dentro, o servidor fica 90-98% ocioso —
+> SSE parado quase não custa nada. O aperto foi o instante dos handshakes TLS simultâneos, e o teste é mais
+> duro que a realidade: ele abre 50 conexões por segundo, e gente de verdade chega pingando ao longo de
+> minutos. Sobra vCPU de sobra para o MediaMTX (estimado em 10-20% para 100 ouvintes).
+>
+> **A voz continua sem prova.** Estas medições foram feitas **sem** o MediaMTX transmitindo: publicar exige
+> um cliente WHIP (o ffmpeg do VPS é 6.1.1; WHIP só a partir do 7.1) e simular ouvintes exige uma pilha
+> WebRTC, que seria dependência nova. O gasto do áudio é proporcional ao número de **assinantes**, então não
+> há atalho: é o ensaio com 10-15 aparelhos reais, com alguém falando e ouvido humano julgando, medindo
+> `mpstat 1` e `nload` no servidor ao mesmo tempo.
+
 > O `--cookie` é **repetível, e precisa ser**: a regra do pregão recusa quem tenta cobrir o próprio
 > lance, então com um cookie só tudo é recusado do segundo lance em diante. Use 2 ou 3 participantes.
 

@@ -688,6 +688,29 @@ def fechar_chat(leilao):
     return leilao
 
 
+def _devolver_lotes_abertos(leilao_ids):
+    """Leilão fora do ar não deixa item em pregão para trás.
+
+    O item aberto é um estado **do pregão**, e o pregão acabou: sem isto a
+    linha fica `aberto` para sempre e a mesa do locutor volta a mostrar "item
+    em pregão, sala calada" com o leilão encerrado há dias. É a mesma lição que
+    o `chat_aberto_ate` ensinou — o que é do pregão morre com ele.
+
+    Volta **limpo** para a fila, igualzinho ao que o `abrir_lote` já faz com o
+    lote que sobrou aberto: o item não foi vendido (ninguém arrematou), então
+    ele fica disponível de novo. Os lances continuam no banco como histórico,
+    mas o lote não pode ficar na fila exibindo líder e valor de uma disputa que
+    foi abandonada — `lances_da_rodada()` já sabe ignorar a rodada anulada.
+    """
+    return Lote.objects.filter(leilao_id__in=leilao_ids, status="aberto").update(
+        status="fila",
+        fecha_em=None,
+        pausado_restante=None,
+        valor_atual=Decimal("0.00"),
+        lider=None,
+    )
+
+
 def mudar_status(leilao, novo):
     """Coloca no ar / tira do ar — e AVISA quem está esperando.
 
@@ -696,10 +719,18 @@ def mudar_status(leilao, novo):
     celular na mão desde antes continuava vendo a tela de espera.
     """
     if novo == "ao_vivo":
-        # O leilão que sai do ar leva o chat dele junto (ver abaixo).
-        Leilao.objects.filter(status="ao_vivo").exclude(pk=leilao.pk).update(
-            status="encerrado", chat_aberto_ate=None
+        # O leilão que sai do ar leva o chat dele junto (ver abaixo) — e o
+        # item que estava em pregão nele também.
+        saindo = list(
+            Leilao.objects.filter(status="ao_vivo")
+            .exclude(pk=leilao.pk)
+            .values_list("pk", flat=True)
         )
+        if saindo:
+            Leilao.objects.filter(pk__in=saindo).update(
+                status="encerrado", chat_aberto_ate=None
+            )
+            _devolver_lotes_abertos(saindo)
     leilao.status = novo
 
     campos = ["status"]
@@ -713,6 +744,11 @@ def mudar_status(leilao, novo):
         HUB.publicar("chat_estado", {"aberto": False, "ate": None})
 
     leilao.save(update_fields=campos)
+
+    if novo != "ao_vivo":
+        # Sair do ar fecha o item em pregão. Sem isto o lote fica `aberto` no
+        # banco e a mesa passa a mostrar um pregão que não existe.
+        _devolver_lotes_abertos([leilao.pk])
 
     # Quem sai do ar também precisa avisar: as telas voltam para a espera em vez
     # de ficar congeladas no último item.

@@ -22,6 +22,73 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-21 - Leilão: o pregão não sobrevive ao leilão, e o lance se faz notar
+
+### Resumo
+O clube abriu a mesa do locutor **sem nenhum leilão ao vivo** e ela mostrava
+"item em pregão, sala calada", contando o silêncio de um item aberto dias
+antes. Dois defeitos somados, os dois com a mesma raiz que o bug do chat já
+tinha ensinado: **o que é do pregão tem de morrer com o pregão**.
+
+No mesmo pedido, o efeito do lance novo no nome do líder ficou muito mais
+destacado — e a verificação pegou de quebra uma rolagem horizontal.
+
+### O que foi feito
+**1. O lote não fica mais aberto para trás.** `mudar_status` fechava o
+`chat_aberto_ate` ao sair do ar e esquecia o lote, que ficava `status="aberto"`
+no banco para sempre. Agora `_devolver_lotes_abertos` devolve o item **limpo**
+para a fila (`valor_atual` zerado, `lider` nulo), no mesmo idioma que o
+`abrir_lote` já usava. Vale também para o leilão que sai do ar para dar lugar a
+outro, que é por onde o órfão da produção nasceu.
+
+**2. A guarda passou para o estado.** `estado_publico` respondia `ativo: True`
+para qualquer leilão não-nulo, confiando em quem chamava. A tela pública
+acertava por acidente (passa `Leilao.ao_vivo()`, que é `None`); a mesa **cai
+para o leilão mais recente** quando não há nada no ar e por isso recebia um
+pregão inventado. Agora ele mesmo exige `status == "ao_vivo"`, como o
+`Leilao.chat_aberto` já fazia.
+
+**3. O lance se faz notar.** O nome de quem assume a ponta cresce e acende
+(`assume-a-ponta`: pico 1,18 + brilho dourado, 0,72s) em vez do deslize
+discreto de antes, que se perdia para quem estava olhando o botão. Nome em
+repouso de 1,32rem para 1,5rem (1,85rem no ecrã largo).
+
+### Arquivos criados/alterados
+- `leilao/servicos.py`: `_devolver_lotes_abertos` e os dois pontos de
+  `mudar_status` que o chamam (sair do ar; sair para dar lugar a outro).
+- `leilao/estado.py`: `estado_publico` exige `status == "ao_vivo"`.
+- `static/leilao/css/leilao.css`: `assume-a-ponta` no lugar de `entra-nome`,
+  `.lider-nome` maior, e `overflow-x: clip` + `overflow-clip-margin` no
+  `.pregao`.
+- `leilao/tests.py`: `PregaoNaoSobreviveAoLeilaoTests` (6 testes).
+
+### Decisões tomadas
+- **O item aberto volta para a FILA** quando o leilão encerra (escolha do
+  clube, entre "volta para a fila", "vira sem lance" e "não deixar encerrar").
+  Ninguém arrematou, então ele fica disponível de novo.
+- **A guarda mora no `estado_publico`**, não no `locutor_view`. Consertar só o
+  chamador deixaria o próximo chamador repetir o erro.
+- **`clip`, não `hidden`**, para conter o estouro: `hidden` criaria caixa de
+  rolagem; `clip` com `overflow-clip-margin: 24px` segura a rolagem e deixa o
+  brilho vazar para fora do card.
+
+### Verificação
+- Suíte do leilão: **319 testes OK** (+6).
+- **Sonda headless** (Chrome `--headless=new`, 390px): o pico da animação com
+  nome de 60 letras sem espaço estourava **27px** (`scrollWidth` 527 ×
+  `clientWidth` 500) e criava rolagem horizontal; com o `clip`, zero estouro em
+  todos os nomes testados.
+- Órfão da produção (leilão 3, item nº 3, zero lances) devolvido à fila.
+
+### Pendências
+- **O áudio ao vivo continua sem prova sob carga** — o MediaMTX nunca teve um
+  ouvinte de verdade neste servidor. Medido em 21/09, de outra máquina: 100 e
+  **200 conexões SSE** mantidas, zero quedas, servidor 90-98% ocioso em regime
+  (pico só na chegada). Falta o ensaio com 10-15 aparelhos reais e ouvido
+  humano, que é a única prova honesta da voz.
+
+---
+
 ## 2026-09-19 - Leilão: peso e dimensões do item, obrigatórios no cadastro
 
 ### Resumo

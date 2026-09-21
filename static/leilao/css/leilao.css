@@ -350,6 +350,15 @@ body.tela-palco {
     gap: 14px;
     padding: 14px;
     margin-bottom: 14px;
+    /* O nome do líder CRESCE a cada lance (`.lider-nome.trocou`), e `transform`
+       não empurra o layout mas conta para a área rolável: nome muito comprido
+       no pico da animação criava ROLAGEM HORIZONTAL na página inteira — a
+       armadilha que o projeto já documenta. `clip` (não `hidden`) não cria
+       caixa de rolagem, e a margem de 24px deixa o brilho vazar para fora do
+       card sem que nada role. Medido com a sonda headless: nome de 60 letras
+       sem espaço, zero estouro. */
+    overflow-x: clip;
+    overflow-clip-margin: 24px;
     background: var(--palco-card);
     border: 1px solid var(--palco-borda);
     border-radius: 18px;
@@ -381,12 +390,28 @@ body.tela-palco {
 .pregao.superado .lider-rotulo { color: var(--vermelho-claro); }
 
 .lider-nome {
-    font-size: 1.32rem;
+    font-size: 1.5rem;
     font-weight: 800;
     line-height: 1.12;
     overflow-wrap: anywhere;
 }
-.lider-nome.trocou { animation: entra-nome 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+/* Quem assumiu a ponta é O acontecimento do leilão — o nome CRESCE e acende,
+   não só desliza. O efeito antigo (deslizar 14px subindo até a escala 1) se
+   perdia no meio da tela: quem estava olhando o botão não percebia que a
+   liderança tinha trocado, que é a única coisa que ele precisa saber para
+   decidir cobrir.
+
+   A classe entra só quando o líder muda DENTRO do mesmo item (o `trocouLote`
+   do `leilao.js` segura a troca de item), então este é exatamente o momento do
+   lance novo — e não pisca à toa a cada item que abre.
+
+   O pico é 1.18, não mais: `transform` não empurra o layout, mas ESTOURA para
+   fora do container se exagerar, e nome comprido em celular estreito viraria
+   rolagem horizontal na página (a armadilha que o projeto já documenta). O
+   brilho faz o resto do destaque, e ele não ocupa espaço nenhum. */
+.lider-nome.trocou {
+    animation: assume-a-ponta 0.72s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
 
 .lider-valor {
     font-size: 2rem;
@@ -730,9 +755,22 @@ body.tela-palco {
     35% { transform: scale(1.22); filter: brightness(1.5); }
     100% { transform: scale(1); }
 }
-@keyframes entra-nome {
-    from { opacity: 0; transform: translateY(14px) scale(0.94); }
-    to { opacity: 1; transform: none; }
+@keyframes assume-a-ponta {
+    0% {
+        opacity: 0;
+        transform: translateY(14px) scale(0.86);
+        text-shadow: none;
+    }
+    45% {
+        opacity: 1;
+        transform: translateY(0) scale(1.18);
+        text-shadow: 0 0 28px rgba(255, 209, 102, 0.9), 0 2px 12px rgba(0, 0, 0, 0.35);
+    }
+    100% {
+        opacity: 1;
+        transform: none;
+        text-shadow: none;
+    }
 }
 @keyframes entra-linha { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 @keyframes onda { to { transform: scale(3.2); opacity: 0; } }
@@ -753,7 +791,7 @@ body.tela-palco {
    ========================================================= */
 @media (min-width: 620px) {
     .lote-nome { font-size: 1.5rem; }
-    .lider-nome { font-size: 1.6rem; }
+    .lider-nome { font-size: 1.85rem; }
     .lider-valor { font-size: 2.4rem; }
     .btn-lance { min-height: 96px; }
     .btn-lance-valor { font-size: 2.1rem; }

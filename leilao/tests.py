@@ -1998,6 +1998,81 @@ class ChatNaoSobreviveAoLeilaoTests(TestCase):
         self.assertIn("encerrado", r.json()["msg"].lower())
 
 
+class PregaoNaoSobreviveAoLeilaoTests(TestCase):
+    """Leilão fora do ar não pode ter item em pregão.
+
+    Caso real da produção: os três leilões estavam `encerrado`, `Leilao.ao_vivo()`
+    devolvia `None` — e a mesa do locutor mostrava "item em pregão, sala calada",
+    contando o silêncio de um item aberto dias antes. Dois defeitos somados:
+
+    1. `mudar_status` aprendeu a fechar o **chat** ao sair do ar e esqueceu o
+       **lote**, que ficava `aberto` no banco para sempre;
+    2. `estado_publico` respondia `ativo: True` para qualquer leilão não-nulo,
+       confiando em quem chamava ter passado o que está no ar. A tela pública
+       acertava por acidente (passa `Leilao.ao_vivo()`); a mesa **cai para o
+       leilão mais recente** e entregava um encerrado.
+
+    É a mesma lição do chat: o que é do pregão morre com o pregão, e a trava
+    mora no estado, não em quem o chama.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+
+    def test_com_o_leilao_no_ar_o_item_esta_em_pregao(self):
+        self.assertEqual(self.lote.status, "aberto")
+        self.assertTrue(est.estado_publico(self.leilao)["ativo"])
+
+    def test_encerrar_o_leilao_devolve_o_item_para_a_fila(self):
+        servicos.mudar_status(self.leilao, "encerrado")
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "fila")
+
+    def test_o_item_volta_LIMPO_para_a_fila(self):
+        """Na fila exibindo líder e valor de uma disputa abandonada, não."""
+        ana = criar_pessoa("Ana Fictícia")
+        servicos.dar_lance(self.lote.id, ana)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.lider_id, ana.id)
+
+        servicos.mudar_status(self.leilao, "encerrado")
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "fila")
+        self.assertIsNone(self.lote.lider_id)
+        self.assertEqual(self.lote.valor_atual, Decimal("0.00"))
+
+    def test_leilao_encerrado_nao_tem_pregao_no_estado(self):
+        """A guarda é do ESTADO, não de quem chama — mesmo com o lote `aberto`.
+
+        É este o teste que pega o caso da mesa: ela passa o leilão mais recente,
+        e o lote continua `aberto` no banco (dado antigo, anterior à correção).
+        """
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="encerrado")
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.lote.status, "aberto")   # o órfão continua lá
+        self.assertFalse(est.estado_publico(self.leilao)["ativo"])
+
+    def test_rascunho_tambem_nao_e_pregao(self):
+        """Leilão que ainda está sendo preparado não é leilão no ar."""
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="rascunho")
+        self.leilao.refresh_from_db()
+        self.assertFalse(est.estado_publico(self.leilao)["ativo"])
+
+    def test_colocar_outro_no_ar_devolve_o_item_do_anterior(self):
+        """O leilão que sai para dar lugar a outro também deixa o item limpo."""
+        outro = criar_leilao(nome="Outro leilão", status="rascunho")
+        servicos.mudar_status(outro, "ao_vivo")
+        self.leilao.refresh_from_db()
+        self.lote.refresh_from_db()
+        self.assertEqual(self.leilao.status, "encerrado")
+        self.assertEqual(self.lote.status, "fila")
+
+
+
 class SemDesfazerLanceTests(TestCase):
     """Não há "desfazer lance". O clube olhou a mesa e não quis o botão.
 

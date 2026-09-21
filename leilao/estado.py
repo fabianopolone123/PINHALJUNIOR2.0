@@ -149,7 +149,15 @@ def estado_publico(leilao, *, com_chat=True):
     vez de tentar repetir eventos perdidos é o que dispensa lógica de replay:
     **um cliente que reconecta está sempre correto**.
     """
-    if leilao is None:
+    # Fora do ar não há pregão — e a guarda mora AQUI, não em quem chama.
+    # `estado_publico` dizia `ativo: True` para qualquer leilão não-nulo e
+    # confiava no chamador ter passado o que está ao vivo. A tela pública
+    # acertava por acidente (ela passa `Leilao.ao_vivo()`, que é `None`), mas a
+    # mesa do locutor cai para o leilão **mais recente** quando não há nada no
+    # ar: ela entregava um leilão encerrado e recebia de volta "item em pregão,
+    # sala calada". É a mesma lição do chat (`Leilao.chat_aberto` exige
+    # `status == "ao_vivo"`): estado do item e estado do leilão têm de concordar.
+    if leilao is None or leilao.status != "ao_vivo":
         # `online` vai junto mesmo sem leilão no ar: antes de começar é
         # exatamente quando o locutor quer saber quantos já estão esperando na
         # tela — e é também como se confere que o hub não ficou com conexões

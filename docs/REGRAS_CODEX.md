@@ -1038,6 +1038,35 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **`servidor_em` continua obrigatório no estado.** Sem cronômetro ele ainda é o que faz a mesa calcular o
   silêncio pelo relógio do SERVIDOR; pelo do aparelho, quem estivesse com a hora errada veria outro número.
 
+### O pregão morre com o leilão
+
+- **Leilão fora do ar não tem item em pregão.** `mudar_status` fecha o chat **e** devolve o lote aberto para
+  a fila (`_devolver_lotes_abertos`). Sem isso a linha fica `status="aberto"` para sempre — e como a mesa do
+  locutor **cai para o leilão mais recente** quando não há nada no ar, ela passa a mostrar "item em pregão,
+  sala calada" com o leilão encerrado há dias. Foi bug real, visto na produção.
+- **A guarda é do ESTADO, não de quem chama.** `estado_publico` dizia `ativo: True` para qualquer leilão
+  não-nulo e confiava no chamador. A tela pública acertava **por acidente** (passa `Leilao.ao_vivo()`, que é
+  `None`); qualquer outro chamador recebia um pregão inventado. Agora ele mesmo exige `status == "ao_vivo"`,
+  como o `Leilao.chat_aberto` já fazia. **Estado que pode ser pedido para um objeto errado se defende
+  sozinho** — esconder o problema no chamador é esperar que todos os chamadores futuros acertem.
+- **O item volta LIMPO para a fila**, não "vendido" nem "sem lance": ninguém arrematou, então ele fica
+  disponível de novo (decisão do clube). Zera `valor_atual` e `lider` — item na fila exibindo líder e valor de
+  uma disputa abandonada é pior que item sem nada. Os lances ficam no banco como histórico, e
+  `lances_da_rodada()` já ignora a rodada anulada. Vale também para o leilão que sai do ar **para dar lugar a
+  outro**, que é o caminho por onde o órfão nasceu.
+
+### O lance tem de se fazer notar
+
+- **O nome de quem assume a ponta CRESCE e acende** (`assume-a-ponta`), não desliza discretamente. Quem está
+  olhando o botão precisa perceber, sem ler, que a liderança trocou — é a única informação que ele usa para
+  decidir cobrir. A classe entra **só quando o líder muda dentro do mesmo item** (o `trocouLote` segura a
+  troca de item), senão piscaria a cada item que abre.
+- **`transform: scale` não empurra o layout, mas conta para a área rolável.** Escalar o nome criava
+  **rolagem horizontal na página inteira** quando o nome era comprido — a mesma armadilha do `minmax(0, 1fr)`,
+  por outro caminho. A trava é `overflow-x: clip` + `overflow-clip-margin` no card: **`clip`, não `hidden`**,
+  porque `hidden` cria caixa de rolagem; a margem deixa o brilho vazar sem que nada role. Efeito novo que
+  escale alguma coisa **passa pela sonda headless** antes de subir — o olho não vê 27px de estouro.
+
 ### O chat do intervalo
 
 - **Estado do chat e estado do leilão têm de concordar.** `chat_aberto_ate` é uma hora futura no banco e

@@ -2,7 +2,30 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-19 (**Leilão: peso e dimensões do item, obrigatórios no cadastro**):
+**Última atualização:** 2026-09-21 (**Leilão: pregão não sobrevive ao leilão + o lance que se faz notar**):
+o clube abriu a mesa do locutor **sem nenhum leilão ao vivo** e ela mostrava *"item em pregão, sala calada"*,
+contando o silêncio de um item aberto dias antes. Eram **dois defeitos somados**, e os dois são a lição que o
+**chat** já tinha ensinado — o que é do pregão morre com o pregão: (1) `mudar_status` aprendeu a fechar o
+`chat_aberto_ate` ao sair do ar e **esqueceu o lote**, que ficava `status="aberto"` no banco para sempre;
+(2) `estado_publico` respondia **`ativo: True` para qualquer leilão não-nulo**, confiando em quem chamava ter
+passado o que está no ar — a tela pública acertava **por acidente** (ela passa `Leilao.ao_vivo()`, que é
+`None`), mas a mesa **cai para o leilão mais recente** quando não há nada no ar e entregava um encerrado.
+A guarda agora mora **no estado**, não em quem o chama (mesma forma do `Leilao.chat_aberto`, que exige
+`status == "ao_vivo"`), e `_devolver_lotes_abertos` devolve o item **limpo para a fila** ao sair do ar —
+decisão do clube: ninguém arrematou, então o item fica disponível de novo; os lances continuam no banco como
+histórico e `lances_da_rodada()` já ignora a rodada anulada. Vale também para o leilão que sai do ar **para
+dar lugar a outro**. Na produção havia **um órfão** (leilão 3, item nº 3, zero lances) — devolvido à fila.
+**No mesmo pedido, o lance passou a se fazer notar**: o nome de quem assume a ponta **cresce e acende**
+(`assume-a-ponta`, pico 1,18 + brilho dourado) em vez do deslize discreto de antes, que se perdia para quem
+estava olhando o botão — e a liderança ter trocado é a única coisa que essa pessoa precisa saber para decidir
+cobrir. O nome em repouso subiu de 1,32rem para 1,5rem (1,85rem no ecrã largo). A animação entra **só quando o
+líder muda dentro do mesmo item**, não a cada item que abre. **A sonda headless pegou um estouro**: `transform`
+não empurra o layout, mas conta para a área rolável, e nome muito comprido no pico criava **rolagem horizontal
+na página inteira** — resolvido com `overflow-x: clip` + `overflow-clip-margin: 24px` no card `.pregao`
+(`clip`, não `hidden`: não cria caixa de rolagem, e a margem deixa o brilho vazar). Medido: nome de 60 letras
+sem espaço, zero estouro. Suíte do leilão: **319 testes OK** (+6, `PregaoNaoSobreviveAoLeilaoTests`).
+
+**Atualização anterior:** 2026-09-19 (**Leilão: peso e dimensões do item, obrigatórios no cadastro**):
 pedido do clube. O cadastro de item passou a **exigir** o **peso** (kg) e as **três dimensões** (altura,
 largura, profundidade, em cm). O motivo é a **entrega**, que acontece depois e longe: o voluntário escolhe o
 carro **antes de sair de casa**, e descobrir na porta que o item não cabe custa a viagem inteira — de quebra,
@@ -2070,7 +2093,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 313 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 319 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2315,6 +2338,14 @@ abrir o próximo. Colunas dormentes no banco: `Leilao.segundos_por_lote`, `segun
 `reiniciar_cronometro`, `fechamento_automatico` e `Lote.fecha_em`, `pausado_restante`. O relógio grande da
 mesa **fica** e conta para CIMA — há quanto tempo a sala está calada ("sala calada — martelo?"); é
 sugestão, não fecha nada.
+
+**O pregão não sobrevive ao leilão.** Sair do ar fecha o chat **e o item em pregão**: `mudar_status`
+chama `_devolver_lotes_abertos`, que devolve o lote **limpo** para a fila (status, `valor_atual` zerado,
+`lider` nulo) — igualzinho ao que o `abrir_lote` já fazia com o lote que sobrava aberto. E a guarda de
+verdade é do **estado**: `estado_publico` devolve o retrato de "sem leilão" para qualquer leilão que não
+esteja `ao_vivo`, em vez de confiar em quem o chama. Sem as duas coisas, a mesa do locutor — que **cai para o
+leilão mais recente** quando não há nada no ar — mostrava "item em pregão, sala calada" com o leilão
+encerrado há dias. É a mesma lição do `chat_aberto_ate`. Guarda: `PregaoNaoSobreviveAoLeilaoTests`.
 
 **Não há "desfazer lance".** O botão existia para o caso de o locutor errar; o clube olhou a mesa pronta
 e não quis. Saíram o botão, a confirmação, a ação do servidor, o serviço `desfazer_ultimo_lance` e o
