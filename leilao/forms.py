@@ -177,8 +177,12 @@ class LeilaoForm(EstiloMixin, forms.ModelForm):
 class LoteForm(EstiloMixin, forms.ModelForm):
     """Cadastro de item.
 
-    A foto abre a **câmera do celular** direto (`capture`), sem biblioteca: é
-    atributo nativo do `<input type="file">`.
+    A foto deixa o celular escolher: **tirar na hora ou pegar da galeria**. O
+    `accept="image/*"` sozinho é o que dá as duas opções — o `capture`, que
+    estava aqui antes, **forçava a câmera** e escondia a galeria, e quem já
+    tinha fotografado o item (ou recebeu a foto por WhatsApp) não conseguia
+    cadastrá-lo pelo celular. Continua sem biblioteca: é atributo nativo do
+    `<input type="file">`.
 
     **Peso e dimensões são obrigatórios AQUI**, e não no model. No banco eles
     aceitam vazio porque os itens cadastrados antes deles existem e continuam
@@ -210,9 +214,10 @@ class LoteForm(EstiloMixin, forms.ModelForm):
             "descricao": forms.TextInput(
                 attrs={"placeholder": "Uma linha sobre o item (aparece embaixo da foto)"}
             ),
-            "foto": forms.ClearableFileInput(
-                attrs={"accept": "image/*", "capture": "environment"}
-            ),
+            # Sem `capture`: ele forçaria a câmera e tiraria a galeria da
+            # frente. `accept="image/*"` deixa o celular oferecer os dois
+            # caminhos e o computador abrir o seletor de arquivo normal.
+            "foto": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     LADOS = ["altura_cm", "largura_cm", "profundidade_cm"]

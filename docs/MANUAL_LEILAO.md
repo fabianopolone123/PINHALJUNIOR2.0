@@ -91,8 +91,10 @@ Ele nasce em **rascunho** — ninguém de fora vê nada ainda.
 
 Na linha do leilão, clique em **📦 Itens** → **+ Cadastrar item**.
 
-- **Foto**: no celular, o botão **abre a câmera direto**. Tire a foto do item ali
-  mesmo. A imagem é reduzida sozinha para carregar rápido na tela de todo mundo.
+- **Foto**: no celular, o botão deixa você **tirar a foto na hora ou escolher uma
+  da galeria** — serve tanto para o item que está na sua frente quanto para a foto
+  que alguém já mandou no WhatsApp. A imagem é reduzida sozinha para carregar
+  rápido na tela de todo mundo.
 - **Descrição**: uma linha. É o que cabe embaixo da foto no celular.
 - **Lance inicial**: o primeiro toque no botão paga **exatamente este valor** (não
   soma o incremento).

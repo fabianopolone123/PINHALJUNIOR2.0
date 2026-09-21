@@ -2,7 +2,17 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-21 (**Leilão: pregão não sobrevive ao leilão + o lance que se faz notar**):
+**Última atualização:** 2026-09-21 (**Leilão: a foto do item aceita a galeria, não só a câmera**):
+pedido do clube. O campo de foto do cadastro de item nasceu com `capture="environment"`, que **força** o
+celular a abrir a câmera e **tira a galeria da frente** — e com isso barrava o caminho mais comum: quem já
+tinha fotografado o item antes, ou recebeu a foto por WhatsApp, não conseguia cadastrar pelo celular sem
+fotografar tudo de novo, com o item na mão. Removido o `capture`; ficou só o **`accept="image/*"`**, que é o
+que faz o celular oferecer **os dois** caminhos (tirar agora ou escolher uma existente) e o computador abrir
+o seletor de arquivo normal. Continua **sem biblioteca** — é atributo nativo do `<input type="file">` — e a
+redução com Pillow não muda. O texto de ajuda da tela deixou de prometer só a câmera. Guarda:
+`FotoDoItemAceitaGaleriaTests` (o `capture` não volta por descuido). Suíte do leilão: **322 testes OK** (+3).
+
+**Atualização anterior:** 2026-09-21 (**Leilão: pregão não sobrevive ao leilão + o lance que se faz notar**):
 o clube abriu a mesa do locutor **sem nenhum leilão ao vivo** e ela mostrava *"item em pregão, sala calada"*,
 contando o silêncio de um item aberto dias antes. Eram **dois defeitos somados**, e os dois são a lição que o
 **chat** já tinha ensinado — o que é do pregão morre com o pregão: (1) `mudar_status` aprendeu a fechar o
@@ -289,8 +299,8 @@ locutor** (`/leilao/locutor/`, `is_staff`) traz cronômetro grande, abrir/pausar
 fila, histórico ao vivo, controle de **pagamentos** (com baixa manual), lista de
 **pessoas** (contato e endereço, para entregar) e o **microfone**: a voz do locutor vai ao vivo por
 **WebRTC/MediaMTX** com atraso de 200-500 ms, em `RTCPeerConnection` puro — **sem biblioteca JS
-externa**. Item é cadastrado pela **câmera do celular** (`capture` nativo) e a foto é reduzida com
-Pillow. Efeitos: som **sintetizado em WebAudio** (zero arquivo para baixar), vibração, confete e o par
+externa**. Item é cadastrado com foto **tirada na hora ou escolhida da galeria** (`accept` nativo, sem
+`capture` — ver abaixo) e a foto é reduzida com Pillow. Efeitos: som **sintetizado em WebAudio** (zero arquivo para baixar), vibração, confete e o par
 de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que mais importam: **um worker só**
 (o hub de eventos e o relógio vivem na memória do processo — dois seriam dois leilões paralelos);
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
@@ -2100,7 +2110,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 319 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 322 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens

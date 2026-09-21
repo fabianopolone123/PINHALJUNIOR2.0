@@ -1012,6 +1012,16 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   sair de casa, e descobrir na porta que o item não cabe custa a viagem inteira. Por isso a medida aparece
   também no roteiro copiável (linha recuada sob o item) e no cartão do quadro.
 
+### A foto do item
+
+- **`accept` sim, `capture` não.** O campo nasceu com `capture="environment"` e isso **força** a câmera no
+  celular, escondendo a galeria. Parecia ajudar (o item costuma estar na mesa) e barrava o caminho mais
+  comum: foto já tirada antes, ou recebida por WhatsApp. Só o `accept="image/*"` dá **os dois** caminhos —
+  e no computador vira o seletor de arquivo normal. Guarda: `FotoDoItemAceitaGaleriaTests`.
+- **Atributo que fecha uma porta precisa de motivo forte.** `capture` não decide melhor que a pessoa com o
+  celular na mão: ela sabe se a foto já existe. Antes de restringir um seletor nativo, pergunte o que
+  acontece com quem está no caso que você não imaginou.
+
 ### O número do item
 
 - **É a etiqueta do objeto físico, não a posição na fila.** `Lote.numero` nasce sozinho e **não muda

@@ -22,6 +22,45 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-21 - Leilão: a foto do item aceita a galeria, não só a câmera
+
+### Resumo
+Pedido do clube: cadastrar item pelo celular anexando uma foto que já existe,
+e não só fotografando na hora.
+
+### O que foi feito
+O campo de foto tinha `capture="environment"`, atributo que **força** o celular
+a abrir a câmera e tira a galeria da frente. Removido. Ficou só o
+`accept="image/*"`, que é o que faz o celular oferecer os dois caminhos — tirar
+agora ou escolher uma existente — e o computador abrir o seletor normal.
+
+Continua sem biblioteca (é nativo do `<input type="file">`) e a redução com
+Pillow não muda.
+
+### Arquivos criados/alterados
+- `leilao/forms.py`: widget da `foto` sem `capture`; docstring do `LoteForm`.
+- `templates/leilao/lote_form.html`: comentário e o texto de ajuda, que
+  prometia só a câmera.
+- `static/leilao/js/lote_form.js`: comentário do cabeçalho.
+- `leilao/tests.py`: `FotoDoItemAceitaGaleriaTests` (3 testes).
+- `docs/MANUAL_LEILAO.md`: instrução da equipe.
+
+### Decisões tomadas
+- **O atributo sai, não vira opção.** Não há tela para "quero a câmera": quem
+  está com o celular na mão já sabe se a foto existe, e o seletor nativo do
+  próprio sistema operacional oferece as duas coisas melhor do que qualquer
+  botão que se inventasse.
+- **Teste-guarda**, no padrão das outras remoções do módulo
+  (`SemMusicaDeFundoTests`, `SemDesfazerLanceTests`): o `capture` é uma linha
+  fácil de alguém repor achando que ajuda.
+
+### Verificação
+- Suíte do leilão: **322 testes OK** (+3).
+- HTML renderizado conferido:
+  `<input type="file" name="foto" accept="image/*" class="campo-file" id="id_foto">`.
+
+---
+
 ## 2026-09-21 - Leilão: o pregão não sobrevive ao leilão, e o lance se faz notar
 
 ### Resumo

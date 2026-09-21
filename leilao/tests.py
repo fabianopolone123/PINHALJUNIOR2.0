@@ -3645,6 +3645,35 @@ class EmojiNaoAtrapalhaOPregaoTests(TestCase):
         self.assertTrue(ok, msg)
 
 
+class FotoDoItemAceitaGaleriaTests(TestCase):
+    """A foto do item não pode exigir a câmera.
+
+    O campo nasceu com `capture="environment"`, que **força** o celular a abrir
+    a câmera e tira a galeria da frente. Na prática isso barrava o caminho mais
+    comum: quem já fotografou o item antes, ou recebeu a foto por WhatsApp, não
+    conseguia cadastrar pelo celular — tinha de fotografar de novo, ali, com o
+    item na mão.
+
+    Só o `accept="image/*"` faz o que se quer: o celular oferece **os dois**
+    caminhos e o computador abre o seletor de arquivo normal. Este teste existe
+    para o `capture` não voltar por descuido.
+    """
+
+    def test_o_campo_de_foto_nao_forca_a_camera(self):
+        widget = forms.LoteForm().fields["foto"].widget
+        self.assertNotIn("capture", widget.attrs)
+
+    def test_o_campo_de_foto_continua_aceitando_so_imagem(self):
+        widget = forms.LoteForm().fields["foto"].widget
+        self.assertEqual(widget.attrs.get("accept"), "image/*")
+
+    def test_a_tela_nao_promete_so_a_camera(self):
+        """O texto de ajuda é lido por quem está com o celular na mão."""
+        html = str(forms.LoteForm()["foto"])
+        self.assertNotIn("capture", html)
+
+
+
 class PesoEDimensoesTests(TestCase):
     """Peso e dimensões do item — obrigatórios, e presentes em toda tela.
 

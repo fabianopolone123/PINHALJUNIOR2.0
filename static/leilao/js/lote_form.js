@@ -1,10 +1,11 @@
 /*
  * lote_form.js — prévia da foto do item.
  *
- * A câmera do celular é aberta pelo atributo `capture` do próprio
- * `<input type="file">` (posto no widget, em forms.py) — nada de biblioteca.
- * Aqui só mostramos o que foi fotografado, porque quem tira foto de um item em
- * cima da mesa precisa ver se ficou torta ANTES de salvar.
+ * O celular escolhe entre câmera e galeria pelo próprio `<input type="file">`
+ * (`accept="image/*"`, posto no widget em forms.py) — nada de biblioteca.
+ * Aqui só mostramos a imagem escolhida, porque quem fotografa um item em cima
+ * da mesa precisa ver se ficou torta ANTES de salvar — e quem pega da galeria
+ * precisa ver se pegou a foto certa.
  */
 (function () {
     "use strict";

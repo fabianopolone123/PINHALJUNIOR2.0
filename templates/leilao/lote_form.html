@@ -60,13 +60,17 @@
             <div class="campo">
                 <label for="{{ form.foto.id_for_label }}">Foto do item</label>
                 {% comment %}
-                O atributo `capture` (posto no widget, em forms.py) faz o celular abrir a
-                CÂMERA direto em vez da galeria. É nativo do <input type="file"> — nenhuma
-                biblioteca envolvida. No computador, vira um seletor de arquivo normal.
+                Sem o atributo `capture`: ele forçava a CÂMERA e escondia a galeria, então
+                quem já tinha a foto do item no celular não conseguia cadastrar. Só o
+                `accept="image/*"` (no widget, em forms.py) é o que faz o celular oferecer
+                os dois caminhos — tirar na hora ou escolher uma existente. É nativo do
+                <input type="file">, nenhuma biblioteca envolvida. No computador, vira um
+                seletor de arquivo normal.
                 {% endcomment %}
                 {{ form.foto }}
-                <small class="ajuda">No celular, abre a câmera. A imagem é reduzida
-                    automaticamente para carregar rápido na tela de todo mundo.</small>
+                <small class="ajuda">No celular, dá para tirar a foto na hora ou escolher
+                    uma da galeria. A imagem é reduzida automaticamente para carregar
+                    rápido na tela de todo mundo.</small>
                 {% if form.foto.errors %}<div class="erros">{{ form.foto.errors }}</div>{% endif %}
             </div>
 
