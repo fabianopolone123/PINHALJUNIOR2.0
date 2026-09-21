@@ -11,6 +11,10 @@ que faz o celular oferecer **os dois** caminhos (tirar agora ou escolher uma exi
 o seletor de arquivo normal. Continua **sem biblioteca** — é atributo nativo do `<input type="file">` — e a
 redução com Pillow não muda. O texto de ajuda da tela deixou de prometer só a câmera. Guarda:
 `FotoDoItemAceitaGaleriaTests` (o `capture` não volta por descuido). Suíte do leilão: **322 testes OK** (+3).
+**Em produção** no commit `42ab988` (21/09/2026): sem migration, estáticos do leilão coletados e o
+`pinhaljunior_leilao.service` reiniciado (o passo extra do `docs/DEPLOY_LEILAO.md` §7.1); conferido antes que
+**nenhum leilão estava ao vivo**. Depois, conferido **no próprio servidor** que o campo renderiza
+`<input type="file" name="foto" accept="image/*" …>` sem `capture`, e os dois sites responderam 200.
 
 **Atualização anterior:** 2026-09-21 (**Leilão: pregão não sobrevive ao leilão + o lance que se faz notar**):
 o clube abriu a mesa do locutor **sem nenhum leilão ao vivo** e ela mostrava *"item em pregão, sala calada"*,
