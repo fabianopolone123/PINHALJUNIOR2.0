@@ -306,7 +306,7 @@
         } else if (situacao === "combinado") {
             // O "vai pagar depois" já foi dado, e o prazo deixou de correr.
             // Deixar os dois botões de pé convida um segundo clique.
-            li.querySelectorAll('[data-acao="combinado"], [data-acao="prazo"]')
+            li.querySelectorAll('[data-acao="combinado"]')
                 .forEach(function (b) { b.remove(); });
         }
         li.classList.add("piscou");

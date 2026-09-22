@@ -19,7 +19,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import connections, transaction
-from django.db.models import Max
+from django.db.models import Max, Sum
 from django.utils import timezone
 
 # Biblioteca PURA (só `urllib`), reaproveitada do sistema do clube. Ela recebe o
@@ -184,10 +184,8 @@ def abrir_lote(lote, *, segundos=None):
                 "lider", "pausado_restante", "fecha_em",
             ]
         )
-        if leilao.chat_aberto_ate:
-            # Abriu lote, fecha o chat do intervalo: a atenção volta para o pregão.
-            leilao.chat_aberto_ate = None
-            leilao.save(update_fields=["chat_aberto_ate"])
+        # O chat NÃO fecha mais ao abrir um item: ele fica aberto a noite
+        # inteira (pedido do clube). Ver `Leilao.chat_aberto`.
 
     HUB.publicar("lote_aberto", est.estado_publico(leilao))
     return lote
@@ -196,8 +194,10 @@ def abrir_lote(lote, *, segundos=None):
 def fechar_lote(lote, *, motivo="cronometro"):
     """Bate o martelo: vendido (com líder) ou sem lance (volta para a fila).
 
-    Publica o resultado **na hora** e só então manda gerar o Pix numa thread —
-    ninguém fica olhando uma tela parada esperando o Mercado Pago responder.
+    **Não nasce cobrança aqui.** O arremate entra na conta da pessoa e o Pix só
+    existe no fim, quando o locutor libera os pagamentos e ela paga tudo de uma
+    vez. Antes saía um Pix por item, com 15 minutos correndo — o que tirava do
+    pregão exatamente quem estava disputando.
     """
     leilao = lote.leilao
     agora = timezone.now()
@@ -210,11 +210,13 @@ def fechar_lote(lote, *, motivo="cronometro"):
 
         if lote.tem_lance:
             lote.status = "vendido"
+            # Sem `expira_em`: não há prazo. O item fica na conta da pessoa
+            # até ela pagar, e quem não paga é cobrado pelo caixa — não perde
+            # o item para um relógio.
             arremate = Arremate.objects.create(
                 lote=lote,
                 participante=lote.lider,
                 valor=lote.valor_atual,
-                expira_em=agora + timedelta(minutes=leilao.minutos_para_pagar),
             )
         else:
             lote.status = "sem_lance"
@@ -239,10 +241,9 @@ def fechar_lote(lote, *, motivo="cronometro"):
         },
     )
 
-    if arremate:
-        agendar(garantir_cobranca, arremate.id)
-    if leilao.chat_segundos:
-        abrir_chat(leilao, leilao.chat_segundos)
+    # Nenhuma cobrança é gerada aqui: o Pix nasce uma vez só, pelo TOTAL, e só
+    # depois que o locutor libera (ver `cobranca_do_participante`). O chat
+    # também não é mais "do intervalo" — fica aberto o leilão inteiro.
     return arremate
 
 
@@ -336,9 +337,8 @@ def marcar_combinado(arremate, usuario=None, observacao=""):
     para a fila** — sem isto, quem combinou de pagar amanhã perdia o item para
     o cronômetro, que é o oposto do que o caixa acabou de acertar.
 
-    Gera um **Pix novo com prazo de 24 h**: o código original foi criado com
-    validade de 15 minutos e já está vencido. Oferecer um botão de copiar que
-    entrega um código morto é pior do que não oferecer nada.
+    Não gera cobrança: o Pix da pessoa é UM só, pelo total do que ela levou, e
+    nasce quando o caixa/ela abre a cobrança. Aqui só se registra o combinado.
     """
     if arremate.status in {"pago", "combinado"}:
         # Idempotente de propósito: o botão continua na tela até a página se
@@ -353,11 +353,6 @@ def marcar_combinado(arremate, usuario=None, observacao=""):
         arremate.observacao = observacao[:200]
     arremate.save(update_fields=["status", "combinado_em", "combinado_por", "observacao"])
 
-    # Sete dias, não 24 horas: "vai pagar depois" na prática é "pago hoje à
-    # noite, amanhã, ou quando a pessoa conseguir". Um código que vence antes
-    # disso faz o caixa refazer tudo — e, pior, entrega à pessoa um copia e cola
-    # que o banco recusa.
-    agendar(garantir_cobranca, arremate.id, MINUTOS_PIX_COMBINADO, True)
     HUB.publicar(
         "arremate_combinado",
         {
@@ -369,93 +364,107 @@ def marcar_combinado(arremate, usuario=None, observacao=""):
     return arremate
 
 
-def estender_prazo(arremate, minutos):
-    """Dá mais tempo a quem pediu mais tempo — e **refaz o Pix**.
+# `estender_prazo` NÃO EXISTE MAIS: não há prazo para esticar. Quem arremata
+# acumula os itens e paga no fim, e quem não pagar é cobrado pelo caixa — o
+# item não volta para a fila por relógio nenhum.
 
-    Esticar só o `expira_em` seria meia solução: o código Pix do arremate foi
-    criado com a validade do prazo original e vence junto com ele. A pessoa
-    ficaria com mais tempo na tela e um copia e cola que o banco recusa.
 
-    Vale só para quem ainda está no relógio: quem já combinou de pagar depois
-    não tem prazo para esticar, e quem pagou não precisa.
+def arremates_em_aberto(participante):
+    """O que esta pessoa levou e ainda não pagou, nesta sessão.
+
+    **Escopo é o cadastro da sessão, de propósito.** Juntar os arremates de
+    quem tem o mesmo telefone parece certo (a pessoa pode ter entrado do
+    celular e do computador) e é exatamente o que o `REGRAS_CODEX` proíbe:
+    quem soubesse o seu WhatsApp veria os seus itens e o seu código Pix.
     """
-    minutos = max(1, min(int(minutos or 0), 60 * 24))
-    if arremate.status != "aguardando":
-        return arremate
-
-    # A partir de AGORA, não do prazo antigo: o caso real é o prazo prestes a
-    # vencer (ou vencido há segundos), e somar ao passado daria tempo nenhum.
-    base = max(arremate.expira_em, timezone.now())
-    arremate.expira_em = base + timedelta(minutes=minutos)
-    arremate.save(update_fields=["expira_em"])
-
-    restante = int((arremate.expira_em - timezone.now()).total_seconds() // 60) + 1
-    agendar(garantir_cobranca, arremate.id, restante, True)
-    HUB.publicar(
-        "arremate_prazo",
-        {
-            "arremate": arremate.id,
-            "participante": arremate.participante_id,
-            "expira_em": est.iso(arremate.expira_em),
-            "segundos": arremate.segundos_para_pagar,
-        },
+    return (
+        Arremate.objects.filter(participante=participante, status__in=("aguardando", "combinado"))
+        .select_related("lote")
+        .order_by("criado_em")
     )
-    return arremate
 
 
-def garantir_cobranca(arremate_id, minutos=None, refazer=False):
-    """Cria (uma vez) a cobrança Pix do arremate e avisa o vencedor.
+def total_em_aberto(participante):
+    soma = arremates_em_aberto(participante).aggregate(t=Sum("valor"))["t"]
+    return soma or Decimal("0.00")
 
-    Roda numa thread, fora do caminho crítico. Sem Mercado Pago configurado, o
-    leilão **não para**: o locutor combina o pagamento por fora e dá baixa
-    manual — por isso a falha aqui é registro, não exceção na cara de ninguém.
+
+def liberar_pagamentos(leilao, liberar=True):
+    """Abre (ou fecha) a bilheteria para TODO MUNDO de uma vez.
+
+    É um botão só, no fim do leilão, e não um por pessoa: enquanto o pregão
+    corre ninguém deve estar mexendo em Pix — o ponto de tirar o prazo foi
+    justamente não tirar ninguém da disputa para pagar.
     """
-    # A configuração vem PRIMEIRO, antes de qualquer consulta ao arremate: sem
-    # credencial não há nada a fazer, e esta função roda numa thread solta — sem
-    # essa saída antecipada ela iria ao banco à toa em toda instalação sem
-    # Mercado Pago (e disputaria o banco com quem está dando lance).
+    if leilao.pagamentos_liberados == bool(liberar):
+        return leilao
+    leilao.pagamentos_liberados = bool(liberar)
+    leilao.save(update_fields=["pagamentos_liberados"])
+    # O estado inteiro, como sempre: quem está com a tela aberta vê o botão de
+    # pagar aparecer sem recarregar nada.
+    HUB.publicar("estado", est.estado_publico(leilao))
+    return leilao
+
+
+def cobranca_do_participante(participante, *, refazer=False):
+    """UM Pix pelo TOTAL do que a pessoa levou.
+
+    Era um Pix por item, com 15 minutos correndo. Agora é uma cobrança só:
+    quem levou quatro coisas copia um código, não quatro.
+
+    **A âncora é a referência, não a FK** — a lição que o projeto já pagou
+    caro. `Arremate.pagamento` é trocado quando a cobrança é refeita e a
+    anterior fica órfã, e é ela que pode estar na tela da pessoa naquele
+    instante. Por isso a referência carrega participante e leilão
+    (`LEILAOC-<participante>-<leilao>`), e é por ela que
+    `_arremates_do_pagamento` reencontra o que foi pago.
+
+    Sem Mercado Pago configurado o leilão **não para**: o caixa dá baixa
+    manual. Por isso a falha aqui é registro, não exceção na cara de ninguém.
+    """
     cfg = ConfigLeilao.get_solo()
     if not cfg.configurado:
-        logger.warning("Leilão: Mercado Pago não configurado — arremate %s sem Pix.", arremate_id)
+        logger.warning("Leilão: Mercado Pago não configurado — sem Pix para %s.", participante.id)
         return None
 
-    arremate = (
-        Arremate.objects.select_related("lote", "lote__leilao", "participante")
-        .filter(pk=arremate_id)
-        .first()
-    )
-    if not arremate or arremate.status not in {"aguardando", "combinado"}:
-        return None
-    if arremate.pagamento_id and not refazer:
+    abertos = list(arremates_em_aberto(participante))
+    if not abertos:
         return None
 
-    if minutos:
-        restante = int(minutos)
-    else:
-        restante = max(1, int((arremate.expira_em - timezone.now()).total_seconds() // 60) + 1)
-    # A referência precisa ser NOVA quando o Pix é refeito: ela é a chave de
-    # idempotência no Mercado Pago, e repeti-la devolveria a cobrança vencida.
-    referencia = f"LEILAO-{arremate.id}"
-    if refazer:
+    # Já existe cobrança viva cobrindo exatamente estes itens? Devolve a mesma.
+    # Sem isto, cada abertura da gaveta geraria um Pix novo — vários códigos
+    # vivos do mesmo dinheiro, e o caixa sem saber qual a pessoa pagou.
+    atual = abertos[0].pagamento
+    if atual and not refazer and all(a.pagamento_id == atual.id for a in abertos):
+        if atual.status == "pendente" and atual.qr_code:
+            return atual
+
+    total = sum((a.valor for a in abertos), Decimal("0.00"))
+    leilao_id = abertos[0].lote.leilao_id
+    referencia = f"LEILAOC-{participante.id}-{leilao_id}"
+    if refazer or PagamentoLeilao.objects.filter(referencia=referencia).exists():
+        # A referência é a chave de idempotência no Mercado Pago: repeti-la
+        # devolveria a cobrança antiga, com o valor antigo.
         referencia += f"-R{int(timezone.now().timestamp())}"
+
     notificacao = ""
     if cfg.site_url:
         notificacao = f"{cfg.site_url.rstrip('/')}/webhooks/mercadopago/"
 
+    quantos = len(abertos)
+    descricao = f"Leilão — {quantos} item{'s' if quantos > 1 else ''}"
     resposta = mercadopago.criar_pix(
         cfg,
         referencia=referencia,
-        valor=arremate.valor,
-        descricao=f"Leilão — {arremate.lote.nome}",
-        payer_nome=arremate.participante.nome,
+        valor=total,
+        descricao=descricao,
+        payer_nome=participante.nome,
         notification_url=notificacao,
-        expira_minutos=restante,
+        expira_minutos=MINUTOS_PIX_COMBINADO,
     )
     if not resposta.get("ok"):
-        logger.error("Leilão: falha ao gerar Pix do arremate %s: %s", arremate_id, resposta.get("erro"))
-        HUB.publicar(
-            "arremate_pix",
-            {"arremate": arremate_id, "participante": arremate.participante_id, "ok": False},
+        logger.error(
+            "Leilão: falha ao gerar Pix de %s: %s", participante.id, resposta.get("erro")
         )
         return None
 
@@ -465,18 +474,16 @@ def garantir_cobranca(arremate_id, minutos=None, refazer=False):
         referencia=referencia,
         mp_payment_id=resposta.get("mp_payment_id", ""),
         status=resposta.get("status", "pendente"),
-        valor_bruto=arremate.valor,
+        valor_bruto=total,
         qr_code=resposta.get("qr_code", ""),
         qr_code_base64=resposta.get("qr_code_base64", ""),
         ticket_url=resposta.get("ticket_url", ""),
         payload=json.dumps(resposta.get("raw") or {}, ensure_ascii=False, default=str),
     )
-    arremate.pagamento = pagamento
-    arremate.save(update_fields=["pagamento"])
-
+    Arremate.objects.filter(pk__in=[a.pk for a in abertos]).update(pagamento=pagamento)
     HUB.publicar(
         "arremate_pix",
-        {"arremate": arremate_id, "participante": arremate.participante_id, "ok": True},
+        {"participante": participante.id, "ok": True},
     )
     return pagamento
 
@@ -505,44 +512,11 @@ def marcar_pago(arremate, *, manual=False, pagamento=None):
     return arremate
 
 
-def expirar_arremate(arremate):
-    """Venceu o prazo sem pagar: o lote **volta para a fila**.
-
-    Vai para o **fim** da fila, não para o lugar original: o pregão não pode
-    parar para reabrir um item agora, e o locutor reordena se quiser. O item
-    volta limpo (valor zerado, sem líder) — quem não pagou não guarda direito
-    sobre ele.
-    """
-    with transaction.atomic():
-        arremate.refresh_from_db()
-        if arremate.status != "aguardando":
-            return arremate
-        arremate.status = "expirado"
-        arremate.save(update_fields=["status"])
-
-        lote = arremate.lote
-        if lote.status == "vendido":
-            ultima = lote.leilao.lotes.aggregate(m=Max("ordem"))["m"] or 0
-            lote.status = "fila"
-            lote.ordem = ultima + 1
-            lote.valor_atual = Decimal("0.00")
-            lote.lider = None
-            lote.fechado_em = None
-            lote.voltas = lote.voltas + 1
-            lote.save(
-                update_fields=["status", "ordem", "valor_atual", "lider", "fechado_em", "voltas"]
-            )
-
-    HUB.publicar(
-        "arremate_expirado",
-        {
-            "arremate": arremate.id,
-            "participante": arremate.participante_id,
-            "lote": arremate.lote.nome,
-            "estado": est.estado_publico(arremate.lote.leilao),
-        },
-    )
-    return arremate
+# `expirar_arremate` NÃO EXISTE MAIS, e com ele foi embora a devolução
+# automática do item à fila. Não há prazo: quem arremata paga no fim, e quem
+# não paga **fica devendo** — o caixa cobra (WhatsApp e Pix estão lá). Devolver
+# o item por relógio punia quem estava sem o celular na mão, e o status
+# "expirado" continua nas linhas antigas só como histórico.
 
 
 def cobrancas_do_arremate(arremate):
@@ -569,11 +543,51 @@ def cobrancas_do_arremate(arremate):
 
 
 def _id_da_referencia(referencia):
-    """O id do arremate dentro de `LEILAO-<id>` / `LEILAO-<id>-R<timestamp>`."""
+    """O id do arremate dentro de `LEILAO-<id>` / `LEILAO-<id>-R<timestamp>`.
+
+    Formato **antigo**, de quando cada item tinha o seu Pix. Continua aqui
+    porque as cobranças daquela época existem no banco e no Mercado Pago, e uma
+    delas ainda pode ser paga.
+    """
     partes = (referencia or "").split("-")
     if len(partes) < 2 or partes[0] != "LEILAO" or not partes[1].isdigit():
         return None
     return int(partes[1])
+
+
+def _conta_da_referencia(referencia):
+    """`(participante_id, leilao_id)` de `LEILAOC-<participante>-<leilao>[-R<ts>]`.
+
+    Formato **atual**: uma cobrança pelo total do que a pessoa levou. A
+    referência carrega quem e de qual leilão justamente para o dinheiro não
+    depender da FK — que é trocada quando o Pix é refeito, deixando órfã a
+    cobrança que está na tela da pessoa naquele instante.
+    """
+    partes = (referencia or "").split("-")
+    if len(partes) < 3 or partes[0] != "LEILAOC":
+        return None
+    if not partes[1].isdigit() or not partes[2].isdigit():
+        return None
+    return int(partes[1]), int(partes[2])
+
+
+def cobrancas_do_participante(participante):
+    """Todas as cobranças já criadas para esta pessoa — não só a atual.
+
+    Mesma razão da lista por arremate: refazer o Pix deixa a anterior para
+    trás, e é ela que pode estar na tela no instante em que a pessoa paga.
+    """
+    achadas = list(
+        PagamentoLeilao.objects.filter(
+            referencia__startswith=f"LEILAOC-{participante.id}-"
+        ).exclude(mp_payment_id="")
+    )
+    # O prefixo pega "LEILAOC-1-..." mas também "LEILAOC-12-..." se o separador
+    # faltasse; confere o id de verdade, como a lista por arremate já fazia.
+    return [
+        p for p in achadas
+        if (_conta_da_referencia(p.referencia) or (None, None))[0] == participante.id
+    ]
 
 
 def conferir_pagamento(arremate):
@@ -593,7 +607,17 @@ def conferir_pagamento(arremate):
     if not cfg.configurado:
         return False
 
-    for pagamento in cobrancas_do_arremate(arremate):
+    # As DUAS listas: a da pessoa (formato atual, um Pix pelo total) e a do
+    # próprio arremate (formato antigo, um Pix por item). Sem `site_url` não há
+    # webhook e esta consulta é o único caminho do dinheiro — então ela precisa
+    # olhar tudo que pode ter sido pago, não só a cobrança mais recente.
+    candidatas = cobrancas_do_participante(arremate.participante)
+    vistas = {p.pk for p in candidatas}
+    for antiga in cobrancas_do_arremate(arremate):
+        if antiga.pk not in vistas:
+            candidatas.append(antiga)
+
+    for pagamento in candidatas:
         if pagamento.status == "aprovado" and not pagamento.finalizado:
             if _aplicar_retorno(pagamento, {"status": "aprovado"}):
                 return True
@@ -624,6 +648,26 @@ def _arremates_do_pagamento(pagamento):
     if ligados:
         return ligados
 
+    # Formato ATUAL: a cobrança é da pessoa, pelo total.
+    conta = _conta_da_referencia(pagamento.referencia)
+    if conta:
+        participante_id, leilao_id = conta
+        achados = list(
+            Arremate.objects.select_related("lote", "participante").filter(
+                participante_id=participante_id,
+                lote__leilao_id=leilao_id,
+                status__in=("aguardando", "combinado"),
+            )
+        )
+        if achados:
+            logger.warning(
+                "Leilão: pagamento %s quitou %s arremate(s) pela referência "
+                "(o Pix tinha sido refeito).",
+                pagamento.referencia, len(achados),
+            )
+        return achados
+
+    # Formato ANTIGO (um Pix por item), que ainda pode ser pago.
     arremate_id = _id_da_referencia(pagamento.referencia)
     if arremate_id is None:
         return []
@@ -661,31 +705,11 @@ def _aplicar_retorno(pagamento, r):
 # ---------------------------------------------------------------------------
 # Chat
 # ---------------------------------------------------------------------------
-def abrir_chat(leilao, segundos):
-    """Abre o chat do intervalo — uma conversa NOVA a cada vez.
-
-    O marco `chat_aberto_em` é o que faz a tela do participante começar limpa:
-    cada intervalo é um papo do intervalo, não um fio que se arrasta a noite
-    toda. O locutor continua vendo o histórico inteiro, pelo caminho dele.
-    """
-    agora = timezone.now()
-    leilao.chat_aberto_em = agora
-    leilao.chat_aberto_ate = agora + timedelta(seconds=int(segundos))
-    leilao.save(update_fields=["chat_aberto_em", "chat_aberto_ate"])
-    HUB.publicar(
-        "chat_estado",
-        {"aberto": True, "ate": est.iso(leilao.chat_aberto_ate), "segundos": int(segundos)},
-    )
-    return leilao
-
-
-def fechar_chat(leilao):
-    if not leilao.chat_aberto_ate:
-        return leilao
-    leilao.chat_aberto_ate = None
-    leilao.save(update_fields=["chat_aberto_ate"])
-    HUB.publicar("chat_estado", {"aberto": False, "ate": None, "segundos": 0})
-    return leilao
+# `abrir_chat`/`fechar_chat` NÃO EXISTEM MAIS. O chat fica aberto enquanto o
+# leilão está no ar (`Leilao.chat_aberto`), sem contagem e sem botão: o clube
+# pediu a conversa aberta direto. Com isso saíram também a ação "chat" da mesa
+# e o evento `chat_estado` com prazo — quem precisa saber se a caixa aparece lê
+# `estado.chat.aberto`, que vem no broadcast como todo o resto.
 
 
 def _devolver_lotes_abertos(leilao_ids):
@@ -727,23 +751,16 @@ def mudar_status(leilao, novo):
             .values_list("pk", flat=True)
         )
         if saindo:
-            Leilao.objects.filter(pk__in=saindo).update(
-                status="encerrado", chat_aberto_ate=None
-            )
+            Leilao.objects.filter(pk__in=saindo).update(status="encerrado")
             _devolver_lotes_abertos(saindo)
     leilao.status = novo
 
-    campos = ["status"]
-    if novo != "ao_vivo" and leilao.chat_aberto_ate:
-        # Sair do ar FECHA o chat. `chat_aberto_ate` é uma hora futura gravada
-        # no banco: ela não sabe que o leilão acabou. Deixando-a de pé, a tela
-        # continuava mostrando a caixa de conversa e o servidor recusava cada
-        # mensagem — a pessoa digitava contra uma porta fechada.
-        leilao.chat_aberto_ate = None
-        campos.append("chat_aberto_ate")
-        HUB.publicar("chat_estado", {"aberto": False, "ate": None})
-
-    leilao.save(update_fields=campos)
+    # Sair do ar fecha o chat SOZINHO: `Leilao.chat_aberto` é hoje só
+    # `status == "ao_vivo"`. Antes havia uma hora futura no banco que não sabia
+    # que o leilão tinha acabado, e era preciso apagá-la aqui à mão — a tela
+    # mostrava a caixa de conversa e o servidor recusava cada mensagem. Com a
+    # condição derivada do status, essa divergência não tem como existir.
+    leilao.save(update_fields=["status"])
 
     if novo != "ao_vivo":
         # Sair do ar fecha o item em pregão. Sem isto o lote fica `aberto` no
@@ -774,29 +791,22 @@ def enviar_mensagem(leilao, participante, texto):
 # O laço central
 # ---------------------------------------------------------------------------
 def verificar_prazos():
-    """Chamado pelo laço central a cada segundo. Fecha o que venceu.
+    """Chamado pelo laço central a cada segundo. **Hoje não tem o que fazer.**
 
-    Tudo que depende do relógio está aqui — prazo de pagamento e fim do chat.
-    Concentrar isso num lugar é o que impede dois caminhos diferentes fecharem
-    a mesma coisa de dois jeitos.
+    Já foi o lugar de duas regras de tempo, e as duas saíram a pedido do clube:
 
-    **O item em pregão não está nesta lista**, e é de propósito: não há
-    cronômetro. Quem bate o martelo é o locutor, como num leilão de verdade — o
-    "dou-lhe uma, dou-lhe duas" é do leiloeiro, e fechar sozinho tiraria dele o
-    momento que mais importa.
+    - o **prazo de pagamento** (15 minutos, e o item voltava para a fila) —
+      quem arremata agora paga no fim, tudo de uma vez, e quem não paga fica
+      devendo para o caixa cobrar;
+    - o **fim do chat**, que fechava sozinho no prazo — o chat fica aberto o
+      leilão inteiro.
+
+    **O item em pregão nunca esteve nesta lista**: não há cronômetro, quem bate
+    o martelo é o locutor.
+
+    A função fica de pé porque é o ponto único onde o tempo decide alguma coisa
+    (o laço central a chama a cada segundo). Regra de tempo nova entra AQUI, e
+    não num caminho paralelo — foi assim que o projeto evitou dois lugares
+    fechando a mesma coisa de dois jeitos.
     """
-    leilao = Leilao.ao_vivo()
-    if not leilao:
-        return
-    agora = timezone.now()
-
-    # Só quem está `aguardando` vence. Quem combinou de pagar depois fica fora
-    # do relógio de propósito — é o acerto que o caixa fez.
-    vencidos = Arremate.objects.select_related("lote", "lote__leilao", "participante").filter(
-        status="aguardando", expira_em__lte=agora, lote__leilao=leilao
-    )
-    for arremate in vencidos:
-        expirar_arremate(arremate)
-
-    if leilao.chat_aberto_ate and leilao.chat_aberto_ate <= agora:
-        fechar_chat(leilao)
+    return

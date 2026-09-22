@@ -42,6 +42,7 @@ from . import forms
 from . import papeis
 from . import reacoes
 from . import servicos
+from . import views
 from .forms import LeilaoForm
 from .models import (  # noqa: E402
     Arremate,
@@ -239,8 +240,8 @@ class FechamentoTests(TestCase):
         self.assertEqual(arremate.valor, Decimal("40.00"))
         self.lote.refresh_from_db()
         self.assertEqual(self.lote.status, "vendido")
-        faltam = (arremate.expira_em - timezone.now()).total_seconds()
-        self.assertGreater(faltam, 14 * 60)
+        # Sem prazo: o pagamento é no fim, tudo de uma vez.
+        self.assertIsNone(arremate.expira_em)
 
     def test_fechar_sem_lance_nao_cria_arremate(self):
         arremate = servicos.fechar_lote(self.lote)
@@ -269,42 +270,31 @@ class PrazoDePagamentoTests(TestCase):
         self.lote.refresh_from_db()
         self.arremate = servicos.fechar_lote(self.lote)
 
-    def test_nao_pagou_no_prazo_devolve_o_lote_a_fila(self):
-        Arremate.objects.filter(pk=self.arremate.pk).update(
-            expira_em=timezone.now() - timedelta(seconds=1)
-        )
+    def test_o_arremate_nasce_SEM_prazo(self):
+        """Não há relógio: quem arremata paga no fim, tudo de uma vez."""
+        self.assertIsNone(self.arremate.expira_em)
+        self.assertEqual(self.arremate.status, "aguardando")
+
+    def test_o_tempo_nao_devolve_o_item_a_fila(self):
+        """O item fica com quem arrematou; quem não paga é cobrado pelo caixa.
+
+        Antes, 15 minutos sem pagar devolviam o lote à fila — e isso punia
+        quem estava sem o celular na mão no fim do leilão.
+        """
         servicos.verificar_prazos()
         self.arremate.refresh_from_db()
         self.lote.refresh_from_db()
-        self.assertEqual(self.arremate.status, "expirado")
-        self.assertEqual(self.lote.status, "fila")
-        self.assertEqual(self.lote.voltas, 1)
+        self.assertEqual(self.arremate.status, "aguardando")
+        self.assertEqual(self.lote.status, "vendido")
+        self.assertEqual(self.lote.voltas, 0)
 
-    def test_lote_devolvido_volta_limpo(self):
-        """Quem não pagou não guarda direito sobre o item: valor e líder zeram."""
-        Arremate.objects.filter(pk=self.arremate.pk).update(
-            expira_em=timezone.now() - timedelta(seconds=1)
-        )
-        servicos.verificar_prazos()
-        self.lote.refresh_from_db()
-        self.assertIsNone(self.lote.lider_id)
-        self.assertEqual(self.lote.valor_atual, Decimal("0.00"))
-        self.assertEqual(self.lote.proximo_valor, Decimal("40.00"))
+    def test_nao_existe_mais_expirar_arremate(self):
+        """Guarda: a devolução automática não volta por descuido."""
+        self.assertFalse(hasattr(servicos, "expirar_arremate"))
+        self.assertFalse(hasattr(servicos, "estender_prazo"))
 
-    def test_lote_devolvido_vai_para_o_fim_da_fila(self):
-        outro = criar_lote(self.leilao, nome="Outro item", ordem=9)
-        Arremate.objects.filter(pk=self.arremate.pk).update(
-            expira_em=timezone.now() - timedelta(seconds=1)
-        )
-        servicos.verificar_prazos()
-        self.lote.refresh_from_db()
-        self.assertGreater(self.lote.ordem, outro.ordem)
-
-    def test_arremate_pago_nao_expira(self):
+    def test_arremate_pago_continua_pago(self):
         servicos.marcar_pago(self.arremate, manual=True)
-        Arremate.objects.filter(pk=self.arremate.pk).update(
-            expira_em=timezone.now() - timedelta(seconds=1)
-        )
         servicos.verificar_prazos()
         self.arremate.refresh_from_db()
         self.lote.refresh_from_db()
@@ -378,48 +368,59 @@ class NomeCurtoTests(TestCase):
 # Chat
 # ===========================================================================
 class ChatTests(TestCase):
+    """O chat fica aberto o leilão inteiro — sem intervalo e sem contagem.
+
+    Antes ele abria por `chat_segundos` a cada intervalo e fechava quando um
+    item ia a pregão. O clube pediu conversa aberta direto. Sobrou UMA
+    condição: leilão no ar.
+    """
+
     def setUp(self):
         servicos.limpar_limites()
-        self.leilao = criar_leilao(chat_segundos=120)
+        self.leilao = criar_leilao()
         self.ana = criar_pessoa("Ana Fictícia")
 
-    def test_participante_nao_fala_com_chat_fechado(self):
-        self.assertIsNone(servicos.enviar_mensagem(self.leilao, self.ana, "oi"))
-
-    def test_participante_fala_com_chat_aberto(self):
-        servicos.abrir_chat(self.leilao, 120)
-        self.leilao.refresh_from_db()
+    def test_com_o_leilao_no_ar_o_chat_esta_aberto(self):
+        """Sem abrir nada: estar no ar já basta."""
+        self.assertTrue(self.leilao.chat_aberto)
         self.assertIsNotNone(servicos.enviar_mensagem(self.leilao, self.ana, "oi"))
 
-    def test_locutor_fala_mesmo_com_chat_fechado(self):
-        """Aviso do locutor não depende do intervalo."""
+    def test_com_item_em_pregao_o_chat_continua_aberto(self):
+        """Abrir item NÃO fecha mais o chat."""
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        self.leilao.refresh_from_db()
+        self.assertTrue(self.leilao.chat_aberto)
+        self.assertIsNotNone(servicos.enviar_mensagem(self.leilao, self.ana, "oi"))
+
+    def test_leilao_fora_do_ar_nao_tem_chat(self):
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="encerrado")
+        self.leilao.refresh_from_db()
+        self.assertFalse(self.leilao.chat_aberto)
+        self.assertIsNone(servicos.enviar_mensagem(self.leilao, self.ana, "oi"))
+
+    def test_locutor_fala_mesmo_fora_do_ar(self):
+        """Aviso do locutor não depende do chat."""
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="rascunho")
+        self.leilao.refresh_from_db()
         m = servicos.enviar_mensagem(self.leilao, None, "Começamos em 5 minutos!")
         self.assertIsNotNone(m)
         self.assertEqual(m.autor, "Locutor")
 
     def test_bloqueado_nao_fala(self):
-        servicos.abrir_chat(self.leilao, 120)
-        self.leilao.refresh_from_db()
         self.ana.bloqueado = True
         self.ana.save()
         self.assertIsNone(servicos.enviar_mensagem(self.leilao, self.ana, "oi"))
 
-    def test_chat_fecha_sozinho_no_prazo(self):
-        servicos.abrir_chat(self.leilao, 120)
-        Leilao.objects.filter(pk=self.leilao.pk).update(
-            chat_aberto_ate=timezone.now() - timedelta(seconds=1)
-        )
-        servicos.verificar_prazos()
-        self.leilao.refresh_from_db()
-        self.assertFalse(self.leilao.chat_aberto)
+    def test_nao_existe_mais_abrir_nem_fechar_chat(self):
+        """Guarda: o chat por tempo não volta por descuido."""
+        self.assertFalse(hasattr(servicos, "abrir_chat"))
+        self.assertFalse(hasattr(servicos, "fechar_chat"))
 
-    def test_abrir_lote_fecha_o_chat(self):
-        """Abriu pregão, a atenção volta para o item."""
-        servicos.abrir_chat(self.leilao, 120)
-        lote = criar_lote(self.leilao)
-        servicos.abrir_lote(lote)
-        self.leilao.refresh_from_db()
-        self.assertFalse(self.leilao.chat_aberto)
+    def test_o_estado_nao_manda_mais_prazo_de_chat(self):
+        dados = est.estado_publico(self.leilao)
+        self.assertTrue(dados["chat"]["aberto"])
+        self.assertNotIn("ate", dados["chat"])
 
 
 # ===========================================================================
@@ -439,10 +440,18 @@ class LeilaoTests(TestCase):
         self.assertEqual(a.status, "fila")
         self.assertEqual(b.status, "aberto")
 
-    def test_incremento_do_lote_vence_o_do_leilao(self):
-        leilao = criar_leilao(incremento_padrao=Decimal("5.00"))
+    def test_o_incremento_e_FIXO_em_cinco_reais(self):
+        """R$ 5 e ponto: nem o item nem o leilão mudam isso.
+
+        Configurar o incremento existia (por leilão e por item) e saiu a pedido
+        do clube: no pregão ao vivo o locutor anuncia "de cinco em cinco" uma
+        vez, e incremento variável só criava a chance de um item sair com regra
+        diferente da que foi falada em voz alta. As duas colunas ficaram
+        dormentes — este teste garante que elas não voltem a ser lidas.
+        """
+        leilao = criar_leilao(incremento_padrao=Decimal("7.00"))
         lote = criar_lote(leilao, incremento=Decimal("50.00"))
-        self.assertEqual(lote.incremento_efetivo, Decimal("50.00"))
+        self.assertEqual(lote.incremento_efetivo, Decimal("5.00"))
 
     def test_reabrir_lote_devolvido_recomeca_do_inicial(self):
         servicos.limpar_limites()
@@ -534,9 +543,13 @@ class ViewsParticipanteTests(TestCase):
         self.lote.refresh_from_db()
         servicos.dar_lance(self.lote.id, ana)
         self.lote.refresh_from_db()
-        arremate = servicos.fechar_lote(self.lote)
-        r = self.c.get(f"/arremate/{arremate.id}/pix/")
-        self.assertEqual(r.status_code, 404)
+        servicos.fechar_lote(self.lote)
+        # A cobrança é da PESSOA da sessão, pelo total — não existe "o Pix do
+        # arremate alheio" para pedir. Quem não arrematou nada não tem conta a
+        # pagar, e o servidor recusa antes de olhar id nenhum.
+        r = self.c.get("/conta/pix/")
+        self.assertFalse(r.json()["ok"])
+        self.assertNotIn("copia_e_cola", r.json())
 
     def test_stream_responde_event_stream(self):
         r = self.c.get("/stream/")
@@ -951,11 +964,13 @@ class RodadaTests(TestCase):
         self.lote.refresh_from_db()
         servicos.dar_lance(self.lote.id, self.ana)
         self.lote.refresh_from_db()
-        arremate = servicos.fechar_lote(self.lote)
-        Arremate.objects.filter(pk=arremate.pk).update(
-            expira_em=timezone.now() - timedelta(seconds=1)
+        servicos.fechar_lote(self.lote)
+        # A venda é desfeita e o item volta a pregão. Não há mais relógio que
+        # faça isso sozinho — o que importa aqui é a RODADA, não o motivo.
+        Lote.objects.filter(pk=self.lote.pk).update(
+            status="fila", valor_atual=Decimal("0.00"), lider=None,
+            voltas=1, fechado_em=None,
         )
-        servicos.verificar_prazos()
         self.lote.refresh_from_db()
 
         # 2ª rodada.
@@ -1036,10 +1051,11 @@ class SemMercadoPagoTests(TestCase):
         self.assertFalse(r.json()["pix_possivel"])
 
     def test_pedir_o_pix_nao_promete_o_que_nao_vem(self):
-        r = self.c.get(f"/arremate/{self.arremate.id}/pix/")
+        """Sem credencial não nasce Pix: a tela diz isso em vez de "gerando…"."""
+        servicos.liberar_pagamentos(self.leilao)
+        r = self.c.get("/conta/pix/")
         corpo = r.json()
         self.assertFalse(corpo["ok"])
-        self.assertFalse(corpo["gerando"])
         self.assertIn("organização", corpo["msg"])
 
     def test_com_credencial_a_lista_libera_o_pix(self):
@@ -1390,34 +1406,40 @@ class TelaDoParticipanteEscondeTests(TestCase):
         self.assertEqual(d["restam_na_fila"], 2)
 
 
-class ChatPorRodadaTests(TestCase):
-    """Cada intervalo é uma conversa NOVA para quem participa."""
+class ChatEUmFioSoTests(TestCase):
+    """O chat é UM fio a noite inteira — não zera mais a cada intervalo.
+
+    Enquanto o chat era "do intervalo", cada abertura começava uma conversa
+    limpa (`chat_aberto_em`) para o participante não receber o fio inteiro de
+    volta. Sem intervalo, esse corte perdeu o sentido: o que limita a tela é o
+    teto das 40 últimas, que sempre existiu.
+    """
 
     def setUp(self):
         servicos.limpar_limites()
-        self.leilao = criar_leilao(chat_segundos=120)
+        self.leilao = criar_leilao()
         self.ana = criar_pessoa("Ana Fictícia")
 
-    def test_intervalo_novo_abre_o_chat_limpo(self):
-        servicos.abrir_chat(self.leilao, 120)
+    def test_as_mensagens_nao_somem_quando_um_item_abre(self):
+        servicos.enviar_mensagem(self.leilao, self.ana, "antes do item")
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
         self.leilao.refresh_from_db()
-        servicos.enviar_mensagem(self.leilao, self.ana, "oi do primeiro intervalo")
-        dados = est.estado_publico(self.leilao)
-        self.assertEqual(len(dados["chat"]["mensagens"]), 1)
+        textos = [m["texto"] for m in est.estado_publico(self.leilao)["chat"]["mensagens"]]
+        self.assertIn("antes do item", textos)
 
-        # Segundo intervalo: a conversa recomeça.
-        servicos.abrir_chat(self.leilao, 120)
+    def test_o_fio_segue_depois_do_item_fechar(self):
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        servicos.enviar_mensagem(self.leilao, self.ana, "durante o item")
+        servicos.fechar_lote(lote, motivo="locutor")
         self.leilao.refresh_from_db()
-        dados = est.estado_publico(self.leilao)
-        self.assertEqual(dados["chat"]["mensagens"], [])
+        textos = [m["texto"] for m in est.estado_publico(self.leilao)["chat"]["mensagens"]]
+        self.assertIn("durante o item", textos)
 
     def test_o_locutor_continua_vendo_tudo(self):
-        servicos.abrir_chat(self.leilao, 120)
-        self.leilao.refresh_from_db()
-        servicos.enviar_mensagem(self.leilao, self.ana, "primeira rodada")
-        servicos.abrir_chat(self.leilao, 120)
-        self.leilao.refresh_from_db()
-        servicos.enviar_mensagem(self.leilao, self.ana, "segunda rodada")
+        servicos.enviar_mensagem(self.leilao, self.ana, "primeira")
+        servicos.enviar_mensagem(self.leilao, self.ana, "segunda")
 
         User = get_user_model()
         u = User.objects.create_user("loc_chat", password="segredo-ficticio")
@@ -1429,8 +1451,8 @@ class ChatPorRodadaTests(TestCase):
         c.login(username="loc_chat", password="segredo-ficticio")
 
         textos = [m["texto"] for m in c.get("/locutor/dados/").json()["chat"]]
-        self.assertIn("primeira rodada", textos)
-        self.assertIn("segunda rodada", textos)
+        self.assertIn("primeira", textos)
+        self.assertIn("segunda", textos)
 
 
 class ReacoesTests(TestCase):
@@ -1609,10 +1631,6 @@ class PagarDepoisTests(TestCase):
 
     def test_combinado_NAO_devolve_o_item_para_a_fila(self):
         servicos.marcar_combinado(self.arremate, observacao="Paga amanhã de manhã")
-        # Mesmo muito depois do prazo original.
-        Arremate.objects.filter(pk=self.arremate.pk).update(
-            expira_em=timezone.now() - timedelta(hours=5)
-        )
         servicos.verificar_prazos()
 
         self.arremate.refresh_from_db()
@@ -1932,20 +1950,21 @@ class EnderecoCurtoTests(TestCase):
 class ChatNaoSobreviveAoLeilaoTests(TestCase):
     """O chat não pode ficar de pé depois de o leilão sair do ar.
 
-    `chat_aberto_ate` é só uma hora futura gravada no banco: ela não sabe que o
-    leilão acabou. Sem esta regra, a tela continuava mostrando a caixa de
-    conversa (o relógio ainda não tinha vencido) e o servidor recusava cada
-    mensagem com "nenhum leilão ao vivo" — a pessoa digitando contra uma porta
-    fechada, sem entender por quê. Foi exatamente o que aconteceu no teste do
-    clube.
+    Este era um bug de **duas fontes de verdade**: `chat_aberto_ate` era uma
+    hora futura no banco que não sabia que o leilão tinha acabado, e a tela
+    mostrava a caixa de conversa enquanto o servidor recusava cada mensagem —
+    a pessoa digitando contra uma porta fechada.
+
+    Com o chat sem contagem, `Leilao.chat_aberto` virou **uma expressão só**
+    (`status == "ao_vivo"`), a mesma que o servidor usa para aceitar. A
+    divergência deixou de ser possível por construção — mas a garantia continua
+    valendo a pena testar, porque é dela que a tela depende.
     """
 
     def setUp(self):
         servicos.limpar_limites()
-        self.leilao = criar_leilao(chat_segundos=120)
+        self.leilao = criar_leilao()
         self.ana = criar_pessoa("Ana Fictícia")
-        servicos.abrir_chat(self.leilao, 120)
-        self.leilao.refresh_from_db()
 
     def test_com_o_leilao_no_ar_o_chat_esta_aberto(self):
         self.assertTrue(self.leilao.chat_aberto)
@@ -1954,17 +1973,18 @@ class ChatNaoSobreviveAoLeilaoTests(TestCase):
         servicos.mudar_status(self.leilao, "encerrado")
         self.leilao.refresh_from_db()
         self.assertFalse(self.leilao.chat_aberto)
-        self.assertIsNone(self.leilao.chat_aberto_ate)
 
-    def test_o_relogio_futuro_sozinho_nao_abre_o_chat(self):
-        """A trava é de status, não de hora — mesmo com o prazo intacto."""
-        Leilao.objects.filter(pk=self.leilao.pk).update(status="encerrado")
+    def test_rascunho_tambem_nao_tem_chat(self):
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="rascunho")
         self.leilao.refresh_from_db()
-        self.assertIsNotNone(self.leilao.chat_aberto_ate)   # prazo ainda de pé
         self.assertFalse(self.leilao.chat_aberto)
 
     def test_sair_do_ar_avisa_as_telas(self):
-        """Quem está com a caixa aberta precisa vê-la sumir, não descobrir no envio."""
+        """Quem está com a caixa aberta precisa vê-la sumir, não descobrir no envio.
+
+        O aviso agora é o próprio `estado` (que leva `chat.aberto`), e não um
+        evento `chat_estado` à parte — que deixou de existir junto com o prazo.
+        """
         publicados = []
         original = servicos.HUB.publicar
         servicos.HUB.publicar = lambda tipo, dados=None: publicados.append(tipo)
@@ -1972,14 +1992,14 @@ class ChatNaoSobreviveAoLeilaoTests(TestCase):
             servicos.mudar_status(self.leilao, "encerrado")
         finally:
             servicos.HUB.publicar = original
-        self.assertIn("chat_estado", publicados)
+        self.assertIn("estado", publicados)
 
     def test_colocar_outro_no_ar_fecha_o_chat_do_anterior(self):
         outro = criar_leilao(nome="Outro leilão", status="rascunho")
         servicos.mudar_status(outro, "ao_vivo")
         self.leilao.refresh_from_db()
         self.assertEqual(self.leilao.status, "encerrado")
-        self.assertIsNone(self.leilao.chat_aberto_ate)
+        self.assertFalse(self.leilao.chat_aberto)
 
     def test_a_recusa_explica_o_que_houve(self):
         """"Nenhum leilão ao vivo" é verdade para o servidor e mentira para quem lê."""
@@ -1996,6 +2016,148 @@ class ChatNaoSobreviveAoLeilaoTests(TestCase):
         )
         self.assertFalse(r.json()["ok"])
         self.assertIn("encerrado", r.json()["msg"].lower())
+
+
+class PagamentoNoFimTests(TestCase):
+    """Ninguém sai do leilão para pagar: a conta fecha no fim.
+
+    Era um Pix por item, com 15 minutos correndo — e o prazo fazia exatamente o
+    que existia para evitar: tirava do pregão quem estava disputando, e ainda
+    devolvia o item à fila de quem estava sem o celular na mão. Agora os itens
+    se acumulam, o locutor abre a bilheteria no fim e a pessoa paga **tudo num
+    código só**.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia")
+        self.bruno = criar_pessoa("Bruno Fictício")
+
+    def _arrematar(self, nome, quem, valor_inicial=Decimal("40.00")):
+        lote = criar_lote(self.leilao, nome=nome, lance_inicial=valor_inicial)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.limpar_limites()
+        servicos.dar_lance(lote.id, quem)
+        lote.refresh_from_db()
+        return servicos.fechar_lote(lote, motivo="locutor")
+
+    # --- a conta ---
+    def test_os_itens_se_acumulam_na_conta_da_pessoa(self):
+        self._arrematar("Item um", self.ana, Decimal("40.00"))
+        self._arrematar("Item dois", self.ana, Decimal("60.00"))
+        self.assertEqual(servicos.arremates_em_aberto(self.ana).count(), 2)
+        self.assertEqual(servicos.total_em_aberto(self.ana), Decimal("100.00"))
+
+    def test_a_conta_de_cada_um_e_a_sua(self):
+        self._arrematar("Item da Ana", self.ana, Decimal("40.00"))
+        self._arrematar("Item do Bruno", self.bruno, Decimal("70.00"))
+        self.assertEqual(servicos.total_em_aberto(self.ana), Decimal("40.00"))
+        self.assertEqual(servicos.total_em_aberto(self.bruno), Decimal("70.00"))
+
+    def test_o_que_foi_pago_sai_do_total(self):
+        a1 = self._arrematar("Item um", self.ana, Decimal("40.00"))
+        self._arrematar("Item dois", self.ana, Decimal("60.00"))
+        servicos.marcar_pago(a1, manual=True)
+        self.assertEqual(servicos.total_em_aberto(self.ana), Decimal("60.00"))
+
+    # --- a bilheteria ---
+    def test_o_leilao_comeca_com_o_pagamento_FECHADO(self):
+        self.assertFalse(self.leilao.pagamentos_liberados)
+
+    def test_liberar_e_uma_alavanca(self):
+        servicos.liberar_pagamentos(self.leilao)
+        self.leilao.refresh_from_db()
+        self.assertTrue(self.leilao.pagamentos_liberados)
+        servicos.liberar_pagamentos(self.leilao, False)
+        self.leilao.refresh_from_db()
+        self.assertFalse(self.leilao.pagamentos_liberados)
+
+    def test_a_liberacao_vai_no_broadcast(self):
+        """O botão de pagar aparece na tela de todo mundo sem recarregar."""
+        dados = est.estado_publico(self.leilao)
+        self.assertFalse(dados["leilao"]["pagamentos_liberados"])
+        servicos.liberar_pagamentos(self.leilao)
+        self.leilao.refresh_from_db()
+        dados = est.estado_publico(self.leilao)
+        self.assertTrue(dados["leilao"]["pagamentos_liberados"])
+
+    def test_liberar_e_do_LOCUTOR(self):
+        self.assertEqual(views.ACOES_AREAS["liberar"], ("locutor",))
+
+    def test_o_caixa_nao_libera_pagamentos(self):
+        """Quem confere o dinheiro não decide quando o pregão acabou."""
+        User = get_user_model()
+        u = User.objects.create_user("cx_lib", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        g, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(g)
+        c = Client()
+        c.login(username="cx_lib", password="segredo-ficticio")
+        r = c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "liberar"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+    # --- a trava do servidor ---
+    def test_antes_de_liberar_o_SERVIDOR_recusa_o_pix(self):
+        """Esconder o botão não impede POST forjado — a trava é do servidor."""
+        self._arrematar("Item um", self.ana)
+        c = Client()
+        c.post("/entrar/", {
+            "nome": self.ana.nome, "whatsapp": self.ana.whatsapp,
+            "logradouro": "Rua Exemplo", "numero": "10",
+            "bairro": "Centro", "cidade": "Cidade Exemplo",
+        })
+        r = c.get("/conta/pix/")
+        self.assertEqual(r.status_code, 409)
+        self.assertFalse(r.json()["ok"])
+
+    # --- a referência ---
+    def test_a_referencia_carrega_pessoa_e_leilao(self):
+        """A âncora do dinheiro é a REFERÊNCIA, não a FK — lição já paga caro."""
+        self.assertEqual(
+            servicos._conta_da_referencia(f"LEILAOC-{self.ana.id}-{self.leilao.id}"),
+            (self.ana.id, self.leilao.id),
+        )
+        self.assertEqual(
+            servicos._conta_da_referencia(f"LEILAOC-{self.ana.id}-{self.leilao.id}-R123456"),
+            (self.ana.id, self.leilao.id),
+        )
+
+    def test_a_referencia_antiga_continua_sendo_lida(self):
+        """Cobranças do formato antigo existem no banco e ainda podem ser pagas."""
+        self.assertEqual(servicos._id_da_referencia("LEILAO-7"), 7)
+        self.assertIsNone(servicos._conta_da_referencia("LEILAO-7"))
+
+    def test_o_pagamento_reencontra_os_arremates_pela_referencia(self):
+        """Refazer o Pix troca a FK e deixa a cobrança anterior órfã.
+
+        É ela que pode estar na tela da pessoa no instante em que ela paga.
+        """
+        self._arrematar("Item um", self.ana, Decimal("40.00"))
+        self._arrematar("Item dois", self.ana, Decimal("60.00"))
+        pagamento = PagamentoLeilao.objects.create(
+            referencia=f"LEILAOC-{self.ana.id}-{self.leilao.id}",
+            mp_payment_id="123",
+            valor_bruto=Decimal("100.00"),
+        )
+        # Sem FK nenhuma apontando para ele — como a cobrança órfã fica.
+        achados = servicos._arremates_do_pagamento(pagamento)
+        self.assertEqual(len(achados), 2)
+
+    def test_a_referencia_nao_pesca_a_pessoa_errada(self):
+        """`LEILAOC-1-...` não pode alcançar o participante 12."""
+        outro = PagamentoLeilao.objects.create(
+            referencia=f"LEILAOC-{self.ana.id}9-{self.leilao.id}",
+            mp_payment_id="999",
+        )
+        conta = servicos._conta_da_referencia(outro.referencia)
+        self.assertNotEqual(conta[0], self.ana.id)
 
 
 class PregaoNaoSobreviveAoLeilaoTests(TestCase):
@@ -2172,7 +2334,14 @@ class NumeroDoItemTests(TestCase):
         arremate = servicos.fechar_lote(lote, motivo="locutor")
 
         numero_antes = lote.numero
-        servicos.expirar_arremate(arremate)   # não pagou no prazo
+        # A venda é desfeita e o item volta para a fila (hoje isso é decisão da
+        # equipe, não de um relógio). O NÚMERO é que não pode mudar: ele está
+        # colado na caixa da prateleira.
+        Lote.objects.filter(pk=lote.pk).update(
+            status="fila", valor_atual=Decimal("0.00"), lider=None,
+            voltas=1, fechado_em=None,
+        )
+        Arremate.objects.filter(pk=arremate.pk).update(status="cancelado")
 
         lote.refresh_from_db()
         self.assertEqual(lote.status, "fila")     # voltou a leilão
@@ -2187,7 +2356,11 @@ class NumeroDoItemTests(TestCase):
         lote.refresh_from_db()
         servicos.dar_lance(lote.id, ana)
         lote.refresh_from_db()
-        servicos.expirar_arremate(servicos.fechar_lote(lote, motivo="locutor"))
+        servicos.fechar_lote(lote, motivo="locutor")
+        Lote.objects.filter(pk=lote.pk).update(
+            status="fila", valor_atual=Decimal("0.00"), lider=None,
+            voltas=1, fechado_em=None,
+        )
 
         lote.refresh_from_db()
         servicos.abrir_lote(lote)             # segunda volta
@@ -3213,66 +3386,31 @@ class CaixaAoVivoTests(TestCase):
         r = c.get("/caixa/arremate/%d/pix/" % self.arremate.id)
         self.assertEqual(r.status_code, 302)
 
-    # --- Prazo esticado ---
-    def test_esticar_o_prazo_soma_a_partir_de_agora(self):
-        self.arremate.expira_em = timezone.now() - timedelta(minutes=5)
-        self.arremate.save(update_fields=["expira_em"])
-        servicos.estender_prazo(self.arremate, 15)
-        self.arremate.refresh_from_db()
-        # Somar ao prazo VENCIDO daria tempo nenhum: o caso real é a pessoa
-        # pedindo mais tempo justamente quando o relógio está no fim.
-        self.assertGreater(self.arremate.segundos_para_pagar, 14 * 60)
+    # --- Sem prazo ---
+    def test_a_acao_de_esticar_prazo_NAO_EXISTE_MAIS(self):
+        """Não há relógio para esticar: quem arremata paga no fim.
 
-    def test_o_item_nao_volta_para_a_fila_depois_de_esticar(self):
-        self.arremate.expira_em = timezone.now() - timedelta(minutes=1)
-        self.arremate.save(update_fields=["expira_em"])
-        servicos.estender_prazo(self.arremate, 20)
+        A ação some do mapa `ACOES_AREAS`, e ação fora do mapa é recusada por
+        padrão — que é o lado seguro.
+        """
+        r = self.c.post(
+            "/equipe/acao/",
+            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id, "minutos": 30}),
+            content_type="application/json",
+        )
+        self.assertIn(r.status_code, (400, 403, 409))
+        self.assertNotIn("prazo", views.ACOES_AREAS)
+
+    def test_o_item_nao_volta_para_a_fila_com_o_tempo(self):
         servicos.verificar_prazos()
         self.arremate.refresh_from_db()
         self.lote.refresh_from_db()
         self.assertEqual(self.arremate.status, "aguardando")
         self.assertEqual(self.lote.status, "vendido")
 
-    def test_esticar_pela_tela_e_do_caixa(self):
-        r = self.c.post(
-            "/equipe/acao/",
-            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id, "minutos": 30}),
-            content_type="application/json",
-        )
-        self.assertTrue(r.json()["ok"])
-        self.arremate.refresh_from_db()
-        self.assertGreater(self.arremate.segundos_para_pagar, 25 * 60)
-
-    def test_quem_ja_pagou_nao_tem_prazo_para_esticar(self):
-        servicos.marcar_pago(self.arremate, manual=True)
-        r = self.c.post(
-            "/equipe/acao/",
-            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id}),
-            content_type="application/json",
-        )
-        self.assertEqual(r.status_code, 409)
-
-    def test_o_locutor_nao_estica_prazo(self):
-        User = get_user_model()
-        u = User.objects.create_user("loc_prazo", password="segredo-ficticio")
-        u.is_staff = True
-        u.save()
-        g, _ = Group.objects.get_or_create(name="locutor")
-        u.groups.add(g)
-        c = Client()
-        c.login(username="loc_prazo", password="segredo-ficticio")
-        r = c.post(
-            "/equipe/acao/",
-            data=json.dumps({"acao": "prazo", "arremate": self.arremate.id}),
-            content_type="application/json",
-        )
-        self.assertEqual(r.status_code, 403)
-
     # --- Combinado ---
     def test_combinado_nao_vence_nunca(self):
         servicos.marcar_combinado(self.arremate, None, "paga amanhã")
-        self.arremate.expira_em = timezone.now() - timedelta(hours=5)
-        self.arremate.save(update_fields=["expira_em"])
         servicos.verificar_prazos()
         self.arremate.refresh_from_db()
         self.lote.refresh_from_db()

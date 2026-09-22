@@ -147,8 +147,8 @@ class LeilaoForm(EstiloMixin, forms.ModelForm):
             # Sem `segundos_por_lote`, `segundos_extra` nem `reiniciar_cronometro`:
             # não há cronômetro no pregão, e campo de configuração para um
             # recurso que não existe só confunde quem monta o leilão.
-            "nome", "descricao", "incremento_padrao",
-            "minutos_para_pagar", "chat_segundos",
+            "nome", "descricao",
+            "minutos_para_pagar",
             "boas_vindas_titulo", "boas_vindas_texto",
         ]
         widgets = {
@@ -206,7 +206,7 @@ class LoteForm(EstiloMixin, forms.ModelForm):
     class Meta:
         model = Lote
         fields = [
-            "nome", "descricao", "lance_inicial", "incremento",
+            "nome", "descricao", "lance_inicial",
             "peso_kg", "altura_cm", "largura_cm", "profundidade_cm", "foto",
         ]
         widgets = {
@@ -224,11 +224,10 @@ class LoteForm(EstiloMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["incremento"].required = False
         self.fields["descricao"].required = False
         # Campo de valor em R$ usa a máscara pt-BR do projeto, no modo "inline"
         # (o próprio campo é enviado, normalizado pouco antes do submit).
-        for nome in ["lance_inicial", "incremento"]:
+        for nome in ["lance_inicial"]:
             self.fields[nome].widget = forms.TextInput(
                 attrs={"data-moeda": "1", "inputmode": "decimal", "placeholder": "0,00"}
             )

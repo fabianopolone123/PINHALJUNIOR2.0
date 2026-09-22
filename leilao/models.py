@@ -25,8 +25,12 @@ from django.db.models import F
 from django.utils import timezone
 
 
-# Quanto o botão de lance soma por toque, quando nem o lote nem o leilão dizem
-# outra coisa. O usuário pediu "+5 reais a cada aperto".
+# Quanto o botão de lance soma por toque. É **fixo** e vale para todo item de
+# todo leilão: o clube pediu "R$ 5 e ponto". Configurar isso por leilão e por
+# item existia e foi removido — no pregão ao vivo o locutor anuncia "de cinco
+# em cinco" uma vez e ninguém confere tabela; incremento variável só criava a
+# chance de um item sair com regra diferente da que foi falada em voz alta.
+# As colunas `Leilao.incremento_padrao` e `Lote.incremento` ficaram DORMENTES.
 INCREMENTO_PADRAO = Decimal("5.00")
 
 
@@ -171,10 +175,12 @@ class Leilao(models.Model):
     descricao = models.TextField("Descrição", blank=True)
     status = models.CharField("Situação", max_length=12, choices=STATUS_CHOICES, default="rascunho")
 
-    # --- Regras do pregão (todas configuráveis pelo locutor) ---
+    # --- Incremento: NÃO É MAIS CONFIGURÁVEL. Coluna dormente. ---
+    # O lance soma `INCREMENTO_PADRAO` (R$ 5), sempre. Saiu do formulário e
+    # nada mais lê este campo. Ver o comentário da constante.
     incremento_padrao = models.DecimalField(
         "Incremento do lance (R$)", max_digits=10, decimal_places=2, default=INCREMENTO_PADRAO,
-        help_text="Quanto cada toque no botão soma. Padrão: R$ 5,00.",
+        help_text="DORMENTE — o incremento é fixo em R$ 5,00.",
     )
     # --- Cronômetro: NÃO EXISTE MAIS. Colunas dormentes. ---
     # Quem bate o martelo é o locutor, e o pregão não tem contagem regressiva.
@@ -192,9 +198,23 @@ class Leilao(models.Model):
         "Botão de tempo extra (segundos)", default=30,
         help_text="Quanto o botão '+tempo' do locutor acrescenta.",
     )
+    # --- Prazo para pagar: NÃO EXISTE MAIS. Coluna dormente. ---
+    # Quem arremata não paga na hora: acumula os itens e paga TUDO de uma vez,
+    # quando o locutor libera (ver `pagamentos_liberados`). O prazo de 15
+    # minutos existia para a pessoa não sair do leilão para pagar — mas ele
+    # fazia exatamente isso, tirava a pessoa do pregão no meio dos lances, e
+    # ainda devolvia o item à fila de quem estava só sem o celular na mão.
     minutos_para_pagar = models.PositiveIntegerField(
         "Prazo para pagar (minutos)", default=15,
-        help_text="Passou disso sem pagar, o lote volta para a fila.",
+        help_text="DORMENTE — não há prazo; o pagamento é liberado no fim.",
+    )
+
+    # O locutor abre a bilheteria no fim do leilão: até aqui ninguém paga nada,
+    # e é UM botão para todo mundo (não por pessoa). Enquanto for False, a tela
+    # de arremates mostra a lista e o total, mas sem botão de pagar.
+    pagamentos_liberados = models.BooleanField(
+        "Pagamentos liberados", default=False,
+        help_text="Ligado pelo locutor no fim do leilão, libera todo mundo a pagar.",
     )
     fechamento_automatico = models.BooleanField(
         "Fechar o lote sozinho quando o tempo acabar", default=False,
@@ -241,10 +261,13 @@ class Leilao(models.Model):
         help_text="Uma informação por linha. Dá para editar com o leilão já no ar.",
     )
 
-    # --- Chat entre um lote e outro ---
+    # --- Chat: SEM CONTAGEM DE TEMPO. Colunas dormentes. ---
+    # O chat fica aberto enquanto o leilão está no ar (ver `chat_aberto`).
+    # Estes três campos — `chat_segundos`, `chat_aberto_em` e `chat_aberto_ate`
+    # — são o que sobrou do chat "de intervalo", com prazo. Nada os lê.
     chat_segundos = models.PositiveIntegerField(
         "Duração do chat entre lotes (segundos)", default=120,
-        help_text="Quanto tempo o chat fica aberto no intervalo. 0 = não abre sozinho.",
+        help_text="DORMENTE — o chat fica aberto o leilão inteiro.",
     )
     chat_aberto_em = models.DateTimeField(
         "Chat aberto em", null=True, blank=True,
@@ -276,17 +299,23 @@ class Leilao(models.Model):
 
     @property
     def chat_aberto(self):
-        """Chat de leilão fora do ar NÃO está aberto, por mais que o relógio diga.
+        """O chat fica aberto a noite inteira, enquanto o leilão está no ar.
 
-        `chat_aberto_ate` é só uma hora futura: ela sobrevive ao leilão sair do
-        ar. Sem esta condição, a tela mostrava a caixa de conversa (o relógio
-        ainda não tinha vencido) e o servidor recusava toda mensagem com
-        "nenhum leilão ao vivo" — a pessoa digitando contra uma porta fechada,
-        sem entender por quê.
+        Antes ele só abria **no intervalo**, por um tempo contado
+        (`chat_segundos`/`chat_aberto_ate`), e fechava quando um item ia a
+        pregão. O clube pediu o contrário: conversa aberta direto, sem
+        contagem. Quem quer falar fala; quem está dando lance não olha para a
+        caixa de texto, e o botão de lance nunca dividiu espaço com ela.
+
+        Sobrou UMA condição, que é a que importa e que já era lei aqui: leilão
+        fora do ar não tem chat — a tela mostrava a caixa de conversa e o
+        servidor recusava toda mensagem, a pessoa digitando contra uma porta
+        fechada. Agora a condição da tela e a do servidor são a MESMA
+        expressão, o que torna a divergência impossível por construção.
+
+        Dormentes: `chat_segundos`, `chat_aberto_ate` e `chat_aberto_em`.
         """
-        if self.status != "ao_vivo":
-            return False
-        return bool(self.chat_aberto_ate and self.chat_aberto_ate > timezone.now())
+        return self.status == "ao_vivo"
 
     @property
     def lote_atual(self):
@@ -487,9 +516,10 @@ class Lote(models.Model):
     lance_inicial = models.DecimalField(
         "Lance inicial (R$)", max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
+    # DORMENTE, como o do leilão: o incremento é fixo em R$ 5,00.
     incremento = models.DecimalField(
         "Incremento próprio (R$)", max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text="Vazio = usa o incremento do leilão.",
+        help_text="DORMENTE — o incremento é fixo em R$ 5,00.",
     )
 
     status = models.CharField("Situação", max_length=12, choices=STATUS_CHOICES, default="fila")
@@ -605,7 +635,14 @@ class Lote(models.Model):
 
     @property
     def incremento_efetivo(self):
-        return self.incremento if self.incremento is not None else self.leilao.incremento_padrao
+        """O incremento é FIXO (R$ 5), e por isso não consulta o banco.
+
+        A property continua existindo porque é o nome que o estado, o serviço
+        de lance e as telas usam — trocá-la por um literal espalhado seria pôr
+        o número em oito lugares. Os campos `Lote.incremento` e
+        `Leilao.incremento_padrao` estão dormentes e **nada os lê**.
+        """
+        return INCREMENTO_PADRAO
 
     @property
     def tem_lance(self):
@@ -755,12 +792,16 @@ class PagamentoLeilao(models.Model):
 # Arremate (quem levou o item e se pagou)
 # ---------------------------------------------------------------------------
 class Arremate(models.Model):
-    """O item foi batido para alguém. Começa o relógio dos 15 minutos.
+    """O item foi batido para alguém. **Sem relógio.**
 
-    Não é OneToOne com o lote de propósito: quem não paga perde o item, ele
-    **volta para a fila** e pode ser arrematado de novo — cada tentativa é um
-    `Arremate`, e o histórico das que falharam é justamente o que o locutor
-    precisa ver para decidir bloquear alguém.
+    Quem arremata não paga na hora: os itens se acumulam e a pessoa paga TUDO
+    de uma vez, num Pix só, quando o locutor libera. O prazo de 15 minutos
+    existia para ela não sair do leilão para pagar — e era justamente o que ele
+    provocava, tirando do pregão quem estava no meio dos lances.
+
+    Não é OneToOne com o lote de propósito: o mesmo item pode ser arrematado de
+    novo se a venda for desfeita, e o histórico das tentativas é o que embasa
+    bloquear alguém.
     """
 
     STATUS_CHOICES = [
@@ -783,7 +824,9 @@ class Arremate(models.Model):
 
     status = models.CharField("Situação", max_length=12, choices=STATUS_CHOICES, default="aguardando")
     criado_em = models.DateTimeField("Arrematado em", auto_now_add=True)
-    expira_em = models.DateTimeField("Prazo para pagar")
+    # DORMENTE: não há mais prazo para pagar. Fica nulo nos arremates novos e
+    # preenchido nos antigos, que continuam válidos como histórico.
+    expira_em = models.DateTimeField("Prazo para pagar", null=True, blank=True)
 
     pago_em = models.DateTimeField("Pago em", null=True, blank=True)
     pago_manual = models.BooleanField(
@@ -850,11 +893,9 @@ class Arremate(models.Model):
         """
         return self.status == "pago" and self.entregue_em is None
 
-    @property
-    def segundos_para_pagar(self):
-        if self.status != "aguardando":
-            return 0
-        return max(0, int((self.expira_em - timezone.now()).total_seconds()))
+    # `segundos_para_pagar` NÃO EXISTE MAIS: não há prazo. Quem arremata
+    # acumula os itens e paga no fim, e `expira_em` ficou nulo nos arremates
+    # novos — a property devolveria TypeError em cima de None.
 
 
 # ---------------------------------------------------------------------------

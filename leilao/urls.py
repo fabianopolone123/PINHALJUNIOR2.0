@@ -25,6 +25,11 @@ urlpatterns = [
     path("chat/enviar/", views.chat_enviar_view, name="chat_enviar"),
     path("reagir/", views.reagir_view, name="reagir"),
     path("meus-arremates/", views.meus_arremates_view, name="meus_arremates"),
+    # O pagamento é da PESSOA, pelo total — não de um item. As rotas com
+    # `<pk>` ficam porque uma aba antiga ainda pode chamá-las; a view ignora o
+    # id em vez de devolver 404 na cara de quem está pagando.
+    path("conta/pix/", views.arremate_pix_view, name="conta_pix"),
+    path("conta/conferir/", views.arremate_conferir_view, name="conta_conferir"),
     path("arremate/<int:pk>/pix/", views.arremate_pix_view, name="arremate_pix"),
     path("arremate/<int:pk>/conferir/", views.arremate_conferir_view, name="arremate_conferir"),
     # --- Webhook público ---

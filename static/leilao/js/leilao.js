@@ -63,13 +63,6 @@
         });
     }
 
-    function mmss(s) {
-        s = Math.max(0, Math.floor(s));
-        var m = Math.floor(s / 60);
-        var r = s % 60;
-        return m + ":" + (r < 10 ? "0" : "") + r;
-    }
-
     function toast(msg, tipo) {
         if (window.mostrarToast) window.mostrarToast(msg, tipo || "info");
     }
@@ -354,14 +347,15 @@
     }
 
     /* ---------------------------------------------------------------
-       Chat (conversa nova a cada intervalo)
+       Chat (aberto o leilão inteiro, sem contagem)
        --------------------------------------------------------------- */
     function desenharChat() {
         var chat = $("chat");
         var c = estado && estado.chat;
-        // `estado.ativo` junto: um `chat_estado` antigo não pode deixar a caixa
-        // de pé depois de o leilão sair do ar — o servidor recusaria tudo que
-        // fosse digitado nela.
+        // `estado.ativo` junto: a caixa não pode ficar de pé depois de o leilão
+        // sair do ar — o servidor recusaria tudo que fosse digitado nela. Hoje
+        // `chat.aberto` já deriva do status no servidor, mas manter as duas
+        // condições aqui custa nada e a tela nunca abre porta que o servidor fecha.
         if (!c || !c.aberto || !(estado && estado.ativo)) {
             chat.hidden = true;
             document.body.classList.remove("chat-aberto");
@@ -408,15 +402,8 @@
         lista.scrollTop = lista.scrollHeight;
     }
 
-    function atualizarTempoChat() {
-        var c = estado && estado.chat;
-        var alvo = $("chatTempo");
-        if (!alvo) return;
-        if (!c || !c.aberto || !c.ate) { alvo.textContent = ""; return; }
-        var s = Math.max(0, (Date.parse(c.ate) - agora()) / 1000);
-        alvo.textContent = "fecha em " + mmss(s);
-    }
-    setInterval(atualizarTempoChat, 1000);
+    // Sem contagem no chat: ele fica aberto o leilão inteiro, então não há
+    // "fecha em 1:23" para desenhar (e o `#chatTempo` saiu do template junto).
 
     /* ---------------------------------------------------------------
        Meus arremates
@@ -427,17 +414,18 @@
             .then(function (d) {
                 if (!d.ok) return;
                 pixPossivel = d.pix_possivel !== false;
-                desenharArremates(d.arremates || []);
+                desenharArremates(d);
                 return d.arremates;
             })
             .catch(function () { /* rede instável: tenta na próxima */ });
     }
 
-    function desenharArremates(itens) {
+    function desenharArremates(d) {
+        var itens = d.arremates || [];
         var qtd = $("qtdArremates");
-        var pendentes = itens.filter(function (a) { return a.status === "aguardando"; }).length;
+        var abertos = d.quantos_abertos || 0;
         qtd.textContent = itens.length;
-        $("btnArremates").classList.toggle("pendente", pendentes > 0);
+        $("btnArremates").classList.toggle("pendente", abertos > 0);
 
         var corpo = $("gavetaCorpo");
         corpo.innerHTML = "";
@@ -448,7 +436,65 @@
             corpo.appendChild(p);
             return;
         }
+
         itens.forEach(function (a) { corpo.appendChild(cartaoArremate(a)); });
+
+        if (!abertos) return;   // tudo pago: nada a somar nem a cobrar
+
+        /* O TOTAL embaixo da lista. É a pergunta que a pessoa faz ("quanto deu
+           no fim?") e a razão de a tela existir: ela não paga mais item a item. */
+        var tot = document.createElement("div");
+        tot.className = "conta-total";
+        var rot = document.createElement("span");
+        rot.className = "conta-total-rotulo";
+        rot.textContent = abertos > 1 ? "Total de " + abertos + " itens" : "Total";
+        var val = document.createElement("span");
+        val.className = "conta-total-valor";
+        val.textContent = moeda(d.total);
+        tot.appendChild(rot);
+        tot.appendChild(val);
+        corpo.appendChild(tot);
+
+        if (!pixPossivel) {
+            // Sem Mercado Pago configurado não nasce Pix nenhum. Dizer isso é
+            // melhor do que oferecer um botão que nunca vai funcionar.
+            var aviso = document.createElement("p");
+            aviso.className = "conta-aviso";
+            aviso.textContent = "Combine o pagamento com a organização.";
+            corpo.appendChild(aviso);
+            return;
+        }
+
+        if (!d.liberado) {
+            /* Ainda não liberado: a tela DIZ isso, em vez de mostrar um botão
+               que o servidor vai recusar. Quem está no meio dos lances não
+               precisa pensar em pagamento agora — é esse o ponto de ter tirado
+               o prazo de 15 minutos. */
+            var espera = document.createElement("p");
+            espera.className = "conta-aviso";
+            espera.textContent = "O pagamento abre no fim do leilão. Aproveite o pregão!";
+            corpo.appendChild(espera);
+            return;
+        }
+
+        var acoes = document.createElement("div");
+        acoes.className = "conta-acoes";
+
+        var bCopiar = document.createElement("button");
+        bCopiar.type = "button";
+        bCopiar.className = "btn-pagar";
+        bCopiar.textContent = "📋 Copiar código Pix";
+        bCopiar.addEventListener("click", function () { copiarPix(); });
+        acoes.appendChild(bCopiar);
+
+        var bQr = document.createElement("button");
+        bQr.type = "button";
+        bQr.className = "btn-qr";
+        bQr.textContent = "📱 Mostrar QR Code";
+        bQr.addEventListener("click", function () { abrirQr(); });
+        acoes.appendChild(bQr);
+
+        corpo.appendChild(acoes);
     }
 
     function cartaoArremate(a) {
@@ -477,81 +523,29 @@
         valor.textContent = moeda(a.valor);
         corpo.appendChild(valor);
 
+        /* Sem relógio e sem botão POR ITEM: o pagamento é um só, pelo total,
+           e mora no rodapé da lista. Aqui fica só o que a pessoa levou. */
         var selo = document.createElement("span");
         selo.className = "arremate-selo " + a.status;
         selo.textContent = a.status === "pago" ? "✅ Pago"
             : a.status === "combinado" ? "🤝 Pagamento combinado"
-            : a.status === "aguardando" ? "⏳ Aguardando pagamento"
-            : "⌛ Prazo vencido";
+            : "🏆 Arrematado";
         corpo.appendChild(selo);
-
-        if (a.status === "aguardando" || a.status === "combinado") {
-            var prazo = document.createElement("span");
-            prazo.className = "arremate-prazo";
-            if (a.status === "combinado") {
-                // Combinado não tem relógio correndo — dizer "pague em 0:00"
-                // assustaria quem acabou de acertar com a organização.
-                prazo.textContent = "Combinado com a organização.";
-            } else {
-                prazo.dataset.expira = a.expira_em || "";
-                prazo.textContent = "Pague em " + mmss(a.segundos);
-            }
-            corpo.appendChild(prazo);
-
-            if (!pixPossivel) {
-                // Sem Mercado Pago configurado não nasce Pix nenhum. Dizer isso é
-                // melhor do que oferecer dois botões que nunca vão funcionar.
-                var aviso = document.createElement("span");
-                aviso.className = "arremate-prazo";
-                aviso.textContent = "Combine o pagamento com a organização.";
-                corpo.appendChild(aviso);
-            } else {
-                var acoes = document.createElement("div");
-                acoes.className = "arremate-acoes";
-
-                var bCopiar = document.createElement("button");
-                bCopiar.type = "button";
-                bCopiar.className = "btn-pagar";
-                bCopiar.textContent = "📋 Copiar código Pix";
-                bCopiar.addEventListener("click", function () { copiarPix(a.id); });
-                acoes.appendChild(bCopiar);
-
-                var bQr = document.createElement("button");
-                bQr.type = "button";
-                bQr.className = "btn-qr";
-                bQr.textContent = "📱 Mostrar QR Code";
-                bQr.addEventListener("click", function () { abrirQr(a.id); });
-                acoes.appendChild(bQr);
-
-                corpo.appendChild(acoes);
-            }
-        }
 
         div.appendChild(corpo);
         return div;
     }
 
-    /* Prazo dos arremates correndo na gaveta aberta. */
-    setInterval(function () {
-        if (!gavetaAberta) return;
-        var faltam = document.querySelectorAll(".arremate-prazo[data-expira]");
-        for (var i = 0; i < faltam.length; i++) {
-            var el = faltam[i];
-            var t = Date.parse(el.dataset.expira);
-            if (isNaN(t)) continue;
-            var s = Math.max(0, (t - agora()) / 1000);
-            el.textContent = s > 0 ? "Pague em " + mmss(s) : "Prazo vencido";
-        }
-    }, 1000);
-
-    function buscarPix(id) {
-        var url = URLS.pix.replace(/0\/pix\/$/, id + "/pix/");
-        return fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+    /* UMA cobrança, pelo total do que a pessoa levou — não uma por item.
+       O servidor cria (ou devolve a que já existe) e recusa antes de o locutor
+       liberar, então a tela não precisa se defender sozinha. */
+    function buscarPix() {
+        return fetch(URLS.pix, { headers: { "X-Requested-With": "XMLHttpRequest" } })
             .then(function (r) { return r.json(); });
     }
 
-    function copiarPix(id) {
-        buscarPix(id).then(function (d) {
+    function copiarPix() {
+        buscarPix().then(function (d) {
             if (!d.ok) {
                 toast(d.msg || "O Pix ainda está sendo gerado. Tente em instantes.", "info");
                 return;
@@ -584,15 +578,16 @@
         ta.remove();
     }
 
-    function abrirQr(id) {
-        buscarPix(id).then(function (d) {
+    function abrirQr() {
+        buscarPix().then(function (d) {
             if (!d.ok) {
                 toast(d.msg || "O Pix ainda está sendo gerado. Tente em instantes.", "info");
                 return;
             }
-            arremateAberto = id;
+            arremateAberto = true;
             codigoPix = d.copia_e_cola || "";
-            $("qrItem").textContent = d.lote || "";
+            $("qrItem").textContent = d.quantos > 1
+                ? d.quantos + " itens arrematados" : "1 item arrematado";
             $("qrValor").textContent = moeda(d.valor);
             var img = $("qrImagem");
             if (d.qr_base64) {
@@ -601,7 +596,8 @@
             } else {
                 img.hidden = true;
             }
-            $("qrPrazo").textContent = "Pague em " + mmss(d.segundos);
+            // Sem contagem: o código não vence numa janela de minutos.
+            $("qrPrazo").textContent = "";
             $("modalQr").hidden = false;
             document.body.classList.add("modal-aberto");
             conferirPagamento();
@@ -611,7 +607,7 @@
     function fecharQr() {
         $("modalQr").hidden = true;
         document.body.classList.remove("modal-aberto");
-        arremateAberto = null;
+        arremateAberto = false;
     }
 
     /* Reforço do webhook: enquanto o QR estiver aberto, pergunta ao servidor se
@@ -619,9 +615,7 @@
        olhando a tela esperando o selo mudar. */
     function conferirPagamento() {
         if (!arremateAberto) return;
-        var id = arremateAberto;
-        var url = URLS.conferir.replace(/0\/conferir\/$/, id + "/conferir/");
-        fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+        fetch(URLS.conferir, { headers: { "X-Requested-With": "XMLHttpRequest" } })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (d && d.pago) {
@@ -703,12 +697,8 @@
             if (estado && estado.chat && estado.chat.aberto) empurrarChat(m);
         });
 
-        fonte.addEventListener("chat_estado", function (e) {
-            var d = JSON.parse(e.data);
-            // Chat NOVO a cada intervalo: abre limpo, sem arrastar o fio da noite.
-            estado.chat = { aberto: d.aberto, ate: d.ate, mensagens: [] };
-            desenharChat();
-        });
+        // Sem `chat_estado`: o chat fica aberto o leilão inteiro, e se está
+        // aberto ou não vem no `estado` como todo o resto.
 
         fonte.addEventListener("reacoes", function (e) {
             if (window.Reacoes) window.Reacoes.receber(JSON.parse(e.data));
@@ -921,11 +911,21 @@
     }
 
     /* Voltou do segundo plano (celular bloqueado, outro app): o estado pode ter
-       envelhecido. Recarrega em vez de mostrar um pregão congelado. */
+       envelhecido. Recarrega em vez de mostrar um pregão congelado.
+
+       A VOZ precisa do mesmo cuidado, e por muito tempo não teve: o navegador
+       derruba a conexão de áudio quando a aba sai da frente e não a devolve.
+       Quem voltava ouvia silêncio e só resolvia fechando o navegador. O módulo
+       de áudio também escuta `visibilitychange` sozinho; chamar aqui é de
+       propósito — este é o ponto em que a tela já decidiu que voltou, e uma
+       chamada a mais no `retomar()` não custa nada (ele confere antes de agir). */
     document.addEventListener("visibilitychange", function () {
         if (!document.hidden) {
             carregarArremates();
             if (fonte && fonte.readyState === 2) conectar();  // 2 = fechado
+            if (somLigado && window.AudioLeilao && window.AudioLeilao.retomar) {
+                window.AudioLeilao.retomar();
+            }
         }
     });
 

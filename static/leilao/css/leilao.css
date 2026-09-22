@@ -694,6 +694,42 @@ body.tela-palco {
 .arremate-prazo { font-size: 0.78rem; color: var(--ambar); font-variant-numeric: tabular-nums; }
 .arremate-acoes { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 5px; }
 
+/* A CONTA: o total embaixo da lista e o único botão de pagar.
+
+   O pagamento deixou de ser por item (um Pix cada, com 15 minutos correndo) e
+   passou a ser um só, pelo total — então o que fecha a lista é a soma, que é a
+   pergunta que a pessoa faz no fim ("quanto deu?"). */
+.conta-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--palco-borda);
+}
+.conta-total-rotulo {
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--palco-suave);
+}
+.conta-total-valor {
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: var(--ouro);
+    font-variant-numeric: tabular-nums;
+}
+.conta-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.conta-acoes .btn-pagar, .conta-acoes .btn-qr { flex: 1 1 auto; }
+.conta-aviso {
+    margin: 10px 0 0;
+    font-size: 0.84rem;
+    line-height: 1.35;
+    color: var(--palco-suave);
+}
+
 .btn-pagar, .btn-qr {
     flex: 1 1 auto;
     min-width: 132px;
@@ -895,14 +931,22 @@ body.tela-palco {
     }
 }
 
+/* NO FLUXO da página, com espaço próprio — não `position: fixed`.
+
+   Eles flutuavam no canto inferior e cobriam o que estivesse embaixo (o ➤ de
+   enviar do chat). A saída de então era trocá-los de lado quando o chat
+   abrisse, e dependia de uma premissa que caiu: "com o chat aberto o botão de
+   lance não está na tela". Hoje o chat fica aberto o leilão inteiro e os dois
+   convivem — não sobrou canto livre.
+
+   Elemento que não flutua não cobre nada. É a única solução que não volta a
+   quebrar quando a tela mudar de novo. */
 .reacoes-botoes {
-    position: fixed;
-    right: 8px;
-    bottom: calc(76px + var(--piso));
-    z-index: 75;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 .reacoes-botoes[hidden] { display: none !important; }
 
@@ -1004,18 +1048,14 @@ body.tela-palco {
     .reacoes-trilho { display: none; }
 }
 
-/* =========================================================
-   Chat aberto: os emojis saem da frente do botão de enviar
-   =========================================================
-   A coluna de reações e o trilho por onde os emojis sobem moram no canto
-   inferior DIREITO — que é exatamente onde fica o ➤ do chat. No celular um
-   cobria o outro: a pessoa escrevia a mensagem e o toque de enviar caía num
-   emoji. Com o chat aberto (classe posta pelo `desenharChat`), os dois trocam
-   de lado; o botão de lance não está na tela nessa hora, então a esquerda está
-   livre. */
-body.chat-aberto .reacoes-botoes { left: 8px; right: auto; }
-body.chat-aberto .reacoes-trilho { left: 0; right: auto; }
-body.chat-aberto .reacao-flutua { right: auto; left: 46px; }
+/* A troca de lado com o chat aberto NÃO EXISTE MAIS.
+
+   Ela resolvia o choque entre a coluna de emojis e o ➤ de enviar mandando uma
+   para a esquerda, e só funcionava porque o chat aparecia no intervalo, quando
+   o botão de lance não estava na tela. Com o chat aberto o leilão inteiro essa
+   premissa caiu, e não há lado livre: os botões de reagir passaram a morar no
+   FLUXO da página. A classe `body.chat-aberto` continua sendo posta pelo
+   `desenharChat` (outras regras podem querer saber), mas não move mais nada. */
 
 /* =========================================================
    Boas-vindas (antes do primeiro item)

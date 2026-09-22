@@ -77,9 +77,11 @@ Em **📦 Preparação**, preencha o formulário "Novo leilão":
 | Campo | O que é | Sugestão |
 |---|---|---|
 | Nome | Aparece na tela de todo mundo | "Leilão do Clube — Novembro" |
-| Incremento do lance | Quanto cada toque no botão soma | R$ 5,00 |
-| Prazo para pagar | Depois disso o item volta para a fila | 15 minutos |
-| Duração do chat | Bate-papo entre um item e outro | 120 segundos |
+
+> **Cada toque no botão soma R$ 5,00** — é fixo, não se configura.
+> **Não há prazo para pagar**: os itens vão se acumulando na conta de quem
+> arremata, e no fim você libera o pagamento de todo mundo de uma vez.
+> **O bate-papo fica aberto o leilão inteiro.**
 
 Ele nasce em **rascunho** — ninguém de fora vê nada ainda.
 
@@ -164,7 +166,7 @@ O que ela lê é **escrito por vocês**, na linha do leilão → **✏️ Editar
 
 - **Título** (ex.: "Seja bem-vindo ao leilão do clube!")
 - **Informações úteis**: uma por linha (a que horas começa, como funciona o
-  lance, que o pagamento é por Pix na hora…)
+  lance, que o pagamento é por Pix no fim do leilão…)
 
 > **Dá para editar com o leilão já no ar.** Ao salvar, a tela de todo mundo que
 > está esperando muda sozinha — ninguém precisa recarregar nada.
@@ -243,9 +245,13 @@ Tela: **💰 Caixa**.
 
 ### Aba Pagamentos
 
-Cada item batido vira um **arremate** com **15 minutos** para pagar. Na tela do
-arrematante aparecem dois botões — copiar o código Pix e mostrar o QR Code —
-**sem sair do leilão**, para ele continuar disputando os próximos itens.
+Cada item batido vira um **arremate** na conta da pessoa. **Ninguém paga
+durante o leilão**: os itens vão se somando, e o arrematante vê a lista dele com
+o total — sem botão de pagar ainda.
+
+No fim, o **locutor aperta 💳 Liberar pagamentos** e aí sim aparecem, na tela de
+quem arrematou, os dois botões: copiar o código Pix e mostrar o QR Code. **É um
+código só, pelo total** — quem levou quatro coisas copia um código, não quatro.
 
 **Quando o Pix cai, a linha muda sozinha na sua tela** e pisca em verde. Você não
 precisa recarregar nada nem ficar apertando F5. Se você estiver digitando alguma
@@ -259,15 +265,10 @@ Em cada linha você tem:
 | **💬 WhatsApp** | Abre a conversa da pessoa direto, sem você digitar o número |
 | **Marcar pago** | Ela acertou por fora (dinheiro, transferência). Fica com a etiqueta "na mão" |
 | **📋 Pix** | Mostra o código Pix dela e deixa você **mandar no WhatsApp** com a mensagem pronta |
-| **⏱️ +15 min** | Ela pediu mais tempo: soma 15 minutos **e refaz o código** |
-| **📞 Vai pagar depois** | Você falou com ela e ficou acertado. O item **não volta para a fila** |
+| **📞 Vai pagar depois** | Você falou com ela e ficou acertado. Fica registrado |
 
-> **Não pagou em 15 minutos?** O arremate vence, o item **volta para a fila** e
-> pode ser leiloado de novo. Nada para você fazer.
-
-> **Precisa dar mais tempo?** Use o **⏱️ +15 min** — pode apertar mais de uma
-> vez. O código Pix antigo vence junto com o prazo antigo, por isso o sistema faz
-> um novo; espere uns segundos antes de mandar para a pessoa.
+> **Não pagou?** Ela **fica devendo** — o item não volta para a fila e não há
+> prazo correndo. Quem cobra é você, pelo 💬 WhatsApp, com o 📋 Pix na mão.
 
 ### "Vai pagar depois": como fica
 
@@ -380,8 +381,10 @@ intervalo.
 Só com **WhatsApp diferente**. Com o mesmo número, o sistema entende que é a mesma
 pessoa e trava — é o preço de impedir que alguém infle o próprio preço.
 
-**"O item apareceu com 'Voltou para a fila'. Por quê?"**
-Alguém arrematou e não pagou em 15 minutos.
+**"Quando as pessoas podem pagar?"**
+Quando o locutor apertar **💳 Liberar pagamentos**, no fim do leilão. Antes
+disso a tela delas mostra a lista e o total, e avisa que o pagamento abre no
+fim — de propósito: ninguém deve sair do pregão para mexer em banco.
 
 **"O dinheiro cai onde?"**
 Na **mesma conta** do Mercado Pago que o clube já usa para mensalidades, loja e eventos.

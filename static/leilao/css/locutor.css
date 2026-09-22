@@ -255,6 +255,12 @@ body.tela-locutor {
 .btn-mesa.vendido { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); border-color: transparent; color: #fff; }
 .btn-mesa.tempo { background: rgba(240, 162, 2, 0.2); border-color: rgba(240, 162, 2, 0.5); }
 .btn-mesa.micro { background: linear-gradient(135deg, var(--verde), #2f8f4f); border-color: transparent; color: #fff; }
+/* A bilheteria: abre o pagamento para todo mundo no fim do leilão. Cor própria
+   (âmbar) porque não é "abrir item" nem "vendido" — é um gesto de uma vez só,
+   e confundi-lo com o martelo no meio do pregão sairia caro. */
+.btn-mesa.liberar { background: rgba(240, 162, 2, 0.24); border-color: rgba(240, 162, 2, 0.55); }
+.btn-mesa.liberar[data-liberado="1"] { background: rgba(58, 157, 58, 0.28); border-color: rgba(98, 196, 98, 0.55); }
+.bilheteria-ajuda { margin: 0 0 10px; font-size: 0.82rem; line-height: 1.35; color: var(--palco-suave); }
 .btn-mesa.micro.ligado { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); }
 
 /* ---- Microfone ---- */

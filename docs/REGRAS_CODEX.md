@@ -1070,6 +1070,70 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **`servidor_em` continua obrigatório no estado.** Sem cronômetro ele ainda é o que faz a mesa calcular o
   silêncio pelo relógio do SERVIDOR; pelo do aparelho, quem estivesse com a hora errada veria outro número.
 
+### O dinheiro fecha no FIM (não item a item)
+
+- **Ninguém sai do leilão para pagar.** Os arremates se acumulam na conta da pessoa e ela paga **tudo num
+  Pix só**, quando o locutor libera. O prazo de 15 minutos existia para evitar isso e provocava exatamente
+  isso — e ainda devolvia o item à fila de quem estava sem o celular na mão. Não recrie prazo, contagem
+  regressiva nem devolução automática: `minutos_para_pagar` e `Arremate.expira_em` são **dormentes**, e
+  `expirar_arremate`/`estender_prazo` **não existem mais**.
+- **Quem não paga fica devendo**, e quem cobra é o caixa (WhatsApp e Pix estão lá). O item **não volta para
+  a fila** sozinho.
+- **Liberar é do LOCUTOR e é um botão só** (`liberar` em `ACOES_AREAS`): é ele quem sabe que o último item
+  foi batido. É **alavanca** — apertar antes da hora acontece, e desfazer sai mais barato que explicar.
+- **A trava é do SERVIDOR.** Esconder o botão não impede um POST forjado: pedir o Pix antes da liberação
+  leva 409. Gerar cobrança antes da hora encheria a noite de códigos vivos do mesmo dinheiro.
+- **A âncora continua sendo a REFERÊNCIA, não a FK** — a lição não mudou, só o formato:
+  `LEILAOC-<participante>-<leilao>[-R<ts>]`. `Arremate.pagamento` é trocado quando o Pix é refeito e a
+  cobrança anterior fica órfã **na tela da pessoa**; `_arremates_do_pagamento` a reencontra pela
+  referência. O formato antigo (`LEILAO-<arremate>`) **continua sendo lido**: aquelas cobranças existem e
+  ainda podem ser pagas.
+- **Uma cobrança viva por pessoa.** `cobranca_do_participante` devolve a que já existe em vez de criar
+  outra — vários códigos vivos do mesmo dinheiro deixam o caixa sem saber qual foi pago.
+- **O escopo da conta é o cadastro da SESSÃO.** Juntar os arremates de quem tem o mesmo telefone parece
+  certo (celular + computador) e é o que a regra dos lances já proíbe: quem soubesse o seu WhatsApp veria
+  os seus itens e o seu código Pix.
+
+### O chat não tem relógio
+
+- **Aberto enquanto o leilão está no ar, e só isso.** `Leilao.chat_aberto` é **uma expressão**
+  (`status == "ao_vivo"`), que é a MESMA que o servidor usa para aceitar mensagem — a divergência entre o
+  que a tela mostra e o que o servidor aceita deixou de ser possível por construção, e era ela o bug
+  antigo. Não recrie `chat_segundos`/`chat_aberto_ate`: são dormentes.
+- **O fio é um só a noite inteira.** O corte por rodada (`chat_aberto_em`) existia porque o chat era "do
+  intervalo"; sem intervalo, o que limita a tela é o teto das 40 últimas, que sempre existiu.
+
+### Nada flutuante em cima de controle
+
+- **Os botões de reagir moram no FLUXO da página.** Eram `position: fixed` no canto e cobriam o envio do
+  chat. A correção de então — trocar de lado quando o chat abrisse — dependia de *"com o chat aberto o
+  botão de lance não está na tela"*, e caiu no dia em que o chat passou a ficar aberto o leilão inteiro.
+  **Elemento que não flutua não cobre nada**: é a única solução que não volta a quebrar na próxima mudança
+  de tela. Controle novo segue a mesma regra; só o **trilho** dos emojis é fixo, e ele é
+  `pointer-events: none`.
+
+### Conexão que o navegador derruba, alguém tem de trazer de volta
+
+- **`visibilitychange` não é capricho, é obrigatório** — vale para o áudio como já valia para a Screen Wake
+  Lock. O navegador derruba a conexão WebRTC quando a aba sai da frente e **não a devolve**: quem voltava ao
+  leilão ficava sem ouvir e só resolvia fechando o navegador, que ninguém adivinha. O módulo escuta o evento
+  **ele mesmo**, em vez de confiar que cada tela lembre de chamá-lo.
+- **Desistir de reconectar não pode ser definitivo.** O teto de tentativas existe para não martelar o
+  servidor com 50 celulares — não para punir quem atendeu uma ligação. Voltar para a tela é sinal novo:
+  zera o contador e tenta de novo.
+- **O `<audio>` volta PAUSADO mesmo com a conexão de pé.** Reconectar sem mandar tocar deixa a pessoa
+  olhando um leilão mudo com tudo aparentemente funcionando.
+- **Handler de `RTCPeerConnection` fica amarrado à conexão que o criou.** `pc.close()` dispara
+  `connectionState = "closed"`, e um handler que não confere qual conexão disparou faz a reconexão contar
+  tentativa contra si mesma — uma religada legítima virava duas.
+
+### O incremento é fixo
+
+- **R$ 5, e ponto** (`INCREMENTO_PADRAO`). Configurar por leilão e por item existia e saiu: no pregão ao
+  vivo o locutor anuncia "de cinco em cinco" uma vez e ninguém confere tabela — incremento variável só
+  criava a chance de um item sair com regra diferente da que foi dita em voz alta. `incremento_efetivo`
+  devolve a constante e **não consulta o banco**; as duas colunas são dormentes.
+
 ### O pregão morre com o leilão
 
 - **Leilão fora do ar não tem item em pregão.** `mudar_status` fecha o chat **e** devolve o lote aberto para

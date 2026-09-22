@@ -84,6 +84,30 @@
                 </div>
             </div>
 
+            {% comment %}
+            A bilheteria. Ninguém paga nada enquanto o pregão corre — os itens
+            vão se acumulando na conta de cada um — e este botão é o que abre o
+            pagamento para TODO MUNDO de uma vez, no fim.
+
+            É do locutor porque é ele quem sabe que o último item foi batido, e
+            é uma alavanca (abre e fecha) porque apertar antes da hora acontece
+            e explicar sai mais caro do que desfazer.
+            {% endcomment %}
+            <div class="cartao bilheteria">
+                <h3>💳 Pagamentos</h3>
+                <p class="bilheteria-ajuda" id="bilheteriaEstado">
+                    {% if leilao.pagamentos_liberados %}
+                    Liberado: quem arrematou já vê o botão de pagar.
+                    {% else %}
+                    Fechado: ninguém paga ainda. Abra quando o leilão terminar.
+                    {% endif %}
+                </p>
+                <button type="button" class="btn-mesa liberar" id="btnLiberar"
+                        data-liberado="{{ leilao.pagamentos_liberados|yesno:"1," }}">
+                    {% if leilao.pagamentos_liberados %}🔒 Fechar pagamentos{% else %}💳 Liberar pagamentos{% endif %}
+                </button>
+            </div>
+
             <div class="cartao microfone">
                 <h3>🎙️ Sua voz</h3>
                 {% if audio_ativo %}
@@ -124,8 +148,6 @@
                     <button type="submit" class="btn-mini destaque">Enviar</button>
                 </form>
                 <div class="chat-acoes">
-                    <button type="button" class="btn-mini" data-acao="chat">💬 Abrir {{ leilao.chat_segundos }}s</button>
-                    <button type="button" class="btn-mini" data-acao="chat-fechar">Fechar</button>
                 </div>
             </div>
 

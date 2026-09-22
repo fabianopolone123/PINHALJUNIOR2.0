@@ -183,7 +183,11 @@ def estado_publico(leilao, *, com_chat=True):
             "nome": leilao.nome,
             "descricao": leilao.descricao,
             "status": leilao.status,
-            "minutos_para_pagar": leilao.minutos_para_pagar,
+            # Quem arremata paga no FIM, quando isto vira True. Vai no
+            # broadcast porque é o que faz o botão de pagar aparecer na tela de
+            # todo mundo ao mesmo tempo, sem recarregar — e não conta segredo
+            # nenhum: é o locutor anunciando "podem pagar".
+            "pagamentos_liberados": leilao.pagamentos_liberados,
         },
         # Espera e intervalo são coisas diferentes, e a tela precisa saber qual
         # das duas mostrar: antes do primeiro item a pessoa acabou de chegar
@@ -217,11 +221,10 @@ def estado_publico(leilao, *, com_chat=True):
         # nova para quem participa — o fio não se arrasta a noite toda. O
         # histórico completo é da mesa do locutor, por caminho próprio.
         msgs = leilao.mensagens.filter(removida=False)
-        if leilao.chat_aberto_em:
-            msgs = msgs.filter(criado_em__gte=leilao.chat_aberto_em)
+        # SEM filtro por rodada: o chat não é mais "do intervalo", é o fio da
+        # noite. O corte continua sendo o das 40 últimas, logo abaixo.
         dados["chat"] = {
             "aberto": leilao.chat_aberto,
-            "ate": iso(leilao.chat_aberto_ate) if leilao.chat_aberto else None,
             "mensagens": [
                 mensagem_publica(m)
                 for m in msgs.select_related("participante")

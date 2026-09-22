@@ -270,9 +270,16 @@ def reagir_view(request):
 
 
 def meus_arremates_view(request):
-    """Lista do participante — com o que é **privado** (o Pix é dele).
+    """A conta da pessoa: item por item, com o **total** embaixo.
 
-    Nada disso passa pelo broadcast: sai só aqui, autenticado pela sessão.
+    É a tela que substituiu o Pix por item com 15 minutos correndo. Enquanto o
+    leilão corre ela é só um extrato — não há botão de pagar, e é esse o ponto:
+    ninguém sai da disputa para mexer em banco. O botão aparece quando o
+    locutor libera (`pagamentos_liberados`).
+
+    Nada disso passa pelo broadcast: sai só aqui, autenticado pela sessão. O
+    escopo é o cadastro DESTA sessão — juntar por telefone entregaria a conta
+    de alguém a quem souber o número dela.
     """
     participante = participante_atual(request)
     if not participante:
@@ -288,76 +295,94 @@ def meus_arremates_view(request):
                 "valor": str(a.valor),
                 "status": a.status,
                 "status_texto": a.get_status_display(),
-                "segundos": a.segundos_para_pagar,
-                "expira_em": est.iso(a.expira_em),
-                "tem_pix": bool(a.pagamento_id and a.pagamento.qr_code),
+                "pago": a.status == "pago",
                 "combinado": a.status == "combinado",
             }
         )
+
+    leilao = Leilao.ao_vivo()
+    total_aberto = servicos.total_em_aberto(participante)
+    pagamento = None
+    abertos = servicos.arremates_em_aberto(participante).first()
+    if abertos and abertos.pagamento_id:
+        pagamento = abertos.pagamento
+
     # Sem Mercado Pago configurado, Pix nenhum vai nascer — e a tela precisa
     # dizer isso, em vez de prometer um "gerando…" que nunca termina. O leilão
-    # segue: o locutor combina o pagamento e dá baixa manual.
+    # segue: o caixa combina o pagamento e dá baixa manual.
     return JsonResponse(
         {
             "ok": True,
             "arremates": itens,
+            "total": str(total_aberto),
+            "quantos_abertos": servicos.arremates_em_aberto(participante).count(),
+            "liberado": bool(leilao and leilao.pagamentos_liberados),
+            "tem_pix": bool(pagamento and pagamento.qr_code),
             "pix_possivel": ConfigLeilao.get_solo().configurado,
         }
     )
 
 
-def arremate_pix_view(request, pk):
-    """Código copia e cola + QR do arremate. **Só do dono.**"""
+def arremate_pix_view(request, pk=None):
+    """UM Pix pelo total do que a pessoa levou. **Só do dono.**
+
+    O `pk` na rota sobrou do tempo em que cada item tinha a sua cobrança; ele é
+    ignorado de propósito, para um link velho aberto numa aba antiga não dar
+    404 na cara de quem está pagando.
+    """
     participante = participante_atual(request)
     if not participante:
         return JsonResponse({"ok": False}, status=401)
-    arremate = (
-        Arremate.objects.select_related("pagamento", "lote")
-        .filter(pk=pk, participante=participante)
-        .first()
-    )
-    if not arremate:
-        raise Http404
 
-    pagamento = arremate.pagamento
+    leilao = Leilao.ao_vivo()
+    if not (leilao and leilao.pagamentos_liberados):
+        # A trava é do SERVIDOR: esconder o botão não impede um POST forjado, e
+        # gerar cobrança antes da hora encheria a noite de Pix vivos.
+        return JsonResponse(
+            {"ok": False, "msg": "O pagamento ainda não foi liberado."}, status=409
+        )
+
+    if not servicos.arremates_em_aberto(participante).exists():
+        return JsonResponse({"ok": False, "msg": "Você não tem nada a pagar."}, status=409)
+
+    if not ConfigLeilao.get_solo().configurado:
+        return JsonResponse({
+            "ok": False,
+            "msg": "O pagamento deste leilão é combinado com a organização.",
+        })
+
+    pagamento = servicos.cobranca_do_participante(participante)
     if not pagamento:
-        if not ConfigLeilao.get_solo().configurado:
-            return JsonResponse({
-                "ok": False,
-                "gerando": False,
-                "msg": "O pagamento deste leilão é combinado com a organização.",
-            })
-        # Pode estar sendo gerado ainda (thread de fundo) — a tela espera e tenta de novo.
-        return JsonResponse({"ok": False, "gerando": True, "msg": "Gerando seu Pix…"})
+        return JsonResponse({"ok": False, "msg": "Não deu para gerar o Pix agora."}, status=502)
 
     return JsonResponse(
         {
             "ok": True,
-            "lote": arremate.lote.nome,
-            "valor": str(arremate.valor),
-            "status": arremate.status,
-            "segundos": arremate.segundos_para_pagar,
+            "valor": str(pagamento.valor_bruto),
+            "quantos": servicos.arremates_em_aberto(participante).count(),
             "copia_e_cola": pagamento.qr_code,
             "qr_base64": pagamento.qr_code_base64,
         }
     )
 
 
-def arremate_conferir_view(request, pk):
+def arremate_conferir_view(request, pk=None):
     """Pergunta ao Mercado Pago se caiu (reforço do webhook, que atrasa)."""
     participante = participante_atual(request)
     if not participante:
         return JsonResponse({"ok": False}, status=401)
-    arremate = (
-        Arremate.objects.select_related("pagamento", "lote")
-        .filter(pk=pk, participante=participante)
-        .first()
-    )
-    if not arremate:
-        raise Http404
-    pago = servicos.conferir_pagamento(arremate)
-    arremate.refresh_from_db()
-    return JsonResponse({"ok": True, "pago": pago, "status": arremate.status})
+
+    abertos = list(servicos.arremates_em_aberto(participante)[:1])
+    if not abertos:
+        # Nada em aberto: ou nunca teve, ou o webhook já quitou tudo.
+        return JsonResponse({"ok": True, "pago": True, "quantos_abertos": 0})
+
+    pago = servicos.conferir_pagamento(abertos[0])
+    return JsonResponse({
+        "ok": True,
+        "pago": pago,
+        "quantos_abertos": servicos.arremates_em_aberto(participante).count(),
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -599,15 +624,15 @@ def locutor_dados_view(request):
 ACOES_AREAS = {
     "abrir": ("locutor",),
     "fechar": ("locutor",),
-    "chat": ("locutor",),
     "aviso": ("locutor",),
     "mover": ("locutor", "preparacao"),
     "bloquear": ("locutor", "caixa"),
     "pago": ("caixa",),
     "combinado": ("caixa",),
-    # Esticar o prazo é conversa de caixa ("me dá mais uns minutos"), não de
-    # quem está com o martelo na mão.
-    "prazo": ("caixa",),
+    # Abrir a bilheteria no fim do leilão é do LOCUTOR: é ele quem sabe que o
+    # último item foi batido. Não mexe em dinheiro de ninguém — só destrava o
+    # botão de pagar na tela de quem arrematou.
+    "liberar": ("locutor",),
     "entregue": ("caixa",),
     # Quadro de entregas: arrastar uma parada e nomear a coluna.
     "entrega_mover": ("caixa",),
@@ -660,13 +685,8 @@ def locutor_acao_view(request):
         servicos.fechar_lote(lote, motivo="locutor")
         return JsonResponse({"ok": True, "msg": "Vendido!"})
 
-    if acao == "chat":
-        segundos = int(dados.get("segundos") or leilao.chat_segundos or 120)
-        if dados.get("fechar"):
-            servicos.fechar_chat(leilao)
-            return JsonResponse({"ok": True, "msg": "Chat fechado."})
-        servicos.abrir_chat(leilao, segundos)
-        return JsonResponse({"ok": True, "msg": "Chat aberto."})
+    # A ação "chat" (abrir/fechar por tempo) NÃO EXISTE MAIS: o chat fica
+    # aberto enquanto o leilão está no ar. Ver `Leilao.chat_aberto`.
 
     if acao == "aviso":
         servicos.enviar_mensagem(leilao, None, dados.get("texto"))
@@ -748,28 +768,17 @@ def locutor_acao_view(request):
             {"ok": True, "msg": "Combinado — o item não volta para a fila."}
         )
 
-    if acao == "prazo":
-        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
-        if arremate.status != "aguardando":
-            return JsonResponse(
-                {"ok": False, "msg": "Só dá para esticar o prazo de quem ainda está no relógio."},
-                status=409,
-            )
-        try:
-            minutos = int(dados.get("minutos") or 15)
-        except (TypeError, ValueError):
-            # Toda recusa desta view é JSON; um 500 de HTML aqui deixaria a tela
-            # sem explicação nenhuma no meio do evento.
-            return JsonResponse({"ok": False, "msg": "Tempo inválido."}, status=400)
-        servicos.estender_prazo(arremate, minutos)
-        arremate.refresh_from_db()
-        return JsonResponse(
-            {
-                "ok": True,
-                "msg": "Prazo esticado — o Pix novo chega em segundos.",
-                "segundos": arremate.segundos_para_pagar,
-            }
-        )
+    if acao == "liberar":
+        # Alavanca: o mesmo botão abre e fecha. O locutor pode ter apertado
+        # antes da hora, e fechar de novo é mais barato que explicar.
+        liberar = dados.get("liberar")
+        liberar = True if liberar is None else bool(liberar)
+        servicos.liberar_pagamentos(leilao, liberar)
+        return JsonResponse({
+            "ok": True,
+            "liberado": liberar,
+            "msg": "Pagamentos liberados." if liberar else "Pagamentos fechados.",
+        })
 
     if acao == "entregue":
         arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))

@@ -14,7 +14,7 @@
         <div class="kpi bom"><span>Pagos</span><b>{{ resumo.pagos|default:0 }}</b></div>
         <div class="kpi atencao"><span>Aguardando</span><b>{{ resumo.aguardando|default:0 }}</b></div>
         <div class="kpi atencao"><span>Vai pagar depois</span><b>{{ resumo.combinados|default:0 }}</b></div>
-        <div class="kpi ruim"><span>Venceu o prazo</span><b>{{ resumo.expirados|default:0 }}</b></div>
+        {# "Venceu o prazo" saiu: não há prazo. O que sobra é pago × devendo. #}
         <div class="kpi bom"><span>Arrecadado</span><b>R$ {{ resumo.arrecadado|default:"0,00" }}</b></div>
         <div class="kpi atencao"><span>A receber</span><b>R$ {{ resumo.a_receber|default:"0,00" }}</b></div>
     </div>
@@ -78,15 +78,10 @@
                     </button>
                     {% endif %}
                     {% if a.status == 'aguardando' %}
-                    <button type="button" class="btn-mini"
-                            data-acao="prazo" data-arremate="{{ a.id }}" data-minutos="15"
-                            title="A pessoa pediu mais tempo: soma 15 minutos e refaz o Pix.">
-                        ⏱️ +15 min
-                    </button>
                     {% comment %}
-                    Sem este botão, quem combinou de pagar amanhã perdia o item
-                    para o relógio dos 15 minutos — o oposto do que você acabou
-                    de acertar com a pessoa.
+                    O "⏱️ +15 min" saiu junto com o prazo: não há relógio para
+                    esticar. Quem não pagou fica devendo, e é isto aqui que
+                    você usa para registrar o que combinou com a pessoa.
                     {% endcomment %}
                     <button type="button" class="btn-mini"
                             data-acao="combinado" data-arremate="{{ a.id }}"
@@ -187,8 +182,8 @@
             </li>
             {% empty %}
             <li class="vazio">
-                Nada a entregar. Só entra aqui o que <b>já foi pago</b> — mandar o item antes do
-                dinheiro cair é o erro que o prazo de 15 minutos existe para evitar.
+                Nada a entregar. Só entra aqui o que <b>já foi pago</b> — mandar o item antes de
+                o dinheiro cair é o erro que esta lista existe para evitar.
             </li>
             {% endfor %}
         </ul>

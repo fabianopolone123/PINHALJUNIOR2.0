@@ -21,10 +21,8 @@
             {% include "leilao/_campo.html" with campo=form.nome %}
             {% include "leilao/_campo.html" with campo=form.descricao %}
 
-            <div class="entrada-grade">
-                <div class="col-meia">{% include "leilao/_campo.html" with campo=form.lance_inicial %}</div>
-                <div class="col-num">{% include "leilao/_campo.html" with campo=form.incremento %}</div>
-            </div>
+            {# O incremento saiu: é fixo em R$ 5,00 para todo item (ver models). #}
+            {% include "leilao/_campo.html" with campo=form.lance_inicial %}
 
             {% comment %}
             Peso e dimensões são para a ENTREGA: o voluntário escolhe o carro

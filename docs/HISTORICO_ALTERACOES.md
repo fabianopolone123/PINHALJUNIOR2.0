@@ -22,6 +22,80 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-21 - Leilão: o pagamento vai para o fim (e mais quatro pedidos)
+
+### Resumo
+Cinco mudanças pedidas juntas pelo clube. A maior é no dinheiro: **acabou o
+prazo de 15 minutos** — quem arremata acumula os itens e paga tudo num Pix só,
+quando o locutor libera, no fim.
+
+### O que foi feito
+**1. Pagamento no fim.** O arremate nasce sem prazo e sem cobrança. A gaveta
+mostra os itens um a um, com o valor, e o **total** fecha a lista. O locutor
+abre a bilheteria com um botão (`Leilao.pagamentos_liberados`, ação `liberar`),
+que é alavanca e vai no broadcast. A trava é do servidor: pedir o Pix antes leva
+409. Quem não paga fica devendo e o caixa cobra — o item não volta para a fila.
+Saíram `estender_prazo`, `expirar_arremate` e o `garantir_cobranca` por item.
+A referência nova é `LEILAOC-<participante>-<leilao>[-R<ts>]`, e a antiga
+continua sendo lida.
+
+**2. Áudio que não voltava.** Quem saía do site e voltava ficava sem ouvir e só
+resolvia fechando o navegador. Duas causas: sem `visibilitychange` (o navegador
+derruba a conexão e não a devolve) e a reconexão desistindo **para sempre**
+depois de 8 tentativas. O módulo agora escuta `visibilitychange` e `online`,
+`retomar()` zera o contador e religa, e o `<audio>` pausado é mandado tocar.
+Os handlers passaram a ser amarrados à conexão que os criou — `pc.close()`
+fazia a reconexão contar tentativa contra si mesma.
+
+**3. Incremento fixo em R$ 5.** As duas colunas viraram dormentes.
+
+**4. Chat aberto o leilão inteiro**, sem contagem. `Leilao.chat_aberto` virou
+`status == "ao_vivo"` — a mesma expressão que o servidor usa para aceitar.
+
+**5. Emojis fora da frente de tudo.** Os botões saíram do `position: fixed` e
+foram para o fluxo da página.
+
+### Arquivos criados/alterados
+- `leilao/models.py`: `pagamentos_liberados`; `expira_em` nulo;
+  `incremento_efetivo` fixo; `chat_aberto` derivado do status; dormentes
+  documentadas. Migration **0011**.
+- `leilao/servicos.py`: `liberar_pagamentos`, `cobranca_do_participante`,
+  `arremates_em_aberto`, `total_em_aberto`, `_conta_da_referencia`,
+  `cobrancas_do_participante`; fora `estender_prazo`, `expirar_arremate`,
+  `abrir_chat`, `fechar_chat`, `garantir_cobranca`.
+- `leilao/views.py`: ação `liberar`; views da conta reescritas.
+- `leilao/estado.py`: `pagamentos_liberados` no broadcast; chat sem prazo.
+- `leilao/urls.py`: `/conta/pix/` e `/conta/conferir/`.
+- `static/leilao/js/audio_ouvir.js`: `retomar()`, `visibilitychange`, `online`,
+  handlers amarrados à conexão.
+- `static/leilao/js/leilao.js`, `locutor.js`, `caixa.js`; `leilao.css`,
+  `locutor.css`; `leilao.html`, `locutor.html`, `caixa.html`, e os formulários.
+- `leilao/tests.py`: `PagamentoNoFimTests` (13); chat e prazo reescritos.
+
+### Decisões tomadas
+- **Um Pix pelo total**, não um por item (escolha do clube entre as três).
+- **Um botão só, para todos**, e não liberação por pessoa.
+- **Quem não paga fica devendo**; sem devolução do item à fila.
+- **O escopo da conta é a sessão**, nunca o telefone: juntar por telefone
+  entregaria os itens e o código Pix de alguém a quem souber o número dela.
+- **Os emojis no fluxo**, em vez de trocar de lado outra vez: a correção
+  anterior dependia de uma premissa que esta mesma leva derrubou.
+
+### Verificação
+- Suíte do leilão: **335 testes OK** (+13).
+- Sonda headless (390px): botão de lance (y=567), fileira de emojis (y=693,
+  `position: static`) e chat (y=749) empilhados, `ESTOURA=false`.
+- Os nove arquivos de JS conferidos por *parse* no Chrome.
+- Achado de quebra: o texto da porta do som ainda prometia "a música",
+  removida há tempos. Corrigido.
+
+### Pendências
+- A **voz ao vivo** segue sem prova sob carga — o ensaio com aparelhos reais
+  continua pendente, e agora o áudio tem uma correção que só se comprova em
+  celular de verdade: sair do site, voltar e ouvir.
+
+---
+
 ## 2026-09-21 - Leilão: a foto do item ganha dois botões (câmera e arquivo)
 
 ### Resumo

@@ -313,14 +313,8 @@
         chatCache = chatCache.concat([JSON.parse(e.data)]).slice(-120);
         desenharChatMesa();
     });
-    fonte.addEventListener("chat_estado", function (e) {
-        var d = JSON.parse(e.data);
-        if (!estado.chat) estado.chat = {};
-        estado.chat.aberto = d.aberto;
-        estado.chat.ate = d.ate;
-        // O histórico da MESA não zera no intervalo — só o dos participantes.
-        desenharChatMesa();
-    });
+    // O evento `chat_estado` NÃO EXISTE MAIS: o chat fica aberto enquanto o
+    // leilão está no ar, e isso já vem em `estado.chat.aberto`.
     fonte.addEventListener("online", function (e) {
         var d = JSON.parse(e.data);
         if (estado) estado.online = d.online;
@@ -338,12 +332,36 @@
     /* ---------------------------------------------------------------
        Botões
        --------------------------------------------------------------- */
+    /* Bilheteria: a alavanca que abre o pagamento para todo mundo no fim.
+       Com guarda: ligar um listener num id que não existe é TypeError em cima
+       de null, o arquivo morre naquela linha e nada depois é ligado — e esta
+       tela é a mesa do locutor no meio do evento. (Sem escrever o atalho de
+       busca por id aqui: o teste que varre os ids lê o arquivo CRU, comentário
+       incluído, e acharia que a tela precisa de um elemento chamado "id".) */
+    var btnLiberar = document.getElementById("btnLiberar");
+    if (btnLiberar) {
+        btnLiberar.addEventListener("click", function () {
+            var liberado = btnLiberar.dataset.liberado === "1";
+            acao({ acao: "liberar", liberar: !liberado }).then(function (d) {
+                if (!d || !d.ok) return;
+                var agora = !!d.liberado;
+                btnLiberar.dataset.liberado = agora ? "1" : "";
+                btnLiberar.textContent = agora ? "🔒 Fechar pagamentos" : "💳 Liberar pagamentos";
+                var txt = document.getElementById("bilheteriaEstado");
+                if (txt) {
+                    txt.textContent = agora
+                        ? "Liberado: quem arrematou já vê o botão de pagar."
+                        : "Fechado: ninguém paga ainda. Abra quando o leilão terminar.";
+                }
+            });
+        });
+    }
+
     document.addEventListener("click", function (e) {
         var alvo = e.target.closest("[data-acao]");
         if (!alvo) return;
         var qual = alvo.dataset.acao;
 
-        if (qual === "chat-fechar") { acao({ acao: "chat", fechar: true }); return; }
         if (qual === "microfone") return;   // tratado abaixo
 
         var corpo = { acao: qual };

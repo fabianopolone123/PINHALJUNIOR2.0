@@ -2,7 +2,57 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-21 (**Leilão: a foto do item ganha DOIS botões — câmera e arquivo**):
+**Última atualização:** 2026-09-21 (**Leilão: o pagamento vai para o fim, e mais quatro pedidos do clube**):
+cinco mudanças pedidas de uma vez, a maior delas no dinheiro.
+
+**1. Acabou o prazo de 15 minutos.** Quem arremata não paga mais na hora: os itens **se acumulam na conta
+da pessoa** e ela paga **tudo num Pix só**, quando o locutor abre a bilheteria no fim. O prazo existia para
+a pessoa não sair do leilão para pagar — e fazia exatamente isso, tirando do pregão quem estava disputando,
+além de devolver o item à fila de quem só estava sem o celular na mão. Na gaveta 🏆 os arremates aparecem
+**um a um, com o valor**, e o **total** fecha a lista. Enquanto não libera, a tela **diz** que o pagamento
+abre no fim, em vez de mostrar um botão que o servidor recusaria. A liberação é **um botão só, do locutor**
+(`Leilao.pagamentos_liberados`, ação `liberar` em `ACOES_AREAS`) — é ele quem sabe que o último item foi
+batido —, é **alavanca** (apertar antes da hora acontece) e viaja no broadcast, então o botão de pagar
+aparece em todas as telas sem recarregar. **A trava é do servidor**: pedir o Pix antes da liberação leva
+409. Quem não paga **fica devendo** e o caixa cobra — o item **não volta mais para a fila** por relógio
+nenhum. Saíram `estender_prazo` (o "⏱️ +15 min" do caixa), `expirar_arremate` e o `garantir_cobranca` por
+item; `verificar_prazos` ficou **sem nada a fazer** e o documenta. **A âncora do dinheiro continua sendo a
+REFERÊNCIA**, não a FK: o formato novo é `LEILAOC-<participante>-<leilao>[-R<ts>]`, e o antigo
+(`LEILAO-<arremate>`) **continua sendo lido**, porque aquelas cobranças existem e ainda podem ser pagas.
+Colunas dormentes: `minutos_para_pagar` e `Arremate.expira_em`.
+
+**2. O áudio parava e não voltava.** Quem saía do site e voltava ficava **sem ouvir**, e só resolvia
+fechando o navegador — que ninguém adivinha. Eram duas causas somadas: o módulo de áudio **não escutava
+`visibilitychange`** (o navegador derruba a conexão quando a aba sai da frente e **não a devolve**) e, pior,
+a reconexão **desistia para sempre** depois de 8 tentativas, sem nada que a reativasse. Agora ele escuta
+`visibilitychange` **e** `online` sozinho, `retomar()` zera o contador e religa, e o `<audio>` que volta
+pausado é mandado tocar de novo. De quebra, os handlers passaram a ser **amarrados à conexão que os criou**:
+`pc.close()` dispara `connectionState=closed` e fazia a reconexão contar tentativa contra si mesma.
+
+**3. Incremento fixo em R$ 5.** Configurar por leilão e por item saiu: no pregão ao vivo o locutor anuncia
+"de cinco em cinco" uma vez e ninguém confere tabela — incremento variável só criava a chance de um item
+sair com regra diferente da que foi falada em voz alta. `Leilao.incremento_padrao` e `Lote.incremento`
+ficaram dormentes; `incremento_efetivo` devolve a constante e **não consulta o banco**.
+
+**4. O chat fica aberto o leilão inteiro**, sem contagem. Ele abria por `chat_segundos` no intervalo e
+fechava quando um item ia a pregão. `Leilao.chat_aberto` virou **uma expressão só** (`status == "ao_vivo"`)
+— a mesma que o servidor usa para aceitar mensagem, o que torna a divergência entre tela e servidor
+impossível por construção. O fio **não zera mais** a cada item (o corte continua sendo o das 40 últimas).
+Saíram `abrir_chat`/`fechar_chat`, a ação `chat` da mesa, o evento `chat_estado` e a contagem na tela.
+Dormentes: `chat_segundos`, `chat_aberto_em`, `chat_aberto_ate`.
+
+**5. Os emojis não cobrem mais nada.** Os botões de reagir eram `position: fixed` no canto e cobriam o ➤ de
+enviar do chat; a saída de então era **trocá-los de lado** com o chat aberto, e ela dependia de uma premissa
+que o item 4 derrubou — *"com o chat aberto o botão de lance não está na tela"*. Com o chat aberto o leilão
+inteiro não há lado livre, então eles foram para o **fluxo da página**, em fileira, com espaço próprio:
+elemento que não flutua não cobre nada, e é a única solução que não volta a quebrar quando a tela mudar.
+Medido: botão de lance, fileira de emojis e chat empilhados, **zero estouro horizontal**. O trilho por onde
+os emojis sobem continua fixo e `pointer-events: none` — ele nunca rouba toque.
+
+Corrigido de quebra um texto da **porta do som** que ainda prometia "a música", removida há tempos.
+Migration **`leilao/0011`**. Suíte do leilão: **335 testes OK** (+13, `PagamentoNoFimTests`).
+
+**Atualização anterior:** 2026-09-21 (**Leilão: a foto do item ganha DOIS botões — câmera e arquivo**):
 correção do que subiu poucas horas antes. Tirar o `capture` devolveu a galeria e **custou a câmera**: o clube
 testou no celular e **só apareceu "escolher arquivos"**. O motivo é do sistema, não do site — no **Android
 13+** o navegador passa a abrir o **seletor de fotos** do Android para `accept="image/*"`, e esse seletor

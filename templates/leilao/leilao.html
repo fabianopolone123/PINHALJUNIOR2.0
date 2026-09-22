@@ -15,7 +15,7 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
     <div class="porta-som-caixa">
         <div class="porta-som-icone">🔊</div>
         <h1>Toque para entrar com som</h1>
-        <p>Você vai ouvir a narração ao vivo, a música e o aviso de cada lance novo.</p>
+        <p>Você vai ouvir a narração ao vivo e o aviso de cada lance novo.</p>
         <button type="button" class="btn-porta-som" id="btnPortaSom">Entrar com som</button>
         {% comment %}
         Aqui havia um segundo botão, "Entrar sem som". Saiu de propósito: quem
@@ -118,9 +118,29 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
         </div>
     </div>
 
-    {# Chat do intervalo — conversa NOVA a cada intervalo. #}
+    {% comment %}
+    Os botões de reagir ficam NO FLUXO da página, com espaço próprio.
+
+    Eles eram `position: fixed` no canto inferior e cobriam o que estivesse
+    embaixo — o ➤ de enviar do chat, principalmente. A saída de então foi
+    trocá-los de lado quando o chat abrisse, e ela dependia de uma premissa que
+    deixou de valer: "com o chat aberto o botão de lance não está na tela".
+    Agora o chat fica aberto o leilão INTEIRO, então os dois convivem e não há
+    canto livre nenhum para onde fugir.
+
+    Elemento que não flutua não cobre nada: é a única solução que não volta a
+    quebrar quando a tela mudar de novo.
+    {% endcomment %}
+    <div class="reacoes-botoes" id="reacoesBotoes" hidden>
+        {% for e in emojis %}
+        <button type="button" class="btn-reacao" data-emoji="{{ e }}"
+                aria-label="Reagir com {{ e }}">{{ e }}</button>
+        {% endfor %}
+    </div>
+
+    {# Bate-papo: aberto o leilão inteiro, sem contagem. #}
     <section class="chat" id="chat" hidden>
-        <h2 class="chat-titulo">💬 Bate-papo <span class="chat-tempo" id="chatTempo"></span></h2>
+        <h2 class="chat-titulo">💬 Bate-papo</h2>
         <ul class="chat-lista" id="chatLista"></ul>
         <form class="chat-form" id="chatForm">
             <input type="text" id="chatTexto" maxlength="300" placeholder="Escreva uma mensagem…"
@@ -138,18 +158,12 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
 </main>
 
 {% comment %}
-Reações. O trilho por onde os emojis sobem fica FORA do <main> e com
+O TRILHO por onde os emojis sobem fica fora do <main> e com
 `pointer-events:none`: eles passam por cima da tela sem nunca roubar o toque do
-botão de lance, que é o que não pode falhar.
+botão de lance, que é o que não pode falhar. Os BOTÕES de reagir, esses, moram
+no fluxo normal da página (logo acima do chat) — ver o comentário lá.
 {% endcomment %}
 <div class="reacoes-trilho" id="reacoesTrilho" aria-hidden="true"></div>
-
-<div class="reacoes-botoes" id="reacoesBotoes" hidden>
-    {% for e in emojis %}
-    <button type="button" class="btn-reacao" data-emoji="{{ e }}"
-            aria-label="Reagir com {{ e }}">{{ e }}</button>
-    {% endfor %}
-</div>
 
 {# ---- Gaveta: meus arremates (abre por cima, o pregão continua atrás) ---- #}
 <aside class="gaveta" id="gaveta" hidden>
@@ -172,7 +186,7 @@ botão de lance, que é o que não pode falhar.
             <button type="button" class="modal-fechar" id="qrFechar" aria-label="Fechar">✕</button>
         </div>
         <div class="modal-corpo qr-corpo">
-            <p class="qr-item" id="qrItem"></p>
+            <p class="qr-item" id="qrItem"></p>{# quantos itens a conta tem #}
             <p class="qr-valor" id="qrValor"></p>
             <img id="qrImagem" alt="QR Code do Pix" hidden>
             <p class="qr-prazo" id="qrPrazo"></p>
@@ -207,8 +221,8 @@ Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do proje
     "chat": "{% url 'leilao:chat_enviar' %}",
     "reagir": "{% url 'leilao:reagir' %}",
     "arremates": "{% url 'leilao:meus_arremates' %}",
-    "pix": "{% url 'leilao:arremate_pix' 0 %}",
-    "conferir": "{% url 'leilao:arremate_conferir' 0 %}"
+    "pix": "{% url 'leilao:conta_pix' %}",
+    "conferir": "{% url 'leilao:conta_conferir' %}"
 }</script>
 <script src="{% static 'leilao/js/som.js' %}"></script>
 <script src="{% static 'leilao/js/tela_acesa.js' %}"></script>

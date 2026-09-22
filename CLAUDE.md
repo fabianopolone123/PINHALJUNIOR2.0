@@ -46,6 +46,13 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
 - **A prioridade do dia é: voz ao vivo e lance primeiro; emoji e enfeite depois** — e é o enfeite que o
   servidor descarta quando aperta.
 - **O dinheiro é ancorado na `referencia` do pagamento**, não na FK (refazer o Pix troca a FK).
+- **Não há prazo para pagar, e o pagamento é UM Pix pelo total.** Os itens se acumulam na conta de quem
+  arremata e o **locutor libera no fim** (`pagamentos_liberados`); a trava é da view, não do botão. Quem
+  não paga fica devendo — o item **não volta para a fila**.
+- **Não há cronômetro, nem contagem no chat, nem incremento configurável**: o martelo é do locutor, o chat
+  fica aberto o leilão inteiro e o lance soma **R$ 5 fixos**. As colunas ficaram dormentes; não religue.
+- **Nada flutuante em cima de controle**: os botões de reagir moram no fluxo da página. Elemento que não
+  flutua não cobre nada.
 - **Três áreas de equipe** (preparação/locutor/caixa) + diretor; quem protege é a view, nunca o menu.
 - **O item tem peso e dimensões, obrigatórios** (mig. **0010**): a exigência mora no `LoteForm`, não no
   model (item anterior à migration continua válido). O texto sai de **`Lote.medidas_texto`** — um lugar só
