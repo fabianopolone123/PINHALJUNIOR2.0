@@ -1868,6 +1868,76 @@ class SoSeEntraComSomTests(TestCase):
         self.assertIn('id="btnSom"', html)
 
 
+class FuncaoQueOJsCHAMAExisteTests(TestCase):
+    """Chamar função que não existe mata o arquivo de JS INTEIRO.
+
+    É `ReferenceError`: o script morre naquela linha e **nada depois é
+    executado** — a tela abre bonita, o item novo não aparece, o lance não
+    desenha, e a sensação para quem está no evento é de "o sistema está com
+    atraso". Foi exatamente o que aconteceu ao tirar a contagem de tempo do
+    chat: a função saiu e **uma chamada ficou para trás**.
+
+    O `BotoesQueOJsProcuraExistemTests` não pega isto — ele cuida do outro lado
+    (id que o JS procura e o template não tem). Este aqui varre o caminho
+    inverso: nome chamado como função que não está declarado em lugar nenhum
+    do arquivo.
+
+    É uma varredura de texto, não um interpretador: comentários e strings saem
+    antes, e o que é global do navegador está na lista. Não pega tudo — pega a
+    classe de erro que já derrubou a tela duas vezes, que é a que importa.
+    """
+
+    GLOBAIS = set("""
+        fetch setTimeout setInterval clearTimeout clearInterval parseInt parseFloat isNaN
+        Number String Boolean Array Object JSON Math Date Promise Error RegExp Map Set
+        WeakMap Symbol encodeURIComponent decodeURIComponent alert confirm require define
+        console escape unescape structuredClone queueMicrotask requestAnimationFrame
+        cancelAnimationFrame getComputedStyle matchMedia atob btoa Intl AudioContext
+        webkitAudioContext RTCPeerConnection EventSource URL Blob File FileReader FormData
+        Headers Request Response AbortController DataTransfer Image Audio Notification
+        IntersectionObserver MutationObserver ResizeObserver CustomEvent Event
+        KeyboardEvent MouseEvent TouchEvent Uint8Array Uint8ClampedArray Float32Array
+        Int16Array ArrayBuffer
+        if for while switch catch return typeof instanceof new delete void do else try
+        finally function window document
+    """.split())
+
+    def test_toda_funcao_chamada_esta_declarada(self):
+        import re
+
+        pasta = Path(settings.BASE_DIR, "static", "leilao", "js")
+        problemas = []
+        for arquivo in sorted(pasta.glob("*.js")):
+            txt = arquivo.read_text(encoding="utf-8")
+            # Comentário e string saem ANTES: um comentário que cite uma função
+            # removida não é uma chamada, e já houve falso positivo assim.
+            limpo = re.sub(r"/\*.*?\*/", " ", txt, flags=re.S)
+            limpo = re.sub(r"//[^\n]*", " ", limpo)
+            limpo = re.sub(r'"[^"\n]*"', '""', limpo)
+            limpo = re.sub(r"'[^'\n]*'", "''", limpo)
+
+            declarados = set(re.findall(r"function\s+([A-Za-z_$][\w$]*)", limpo))
+            declarados |= set(re.findall(r"(?:var|let|const)\s+([A-Za-z_$][\w$]*)", limpo))
+            declarados |= set(re.findall(r"([A-Za-z_$][\w$]*)\s*:\s*function", limpo))
+            for params in re.findall(r"function[^(]*\(([^)]*)\)", limpo):
+                for nome in params.split(","):
+                    nome = nome.strip()
+                    if nome:
+                        declarados.add(nome)
+
+            # `algo(` só conta quando NÃO vem depois de ponto: `obj.metodo()` é
+            # método de outro objeto, não função deste arquivo.
+            chamados = set(
+                m.group(1)
+                for m in re.finditer(r"(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(", limpo)
+            )
+            faltam = sorted(chamados - declarados - self.GLOBAIS)
+            if faltam:
+                problemas.append(f"{arquivo.name} chama {', '.join(faltam)}, que não existe lá")
+
+        self.assertEqual(problemas, [], "; ".join(problemas))
+
+
 class BotoesQueOJsProcuraExistemTests(TestCase):
     """`$("id").addEventListener` num id que não existe derruba o arquivo TODO.
 

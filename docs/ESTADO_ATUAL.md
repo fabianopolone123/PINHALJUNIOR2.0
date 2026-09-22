@@ -2,7 +2,27 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-21 (**Leilão: o pagamento vai para o fim, e mais quatro pedidos do clube**):
+**Última atualização:** 2026-09-22 (**Leilão: correção — uma chamada órfã derrubava o JS da tela inteira**):
+logo depois do deploy anterior o clube avisou que a tela "não estava atualizando" — abrir o próximo item no
+locutor **não aparecia no celular**, e tudo parecia atraso. Não era atraso nem SSE: era **`ReferenceError`**.
+Ao tirar a contagem de tempo do chat, a função `atualizarTempoChat` saiu e **uma chamada ficou para trás**
+dentro do `desenharChat`. O script morria naquela linha e **nada depois era executado** — o cliente parava
+de desenhar o lote, o lance e o resto. É a mesma classe de erro que o projeto já documentava para ids
+(`$("x")` nulo), agora pelo outro lado: **nome chamado que não existe**.
+
+Entrou a guarda que faltava, `FuncaoQueOJsCHAMAExisteTests`: varre os **14** arquivos de JS do leilão e
+acusa todo nome chamado como função que não está declarado ali. Ela tira comentários e strings antes (um
+comentário citando função removida não é chamada — já houve falso positivo assim) e tem a lista dos globais
+do navegador. **Foi validada dos dois lados**: limpa no código corrigido e **falhando** com o bug
+reintroduzido de propósito. O `BotoesQueOJsProcuraExistemTests` continua cuidando do caminho inverso (id que
+o JS procura e o template não tem); são as duas pontas do mesmo problema.
+
+Também ficou registrado o **método** que achou isto em minutos: renderizar a tela real pelo test client e
+abri-la no Chrome headless com `window.addEventListener("error", …)` **antes** dos scripts da página, lendo
+o resultado pelo `document.title`. Sonda que escreve no DOM não serve aqui (e `body` pode ser flex).
+Suíte do leilão: **336 testes OK** (+1).
+
+**Atualização anterior:** 2026-09-21 (**Leilão: o pagamento vai para o fim, e mais quatro pedidos do clube**):
 cinco mudanças pedidas de uma vez, a maior delas no dinheiro.
 
 **1. Acabou o prazo de 15 minutos.** Quem arremata não paga mais na hora: os itens **se acumulam na conta

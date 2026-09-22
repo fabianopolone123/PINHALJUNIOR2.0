@@ -1070,6 +1070,22 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **`servidor_em` continua obrigatório no estado.** Sem cronômetro ele ainda é o que faz a mesa calcular o
   silêncio pelo relógio do SERVIDOR; pelo do aparelho, quem estivesse com a hora errada veria outro número.
 
+### Remover código JS tem DOIS lados
+
+- **Tirou a função, tire as chamadas.** `ReferenceError` mata o arquivo inteiro: o script morre naquela
+  linha e **nada depois é ligado**. A tela abre bonita, o item novo não aparece, o lance não desenha — e
+  quem está no evento descreve isso como *"o sistema está com atraso"*, que manda você investigar a rede e
+  o SSE em vez do JS. Já aconteceu com `atualizarTempoChat` ao remover a contagem do chat.
+- **São duas guardas, e as duas são necessárias**: `BotoesQueOJsProcuraExistemTests` (id que o JS procura e
+  o template não tem) e `FuncaoQueOJsCHAMAExisteTests` (nome chamado que não está declarado no arquivo).
+  Uma não pega o que a outra pega.
+- **Comentário conta como texto, não como código.** As duas varreduras leem o arquivo cru; a segunda tira
+  comentários e strings antes justamente porque um comentário citando a função removida daria falso
+  positivo — e a primeira já deu, com `$("id")` escrito dentro de um comentário.
+- **Para achar esse tipo de erro em minutos**: renderize a tela pelo test client, injete
+  `window.addEventListener("error", …)` **antes** dos scripts da página e leia o resultado pelo
+  `document.title`. Não escreva a sonda no DOM — `body` pode ser flex e a sonda desmonta o layout.
+
 ### O dinheiro fecha no FIM (não item a item)
 
 - **Ninguém sai do leilão para pagar.** Os arremates se acumulam na conta da pessoa e ela paga **tudo num

@@ -22,6 +22,50 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-22 - Leilão: chamada órfã derrubava o JS da tela inteira
+
+### Resumo
+Logo depois do deploy anterior, o clube avisou que a tela "não estava
+atualizando": abrir o próximo item no locutor **não aparecia no celular**, e
+tudo parecia atraso.
+
+Não era atraso, nem SSE, nem rede: era **`ReferenceError`**.
+
+### O que houve
+Ao remover a contagem de tempo do chat, a função `atualizarTempoChat` saiu e
+**uma chamada ficou para trás**, dentro do `desenharChat`. O script morria
+naquela linha e **nada depois era executado** — o cliente parava de desenhar o
+lote, o lance e o resto.
+
+A descrição do sintoma ("está com atraso") aponta para o lado errado: faz
+investigar rede e SSE, quando o problema era o JS morto na primeira vez que o
+chat foi desenhado.
+
+### O que foi feito
+- `static/leilao/js/leilao.js`: removida a chamada órfã.
+- `leilao/tests.py`: **`FuncaoQueOJsCHAMAExisteTests`** — varre os 14 arquivos
+  de JS do leilão e acusa todo nome chamado como função que não está declarado
+  ali. Tira comentários e strings antes e tem a lista dos globais do navegador.
+
+### Decisões tomadas
+- **Guarda nas duas pontas.** `BotoesQueOJsProcuraExistemTests` cuida do id que
+  o JS procura e o template não tem; a nova cuida do nome chamado que não
+  existe. Uma não pega o que a outra pega, e as duas já correspondem a bugs
+  reais que chegaram à tela.
+- **A varredura ignora comentário e string de propósito**: a guarda antiga já
+  deu falso positivo com um `$("id")` escrito dentro de um comentário.
+- **Validada dos dois lados**: limpa no código corrigido e falhando com o bug
+  reintroduzido. Guarda que não falha com o bug de volta não é guarda.
+
+### Verificação
+- Método que achou o erro: render da tela real pelo test client + Chrome
+  headless com `window.addEventListener("error", …)` injetado **antes** dos
+  scripts, lido pelo `document.title`. Apontou o arquivo e a linha direto.
+- Depois da correção: `ERROS[nenhum]`.
+- Suíte do leilão: **336 testes OK** (+1).
+
+---
+
 ## 2026-09-21 - Leilão: o pagamento vai para o fim (e mais quatro pedidos)
 
 ### Resumo

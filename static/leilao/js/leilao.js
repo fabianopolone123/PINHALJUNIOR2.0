@@ -378,7 +378,6 @@
             c.mensagens.forEach(function (m) { lista.appendChild(linhaChat(m)); });
         }
         lista.scrollTop = lista.scrollHeight;
-        atualizarTempoChat();
     }
 
     function linhaChat(m) {
