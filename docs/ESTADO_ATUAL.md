@@ -21,6 +21,13 @@ Também ficou registrado o **método** que achou isto em minutos: renderizar a t
 abri-la no Chrome headless com `window.addEventListener("error", …)` **antes** dos scripts da página, lendo
 o resultado pelo `document.title`. Sonda que escreve no DOM não serve aqui (e `body` pode ser flex).
 Suíte do leilão: **336 testes OK** (+1).
+**Em produção** no commit `24e272a` (22/09/2026): sem migration, estáticos do leilão coletados e o
+`pinhaljunior_leilao.service` reiniciado (§7.1); nenhum leilão ao vivo e nenhum item em pregão na hora.
+Conferido **o arquivo que o navegador realmente baixa** — o `staticfiles.json` aponta
+`leilao/js/leilao.js` para `leilao.2a5f5cca2356.js`, e esse arquivo, buscado pela URL pública, **não tem
+mais a chamada órfã**. A checagem valeu a pena: o `collectstatic` relatou "0 arquivos copiados", o que
+assusta, mas era só o manifesto já apontando para o hash novo — as versões antigas continuam no disco e
+uma delas ainda contém o bug, então **grep na pasta de estáticos engana**; o que vale é o hash do manifesto.
 
 **Atualização anterior:** 2026-09-21 (**Leilão: o pagamento vai para o fim, e mais quatro pedidos do clube**):
 cinco mudanças pedidas de uma vez, a maior delas no dinheiro.
