@@ -51,6 +51,15 @@ os emojis sobem continua fixo e `pointer-events: none` — ele nunca rouba toque
 
 Corrigido de quebra um texto da **porta do som** que ainda prometia "a música", removida há tempos.
 Migration **`leilao/0011`**. Suíte do leilão: **335 testes OK** (+13, `PagamentoNoFimTests`).
+**Em produção** no commit `a75cc9c` (22/09/2026), com a migration **`leilao/0011`** aplicada, os estáticos
+do leilão coletados e o `pinhaljunior_leilao.service` reiniciado (o passo extra do `docs/DEPLOY_LEILAO.md`
+§7.1). **Havia um leilão ao vivo na hora** — o de teste do clube —, então foi conferido antes o que o §7.1
+manda: **nenhum item em pregão**, nenhum arremate pendente naquele leilão e **1 pessoa conectada**. Backup
+do banco do leilão em `backup/leilao_antes_pagamento_no_fim_20260922_021853.sqlite3`. Depois: os dois sites
+responderam 200 e o SSE já traz o formato novo — `pagamentos_liberados: false`, **sem** `minutos_para_pagar`,
+chat **aberto** (antes do deploy estava fechado, porque dependia do relógio) e sem `ate`. No servidor:
+`incremento_efetivo` = 5,00 e os **11 arremates antigos mantêm o `expira_em`** que tinham, como histórico —
+nada é reescrito para trás.
 
 **Atualização anterior:** 2026-09-21 (**Leilão: a foto do item ganha DOIS botões — câmera e arquivo**):
 correção do que subiu poucas horas antes. Tirar o `capture` devolveu a galeria e **custou a câmera**: o clube
