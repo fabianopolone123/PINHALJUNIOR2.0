@@ -36,7 +36,17 @@ criado via uma página que nunca carregava — existia antes, o `follow=True` do
 plural **"itemns"** (`pluralize:"ns"` sobre "item"; o certo é `ite{{ n|pluralize:"m,ns" }}`), em três
 lugares. O comportamento dos **modais** virou um arquivo só (`modal.js`), com a regra do projeto
 dentro: fecha no fundo só com `mousedown` **e** `click` no fundo. Suíte do leilão: **384 testes
-OK** (+30). Migration **`leilao/0012`**.
+OK** (+30).
+**Em produção** no commit `cf722c8` (23/09/2026), com a migration **`leilao/0012`** aplicada, os
+estáticos do leilão coletados e o `pinhaljunior_leilao.service` reiniciado (§7.1) — com **nenhum
+leilão no ar e nenhum item em pregão**. Backup do banco do leilão em
+`backup/leilao_antes_devolver_item_20260923_132605.sqlite3`, porque o `pinhaljunior2-deploy` faz
+backup só do banco do clube; feito com o **`.backup` do sqlite** (pelo módulo do Python — o binário
+`sqlite3` não existe no servidor), que copia consistente mesmo com o serviço no ar, ao contrário do
+`cp`. Depois: os dois sites em 200, o SSE devolvendo `event: estado`, as três rotas novas
+respondendo, os três arquivos de JS novos baixando pela URL pública (o `modal.js` servido traz a
+regra do `mousedown`+`click` no fundo) e o campo novo no banco — **15 arremates, 0 devolvidos, 3 a
+entregar**, ou seja, nada mudou de significado para os dados que já existiam.
 
 **Atualização anterior:** 2026-09-23 (**Faxina: a documentação parou de ensinar o que foi removido**):
 revisão pedida pelo clube. Desde 21/09 o leilão perdeu **quatro regras de produto** — cronômetro,
