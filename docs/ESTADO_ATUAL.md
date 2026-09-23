@@ -26,7 +26,16 @@ continuou calculando com ele (resto de remoção, mesma família do erro que der
 **tira comentário antes** de procurar o texto do bug, senão acusaria a própria documentação da
 correção, que cita o texto. Sonda headless em 1366/1024/900/390 px: as duas linhas com três cards
 preenchidos e `scrollWidth == clientWidth` em todas. Suíte do leilão: **347 testes OK** (+4,
-`ATelaDaMesaNaoDeixaBuracoTests`). **Sem migration.**
+`ATelaDaMesaNaoDeixaBuracoTests`).
+**Em produção** no commit `594fad0` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (§7.1). O leilão de teste do clube seguia no ar com o
+lote 22 aberto, como no deploy anterior do mesmo dia — o clube já havia confirmado que é estado
+esquecido. Conferido pelo hash do manifesto: `locutor.16fcf6a4254c.js` **não usa mais `c.ate`** e
+`locutor.ca3331e1aac6.css` traz `pregao-linha` e `chat-card`, sem a regra morta `.chat-acoes`. Aviso
+para quem for conferir de novo: **`grep "fecha em"` no JS servido devolve 2 acertos e isso está
+certo** — é o comentário que documenta a correção citando o texto do bug. O que produzia o `NaN` era
+o `c.ate`, e é ele que tem de dar zero (foi por isso, também, que a guarda precisou tirar os
+comentários antes de procurar).
 
 **Atualização anterior:** 2026-09-22 (**Leilão: a mesa do locutor sente a sala**): dois pedidos do
 clube, do mesmo tipo. Quem conduz o pregão **não lê** a tela — está falando, de olho no microfone e
