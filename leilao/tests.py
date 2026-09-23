@@ -4344,3 +4344,91 @@ class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
         # O texto e o campo que o alimentava; sem o segundo, o primeiro vira NaN.
         self.assertNotIn("fecha em", limpo)
         self.assertNotIn("c.ate", limpo)
+
+
+class OQueOLocutorLeEmVozAltaTests(TestCase):
+    """Dois pedidos do clube sobre a mesa, depois de usá-la num pregão.
+
+    **A lista do chat tem de rolar.** Ela rolava; parou de rolar quando o campo
+    de falar foi preso no rodapé e o `max-height` saiu junto. Com 20 mensagens
+    a lista ia a 1093px e levava a linha inteira — os três cards de uma linha
+    têm a altura do mais alto —, empurrando a mesa para fora da tela. Guarda
+    dupla, porque são dois jeitos de quebrar isso: sem o teto a lista cresce;
+    sem o `min-height: 0` um item flex não encolhe abaixo do conteúdo e o
+    `overflow-y` nunca entra em ação.
+
+    **"Valor atual" e "Ganhando" são maiores que o resto.** São o que o locutor
+    ANUNCIA, olhando de longe e de relance; o próximo lance é o valor atual
+    mais cinco, e quem conduz já sabe. Por isso os dois dividem a linha de cima
+    e o terceiro ocupa a de baixo, menor.
+
+    E o **nome é menor que o valor**, de propósito: "R$ 1.234,00" tem tamanho
+    previsível, um nome não. Na mesma letra do valor, dois sobrenomes longos
+    viram quatro linhas e o card cresce empurrando o ▶ Abrir e o 🔨 VENDIDO
+    para fora do alcance. Encolher é melhor do que cortar — o nome com
+    reticências é justamente o que ele tem de ler em voz alta.
+    """
+
+    def setUp(self):
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("loc_voz", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="loc_voz", password="segredo-ficticio")
+
+    def _css(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(
+            encoding="utf-8"
+        )
+
+    def _regra(self, seletor):
+        """O corpo da regra CSS de um seletor (o que está entre as chaves)."""
+        css = self._css()
+        i = css.index(seletor)
+        return css[i : css.index("}", i)]
+
+    def test_a_lista_do_chat_rola_em_vez_de_crescer(self):
+        regra = self._regra(".cartao.chat-card .chat-mesa")
+        self.assertIn("max-height", regra)
+        self.assertNotIn("max-height: none", regra)
+        # Sem isto o item flex não encolhe abaixo do conteúdo e não há rolagem.
+        self.assertIn("min-height: 0", regra)
+        # O `overflow-y: auto` mora na regra base da lista. Procurado por
+        # regex e não por `index`: `.chat-mesa` aparece antes num seletor
+        # AGRUPADO (`.historico, .fila, …, .chat-mesa`), e o corpo daquele é
+        # outro — foi nele que esta guarda caiu na primeira execução.
+        self.assertRegex(self._css(), r"\.chat-mesa\s*\{[^}]*overflow-y:\s*auto")
+
+    def test_os_dois_que_ele_anuncia_sao_os_grandes(self):
+        html = self.c.get("/locutor/").content.decode()
+        numeros = html[html.index('class="mesa-numeros"') :]
+        numeros = numeros[: numeros.index("mesa-crono")]
+
+        # Valor atual e Ganhando grandes; Próximo lance não.
+        self.assertEqual(numeros.count("numero-grande"), 2)
+        antes_do_proximo = numeros[: numeros.index("Próximo lance")]
+        self.assertEqual(antes_do_proximo.count("numero-grande"), 2)
+        self.assertIn("numero-largo", numeros[numeros.index("Próximo lance") - 200 :])
+
+    def test_as_classes_dos_subcards_tem_regra_no_css(self):
+        css = self._css()
+        for classe in (".numero-grande", ".numero-largo", ".numero-nome"):
+            self.assertIn(classe, css, f"{classe} está no HTML sem regra em CSS nenhum")
+
+    def test_o_nome_e_menor_que_o_valor(self):
+        """Nome é de tamanho imprevisível; valor, não. Na mesma letra, o card
+        cresce e empurra os botões do martelo para fora da tela."""
+        def tamanho(seletor):
+            corpo = self._regra(seletor)
+            m = re.search(r"font-size:\s*([\d.]+)rem", corpo)
+            self.assertIsNotNone(m, f"{seletor} sem font-size")
+            return float(m.group(1))
+
+        self.assertLess(
+            tamanho(".numero-nome .numero-valor"),
+            tamanho(".numero-grande .numero-valor"),
+        )

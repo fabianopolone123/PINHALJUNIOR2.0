@@ -22,6 +22,61 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: a rolagem do chat de volta e os dois números que se anunciam
+
+### Resumo
+Dois pedidos do clube sobre a mesa do locutor: **barra de rolagem** e os
+subcards **"Valor atual"** e **"Ganhando"** maiores.
+
+### O que houve
+A rolagem que faltava era **regressão do deploy anterior do mesmo dia**. Ao
+prender o campo de falar no rodapé do chat, o `max-height: 300px` da lista saiu
+junto (virou `max-height: none` para a lista poder crescer e ocupar o card).
+Consequência medida com 20 mensagens: a lista ia a **1093px**, e como os três
+cards de uma linha têm a altura do mais alto, ela levava o card do pregão e o
+dos lances junto — a página passava de 805 para **1576px** e o martelo saía da
+tela. A lista de lances nunca sofreu disso: o `max-height: 320px` dela ficou.
+
+### O que foi feito
+- **Chat**: `max-height: 320px` de volta (a mesma da lista de lances, para as
+  duas colunas terem o mesmo corpo), com `min-height: 0` e o campo preso por
+  `margin-top: auto` — assim ele continua no pé mesmo quando a lista bate no
+  teto e sobra espaço.
+- **Subcards**: "Valor atual" e "Ganhando" dividem a **linha de cima**, com
+  letra de 1,6rem (1,85rem acima de 1200px); "Próximo lance" desceu para a
+  linha de baixo, na largura inteira e no tamanho de antes.
+
+### Arquivos criados/alterados
+- `static/leilao/css/locutor.css`: teto e rodapé do chat; `.mesa-numeros` em
+  duas colunas; `.numero-grande`, `.numero-largo` e `.numero-nome`.
+- `templates/leilao/locutor.html`: as classes nos três subcards.
+- `leilao/tests.py`: `OQueOLocutorLeEmVozAltaTests`.
+
+### Decisões tomadas
+- **O NOME é menor que o VALOR** (1,32rem × 1,6rem). "R$ 1.234,00" tem tamanho
+  previsível; um nome não. Na mesma letra, dois sobrenomes longos viravam
+  quatro linhas e o card empurrava o ▶ Abrir e o 🔨 VENDIDO para fora da tela —
+  medido: com um nome de 45 letras o VENDIDO ia parar fora do viewport.
+  **Encolher é melhor do que cortar**: nome com reticências é justamente o que
+  o locutor tem de ler em voz alta. (`nome_curto` é primeiro + último
+  sobrenome, então 45 letras não acontece de verdade — mas a guarda é barata.)
+- **"Próximo lance" foi o que cedeu espaço** porque é o valor atual mais cinco:
+  útil, e quem conduz já sabe. Os outros dois são os que ele anuncia.
+- **A guarda do chat é dupla** (teto **e** `min-height: 0`): são dois jeitos
+  diferentes de a rolagem sumir, e o segundo é o menos óbvio — sem ele um item
+  flex não encolhe abaixo do conteúdo e o `overflow-y` nunca entra em ação.
+
+### Verificação
+- Sonda headless com **20 mensagens e 20 lances**: chat com altura 320 e
+  conteúdo 1093 (**rola**), lances 320/813 (**rola**), linha de volta a 429px
+  (era 1212), página 805px (era 1576).
+- Pior caso do subcard em 1366/1280/1024/390px, com a animação do nome travada
+  no pico: zero estouro horizontal e o 🔨 VENDIDO em y=491 num viewport de 673.
+
+### Pendências
+- As mesmas de antes: o ouvinte de `arremate_expirado` sem evento, e a faxina
+  dos documentos que ainda ensinam prazo de 15 min e cronômetro.
+
 ## 2026-09-23 - Leilão: a faixa vazia da mesa e o chat que fechava em NaN
 
 ### Resumo

@@ -1179,6 +1179,27 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   porque `hidden` cria caixa de rolagem; a margem deixa o brilho vazar sem que nada role. Efeito novo que
   escale alguma coisa **passa pela sonda headless** antes de subir — o olho não vê 27px de estouro.
 
+### A mesa do locutor: o que se anuncia é o que é grande
+
+- **Lista dentro de card de linha PRECISA de teto e rolagem.** Os cards de uma linha têm a altura do
+  mais alto, então uma lista sem `max-height` cresce e leva os outros dois junto — a mesa sai da
+  tela. Medido: 20 mensagens levavam o chat a 1093px e a página a 1576px. Teto de **320px** nas duas
+  listas (lances e chat), para as colunas terem o mesmo corpo.
+- **Rolagem em item flex quebra de DOIS jeitos**, e os dois são necessários: sem `max-height` a
+  lista cresce; **sem `min-height: 0`** um item flex não encolhe abaixo do conteúdo e o
+  `overflow-y: auto` nunca entra em ação. Guarda nova de rolagem cobre os dois.
+- **Rodapé de card usa `margin-top: auto`**, não só `flex: 1` na lista acima: quando a lista bate no
+  teto e sobra espaço, o auto é o que segura o campo no pé em vez de deixá-lo boiando.
+- **Tamanho de letra segue o que o locutor ANUNCIA**: "Valor atual" e "Ganhando" grandes, na linha
+  de cima; "Próximo lance" menor, embaixo (é o valor atual mais cinco — ele já sabe).
+- **Nome é menor que valor, sempre.** Valor em reais tem tamanho previsível; nome não. Na mesma
+  letra, dois sobrenomes longos viram quatro linhas e o card empurra o ▶ Abrir e o 🔨 VENDIDO para
+  fora da tela. E **encolher é melhor do que cortar**: nome com reticências é justo o que ele tem de
+  ler em voz alta. Vale para qualquer campo de texto livre exibido em destaque.
+- **Guarda que lê CSS por `index` do seletor pega o seletor AGRUPADO.** `.chat-mesa` aparece antes
+  dentro de `.historico, .fila, …, .chat-mesa`, e o corpo daquele é outro — a guarda caiu nisso na
+  primeira execução. Procure a regra por **regex** (`\.classe\s*\{[^}]*propriedade`).
+
 ### A mesa do locutor: três cards por linha
 
 - **A grade do pregão é de duas colunas, e três cards não cabem nela.** Foi assim que nasceu a

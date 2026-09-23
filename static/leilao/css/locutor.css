@@ -180,11 +180,43 @@ body.tela-locutor {
 .mesa-desc { font-size: 0.86rem; color: var(--palco-suave); margin-top: 3px; }
 .mesa-medidas { font-size: 0.8rem; color: var(--palco-suave); margin-top: 3px; opacity: 0.85; }
 
+/* Duas colunas, não três: "Valor atual" e "Ganhando" dividem a linha de cima e
+   o "Próximo lance" ocupa a de baixo inteira, menor.
+
+   O motivo é o que cada um vale para quem conduz. Os dois de cima são o que ele
+   ANUNCIA em voz alta, olhando de longe e de relance; o próximo lance é o valor
+   atual mais cinco — útil, mas ele já sabe. Com os três lado a lado, cada um
+   ficava com um terço de uma coluna estreita, e a letra tinha de ser pequena
+   justo nos dois que precisavam ser grandes. */
 .mesa-numeros {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 10px;
     margin-bottom: 12px;
+}
+.numero-largo { grid-column: 1 / -1; }
+
+.numero-grande { padding: 11px 13px; }
+.numero-grande .numero-valor {
+    font-size: 1.6rem;
+    line-height: 1.12;
+    margin-top: 2px;
+}
+@media (min-width: 1200px) {
+    .numero-grande .numero-valor { font-size: 1.85rem; }
+}
+
+/* O NOME não pode ser tão grande quanto o valor, e o motivo é o conteúdo:
+   "R$ 1.234,00" tem tamanho previsível, um nome não. O `nome_curto` é primeiro
+   + último sobrenome, mas dois sobrenomes longos numa coluna estreita viram
+   quatro linhas, e o card cresce empurrando o ▶ Abrir e o 🔨 VENDIDO para fora
+   da tela — justo os dois botões que não podem estar fora do alcance.
+
+   Encolher é melhor do que cortar: nome com reticências na mesa é ruim, porque
+   é ele que o locutor lê em voz alta. */
+.numero-nome .numero-valor { font-size: 1.32rem; }
+@media (min-width: 1200px) {
+    .numero-nome .numero-valor { font-size: 1.5rem; }
 }
 .numero {
     padding: 9px 11px;
@@ -578,8 +610,17 @@ body.tela-locutor {
    sobrou-espaço aparece embaixo do campo, não acima. Lista cresce, campo fica
    colado no pé. */
 .cartao.chat-card { display: flex; flex-direction: column; }
-.cartao.chat-card .chat-mesa { flex: 1; min-height: 0; max-height: none; }
-.cartao.chat-card .aviso-form { margin-bottom: 0; }
+
+/* A lista CRESCE até o espaço do card e para — ela não pode empurrar a linha.
+   Sem o teto, 20 mensagens esticavam o chat para mais de 1000px e levavam o
+   card do pregão e o dos lances junto, porque os três da linha têm a altura do
+   mais alto: a mesa inteira descia para fora da tela. O `min-height: 0` é o que
+   deixa um item flex encolher abaixo do conteúdo — sem ele o `overflow-y` não
+   entra em ação e a barra de rolagem não aparece. */
+.cartao.chat-card .chat-mesa { flex: 1; min-height: 0; max-height: 320px; }
+
+/* Campo colado no pé mesmo quando a lista bate no teto e sobra espaço. */
+.cartao.chat-card .aviso-form { margin-top: auto; margin-bottom: 0; }
 .chat-mesa li { font-size: 0.87rem; padding: 6px 9px; background: rgba(0, 0, 0, 0.18); border-radius: 9px; }
 .chat-mesa .autor { font-weight: 800; color: var(--azul-claro); }
 .chat-mesa li.locutor .autor { color: var(--ouro); }

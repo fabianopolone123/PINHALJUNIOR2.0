@@ -53,16 +53,22 @@
                     </div>
                 </div>
 
+                {% comment %}
+                "Valor atual" e "Ganhando" são o que o locutor LÊ EM VOZ ALTA,
+                e ele não está colado no monitor. Por isso os dois ocupam a
+                linha de cima, grandes; o próximo lance fica embaixo, menor —
+                ele é o valor atual mais cinco, e quem conduz já sabe disso.
+                {% endcomment %}
                 <div class="mesa-numeros">
-                    <div class="numero">
+                    <div class="numero numero-grande">
                         <span class="numero-rotulo">Valor atual</span>
                         <span class="numero-valor destaque-ouro" id="mesaValor">R$ 0,00</span>
                     </div>
-                    <div class="numero">
+                    <div class="numero numero-grande numero-nome">
                         <span class="numero-rotulo">Ganhando</span>
                         <span class="numero-valor" id="mesaLider">—</span>
                     </div>
-                    <div class="numero">
+                    <div class="numero numero-largo">
                         <span class="numero-rotulo">Próximo lance</span>
                         <span class="numero-valor" id="mesaProximo">R$ 0,00</span>
                     </div>

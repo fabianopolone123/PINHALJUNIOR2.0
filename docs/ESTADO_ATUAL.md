@@ -2,7 +2,28 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: a faixa vazia da mesa e o chat que fechava em NaN**):
+**Última atualização:** 2026-09-23 (**Leilão: a rolagem do chat de volta e os dois números que se
+anunciam**): dois pedidos do clube sobre a mesa do locutor. A **rolagem** que faltava era
+**regressão do deploy anterior do mesmo dia**: ao prender o campo de falar no rodapé do chat, o
+`max-height` da lista saiu junto. Medido com 20 mensagens — a lista ia a **1093px** e, como os três
+cards de uma linha têm a altura do mais alto, levava o card do pregão e o dos lances junto: a página
+passava de 805 para **1576px** e o martelo saía da tela. Voltou o teto (**320px**, a mesma da lista
+de lances, para as duas colunas terem o mesmo corpo), com `min-height: 0` e o campo preso por
+`margin-top: auto` — ele fica no pé mesmo quando a lista bate no teto e sobra espaço. **São dois
+jeitos de essa rolagem sumir e a guarda cobre os dois**: sem o teto a lista cresce; sem o
+`min-height: 0` um item flex não encolhe abaixo do conteúdo e o `overflow-y` nunca entra em ação.
+
+Os subcards **"Valor atual"** e **"Ganhando"** passaram a dividir a **linha de cima**, em letra
+grande (1,6rem; 1,85rem acima de 1200px), e o **"Próximo lance"** desceu para a linha de baixo, na
+largura inteira e no tamanho de antes — ele é o valor atual mais cinco, e quem conduz já sabe. O
+**nome é menor que o valor** (1,32rem) de propósito: "R$ 1.234,00" tem tamanho previsível, um nome
+não, e na mesma letra dois sobrenomes longos viravam quatro linhas, empurrando o ▶ Abrir e o
+🔨 VENDIDO para fora da tela. **Encolher é melhor do que cortar** — o nome é o que o locutor lê em
+voz alta. Sonda headless no pior caso (1366/1280/1024/390px, animação do nome travada no pico): zero
+estouro horizontal e o VENDIDO em y=491 num viewport de 673. Suíte do leilão: **351 testes OK**
+(+4, `OQueOLocutorLeEmVozAltaTests`). **Sem migration.**
+
+**Atualização anterior:** 2026-09-23 (**Leilão: a faixa vazia da mesa e o chat que fechava em NaN**):
 o clube apontou um **retângulo morto** na mesa do locutor, à direita do card "Sua voz". A grade do
 pregão é de **duas colunas** e nasceu com **dois** cards (item em pregão + microfone), encaixando;
 em 21/09 a **bilheteria** entrou como **terceiro** card, e três em duas colunas não fecham — o
@@ -2389,6 +2410,14 @@ função de diretor**; e conta de **superusuário** só é alterada por superusu
 **O martelo é do locutor:** por padrão (`Leilao.fechamento_automatico=False`) **o tempo não fecha
 nada** — o item fica aberto até o botão VENDIDO. A mesa mostra `Lote.parado_ha` (há quanto tempo a sala
 está calada, contando para **cima**), que é o que diz a hora do "dou-lhe uma, dou-lhe duas".
+
+**O que ele anuncia é o que é grande.** No card do pregão, **"Valor atual"** e **"Ganhando"**
+dividem a linha de cima em letra grande; **"Próximo lance"** fica embaixo, menor — é o valor atual
+mais cinco, e quem conduz já sabe. O **nome é menor que o valor**, porque o valor tem tamanho
+previsível e um nome não: na mesma letra, dois sobrenomes longos viram quatro linhas e o card
+empurra o ▶ Abrir e o 🔨 VENDIDO para fora da tela. Encolher é melhor do que cortar — o nome é
+exatamente o que ele lê em voz alta. As listas (lances e chat) têm **teto de 320px e rolam**: sem
+teto, uma delas cresce e leva os três cards da linha junto, porque todos têm a altura do mais alto.
 
 **A mesa é organizada por uso, não por simetria.** A tela do pregão tem duas linhas de **três**
 cards: em cima, o que se acompanha ao mesmo tempo enquanto se conduz — **item em pregão**
