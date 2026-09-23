@@ -22,6 +22,98 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: o item volta ao leilão, e cada tela sabe de qual leilão
+
+### Resumo
+Quatro pedidos do clube, todos em telas que a equipe usa no dia do evento.
+
+### 1. Devolver ao leilão um item já arrematado — com MOTIVO
+Dois casos reais, e o dinheiro se comporta diferente em cada um:
+
+- **não pagou**: a pessoa desistiu. A dívida some junto (o arremate vira
+  `cancelado`) — cobrar por um item que ela não vai receber seria errado;
+- **pagou**: ela **doou o item de volta** para o clube leiloar outra vez. Não é
+  estorno: o arremate continua `pago`, o dinheiro entrou e é do clube, e a
+  arrecadação **não muda**. O que muda é que ela sai da **entrega** — sem isso
+  um voluntário sairia para levar na casa dela um objeto que está de volta na
+  prateleira.
+
+O **motivo é obrigatório**, e quem exige é o servidor. O item volta **limpo**
+para a fila (sem líder e sem valor) e `voltas` sobe; o **número não muda**, é a
+etiqueta colada na caixa. Não dá para devolver item em pregão **agora**, e a
+ação é **idempotente** (o botão sobrevive na tela até a página se refazer).
+Migration **`leilao/0012`**; a ação `devolver` é do **caixa** no `ACOES_AREAS`.
+
+### 2. Novo leilão em janela suspensa
+O formulário vivia aberto no fim da preparação, ocupando meia tela com campos
+que se usam uma vez por evento e empurrando para baixo a lista — que é o que se
+vem ver. Virou botão **➕ Novo leilão** + modal; erro no formulário devolve o
+modal **aberto**, com o que foi digitado. Saiu da tela e do form o
+`minutos_para_pagar`, coluna dormente que ainda anunciava "15 min para pagar".
+
+### 3. Cada tela de equipe sabe de QUAL leilão
+`locutor`, `caixa` e o quadro de entregas adivinhavam ("o que está no ar, ou o
+mais recente") — o que a regra do projeto já proibia para o cadastro de item. O
+custo era real: **o locutor abria a mesa sem saber qual leilão estava
+conduzindo**, e depois do evento não havia como olhar o caixa da noite passada
+sem colocá-la no ar de novo. Agora o id vai na **URL** (`/caixa/<id>/`,
+`/locutor/<id>/`, `/caixa/<id>/entregas/`), com um **seletor** no topo das três
+telas. A URL sem id continua existindo e **redireciona**.
+
+### 4. O caixa cobra por PESSOA
+O pagamento deixou de ser por item em 21/09 — cada um paga tudo num Pix só, no
+fim —, mas a tela continuou sendo uma lista de itens, e o caixa tinha de somar
+de cabeça o que cada pessoa devia, caçando linhas espalhadas. Agora é **uma
+linha por pessoa** (total, pago, falta, quitada ou não), ordenada por **quem
+deve primeiro**, e o detalhe item a item abre num modal.
+
+### Arquivos criados/alterados
+- `leilao/models.py` + `migrations/0012`: `Arremate.devolvido_em`,
+  `devolvido_por`, `motivo_devolucao`; `a_entregar` passa a exigir não devolvido.
+- `leilao/servicos.py`: `devolver_ao_leilao` + `DevolucaoRecusada`.
+- `leilao/views.py`: `_leilao_padrao`, `_ir_para_o_leilao`, `_leilao_do_post`,
+  `_leiloes_do_seletor`, `_contas_do_caixa`; as três views passam a receber
+  `leilao_id`; ação `devolver`; `abrir_modal` na preparação.
+- `leilao/urls.py`: `locutor_leilao`, `caixa_leilao`, `entregas_quadro_leilao`.
+- `leilao/forms.py`: `minutos_para_pagar` fora do `LeilaoForm`.
+- Templates: `preparacao.html` (lista + modal), `caixa.html` (seletor, contas,
+  dois modais), `locutor.html` e `entregas_quadro.html` (seletor), novo
+  `_seletor_leilao.html`.
+- Estáticos: novos `modal.js`, `preparacao.js`, `seletor_leilao.js`; `caixa.js`
+  e `locutor.css` atualizados.
+
+### Decisões tomadas
+- **Devolver é do CAIXA** (escolha do clube): é lá que se vê quem não pagou e,
+  com o pagamento no fim, a devolução quase sempre acontece depois do leilão.
+- **Item pago PODE voltar** — foi o clube que apontou o caso, e ele é melhor do
+  que a hipótese que eu tinha levantado (estorno): a pessoa **doa** o item de
+  volta. Por isso o status continua `pago` e o aviso na tela diz isso com todas
+  as letras, antes de confirmar.
+- **O comportamento dos modais virou um arquivo só** (`modal.js`). Estava
+  copiado em cada tela que abria janela, e com ele a regra do projeto que é
+  fácil esquecer ao reescrever: fecha no fundo **só** com `mousedown` E `click`
+  no fundo, senão arrastar uma seleção de dentro para fora fecha na cara.
+- **A URL sem id redireciona em vez de trabalhar sobre o palpite**, e o
+  redirect **preserva a query string** — o `?entregadores=2` do quadro viajava
+  no GET e era descartado, fazendo a tela pedir de novo o que a pessoa acabou
+  de informar.
+
+### Dois bugs achados no caminho
+- **Laço de redirect**: quem tem UMA área só (o hub manda direto para ela) e
+  nenhum leilão criado (a área manda de volta para o hub) via uma página que
+  **nunca carregava**. Existia antes; o `follow=True` dos testes o expôs.
+- **Plural errado**: `pluralize:"ns"` sobre "item" rende **"itemns"**. O certo
+  em português é `ite{{ n|pluralize:"m,ns" }}`. Estava em três lugares.
+
+### Verificação
+- Suíte do leilão verde, com **30 testes novos** em cinco classes.
+- Os 20 testes que quebraram com a mudança de URL foram **atualizados**, não
+  contornados: a URL sem id passou a redirecionar, e é isso que eles agora
+  provam (com `follow`, ou conferindo o destino).
+- Modais conferidos **no navegador**: abrem, travam o corpo, fecham no fundo e
+  **não fecham** ao arrastar de dentro para fora.
+- Telas renderizadas e a do caixa conferida em captura.
+
 ## 2026-09-23 - Faxina: a documentação parou de ensinar o que foi removido
 
 ### Resumo

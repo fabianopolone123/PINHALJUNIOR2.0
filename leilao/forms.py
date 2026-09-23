@@ -144,11 +144,13 @@ class LeilaoForm(EstiloMixin, forms.ModelForm):
     class Meta:
         model = Leilao
         fields = [
-            # Sem `segundos_por_lote`, `segundos_extra` nem `reiniciar_cronometro`:
-            # não há cronômetro no pregão, e campo de configuração para um
-            # recurso que não existe só confunde quem monta o leilão.
+            # Sem `segundos_por_lote`, `segundos_extra`, `reiniciar_cronometro`
+            # nem `minutos_para_pagar`: não há cronômetro no pregão e não há
+            # prazo para pagar (o dinheiro fecha no fim, numa cobrança só).
+            # Campo de configuração para recurso que não existe só confunde
+            # quem monta o leilão — e este ainda aparecia como "15 min para
+            # pagar" na lista, prometendo uma regra revogada.
             "nome", "descricao",
-            "minutos_para_pagar",
             "boas_vindas_titulo", "boas_vindas_texto",
         ]
         widgets = {

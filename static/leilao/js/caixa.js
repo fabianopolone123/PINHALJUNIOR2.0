@@ -159,7 +159,8 @@
         });
     }
 
-    ligarBusca("buscaPagamentos", "#listaPagamentos .arremate-linha");
+    // A lista de pagamentos agora é de PESSOAS, não de itens.
+    ligarBusca("buscaPagamentos", "#listaPagamentos .conta-linha");
 
     /* =====================================================================
        Pix do arremate — o que o caixa manda para quem vai pagar depois
@@ -167,29 +168,16 @@
     var modalPix = $("modalPix");
     var pixAtual = null;
 
-    function abrirModalPix() {
-        if (!modalPix) return;
-        modalPix.hidden = false;
-        document.body.classList.add("modal-aberto");
-    }
-
-    function fecharModalPix() {
-        if (!modalPix) return;
-        modalPix.hidden = true;
-        document.body.classList.remove("modal-aberto");
-    }
+    // O comportamento do modal (X, fundo com mousedown+click, Esc, travar o
+    // scroll) mora no `modal.js`, num lugar só. Estava copiado em cada arquivo
+    // que abria uma janela, e a regra do fundo é fácil de esquecer ao
+    // reescrever.
+    var jm = window.ModalLeilao;
+    var pixModal = jm ? jm.ligar(modalPix) : { abrir: function () {}, fechar: function () {} };
+    function abrirModalPix() { pixModal.abrir(); }
+    function fecharModalPix() { pixModal.fechar(); }
 
     if ($("pixFechar")) $("pixFechar").addEventListener("click", fecharModalPix);
-
-    // Fecha no fundo só com mousedown+click no fundo — não fechar ao arrastar
-    // uma seleção de dentro para fora (convenção do projeto).
-    if (modalPix) {
-        var desceuNoFundo = false;
-        modalPix.addEventListener("mousedown", function (e) { desceuNoFundo = e.target === modalPix; });
-        modalPix.addEventListener("click", function (e) {
-            if (desceuNoFundo && e.target === modalPix) fecharModalPix();
-        });
-    }
 
     function buscarPix(id) {
         return fetch(URL_PIX.replace(/0\/pix\/$/, id + "/pix/"), {
@@ -335,5 +323,74 @@
         // a página se refaz. (O `arremate_expirado` saiu com o prazo, em
         // 21/09: nada mais publica esse evento.)
         fonte.addEventListener("lote_vendido", function () { agendarRecarga(); });
+    }
+    /* =====================================================================
+       A conta de UMA pessoa — o pagamento é dela, não do item
+       ===================================================================== */
+    var modalConta = jm ? jm.ligar($("modalConta")) : null;
+
+    function abrirConta(id) {
+        var fonte = document.getElementById("conta-detalhe-" + id);
+        var corpo = $("contaCorpo");
+        if (!fonte || !corpo || !modalConta) return;
+        // Clona do que o SERVIDOR já mandou pronto: sem `fetch`, o modal abre
+        // igual com a conexão ruim de um salão de festas. Mesmo padrão do
+        // `#detalhesFonte` da tela "Usuários" do clube.
+        corpo.innerHTML = "";
+        corpo.appendChild(fonte.cloneNode(true));
+        corpo.firstChild.removeAttribute("id");   // ids duplicados no documento
+        var titulo = $("contaTitulo");
+        if (titulo) titulo.textContent = fonte.dataset.titulo || "Conta";
+        modalConta.abrir();
+    }
+
+    document.addEventListener("click", function (e) {
+        var alvo = e.target.closest("[data-abrir-conta]");
+        if (!alvo) return;
+        abrirConta(alvo.dataset.abrirConta);
+    });
+
+    /* =====================================================================
+       Voltar o item ao leilão — com MOTIVO
+       ===================================================================== */
+    var modalDevolver = jm ? jm.ligar($("modalDevolver")) : null;
+    var devolvendo = null;
+
+    document.addEventListener("click", function (e) {
+        var alvo = e.target.closest("[data-devolver]");
+        if (!alvo || !modalDevolver) return;
+        devolvendo = alvo.dataset.devolver;
+        if ($("devolverItem")) $("devolverItem").textContent = alvo.dataset.item || "";
+        // O aviso de "já pagou" muda o significado do botão: não é estorno, é
+        // doação. Quem aperta precisa ler isso ANTES.
+        var aviso = $("devolverAvisoPago");
+        if (aviso) aviso.hidden = alvo.dataset.pago !== "1";
+        if ($("devolverMotivo")) $("devolverMotivo").value = "";
+        modalDevolver.abrir();
+    });
+
+    if ($("devolverConfirmar")) {
+        $("devolverConfirmar").addEventListener("click", function () {
+            if (!devolvendo) return;
+            var campo = $("devolverMotivo");
+            var motivo = campo ? campo.value.trim() : "";
+            if (!motivo) {
+                // O servidor recusa igual; isto só evita a ida e volta.
+                toast("Escreva por que o item está voltando ao leilão.", "error");
+                if (campo) campo.focus();
+                return;
+            }
+            var botao = this;
+            botao.disabled = true;
+            acao({ acao: "devolver", arremate: devolvendo, motivo: motivo }).then(function (d) {
+                botao.disabled = false;
+                if (!d || !d.ok) return;
+                if (modalDevolver) modalDevolver.fechar();
+                if (modalConta) modalConta.fechar();
+                // A conta da pessoa, os totais e a aba "A entregar" mudaram
+                // todos de uma vez: a página se refaz.
+                agendarRecarga();
+            }).catch(function () { botao.disabled = false; });
+        });
     }
 })();

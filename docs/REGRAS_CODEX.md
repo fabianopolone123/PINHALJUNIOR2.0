@@ -1200,6 +1200,55 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Captura de tela com animação de entrada engana.** A `sobe` desloca o card enquanto roda, e a
   imagem sai com ele em outro lugar. Meça `getBoundingClientRect()` com a sonda.
 
+### Devolver ao leilão um item já arrematado
+
+- **O motivo é obrigatório, e quem exige é o SERVIDOR.** Um item reaparecendo na fila depois de
+  batido é a coisa mais estranha que pode acontecer num leilão: quem abrir a lista amanhã precisa
+  saber por quê sem ter de perguntar. `required` no HTML não barra POST forjado.
+- **Devolver é do CAIXA** (`ACOES_AREAS`), não do locutor: é lá que se vê quem não pagou, e com o
+  pagamento no fim a devolução quase sempre acontece **depois** do leilão.
+- **Item PAGO pode voltar, e isso não é estorno.** O caso é a pessoa **doar o item de volta** para o
+  clube leiloar outra vez: o arremate continua `pago`, o dinheiro entrou e é do clube, e a
+  arrecadação **não muda**. Quem **não** pagou vira `cancelado` — cobrar por um item que ela não vai
+  receber seria errado.
+- **Quem devolveu sai da ENTREGA** (`a_entregar` confere o `devolvido_em`), pago ou não. Sem isso um
+  voluntário sai para levar na casa da pessoa um objeto que está de volta na prateleira.
+- **O item volta limpo e o NÚMERO não muda**: sem líder e sem valor (item na fila exibindo a disputa
+  anterior é pior que item sem nada), `voltas` sobe, e o número é a etiqueta colada na caixa.
+- **Item em pregão AGORA não é devolvido**, e a ação é **idempotente** — o botão sobrevive na tela
+  até a página se refazer, e o segundo clique não pode somar outra volta.
+
+### A tela de equipe trabalha sobre o leilão da URL — todas elas
+
+- **A regra já valia para o cadastro de item e agora vale para mesa, caixa e entregas.** Adivinhar
+  ("o que está no ar, ou o mais recente") fazia o locutor **abrir a mesa sem saber qual leilão estava
+  conduzindo**, e não havia como olhar o caixa da noite passada sem colocá-la no ar de novo.
+- **A URL sem id não some: ela REDIRECIONA** para a URL com id (link antigo, favorito, atalho do
+  hub). E o redirect **preserva a query string** — o `?entregadores=2` do quadro viaja no GET, e
+  redirecionar seco o descartava.
+- **Teste que batia na URL sem id precisa de `follow`**, e `302` deixou de distinguir "não tem
+  acesso" de "vá para a URL do leilão": quem testa acesso confere **onde a pessoa termina**.
+- **Cuidado com o laço de redirect**: quem tem UMA área só é mandado direto para ela pelo hub, e a
+  área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
+  há o que mostrar lá.
+
+### Modais do leilão: o comportamento mora no `modal.js`
+
+- **Um arquivo só** (`static/leilao/js/modal.js`), e não uma cópia por tela. O que se repetia não era
+  o desenho (esse vem do `base.css`) e sim o comportamento — e com ele a regra que é fácil esquecer
+  ao reescrever: **fecha no fundo só quando o `mousedown` E o `click` foram no fundo**, senão quem
+  arrasta para selecionar um texto de dentro e solta fora vê a janela fechar na cara.
+- **Carregue o `modal.js` ANTES** do script da tela que o usa. Sem ele, `window.ModalLeilao` não
+  existe e o botão simplesmente não abre nada — sem erro visível.
+- **Formulário em modal volta ABERTO quando o POST dá erro**, com o que a pessoa digitou. Fechado,
+  ela redigita tudo sem nem ver o que estava errado.
+
+### Plural de "item" em português
+
+- **`pluralize:"ns"` sobre "item" rende "itemns".** O filtro anexa; ele não troca o fim da palavra.
+  O certo é `ite{{ n|pluralize:"m,ns" }}` → *item* / *itens*. Estava errado em três lugares do
+  leilão, e passa despercebido porque não quebra nada — só fica escrito errado na tela.
+
 ### A mesa do locutor: o que se anuncia é o que é grande
 
 - **Lista dentro de card de linha PRECISA de teto e rolagem.** Os cards de uma linha têm a altura do

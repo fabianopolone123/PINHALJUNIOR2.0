@@ -1,0 +1,26 @@
+{% comment %}
+O seletor de leilão das telas de equipe (mesa, caixa, quadro de entregas).
+
+Existe porque estas telas trabalhavam sobre um leilão **adivinhado** ("o que
+está no ar, ou o mais recente"). Na hora de começar, o locutor abria a mesa sem
+saber qual leilão estava conduzindo — e depois do evento não havia como olhar o
+caixa da noite passada sem colocá-la no ar de novo.
+
+Usa `url_nome` para montar o link de cada opção, então serve as três telas sem
+nenhuma lógica própria: quem inclui diz qual rota é a dele.
+
+O `<noscript>`… não é preciso: o `<select>` navega por JS, mas cada opção
+carrega o endereço em `value`, e o botão "Ir" ao lado funciona sem JS nenhum.
+{% endcomment %}
+<form class="seletor-leilao" method="get" data-seletor-leilao>
+    <label for="seletorLeilao">Leilão</label>
+    <select id="seletorLeilao" data-ir>
+        {% for l in leiloes %}
+        <option value="{% url url_nome leilao_id=l.pk %}" {% if l.pk == leilao.pk %}selected{% endif %}>
+            {{ l.nome }}{% if l.status == 'ao_vivo' %} — no ar{% elif l.status == 'encerrado' %} — encerrado{% else %} — rascunho{% endif %}
+        </option>
+        {% endfor %}
+    </select>
+    <button type="button" class="btn-mini" data-ir-botao>Ir</button>
+    <span class="seletor-atual selo selo-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
+</form>

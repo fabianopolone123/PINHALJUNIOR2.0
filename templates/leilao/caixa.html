@@ -9,6 +9,8 @@
 <div class="mesa">
     {% include "leilao/_nav_equipe.html" with area_atual="caixa" titulo_area="Caixa" %}
 
+    {% include "leilao/_seletor_leilao.html" with url_nome="leilao:caixa_leilao" %}
+
     <div class="kpis">
         <div class="kpi"><span>Arrematados</span><b>{{ resumo.total|default:0 }}</b></div>
         <div class="kpi bom"><span>Pagos</span><b>{{ resumo.pagos|default:0 }}</b></div>
@@ -29,75 +31,128 @@
         </button>
     </nav>
 
-    {# ================= PAGAMENTOS ================= #}
+    {% comment %}
+    ================= PAGAMENTOS =================
+    Por PESSOA, não por item. O pagamento deixou de ser por arremate: cada um
+    leva o que levar e paga TUDO num Pix só, no fim. A lista de itens obrigava o
+    caixa a somar de cabeça o que cada pessoa devia, procurando linhas
+    espalhadas pela lista inteira — com dez pessoas e trinta itens, é onde o
+    dinheiro se perde.
+
+    O detalhe item a item não sumiu: está a um clique, no modal.
+    {% endcomment %}
     <section class="mesa-secao ativa" data-secao="pagamentos">
-        <input type="search" class="busca" id="buscaPagamentos" placeholder="Buscar por nome, item ou nº…">
-        <ul class="arremates-mesa" id="listaPagamentos">
-            {% for a in arremates %}
-            <li class="arremate-linha {{ a.status }}" id="arremate{{ a.id }}"
-                data-arremate="{{ a.id }}"
-                data-busca="{{ a.participante.nome|lower }} {{ a.lote.nome|lower }} {{ a.lote.numero }}">
-                <div class="arremate-quem">
-                    <b>{{ a.participante.nome }}</b>
-                    <span class="arremate-item"><b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}</span>
-                    {% comment %}
-                    É daqui que o caixa abre a conversa para combinar a entrega,
-                    e "cabe no seu carro?" é a primeira pergunta. Sai da linha
-                    quando o item é antigo e não tem medida cadastrada.
-                    {% endcomment %}
-                    {% if a.lote.medidas_texto %}
-                    <span class="arremate-medidas">📦 {{ a.lote.medidas_texto }}</span>
-                    {% endif %}
-                    <span class="arremate-contato selecionavel">{{ a.participante.whatsapp }}</span>
-                </div>
-                <div class="arremate-fim">
-                    <span class="arremate-preco">R$ {{ a.valor }}</span>
-                    <span class="selo selo-{{ a.status }}" data-selo>{{ a.get_status_display }}</span>
-                    {% if a.pago_manual %}<span class="selo selo-fila">na mão</span>{% endif %}
-
-                    {% comment %}
-                    Falar com a pessoa é metade do trabalho do caixa, e digitar
-                    número de celular com o leilão rolando é onde a conversa
-                    morre. O link abre a conversa dela direto.
-                    {% endcomment %}
-                    {% if a.participante.whatsapp_link %}
-                    <a href="{{ a.participante.whatsapp_link }}" target="_blank" rel="noopener"
-                       class="btn-mini" title="Abrir a conversa desta pessoa no WhatsApp">💬 WhatsApp</a>
+        <input type="search" class="busca" id="buscaPagamentos" placeholder="Buscar por nome ou WhatsApp…">
+        <ul class="contas-caixa" id="listaPagamentos">
+            {% for c in contas %}
+            <li class="conta-linha {% if c.quitada %}quitada{% else %}devendo{% endif %}"
+                id="conta{{ c.participante.id }}"
+                data-conta="{{ c.participante.id }}"
+                data-busca="{{ c.participante.nome|lower }} {{ c.participante.whatsapp }}">
+                <button type="button" class="conta-corpo" data-abrir-conta="{{ c.participante.id }}"
+                        title="Ver os itens desta pessoa">
+                    <b class="conta-nome">{{ c.participante.nome_curto }}</b>
+                    <span class="conta-itens">
+                        {{ c.itens|length }} ite{{ c.itens|length|pluralize:"m,ns" }} ·
+                        total R$ {{ c.total }}
+                    </span>
+                    <span class="conta-contato">{{ c.participante.whatsapp }}</span>
+                </button>
+                <div class="conta-fim">
+                    {% if c.quitada %}
+                    <span class="conta-valor pago">R$ {{ c.pago }}</span>
+                    <span class="selo selo-pago">Pago</span>
+                    {% else %}
+                    <span class="conta-valor deve">R$ {{ c.falta }}</span>
+                    <span class="selo selo-aguardando">Falta pagar</span>
+                    {% if c.pago %}<span class="conta-parcial">já pagou R$ {{ c.pago }}</span>{% endif %}
                     {% endif %}
 
-                    {% if a.status == 'aguardando' or a.status == 'combinado' %}
-                    <button type="button" class="btn-mini destaque"
-                            data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
-                    {% comment %}
-                    O Pix de quem vai pagar depois é o que o caixa precisa TER NA
-                    MÃO: sem ele, "vai pagar depois" vira "some do mapa".
-                    {% endcomment %}
-                    <button type="button" class="btn-mini" data-pix="{{ a.id }}"
-                            title="Ver e copiar o Pix deste arremate para mandar na conversa">
-                        📋 Pix
+                    {% if c.participante.whatsapp_link %}
+                    <a href="{{ c.participante.whatsapp_link }}" target="_blank" rel="noopener"
+                       class="btn-mini" title="Abrir a conversa desta pessoa no WhatsApp">💬</a>
+                    {% endif %}
+                    <button type="button" class="btn-mini" data-abrir-conta="{{ c.participante.id }}">
+                        Ver itens
                     </button>
-                    {% endif %}
-                    {% if a.status == 'aguardando' %}
-                    {% comment %}
-                    O "⏱️ +15 min" saiu junto com o prazo: não há relógio para
-                    esticar. Quem não pagou fica devendo, e é isto aqui que
-                    você usa para registrar o que combinou com a pessoa.
-                    {% endcomment %}
-                    <button type="button" class="btn-mini"
-                            data-acao="combinado" data-arremate="{{ a.id }}"
-                            title="Falei com a pessoa: ela vai pagar depois. O item não volta para a fila.">
-                        📞 Vai pagar depois
-                    </button>
-                    {% endif %}
-                    {% if a.status == 'combinado' and a.observacao %}
-                    <span class="arremate-contato">{{ a.observacao }}</span>
-                    {% endif %}
                 </div>
             </li>
             {% empty %}
             <li class="vazio">Nada arrematado ainda.</li>
             {% endfor %}
         </ul>
+
+        {% comment %}
+        O detalhe de cada conta vai pronto do SERVIDOR, escondido, e o JS só
+        clona para dentro do modal — mesmo padrão do `#detalhesFonte` da tela
+        "Usuários" do clube. Assim o modal não depende de `fetch` nenhum e
+        funciona com a conexão ruim de um salão de festas.
+        {% endcomment %}
+        <div id="contasFonte" hidden>
+            {% for c in contas %}
+            <div id="conta-detalhe-{{ c.participante.id }}"
+                 data-titulo="{{ c.participante.nome }}">
+                <p class="conta-resumo">
+                    <span>Total <b>R$ {{ c.total }}</b></span>
+                    <span class="pago">Pago <b>R$ {{ c.pago }}</b></span>
+                    <span class="deve">Falta <b>R$ {{ c.falta }}</b></span>
+                </p>
+                <ul class="arremates-mesa">
+                    {% for a in c.itens %}
+                    <li class="arremate-linha {{ a.status }}" id="arremate{{ a.id }}"
+                        data-arremate="{{ a.id }}">
+                        <div class="arremate-quem">
+                            <span class="arremate-item">
+                                <b class="item-numero">nº {{ a.lote.numero }}</b> {{ a.lote.nome }}
+                            </span>
+                            {% if a.lote.medidas_texto %}
+                            <span class="arremate-medidas">📦 {{ a.lote.medidas_texto }}</span>
+                            {% endif %}
+                            {% if a.status == 'combinado' and a.observacao %}
+                            <span class="arremate-contato">{{ a.observacao }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="arremate-fim">
+                            <span class="arremate-preco">R$ {{ a.valor }}</span>
+                            <span class="selo selo-{{ a.status }}" data-selo>{{ a.get_status_display }}</span>
+                            {% if a.pago_manual %}<span class="selo selo-fila">na mão</span>{% endif %}
+
+                            {% if a.status == 'aguardando' or a.status == 'combinado' %}
+                            <button type="button" class="btn-mini destaque"
+                                    data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
+                            <button type="button" class="btn-mini" data-pix="{{ a.id }}"
+                                    title="Ver e copiar o Pix desta pessoa para mandar na conversa">
+                                📋 Pix
+                            </button>
+                            {% endif %}
+                            {% if a.status == 'aguardando' %}
+                            <button type="button" class="btn-mini"
+                                    data-acao="combinado" data-arremate="{{ a.id }}"
+                                    title="Falei com a pessoa: ela vai pagar depois.">
+                                📞 Vai pagar depois
+                            </button>
+                            {% endif %}
+
+                            {% comment %}
+                            Devolver o item ao leilão. Dois casos: a pessoa
+                            desistiu (não pagou) ou DOOU o item de volta para
+                            ser leiloado outra vez (pagou). O motivo é
+                            obrigatório, e quem exige é o servidor.
+                            {% endcomment %}
+                            <button type="button" class="btn-mini perigo"
+                                    data-devolver="{{ a.id }}"
+                                    data-item="nº {{ a.lote.numero }} — {{ a.lote.nome }}"
+                                    data-pago="{% if a.status == 'pago' %}1{% endif %}"
+                                    title="Tirar da conta desta pessoa e devolver o item à fila do leilão">
+                                ↩️ Voltar ao leilão
+                            </button>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
     </section>
 
     {# ================= A ENTREGAR ================= #}
@@ -132,7 +187,7 @@
                        min="1" max="20" step="1" inputmode="numeric"
                        value="{{ entregadores|default:'' }}" placeholder="nº" required>
                 <button type="submit" class="btn-mesa abrir">
-                    📦 Abrir o quadro de entregas ({{ a_entregar|length }} item{{ a_entregar|length|pluralize:"ns" }})
+                    📦 Abrir o quadro de entregas ({{ a_entregar|length }} ite{{ a_entregar|length|pluralize:"m,ns" }})
                 </button>
             </form>
         </div>
@@ -247,6 +302,53 @@ de select() num campo que exista de fato.
     </div>
 </div>
 
+{% comment %}
+A conta de UMA pessoa: os itens, a soma e o que falta. O conteúdo vem clonado
+do `#contasFonte`, que o servidor já mandou pronto — o modal não depende de
+`fetch` e abre igual com a conexão ruim de um salão de festas.
+{% endcomment %}
+<div class="modal-overlay" id="modalConta" hidden>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="contaTitulo">
+        <div class="modal-topo">
+            <h2 class="modal-titulo" id="contaTitulo">Conta</h2>
+            <button type="button" class="modal-fechar" data-fechar-modal aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo" id="contaCorpo"></div>
+    </div>
+</div>
+
+{% comment %}
+Devolver o item ao leilão pede o MOTIVO, e ele é obrigatório — no servidor,
+não só aqui. Um item reaparecendo na fila depois de batido é a coisa mais
+estranha que pode acontecer num leilão, e quem abrir a lista amanhã precisa
+saber por quê sem ter de perguntar a alguém.
+{% endcomment %}
+<div class="modal-overlay" id="modalDevolver" hidden>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="devolverTitulo">
+        <div class="modal-topo">
+            <h2 class="modal-titulo" id="devolverTitulo">Voltar ao leilão</h2>
+            <button type="button" class="modal-fechar" data-fechar-modal aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo">
+            <p class="devolver-item" id="devolverItem"></p>
+            <p class="devolver-aviso" id="devolverAvisoPago" hidden>
+                <b>Atenção:</b> esta pessoa <b>já pagou</b> por este item. Devolver aqui significa que
+                ela <b>doou o item de volta</b> para ser leiloado outra vez — o dinheiro continua
+                sendo do clube e <b>não</b> é estornado. Ela sai da lista de entrega.
+            </p>
+            <label class="devolver-rotulo" for="devolverMotivo">Por que está voltando ao leilão?</label>
+            <textarea id="devolverMotivo" class="pix-codigo" rows="3" maxlength="200"
+                      placeholder="Ex.: doou o item de volta para o clube leiloar de novo"></textarea>
+            <p class="micro-ajuda">
+                Fica registrado com o seu nome e aparece no histórico do item.
+            </p>
+            <button type="button" class="btn-mesa vendido" id="devolverConfirmar">
+                ↩️ Devolver à fila do leilão
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
      data-stream="{% url 'leilao:stream' %}?equipe=1"
@@ -256,5 +358,7 @@ de select() num campo que exista de fato.
 
 {% block js %}
 <script src="{% static 'js/copiar_texto.js' %}"></script>
+<script src="{% static 'leilao/js/modal.js' %}"></script>
+<script src="{% static 'leilao/js/seletor_leilao.js' %}"></script>
 <script src="{% static 'leilao/js/caixa.js' %}"></script>
 {% endblock %}

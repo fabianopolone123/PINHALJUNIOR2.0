@@ -10,6 +10,8 @@
 
     {% include "leilao/_nav_equipe.html" with area_atual="locutor" titulo_area="Mesa do locutor" %}
 
+    {% include "leilao/_seletor_leilao.html" with url_nome="leilao:locutor_leilao" %}
+
     <div class="mesa-titulo">
         <h1>{{ leilao.nome }}</h1>
         <span class="mesa-status status-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
@@ -262,6 +264,7 @@ reagir aqui, quem reage é o público.
 <script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/audio_falar.js' %}"></script>
 {# Antes do locutor.js: é ele que chama o window.Reacoes. #}
+<script src="{% static 'leilao/js/seletor_leilao.js' %}"></script>
 <script src="{% static 'leilao/js/reacoes.js' %}"></script>
 <script src="{% static 'leilao/js/locutor.js' %}"></script>
 {% endblock %}

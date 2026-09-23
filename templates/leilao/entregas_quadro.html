@@ -12,6 +12,8 @@
 <div class="mesa">
     {% include "leilao/_nav_equipe.html" with area_atual="caixa" titulo_area="Caixa" %}
 
+    {% include "leilao/_seletor_leilao.html" with url_nome="leilao:entregas_quadro_leilao" %}
+
     <div class="quadro-topo">
         <div>
             <h2 class="quadro-titulo">📦 Quem leva o quê</h2>
@@ -81,6 +83,7 @@
 {% endblock %}
 
 {% block js %}
+<script src="{% static 'leilao/js/seletor_leilao.js' %}"></script>
 <script src="{% static 'js/copiar_texto.js' %}"></script>
 <script src="{% static 'leilao/js/entregas_quadro.js' %}"></script>
 {% endblock %}

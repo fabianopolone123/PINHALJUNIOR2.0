@@ -2,7 +2,43 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Faxina: a documentação parou de ensinar o que foi removido**):
+**Última atualização:** 2026-09-23 (**Leilão: o item volta ao leilão, e cada tela sabe de qual
+leilão**): quatro pedidos do clube, todos em telas usadas no dia do evento.
+
+**1. Devolver ao leilão um item já arrematado, com MOTIVO obrigatório** (mig. **`leilao/0012`**;
+ação `devolver`, do **caixa**). Dois casos, e o dinheiro se comporta diferente em cada um: **não
+pagou** → a pessoa desistiu e a dívida some junto (o arremate vira `cancelado`), porque cobrar por
+um item que ela não vai receber seria errado; **pagou** → ela **doou o item de volta** para o clube
+leiloar outra vez, e isso **não é estorno**: o arremate continua `pago`, o dinheiro é do clube e a
+arrecadação não muda. O que muda é que ela sai da **entrega** — sem isso um voluntário sairia para
+levar na casa dela um objeto que está de volta na prateleira. O item volta **limpo** para a fila
+(sem líder, sem valor), `voltas` sobe e o **número não muda** (é a etiqueta colada na caixa). Item
+**em pregão agora** não é devolvido, e a ação é **idempotente**.
+
+**2. Novo leilão em janela suspensa.** A preparação é a **lista**, e só; criar virou botão +
+modal, que volta **aberto** quando o formulário tem erro. Saiu da tela e do form o
+`minutos_para_pagar`, dormente desde 21/09 e que ainda anunciava "15 min para pagar".
+
+**3. Cada tela de equipe sabe de QUAL leilão.** `locutor`, `caixa` e o quadro de entregas
+adivinhavam — o que a regra do projeto já proibia para o cadastro de item —, e o custo era real: o
+locutor **abria a mesa sem saber qual leilão estava conduzindo**, e não havia como olhar o caixa da
+noite passada sem colocá-la no ar de novo. Agora o id vai na **URL** (`/locutor/<id>/`,
+`/caixa/<id>/`, `/caixa/<id>/entregas/`), com **seletor** no topo das três; a URL sem id
+**redireciona**, preservando a query string (o `?entregadores=2` do quadro era descartado).
+
+**4. O caixa cobra por PESSOA.** O pagamento deixou de ser por item em 21/09, mas a tela continuou
+sendo uma lista de itens — o caixa somava de cabeça o que cada um devia, caçando linhas espalhadas.
+Agora é **uma linha por pessoa** (total, pago, falta), ordenada por **quem deve primeiro**, com o
+detalhe item a item num modal.
+
+Dois bugs apareceram no caminho: um **laço de redirect** (quem tem uma área só e nenhum leilão
+criado via uma página que nunca carregava — existia antes, o `follow=True` dos testes o expôs) e o
+plural **"itemns"** (`pluralize:"ns"` sobre "item"; o certo é `ite{{ n|pluralize:"m,ns" }}`), em três
+lugares. O comportamento dos **modais** virou um arquivo só (`modal.js`), com a regra do projeto
+dentro: fecha no fundo só com `mousedown` **e** `click` no fundo. Suíte do leilão: **384 testes
+OK** (+30). Migration **`leilao/0012`**.
+
+**Atualização anterior:** 2026-09-23 (**Faxina: a documentação parou de ensinar o que foi removido**):
 revisão pedida pelo clube. Desde 21/09 o leilão perdeu **quatro regras de produto** — cronômetro,
 prazo de 15 minutos para pagar, chat por intervalo e incremento configurável —, cada uma registrada
 na entrada do seu dia; o que ficou para trás foram as **seções estruturais** e as **regras**, que um
@@ -2380,7 +2416,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 354 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 384 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2424,6 +2460,9 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   e o histórico das tentativas é o que embasa bloquear alguém. Tem `pago_manual` e o status
   `combinado` ("vai pagar depois"). **`expira_em` é dormente** — não há prazo para pagar desde 21/09;
   os arremates antigos mantêm o valor que tinham, como histórico.
+  **Devolução ao leilão** (mig. **0012**): `devolvido_em`, `devolvido_por` e `motivo_devolucao`
+  (obrigatório na view). Devolvido **sai da entrega** (`a_entregar` confere o `devolvido_em`), pago
+  ou não; quem não pagou vira `cancelado`, quem pagou **continua pago** (doou o item de volta).
 - `PagamentoLeilao` — a cobrança Pix, com o QR pronto (`qr_code` + `qr_code_base64`) e `finalizado`
   como trava de idempotência do webhook.
 - `MensagemChat` — `participante` vazio = locutor; `removida` em vez de apagar.
@@ -2602,7 +2641,11 @@ mostra também **quantos já estão esperando**, em tempo real (a frase é monta
 mora o **➤** de enviar — no celular um cobria o outro. Com o chat aberto (`body.chat-aberto`, posta pelo
 `desenharChat`) os dois passam para a **esquerda**; o botão de lance não está na tela nesse momento.
 
-**Rotas** — público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
+**Rotas** — as telas de equipe levam o **id do leilão**: `/locutor/<id>/`, `/caixa/<id>/` e
+`/caixa/<id>/entregas/`, com um **seletor** no topo de cada uma. As versões sem id continuam
+existindo e **redirecionam** (preservando a query string).
+
+Público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
 `/meus-arremates/`, `/arremate/<id>/pix|conferir/`, `/webhooks/mercadopago/`.
 Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único), `/equipe/senha/`
 (troca obrigatória no 1º acesso); **só diretor**: `/equipe/usuarios/` (+ `/equipe/usuarios/<pk>/`);
@@ -2620,8 +2663,11 @@ WhatsApp e endereço) — documento de quem entrega, não texto para grupo abert
 **Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `equipe` (hub), `equipe_entrar`,
 `locutor` (mesa), `caixa` (pagamentos + entrega), `preparacao` (leilões), `lotes`, `lote_form`,
 `config`, `leilao_form` (editar), `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`.
-**Estáticos**: `static/leilao/css/{leilao,locutor}.css` e `static/leilao/js/{leilao,locutor,som,confete,
-reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,lote_form,entrar,caixa,usuarios}.js`. Reaproveita `css/base.css`
+**Estáticos**: `static/leilao/css/{leilao,locutor,entregas}.css` e
+`static/leilao/js/{leilao,locutor,som,confete,reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,
+lote_form,entrar,caixa,usuarios,modal,preparacao,seletor_leilao}.js`. O **`modal.js`** é o
+comportamento das janelas suspensas num lugar só (abrir, travar o corpo, X, Esc e o fundo com
+`mousedown`+`click`) — carregue-o **antes** do script da tela que o usa. Reaproveita `css/base.css`
 (modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.
 
 **Os efeitos sonoros não usam arquivo nenhum** (`som.js`): `SomLeilao` sintetiza lance, superado, vendido e

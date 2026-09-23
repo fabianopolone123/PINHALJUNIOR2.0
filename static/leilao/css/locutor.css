@@ -995,3 +995,134 @@ body.tela-locutor {
     font-size: 0.95rem;
     text-decoration: none;
 }
+
+/* =========================================================
+   Seletor de leilão (mesa, caixa, quadro de entregas)
+   ========================================================= */
+/* Fica no topo, antes de qualquer número: é a primeira coisa que a pessoa
+   precisa saber ao abrir a tela — SOBRE QUAL leilão ela está trabalhando.
+   Sem ele, o locutor abria a mesa sem saber qual estava conduzindo. */
+.seletor-leilao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 9px 11px;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--palco-borda);
+    border-radius: 12px;
+}
+.seletor-leilao label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--palco-suave);
+}
+.seletor-leilao select {
+    flex: 1;
+    min-width: 0;          /* sem isto o nome comprido estica a barra */
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--palco-borda);
+    border-radius: 10px;
+}
+.seletor-leilao select:focus { outline: none; border-color: var(--azul-claro); }
+.seletor-atual { flex-shrink: 0; }
+
+/* =========================================================
+   Caixa: a conta de cada PESSOA
+   ========================================================= */
+/* O pagamento é da pessoa, pelo total — não do item. A linha traz o que a
+   conversa exige (quanto falta, quanto já pagou) e o detalhe item a item fica
+   a um clique, no modal. */
+.contas-caixa { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+.conta-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--palco-borda);
+    border-left: 4px solid var(--palco-borda);
+    border-radius: 12px;
+}
+/* Quem deve é o trabalho do caixa; quem quitou é histórico. A cor não é a
+   única pista — cada linha tem o selo escrito ao lado. */
+.conta-linha.devendo { border-left-color: var(--ambar, #f0a202); }
+.conta-linha.quitada { border-left-color: var(--verde, #3a9d3a); opacity: 0.85; }
+.conta-linha.busca-oculto { display: none !important; }
+
+.conta-corpo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.conta-nome { font-size: 1.05rem; font-weight: 800; overflow-wrap: anywhere; }
+.conta-itens, .conta-contato { font-size: 0.8rem; color: var(--palco-suave); }
+
+.conta-fim {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.conta-valor { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.conta-valor.deve { color: var(--ambar, #f0a202); }
+.conta-valor.pago { color: var(--verde-claro, #62c462); }
+.conta-parcial { font-size: 0.75rem; color: var(--palco-suave); }
+
+/* O resumo no topo do modal: total, pago e falta, um do lado do outro. */
+.conta-resumo {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--palco-borda);
+}
+.conta-resumo b { font-size: 1.05rem; }
+.conta-resumo .pago b { color: var(--verde-claro, #62c462); }
+.conta-resumo .deve b { color: var(--ambar, #f0a202); }
+
+/* =========================================================
+   Voltar o item ao leilão
+   ========================================================= */
+.devolver-item { font-weight: 800; margin-bottom: 8px; overflow-wrap: anywhere; }
+/* O aviso de "já pagou" muda o significado do botão: não é estorno, é doação.
+   Ele precisa ser lido ANTES de confirmar, por isso ocupa espaço e destaca. */
+.devolver-aviso {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    background: rgba(240, 162, 2, 0.16);
+    border: 1px solid rgba(240, 162, 2, 0.45);
+    border-radius: 10px;
+}
+.devolver-aviso[hidden] { display: none !important; }
+.devolver-rotulo {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}

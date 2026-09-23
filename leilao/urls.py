@@ -44,12 +44,21 @@ urlpatterns = [
     path("equipe/usuarios/", views.usuarios_view, name="usuarios"),
     path("equipe/usuarios/<int:pk>/", views.usuario_acao_view, name="usuario_acao"),
     # --- Área do locutor ---
+    # A tela de equipe trabalha sobre UM leilão, e ele vem na URL. A rota sem
+    # id continua existindo (link antigo, favorito, atalho do hub): ela escolhe
+    # o padrão e **redireciona** para a URL com o id, em vez de ficar
+    # trabalhando sobre um palpite — que é como o locutor abria a mesa sem
+    # saber qual leilão estava conduzindo.
     path("locutor/", views.locutor_view, name="locutor"),
+    path("locutor/<int:leilao_id>/", views.locutor_view, name="locutor_leilao"),
     path("locutor/dados/", views.locutor_dados_view, name="locutor_dados"),
     # --- Área do caixa ---
     path("caixa/", views.caixa_view, name="caixa"),
+    path("caixa/<int:leilao_id>/", views.caixa_view, name="caixa_leilao"),
     path("caixa/arremate/<int:pk>/pix/", views.caixa_pix_view, name="caixa_pix"),
     path("caixa/entregas/", views.entregas_quadro_view, name="entregas_quadro"),
+    path("caixa/<int:leilao_id>/entregas/", views.entregas_quadro_view,
+         name="entregas_quadro_leilao"),
     path("caixa/entregas/redistribuir/", views.entregas_redistribuir_view,
          name="entregas_redistribuir"),
     # --- Área da preparação ---

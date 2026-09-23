@@ -9,7 +9,13 @@
 <div class="mesa">
     {% include "leilao/_nav_equipe.html" with area_atual="preparacao" titulo_area="Preparação" %}
 
+    {% comment %}
+    A tela é a LISTA dos leilões, e só. O formulário de criar vivia aberto aqui
+    embaixo, ocupando meia tela com campos que se usam uma vez por evento — e
+    empurrando para baixo justamente a lista, que é o que se vem ver.
+    {% endcomment %}
     <div class="secao-barra">
+        <button type="button" class="btn-mini destaque" id="btnNovoLeilao">➕ Novo leilão</button>
         <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️ Mercado Pago e áudio</a>
     </div>
 
@@ -20,9 +26,8 @@
                 <span class="item-nome">{{ l.nome }}</span>
                 <span class="item-linha">
                     <b class="selo selo-{{ l.status }}">{{ l.get_status_display }}</b> ·
-                    {{ l.n_lotes }} item{{ l.n_lotes|pluralize:"ns" }}
-                    {% if l.n_vendidos %}({{ l.n_vendidos }} vendido{{ l.n_vendidos|pluralize }}){% endif %} ·
-                    {{ l.minutos_para_pagar }} min para pagar
+                    {{ l.n_lotes }} ite{{ l.n_lotes|pluralize:"m,ns" }}
+                    {% if l.n_vendidos %}({{ l.n_vendidos }} vendido{{ l.n_vendidos|pluralize }}){% endif %}
                 </span>
             </div>
             <div class="item-acoes">
@@ -37,7 +42,7 @@
                 </form>
                 {% else %}
                 {% if 'locutor' in meus_papeis %}
-                <a href="{% url 'leilao:locutor' %}" class="btn-mini destaque">Abrir mesa</a>
+                <a href="{% url 'leilao:locutor_leilao' l.pk %}" class="btn-mini destaque">Abrir mesa</a>
                 {% endif %}
                 <form method="post" action="{% url 'leilao:leilao_status' l.pk %}" class="inline"
                       data-confirmar="Encerrar “{{ l.nome }}”?">
@@ -49,29 +54,44 @@
             </div>
         </li>
         {% empty %}
-        <li class="vazio">Nenhum leilão criado ainda.</li>
+        <li class="vazio">Nenhum leilão criado ainda. Use <b>➕ Novo leilão</b>.</li>
         {% endfor %}
     </ul>
+</div>
 
-    <div class="cartao">
-        <h3>Novo leilão</h3>
-        <p class="micro-ajuda">
-            Ele nasce em <b>rascunho</b> — ninguém vê. Depois de criado, cadastre os itens e só
-            então coloque no ar. Colocar um leilão no ar <b>encerra</b> o que estiver rolando.
-        </p>
-        <form method="post" novalidate>
-            {% csrf_token %}
-            {% include "leilao/_campo.html" with campo=form.nome %}
-            {% include "leilao/_campo.html" with campo=form.descricao %}
-            <div class="form-grade">
-                {% include "leilao/_campo.html" with campo=form.minutos_para_pagar %}
-            </div>
-            <button type="submit" class="btn-entrar">Criar leilão</button>
-        </form>
+{% comment %}
+O modal fica FORA da `.mesa` — é a mesma regra do resto do sistema, para não
+cair dentro de um ancestral com `transform` nem brigar com o accordion.
+
+Ele abre já com o formulário preenchido quando o POST volta com erro (o
+servidor manda `abrir_modal`), senão a pessoa digitava tudo de novo sem nem ver
+o que estava errado.
+{% endcomment %}
+<div class="modal-overlay" id="modalNovoLeilao" {% if not abrir_modal %}hidden{% endif %}>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="tituloNovoLeilao">
+        <div class="modal-topo">
+            <h2 class="modal-titulo" id="tituloNovoLeilao">Novo leilão</h2>
+            <button type="button" class="modal-fechar" data-fechar-modal aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-corpo">
+            <p class="micro-ajuda">
+                Ele nasce em <b>rascunho</b> — ninguém vê. Depois de criado, cadastre os itens e só
+                então coloque no ar. Colocar um leilão no ar <b>encerra</b> o que estiver rolando.
+            </p>
+            <form method="post" novalidate class="entrada-form">
+                {% csrf_token %}
+                {% include "leilao/_campo.html" with campo=form.nome %}
+                {% include "leilao/_campo.html" with campo=form.descricao %}
+                <button type="submit" class="btn-entrar">Criar leilão</button>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block js %}
 <script src="{% static 'leilao/js/lotes.js' %}"></script>
+{# Antes do preparacao.js: é ele que chama o window.ModalLeilao. #}
+<script src="{% static 'leilao/js/modal.js' %}"></script>
+<script src="{% static 'leilao/js/preparacao.js' %}"></script>
 {% endblock %}

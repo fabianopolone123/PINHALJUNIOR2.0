@@ -597,6 +597,12 @@ class ViewsEquipeTests(TestCase):
             self.assertEqual(self.c.get(url).status_code, 302, url)
 
     def test_cada_papel_abre_so_a_sua_area(self):
+        """Com `follow`, porque a URL sem id agora REDIRECIONA para a com id.
+
+        Sem seguir, `302` deixou de distinguir as duas coisas que este teste
+        precisa separar: "não tem acesso" e "vá para a URL do leilão". O que
+        importa é onde a pessoa **termina** — na tela, ou fora dela.
+        """
         casos = {
             "preparacao": ("/preparacao/", ["/locutor/", "/caixa/"]),
             "locutor": ("/locutor/", ["/preparacao/", "/caixa/"]),
@@ -606,28 +612,41 @@ class ViewsEquipeTests(TestCase):
             self._pessoa("user_" + papel, papel)
             c = Client()
             c.login(username="user_" + papel, password="segredo-ficticio")
-            self.assertEqual(c.get(minha).status_code, 200, papel + " nao abriu " + minha)
+            r = c.get(minha, follow=True)
+            self.assertEqual(r.status_code, 200, papel + " nao abriu " + minha)
+            self.assertTrue(
+                r.request["PATH_INFO"].startswith(minha),
+                papel + " nao terminou em " + minha,
+            )
             for outra in alheias:
-                self.assertEqual(c.get(outra).status_code, 302, papel + " abriu " + outra)
+                r = c.get(outra, follow=True)
+                self.assertFalse(
+                    r.request["PATH_INFO"].startswith(outra),
+                    papel + " abriu " + outra,
+                )
 
     def test_diretor_abre_as_tres(self):
         self._pessoa("chefe", "diretor")
         self.c.login(username="chefe", password="segredo-ficticio")
         for url in ["/preparacao/", "/locutor/", "/caixa/"]:
-            self.assertEqual(self.c.get(url).status_code, 200, url)
+            self.assertEqual(self.c.get(url, follow=True).status_code, 200, url)
 
     def test_papeis_acumulam(self):
         """No evento pequeno, o mesmo voluntário faz duas coisas."""
         self._pessoa("dupla", "locutor", "caixa")
         self.c.login(username="dupla", password="segredo-ficticio")
-        self.assertEqual(self.c.get("/locutor/").status_code, 200)
-        self.assertEqual(self.c.get("/caixa/").status_code, 200)
+        self.assertEqual(self.c.get("/locutor/", follow=True).status_code, 200)
+        self.assertEqual(self.c.get("/caixa/", follow=True).status_code, 200)
         self.assertEqual(self.c.get("/preparacao/").status_code, 302)
 
     def test_quem_tem_uma_area_so_vai_direto_para_ela(self):
         self._pessoa("soLocutor", "locutor")
         self.c.login(username="soLocutor", password="segredo-ficticio")
-        self.assertRedirects(self.c.get("/equipe/"), "/locutor/")
+        # O destino continua sendo `/locutor/`; de lá ele redireciona de novo
+        # para `/locutor/<id>/` — daí o `target_status_code=302`.
+        self.assertRedirects(
+            self.c.get("/equipe/"), "/locutor/", target_status_code=302
+        )
 
     def test_quem_tem_duas_areas_escolhe(self):
         self._pessoa("duasAreas", "locutor", "caixa")
@@ -808,7 +827,7 @@ class EntregaTests(TestCase):
 
     def test_tela_do_caixa_lista_o_que_ha_para_entregar(self):
         servicos.marcar_pago(self.arremate, manual=True)
-        r = self.c.get("/caixa/")
+        r = self.c.get("/caixa/", follow=True)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.context["a_entregar"]), 1)
         # O roteiro leva endereço: é documento de quem entrega.
@@ -816,7 +835,7 @@ class EntregaTests(TestCase):
         self.assertIn("Ana Fictícia", r.context["roteiro"])
 
     def test_roteiro_vazio_quando_nao_ha_entrega(self):
-        r = self.c.get("/caixa/")
+        r = self.c.get("/caixa/", follow=True)
         self.assertEqual(r.context["roteiro"], "")
 
 
@@ -1149,7 +1168,9 @@ class TelasEquipeRenderizamTests(TestCase):
         ]
         for url in urls:
             with self.subTest(url=url):
-                self.assertEqual(self.c.get(url).status_code, 200, url)
+                # `follow`: as telas de equipe sem id na URL redirecionam para a
+                # URL COM id. O que este teste quer saber é se a tela abre.
+                self.assertEqual(self.c.get(url, follow=True).status_code, 200, url)
 
     def test_tela_de_entrada_abre_para_quem_nao_esta_logado(self):
         self.assertEqual(Client().get("/equipe/entrar/").status_code, 200)
@@ -1547,7 +1568,7 @@ class SemMusicaDeFundoTests(TestCase):
         c = Client()
         c.login(username="loc_sem_musica", password="segredo-ficticio")
 
-        html = c.get("/locutor/").content.decode("utf-8")
+        html = c.get("/locutor/", follow=True).content.decode("utf-8")
         self.assertNotIn("btnMusica", html)
         self.assertNotIn("musicaVolume", html)
 
@@ -1703,7 +1724,7 @@ class PagarDepoisTests(TestCase):
 
     def test_entra_no_a_receber_do_caixa(self):
         servicos.marcar_combinado(self.arremate)
-        r = self.c.get("/caixa/")
+        r = self.c.get("/caixa/", follow=True)
         self.assertEqual(r.context["resumo"]["combinados"], 1)
         self.assertEqual(r.context["resumo"]["a_receber"], self.arremate.valor)
 
@@ -2331,7 +2352,7 @@ class SemDesfazerLanceTests(TestCase):
         c = Client()
         c.login(username="loc_sem_desfazer", password="segredo-ficticio")
 
-        html = c.get("/locutor/").content.decode("utf-8")
+        html = c.get("/locutor/", follow=True).content.decode("utf-8")
         self.assertNotIn('data-acao="desfazer"', html)
 
     def test_o_servidor_recusa_a_acao_forjada(self):
@@ -2510,7 +2531,7 @@ class NumeroDoItemTests(TestCase):
         c = Client()
         c.login(username="cx_numero", password="segredo-ficticio")
 
-        self.assertIn(f"nº {lote.numero}", c.get("/caixa/").context["roteiro"])
+        self.assertIn(f"nº {lote.numero}", c.get("/caixa/", follow=True).context["roteiro"])
 
 
 class SemCronometroTests(TestCase):
@@ -2592,7 +2613,7 @@ class SemCronometroTests(TestCase):
         u.groups.add(grupo)
         c = Client()
         c.login(username="loc_sem_pausa", password="segredo-ficticio")
-        html = c.get("/locutor/").content.decode("utf-8")
+        html = c.get("/locutor/", follow=True).content.decode("utf-8")
         self.assertNotIn("btnPausa", html)
 
     def test_o_estado_nao_fala_de_pausa(self):
@@ -2765,11 +2786,13 @@ class TelaDeDividirEntregasTests(TestCase):
     def test_sem_entregador_nenhum_o_quadro_manda_de_volta(self):
         """O quadro precisa saber quantas colunas desenhar; quem chega sem dizer
         volta para a tela que pergunta."""
-        r = self.c.get("/caixa/entregas/")
-        self.assertRedirects(r, "/caixa/")
+        r = self.c.get("/caixa/entregas/", follow=True)
+        # A volta é para o caixa DAQUELE leilão: a tela de equipe trabalha
+        # sobre um leilão explícito, e o id vai na URL.
+        self.assertEqual(r.request["PATH_INFO"], f"/caixa/{self.leilao.pk}/")
 
     def test_dividir_por_dois(self):
-        r = self.c.get("/caixa/entregas/?entregadores=2")
+        r = self.c.get("/caixa/entregas/?entregadores=2", follow=True)
         self.assertEqual(len(r.context["colunas"]), 2)
         self.assertEqual([len(c["paradas"]) for c in r.context["colunas"]], [1, 1])
         # Nasce já distribuído: a divisão por bairro é o ponto de partida.
@@ -2777,17 +2800,17 @@ class TelaDeDividirEntregasTests(TestCase):
 
     def test_a_tela_avisa_que_nao_ha_mapa(self):
         """Precisão inventada é pior que limite declarado."""
-        html = self.c.get("/caixa/?entregadores=2").content.decode("utf-8")
+        html = self.c.get("/caixa/?entregadores=2", follow=True).content.decode("utf-8")
         self.assertIn("não consulta mapa", html)
 
     def test_numero_invalido_nao_quebra(self):
         for valor in ("abc", "-3", "0", "999"):
-            r = self.c.get("/caixa/?entregadores=" + valor)
+            r = self.c.get("/caixa/?entregadores=" + valor, follow=True)
             self.assertEqual(r.status_code, 200)
 
     def test_o_campo_de_entrega_nao_pede_mais_rastreio(self):
         """Entrega é na mão, por voluntário: não existe código de rastreio."""
-        html = self.c.get("/caixa/").content.decode("utf-8")
+        html = self.c.get("/caixa/", follow=True).content.decode("utf-8")
         self.assertNotIn("rastreio", html.lower())
         self.assertIn("Quem recebeu", html)
 
@@ -2827,7 +2850,7 @@ class QuadroDeEntregasTests(TestCase):
         return pessoa
 
     def _abrir(self, quantos=2):
-        return self.c.get("/caixa/entregas/?entregadores=" + str(quantos))
+        return self.c.get("/caixa/entregas/?entregadores=" + str(quantos), follow=True)
 
     def _mover(self, pessoa, entregador):
         return self.c.post(
@@ -2973,7 +2996,7 @@ class QuadroDeEntregasTests(TestCase):
     def test_numero_invalido_de_entregadores_nao_quebra(self):
         self._abrir(2)
         for valor in ("abc", "-3", "999"):
-            r = self.c.get("/caixa/entregas/?entregadores=" + valor)
+            r = self.c.get("/caixa/entregas/?entregadores=" + valor, follow=True)
             self.assertEqual(r.status_code, 200)
 
     # --- recomeçar ---
@@ -2982,7 +3005,7 @@ class QuadroDeEntregasTests(TestCase):
         self._abrir(2)
         self._mover(self.ana, 2)
         r = self.c.post("/caixa/entregas/redistribuir/")
-        self.assertRedirects(r, "/caixa/entregas/")
+        self.assertRedirects(r, f"/caixa/{self.leilao.pk}/entregas/")
         self.assertEqual(
             AtribuicaoEntrega.objects.get(participante=self.ana).entregador, 1
         )
@@ -3062,7 +3085,7 @@ class ContasDaEquipeTests(TestCase):
         u.groups.add(grupo)
         c = Client()
         c.login(username="so_loc", password="segredo-ficticio")
-        self.assertNotIn("/equipe/usuarios/", c.get("/locutor/").content.decode("utf-8"))
+        self.assertNotIn("/equipe/usuarios/", c.get("/locutor/", follow=True).content.decode("utf-8"))
 
     # --- cadastro ---
     def test_cadastro_cria_a_conta_com_a_senha_padrao(self):
@@ -3137,7 +3160,7 @@ class ContasDaEquipeTests(TestCase):
         c.login(username="maria", password=equipe.SENHA_PADRAO)
         r = c.post("/equipe/senha/", {"senha": "123", "repetir": "123"})
         self.assertRedirects(r, "/equipe/", target_status_code=302)
-        self.assertEqual(c.get("/caixa/").status_code, 200)
+        self.assertEqual(c.get("/caixa/", follow=True).status_code, 200)
 
     def test_a_sessao_sobrevive_a_troca(self):
         """Sem `update_session_auth_hash` a pessoa cai no login logo depois de obedecer."""
@@ -3145,7 +3168,7 @@ class ContasDaEquipeTests(TestCase):
         c = Client()
         c.login(username="maria", password=equipe.SENHA_PADRAO)
         c.post("/equipe/senha/", {"senha": "123", "repetir": "123"})
-        self.assertEqual(c.get("/caixa/").status_code, 200)
+        self.assertEqual(c.get("/caixa/", follow=True).status_code, 200)
 
     def test_senha_curta_e_aceita(self):
         """Decisão do clube: voluntário no celular, no meio do evento."""
@@ -3407,12 +3430,12 @@ class CaixaAoVivoTests(TestCase):
         self.assertEqual(p.whatsapp_link, "")
 
     def test_a_tela_do_caixa_traz_o_botao_de_whatsapp(self):
-        html = self.c.get("/caixa/").content.decode("utf-8")
+        html = self.c.get("/caixa/", follow=True).content.decode("utf-8")
         self.assertIn("wa.me/", html)
 
     def test_a_tela_do_caixa_ouve_o_stream(self):
         """Sem isto o caixa só via 'Pago' depois de apertar F5."""
-        html = self.c.get("/caixa/").content.decode("utf-8")
+        html = self.c.get("/caixa/", follow=True).content.decode("utf-8")
         self.assertIn("data-stream=", html)
 
     # --- Pix na mão do caixa ---
@@ -4131,7 +4154,7 @@ class PesoEDimensoesTests(TestCase):
         lote.refresh_from_db()
         servicos.fechar_lote(lote, motivo="locutor")
 
-        r = cliente.get("/caixa/")
+        r = cliente.get("/caixa/", follow=True)
         self.assertContains(r, lote.medidas_texto)
 
     def test_vai_no_roteiro_de_entrega(self):
@@ -4215,7 +4238,7 @@ class AMesaSenteASalaTests(TestCase):
         )
 
     def test_a_mesa_tem_o_trilho_e_carrega_o_reacoes(self):
-        html = self.c.get("/locutor/").content.decode()
+        html = self.c.get("/locutor/", follow=True).content.decode()
         self.assertIn('id="reacoesTrilho"', html)
         # Sem o `.js`: em produção o ManifestStaticFilesStorage acrescenta o
         # hash do conteúdo ao nome (reacoes.abc123.js).
@@ -4223,7 +4246,7 @@ class AMesaSenteASalaTests(TestCase):
 
     def test_a_mesa_so_ouve_as_reacoes(self):
         """Quem reage é o público. Botão de reagir na mesa seria outro produto."""
-        html = self.c.get("/locutor/").content.decode()
+        html = self.c.get("/locutor/", follow=True).content.decode()
         self.assertNotIn("btn-reacao", html)
 
     def test_o_locutor_js_ouve_o_evento_de_reacoes(self):
@@ -4299,7 +4322,7 @@ class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
         )
 
     def test_as_duas_linhas_tem_tres_cards_cada(self):
-        html = self.c.get("/locutor/").content.decode()
+        html = self.c.get("/locutor/", follow=True).content.decode()
         # A ordem no HTML é a ordem na tela: o que se acompanha primeiro.
         pregao = html.index('class="pregao-grade pregao-linha"')
         segunda = html.index('class="pregao-grade tres"')
@@ -4404,7 +4427,7 @@ class OQueOLocutorLeEmVozAltaTests(TestCase):
         self.assertRegex(self._css(), r"\.chat-mesa\s*\{[^}]*overflow-y:\s*auto")
 
     def test_os_dois_que_ele_anuncia_sao_os_grandes(self):
-        html = self.c.get("/locutor/").content.decode()
+        html = self.c.get("/locutor/", follow=True).content.decode()
         numeros = html[html.index('class="mesa-numeros"') :]
         numeros = numeros[: numeros.index("mesa-crono")]
 
@@ -4477,3 +4500,406 @@ class CardAltoNaoPerdeOTopoTests(TestCase):
         )
         self.assertIn("tela-entrada", html)
         self.assertIn('class="entrada"', html)
+
+
+class ItemVoltaAoLeilaoTests(TestCase):
+    """Devolver à fila um item que já foi batido — e **por quê**.
+
+    Dois casos reais, e o dinheiro se comporta diferente em cada um:
+
+    - **não pagou**: a pessoa desistiu. A dívida some junto, porque cobrar por
+      um item que ela não vai receber seria errado;
+    - **pagou**: ela **doou o item de volta** para o clube leiloar outra vez.
+      Não é estorno — o dinheiro entrou e é do clube —, então o arremate
+      continua `pago` e a arrecadação **não muda**. O que muda é que ela sai da
+      **entrega**: sem isso um voluntário sairia para levar na casa dela um
+      objeto que está de volta na prateleira.
+
+    O **motivo é obrigatório**, e a trava é do servidor: um item reaparecendo
+    na fila depois de batido é a coisa mais estranha que pode acontecer num
+    leilão, e quem abrir a lista amanhã precisa saber por quê.
+    """
+
+    def setUp(self):
+        # O freio de lance é por pessoa e mora na MEMÓRIA do processo; com o
+        # rollback do TestCase os ids se repetem, então sem limpar o segundo
+        # teste da classe leva "Calma!" e o item fecha sem lance nenhum.
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.pessoa = criar_pessoa("Ana Fictícia")
+        self.lote = criar_lote(self.leilao, nome="Cesta fictícia")
+        servicos.abrir_lote(self.lote)
+        self.lote.refresh_from_db()
+        servicos.dar_lance(self.lote.id, self.pessoa)
+        self.lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(self.lote, motivo="locutor")
+        self.lote.refresh_from_db()
+
+    def test_o_item_volta_limpo_para_a_fila(self):
+        voltas = self.lote.voltas
+        servicos.devolver_ao_leilao(self.arremate, "Não pagou e desistiu.")
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "fila")
+        self.assertIsNone(self.lote.lider_id)
+        self.assertEqual(self.lote.valor_atual, Decimal("0.00"))
+        self.assertEqual(self.lote.voltas, voltas + 1)
+
+    def test_o_numero_do_item_nao_muda(self):
+        """É a etiqueta colada na caixa: se mudasse, a prateleira passaria a
+        apontar para outra coisa."""
+        numero = self.lote.numero
+        servicos.devolver_ao_leilao(self.arremate, "Desistiu.")
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.numero, numero)
+
+    def test_sem_motivo_nao_devolve(self):
+        for vazio in ("", "   ", None):
+            with self.assertRaises(servicos.DevolucaoRecusada):
+                servicos.devolver_ao_leilao(self.arremate, vazio)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "vendido")
+
+    def test_quem_nao_pagou_deixa_de_dever(self):
+        self.assertTrue(self.arremate.em_aberto)
+        servicos.devolver_ao_leilao(self.arremate, "Desistiu.")
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "cancelado")
+        self.assertFalse(self.arremate.em_aberto)
+        # E some da cobrança: o Pix da pessoa não pode incluir este item.
+        self.assertNotIn(
+            self.arremate, list(servicos.arremates_em_aberto(self.pessoa))
+        )
+
+    def test_quem_pagou_e_doou_continua_pago(self):
+        """Doação, não estorno: o dinheiro entrou e é do clube."""
+        servicos.marcar_pago(self.arremate, manual=True)
+        self.arremate.refresh_from_db()
+        servicos.devolver_ao_leilao(self.arremate, "Doou o item de volta.")
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.status, "pago")
+        self.assertIsNotNone(self.arremate.pago_em)
+
+    def test_quem_doou_sai_da_entrega(self):
+        servicos.marcar_pago(self.arremate, manual=True)
+        self.arremate.refresh_from_db()
+        self.assertTrue(self.arremate.a_entregar)
+        servicos.devolver_ao_leilao(self.arremate, "Doou o item de volta.")
+        self.arremate.refresh_from_db()
+        self.assertFalse(
+            self.arremate.a_entregar,
+            "quem devolveu o item não pode continuar na lista de entrega",
+        )
+
+    def test_o_motivo_e_quem_devolveu_ficam_registrados(self):
+        User = get_user_model()
+        u = User.objects.create_user("caixa_dev", password="segredo-ficticio")
+        servicos.devolver_ao_leilao(self.arremate, "  Doou de volta ao clube.  ", por=u)
+        self.arremate.refresh_from_db()
+        self.assertEqual(self.arremate.motivo_devolucao, "Doou de volta ao clube.")
+        self.assertEqual(self.arremate.devolvido_por_id, u.id)
+        self.assertIsNotNone(self.arremate.devolvido_em)
+        self.assertTrue(self.arremate.devolvido)
+
+    def test_devolver_duas_vezes_nao_conta_duas_voltas(self):
+        """O botão sobrevive na tela até a página se refazer."""
+        servicos.devolver_ao_leilao(self.arremate, "Desistiu.")
+        self.lote.refresh_from_db()
+        voltas = self.lote.voltas
+        with self.assertRaises(servicos.DevolucaoRecusada):
+            servicos.devolver_ao_leilao(self.arremate, "De novo.")
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.voltas, voltas)
+
+    def test_item_em_pregao_agora_nao_e_devolvido(self):
+        """Devolver no meio da disputa apagaria os lances de quem está no ar."""
+        outro = criar_lote(self.leilao, nome="Outro item fictício")
+        servicos.abrir_lote(outro)
+        outro.refresh_from_db()
+        # Outra pessoa: o freio de 0,3 s é por pessoa, e o `setUp` acabou de
+        # dar um lance com a primeira.
+        segunda = criar_pessoa("Bruno Fictício")
+        servicos.dar_lance(outro.id, segunda)
+        outro.refresh_from_db()
+        arremate = servicos.fechar_lote(outro, motivo="locutor")
+        # Reabre o mesmo item: agora ele está em pregão de novo.
+        outro.refresh_from_db()
+        servicos.abrir_lote(outro)
+        outro.refresh_from_db()
+        self.assertEqual(outro.status, "aberto")
+        with self.assertRaises(servicos.DevolucaoRecusada):
+            servicos.devolver_ao_leilao(arremate, "Tentando no meio do pregão.")
+
+
+class CadaTelaSabeDeQualLeilaoTests(TestCase):
+    """A tela de equipe trabalha sobre o leilão que está **na URL**.
+
+    A regra já valia para o cadastro de item (ele jogava item novo dentro do
+    pregão em andamento). Mesa, caixa e quadro de entregas continuavam
+    adivinhando — "o que está no ar, ou o mais recente" —, e o custo era real:
+    o locutor abria a mesa **sem saber qual leilão estava conduzindo**, e
+    depois do evento não havia como olhar o caixa da noite passada sem
+    colocá-la no ar de novo.
+
+    A URL sem id continua existindo (link antigo, favorito, atalho do hub): ela
+    escolhe o padrão e **redireciona**, em vez de trabalhar sobre o palpite.
+    """
+
+    def setUp(self):
+        self.antigo = criar_leilao(nome="Leilão de agosto", status="encerrado")
+        self.atual = criar_leilao(nome="Leilão de setembro", status="ao_vivo")
+        User = get_user_model()
+        u = User.objects.create_user("equipe_sel", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        for nome in ("locutor", "caixa"):
+            grupo, _ = Group.objects.get_or_create(name=nome)
+            u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="equipe_sel", password="segredo-ficticio")
+
+    def test_a_url_sem_id_redireciona_para_a_url_com_id(self):
+        for caminho, nome in (("/locutor/", "locutor"), ("/caixa/", "caixa")):
+            r = self.c.get(caminho)
+            self.assertEqual(r.status_code, 302, caminho)
+            self.assertEqual(r["Location"], "/%s/%d/" % (nome, self.atual.pk))
+
+    def test_da_para_abrir_o_leilao_ANTIGO(self):
+        """O caixa da noite passada, sem colocá-la no ar de novo."""
+        r = self.c.get("/caixa/%d/" % self.antigo.pk)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context["leilao"], self.antigo)
+
+    def test_o_seletor_lista_todos_os_leiloes(self):
+        r = self.c.get("/caixa/%d/" % self.atual.pk)
+        html = r.content.decode()
+        self.assertIn('id="seletorLeilao"', html)
+        for leilao in (self.antigo, self.atual):
+            self.assertIn("/caixa/%d/" % leilao.pk, html, leilao.nome)
+
+    def test_o_redirect_nao_perde_a_query_string(self):
+        """O `?entregadores=2` do quadro viaja no GET: redirecionar seco o
+        descartava, e a tela voltava pedindo o número que a pessoa acabou de
+        informar."""
+        r = self.c.get("/caixa/entregas/?entregadores=2")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("entregadores=2", r["Location"])
+
+    def test_leilao_que_nao_existe_e_404(self):
+        self.assertEqual(self.c.get("/caixa/99999/").status_code, 404)
+
+    def test_sem_leilao_nenhum_a_area_nao_entra_em_laco(self):
+        """Hub → área → hub → área: uma página que nunca carrega.
+
+        Acontecia com quem tem UMA área só (o hub manda direto para ela) e
+        nenhum leilão criado (a área manda de volta para o hub). O `follow` do
+        teste é o que expõe o laço.
+        """
+        Leilao.objects.all().delete()
+        User = get_user_model()
+        u = User.objects.create_user("so_locutor_sem", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        c = Client()
+        c.login(username="so_locutor_sem", password="segredo-ficticio")
+        r = c.get("/equipe/", follow=True)   # sem a guarda: RedirectCycleError
+        self.assertEqual(r.status_code, 200)
+
+
+class CaixaCobraPorPessoaTests(TestCase):
+    """No caixa, o pagamento aparece por PESSOA — porque é assim que se cobra.
+
+    O pagamento deixou de ser por item: cada um leva o que levar e paga tudo
+    num Pix só, no fim. A tela, porém, continuou sendo uma lista de itens, e o
+    caixa tinha de somar de cabeça o que cada pessoa devia, caçando linhas
+    espalhadas. Com dez pessoas e trinta itens é onde o dinheiro se perde.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        self.arremates = []
+        nomes = ["Cesta fictícia", "Quadro fictício", "Bolo fictício"]
+        for i, nome in enumerate(nomes, 1):
+            lote = criar_lote(self.leilao, nome=nome, ordem=i)
+            servicos.limpar_limites()
+            servicos.abrir_lote(lote)
+            lote.refresh_from_db()
+            servicos.dar_lance(lote.id, self.ana)
+            lote.refresh_from_db()
+            self.arremates.append(servicos.fechar_lote(lote, motivo="locutor"))
+
+        User = get_user_model()
+        u = User.objects.create_user("caixa_pessoa", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="caixa_pessoa", password="segredo-ficticio")
+
+    def _contas(self):
+        return self.c.get("/caixa/%d/" % self.leilao.pk).context["contas"]
+
+    def test_os_itens_de_uma_pessoa_viram_UMA_linha(self):
+        contas = self._contas()
+        self.assertEqual(len(contas), 1)
+        self.assertEqual(len(contas[0]["itens"]), 3)
+        self.assertEqual(contas[0]["participante"], self.ana)
+
+    def test_a_conta_soma_o_que_ela_deve(self):
+        contas = self._contas()
+        total = sum(a.valor for a in self.arremates)
+        self.assertEqual(contas[0]["total"], total)
+        self.assertEqual(contas[0]["falta"], total)
+        self.assertFalse(contas[0]["quitada"])
+
+    def test_pagar_um_item_move_o_valor_de_falta_para_pago(self):
+        servicos.marcar_pago(self.arremates[0], manual=True)
+        conta = self._contas()[0]
+        self.assertEqual(conta["pago"], self.arremates[0].valor)
+        self.assertEqual(conta["falta"], sum(a.valor for a in self.arremates[1:]))
+        self.assertFalse(conta["quitada"])
+
+    def test_quitada_quando_nao_falta_nada(self):
+        for a in self.arremates:
+            servicos.marcar_pago(a, manual=True)
+        conta = self._contas()[0]
+        self.assertTrue(conta["quitada"])
+        self.assertEqual(conta["falta"], Decimal("0.00"))
+
+    def test_quem_deve_vem_antes_de_quem_quitou(self):
+        """É a fila de trabalho do caixa."""
+        for a in self.arremates:
+            servicos.marcar_pago(a, manual=True)
+        servicos.limpar_limites()
+        bruno = criar_pessoa("Bruno Fictício")
+        lote = criar_lote(self.leilao, nome="Item do Bruno", ordem=9)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, bruno)
+        lote.refresh_from_db()
+        servicos.fechar_lote(lote, motivo="locutor")
+
+        contas = self._contas()
+        self.assertEqual(contas[0]["participante"], bruno, "quem deve vem primeiro")
+        self.assertTrue(contas[-1]["quitada"])
+
+    def test_item_devolvido_sai_da_conta(self):
+        """O item voltou ao leilão: não é mais dela e não entra na soma."""
+        servicos.devolver_ao_leilao(self.arremates[0], "Desistiu.")
+        conta = self._contas()[0]
+        self.assertEqual(len(conta["itens"]), 2)
+        self.assertEqual(conta["total"], sum(a.valor for a in self.arremates[1:]))
+
+
+class DevolverItemPelaTelaTests(TestCase):
+    """A devolução é do CAIXA, e o motivo é exigido pelo SERVIDOR."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        pessoa = criar_pessoa("Ana Fictícia")
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        self.arremate = servicos.fechar_lote(lote, motivo="locutor")
+        self.lote = lote
+
+    def _cliente(self, *areas):
+        User = get_user_model()
+        nome = "dev_" + "_".join(areas or ["nada"])
+        u = User.objects.create_user(nome, password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        for area in areas:
+            grupo, _ = Group.objects.get_or_create(name=area)
+            u.groups.add(grupo)
+        c = Client()
+        c.login(username=nome, password="segredo-ficticio")
+        return c
+
+    def _devolver(self, c, **extra):
+        corpo = {"acao": "devolver", "arremate": self.arremate.pk}
+        corpo.update(extra)
+        return c.post(
+            "/equipe/acao/", data=json.dumps(corpo), content_type="application/json"
+        )
+
+    def test_o_caixa_devolve(self):
+        r = self._devolver(self._cliente("caixa"), motivo="Doou de volta.")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["ok"])
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "fila")
+
+    def test_o_locutor_nao_devolve(self):
+        """Quem bate o martelo não mexe na conta de ninguém."""
+        r = self._devolver(self._cliente("locutor"), motivo="Tentando.")
+        self.assertEqual(r.status_code, 403)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "vendido")
+
+    def test_sem_motivo_o_servidor_recusa(self):
+        """Esconder o botão ou marcar `required` no HTML não barra POST forjado."""
+        c = self._cliente("caixa")   # um cliente só: o login sai do nome da área
+        for vazio in ("", "   "):
+            r = self._devolver(c, motivo=vazio)
+            self.assertEqual(r.status_code, 409)
+            self.assertFalse(r.json()["ok"])
+        r = self._devolver(c)   # sem o campo nenhum
+        self.assertEqual(r.status_code, 409)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "vendido")
+
+    def test_a_tela_do_caixa_oferece_o_botao(self):
+        html = self._cliente("caixa").get("/caixa/%d/" % self.leilao.pk).content.decode()
+        self.assertIn("data-devolver=", html)
+        self.assertIn("modalDevolver", html)
+
+
+class NovoLeilaoEmJanelaSuspensaTests(TestCase):
+    """A tela de preparação é a LISTA; criar é uma janela suspensa."""
+
+    def setUp(self):
+        User = get_user_model()
+        u = User.objects.create_user("prep_modal", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="prep_modal", password="segredo-ficticio")
+
+    def test_a_tela_tem_o_botao_e_o_modal(self):
+        html = self.c.get("/preparacao/").content.decode()
+        self.assertIn('id="btnNovoLeilao"', html)
+        self.assertIn('id="modalNovoLeilao"', html)
+
+    def test_o_modal_nasce_fechado(self):
+        r = self.c.get("/preparacao/")
+        self.assertIn('id="modalNovoLeilao" hidden', r.content.decode())
+        self.assertFalse(r.context["abrir_modal"])
+
+    def test_erro_no_formulario_devolve_o_modal_ABERTO(self):
+        """Fechado, a pessoa redigitaria tudo sem ver o que estava errado."""
+        r = self.c.post("/preparacao/", {"nome": ""})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["abrir_modal"])
+        self.assertNotIn('id="modalNovoLeilao" hidden', r.content.decode())
+
+    def test_criar_leva_para_os_itens(self):
+        r = self.c.post("/preparacao/", {"nome": "Leilão fictício"})
+        novo = Leilao.objects.get(nome="Leilão fictício")
+        self.assertRedirects(r, "/preparacao/%d/itens/" % novo.pk)
+
+    def test_a_lista_nao_promete_mais_prazo_para_pagar(self):
+        """`minutos_para_pagar` é coluna dormente desde 21/09 — e a tela ainda
+        anunciava "15 min para pagar", prometendo uma regra revogada."""
+        criar_leilao(nome="Leilão fictício")
+        html = self.c.get("/preparacao/").content.decode()
+        self.assertNotIn("min para pagar", html)

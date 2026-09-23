@@ -12,6 +12,8 @@ import asyncio
 import json
 import logging
 
+from decimal import Decimal
+
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib import messages
@@ -23,6 +25,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -509,7 +512,14 @@ def equipe_view(request):
         return redirect("leilao:entrar_equipe")
 
     areas = papeis.menu_do(request.user)
-    if len(areas) == 1:
+    # Quem tem UMA área só vai direto para ela — mas só quando há leilão para
+    # trabalhar. Sem nenhum leilão criado, a mesa e o caixa mandam a pessoa de
+    # volta para cá ("nenhum leilão ainda") e o navegador entra num **laço de
+    # redirect**: hub → área → hub → área. Quem cai nisso vê uma página que
+    # nunca carrega, no dia do evento.
+    if len(areas) == 1 and (
+        areas[0]["chave"] == "preparacao" or Leilao.objects.exists()
+    ):
         return redirect(areas[0]["rota"])
 
     leilao = Leilao.ao_vivo()
@@ -530,23 +540,74 @@ def equipe_view(request):
 # ---------------------------------------------------------------------------
 # Área do LOCUTOR
 # ---------------------------------------------------------------------------
+def _leilao_padrao():
+    """O leilão que a tela abre quando a URL não diz qual.
+
+    Só serve para **redirecionar** para a URL com o id: adivinhar e ficar
+    trabalhando sobre o palpite é o que fazia o locutor abrir a mesa sem saber
+    qual leilão estava conduzindo, e a mesa mostrar um pregão encerrado dias
+    antes. A regra do projeto é `/<area>/<id>/`.
+    """
+    return Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+
+
+def _ir_para_o_leilao(request, nome, leilao):
+    """Redireciona para a URL com o id **sem perder a query string**.
+
+    O `?entregadores=2` do quadro viaja no GET: redirecionar seco o descartava,
+    e a tela voltava pedindo o número de entregadores que a pessoa acabou de
+    informar. Parâmetro novo destas telas passa a funcionar de graça.
+    """
+    destino = reverse(nome, kwargs={"leilao_id": leilao.pk})
+    if request.GET:
+        destino += "?" + request.GET.urlencode()
+    return redirect(destino)
+
+
+def _leilao_do_post(request):
+    """O leilão que o POST diz — e não o adivinhado.
+
+    O formulário manda `leilao`; sem ele (link antigo), cai no padrão. `int()`
+    em entrada da internet fica fora do ORM de propósito: `leilao=abc` estouraria
+    `ValueError` lá dentro e viraria um 500 numa view cuja recusa é um redirect.
+    """
+    bruto = (request.POST.get("leilao") or "").strip()
+    if bruto.isdigit():
+        return Leilao.objects.filter(pk=int(bruto)).first() or _leilao_padrao()
+    return _leilao_padrao()
+
+
+def _leiloes_do_seletor():
+    """A lista do seletor: o que está no ar primeiro, depois o mais recente."""
+    return Leilao.objects.order_by("-criado_em")
+
+
+def _sem_leilao(request):
+    messages.info(request, "Nenhum leilão criado ainda.")
+    return redirect("leilao:equipe")
+
+
 @papeis.exige("locutor")
-def locutor_view(request):
+def locutor_view(request, leilao_id=None):
     """A mesa: pregão, cronômetro, fila, participantes, chat e microfone.
 
     **Sem pagamentos**: quem bate o martelo não é quem confirma o recebimento, e
     o locutor já tem as mãos cheias falando e olhando o cronômetro.
     """
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
-    if not leilao:
-        messages.info(request, "Nenhum leilão criado ainda.")
-        return redirect("leilao:equipe")
+    if leilao_id is None:
+        leilao = _leilao_padrao()
+        if not leilao:
+            return _sem_leilao(request)
+        return _ir_para_o_leilao(request, "leilao:locutor_leilao", leilao)
+
+    leilao = get_object_or_404(Leilao, pk=leilao_id)
 
     return render(
         request,
         "leilao/locutor.html",
         {
             "leilao": leilao,
+            "leiloes": _leiloes_do_seletor(),
             "estado_inicial": json.dumps(
                 est.estado_publico(leilao), ensure_ascii=False, default=str
             ),
@@ -629,6 +690,10 @@ ACOES_AREAS = {
     "bloquear": ("locutor", "caixa"),
     "pago": ("caixa",),
     "combinado": ("caixa",),
+    # Devolver ao leilão um item já batido. É do CAIXA porque é lá que se vê
+    # quem não pagou — e, com o pagamento no fim, a devolução quase sempre
+    # acontece depois do leilão, quando a cobrança não deu em nada.
+    "devolver": ("caixa",),
     # Abrir a bilheteria no fim do leilão é do LOCUTOR: é ele quem sabe que o
     # último item foi batido. Não mexe em dinheiro de ninguém — só destrava o
     # botão de pagar na tela de quem arrematou.
@@ -768,6 +833,21 @@ def locutor_acao_view(request):
             {"ok": True, "msg": "Combinado — o item não volta para a fila."}
         )
 
+    if acao == "devolver":
+        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
+        try:
+            lote = servicos.devolver_ao_leilao(
+                arremate, dados.get("motivo"), por=request.user
+            )
+        except servicos.DevolucaoRecusada as erro:
+            # A recusa é uma frase para quem está na tela, não um 500. O motivo
+            # vazio chega aqui inteiro: esconder o botão ou marcar `required` no
+            # HTML não impede um POST forjado.
+            return JsonResponse({"ok": False, "msg": str(erro)}, status=409)
+        return JsonResponse(
+            {"ok": True, "msg": f"“{lote.nome}” voltou para a fila do leilão."}
+        )
+
     if acao == "liberar":
         # Alavanca: o mesmo botão abre e fecha. O locutor pode ter apertado
         # antes da hora, e fechar de novo é mais barato que explicar.
@@ -829,13 +909,71 @@ def _marcar_entrega(arremate, usuario, dados):
     return {"ok": True, "msg": "Entrega registrada!", "entregue": True}
 
 
+def _contas_do_caixa(arremates):
+    """Os arremates agrupados por PESSOA — que é como se cobra agora.
+
+    O pagamento deixou de ser por item: a pessoa leva o que levar e paga
+    **tudo num Pix só**, no fim. A tela, porém, continuou sendo uma lista de
+    itens — e com ela o caixa tinha de somar de cabeça o que cada um devia,
+    procurando as linhas espalhadas pela lista inteira. Com dez pessoas e
+    trinta itens isso é onde o dinheiro se perde.
+
+    Cada conta traz o que a conversa com a pessoa exige: o **total**, o que já
+    **pagou**, o que **falta**, e se ela está quitada. O detalhe item a item
+    fica no modal, a um clique — não some, só sai da frente.
+
+    A ordem coloca **quem deve primeiro**: é a fila de trabalho do caixa. Item
+    **devolvido** não entra em conta nenhuma (o item voltou ao leilão), e item
+    cancelado também não.
+    """
+    contas = {}
+    for a in arremates:
+        if a.devolvido or a.status == "cancelado":
+            continue
+        conta = contas.get(a.participante_id)
+        if conta is None:
+            conta = contas[a.participante_id] = {
+                "participante": a.participante,
+                "itens": [],
+                "total": Decimal("0.00"),
+                "pago": Decimal("0.00"),
+                "falta": Decimal("0.00"),
+                "n_abertos": 0,
+            }
+        conta["itens"].append(a)
+        conta["total"] += a.valor
+        if a.status == "pago":
+            conta["pago"] += a.valor
+        elif a.em_aberto:
+            conta["falta"] += a.valor
+            conta["n_abertos"] += 1
+
+    lista = list(contas.values())
+    for conta in lista:
+        conta["quitada"] = conta["falta"] <= 0
+        # Os itens de cada conta na ordem em que foram arrematados: é a ordem
+        # em que a pessoa os viu acontecer.
+        conta["itens"].sort(key=lambda a: a.criado_em)
+    # Quem deve primeiro, e entre os que devem, quem deve mais.
+    lista.sort(key=lambda c: (c["quitada"], -c["falta"], c["participante"].nome_curto))
+    return lista
+
+
 @papeis.exige("caixa")
-def caixa_view(request):
-    """Quem pagou, quem falta pagar e o que há para entregar."""
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
-    if not leilao:
-        messages.info(request, "Nenhum leilão criado ainda.")
-        return redirect("leilao:equipe")
+def caixa_view(request, leilao_id=None):
+    """Quem pagou, quem falta pagar e o que há para entregar.
+
+    **De um leilão específico**, dito na URL. Antes a tela adivinhava ("o que
+    está no ar, ou o mais recente") e não havia como olhar o caixa da noite
+    passada sem colocá-la no ar de novo.
+    """
+    if leilao_id is None:
+        leilao = _leilao_padrao()
+        if not leilao:
+            return _sem_leilao(request)
+        return _ir_para_o_leilao(request, "leilao:caixa_leilao", leilao)
+
+    leilao = get_object_or_404(Leilao, pk=leilao_id)
 
     arremates = (
         Arremate.objects.filter(lote__leilao=leilao)
@@ -854,6 +992,7 @@ def caixa_view(request):
 
     a_entregar = [a for a in arremates if a.a_entregar]
     entregues = [a for a in arremates if a.entregue]
+    contas = _contas_do_caixa(arremates)
 
     # A divisão em si saiu daqui: ela virou o **quadro** (`entregas_quadro_view`),
     # onde a equipe arrasta e o resultado fica salvo. Aqui ficou só a porta de
@@ -864,7 +1003,9 @@ def caixa_view(request):
         "leilao/caixa.html",
         {
             "leilao": leilao,
+            "leiloes": _leiloes_do_seletor(),
             "resumo": resumo,
+            "contas": contas,
             "arremates": arremates,
             "a_entregar": a_entregar,
             "entregues": entregues,
@@ -979,12 +1120,19 @@ def _resumo_colunas(leilao):
 
 
 @papeis.exige("caixa")
-def entregas_quadro_view(request):
-    """O quadro: uma coluna por entregador e as paradas para arrastar."""
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
-    if not leilao:
-        messages.info(request, "Nenhum leilão criado ainda.")
-        return redirect("leilao:equipe")
+def entregas_quadro_view(request, leilao_id=None):
+    """O quadro: uma coluna por entregador e as paradas para arrastar.
+
+    Do leilão que a URL diz — a entrega é de uma noite específica, e montar o
+    quadro do leilão errado manda voluntário para a casa errada.
+    """
+    if leilao_id is None:
+        leilao = _leilao_padrao()
+        if not leilao:
+            return _sem_leilao(request)
+        return _ir_para_o_leilao(request, "leilao:entregas_quadro_leilao", leilao)
+
+    leilao = get_object_or_404(Leilao, pk=leilao_id)
 
     try:
         pedido = int(request.GET.get("entregadores") or 0)
@@ -997,7 +1145,7 @@ def entregas_quadro_view(request):
     quantos = leilao.entregadores.count()
     if not quantos:
         messages.info(request, "Diga quantos entregadores vocês têm para montar o quadro.")
-        return redirect("leilao:caixa")
+        return redirect("leilao:caixa_leilao", leilao_id=leilao.pk)
 
     if not AtribuicaoEntrega.objects.filter(leilao=leilao).exists():
         _semear_quadro(leilao, quantos)
@@ -1008,6 +1156,7 @@ def entregas_quadro_view(request):
         "leilao/entregas_quadro.html",
         {
             "leilao": leilao,
+            "leiloes": _leiloes_do_seletor(),
             "a_distribuir": a_distribuir,
             "colunas": colunas,
             "quantos": quantos,
@@ -1023,13 +1172,13 @@ def entregas_redistribuir_view(request):
     Existe para a equipe que se perdeu no meio e quer recomeçar. Apaga trabalho,
     então o botão pergunta antes.
     """
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+    leilao = _leilao_do_post(request)
     if not leilao:
         return redirect("leilao:caixa")
     AtribuicaoEntrega.objects.filter(leilao=leilao).delete()
     _semear_quadro(leilao, leilao.entregadores.count())
     messages.success(request, "Quadro refeito pela divisão por bairro.")
-    return redirect("leilao:entregas_quadro")
+    return redirect("leilao:entregas_quadro_leilao", leilao_id=leilao.pk)
 
 
 def _texto_roteiro_entregas(leilao, pendentes):
@@ -1081,8 +1230,12 @@ def preparacao_view(request):
             messages.success(request, f"“{novo.nome}” criado. Agora cadastre os itens.")
             return redirect("leilao:lotes", leilao_id=novo.pk)
         messages.error(request, "Confira os campos destacados.")
+        # O modal volta ABERTO, com o que a pessoa digitou dentro: fechado, ela
+        # redigitaria tudo sem nem ver o que estava errado.
+        abrir_modal = True
     else:
         form = LeilaoForm()
+        abrir_modal = False
 
     leiloes = Leilao.objects.annotate(
         n_lotes=Count("lotes", distinct=True),
@@ -1090,7 +1243,9 @@ def preparacao_view(request):
     ).order_by("-criado_em")
 
     return render(
-        request, "leilao/preparacao.html", {"form": form, "leiloes": leiloes}
+        request,
+        "leilao/preparacao.html",
+        {"form": form, "leiloes": leiloes, "abrir_modal": abrir_modal},
     )
 
 

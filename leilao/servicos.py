@@ -22,7 +22,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import connections, transaction
-from django.db.models import Max, Sum
+from django.db.models import F, Max, Sum
 from django.utils import timezone
 
 # Biblioteca PURA (só `urllib`), reaproveitada do sistema do clube. Ela recebe o
@@ -703,6 +703,78 @@ def _aplicar_retorno(pagamento, r):
     for arremate in _arremates_do_pagamento(pagamento):
         marcar_pago(arremate, pagamento=pagamento)
     return True
+
+
+class DevolucaoRecusada(Exception):
+    """A devolução não pode acontecer, e a mensagem é para quem está na tela."""
+
+
+def devolver_ao_leilao(arremate, motivo, por=None):
+    """Tira o item da conta de quem arrematou e o devolve à fila do leilão.
+
+    Existe por dois casos reais, e o dinheiro se comporta diferente em cada um:
+
+    - **não pagou**: a pessoa desistiu. A dívida some junto (o arremate vira
+      `cancelado`) — continuar cobrando por um item que ela não vai receber
+      seria errado, e o item volta a ser leiloável;
+    - **pagou**: ela **doou o item de volta** para o clube leiloar outra vez.
+      O arremate continua `pago`, porque o dinheiro entrou e é do clube: não é
+      estorno. O que muda é que ela sai da **entrega** (`a_entregar` confere o
+      `devolvido_em`), senão um voluntário sairia para levar na casa dela um
+      objeto que está de volta na prateleira.
+
+    O **motivo é obrigatório**: um item reaparecendo na fila depois de batido é
+    a coisa mais estranha que pode acontecer num leilão, e quem abrir a lista
+    amanhã precisa saber por quê sem ter de perguntar a alguém.
+
+    O lote volta **limpo** (sem líder e sem valor), como em
+    `_devolver_lotes_abertos` e no `abrir_lote`: a disputa anterior acabou, e
+    item na fila exibindo o líder de uma rodada encerrada é pior do que item sem
+    nada. `voltas` sobe — é o contador que a tela mostra como "voltou 2x".
+    O **número do item não muda**: ele é a etiqueta colada na caixa.
+    """
+    motivo = (motivo or "").strip()
+    if not motivo:
+        raise DevolucaoRecusada("Escreva por que o item está voltando ao leilão.")
+    if len(motivo) > 200:
+        motivo = motivo[:200]
+
+    # Idempotente: o botão sobrevive na tela até a página se refazer, e o
+    # segundo clique não pode somar outra volta nem reescrever o motivo.
+    if arremate.devolvido_em:
+        raise DevolucaoRecusada("Este item já tinha voltado ao leilão.")
+
+    lote = arremate.lote
+    if lote.status == "aberto":
+        raise DevolucaoRecusada(
+            "Este item está em pregão agora. Espere o martelo para devolvê-lo."
+        )
+
+    with transaction.atomic():
+        arremate.devolvido_em = timezone.now()
+        arremate.devolvido_por = por
+        arremate.motivo_devolucao = motivo
+        campos = ["devolvido_em", "devolvido_por", "motivo_devolucao"]
+        # Quem não pagou deixa de dever; quem pagou continua pago (doou).
+        if arremate.status in {"aguardando", "combinado"}:
+            arremate.status = "cancelado"
+            campos.append("status")
+        arremate.save(update_fields=campos)
+
+        Lote.objects.filter(pk=lote.pk).update(
+            status="fila",
+            valor_atual=Decimal("0.00"),
+            lider=None,
+            fecha_em=None,
+            pausado_restante=None,
+            voltas=F("voltas") + 1,
+        )
+
+    lote.refresh_from_db()
+    # A fila e o estado mudaram: quem está com a mesa ou o pregão aberto vê
+    # sozinho, sem recarregar.
+    HUB.publicar("estado", est.estado_publico(lote.leilao))
+    return lote
 
 
 # ---------------------------------------------------------------------------

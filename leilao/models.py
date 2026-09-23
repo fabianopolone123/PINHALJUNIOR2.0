@@ -862,6 +862,30 @@ class Arremate(models.Model):
         related_name="arremates", verbose_name="Cobrança Pix",
     )
 
+    # --- Devolução ao leilão ---
+    # O item volta para a fila e é leiloado de novo. Dois casos, e o dinheiro
+    # se comporta diferente em cada um:
+    #
+    # - **não pago**: a pessoa desistiu, então a dívida some junto (o status
+    #   vira `cancelado`) — cobrar por um item que ela não vai receber seria
+    #   errado;
+    # - **pago**: ela **doou o item de volta** para o clube leiloar outra vez.
+    #   O status continua `pago`, porque o dinheiro entrou e é do clube; o que
+    #   muda é que ela não recebe nada (sai da entrega).
+    #
+    # O motivo é **obrigatório** na view: um item reaparecendo na fila depois de
+    # batido é a coisa mais estranha que pode acontecer num leilão, e quem
+    # abrir a lista amanhã precisa saber por quê sem ter de perguntar.
+    devolvido_em = models.DateTimeField("Devolvido ao leilão em", null=True, blank=True)
+    devolvido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="devolucoes_leilao", verbose_name="Quem devolveu",
+    )
+    motivo_devolucao = models.CharField(
+        "Por que voltou ao leilão", max_length=200, blank=True,
+        help_text="Aparece no histórico do item e na tela do caixa.",
+    )
+
     class Meta:
         verbose_name = "Arremate"
         verbose_name_plural = "Arremates"
@@ -885,13 +909,22 @@ class Arremate(models.Model):
         return self.entregue_em is not None
 
     @property
-    def a_entregar(self):
-        """Pago e ainda não entregue — é isto que vira a lista de envio.
+    def devolvido(self):
+        return self.devolvido_em is not None
 
-        Só entra quem **pagou**: mandar o item antes de o dinheiro cair é
-        exatamente o erro que o prazo de 15 minutos existe para evitar.
+    @property
+    def a_entregar(self):
+        """Pago, não entregue e **não devolvido** — é isto que vira a lista de envio.
+
+        Só entra quem **pagou**: mandar o item antes de o dinheiro cair é o erro
+        que a regra "só se entrega o que foi pago" existe para evitar.
+
+        E quem **devolveu** sai da lista mesmo tendo pago: o caso é a pessoa
+        doar o item de volta para ser leiloado outra vez, então não há o que
+        levar na casa dela. Sem esta parte, o voluntário sairia para entregar um
+        objeto que já está de volta na prateleira do clube.
         """
-        return self.status == "pago" and self.entregue_em is None
+        return self.status == "pago" and self.entregue_em is None and self.devolvido_em is None
 
     # `segundos_para_pagar` NÃO EXISTE MAIS: não há prazo. Quem arremata
     # acumula os itens e paga no fim, e `expira_em` ficou nulo nos arremates
