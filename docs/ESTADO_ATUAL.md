@@ -2,7 +2,19 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: o item volta ao leilão, e cada tela sabe de qual
+**Última atualização:** 2026-09-23 (**Leilão: a janela da conta estava ilegível**): o clube abriu, no
+caixa, a janela com os itens de uma pessoa e não conseguiu ler — **fundo branco com letras claras**.
+O `.modal-caixa` do `base.css` é branco (nasceu para o sistema do clube, que é claro), e o conteúdo
+que entra ali é o da **própria mesa, clonado**, pintado com `--palco-texto` porque foi feito para o
+card escuro. As duas janelas novas do caixa (**conta** e **voltar ao leilão**) passaram a ter card
+escuro, com fundo **opaco** `--palco-fundo-2` — o `--palco-card` é translúcido e deixaria o branco
+atravessar. O escuro é **escopado a esses dois modais**, e não ao `body.tela-locutor`: o modal do
+**Pix**, na mesma tela, usa as cores do tema claro de propósito e está certo assim; escurecer todos
+resolveria um problema e criaria outro (há teste guardando os dois lados). Contraste **medido** no
+navegador pela fórmula do WCAG, não avaliado a olho: **7,27 a 13,08** — o mínimo recomendado é 4,5.
+Suíte do leilão: **387 testes OK** (+3). **Sem migration.**
+
+**Atualização anterior:** 2026-09-23 (**Leilão: o item volta ao leilão, e cada tela sabe de qual
 leilão**): quatro pedidos do clube, todos em telas usadas no dia do evento.
 
 **1. Devolver ao leilão um item já arrematado, com MOTIVO obrigatório** (mig. **`leilao/0012`**;

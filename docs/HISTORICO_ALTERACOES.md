@@ -22,6 +22,54 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: a janela da conta estava ilegível (letra clara em fundo branco)
+
+### Resumo
+O clube abriu, no caixa, a janela com os itens de uma pessoa e não conseguiu
+ler: **fundo branco com letras claras**.
+
+### O que houve
+O `.modal-caixa` do `base.css` é **branco** — ele nasceu para o sistema do
+clube, que é claro. O conteúdo que entra na janela da conta, porém, é o da
+**própria mesa, clonado** (`.arremate-linha`, selos, valores), todo pintado com
+`--palco-texto` (#eaf3fb) porque foi feito para o card **escuro**. Um em cima
+do outro é quase branco sobre branco.
+
+Foi introduzido no commit anterior, junto com a tela nova — é o preço de clonar
+markup de um tema para dentro de um componente de outro.
+
+### O que foi feito
+As duas janelas novas do caixa (**conta** e **voltar ao leilão**) passaram a ter
+card **escuro**, com o fundo opaco `--palco-fundo-2`.
+
+### Decisões tomadas
+- **O escuro é escopado aos dois modais, não ao `body.tela-locutor`.** O modal
+  do **Pix**, na mesma tela, usa as cores do tema claro **de propósito**
+  (`--azul-escuro`, `--texto-suave`) e está correto sobre o branco: escurecer
+  todos resolveria um problema e criaria outro. Há teste guardando os dois
+  lados.
+- **Fundo opaco, não `--palco-card`.** Aquele é `rgba(255,255,255,0.06)`:
+  translúcido, o branco de baixo atravessaria e o problema voltaria pela metade.
+
+### Verificação
+Contraste **medido** no navegador (fórmula do WCAG, subindo a árvore até achar
+o fundo realmente opaco), não avaliado a olho:
+
+| elemento | razão |
+|---|---|
+| resumo (total/pago/falta) | 13,08 |
+| valor do item | 10,18 |
+| nome do item e medidas | 7,27 |
+| janela de devolver (texto, aviso, campo) | 13,08 |
+| ajuda da janela de devolver | 7,27 |
+
+O mínimo recomendado é **4,5**; acima de 7 já é o nível mais exigente. Capturas
+das duas janelas conferidas.
+
+### Arquivos alterados
+- `static/leilao/css/locutor.css`
+- `leilao/tests.py`: `ModalDaContaEEscuroTests`
+
 ## 2026-09-23 - Leilão: o item volta ao leilão, e cada tela sabe de qual leilão
 
 ### Resumo

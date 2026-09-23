@@ -4903,3 +4903,47 @@ class NovoLeilaoEmJanelaSuspensaTests(TestCase):
         criar_leilao(nome="Leilão fictício")
         html = self.c.get("/preparacao/").content.decode()
         self.assertNotIn("min para pagar", html)
+
+
+class ModalDaContaEEscuroTests(TestCase):
+    """Letra clara em fundo branco: o que o clube viu ao abrir os itens.
+
+    O `.modal-caixa` do `base.css` é **branco** — ele nasceu para o sistema do
+    clube, que é claro. O conteúdo que entra no modal da conta, porém, é o da
+    própria mesa, **clonado**: `.arremate-linha`, selos e valores, todos
+    pintados com `--palco-texto` (#eaf3fb) porque foram feitos para o card
+    escuro. Um em cima do outro dá texto quase branco em fundo branco.
+
+    A correção é **escopada aos dois modais novos**, e não ao
+    `body.tela-locutor`: o modal do **Pix**, na mesma tela, usa as cores do tema
+    claro de propósito (`--azul-escuro`, `--texto-suave`) e está correto sobre o
+    branco. Escurecer todos resolveria um e quebraria o outro.
+
+    O fundo precisa ser **opaco** (`--palco-fundo-2`), não o `--palco-card`, que
+    é `rgba(255,255,255,0.06)`: translúcido, o branco de baixo atravessaria e o
+    problema voltaria pela metade.
+    """
+
+    def _css(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(
+            encoding="utf-8"
+        )
+
+    def test_a_janela_da_conta_tem_fundo_escuro_e_opaco(self):
+        css = self._css()
+        self.assertIn("#modalConta .modal-caixa", css)
+        trecho = css[css.index("#modalConta .modal-caixa") :]
+        trecho = trecho[: trecho.index("}")]
+        self.assertIn("var(--palco-fundo-2)", trecho)
+        self.assertNotIn("var(--palco-card)", trecho)
+
+    def test_a_janela_de_devolver_tambem(self):
+        css = self._css()
+        self.assertIn("#modalDevolver .modal-caixa", css)
+
+    def test_o_modal_do_PIX_continua_claro(self):
+        """Ele usa as cores do tema claro e está certo assim. Escurecer todos os
+        modais da tela resolveria um problema e criaria outro."""
+        css = self._css()
+        self.assertNotIn("body.tela-locutor .modal-caixa", css)
+        self.assertNotIn("#modalPix .modal-caixa", css)

@@ -1232,6 +1232,21 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
   há o que mostrar lá.
 
+### Modal do leilão herda um card BRANCO — cuidado ao clonar markup escuro
+
+- **O `.modal-caixa` do `base.css` é branco**, porque nasceu para o sistema do clube, que é claro. As
+  telas de equipe do leilão são **escuras**. Clonar conteúdo da mesa para dentro de um modal leva
+  junto o `--palco-texto` (#eaf3fb) e dá **letra clara em fundo branco** — ilegível. Aconteceu na
+  janela da conta do caixa.
+- **Escureça o modal ESPECÍFICO, nunca `body.tela-locutor .modal-caixa`.** O modal do Pix, na mesma
+  tela, usa as cores do tema claro **de propósito** e está correto sobre o branco: a regra ampla
+  resolveria um e quebraria o outro.
+- **Fundo opaco** (`--palco-fundo-2`), não `--palco-card`: este é `rgba(255,255,255,0.06)` e deixa o
+  branco de baixo atravessar.
+- **Contraste se MEDE, não se avalia a olho.** A sonda calcula a razão pela fórmula do WCAG, subindo
+  a árvore até achar o fundo realmente opaco (o `background` do próprio elemento costuma ser
+  transparente). Mínimo 4,5; acima de 7 é o nível mais exigente.
+
 ### Modais do leilão: o comportamento mora no `modal.js`
 
 - **Um arquivo só** (`static/leilao/js/modal.js`), e não uma cópia por tela. O que se repetia não era

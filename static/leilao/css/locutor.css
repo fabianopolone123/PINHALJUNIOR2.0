@@ -1126,3 +1126,47 @@ body.tela-locutor {
     font-size: 0.82rem;
     font-weight: 700;
 }
+
+/* =========================================================
+   A janela da conta é ESCURA — as outras do sistema não
+   ========================================================= */
+/* O `.modal-caixa` do `base.css` é branco: ele foi desenhado para o sistema do
+   clube, que é claro, e o modal do Pix aqui do lado usa as cores do tema claro
+   de propósito (`--azul-escuro`, `--texto-suave`) e fica certo nele.
+
+   O da CONTA é outra história: o que entra ali é o conteúdo da própria mesa,
+   clonado — `.arremate-linha`, selos, valores —, todo pintado com
+   `--palco-texto` (#eaf3fb, quase branco) porque nasceu para o card escuro.
+   Em cima do branco isso vira **letra clara em fundo branco**: ilegível, e foi
+   o que o clube viu ao abrir os itens de uma pessoa.
+
+   Por isso o escuro é escopado a este modal, e não ao `body.tela-locutor`:
+   escurecer todos quebraria o do Pix, que está correto como está. Card opaco
+   (`--palco-fundo-2`), e não o `--palco-card` translúcido, senão o branco de
+   baixo atravessaria. */
+#modalConta .modal-caixa {
+    background: var(--palco-fundo-2);
+    border: 1px solid var(--palco-borda);
+    color: var(--palco-texto);
+}
+#modalConta .modal-corpo { color: var(--palco-texto); }
+/* A lista dentro do modal não precisa do fundo do card outra vez — ela já está
+   sobre ele; sem isto cada linha vira um retângulo mais escuro sem motivo. */
+#modalConta .arremate-linha { background: rgba(0, 0, 0, 0.22); }
+#modalConta .micro-ajuda,
+#modalConta .arremate-medidas,
+#modalConta .arremate-contato { color: var(--palco-suave); }
+
+/* Mesma história na janela de devolver: o texto dela é escrito aqui, mas o
+   campo do motivo é um `.pix-codigo`, que nasceu para o modal branco. */
+#modalDevolver .modal-caixa {
+    background: var(--palco-fundo-2);
+    border: 1px solid var(--palco-borda);
+    color: var(--palco-texto);
+}
+#modalDevolver .micro-ajuda { color: var(--palco-suave); }
+#modalDevolver #devolverMotivo {
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--palco-borda);
+}
