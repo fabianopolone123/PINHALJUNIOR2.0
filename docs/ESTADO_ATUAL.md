@@ -12,7 +12,12 @@ atravessar. O escuro é **escopado a esses dois modais**, e não ao `body.tela-l
 **Pix**, na mesma tela, usa as cores do tema claro de propósito e está certo assim; escurecer todos
 resolveria um problema e criaria outro (há teste guardando os dois lados). Contraste **medido** no
 navegador pela fórmula do WCAG, não avaliado a olho: **7,27 a 13,08** — o mínimo recomendado é 4,5.
-Suíte do leilão: **387 testes OK** (+3). **Sem migration.**
+Suíte do leilão: **387 testes OK** (+3).
+**Em produção** no commit `d801276` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (§7.1), com nenhum leilão no ar. Conferido pelo hash do
+manifesto — `locutor.221690d3d44f.css` traz as regras de `#modalConta` e `#modalDevolver` com o
+fundo opaco, e **zero** ocorrência de `body.tela-locutor .modal-caixa`, que é a regra ampla que
+quebraria o modal do Pix.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: o item volta ao leilão, e cada tela sabe de qual
 leilão**): quatro pedidos do clube, todos em telas usadas no dia do evento.
