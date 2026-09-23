@@ -29,9 +29,19 @@ px — `scrollWidth == clientWidth` nas quatro, **zero estouro**. A trava é `ov
 `overflow-clip-margin` no `.numero` (**`clip`, não `hidden`**) com `transform-origin: left center`,
 para o nome não invadir a coluna vizinha da grade. O `locutor.js` também foi aberto no headless com
 um ouvinte de `error` **antes** dos scripts — a lição do deploy anterior. Suíte do leilão:
-**343 testes OK** (+7, `AMesaSenteASalaTests`). **Sem migration.** **Ainda não está em
-produção** — o deploy do leilão reinicia o serviço (§7.1 do `docs/DEPLOY_LEILAO.md`) e precisa de
-leilão fora do ar.
+**343 testes OK** (+7, `AMesaSenteASalaTests`).
+**Em produção** no commit `a12f45e` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (o passo extra do `docs/DEPLOY_LEILAO.md` §7.1). **Havia
+um leilão no ar e um item em pregão na hora** — o leilão de teste do clube (nº 4, lote 22), e o
+clube confirmou que era estado esquecido antes do reinício. Vale registrar que o risco que o §7.1
+descreve (o laço central subir com o cronômetro vencido e bater o martelo sozinho) **não existe
+mais** desde que o cronômetro saiu, em 21/09: o que o reinício custa hoje são alguns segundos de SSE,
+que o `EventSource` reconecta sozinho. Depois: os dois sites responderam 200, o SSE devolveu
+`event: estado` e — a lição do deploy anterior — foi conferido **o arquivo que o navegador
+realmente baixa**, pelo hash do `staticfiles.json`: `locutor.837faa263d20.js` traz o `acenderLider`
+e o ouvinte de `reacoes`, e `locutor.4792f9bbb5d0.css` traz o `acende-o-nome` e a trava de rolagem.
+Grep na pasta de estáticos **engana** (as versões antigas continuam no disco); o que vale é o hash
+do manifesto.
 
 **Atualização anterior:** 2026-09-22 (**Leilão: correção — uma chamada órfã derrubava o JS da tela inteira**):
 logo depois do deploy anterior o clube avisou que a tela "não estava atualizando" — abrir o próximo item no
