@@ -276,9 +276,11 @@ PINHALJUNIOR2.0/
 
 ## Leilão online ao vivo (`/leilao/`) — segunda aplicação
 
-Leilão beneficente ao vivo, com o público remoto no celular: lance de R$ 5 em R$ 5, cronômetro,
-tempo real por **SSE**, Pix com 15 minutos para pagar, chat entre lotes e a **voz do locutor** por
-WebRTC. Roda como um **segundo serviço**, na mesma base de código:
+Leilão beneficente ao vivo, com o público remoto no celular: lance de **R$ 5 em R$ 5** (fixo), tempo
+real por **SSE**, **chat aberto o leilão inteiro**, reações em emoji e a **voz do locutor** por
+WebRTC. **Não há cronômetro** — quem bate o martelo é o locutor — e **não há prazo para pagar**: os
+itens se acumulam na conta de quem arremata e ela paga **tudo num Pix só**, quando o locutor libera
+no fim. Roda como um **segundo serviço**, na mesma base de código:
 
 ```
 pinhaljunior.com.br/sistema-novo/  → pinhaljunior2.service        → gunicorn sync      → db.sqlite3

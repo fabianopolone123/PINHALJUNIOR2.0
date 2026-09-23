@@ -772,8 +772,9 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   ação fora dele é recusada por padrão, que é o lado seguro.
 - **O locutor não dá baixa de pagamento.** Quem bate o martelo não confirma o recebimento. Ao mexer
   nisso, lembre que a tela do locutor **não tem** aba de pagamentos de propósito.
-- **Só se entrega o que foi PAGO** (`Arremate.a_entregar`). Mandar o item antes de o dinheiro cair é o
-  erro que o prazo de 15 minutos existe para evitar — e a regra mora no servidor, não na tela.
+- **Só se entrega o que foi PAGO** (`Arremate.a_entregar`), e a regra mora no **servidor**, não na
+  tela. Ela ficou *mais* importante desde que o prazo de pagamento saiu: hoje ninguém é marcado como
+  pago por decurso de tempo, então quem não acertou continua devendo — e continua fora da entrega.
 - **Tela que trabalha sobre um leilão recebe o id na URL.** O cadastro de item adivinhava ("o que está
   ao vivo, ou o mais recente") e, com um pregão rolando, jogava item novo **dentro dele**. Rota nova que
   mexa em leilão/lote segue o mesmo padrão: `/preparacao/<id>/…`.
@@ -789,11 +790,14 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 
 ### O dinheiro quando o Pix é refeito
 
-- **A âncora é a `referencia`, não a FK.** `Arremate.pagamento` aponta para UMA cobrança e é trocado ao
-  refazer o Pix; a anterior fica órfã — e é ela que está **na tela da pessoa** no instante em que o caixa
-  aperta "+15 min" ou "vai pagar depois". Pagar aquele código e ninguém ser marcado como pago já foi bug
-  real. Os dois caminhos (`_arremates_do_pagamento` no webhook, `cobrancas_do_arremate` na consulta de
-  reforço) recuperam o arremate de `LEILAO-<id>` / `LEILAO-<id>-R<timestamp>`.
+- **A âncora é a `referencia`, não a FK.** `Arremate.pagamento` aponta para UMA cobrança e é trocado
+  ao refazer o Pix (hoje, "vai pagar depois"); a anterior fica órfã — e é ela que está **na tela da
+  pessoa** naquele instante. Pagar aquele código e ninguém ser marcado como pago já foi bug real. Os
+  dois caminhos (`_arremates_do_pagamento` no webhook, `cobrancas_do_arremate` na consulta de reforço)
+  recuperam o arremate pela referência. **Formato atual**:
+  `LEILAOC-<participante>-<leilao>[-R<ts>]`, a conta inteira da pessoa; o antigo por item
+  (`LEILAO-<arremate>`) **continua sendo lido**, porque aquelas cobranças existem e ainda podem ser
+  pagas.
 - **Sem `site_url` não existe webhook**, e a consulta de reforço vira o único caminho do dinheiro. Ela
   precisa olhar **todas** as cobranças do arremate, não só a última.
 - **Confira o id, não o prefixo**: `startswith("LEILAO-1")` pesca `LEILAO-12`.
@@ -810,13 +814,14 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Recarga automática cede a quem está trabalhando.** Ela é necessária (totais, aba "A entregar"), mas
   **nunca** com um campo em foco ou o modal aberto: apagaria o "quem recebeu" no meio da frase. Não
   dando, aparece o botão 🔄. Ao ligar atualização automática em tela nova, repita a guarda.
-- **Esticar prazo refaz o Pix** (`estender_prazo`). O código nasce com a validade do prazo e vence junto:
-  esticar só o `expira_em` entrega à pessoa mais tempo na tela e um copia e cola que o banco recusa. E
-  soma **a partir de agora** — o caso real é o prazo prestes a vencer, e somar ao passado daria nada.
-- **Esticar prazo é do CAIXA** (`ACOES_AREAS`), não do locutor: é conversa de quem cuida do dinheiro.
-- **"Vai pagar depois" precisa entregar o Pix.** Sem o código na mão do caixa, o botão só tira o item da
-  fila e a cobrança some do mapa. O código do combinado vale **7 dias**: 15 minutos é o prazo que aquele
-  botão acabou de dispensar.
+- **Não existe "esticar prazo", porque não existe prazo.** `estender_prazo` foi removido junto com o
+  pagamento por item (21/09) — o dinheiro fecha no fim, numa cobrança só. Fica a lição de então, para
+  quem for criar qualquer botão que mexa em cobrança: **refazer a validade obriga a refazer o Pix**,
+  porque o código nasce com ela e vence junto; esticar só a data entrega à pessoa um copia e cola que
+  o banco recusa.
+- **"Vai pagar depois" precisa entregar o Pix.** Sem o código na mão do caixa, o botão só tira o item
+  da lista e a cobrança some do mapa. O código do combinado vale **7 dias**
+  (`MINUTOS_PIX_COMBINADO`) — é o caixa quem vai cobrar, e isso leva dias, não minutos.
 - **Mensagem com código Pix termina NO código.** É assim que a pessoa segura o dedo em cima e copia no
   celular; texto depois dele atrapalha a seleção.
 - **Falar com a pessoa é um toque** (`Participante.whatsapp_link`, com o `55` acrescentado no servidor).

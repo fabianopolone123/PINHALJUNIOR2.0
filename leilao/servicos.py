@@ -8,8 +8,11 @@ Os dois pontos delicados do arquivo:
 
 - **Lance sem corrida** (`dar_lance`): dois toques no mesmo milissegundo não
   podem virar dois incrementos sobre o mesmo valor.
-- **Dinheiro e tempo** (`fechar_lote`, `verificar_prazos`): quem arremata tem
-  prazo para pagar; vencido o prazo, o lote **volta para a fila**.
+- **Dinheiro** (`fechar_lote`, `cobranca_do_participante`): quem arremata **não
+  paga na hora**. Os itens se acumulam na conta da pessoa e ela paga tudo num
+  Pix só, quando o locutor libera no fim — não há prazo, e o lote **não volta**
+  para a fila por relógio nenhum. (`verificar_prazos` ficou vazia de
+  propósito; o docstring dela conta a história.)
 """
 
 import logging

@@ -331,9 +331,9 @@
             agendarRecarga();
         });
 
-        // Linha NOVA (item batido) ou linha que sumiu (prazo vencido): não dá
-        // para remendar a lista pelo evento — a página se refaz.
+        // Linha NOVA (item batido): não dá para remendar a lista pelo evento —
+        // a página se refaz. (O `arremate_expirado` saiu com o prazo, em
+        // 21/09: nada mais publica esse evento.)
         fonte.addEventListener("lote_vendido", function () { agendarRecarga(); });
-        fonte.addEventListener("arremate_expirado", function () { agendarRecarga(); });
     }
 })();

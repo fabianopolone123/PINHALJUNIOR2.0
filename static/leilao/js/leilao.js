@@ -748,15 +748,6 @@
             }
         });
 
-        fonte.addEventListener("arremate_expirado", function (e) {
-            var d = JSON.parse(e.data);
-            render(d.estado);
-            if (EU && d.participante === EU) {
-                toast("O prazo de " + d.lote + " venceu — o item voltou para a fila.", "error");
-                carregarArremates();
-            }
-        });
-
         fonte.onerror = function () {
             // O EventSource reconecta sozinho; só avisamos visualmente.
             var selo = $("seloVivo");

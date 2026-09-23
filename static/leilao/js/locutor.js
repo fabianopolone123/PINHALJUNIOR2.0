@@ -361,11 +361,6 @@
         if (estado) estado.online = d.online;
         if ($("online")) $("online").textContent = d.online;
     });
-    fonte.addEventListener("arremate_expirado", function (e) {
-        var d = JSON.parse(e.data);
-        render(d.estado);
-        toast("Prazo vencido: " + d.lote + " voltou para a fila.", "error");
-    });
     fonte.addEventListener("pagamento", function () {
         toast("Pagamento confirmado.", "success");
     });

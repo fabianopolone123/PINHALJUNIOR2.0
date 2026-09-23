@@ -6,9 +6,12 @@
   evento; todas as conexões SSE abertas recebem. Sem Redis, sem fila, sem peça
   nova: cabe na memória do processo porque **o serviço roda com um worker só**
   (ver `config/settings_leilao.py`).
-- **`laco_central`** — uma corrotina única que, a cada segundo, fecha o lote cujo
-  cronômetro zerou, expira o arremate não pago e devolve o item à fila. É o
-  relógio do módulo: **um lugar só** decide o tempo de tudo.
+- **`laco_central`** — uma corrotina única que bate a cada segundo e é o **ponto
+  único onde o tempo decidiria alguma coisa**. Hoje ela não tem o que fazer: as
+  duas regras que aplicava (o prazo de pagamento e o fim do chat) saíram a
+  pedido do clube, e cronômetro nunca houve — quem fecha o item é o locutor.
+  Ela fica de pé porque regra de tempo nova entra **ali**, e não num caminho
+  paralelo. O `laco_reacoes` é separado, e o porquê está nele.
 
 Detalhe que importa: o `POST` de lance roda em **thread** (view síncrona), e o
 SSE roda no **loop de eventos**. Por isso `publicar()` é seguro para chamar de
@@ -137,11 +140,12 @@ def sse(evento):
 # Laço central
 # ---------------------------------------------------------------------------
 async def laco_central(intervalo=1.0):
-    """Confere, a cada `intervalo` segundos, o que venceu.
+    """Bate a cada `intervalo` segundos e chama `servicos.verificar_prazos()`.
 
-    Tudo que é "tempo" no leilão passa por aqui: o cronômetro do lote e o prazo
-    de 15 minutos do arremate. Qualquer erro é **logado e engolido** — um
-    tropeço numa volta não pode matar o relógio do leilão inteiro.
+    **Hoje não há o que vencer** (ver o docstring daquela função). O laço
+    continua porque é o lugar único do tempo neste módulo. Qualquer erro é
+    **logado e engolido** — um tropeço numa volta não pode matar o relógio do
+    leilão inteiro.
     """
     from asgiref.sync import sync_to_async
 

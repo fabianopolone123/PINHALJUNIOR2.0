@@ -52,7 +52,14 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
 - **Não há cronômetro, nem contagem no chat, nem incremento configurável**: o martelo é do locutor, o chat
   fica aberto o leilão inteiro e o lance soma **R$ 5 fixos**. As colunas ficaram dormentes; não religue.
 - **Nada flutuante em cima de controle**: os botões de reagir moram no fluxo da página. Elemento que não
-  flutua não cobre nada.
+  flutua não cobre nada. A exceção é o **trilho** dos emojis, que é fixo e `pointer-events: none`.
+- **A mesa do locutor é organizada por uso, e ele não LÊ a tela** (está falando): o que chega até ele é
+  **movimento**. O nome de quem ganha **acende a cada lance**; as reações do público **sobem na mesa
+  também** (mesmo `reacoes.js`, mesma classe de trilho — a mesa só ouve, não há botão de reagir lá). A
+  tela é de **duas linhas de TRÊS cards** — em cima *pregão · lances · chat*, que se acompanham juntos;
+  embaixo *fila · sua voz · pagamentos*, de uma vez por noite. **Card novo entra de três em três**: a
+  grade é de duas colunas e o terceiro card sobrando deixa uma **célula vazia** (já aconteceu). Lista
+  dentro desses cards precisa de **teto + rolagem**, senão ela cresce e leva os três juntos.
 - **Três áreas de equipe** (preparação/locutor/caixa) + diretor; quem protege é a view, nunca o menu.
 - **O item tem peso e dimensões, obrigatórios** (mig. **0010**): a exigência mora no `LoteForm`, não no
   model (item anterior à migration continua válido). O texto sai de **`Lote.medidas_texto`** — um lugar só
@@ -418,6 +425,12 @@ Usuário de teste: **`teste_responsavel`** / senha **`123456`** (2 aventureiros 
   públicos** (`/webhooks/mercadopago/`, `/webhooks/whatsapp/`) são `@csrf_exempt`, idempotentes e **nunca** devolvem
   erro/traceback ao chamador. **Envio em lote** (cobrança e reengajamento do WhatsApp) tem **pausa de 10s entre
   cada** (front-end faz o pacing com barra+cancelar; comando de cron usa `time.sleep`) — evita bloqueio por spam.
+- **Centralizar na vertical corta o que não cabe**: `align-items: center` num container da altura da
+  janela (`html, body { height: 100% }`) joga o topo do conteúdo maior que ela para coordenada
+  **negativa**, que o navegador **não rola** — some e não volta. O disfarce é a página rolar para
+  baixo: chega-se ao fim do formulário e nunca ao título. Quem centraliza é **`margin: auto` no
+  filho**, que vira zero quando o espaço é negativo. Corrija no **container**, não na tela que
+  estourou primeiro. (Mordeu no `body.tela-entrada` do leilão, com o cadastro de item.)
 - **Coluna de grade com conteúdo largo usa `minmax(0, 1fr)`, nunca `1fr`**: `1fr` tem `min-width: auto` e não
   encolhe abaixo do conteúdo, então gráfico/tabela/nome comprido **estica a grade e cria rolagem horizontal na
   página** — e um wrapper de rolagem interna (`*-scroll`) nunca entra em ação. Já aconteceu em Aniversários e

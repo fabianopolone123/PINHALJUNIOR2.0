@@ -22,6 +22,73 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Faxina: a documentação parou de ensinar o que foi removido
+
+### Resumo
+Revisão pedida pelo clube ("atualiza toda a documentação e contexto"). Desde
+21/09 o leilão perdeu **quatro regras de produto** — cronômetro, prazo de 15
+minutos para pagar, chat por intervalo e incremento configurável — e cada uma
+foi registrada na entrada do dia. O que ficou para trás foram as **seções
+estruturais** e as **regras**, que um leitor trata como instrução atual.
+
+O risco não é cosmético: era o caminho para alguém (inclusive o assistente,
+numa próxima tarefa) **reintroduzir** o que foi tirado a pedido de quem conduz
+o evento.
+
+### O que foi corrigido
+- **`docs/ESTADO_ATUAL.md`** (seção "Módulo de Leilão"): os models listavam
+  `minutos_para_pagar`, `fecha_em`, `expira_em`, `chat_segundos` e `incremento`
+  como campos vivos — agora estão marcados **dormentes**, em lista única; o
+  `hub.py` "fechava lote vencido e expirava arremate"; o chat "abria uma
+  conversa nova por intervalo"; o caixa tinha "⏱️ +15 min" e um "Pix de 24h
+  porque o original vale 15 minutos". Também: o comando de teste dizia `# 323
+  testes`, as "próximas etapas" pediam credenciais do Mercado Pago que estão
+  configuradas desde 13/09, e **um parágrafo estava partido ao meio** — a
+  frase sobre as reações terminava em "As" e só continuava seis linhas depois,
+  com outro parágrafo enfiado no meio.
+- **`docs/REGRAS_CODEX.md`**: a seção "A mesa do caixa" ensinava a usar
+  `estender_prazo`, que não existe; a âncora do dinheiro citava só o formato
+  antigo de referência.
+- **`docs/README_PROJETO.md`**: a descrição do leilão prometia cronômetro, Pix
+  com 15 minutos e chat entre lotes.
+- **`docs/DEPLOY_LEILAO.md`**: o aviso do §7.1 descrevia um risco que não
+  existe mais (o laço central subir com o cronômetro vencido e bater o martelo
+  sozinho) e deixava sem resposta a pergunta que se faz a cada deploy.
+- **`docs/PLANEJAMENTO_LEILAO.md`**: ganhou um **aviso no topo** com a tabela
+  "o plano diz × o que vale hoje".
+- **`CLAUDE.md`**: entraram a mesa do locutor (três cards por linha, o que
+  acende, a rolagem obrigatória) e a armadilha do centro vertical.
+- **Código**: os docstrings de `leilao/hub.py` e `leilao/servicos.py`
+  prometiam prazo e cronômetro; e os **três ouvintes** do evento
+  `arremate_expirado` (em `locutor.js`, `leilao.js` e `caixa.js`) saíram — nada
+  publica esse evento desde 21/09.
+
+### Decisões tomadas
+- **Changelog com data não se reescreve.** As entradas antigas do
+  `ESTADO_ATUAL` e deste arquivo descrevem o que era verdade **naquele dia** e
+  continuam corretas como registro. Foram corrigidas só as seções que descrevem
+  o **estado atual** e as **regras**.
+- **O plano do leilão também não se reescreve.** Ele é o *porquê* do desenho, e
+  as decisões de arquitetura continuam todas valendo. Em vez de editar o corpo,
+  entrou um aviso no topo dizendo o que caiu depois — quem lê o plano precisa
+  saber, mas apagar o raciocínio original destruiria o motivo de o módulo ser
+  como é.
+- **Coluna dormente é documentada em lista única**, com o motivo e a frase
+  "não religue por conta própria". Espalhada campo a campo, ela some.
+
+### Verificação
+- Varredura por `15 minutos`, `estender_prazo`, `expirar_arremate`,
+  `cronômetro` e `incremento configurável` nos docs e no `CLAUDE.md`: as
+  ocorrências restantes são todas as que **afirmam que aquilo não existe**.
+- Os quatro arquivos de JS editados carregados no Chrome headless com ouvinte
+  de `error`: nenhum `ReferenceError`/`TypeError` — a lição de 22/09.
+- `FuncaoQueOJsCHAMAExisteTests` e `BotoesQueOJsProcuraExistemTests` verdes
+  depois das remoções.
+
+### Pendências
+- Nenhuma conhecida desta faxina. (`arremate_expirado` era a última linha morta
+  que o histórico vinha listando.)
+
 ## 2026-09-23 - Leilão: o card alto perdia o topo, sem jeito de rolar até lá
 
 ### Resumo

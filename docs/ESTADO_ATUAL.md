@@ -2,7 +2,33 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: o card alto perdia o topo, sem jeito de rolar até
+**Última atualização:** 2026-09-23 (**Faxina: a documentação parou de ensinar o que foi removido**):
+revisão pedida pelo clube. Desde 21/09 o leilão perdeu **quatro regras de produto** — cronômetro,
+prazo de 15 minutos para pagar, chat por intervalo e incremento configurável —, cada uma registrada
+na entrada do seu dia; o que ficou para trás foram as **seções estruturais** e as **regras**, que um
+leitor trata como instrução atual. O risco não era cosmético: era o caminho para alguém
+**reintroduzir** o que quem conduz o evento pediu para tirar.
+
+Corrigidos: a seção "Módulo de Leilão" deste arquivo (models listavam `minutos_para_pagar`,
+`fecha_em`, `expira_em`, `chat_segundos` e `incremento` como vivos — agora há **uma lista única de
+dormentes**; o `hub.py` "fechava lote vencido"; o chat "abria conversa nova por intervalo"; o caixa
+tinha "⏱️ +15 min"), o `REGRAS_CODEX.md` (a seção "A mesa do caixa" ensinava `estender_prazo`), o
+`README_PROJETO.md`, o `DEPLOY_LEILAO.md` (o aviso do §7.1 descrevia um risco extinto e não
+respondia a pergunta que se faz a cada deploy), o `PLANEJAMENTO_LEILAO.md` (ganhou um **aviso no
+topo** com a tabela "o plano diz × o que vale hoje") e o `CLAUDE.md`. No código, os docstrings de
+`hub.py` e `servicos.py` e os **três ouvintes** do evento `arremate_expirado` (`locutor.js`,
+`leilao.js`, `caixa.js`), que nada publica desde 21/09. Também remendado **um parágrafo partido ao
+meio** aqui, cuja frase terminava em "As" e continuava seis linhas depois.
+
+**Changelog com data não se reescreve** — aquelas entradas descrevem o que era verdade naquele dia e
+continuam corretas como registro; mexeu-se só no que descreve o **estado atual** e nas **regras**. O
+**plano do leilão** também não: ele é o *porquê* do desenho e as decisões de arquitetura valem todas,
+então em vez de editar o corpo entrou o aviso no topo — apagar o raciocínio original destruiria o
+motivo de o módulo ser como é. Guardas de JS verdes depois das remoções e os quatro arquivos editados carregados no headless sem
+erro. **Sem migration** e sem mudança de comportamento — o evento removido não era publicado por
+ninguém.
+
+**Atualização anterior:** 2026-09-23 (**Leilão: o card alto perdia o topo, sem jeito de rolar até
 lá**): o clube relatou a tela de **cadastrar item** "cortada dependendo do tamanho da tela" — e o
 pedaço cortado era **inalcançável**. `html, body { height: 100% }`, então o `body.tela-entrada` é um
 flex com **exatamente** a altura da janela; com `align-items: center`, um card mais alto do que ela
@@ -2353,7 +2379,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 323 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 354 testes
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2369,13 +2395,19 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   `audio_externo_url`. Expõe `access_token`/`webhook_secret`, que é tudo o que o
   `core/mercadopago.py` — biblioteca pura — precisa.
 - `Leilao` — a noite de leilão: `status` (rascunho/**ao_vivo**/encerrado; **só um ao vivo**),
-  `incremento_padrao` (R$ 5), `segundos_por_lote` (60), `reiniciar_cronometro`, `segundos_extra`,
-  `minutos_para_pagar` (15), `chat_segundos` e `chat_aberto_ate`.
+  `pagamentos_liberados` (a alavanca do locutor que abre o pagamento no fim), `boas_vindas_titulo`/
+  `boas_vindas_texto` e `ultimo_numero_item`.
+  **Colunas dormentes, que nada lê** (ficaram de recursos removidos a pedido do clube — não religue
+  por conta própria): `incremento_padrao` e `Lote.incremento` (o incremento é fixo em R$ 5),
+  `segundos_por_lote`, `segundos_extra`, `reiniciar_cronometro` e `fechamento_automatico` (não há
+  cronômetro), `minutos_para_pagar` (não há prazo para pagar), `chat_segundos`/`chat_aberto_em`/
+  `chat_aberto_ate` (o chat fica aberto o leilão inteiro) e `musica_ligada`/`musica_volume`.
 - `Participante` — quem entra pelo link: nome, WhatsApp, endereço completo, `token` (a sessão guarda só
   o token), `bloqueado`. `nome_curto` (primeiro + último) é o que vai para a tela e para o broadcast.
-- `Lote` — o item: `ordem`, foto + `foto_mini` (Pillow), `lance_inicial`, `incremento` opcional,
-  `status` (fila/aberto/vendido/sem_lance/cancelado), `valor_atual`, `lider`, **`fecha_em`** (data/hora
-  **absoluta** do fim do cronômetro), `pausado_restante`, `voltas`. `proximo_valor` devolve o **lance
+- `Lote` — o item: **`numero`** (a etiqueta colada na caixa, que nunca muda), `ordem` (a fila, que
+  muda), foto + `foto_mini` (Pillow), `lance_inicial`, `status`
+  (fila/aberto/vendido/sem_lance/cancelado), `valor_atual`, `lider`, `voltas`.
+  Dormentes: `incremento`, `fecha_em` e `pausado_restante`. `proximo_valor` devolve o **lance
   inicial** enquanto não há lance (somar o incremento faria o item nunca sair pelo preço anunciado) e
   **`lances_da_rodada()`** limita o histórico à vez atual em pregão.
   **Peso e dimensões** (mig. **0010**): `peso_kg` + `altura_cm`/`largura_cm`/`profundidade_cm`, com
@@ -2388,7 +2420,9 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
 - `Lance` — imutável. `cancelado` é **coluna dormente**: o "desfazer lance" foi removido da mesa a
   pedido do clube, e nada mais a escreve.
 - `Arremate` — FK (não OneToOne) com o lote: o item pode voltar para a fila e ser arrematado de novo,
-  e o histórico das tentativas é o que embasa bloquear alguém. Tem `expira_em` e `pago_manual`.
+  e o histórico das tentativas é o que embasa bloquear alguém. Tem `pago_manual` e o status
+  `combinado` ("vai pagar depois"). **`expira_em` é dormente** — não há prazo para pagar desde 21/09;
+  os arremates antigos mantêm o valor que tinham, como histórico.
 - `PagamentoLeilao` — a cobrança Pix, com o QR pronto (`qr_code` + `qr_code_base64`) e `finalizado`
   como trava de idempotência do webhook.
 - `MensagemChat` — `participante` vazio = locutor; `removida` em vez de apagar.
@@ -2399,8 +2433,12 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   antigas e as do `leilao_papel`, que sorteia senha forte, nunca tiveram senha padrão).
 
 **Arquitetura** (o que não pode ser mexido sem entender)
-- `hub.py` — pub/sub **em memória** + `laco_central` (1 s) que fecha lote vencido, expira arremate e
-  devolve o lote à fila. Só funciona com **um worker**.
+- `hub.py` — pub/sub **em memória** + `laco_central` (1 s) e `laco_reacoes` (0,5 s, o despejo dos
+  emojis). Só funciona com **um worker**. O laço central **hoje não tem o que fazer**: as duas regras
+  de tempo que ele aplicava saíram a pedido do clube (o prazo de pagamento e o fim do chat), e não há
+  cronômetro — quem fecha o item é o locutor. `verificar_prazos()` continua de pé, vazia, como o
+  ponto único onde o tempo decidiria alguma coisa: regra de tempo nova entra **ali**, não num caminho
+  paralelo.
 - `servicos.py` — **toda** mudança de estado do pregão. `dar_lance` usa cadeado por lote + `UPDATE`
   conferindo o valor que o cliente viu.
 - `estado.py` — o estado público (o que vai no broadcast). **Só o que pode ser dito em voz alta.**
@@ -2488,7 +2526,13 @@ equipe.
 **Som e reações:** a **porta do som** (tela de entrada com um toque, e **só** esse caminho) existe porque
 o navegador proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada
 lance nunca tocava. Os efeitos são **sintetizados em WebAudio** (zero download, zero licença); **música de
-fundo não existe mais** (ver abaixo). As
+fundo não existe mais** (ver abaixo). As **reações em emoji** sobem na tela de todo mundo, **4 por
+toque** (`reacoes.EMOJIS_POR_TOQUE`; a multiplicação é do **servidor**, e o cliente lê `data-rajada` só
+para descontar o que já desenhou — o resumo é broadcast e volta para quem mandou, o que fazia quem
+tocava ver tudo em dobro), e são **agregadas** (`leilao/reacoes.py` + laço próprio de 0,5 s, **sem
+banco**): 50 pessoas martelando viram um resumo por meio segundo, não milhares de mensagens. Elas
+sobem **também na mesa do locutor**, no mesmo trilho — ver acima.
+
 **No dia, o processo não está fazendo só emoji** — ele carrega o pregão, o stream de todo mundo e divide
 o vCPU com o MediaMTX, que entrega um pacote de voz a cada 20 ms. A ordem é **voz e lance primeiro,
 enfeite depois**, e está no código: `reacoes.aceitar` (a porta, fora do `registrar`) descarta reação
@@ -2497,19 +2541,15 @@ enfeite depois**, e está no código: `reacoes.aceitar` (a porta, fora do `regis
 emoji subir, e erro visível em cima de enfeite só gera retentativa — mais tráfego com menos CPU. O freio
 do **lance** é outro (`INTERVALO_MIN_LANCE`) e não divide contador com este; há teste.
 
-**reações em emoji** sobem na tela de todo mundo, **4 por toque**
-(`reacoes.EMOJIS_POR_TOQUE`; a multiplicação é do **servidor**, e o cliente lê `data-rajada` só para
-descontar o que já desenhou — o resumo é broadcast e volta para quem mandou, o que fazia quem tocava ver
-tudo em dobro), e são **agregadas** (`leilao/reacoes.py` + laço
-próprio de 0,5 s, **sem banco**): 50 pessoas martelando viram um resumo por meio segundo, não milhares
-de mensagens.
+**Chat:** fica na tela principal do locutor, ao vivo, e **abre o leilão inteiro** — `Leilao.chat_aberto`
+é a expressão `status == "ao_vivo"`, a mesma que o servidor usa para aceitar mensagem, o que torna
+impossível por construção a tela oferecer o que o servidor recusa. O fio é **um só a noite inteira**
+(não zera mais a cada item); o que limita a tela é o teto das 40 últimas.
 
-**Chat:** fica na tela principal do locutor, ao vivo. Cada intervalo abre uma **conversa nova** para os
-participantes (`chat_aberto_em`); o locutor vê o fio inteiro da noite.
-
-**Caixa — "vai pagar depois"** (`Arremate.status="combinado"`): a pessoa foi contatada e combinou pagar
-depois, então o item **não volta para a fila** e um **Pix novo de 24 h** é gerado (o original vale 15
-minutos e já venceu). Continua fora da entrega — só se entrega o que foi **pago**.
+**Caixa — "vai pagar depois"** (`Arremate.status="combinado"`): a pessoa foi contatada e combinou
+acertar depois, e o caixa gera um Pix de **7 dias** (`MINUTOS_PIX_COMBINADO`) para mandar no WhatsApp
+dela. Desde 21/09 **não há prazo nenhum** e o item **nunca volta para a fila** por relógio — quem não
+paga fica devendo, e quem cobra é o caixa. Continua fora da entrega: só se entrega o que foi **pago**.
 
 **Trava de auto-lance:** ninguém cobre o próprio lance, e a comparação é pela **pessoa**
 (`telefone_normalizado`), não pelo registro — a mesma pessoa aberta no celular e no computador vira
@@ -2545,12 +2585,11 @@ equipe tem.
 **A tela do caixa é AO VIVO** (`caixa.js` ouve o `/stream/`): pagamento confirmado muda a linha na hora
 (selo, cor, botões de cobrança somem) e ela **pisca**; a recarga da página — necessária para os totais e
 para o item entrar na aba "A entregar" — é **adiada** enquanto alguém digita ou está com o modal do Pix
-aberto, virando o botão 🔄 **Há novidades**. Cada arremate tem **💬 WhatsApp** (`Participante.whatsapp_link`),
-**📋 Pix** (`/caixa/arremate/<id>/pix/`: copia e cola + mensagem pronta para mandar na conversa) e, enquanto
-está no relógio, **⏱️ +15 min** (`servicos.estender_prazo`, ação `prazo`, **do caixa**): ela soma a partir de
-**agora** e **refaz a cobrança**, porque o código Pix nasce com a validade do prazo e venceria junto. O Pix de
-quem **combinou pagar depois** dura **7 dias** (`MINUTOS_PIX_COMBINADO`) — 15 minutos era justamente o prazo
-que o caixa acabou de dispensar.
+aberto, virando o botão 🔄 **Há novidades**. Cada arremate tem **💬 WhatsApp** (`Participante.whatsapp_link`)
+e **📋 Pix** (`/caixa/arremate/<id>/pix/`: copia e cola + mensagem pronta para mandar na conversa, que
+**termina no código** para o dedo conseguir copiá-lo no celular). O Pix de quem **combinou pagar depois**
+dura **7 dias** (`MINUTOS_PIX_COMBINADO`). **Não existe mais "⏱️ +15 min"**: com o pagamento no fim não há
+prazo para esticar, e `servicos.estender_prazo` foi removido — há teste guardando a porta.
 
 **Antes do primeiro item a tela não diz "intervalo"** — diz **bem-vindo**. `Leilao.ja_comecou()` separa as
 duas coisas (chegar × esperar o próximo), e o texto é do clube: `boas_vindas_titulo`/`boas_vindas_texto`
@@ -2720,9 +2759,13 @@ antes do evento**).
 - **Cobrança automática das parcelas** (do clube e de inscrição): hoje nada dispara sozinho — o Diretor
   manda pela aba "Cobrar parcelas". É a continuação natural do parcelamento.
 - **Editar um parcelamento lançado** (valor / nº de parcelas): hoje é cancelar e lançar de novo.
-- **Leilão online ao vivo** (`/leilao/`) — **no ar**. Falta: credenciais do **Mercado Pago** na tela de
-  configuração e o **ensaio do áudio** com aparelhos reais (`docs/DEPLOY_LEILAO.md` §8, obrigatório e
-  não no dia). Os **16 itens** já cadastrados estão sem peso/dimensões — completar ao editar.
+- **Leilão online ao vivo** (`/leilao/`) — **no ar**, com o **Mercado Pago já configurado** (13/09,
+  modo Produção, as mesmas credenciais do clube). Falta: o **teste com uma cobrança real** (uma de
+  R$ 1 prova a cadeia inteira) e o **ensaio do áudio** com aparelhos reais (`docs/DEPLOY_LEILAO.md`
+  §8, obrigatório e **não no dia**). Os itens cadastrados antes da migration `0010` estão sem
+  peso/dimensões — a lista da preparação os marca, e completam-se ao editar.
+- **Linha morta no `locutor.js`**: o ouvinte do evento `arremate_expirado` continua ali, mas o evento
+  **não é publicado desde 21/09** (o prazo de pagamento saiu). Não quebra nada; é limpeza.
 - **Refinos de inscrição ainda em aberto**: gating de "diretoria" por perfil real, editar inscrição e
   e-mail de confirmação. Exportação da lista por **arquivo** (CSV) não foi feita — os botões de cópia
   (planilha / WhatsApp) resolveram o caso de uso em 08/2026; só compensa se pedirem valores e situação

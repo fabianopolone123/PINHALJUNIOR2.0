@@ -6,6 +6,29 @@
 
 ---
 
+## ⚠️ Leia antes: o que MUDOU depois deste plano
+
+Este documento é o **porquê do desenho original**, de 13/09/2026, e é por isso que ele continua
+inteiro — as decisões de arquitetura (um worker, SSE, `IMMEDIATE`, relógio do servidor, broadcast só
+do que pode ser dito em voz alta) **valem todas**. Mas quatro regras de produto **caíram depois**, a
+pedido do clube, e o texto abaixo ainda as descreve. **O estado atual é o `ESTADO_ATUAL.md`; as
+regras que valem hoje são o `REGRAS_CODEX.md`.**
+
+| O plano diz | O que vale hoje (desde 21/09/2026) |
+|---|---|
+| Cronômetro por lote; o item fecha quando zera | **Não há cronômetro.** Quem bate o martelo é o locutor, e nada fecha sozinho. Também não há "pausar" nem "+tempo". |
+| 15 minutos para pagar; vencido, o item volta para a fila | **Não há prazo.** Os itens se acumulam na conta de quem arremata e ela paga **tudo num Pix só**, quando o locutor libera no fim. Quem não paga fica devendo; o item **não volta** para a fila. |
+| Chat "entre lotes", por um tempo configurável | **O chat fica aberto o leilão inteiro**, sem contagem. |
+| Incremento configurável por leilão/lote | **R$ 5 fixos.** O locutor anuncia "de cinco em cinco" uma vez e ninguém confere tabela. |
+
+As colunas correspondentes continuam no banco, **dormentes**: `segundos_por_lote`, `segundos_extra`,
+`reiniciar_cronometro`, `fechamento_automatico`, `Lote.fecha_em`, `pausado_restante`,
+`minutos_para_pagar`, `Arremate.expira_em`, `chat_segundos`, `chat_aberto_em`, `chat_aberto_ate`,
+`Leilao.incremento_padrao` e `Lote.incremento`. **Não as religue por conta própria** — cada uma saiu
+de uma decisão de quem vai conduzir o evento, e há testes guardando as portas.
+
+---
+
 ## 1. O que é
 
 Um leilão conduzido por um **locutor** que fala ao vivo, com os participantes **em casa**, no celular.

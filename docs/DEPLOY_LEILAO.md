@@ -14,9 +14,9 @@ pinhaljunior.com.br/leilao/audio/  → mediamtx.service             → WebRTC (
 
 ## 1. Por que um worker só (não mude isso)
 
-O hub de eventos e o relógio do leilão vivem **na memória do processo**. Dois workers seriam dois
-leilões paralelos, cada um com o seu cronômetro, e metade das pessoas veria um pregão e metade veria
-outro. **`--workers 1` é requisito, não economia.**
+O hub de eventos vive **na memória do processo**. Dois workers seriam dois leilões paralelos, cada um
+com o seu estado e o seu `HUB`: metade das pessoas veria um pregão e metade veria outro, e o lance
+dado numa metade não chegaria na outra. **`--workers 1` é requisito, não economia.**
 
 Um worker aguenta com folga: as conexões SSE ficam paradas quase o tempo todo e só custam CPU quando
 alguém dá lance.
@@ -296,13 +296,19 @@ chown -R www-data:www-data /var/www/pinhaljunior2/data /var/www/pinhaljunior2/st
 systemctl restart pinhaljunior_leilao.service
 ```
 
-> **Não reinicie o serviço com um pregão acontecendo.** O estado em si sobrevive: `fecha_em` é uma
-> data/hora **gravada no banco**, então o cronômetro é retomado no ponto certo e as conexões SSE voltam
-> sozinhas em segundos (o `EventSource` reconecta e o servidor remanda o estado inteiro).
+> **Espere o intervalo entre um item e outro para reiniciar.** Nada é corrompido e **nada fecha
+> sozinho**: o estado do pregão está no banco, não há cronômetro (quem bate o martelo é o locutor) e
+> as conexões SSE voltam em segundos por conta própria — o `EventSource` reconecta e o servidor
+> remanda o estado inteiro.
 >
-> O risco é o **tempo**: se o reinício demorar mais do que faltava no cronômetro, o laço central sobe
-> com o prazo **já vencido** e fecha o lote **no mesmo instante** — batendo o martelo no valor em que
-> estava, sem os últimos segundos de disputa. Espere o intervalo entre um lote e outro.
+> O que se perde são **os segundos do blecaute**: com uma disputa quente rolando, quem tocar o botão
+> nesse intervalo leva erro e precisa tocar de novo. Por isso a regra é **item em pregão, não
+> reinicie** — confira antes com `Lote.objects.filter(status="aberto")`. Com o leilão no ar mas
+> nenhum item aberto, pode.
+>
+> *(Este aviso já descreveu outro risco — o laço central subir com o cronômetro vencido e bater o
+> martelo sozinho. Isso **não existe mais** desde 21/09/2026, quando o cronômetro e o prazo de
+> pagamento saíram.)*
 
 ## 8. Antes do evento — a prova
 
