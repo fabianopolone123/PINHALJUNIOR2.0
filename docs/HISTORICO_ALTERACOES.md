@@ -22,6 +22,73 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: a faixa vazia da mesa e o chat que fechava em NaN
+
+### Resumo
+O clube apontou um **retângulo morto** na mesa do locutor, à direita do card
+"Sua voz", e perguntou o que era aquilo.
+
+### O que houve
+A grade do pregão tem **duas colunas**. Ela nasceu com **dois** cards — o item
+em pregão e o microfone — e encaixava. Em 21/09, o commit `a75cc9c` inseriu um
+**terceiro** card, a bilheteria (💳 Pagamentos), **entre** os dois. Três cards
+em duas colunas não fecham: o microfone caiu sozinho na segunda linha e sobrou
+uma célula vazia do lado dele — medida na tela reproduzida, **353 × 119 px**.
+
+Não era regressão da mudança do dia anterior: `pregao-grade` não aparece no
+diff de `a12f45e`.
+
+### O que foi feito
+A remontagem seguiu **o uso, não a simetria** — foi o que o clube pediu ao
+descrever o que queria ver junto:
+
+- **Linha 1 (o pregão):** item em pregão (com ▶ Abrir e 🔨 VENDIDO) · Lances
+  deste item · Chat ao vivo. São as três coisas que o locutor acompanha ao
+  mesmo tempo enquanto conduz.
+- **Linha 2 (uma vez por noite):** Fila · Sua voz · Pagamentos.
+
+Três e três, nenhuma célula sobrando. A coluna do martelo é a mais larga
+(`1.5fr 1fr 1.15fr`): é ela que carrega a grade de números e os dois botões.
+
+Junto foram duas coisas que a captura mostrou:
+
+- **"aberto · fecha em NaN:NaN"** no cabeçalho do chat. Quando o chat passou a
+  ficar aberto o leilão inteiro (21/09), o campo `ate` saiu do estado, e a mesa
+  continuou calculando `fecha em` com ele. Resto de remoção — a mesma família
+  do erro que derrubou o JS na véspera.
+- O **`.chat-acoes` vazio**, sobra dos botões de abrir/fechar chat.
+
+### Arquivos criados/alterados
+- `templates/leilao/locutor.html`: cards reordenados nas duas grades; a
+  primeira ganhou a classe `pregao-linha` e o chat, `chat-card`.
+- `static/leilao/css/locutor.css`: colunas das duas linhas de três cards e o
+  chat como coluna flex (lista cresce, campo no pé).
+- `static/leilao/js/locutor.js`: o `fecha em` saiu do cabeçalho do chat.
+- `leilao/tests.py`: `ATelaDaMesaNaoDeixaBuracoTests`.
+
+### Decisões tomadas
+- **Abaixo de 1000px as duas grades de três cards EMPILHAM** (uma coluna). Sem
+  isso elas herdariam o `2fr 1fr` da regra base e a célula vazia voltaria pela
+  porta dos fundos, numa largura de laptop. Valia para a `.tres` desde sempre.
+- **O chat é o único card da linha com campo no rodapé.** Como os três esticam
+  até a altura do mais alto, o espaço que sobra aparece **embaixo** do campo —
+  ele boiava no meio. Virou coluna flex: a lista cresce, o campo fica colado.
+- **A guarda tira comentário antes de procurar o texto do bug.** O comentário
+  que explica a correção cita `"fecha em NaN:NaN"`, e sem a limpeza o teste
+  acusaria a própria documentação dele. Mesma armadilha do scanner de funções —
+  e ela mordeu de novo aqui, na primeira execução.
+
+### Verificação
+- Sonda headless em 1366/1024/900/390 px: as duas linhas com **três cards
+  preenchidos** cada, `scrollWidth == clientWidth` em todas, zero estouro.
+- Captura conferida nas duas larguras de trabalho.
+
+### Pendências
+- O ouvinte de `arremate_expirado` no `locutor.js` continua ali sem evento que
+  o dispare (o prazo saiu em 21/09).
+- A faxina de documentação (§7.1, REGRAS, README e PLANEJAMENTO ainda ensinam
+  prazo de 15 min, `estender_prazo` e cronômetro) segue pendente.
+
 ## 2026-09-22 - Leilão: a mesa do locutor sente a sala
 
 ### Resumo

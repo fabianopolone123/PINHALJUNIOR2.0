@@ -571,6 +571,15 @@ body.tela-locutor {
 .aviso-form input:focus { outline: none; border-color: var(--azul-claro); }
 
 .chat-mesa { max-height: 300px; overflow-y: auto; }
+
+/* O chat é o único card da linha do pregão com um CAMPO no rodapé. Sem isto a
+   lista fica do tamanho do que tem dentro e o campo de falar boia no meio do
+   card — como os três cards da linha esticam até a altura do mais alto, o
+   sobrou-espaço aparece embaixo do campo, não acima. Lista cresce, campo fica
+   colado no pé. */
+.cartao.chat-card { display: flex; flex-direction: column; }
+.cartao.chat-card .chat-mesa { flex: 1; min-height: 0; max-height: none; }
+.cartao.chat-card .aviso-form { margin-bottom: 0; }
 .chat-mesa li { font-size: 0.87rem; padding: 6px 9px; background: rgba(0, 0, 0, 0.18); border-radius: 9px; }
 .chat-mesa .autor { font-weight: 800; color: var(--azul-claro); }
 .chat-mesa li.locutor .autor { color: var(--ouro); }
@@ -792,10 +801,25 @@ body.tela-locutor {
     box-shadow: none !important;
 }
 
-/* ---- Mesa: três colunas (lances · chat · fila) ---- */
+/* ---- Mesa: as linhas de TRÊS cards ----
+   Duas colunas não comportam três cards: sobra uma célula vazia ao lado do
+   último — a "faixa" que apareceu quando a bilheteria virou um terceiro card
+   na linha do pregão. Então, abaixo dos 1000px, estas duas grades **empilham**
+   (uma coluna) em vez de herdar o `2fr 1fr` da regra base.
+
+   A linha do pregão dá mais espaço ao card do martelo: é ele que carrega a
+   grade de números e os dois botões grandes. */
+@media (min-width: 860px) {
+    .pregao-grade.tres,
+    .pregao-grade.pregao-linha { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (min-width: 1000px) {
     .pregao-grade.tres {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+    }
+    .pregao-grade.pregao-linha {
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.15fr);
     }
 }
 
@@ -808,7 +832,6 @@ body.tela-locutor {
 
 .btn-mesa.micro.ligado { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); }
 
-.chat-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .chat-mesa { max-height: 260px; min-height: 120px; overflow-y: auto; }
 
 /* O estado ao lado do título do cartão não é título: minúsculo e discreto,

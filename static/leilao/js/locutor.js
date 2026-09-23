@@ -240,9 +240,11 @@
         var c = estado && estado.chat;
         var alvo = $("chatEstadoMesa");
         if (alvo) {
-            alvo.textContent = c && c.aberto
-                ? "aberto · fecha em " + mmss((Date.parse(c.ate) - agora()) / 1000)
-                : "fechado para os participantes";
+            // Sem "fecha em": o chat não tem mais relógio — fica aberto
+            // enquanto o leilão está no ar. O `ate` saiu do estado junto com a
+            // contagem, e esta linha continuou calculando com ele, escrevendo
+            // "fecha em NaN:NaN" na mesa a noite inteira.
+            alvo.textContent = c && c.aberto ? "aberto" : "fechado para os participantes";
         }
         ul.innerHTML = "";
         if (!chatCache.length) {

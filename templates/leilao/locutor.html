@@ -40,7 +40,7 @@
     {# ================= PREGÃO ================= #}
     <section class="mesa-secao ativa" data-secao="pregao">
 
-        <div class="pregao-grade">
+        <div class="pregao-grade pregao-linha">
             <div class="cartao lote-atual">
                 <div class="lote-atual-topo">
                     <img id="mesaFoto" alt="" class="mesa-foto" hidden>
@@ -85,6 +85,63 @@
             </div>
 
             {% comment %}
+            Lances e chat ficam na MESMA linha do pregão, e não numa faixa
+            abaixo. São as três coisas que o locutor acompanha ao mesmo tempo
+            enquanto conduz: o que está valendo, quem acabou de cobrir e o que a
+            sala está falando. Separá-los custava um movimento de olho por
+            leilão inteiro — e deixava uma célula vazia na grade, porque três
+            cards não cabem em duas colunas.
+
+            O chat é daqui e não de uma aba: para o locutor o fio é o da NOITE
+            inteira, e ele precisa ver a conversa acontecendo.
+            {% endcomment %}
+            <div class="cartao">
+                <h3>Lances deste item</h3>
+                <ul class="historico" id="historico">
+                    <li class="vazio">Nenhum lance ainda.</li>
+                </ul>
+            </div>
+
+            <div class="cartao chat-card">
+                <h3>💬 Chat ao vivo <span class="conta" id="chatEstadoMesa"></span></h3>
+                <ul class="chat-mesa" id="chatMesa"></ul>
+                <form class="aviso-form" id="avisoForm">
+                    <input type="text" id="avisoTexto" maxlength="300" placeholder="Falar com todos…">
+                    <button type="submit" class="btn-mini destaque">Enviar</button>
+                </form>
+            </div>
+        </div>
+
+        {% comment %}
+        Segunda linha: o que se usa UMA vez na noite. A fila, para saber o que
+        vem; o microfone, ligado no começo; e a bilheteria, aberta no fim.
+        Nenhum deles disputa a atenção durante o pregão.
+        {% endcomment %}
+        <div class="pregao-grade tres">
+            <div class="cartao">
+                <h3>Fila <span class="conta" id="contaFila"></span></h3>
+                <ul class="fila" id="fila"></ul>
+            </div>
+
+            <div class="cartao microfone">
+                <h3>🎙️ Sua voz</h3>
+                {% if audio_ativo %}
+                <p class="micro-ajuda" id="microEstado">Desligado. Ninguém está ouvindo você pelo sistema.</p>
+                <div class="micro-nivel"><span id="microBarra"></span></div>
+                <button type="button" class="btn-mesa micro" id="btnMicrofone"
+                        data-whip="{{ audio_whip }}"
+                        data-whip-usuario="{{ config_leilao.audio_publicar_usuario }}"
+                        data-whip-senha="{{ config_leilao.audio_publicar_senha }}">🎤 Transmitir</button>
+                {% else %}
+                <p class="micro-ajuda">
+                    A transmissão de voz está <b>desligada</b> na configuração.
+                    {% if audio_externo %}Os participantes veem o link da live externa.{% endif %}
+                </p>
+                <a href="{% url 'leilao:config' %}" class="btn-mini">Configurar áudio</a>
+                {% endif %}
+            </div>
+
+            {% comment %}
             A bilheteria. Ninguém paga nada enquanto o pregão corre — os itens
             vão se acumulando na conta de cada um — e este botão é o que abre o
             pagamento para TODO MUNDO de uma vez, no fim.
@@ -106,54 +163,6 @@
                         data-liberado="{{ leilao.pagamentos_liberados|yesno:"1," }}">
                     {% if leilao.pagamentos_liberados %}🔒 Fechar pagamentos{% else %}💳 Liberar pagamentos{% endif %}
                 </button>
-            </div>
-
-            <div class="cartao microfone">
-                <h3>🎙️ Sua voz</h3>
-                {% if audio_ativo %}
-                <p class="micro-ajuda" id="microEstado">Desligado. Ninguém está ouvindo você pelo sistema.</p>
-                <div class="micro-nivel"><span id="microBarra"></span></div>
-                <button type="button" class="btn-mesa micro" id="btnMicrofone"
-                        data-whip="{{ audio_whip }}"
-                        data-whip-usuario="{{ config_leilao.audio_publicar_usuario }}"
-                        data-whip-senha="{{ config_leilao.audio_publicar_senha }}">🎤 Transmitir</button>
-                {% else %}
-                <p class="micro-ajuda">
-                    A transmissão de voz está <b>desligada</b> na configuração.
-                    {% if audio_externo %}Os participantes veem o link da live externa.{% endif %}
-                </p>
-                <a href="{% url 'leilao:config' %}" class="btn-mini">Configurar áudio</a>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="pregao-grade tres">
-            <div class="cartao">
-                <h3>Lances deste item</h3>
-                <ul class="historico" id="historico">
-                    <li class="vazio">Nenhum lance ainda.</li>
-                </ul>
-            </div>
-
-            {% comment %}
-            O chat fica AQUI, na tela do pregão, e não numa aba: o locutor precisa
-            ver a conversa acontecendo enquanto conduz. Para ele o histórico é o da
-            NOITE inteira — só os participantes é que recomeçam a cada intervalo.
-            {% endcomment %}
-            <div class="cartao">
-                <h3>💬 Chat ao vivo <span class="conta" id="chatEstadoMesa"></span></h3>
-                <ul class="chat-mesa" id="chatMesa"></ul>
-                <form class="aviso-form" id="avisoForm">
-                    <input type="text" id="avisoTexto" maxlength="300" placeholder="Falar com todos…">
-                    <button type="submit" class="btn-mini destaque">Enviar</button>
-                </form>
-                <div class="chat-acoes">
-                </div>
-            </div>
-
-            <div class="cartao">
-                <h3>Fila <span class="conta" id="contaFila"></span></h3>
-                <ul class="fila" id="fila"></ul>
             </div>
         </div>
     </section>

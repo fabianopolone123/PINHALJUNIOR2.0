@@ -4260,3 +4260,87 @@ class AMesaSenteASalaTests(TestCase):
         trecho = css[css.index(".numero-valor.lance-novo"):]
         self.assertIn("prefers-reduced-motion", trecho)
         self.assertIn(".numero-valor.lance-novo { animation: none; }", trecho)
+
+
+class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
+    """Três cards não cabem em duas colunas — e foi isso que abriu a "faixa".
+
+    A grade do pregão é de duas colunas. Ela nasceu com **dois** cards (o item
+    em pregão e o microfone) e encaixava. Quando a bilheteria entrou como
+    **terceiro** card, a conta deixou de fechar: o microfone caiu sozinho na
+    segunda linha e sobrou uma célula vazia do lado dele — um retângulo morto
+    de ~350px que o clube viu na tela e perguntou o que era.
+
+    A remontagem seguiu o uso, não a simetria: **pregão, lances e chat** são as
+    três coisas que o locutor acompanha ao mesmo tempo e ficam lado a lado;
+    fila, microfone e pagamentos, que se usam uma vez na noite, vão para a
+    linha de baixo. Três e três, nenhuma célula sobrando.
+
+    Junto vai o `fecha em NaN:NaN` que aparecia no cabeçalho do chat: quando o
+    chat passou a ficar aberto o leilão inteiro, o `ate` saiu do estado e esta
+    linha continuou calculando com ele. Mesma família do erro que derrubou o JS
+    no dia anterior — resto de uma remoção.
+    """
+
+    def setUp(self):
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("loc_faixa", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="loc_faixa", password="segredo-ficticio")
+
+    def _css(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(
+            encoding="utf-8"
+        )
+
+    def test_as_duas_linhas_tem_tres_cards_cada(self):
+        html = self.c.get("/locutor/").content.decode()
+        # A ordem no HTML é a ordem na tela: o que se acompanha primeiro.
+        pregao = html.index('class="pregao-grade pregao-linha"')
+        segunda = html.index('class="pregao-grade tres"')
+        linha1 = html[pregao:segunda]
+        linha2 = html[segunda:html.index("</section>", segunda)]
+
+        self.assertEqual(linha1.count('class="cartao'), 3, "a linha do pregão tem de ter 3 cards")
+        self.assertEqual(linha2.count('class="cartao'), 3, "a segunda linha tem de ter 3 cards")
+
+        # O martelo, os lances e o chat juntos.
+        for marca in ("lote-atual", "Lances deste item", "Chat ao vivo"):
+            self.assertIn(marca, linha1, f"{marca} saiu da linha do pregão")
+        # O que se usa uma vez por noite.
+        for marca in ("Fila", "Sua voz", "Pagamentos"):
+            self.assertIn(marca, linha2, f"{marca} saiu da segunda linha")
+
+    def test_a_classe_da_linha_do_pregao_tem_regra_no_css(self):
+        """Classe no HTML sem regra em CSS nenhum não falha teste — só renderiza
+        feio. O projeto já se queimou com isso."""
+        self.assertIn(".pregao-grade.pregao-linha", self._css())
+
+    def test_tres_cards_nunca_caem_em_duas_colunas(self):
+        """Entre 860 e 1000px a regra base daria `2fr 1fr` às duas grades — e a
+        célula vazia voltaria pela porta dos fundos, numa largura de laptop."""
+        css = self._css()
+        trecho = css[css.index("@media (min-width: 860px)", css.index("Mesa: as linhas de TRÊS cards")):]
+        trecho = trecho[: trecho.index("@media (min-width: 1000px)")]
+        self.assertIn(".pregao-grade.tres", trecho)
+        self.assertIn(".pregao-grade.pregao-linha", trecho)
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", trecho)
+
+    def test_o_chat_nao_promete_mais_hora_de_fechar(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js").read_text(
+            encoding="utf-8"
+        )
+        # Comentário sai ANTES: o comentário que explica a correção **cita** o
+        # texto do bug, e sem esta limpeza a guarda acusaria a própria
+        # documentação dela. É a mesma armadilha do scanner de funções.
+        limpo = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        limpo = re.sub(r"//[^\n]*", " ", limpo)
+
+        # O texto e o campo que o alimentava; sem o segundo, o primeiro vira NaN.
+        self.assertNotIn("fecha em", limpo)
+        self.assertNotIn("c.ate", limpo)

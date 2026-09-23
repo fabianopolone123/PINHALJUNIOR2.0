@@ -2,7 +2,33 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-22 (**Leilão: a mesa do locutor sente a sala**): dois pedidos do
+**Última atualização:** 2026-09-23 (**Leilão: a faixa vazia da mesa e o chat que fechava em NaN**):
+o clube apontou um **retângulo morto** na mesa do locutor, à direita do card "Sua voz". A grade do
+pregão é de **duas colunas** e nasceu com **dois** cards (item em pregão + microfone), encaixando;
+em 21/09 a **bilheteria** entrou como **terceiro** card, e três em duas colunas não fecham — o
+microfone caiu sozinho na segunda linha e sobrou uma célula de **353 × 119 px**. Não era regressão
+do dia anterior (`pregao-grade` não aparece no diff de `a12f45e`).
+
+A remontagem seguiu **o uso, não a simetria**: **linha 1** = item em pregão (com ▶ Abrir e
+🔨 VENDIDO) · **Lances deste item** · **Chat ao vivo**, que são as três coisas acompanhadas ao mesmo
+tempo enquanto se conduz; **linha 2** = Fila · Sua voz · Pagamentos, que se usam uma vez por noite.
+Três e três, nenhuma célula sobrando, e a coluna do martelo é a mais larga (`1.5fr 1fr 1.15fr`) por
+carregar a grade de números e os dois botões. **Abaixo de 1000px as duas grades empilham** — sem
+isso herdariam o `2fr 1fr` da regra base e a célula vazia voltaria numa largura de laptop (a `.tres`
+tinha o mesmo buraco latente). O **chat** virou coluna flex: a lista cresce e o campo de falar fica
+**colado no pé**, em vez de boiar no meio (os três cards esticam até a altura do mais alto, então o
+espaço sobrava embaixo dele).
+
+Junto, duas coisas que a captura do clube mostrou: o cabeçalho do chat dizia **"aberto · fecha em
+NaN:NaN"** — quando o chat passou a ficar aberto o leilão inteiro, o `ate` saiu do estado e a mesa
+continuou calculando com ele (resto de remoção, mesma família do erro que derrubou o JS na véspera)
+— e o `.chat-acoes` **vazio**, sobra dos botões de abrir/fechar chat. Detalhe da guarda nova: ela
+**tira comentário antes** de procurar o texto do bug, senão acusaria a própria documentação da
+correção, que cita o texto. Sonda headless em 1366/1024/900/390 px: as duas linhas com três cards
+preenchidos e `scrollWidth == clientWidth` em todas. Suíte do leilão: **347 testes OK** (+4,
+`ATelaDaMesaNaoDeixaBuracoTests`). **Sem migration.**
+
+**Atualização anterior:** 2026-09-22 (**Leilão: a mesa do locutor sente a sala**): dois pedidos do
 clube, do mesmo tipo. Quem conduz o pregão **não lê** a tela — está falando, de olho no microfone e
 na lista —, então o que chega até ele tem de ser **movimento**, e a mesa não tinha nenhum.
 
@@ -2354,6 +2380,15 @@ função de diretor**; e conta de **superusuário** só é alterada por superusu
 **O martelo é do locutor:** por padrão (`Leilao.fechamento_automatico=False`) **o tempo não fecha
 nada** — o item fica aberto até o botão VENDIDO. A mesa mostra `Lote.parado_ha` (há quanto tempo a sala
 está calada, contando para **cima**), que é o que diz a hora do "dou-lhe uma, dou-lhe duas".
+
+**A mesa é organizada por uso, não por simetria.** A tela do pregão tem duas linhas de **três**
+cards: em cima, o que se acompanha ao mesmo tempo enquanto se conduz — **item em pregão**
+(valor, ganhando, ▶ Abrir, 🔨 VENDIDO), **lances deste item** e **chat ao vivo**; embaixo, o que se
+usa uma vez na noite — **fila**, **sua voz** e **pagamentos**. A coluna do martelo é a mais larga
+(`1.5fr 1fr 1.15fr`). Abaixo de **1000px** as duas grades **empilham**: a regra base é `2fr 1fr`, e
+três cards em duas colunas deixam uma **célula vazia** ao lado do último — foi exatamente o que
+apareceu quando a bilheteria virou o terceiro card, em 21/09, e o clube perguntou que retângulo
+morto era aquele. **Card novo aqui entra de três em três**, ou reabre o buraco.
 
 **A mesa sente a sala.** Quem conduz **não lê** a tela — está falando, de olho no microfone e na
 lista —, então o que chega até ele tem de ser **movimento**. Duas coisas foram desse jeito: o **nome

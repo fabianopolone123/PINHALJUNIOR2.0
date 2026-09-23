@@ -1179,6 +1179,26 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   porque `hidden` cria caixa de rolagem; a margem deixa o brilho vazar sem que nada role. Efeito novo que
   escale alguma coisa **passa pela sonda headless** antes de subir — o olho não vê 27px de estouro.
 
+### A mesa do locutor: três cards por linha
+
+- **A grade do pregão é de duas colunas, e três cards não cabem nela.** Foi assim que nasceu a
+  "faixa": a bilheteria entrou como terceiro card, o microfone caiu sozinho na segunda linha e
+  sobrou uma **célula vazia** de 353 × 119 px, que o clube viu e perguntou o que era. **Card novo
+  entra de três em três** — ou a linha volta a ficar com um buraco do lado.
+- **A ordem é o USO, não a simetria.** Linha de cima: **item em pregão · lances · chat**, que é o
+  que o locutor acompanha ao mesmo tempo enquanto conduz. Linha de baixo: **fila · sua voz ·
+  pagamentos**, que se usam uma vez por noite. Quem separa isso por "tamanho de card" acaba
+  mandando o locutor procurar informação em dois cantos da tela no meio do pregão.
+- **Abaixo de 1000px as duas grades empilham** (`grid-template-columns: minmax(0, 1fr)`). Sem essa
+  regra elas herdam o `2fr 1fr` da base e a célula vazia volta pela porta dos fundos, numa largura
+  de laptop — a `.tres` carregava esse buraco latente desde sempre.
+- **Card com campo no rodapé precisa ser coluna flex.** Os três cards da linha esticam até a altura
+  do mais alto, então o espaço que sobra aparece **embaixo** do conteúdo: o campo de falar do chat
+  boiava no meio. Lista com `flex: 1`, campo colado no pé.
+- **Guarda que procura o TEXTO de um bug tem de tirar os comentários antes.** O comentário que
+  explica a correção cita o texto (`"fecha em NaN:NaN"`), e sem a limpeza o teste acusa a própria
+  documentação dele. É a mesma armadilha do scanner de funções, e mordeu de novo.
+
 ### A mesa do locutor sente a sala
 
 - **Quem conduz não LÊ a mesa.** Ele está falando, de olho no microfone e na lista; o que chega até
