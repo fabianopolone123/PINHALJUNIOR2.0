@@ -25,8 +25,9 @@ continuam corretas como registro; mexeu-se só no que descreve o **estado atual*
 **plano do leilão** também não: ele é o *porquê* do desenho e as decisões de arquitetura valem todas,
 então em vez de editar o corpo entrou o aviso no topo — apagar o raciocínio original destruiria o
 motivo de o módulo ser como é. Guardas de JS verdes depois das remoções e os quatro arquivos editados carregados no headless sem
-erro. **Sem migration** e sem mudança de comportamento — o evento removido não era publicado por
-ninguém.
+erro. Suíte do leilão: **354 testes OK** — a mesma contagem de antes, porque a faxina **não
+acrescentou teste nenhum**: ela tira texto que mentia e código que ninguém chamava. **Sem migration**
+e sem mudança de comportamento — o evento removido não era publicado por ninguém.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: o card alto perdia o topo, sem jeito de rolar até
 lá**): o clube relatou a tela de **cadastrar item** "cortada dependendo do tamanho da tela" — e o
