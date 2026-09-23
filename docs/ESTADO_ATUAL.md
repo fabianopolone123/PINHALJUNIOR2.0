@@ -14,7 +14,10 @@ e não repete o total). Na tela, **um** botão no topo da janela, rotulado com o
 realmente cobra — o rótulo com o valor é o que impede o erro voltar por outro caminho. "Marcar pago"
 **continua por item**, de propósito: o caixa recebe em dinheiro por uma coisa e não por outra.
 Conferido com sonda **contando os botões**: 1 (eram 3). Suíte do leilão: **391 testes OK** (+4).
-**Sem migration.**
+**Em produção** no commit `2a08158` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (§7.1), com nenhum leilão no ar. Conferido pelo hash do
+manifesto — `caixa.ed8b28af070c.js` usa a **lista de itens** da resposta e **zero** ocorrência do
+formato antigo por arremate; a rota `/caixa/pessoa/<id>/pix/` responde.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: a janela da conta estava ilegível**): o clube abriu, no
 caixa, a janela com os itens de uma pessoa e não conseguiu ler — **fundo branco com letras claras**.
