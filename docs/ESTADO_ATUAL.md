@@ -21,7 +21,12 @@ não, e na mesma letra dois sobrenomes longos viravam quatro linhas, empurrando 
 🔨 VENDIDO para fora da tela. **Encolher é melhor do que cortar** — o nome é o que o locutor lê em
 voz alta. Sonda headless no pior caso (1366/1280/1024/390px, animação do nome travada no pico): zero
 estouro horizontal e o VENDIDO em y=491 num viewport de 673. Suíte do leilão: **351 testes OK**
-(+4, `OQueOLocutorLeEmVozAltaTests`). **Sem migration.**
+(+4, `OQueOLocutorLeEmVozAltaTests`).
+**Em produção** no commit `8f636ab` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (§7.1), com o mesmo leilão de teste esquecido no ar.
+Conferido pelo hash do manifesto — `locutor.f256a3671060.css` traz `numero-grande`, `numero-nome` e
+os **dois** tetos de 320px (lances e chat), e **nenhum** `max-height: none`, que era a causa da
+lista do chat crescer.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: a faixa vazia da mesa e o chat que fechava em NaN**):
 o clube apontou um **retângulo morto** na mesa do locutor, à direita do card "Sua voz". A grade do
