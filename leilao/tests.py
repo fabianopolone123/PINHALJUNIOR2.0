@@ -4432,3 +4432,48 @@ class OQueOLocutorLeEmVozAltaTests(TestCase):
             tamanho(".numero-nome .numero-valor"),
             tamanho(".numero-grande .numero-valor"),
         )
+
+
+class CardAltoNaoPerdeOTopoTests(TestCase):
+    """Tela de cadastrar item cortada em cima — e sem jeito de rolar até lá.
+
+    `html, body { height: 100% }`, então o `body.tela-entrada` é um flex com
+    **exatamente** a altura da janela. Com `align-items: center`, um card mais
+    alto do que ela sobra **dos dois lados**, e o que sobra em cima fica em
+    coordenada **negativa** — que o navegador não deixa alcançar. Medido no
+    cadastro de item (997px de altura): numa janela de 900 sumiam 80px; numa de
+    540, **260px** — o título e os primeiros campos.
+
+    `margin: auto` no filho faz as duas coisas certas: centraliza quando há
+    espaço e vira **zero** quando o espaço é negativo, deixando o card começar
+    no topo e a página rolar. Vale para todas as telas `tela-entrada` (entrar,
+    troca de senha, configuração, cadastro de item); a do item só é a que
+    estoura primeiro, por ser a mais alta.
+    """
+
+    def _css(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "css", "leilao.css").read_text(
+            encoding="utf-8"
+        )
+
+    def _regra(self, seletor):
+        css = self._css()
+        i = css.index(seletor)
+        return css[i : css.index("}", i)]
+
+    def test_o_corpo_nao_centraliza_com_align_items(self):
+        corpo = self._regra("body.tela-entrada {")
+        self.assertIn("display: flex", corpo)
+        self.assertNotIn("align-items: center", corpo)
+
+    def test_quem_centraliza_e_a_margem_automatica(self):
+        self.assertRegex(self._css(), r"\.entrada\s*\{[^}]*margin:\s*auto")
+
+    def test_o_card_do_item_continua_sendo_o_mais_alto(self):
+        """Se um dia esta tela encolher, a guarda perde o caso que a motivou —
+        mas a regra vale para todas as `tela-entrada`, então ela fica."""
+        html = Path(settings.BASE_DIR, "templates", "leilao", "lote_form.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("tela-entrada", html)
+        self.assertIn('class="entrada"', html)

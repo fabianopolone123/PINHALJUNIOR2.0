@@ -22,6 +22,62 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: o card alto perdia o topo, sem jeito de rolar até lá
+
+### Resumo
+O clube relatou que a tela de **cadastrar item** "fica cortada dependendo do
+tamanho da tela". Estava — e o pedaço cortado era **inalcançável**.
+
+### O que houve
+`html, body { height: 100% }`, então o `body.tela-entrada` é um flex com
+**exatamente** a altura da janela. Ele centralizava com `align-items: center`,
+e um card mais alto do que a janela sobra **dos dois lados**: o que sobra em
+cima fica em coordenada **negativa**, e o navegador não rola para lá. A página
+rolava para baixo, o que disfarçava — dava para chegar no botão Salvar, nunca
+no título.
+
+Medido no cadastro de item (**997px** de altura), com a sonda headless:
+
+| janela | topo do card | cortado |
+|---|---|---|
+| 900 | y = −80  | 80px |
+| 700 | y = −180 | 180px |
+| 600 | y = −230 | 230px |
+| 540 | y = −260 | 260px |
+
+Em todas, o `<h1>` "Cadastrar item" ficava fora da tela.
+
+### O que foi feito
+Saiu o `align-items: center` do corpo e entrou **`margin: auto`** no `.entrada`.
+A margem automática faz as duas coisas certas: centraliza quando há espaço e
+vira **zero** quando o espaço é negativo — aí o card começa no topo e a página
+rola normalmente.
+
+### Arquivos criados/alterados
+- `static/leilao/css/leilao.css`: `body.tela-entrada` e `.entrada`.
+- `leilao/tests.py`: `CardAltoNaoPerdeOTopoTests`.
+
+### Decisões tomadas
+- **A correção é no corpo, não na tela do item.** Vale para todas as
+  `tela-entrada` (entrar, troca de senha, configuração, cadastro de item); a do
+  item é só a que estoura primeiro, por ser a mais alta. Encolher aquele
+  formulário resolveria um caso e deixaria a armadilha de pé para o próximo.
+- **`margin: auto` e não `align-items: safe center`.** O `safe` resolve o mesmo
+  problema, mas é keyword nova e o suporte varia; a margem automática tem o
+  comportamento garantido há muito mais tempo, e o clube entra por celular.
+
+### Verificação
+- Sonda headless em 7 tamanhos (1366×900/700, 1280×600, 900×540, 500×800,
+  390×844 e 1366×1400): **nenhum corte** — card em y=36 quando não cabe, e
+  **ainda centralizado** (y=170) quando a janela é alta. Nenhum estouro
+  horizontal.
+- A **captura** desta tela engana: a animação `sobe` desloca o card enquanto
+  roda, e a imagem sai com ele em outro lugar. Vale a geometria, não a foto.
+
+### Pendências
+- As mesmas: ouvinte de `arremate_expirado` sem evento, e a faxina dos
+  documentos sobre prazo/cronômetro.
+
 ## 2026-09-23 - Leilão: a rolagem do chat de volta e os dois números que se anunciam
 
 ### Resumo

@@ -2,7 +2,28 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: a rolagem do chat de volta e os dois números que se
+**Última atualização:** 2026-09-23 (**Leilão: o card alto perdia o topo, sem jeito de rolar até
+lá**): o clube relatou a tela de **cadastrar item** "cortada dependendo do tamanho da tela" — e o
+pedaço cortado era **inalcançável**. `html, body { height: 100% }`, então o `body.tela-entrada` é um
+flex com **exatamente** a altura da janela; com `align-items: center`, um card mais alto do que ela
+sobra **dos dois lados**, e o que sobra em cima fica em coordenada **negativa**, para onde o
+navegador não rola. O que disfarçava é que a página **rolava para baixo**: dava para chegar ao botão
+Salvar, nunca ao título. Medido no cadastro de item (**997px**): janela de 900 → 80px cortados; 700
+→ 180; 600 → 230; 540 → **260** — o `<h1>` fora da tela em todas.
+
+Saiu o `align-items: center` e entrou **`margin: auto`** no `.entrada`: a margem automática
+centraliza quando há espaço e vira **zero** quando o espaço é negativo, deixando o card começar no
+topo e a página rolar. A correção é **no corpo**, não na tela do item — vale para todas as
+`tela-entrada` (entrar, troca de senha, configuração, cadastro de item), e a do item é só a que
+estoura primeiro por ser a mais alta; encolher aquele formulário resolveria um caso e deixaria a
+armadilha de pé. Escolhido `margin: auto` em vez de `align-items: safe center` porque o `safe` é
+keyword nova de suporte irregular e o clube entra por celular. Sonda headless em **7 tamanhos**
+(1366×900/700, 1280×600, 900×540, 500×800, 390×844, 1366×1400): nenhum corte, card em y=36 quando
+não cabe e **ainda centralizado** (y=170) quando a janela é alta. Fica registrado que a **captura
+dessa tela engana** — a animação `sobe` desloca o card enquanto roda, então vale a geometria, não a
+foto. Suíte do leilão: **+3 testes** (`CardAltoNaoPerdeOTopoTests`). **Sem migration.**
+
+**Atualização anterior:** 2026-09-23 (**Leilão: a rolagem do chat de volta e os dois números que se
 anunciam**): dois pedidos do clube sobre a mesa do locutor. A **rolagem** que faltava era
 **regressão do deploy anterior do mesmo dia**: ao prender o campo de falar no rodapé do chat, o
 `max-height` da lista saiu junto. Medido com 20 mensagens — a lista ia a **1093px** e, como os três

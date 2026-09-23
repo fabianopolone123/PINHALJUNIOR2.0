@@ -60,16 +60,30 @@ body {
 /* =========================================================
    1. Tela de entrada (clara, no padrão do login do clube)
    ========================================================= */
+/* Centralizado na vertical SEM `align-items: center` — e a diferença não é
+   estética, é se dá para ler a tela.
+
+   `html, body { height: 100% }`, então este flex tem exatamente a altura da
+   janela. Com `align-items: center`, um card mais alto do que ela sobra **dos
+   dois lados** — e o que sobra em cima fica em coordenada negativa, que o
+   navegador **não deixa rolar**. O cadastro de item tem 997px de altura: numa
+   tela de 900 sumiam 80px, numa de 540 sumiam 260 — o título e os primeiros
+   campos, sem jeito de alcançá-los.
+
+   `margin: auto` no filho centraliza igual quando há espaço e vira **zero**
+   quando o espaço é negativo: aí o card começa no topo e a página rola
+   normalmente. Vale para todas as telas `tela-entrada` (entrar, senha,
+   configuração, cadastro de item), e é a do item que estourava primeiro por
+   ser a mais alta. */
 body.tela-entrada {
     min-height: 100%;
     background: linear-gradient(150deg, var(--azul-escuro), var(--azul) 45%, var(--verde) 130%);
     display: flex;
-    align-items: center;
     justify-content: center;
     padding: 20px 16px calc(20px + var(--piso));
 }
 
-.entrada { width: 100%; max-width: 520px; }
+.entrada { width: 100%; max-width: 520px; margin: auto; }
 
 .entrada-card {
     background: var(--card-bg);

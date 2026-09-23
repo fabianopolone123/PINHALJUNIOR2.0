@@ -1179,6 +1179,22 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   porque `hidden` cria caixa de rolagem; a margem deixa o brilho vazar sem que nada role. Efeito novo que
   escale alguma coisa **passa pela sonda headless** antes de subir — o olho não vê 27px de estouro.
 
+### Centralizar na vertical corta o que não cabe
+
+- **`align-items: center` num container da altura da janela esconde o topo do que é maior que ela** —
+  e esconde **para sempre**: o que fica em coordenada negativa o navegador não rola. Aconteceu no
+  `body.tela-entrada` do leilão (`html, body { height: 100% }`), com o cadastro de item: 997px de
+  card, 260px sumidos numa janela de 540, o `<h1>` fora da tela.
+- **O disfarce é a página rolar para baixo**: chega-se ao botão de salvar e nunca ao título, então o
+  relato vem como "a tela fica cortada", não como "não consigo rolar".
+- **Quem centraliza é `margin: auto` no filho.** Ela centraliza quando há espaço e vira **zero**
+  quando o espaço é negativo — o card começa no topo e a página rola. Preferida a
+  `align-items: safe center`, que resolve o mesmo mas é keyword nova, de suporte irregular.
+- **Corrija no CONTAINER, não na tela que estourou primeiro.** Encolher o formulário mais alto
+  resolve um caso e deixa a armadilha para a próxima tela que crescer.
+- **Captura de tela com animação de entrada engana.** A `sobe` desloca o card enquanto roda, e a
+  imagem sai com ele em outro lugar. Meça `getBoundingClientRect()` com a sonda.
+
 ### A mesa do locutor: o que se anuncia é o que é grande
 
 - **Lista dentro de card de linha PRECISA de teto e rolagem.** Os cards de uma linha têm a altura do
