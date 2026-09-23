@@ -23,7 +23,11 @@ deitada sem o servidor poder consertar; o gabarito é o elemento de imagem, e di
 redução é **pulada**. É melhoria progressiva: sem JS o arquivo sobe inteiro e o servidor reduz como
 sempre. **Limite conhecido**: esse caminho não foi exercitado de ponta a ponta (o
 `createImageBitmap` não resolve sob o relógio virtual do headless) — vale conferir uma vez num
-celular. Suíte do leilão: **+10 testes** novos.
+celular. Suíte do leilão: Suíte do leilão: **401 testes OK** (+10).
+**Em produção** no commit `376cabc` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (§7.1), com nenhum leilão no ar. Conferido pelo hash do
+manifesto — `lote_form.06b084ef7eeb.js` traz a redução e a **guarda de orientação**; o `imagens.py`
+no servidor tem o `draft` e o formulário pede **Peso (g)**.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: UM Pix por pessoa, não um botão por item**): o clube
 contou que quem arrematou três itens via **três botões de Pix** na janela da conta — e era pior do
