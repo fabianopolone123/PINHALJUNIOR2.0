@@ -92,11 +92,29 @@
             {% for c in contas %}
             <div id="conta-detalhe-{{ c.participante.id }}"
                  data-titulo="{{ c.participante.nome }}">
+                {% comment %}
+                UM Pix, da pessoa, pelo total — não um por item. Antes havia um
+                botão em cada linha, e quem levou três coisas via três botões
+                que devolviam o MESMO código, cada um anunciando o valor do seu
+                item: o caixa dizia "é R$ 10" com um código que cobra R$ 20.
+                {% endcomment %}
                 <p class="conta-resumo">
                     <span>Total <b>R$ {{ c.total }}</b></span>
                     <span class="pago">Pago <b>R$ {{ c.pago }}</b></span>
                     <span class="deve">Falta <b>R$ {{ c.falta }}</b></span>
                 </p>
+                {% if not c.quitada %}
+                <div class="conta-acoes">
+                    <button type="button" class="btn-mini" data-pix="{{ c.participante.id }}"
+                            title="Ver e copiar o Pix desta pessoa, pelo total em aberto">
+                        📋 Pix de R$ {{ c.falta }}
+                    </button>
+                    {% if c.participante.whatsapp_link %}
+                    <a href="{{ c.participante.whatsapp_link }}" target="_blank" rel="noopener"
+                       class="btn-mini">💬 WhatsApp</a>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <ul class="arremates-mesa">
                     {% for a in c.itens %}
                     <li class="arremate-linha {{ a.status }}" id="arremate{{ a.id }}"
@@ -120,10 +138,6 @@
                             {% if a.status == 'aguardando' or a.status == 'combinado' %}
                             <button type="button" class="btn-mini destaque"
                                     data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
-                            <button type="button" class="btn-mini" data-pix="{{ a.id }}"
-                                    title="Ver e copiar o Pix desta pessoa para mandar na conversa">
-                                📋 Pix
-                            </button>
                             {% endif %}
                             {% if a.status == 'aguardando' %}
                             <button type="button" class="btn-mini"
@@ -283,7 +297,7 @@ de select() num campo que exista de fato.
 <div class="modal-overlay" id="modalPix" hidden>
     <div class="modal-caixa" role="dialog" aria-label="Pix do arremate">
         <div class="modal-topo">
-            <h2 class="modal-titulo">Pix do arremate</h2>
+            <h2 class="modal-titulo">Pix da pessoa</h2>
             <button type="button" class="modal-fechar" id="pixFechar" aria-label="Fechar">✕</button>
         </div>
         <div class="modal-corpo qr-corpo">
@@ -352,7 +366,7 @@ saber por quê sem ter de perguntar a alguém.
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
      data-stream="{% url 'leilao:stream' %}?equipe=1"
-     data-pix-url="{% url 'leilao:caixa_pix' 0 %}"
+     data-pix-url="{% url 'leilao:caixa_pix_pessoa' 0 %}"
      data-acao-url="{% url 'leilao:acao' %}"></div>
 {% endblock %}
 

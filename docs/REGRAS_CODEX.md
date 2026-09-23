@@ -1232,6 +1232,19 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
   há o que mostrar lá.
 
+### A cobrança é da PESSOA — o botão também
+
+- **Um Pix por pessoa, pelo total**, desde que o pagamento passou para o fim. Botão de cobrança por
+  **item** não é só repetição: os vários botões devolvem o **mesmo** código (a cobrança é uma só) e
+  cada um anuncia o valor do seu item — o caixa diz "é R$ 10" com um código que cobra R$ 20.
+- **O rótulo do botão leva o VALOR** (`📋 Pix de R$ x`). É o que faz o erro aparecer na hora, se um
+  dia o que se cobra divergir do que está escrito ao lado.
+- **A mensagem pronta lista o que está sendo cobrado**: todos os itens e o total. Com um item só,
+  nomeia o item e não repete o total — listar "1 item" e somar embaixo é burocracia. O código Pix
+  continua na **última linha**, para a pessoa copiar segurando o dedo.
+- **"Marcar pago" continua por item**, e isso não é incoerência: o caixa recebe em dinheiro por uma
+  coisa e não por outra, e o pagamento parcial precisa caber.
+
 ### Modal do leilão herda um card BRANCO — cuidado ao clonar markup escuro
 
 - **O `.modal-caixa` do `base.css` é branco**, porque nasceu para o sistema do clube, que é claro. As

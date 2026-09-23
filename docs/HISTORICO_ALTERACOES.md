@@ -22,6 +22,50 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: UM Pix por pessoa, não um botão por item
+
+### Resumo
+O clube contou: quem arrematou três itens via **três botões de Pix** na janela
+da conta. Era pior do que repetição.
+
+### O que houve
+A cobrança é **da pessoa, pelo total**, desde 21/09 — mas o botão continuou
+sendo por item, herdado do desenho antigo. Resultado: os três botões devolviam
+**o mesmo** código (só existe uma cobrança), mas cada um anunciava o **valor
+daquele item**. O caixa diria *"é R$ 10"* com um código que cobra **R$ 20**. E a
+mensagem pronta do WhatsApp nomeava **um** item — quem levou três coisas recebia
+um texto que não batia com a conta.
+
+Não era só botão a mais: era **informação errada ao lado do código de cobrança**.
+
+### O que foi feito
+- View `caixa_pix_pessoa_view` (rota `/caixa/pessoa/<id>/pix/`): devolve o
+  código, **o total** e a **lista dos itens em aberto**. A rota por arremate
+  fica por compatibilidade e só descobre de quem é.
+- `_texto_pix_whatsapp` passou a receber a pessoa e os arremates: lista todos os
+  itens e fecha com o total. **Com um item só, nomeia o item** e não repete o
+  total — listar "1 item" e somar embaixo seria burocracia.
+- Na tela, **um** botão, no topo da janela, rotulado com o valor que a cobrança
+  realmente cobra (`📋 Pix de R$ x`), ao lado do WhatsApp da pessoa.
+
+### Decisões tomadas
+- **O rótulo leva o valor.** É o que impede o erro voltar por outro caminho: se
+  um dia o botão cobrar diferente do que está escrito, aparece na hora.
+- **"Marcar pago" continua por item**, e isso é de propósito: o caixa recebe em
+  dinheiro por uma coisa e não por outra, e o pagamento parcial precisa caber.
+
+### Verificação
+- Sonda no navegador **contando os botões**: `1` dentro da janela da conta de
+  quem tem três itens (eram 3).
+- Testes: a janela renderiza um `data-pix` só, ele aponta para a **pessoa**, e a
+  mensagem lista todos os itens, fecha no total e **termina no código** (é assim
+  que se copia no celular).
+
+### Arquivos alterados
+`leilao/views.py`, `leilao/urls.py`, `templates/leilao/caixa.html`,
+`static/leilao/js/caixa.js`, `static/leilao/css/locutor.css`,
+`leilao/tests.py` (`UmPixPorPessoaTests`).
+
 ## 2026-09-23 - Leilão: a janela da conta estava ilegível (letra clara em fundo branco)
 
 ### Resumo

@@ -55,6 +55,9 @@ urlpatterns = [
     # --- Área do caixa ---
     path("caixa/", views.caixa_view, name="caixa"),
     path("caixa/<int:leilao_id>/", views.caixa_view, name="caixa_leilao"),
+    # O Pix é da PESSOA, pelo total — não de um item. A rota por arremate fica
+    # por compatibilidade (aba já aberta na mesa) e só descobre de quem é.
+    path("caixa/pessoa/<int:pk>/pix/", views.caixa_pix_pessoa_view, name="caixa_pix_pessoa"),
     path("caixa/arremate/<int:pk>/pix/", views.caixa_pix_view, name="caixa_pix"),
     path("caixa/entregas/", views.entregas_quadro_view, name="entregas_quadro"),
     path("caixa/<int:leilao_id>/entregas/", views.entregas_quadro_view,

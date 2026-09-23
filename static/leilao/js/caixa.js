@@ -179,6 +179,9 @@
 
     if ($("pixFechar")) $("pixFechar").addEventListener("click", fecharModalPix);
 
+    // O `id` aqui é o da PESSOA: a cobrança é uma só, pelo total do que ela
+    // levou. Era por arremate, e quem levou três itens via três botões que
+    // devolviam o mesmo código com valores diferentes escritos ao lado.
     function buscarPix(id) {
         return fetch(URL_PIX.replace(/0\/pix\/$/, id + "/pix/"), {
             headers: { "X-Requested-With": "XMLHttpRequest" }
@@ -197,7 +200,14 @@
                 return;
             }
             pixAtual = d;
-            if ($("pixItem")) $("pixItem").textContent = "nº " + d.numero + " — " + d.lote;
+            // O que a pessoa deve, e por quê: um item nomeado, ou a contagem
+            // deles. O VALOR é sempre o total — é o que o código cobra.
+            if ($("pixItem")) {
+                var itens = d.itens || [];
+                $("pixItem").textContent = itens.length === 1
+                    ? d.nome + " · nº " + itens[0].numero + " — " + itens[0].nome
+                    : d.nome + " · " + itens.length + " itens";
+            }
             if ($("pixValor")) $("pixValor").textContent = "R$ " + d.valor;
             if ($("pixCodigo")) $("pixCodigo").value = d.copia_e_cola;
             var wa = $("pixWhatsapp");

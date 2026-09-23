@@ -1507,17 +1507,39 @@ def trocar_senha_view(request):
 
 @papeis.exige("caixa")
 def caixa_pix_view(request, pk):
-    """O código Pix de um arremate, **para o caixa mandar para a pessoa**.
+    """Compatibilidade: o Pix a partir de UM arremate.
+
+    A cobrança nunca foi daquele item — desde 21/09 ela é **da pessoa, pelo
+    total** —, então isto só descobre de quem é o arremate e devolve o Pix
+    dela. Fica para não quebrar uma aba já aberta na mesa do caixa.
+    """
+    arremate = get_object_or_404(
+        Arremate.objects.select_related("participante"), pk=pk
+    )
+    return caixa_pix_pessoa_view(request, arremate.participante_id)
+
+
+@papeis.exige("caixa")
+def caixa_pix_pessoa_view(request, pk):
+    """O código Pix **da pessoa**, para o caixa mandar para ela.
+
+    É UM código pelo TOTAL do que ela levou — não um por item. Esta view era
+    por arremate, e o resultado era pior do que um botão repetido: os três
+    botões de quem levou três itens devolviam **o mesmo** código (a cobrança
+    sempre foi uma só), mas cada um anunciava o **valor daquele item**. O caixa
+    dizia "é R$ 10" com um código que cobra R$ 20.
 
     Existe separada da `arremate_pix_view` (que é do dono) porque aqui quem
     pergunta é a equipe, e o que ela precisa é diferente: além do copia e cola,
     o **link do WhatsApp da pessoa com a mensagem pronta**. É a diferença entre
     "resolvi agora" e "depois eu vejo isso".
     """
-    arremate = get_object_or_404(
-        Arremate.objects.select_related("pagamento", "lote", "participante"), pk=pk
-    )
-    pagamento = arremate.pagamento
+    participante = get_object_or_404(Participante, pk=pk)
+    abertos = list(servicos.arremates_em_aberto(participante))
+    if not abertos:
+        return JsonResponse({"ok": False, "msg": "Esta pessoa não tem nada em aberto."})
+
+    pagamento = abertos[0].pagamento
     if not pagamento or not pagamento.qr_code:
         if not ConfigLeilao.get_solo().configurado:
             return JsonResponse(
@@ -1525,39 +1547,51 @@ def caixa_pix_view(request, pk):
             )
         return JsonResponse({"ok": False, "gerando": True, "msg": "O Pix ainda está sendo gerado…"})
 
+    total = sum((a.valor for a in abertos), Decimal("0.00"))
     return JsonResponse(
         {
             "ok": True,
-            "arremate": arremate.id,
-            "lote": arremate.lote.nome,
-            "numero": arremate.lote.numero,
-            "valor": str(arremate.valor),
-            "status": arremate.status,
+            "participante": participante.id,
+            "nome": participante.nome_curto,
+            "itens": [
+                {"numero": a.lote.numero, "nome": a.lote.nome, "valor": str(a.valor)}
+                for a in abertos
+            ],
+            "valor": str(total),
             "copia_e_cola": pagamento.qr_code,
-            "whatsapp": arremate.participante.whatsapp_link,
+            "whatsapp": participante.whatsapp_link,
             # A mensagem vem PRONTA do servidor, como o roteiro de entrega: o JS
             # só abre o WhatsApp com ela.
-            "texto": _texto_pix_whatsapp(arremate, pagamento),
+            "texto": _texto_pix_whatsapp(participante, abertos, total, pagamento),
         }
     )
 
 
-def _texto_pix_whatsapp(arremate, pagamento):
-    """A mensagem que o caixa manda para quem vai pagar depois.
+def _texto_pix_whatsapp(participante, abertos, total, pagamento):
+    """A mensagem que o caixa manda para quem vai pagar.
+
+    Lista **todos** os itens e fecha com o total, porque a cobrança é uma só,
+    pelo que a pessoa levou. A versão anterior nomeava **um** item e o valor
+    dele, com um código que cobrava o total — quem levou três coisas recebia
+    uma mensagem que não batia com a conta.
 
     O código Pix vai numa **linha sozinha, no fim**: é assim que a pessoa
     consegue segurar o dedo em cima dele e copiar no celular. Qualquer coisa
     depois dele atrapalha a seleção.
     """
-    return "\n".join(
-        [
-            f"Oi, {arremate.participante.nome_curto}! Aqui é do leilão do clube.",
-            f"Seu item: nº {arremate.lote.numero} — {arremate.lote.nome} (R$ {arremate.valor}).",
-            "É só pagar com o Pix copia e cola abaixo 👇",
-            "",
-            pagamento.qr_code,
-        ]
-    )
+    linhas = ["Oi, %s! Aqui é do leilão do clube." % participante.nome_curto]
+    if len(abertos) == 1:
+        a = abertos[0]
+        linhas.append(
+            "Seu item: nº %s — %s (R$ %s)." % (a.lote.numero, a.lote.nome, a.valor)
+        )
+    else:
+        linhas.append("Você arrematou %d itens:" % len(abertos))
+        for a in abertos:
+            linhas.append("• nº %s — %s: R$ %s" % (a.lote.numero, a.lote.nome, a.valor))
+        linhas.append("Total: R$ %s" % total)
+    linhas += ["É só pagar com o Pix copia e cola abaixo 👇", "", pagamento.qr_code]
+    return chr(10).join(linhas)
 
 
 @papeis.exige("preparacao")

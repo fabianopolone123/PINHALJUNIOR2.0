@@ -4947,3 +4947,74 @@ class ModalDaContaEEscuroTests(TestCase):
         css = self._css()
         self.assertNotIn("body.tela-locutor .modal-caixa", css)
         self.assertNotIn("#modalPix .modal-caixa", css)
+
+
+class UmPixPorPessoaTests(TestCase):
+    """UM código pelo total — não um botão de Pix por item.
+
+    O clube contou: quem arrematou três itens via **três botões de Pix** na
+    janela da conta. Era pior do que repetição — os três devolviam o **mesmo**
+    código (a cobrança é uma só, da pessoa, desde 21/09), mas cada um anunciava
+    o **valor daquele item**. O caixa diria "é R$ 10" com um código que cobra
+    R$ 20, e a mensagem do WhatsApp nomeava um item só.
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        self.arremates = []
+        for i, nome in enumerate(["Cesta fictícia", "Quadro fictício", "Bolo fictício"], 1):
+            lote = criar_lote(self.leilao, nome=nome, ordem=i)
+            servicos.limpar_limites()
+            servicos.abrir_lote(lote)
+            lote.refresh_from_db()
+            servicos.dar_lance(lote.id, self.ana)
+            lote.refresh_from_db()
+            self.arremates.append(servicos.fechar_lote(lote, motivo="locutor"))
+
+        User = get_user_model()
+        u = User.objects.create_user("caixa_pix", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="caixa")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="caixa_pix", password="segredo-ficticio")
+
+    def test_a_janela_tem_UM_botao_de_pix(self):
+        html = self.c.get("/caixa/%d/" % self.leilao.pk).content.decode()
+        self.assertEqual(
+            html.count("data-pix="), 1,
+            "três itens não podem render três botões de Pix",
+        )
+
+    def test_o_botao_aponta_para_a_PESSOA(self):
+        html = self.c.get("/caixa/%d/" % self.leilao.pk).content.decode()
+        self.assertIn('data-pix="%d"' % self.ana.pk, html)
+
+    def test_a_mensagem_do_whatsapp_lista_tudo_e_fecha_no_total(self):
+        from leilao.views import _texto_pix_whatsapp
+
+        class PagamentoFalso:
+            qr_code = "00020126-codigo-ficticio"
+
+        total = sum((a.valor for a in self.arremates), Decimal("0.00"))
+        texto = _texto_pix_whatsapp(self.ana, self.arremates, total, PagamentoFalso())
+        for a in self.arremates:
+            self.assertIn(a.lote.nome, texto, "faltou um item na mensagem")
+        self.assertIn("Total: R$ %s" % total, texto)
+        # O código fica na ÚLTIMA linha: é assim que se copia no celular.
+        self.assertTrue(texto.rstrip().endswith(PagamentoFalso.qr_code))
+
+    def test_com_um_item_so_a_mensagem_nomeia_o_item(self):
+        """Listar "1 item" e repetir o total abaixo seria burocracia."""
+        from leilao.views import _texto_pix_whatsapp
+
+        class PagamentoFalso:
+            qr_code = "00020126-codigo-ficticio"
+
+        a = self.arremates[0]
+        texto = _texto_pix_whatsapp(self.ana, [a], a.valor, PagamentoFalso())
+        self.assertIn(a.lote.nome, texto)
+        self.assertNotIn("Total:", texto)

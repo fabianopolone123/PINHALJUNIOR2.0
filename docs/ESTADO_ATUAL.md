@@ -2,7 +2,21 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: a janela da conta estava ilegível**): o clube abriu, no
+**Última atualização:** 2026-09-23 (**Leilão: UM Pix por pessoa, não um botão por item**): o clube
+contou que quem arrematou três itens via **três botões de Pix** na janela da conta — e era pior do
+que repetição. A cobrança é **da pessoa, pelo total**, desde 21/09, mas o botão continuou por item:
+os três devolviam **o mesmo** código e cada um anunciava o **valor daquele item**. O caixa diria "é
+R$ 10" com um código que cobra R$ 20, e a mensagem pronta do WhatsApp nomeava **um** item só. Não
+era botão a mais: era **informação errada ao lado do código de cobrança**. Entrou a
+`caixa_pix_pessoa_view` (`/caixa/pessoa/<id>/pix/`), que devolve o código, **o total** e a lista dos
+itens em aberto; o `_texto_pix_whatsapp` lista todos e fecha no total (com um item só, nomeia o item
+e não repete o total). Na tela, **um** botão no topo da janela, rotulado com o valor que a cobrança
+realmente cobra — o rótulo com o valor é o que impede o erro voltar por outro caminho. "Marcar pago"
+**continua por item**, de propósito: o caixa recebe em dinheiro por uma coisa e não por outra.
+Conferido com sonda **contando os botões**: 1 (eram 3). Suíte do leilão: **391 testes OK** (+4).
+**Sem migration.**
+
+**Atualização anterior:** 2026-09-23 (**Leilão: a janela da conta estava ilegível**): o clube abriu, no
 caixa, a janela com os itens de uma pessoa e não conseguiu ler — **fundo branco com letras claras**.
 O `.modal-caixa` do `base.css` é branco (nasceu para o sistema do clube, que é claro), e o conteúdo
 que entra ali é o da **própria mesa, clonado**, pintado com `--palco-texto` porque foi feito para o

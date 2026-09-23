@@ -1170,3 +1170,13 @@ body.tela-locutor {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--palco-borda);
 }
+
+/* O Pix e o WhatsApp da pessoa, no topo da janela da conta — um só, pelo
+   total. A cobrança nunca foi de um item, e o botão por linha fazia parecer
+   que cada item tinha o seu código. */
+.conta-acoes {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
