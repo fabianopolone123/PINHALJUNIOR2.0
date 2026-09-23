@@ -735,7 +735,7 @@ class PreparacaoTests(TestCase):
             {
                 "nome": "Item de dezembro", "descricao": "", "lance_inicial": "30.00",
                 # Peso e dimensões passaram a ser obrigatórios no cadastro.
-                "peso_kg": "1,5", "altura_cm": "20",
+                "peso_kg": "1500", "altura_cm": "20",   # o campo é em GRAMAS
                 "largura_cm": "30", "profundidade_cm": "25",
             },
         )
@@ -1918,7 +1918,7 @@ class FuncaoQueOJsCHAMAExisteTests(TestCase):
         Headers Request Response AbortController DataTransfer Image Audio Notification
         IntersectionObserver MutationObserver ResizeObserver CustomEvent Event
         KeyboardEvent MouseEvent TouchEvent Uint8Array Uint8ClampedArray Float32Array
-        Int16Array ArrayBuffer
+        Int16Array ArrayBuffer createImageBitmap
         if for while switch catch return typeof instanceof new delete void do else try
         finally function window document
     """.split())
@@ -3961,7 +3961,7 @@ class PesoEDimensoesTests(TestCase):
     def _post(self, **extra):
         dados = {
             "nome": "Item fictício", "descricao": "", "lance_inicial": "30.00",
-            "peso_kg": "1,5", "altura_cm": "20",
+            "peso_kg": "1500", "altura_cm": "20",   # o campo é em GRAMAS
             "largura_cm": "30", "profundidade_cm": "25",
         }
         dados.update(extra)
@@ -4077,7 +4077,10 @@ class PesoEDimensoesTests(TestCase):
         """`10,00` não pode virar `1`: o corte dos zeros à direita para no
         ponto decimal."""
         for guardado, esperado in [("10.00", "10 kg"), ("100.00", "100 kg"),
-                                   ("0.50", "0,5 kg"), ("15.25", "15,25 kg")]:
+                                   # Abaixo de 1 kg o texto sai em GRAMAS: quem
+                                   # digitou 500 quer ler "500 g", não "0,5 kg".
+                                   ("0.50", "500 g"), ("0.35", "350 g"),
+                                   ("15.25", "15,25 kg")]:
             with self.subTest(guardado=guardado):
                 lote = Lote(peso_kg=Decimal(guardado))
                 self.assertEqual(lote.peso_texto, esperado)
@@ -4127,12 +4130,12 @@ class PesoEDimensoesTests(TestCase):
         r = self.c.get("/preparacao/%d/itens/" % self.leilao.pk)
         self.assertContains(r, "sem peso/medidas")
 
-    def test_editar_devolve_o_peso_com_virgula_no_campo(self):
-        """O campo volta com o texto que a pessoa digitou, não com o `Decimal`
-        cru do banco (`1.50`)."""
+    def test_editar_devolve_o_peso_em_GRAMAS_no_campo(self):
+        """O campo volta como foi digitado — em gramas —, e não com o `Decimal`
+        cru do banco (`1.50`) nem em quilos."""
         lote = criar_lote(self.leilao, peso_kg=Decimal("1.50"))
         r = self.c.get("/preparacao/itens/%d/editar/" % lote.pk)
-        self.assertEqual(r.context["form"].initial["peso_kg"], "1,5")
+        self.assertEqual(r.context["form"].initial["peso_kg"], "1500")
 
     def test_aparece_na_tela_do_caixa(self):
         """O caixa combina a entrega no WhatsApp a partir dessa lista, e
@@ -5018,3 +5021,129 @@ class UmPixPorPessoaTests(TestCase):
         texto = _texto_pix_whatsapp(self.ana, [a], a.valor, PagamentoFalso())
         self.assertIn(a.lote.nome, texto)
         self.assertNotIn("Total:", texto)
+
+
+class PesoEmGramasTests(TestCase):
+    """O peso é digitado em GRAMAS — e guardado em quilos.
+
+    Quem cadastra pensa em grama. Pedir "0,35" para uma caneca é convidar ao
+    erro de vírgula, e no celular a vírgula é justamente a tecla que o teclado
+    numérico de muitos aparelhos não mostra. Em grama o campo é inteiro: não há
+    separador para errar.
+
+    O banco continua em **quilos** de propósito: os itens já cadastrados valem
+    como estão e nenhuma tela que lê `peso_kg` precisou mudar.
+    """
+
+    def setUp(self):
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("prep_gramas", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="prep_gramas", password="segredo-ficticio")
+
+    def _post(self, peso, nome="Item fictício"):
+        return self.c.post(
+            "/preparacao/%d/itens/novo/" % self.leilao.pk,
+            {
+                "nome": nome, "descricao": "", "lance_inicial": "30.00",
+                "peso_kg": peso, "altura_cm": "20",
+                "largura_cm": "30", "profundidade_cm": "25",
+            },
+        )
+
+    def test_a_tela_pede_GRAMAS(self):
+        html = self.c.get("/preparacao/%d/itens/novo/" % self.leilao.pk).content.decode()
+        self.assertIn("Peso (g)", html)
+        self.assertNotIn("Peso (kg)", html)
+
+    def test_gramas_viram_quilos_no_banco(self):
+        for gramas, esperado in [("1500", "1.50"), ("350", "0.35"), ("20", "0.02")]:
+            with self.subTest(gramas=gramas):
+                self._post(gramas, nome="Item " + gramas)
+                lote = self.leilao.lotes.get(nome="Item " + gramas)
+                self.assertEqual(lote.peso_kg, Decimal(esperado))
+
+    def test_peso_pequeno_demais_e_recusado_em_vez_de_virar_zero(self):
+        """5 g não cabe em duas casas de quilo. Salvar viraria 0,00 — peso
+        zerado disfarçado, que é o que os validadores existem para impedir."""
+        r = self._post("5", nome="Item minúsculo")
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(self.leilao.lotes.filter(nome="Item minúsculo").exists())
+
+    def test_o_teto_continua_valendo_em_gramas(self):
+        maximo_g = int(Lote.MAX_PESO_KG * 1000)
+        r = self._post(str(maximo_g + 1), nome="Item pesadíssimo")
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(self.leilao.lotes.filter(nome="Item pesadíssimo").exists())
+
+    def test_abaixo_de_um_quilo_a_tela_escreve_em_gramas(self):
+        """Quem digitou 350 quer ler "350 g", não "0,35 kg": a segunda forma faz
+        o voluntário parar para converter, e ele está decidindo se cabe no
+        carro."""
+        self.assertEqual(Lote(peso_kg=Decimal("0.35")).peso_texto, "350 g")
+        self.assertEqual(Lote(peso_kg=Decimal("0.02")).peso_texto, "20 g")
+        # De 1 kg para cima vale o contrário.
+        self.assertEqual(Lote(peso_kg=Decimal("1.50")).peso_texto, "1,5 kg")
+
+    def test_o_campo_volta_em_gramas_na_edicao(self):
+        lote = criar_lote(self.leilao, peso_kg=Decimal("0.35"))
+        r = self.c.get("/preparacao/itens/%d/editar/" % lote.pk)
+        self.assertEqual(r.context["form"].initial["peso_kg"], "350")
+
+
+class FotoSobeReduzidaTests(TestCase):
+    """O que demora ao cadastrar item é o UPLOAD, não o servidor.
+
+    A foto sai do celular com 2 a 5 MB e, numa internet de celular, isso são
+    dezenas de segundos com a tela parada — para o servidor receber tudo e
+    jogar 90% fora, já que a maior largura que ele guarda é 1280.
+
+    Duas frentes: o navegador reduz antes de enviar, e o servidor deixou de
+    decodificar 12 MP inteiros para descartá-los (`draft`, a escala do próprio
+    JPEG). Medido no pipeline real: **433 ms → 177 ms**, com o arquivo final do
+    mesmo tamanho.
+    """
+
+    def _js(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "js", "lote_form.js").read_text(
+            encoding="utf-8"
+        )
+
+    def test_o_navegador_reduz_antes_de_enviar(self):
+        js = self._js()
+        self.assertIn("createImageBitmap", js)
+        self.assertIn("toBlob", js)
+
+    def test_a_reducao_confere_a_ORIENTACAO_antes_de_confiar(self):
+        """Desenhar num canvas apaga o EXIF. Se a rotação não tiver sido
+        aplicada na leitura, a foto sobe deitada e o servidor não tem mais como
+        consertar — item deitado no pregão é pior do que cadastro lento.
+
+        O gabarito é o `<img>`, que orienta pelo EXIF desde sempre: se o
+        `createImageBitmap` devolver o tamanho trocado em relação a ele, aquele
+        navegador ignorou o `imageOrientation` e a redução é **pulada**.
+        """
+        js = self._js()
+        self.assertIn('imageOrientation: "from-image"', js)
+        self.assertIn("naturalWidth", js)
+        self.assertIn("medidasCertas", js)
+
+    def test_sem_suporte_o_arquivo_original_sobe_inteiro(self):
+        """Melhoria progressiva: é ganho de tempo, não a garantia do tamanho.
+        Quem entra sem JS manda o arquivo inteiro e o cadastro funciona igual —
+        o servidor continua reduzindo do lado dele."""
+        js = self._js()
+        self.assertIn("podeReduzir", js)
+        self.assertIn("return Promise.resolve(null);", js)
+
+    def test_o_servidor_nao_decodifica_12MP_para_jogar_fora(self):
+        imagens = Path(settings.BASE_DIR, "leilao", "imagens.py").read_text(encoding="utf-8")
+        self.assertIn("draft", imagens)
+        # A miniatura sai da GRANDE, não da original: 1280 → 420 custa quase
+        # nada, e reduzir 4032 → 420 seria refazer o trabalho caro.
+        self.assertIn("_reduzir(grande, LARGURA_MINI)", imagens)

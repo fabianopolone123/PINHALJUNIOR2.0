@@ -198,11 +198,11 @@ class LoteForm(EstiloMixin, forms.ModelForm):
     # caminhos prontos do Django faz isso sem ler "1.5" como milhar. Ver
     # `peso_para_decimal`.
     peso_kg = forms.CharField(
-        label="Peso (kg)",
+        label="Peso (g)",
         widget=forms.TextInput(
-            attrs={"inputmode": "decimal", "placeholder": "Ex.: 1,5"}
+            attrs={"inputmode": "numeric", "placeholder": "Ex.: 1500"}
         ),
-        help_text="Aproximado. Vírgula ou ponto.",
+        help_text="Aproximado, em gramas. 1 kg = 1000 g.",
     )
 
     class Meta:
@@ -255,26 +255,48 @@ class LoteForm(EstiloMixin, forms.ModelForm):
                 "min": "1", "max": str(Lote.MAX_LADO_CM),
                 "inputmode": "numeric", "placeholder": "0",
             })
-        # Na edição o campo volta com a vírgula ("1,5"), não com o `Decimal`
-        # cru do banco ("1.50") — é o mesmo texto que a pessoa digitou.
+        # Na edição o campo volta em GRAMAS ("1500"), que é como ele foi
+        # digitado — e não o `Decimal` cru do banco ("1.50").
         if self.instance and self.instance.pk:
-            self.initial["peso_kg"] = self.instance.peso_numero
+            self.initial["peso_kg"] = self.instance.peso_gramas
         self._aplicar_estilo()
 
     def clean_peso_kg(self):
-        peso = peso_para_decimal(self.cleaned_data.get("peso_kg"))
-        if peso is None:
-            raise forms.ValidationError("Informe o peso em quilos (ex.: 1,5).")
-        if peso <= 0:
+        """Lê GRAMAS e guarda quilos.
+
+        Quem cadastra pensa em grama — pedir "0,35" para uma caneca é convidar
+        ao erro de vírgula, e no celular a vírgula é justamente a tecla que o
+        teclado numérico de muitos aparelhos não mostra. Em grama o campo é
+        **inteiro**: não há separador para errar.
+
+        O banco continua em **quilos** de propósito: os itens já cadastrados
+        valem como estão e nenhuma tela que lê `peso_kg` precisou mudar.
+        """
+        # Vírgula e ponto continuam aceitos: quem está acostumado com o campo
+        # antigo pode digitar "1,5" pensando em quilo, e `peso_para_decimal`
+        # segue sendo o único lugar que interpreta número escrito à mão.
+        gramas = peso_para_decimal(self.cleaned_data.get("peso_kg"))
+        if gramas is None:
+            raise forms.ValidationError("Informe o peso em gramas (ex.: 1500).")
+        if gramas <= 0:
             raise forms.ValidationError("O peso precisa ser maior que zero.")
-        if peso > Lote.MAX_PESO_KG:
+
+        maximo_g = Lote.MAX_PESO_KG * 1000
+        if gramas > maximo_g:
             raise forms.ValidationError(
-                # `int`, e não `normalize()`: este devolve `Decimal("1E+3")`
-                # e a mensagem sairia "Peso acima de 1E+3 kg".
-                "Peso acima de %d kg — confira se não sobrou um dígito."
-                % int(Lote.MAX_PESO_KG)
+                # `int`, e não `normalize()`: este devolve `Decimal("1E+6")`
+                # e a mensagem sairia "Peso acima de 1E+6 g".
+                "Peso acima de %d g — confira se não sobrou um dígito."
+                % int(maximo_g)
             )
-        return peso
+
+        # O campo do banco tem duas casas, então o menor passo representável em
+        # quilos é **10 g**. Ninguém carrega item pela diferença de 5 g, mas
+        # quem digitar 5 precisa ouvir isso em vez de salvar um peso zerado.
+        quilos = (gramas / Decimal(1000)).quantize(Decimal("0.01"))
+        if quilos <= 0:
+            raise forms.ValidationError("Peso muito pequeno — informe ao menos 10 g.")
+        return quilos
 
 
 class ConfigLeilaoForm(EstiloMixin, forms.ModelForm):

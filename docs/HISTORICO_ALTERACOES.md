@@ -22,6 +22,73 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: peso em gramas, e o cadastro de item deixa de demorar
+
+### Resumo
+Dois pedidos do clube no cadastro de item: **peso em gramas** e a pergunta
+*"é só aqui que demora mil anos para subir um produto?"*.
+
+### 1. O peso é digitado em gramas
+Quem cadastra pensa em grama. Pedir "0,35" para uma caneca é convidar ao erro
+de vírgula — e no celular a vírgula é justamente a tecla que o teclado numérico
+de muitos aparelhos não mostra. Em grama o campo é **inteiro**: não há separador
+para errar.
+
+**O banco continua em quilos**, de propósito: os itens já cadastrados valem como
+estão e nenhuma tela que lê `peso_kg` precisou mudar. **Sem migration.**
+
+O texto acompanha o tamanho da coisa: **abaixo de 1 kg sai em gramas** ("350 g"),
+acima, em quilos ("1,5 kg"). Quem digitou 350 quer ler *350 g*, não *0,35 kg* —
+a segunda forma faz o voluntário parar para converter, e ele está decidindo se o
+item cabe no carro.
+
+### 2. A demora — medida, não chutada
+**Não é o servidor.** O `preparar_foto` levava **433 ms** numa foto de
+4032x3024. O que demora é o **upload**: a foto sai do celular com 2 a 5 MB e,
+numa internet de celular, são dezenas de segundos com a tela parada — para o
+servidor receber tudo e jogar 90% fora, já que a maior largura que ele guarda é
+1280.
+
+Duas frentes:
+
+- **No navegador**: a foto é reduzida para 1280 px **antes** de subir. O mesmo
+  cadastro passa a mandar algumas centenas de kB.
+- **No servidor**: `draft()` deixa o decodificador do JPEG entregar a imagem já
+  reduzida (escala do DCT), em vez de decodificar 12 MP para descartá-los; e a
+  miniatura passou a sair da **grande** (1280 para 420 custa quase nada).
+  Medido no pipeline real: **433 ms para 177 ms**, com o arquivo final do mesmo
+  tamanho.
+
+### Decisões tomadas
+- **A redução no navegador confere a ORIENTAÇÃO antes de confiar.** Desenhar num
+  canvas **apaga o EXIF**: se a rotação não tiver sido aplicada na leitura, a
+  foto sobe deitada e o servidor não tem mais como consertar. O gabarito é o
+  elemento de imagem, que orienta pelo EXIF desde sempre — se o
+  `createImageBitmap` devolver o tamanho **trocado** em relação a ele, aquele
+  navegador ignorou o `imageOrientation` e a redução é **pulada**. Item deitado
+  no pregão é pior do que cadastro lento.
+- **É melhoria progressiva**: sem JS, ou sem suporte, o arquivo original sobe
+  inteiro e o servidor reduz como sempre. Isto é ganho de tempo, **não** a
+  garantia do tamanho.
+- **Peso abaixo de 10 g é recusado**, não arredondado: o campo do banco tem duas
+  casas em quilo, então 5 g viraria 0,00 — peso zerado disfarçado, que é o que
+  os validadores existem para impedir.
+
+### Verificação
+- Benchmark do **pipeline real** (não de um trecho isolado): 177 ms, saída de
+  718 kB + 76 kB — igual à de antes.
+- Os cinco arquivos de JS editados carregam no headless sem erro.
+- 10 testes novos (`PesoEmGramasTests`, `FotoSobeReduzidaTests`), e os três
+  testes de peso que codificavam quilos foram atualizados.
+
+### Limite desta verificação
+O caminho de redução **no navegador** não foi exercitado de ponta a ponta: o
+`createImageBitmap` não resolve sob o relógio virtual do Chrome headless, e a
+captura de tela sai antes do trabalho assíncrono terminar. O que está provado é
+que o código carrega sem erro, que a guarda de orientação existe e que sem
+suporte ele não mexe no arquivo. **Vale conferir uma vez num celular de
+verdade** — cadastrar um item com foto e olhar se ela subiu em pé.
+
 ## 2026-09-23 - Leilão: UM Pix por pessoa, não um botão por item
 
 ### Resumo

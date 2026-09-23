@@ -606,7 +606,31 @@ class Lote(models.Model):
         return texto.replace(".", ",")
 
     @property
+    def peso_gramas(self):
+        """O peso em GRAMAS, inteiro — é assim que ele é digitado.
+
+        O banco guarda quilos (e continua guardando: os itens já cadastrados
+        valem como estão), mas quem cadastra pensa em grama. Pedir "0,35" para
+        uma caneca é convidar ao erro de vírgula; pedir "350" não tem como sair
+        errado.
+        """
+        if self.peso_kg is None:
+            return ""
+        return str(int(round(self.peso_kg * 1000)))
+
+    @property
     def peso_texto(self):
+        """`350 g` ou `1,5 kg` — a unidade segue o tamanho da coisa.
+
+        Quem digitou 350 quer ler *350 g*, não *0,35 kg*: a segunda forma faz o
+        voluntário parar para converter, e ele está decidindo se o item cabe no
+        carro. Acima de 1 kg vale o contrário, e por isso o corte é aí.
+        """
+        if self.peso_kg is None:
+            return ""
+        if self.peso_kg < 1:
+            gramas = int(round(self.peso_kg * 1000))
+            return f"{gramas} g" if gramas else ""
         return f"{self.peso_numero} kg" if self.peso_numero else ""
 
     @property

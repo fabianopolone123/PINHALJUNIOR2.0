@@ -1232,6 +1232,35 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
   há o que mostrar lá.
 
+### Foto de item: o gargalo é o UPLOAD, e o EXIF é a armadilha
+
+- **O que demora ao cadastrar item não é o servidor.** O `preparar_foto` leva décimos de segundo; a
+  foto do celular tem 2 a 5 MB e sobe inteira. Reduzir **no navegador** antes de enviar é o ganho
+  grande — o servidor guarda no máximo 1280 px de largura de qualquer jeito.
+- **Desenhar num canvas APAGA o EXIF.** Se a rotação não tiver sido aplicada na leitura, a foto sobe
+  deitada e o servidor não tem mais como consertar. Não basta pedir
+  `imageOrientation: "from-image"`: **confira** comparando com as dimensões que o elemento de imagem
+  reporta (ele orienta pelo EXIF desde sempre) e, divergindo, **pule a redução**. Item deitado no
+  pregão é pior do que cadastro lento.
+- **Redução no cliente é melhoria progressiva**, nunca a garantia do tamanho: sem JS ou sem suporte,
+  o original sobe inteiro e o servidor reduz como sempre.
+- **No servidor, não decodifique o que vai jogar fora**: `img.draft("RGB", (largura, largura))` antes
+  de carregar deixa o próprio JPEG entregar a imagem reduzida, e a miniatura sai da **grande**, não
+  da original. Medido: 433 ms para 177 ms, mesmo arquivo final.
+
+### Unidade de campo: a que a pessoa usa para pensar
+
+- **Peso de item é digitado em GRAMAS**, e o banco guarda quilos. Pedir "0,35" para uma caneca é
+  convidar ao erro de vírgula — e no celular a vírgula é a tecla que o teclado numérico de muitos
+  aparelhos não mostra. Em grama o campo é **inteiro**: não há separador para errar.
+- **Trocar a unidade de ENTRADA não precisa trocar a de ARMAZENAMENTO.** Converter no `clean` deixou
+  os itens já cadastrados válidos e nenhuma tela que lê `peso_kg` precisou mudar — sem migration.
+- **O texto de saída segue o tamanho da coisa**: abaixo de 1 kg em gramas, acima em quilos. Quem
+  digitou 350 quer ler "350 g"; "0,35 kg" faz o voluntário parar para converter, e ele está
+  decidindo se o item cabe no carro.
+- **Recuse o que não cabe na precisão, não arredonde para zero**: 5 g em duas casas de quilo vira
+  0,00, que é peso vazio disfarçado — exatamente o que os validadores existem para impedir.
+
 ### A cobrança é da PESSOA — o botão também
 
 - **Um Pix por pessoa, pelo total**, desde que o pagamento passou para o fim. Botão de cobrança por

@@ -2,7 +2,30 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: UM Pix por pessoa, não um botão por item**): o clube
+**Última atualização:** 2026-09-23 (**Leilão: peso em gramas, e o cadastro de item deixa de
+demorar**): dois pedidos do clube. **(1) O peso é digitado em gramas** — quem cadastra pensa em
+grama, e pedir "0,35" para uma caneca é convidar ao erro de vírgula (no celular ela é justamente a
+tecla que o teclado numérico de muitos aparelhos não mostra). Em grama o campo é **inteiro**. **O
+banco continua em quilos**, de propósito: os itens já cadastrados valem como estão e nenhuma tela que
+lê `peso_kg` mudou — **sem migration**. O texto acompanha o tamanho: **abaixo de 1 kg sai em gramas**
+("350 g"), acima em quilos ("1,5 kg"), porque quem digitou 350 quer ler *350 g* e não *0,35 kg*.
+Peso abaixo de **10 g** é recusado em vez de arredondado: duas casas em quilo fariam 5 g virar 0,00,
+peso zerado disfarçado.
+
+**(2) A demora foi medida, não chutada.** Não é o servidor: o `preparar_foto` levava **433 ms**. O
+que demora é o **upload** — a foto sai do celular com 2 a 5 MB e o servidor recebe tudo para jogar
+90% fora (a maior largura que ele guarda é 1280). Agora o **navegador reduz para 1280 px antes de
+subir**, e o servidor deixou de decodificar 12 MP para descartá-los (`draft`, a escala do próprio
+JPEG) com a miniatura saindo da **grande**: medido no pipeline real, **433 ms para 177 ms**, com o
+arquivo final do mesmo tamanho. A redução no navegador **confere a orientação antes de confiar** —
+desenhar num canvas apaga o EXIF, e se a rotação não tiver sido aplicada na leitura a foto sobe
+deitada sem o servidor poder consertar; o gabarito é o elemento de imagem, e divergindo o tamanho a
+redução é **pulada**. É melhoria progressiva: sem JS o arquivo sobe inteiro e o servidor reduz como
+sempre. **Limite conhecido**: esse caminho não foi exercitado de ponta a ponta (o
+`createImageBitmap` não resolve sob o relógio virtual do headless) — vale conferir uma vez num
+celular. Suíte do leilão: **+10 testes** novos.
+
+**Atualização anterior:** 2026-09-23 (**Leilão: UM Pix por pessoa, não um botão por item**): o clube
 contou que quem arrematou três itens via **três botões de Pix** na janela da conta — e era pior do
 que repetição. A cobrança é **da pessoa, pelo total**, desde 21/09, mas o botão continuou por item:
 os três devolviam **o mesmo** código e cada um anunciava o **valor daquele item**. O caixa diria "é
