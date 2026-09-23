@@ -221,6 +221,19 @@
 
 </div>
 
+{% comment %}
+A sala reage e o locutor tem de VER. Ele está de costas para o público (o
+público está em casa), e o emoji subindo é o único aplauso que existe neste
+leilão — é por ele que se sabe se a piada pegou e se o item empolgou.
+
+É o MESMO trilho da tela do público (mesma classe, mesmo `reacoes.js`), então
+não há um segundo jeito de desenhar emoji para manter. Ele é `position: fixed`
+com `pointer-events: none`: passa por cima sem nunca roubar o clique do
+VENDIDO, que é o botão que não pode falhar. A mesa só OUVE — não há botão de
+reagir aqui, quem reage é o público.
+{% endcomment %}
+<div class="reacoes-trilho" id="reacoesTrilho" aria-hidden="true"></div>
+
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
      data-acao-url="{% url 'leilao:acao' %}"
@@ -233,5 +246,7 @@
 {% block js %}
 <script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/audio_falar.js' %}"></script>
+{# Antes do locutor.js: é ele que chama o window.Reacoes. #}
+<script src="{% static 'leilao/js/reacoes.js' %}"></script>
 <script src="{% static 'leilao/js/locutor.js' %}"></script>
 {% endblock %}

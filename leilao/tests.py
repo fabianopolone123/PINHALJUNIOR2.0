@@ -4169,3 +4169,94 @@ class PesoEDimensoesTests(TestCase):
             self.leilao, 1, entregas.dividir([arremate], 1)[0], 1
         )
         self.assertNotIn("📦", texto)
+
+
+class AMesaSenteASalaTests(TestCase):
+    """A mesa do locutor mostra o que a sala está fazendo — nome e emoji.
+
+    Duas faltas do mesmo tipo, as duas pedidas pelo clube depois de usar a
+    tela num pregão de verdade: quem conduz **não lê** a mesa, ele está
+    falando, olhando o microfone e a lista. O que chega até ele é movimento.
+
+    1. **O nome de quem está ganhando acende a cada lance.** Na tela do
+       público isso já existia (`assume-a-ponta`), e pela mesma razão: a troca
+       da ponta é a única coisa que muda de fato durante o pregão. Na mesa é
+       ainda mais necessário, porque é o locutor que anuncia o nome em voz
+       alta. O efeito dispara a CADA lance, não só quando o nome muda — na
+       mesa o que interessa é "entrou lance agora".
+    2. **As reações do público sobem na mesa também.** O locutor conduz sem
+       plateia na frente (o público está em casa, no celular), e o emoji é o
+       único aplauso que este leilão tem. O evento `reacoes` já chegava à
+       conexão da mesa — o hub entrega tudo a todos —, e ela o jogava fora.
+
+    É o MESMO `reacoes.js` e o MESMO trilho do público: um jeito só de
+    desenhar emoji. A mesa apenas OUVE (não há botão de reagir aqui).
+    """
+
+    def setUp(self):
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("loc_sala", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="loc_sala", password="segredo-ficticio")
+
+    def _js(self, nome):
+        return Path(settings.BASE_DIR, "static", "leilao", "js", nome).read_text(
+            encoding="utf-8"
+        )
+
+    def _css(self, nome):
+        return Path(settings.BASE_DIR, "static", "leilao", "css", nome).read_text(
+            encoding="utf-8"
+        )
+
+    def test_a_mesa_tem_o_trilho_e_carrega_o_reacoes(self):
+        html = self.c.get("/locutor/").content.decode()
+        self.assertIn('id="reacoesTrilho"', html)
+        # Sem o `.js`: em produção o ManifestStaticFilesStorage acrescenta o
+        # hash do conteúdo ao nome (reacoes.abc123.js).
+        self.assertIn("leilao/js/reacoes", html)
+
+    def test_a_mesa_so_ouve_as_reacoes(self):
+        """Quem reage é o público. Botão de reagir na mesa seria outro produto."""
+        html = self.c.get("/locutor/").content.decode()
+        self.assertNotIn("btn-reacao", html)
+
+    def test_o_locutor_js_ouve_o_evento_de_reacoes(self):
+        js = self._js("locutor.js")
+        self.assertIn('addEventListener("reacoes"', js)
+        self.assertIn("window.Reacoes.receber", js)
+        self.assertIn("window.Reacoes.ligar", js)
+
+    def test_o_nome_acende_a_cada_lance(self):
+        js = self._js("locutor.js")
+        self.assertIn("acenderLider", js)
+        self.assertIn("lance-novo", js)
+
+    def test_a_classe_do_efeito_tem_regra_no_css(self):
+        """Classe usada no JS sem regra em CSS nenhum não falha teste — só não
+        acende. Já aconteceu no projeto; por isso esta guarda existe."""
+        css = self._css("locutor.css")
+        self.assertIn(".numero-valor.lance-novo", css)
+        self.assertIn("@keyframes acende-o-nome", css)
+
+    def test_o_efeito_nao_pode_criar_rolagem_horizontal(self):
+        """`transform` não empurra o layout, mas CONTA para a área rolável.
+
+        Nome comprido no pico da escala estouraria a coluna e criaria rolagem
+        na página inteira — a armadilha que já mordeu no card do pregão. A
+        trava é `clip` (não `hidden`, que criaria caixa de rolagem).
+        """
+        css = self._css("locutor.css")
+        self.assertIn("overflow-x: clip", css)
+        self.assertIn("overflow-clip-margin", css)
+
+    def test_o_efeito_respeita_quem_pediu_menos_movimento(self):
+        css = self._css("locutor.css")
+        trecho = css[css.index(".numero-valor.lance-novo"):]
+        self.assertIn("prefers-reduced-motion", trecho)
+        self.assertIn(".numero-valor.lance-novo { animation: none; }", trecho)

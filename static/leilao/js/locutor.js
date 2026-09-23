@@ -86,6 +86,44 @@
         el.hidden = !texto;
     }
 
+    /* O nome de quem está ganhando ACENDE a cada lance novo.
+       O locutor não fica lendo a tela: ele está falando, olhando a sala e o
+       microfone. Sem um movimento, a troca da ponta é uma palavra que muda de
+       lugar num canto do monitor — e é justamente o que ele tem de anunciar em
+       voz alta. É o mesmo efeito que a tela do público ganhou (`assume-a-ponta`),
+       pela mesma razão.
+
+       Aqui ele dispara a CADA lance, não só quando o nome muda: na mesa o que
+       interessa é "entrou lance agora", e é isso que o locutor repete. (Hoje as
+       duas coisas andam juntas, porque ninguém cobre o próprio lance — comparar
+       o valor também é o que segura o efeito se essa regra mudar um dia.)
+
+       Item novo NÃO acende: abrir o próximo é ação da própria mesa, o locutor
+       acabou de clicar e ainda não há lance nenhum. */
+    var mesaLoteMostrado = null;
+    var mesaLiderMostrado = null;
+    var mesaValorMostrado = null;
+
+    function acenderLider(lote) {
+        var el = $("mesaLider");
+        if (!el) return;
+
+        var nome = lote && lote.lider ? lote.lider.nome : null;
+        var valor = lote ? String(lote.valor_atual) : null;
+        var mesmoLote = !!lote && mesaLoteMostrado === lote.id;
+        var novidade = mesmoLote && !!lote.tem_lance &&
+            (nome !== mesaLiderMostrado || valor !== mesaValorMostrado);
+
+        mesaLoteMostrado = lote ? lote.id : null;
+        mesaLiderMostrado = nome;
+        mesaValorMostrado = valor;
+
+        if (!novidade) return;
+        el.classList.remove("lance-novo");
+        void el.offsetWidth;   // reinicia a animação
+        el.classList.add("lance-novo");
+    }
+
     function render(novo) {
         if (novo) { estado = novo; calibrar(novo); }
         var lote = estado && estado.ativo ? estado.lote : null;
@@ -116,6 +154,7 @@
             $("mesaProximo").textContent = moeda(0);
             foto.hidden = true;
         }
+        acenderLider(lote);
 
         desenharFila();
         desenharChatMesa();
@@ -328,6 +367,25 @@
     fonte.addEventListener("pagamento", function () {
         toast("Pagamento confirmado.", "success");
     });
+
+    /* As reações do público sobem AQUI TAMBÉM.
+
+       O locutor conduz sem plateia na frente: o público está em casa, no
+       celular, e o emoji é o aplauso que este leilão tem. Sem ele a mesa é uma
+       tela de números — e é pela reação da sala que ele decide esticar a
+       conversa num item ou partir para o martelo.
+
+       A mesa só OUVE: não há botão de reagir aqui. O resumo é o mesmo
+       broadcast que vai para todo mundo (o hub entrega tudo a todos), então
+       isto não custa requisição nenhuma a mais — é um evento que já chegava e
+       a mesa jogava fora. Por isso também não há crédito a descontar: nada sai
+       desta tela. */
+    if (window.Reacoes) {
+        window.Reacoes.ligar($("reacoesTrilho"), null);
+        fonte.addEventListener("reacoes", function (e) {
+            window.Reacoes.receber(JSON.parse(e.data));
+        });
+    }
 
     /* ---------------------------------------------------------------
        Botões

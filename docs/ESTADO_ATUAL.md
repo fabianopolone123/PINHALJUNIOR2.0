@@ -2,7 +2,38 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-22 (**Leilão: correção — uma chamada órfã derrubava o JS da tela inteira**):
+**Última atualização:** 2026-09-22 (**Leilão: a mesa do locutor sente a sala**): dois pedidos do
+clube, do mesmo tipo. Quem conduz o pregão **não lê** a tela — está falando, de olho no microfone e
+na lista —, então o que chega até ele tem de ser **movimento**, e a mesa não tinha nenhum.
+
+**1. O nome de quem está ganhando acende a cada lance novo** (`acende-o-nome`): cresce, fica dourado
+e brilha. Antes o nome só trocava de palavra num canto do monitor. É o mesmo efeito que a tela do
+público ganhou em 21/09 (`assume-a-ponta`), e aqui pesa mais, porque é o locutor quem anuncia esse
+nome em voz alta. Diferença de propósito: na mesa ele dispara a **cada lance**, não só quando o nome
+muda — o que interessa ali é *entrou lance agora*. (Hoje as duas coisas coincidem, porque ninguém
+cobre o próprio lance; `acenderLider` compara **também o valor** para não depender disso.) **Item
+que acabou de abrir não acende**: abrir o próximo é ação da própria mesa, e piscar pelo clique dele
+mesmo seria ruído.
+
+**2. As reações do público sobem na mesa também.** O locutor conduz sem plateia na frente — o
+público está em casa, no celular — e o emoji é o único aplauso que este leilão tem: é por ele que se
+sabe se a piada pegou e se o item empolgou. É o **mesmo** trilho e o **mesmo `reacoes.js`** da tela
+pública (um jeito só de desenhar emoji), e a mesa apenas **ouve**: não há botão de reagir ali. Não
+custa requisição nenhuma — o evento `reacoes` já chegava à conexão da mesa (o hub entrega tudo a
+todos) e ela o jogava fora.
+
+Como o efeito escala, ele passou pela **sonda headless**, que é o que o projeto exige desde o
+estouro do card do pregão: com a animação **travada no pico** (não por `setTimeout`, que já mediu o
+repouso por engano no relógio virtual do headless) e um nome de **56 letras**, em 390/768/1280/1600
+px — `scrollWidth == clientWidth` nas quatro, **zero estouro**. A trava é `overflow-x: clip` +
+`overflow-clip-margin` no `.numero` (**`clip`, não `hidden`**) com `transform-origin: left center`,
+para o nome não invadir a coluna vizinha da grade. O `locutor.js` também foi aberto no headless com
+um ouvinte de `error` **antes** dos scripts — a lição do deploy anterior. Suíte do leilão:
+**343 testes OK** (+7, `AMesaSenteASalaTests`). **Sem migration.** **Ainda não está em
+produção** — o deploy do leilão reinicia o serviço (§7.1 do `docs/DEPLOY_LEILAO.md`) e precisa de
+leilão fora do ar.
+
+**Atualização anterior:** 2026-09-22 (**Leilão: correção — uma chamada órfã derrubava o JS da tela inteira**):
 logo depois do deploy anterior o clube avisou que a tela "não estava atualizando" — abrir o próximo item no
 locutor **não aparecia no celular**, e tudo parecia atraso. Não era atraso nem SSE: era **`ReferenceError`**.
 Ao tirar a contagem de tempo do chat, a função `atualizarTempoChat` saiu e **uma chamada ficou para trás**
@@ -2313,6 +2344,19 @@ função de diretor**; e conta de **superusuário** só é alterada por superusu
 **O martelo é do locutor:** por padrão (`Leilao.fechamento_automatico=False`) **o tempo não fecha
 nada** — o item fica aberto até o botão VENDIDO. A mesa mostra `Lote.parado_ha` (há quanto tempo a sala
 está calada, contando para **cima**), que é o que diz a hora do "dou-lhe uma, dou-lhe duas".
+
+**A mesa sente a sala.** Quem conduz **não lê** a tela — está falando, de olho no microfone e na
+lista —, então o que chega até ele tem de ser **movimento**. Duas coisas foram desse jeito: o **nome
+de quem está ganhando acende** (`acende-o-nome`) **a cada lance novo**, e não só quando o nome muda
+(na mesa o que importa é *entrou lance agora*, que é o que ele repete em voz alta; item que acabou
+de abrir **não** acende, que seria piscar por ação dele mesmo); e as **reações do público sobem na
+mesa também**, no **mesmo** trilho e com o **mesmo `reacoes.js`** da tela pública. O locutor conduz
+sem plateia na frente — o público está em casa, no celular — e o emoji é o único aplauso que este
+leilão tem. A mesa só **ouve**: não há botão de reagir ali, e isso não custa requisição nenhuma,
+porque o evento `reacoes` já chegava à conexão dela (o hub entrega tudo a todos) e era jogado fora.
+O efeito do nome escala, então leva a mesma trava de rolagem do card do pregão: `overflow-x: clip`
++ `overflow-clip-margin` no `.numero`, com `transform-origin: left center` para não invadir a
+coluna vizinha.
 
 **A medida do item é pública, o endereço não.** Peso e dimensões vão no broadcast
 (`estado.lote_publico`, chave **`medidas`**, texto pronto) porque são o **tamanho do que está à venda** —

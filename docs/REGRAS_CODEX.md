@@ -1179,6 +1179,29 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   porque `hidden` cria caixa de rolagem; a margem deixa o brilho vazar sem que nada role. Efeito novo que
   escale alguma coisa **passa pela sonda headless** antes de subir — o olho não vê 27px de estouro.
 
+### A mesa do locutor sente a sala
+
+- **Quem conduz não LÊ a mesa.** Ele está falando, de olho no microfone e na lista; o que chega até
+  ele é **movimento**. Informação nova na mesa que só troque uma palavra de lugar não é vista — e
+  duas coisas que ele precisa saber (a ponta trocou, a sala reagiu) são exatamente disso.
+- **O nome de quem está ganhando acende a cada LANCE** (`acende-o-nome`), não a cada troca de nome.
+  Na tela do público a classe entra quando o líder muda; aqui o que interessa é *entrou lance
+  agora*, que é o que o locutor repete em voz alta. Hoje as duas coisas coincidem (ninguém cobre o
+  próprio lance) — `acenderLider` compara **também o valor** justamente para não depender disso.
+- **Item novo não acende.** Abrir o próximo é ação da própria mesa, o locutor acabou de clicar, e
+  ainda não há lance nenhum. A guarda é comparar o **id do lote** antes de animar.
+- **O mesmo cuidado de rolagem do card do pregão vale aqui**: `transform` não empurra o layout mas
+  **conta para a área rolável**, então o nome comprido no pico estoura a coluna. A trava é
+  `overflow-x: clip` + `overflow-clip-margin` no `.numero` (**`clip`, não `hidden`**) e
+  `transform-origin: left center` — crescendo do meio, o nome invade a coluna vizinha da grade.
+  Efeito novo que escale alguma coisa **passa pela sonda headless** antes de subir.
+- **As reações do público sobem na mesa também, e a mesa só OUVE.** Não há botão de reagir ali:
+  quem reage é o público. Isso **não custa requisição nenhuma** — o evento `reacoes` já chegava à
+  conexão da mesa (o hub entrega tudo a todos) e ela o jogava fora.
+- **Um jeito só de desenhar emoji**: mesmo `reacoes.js`, mesma classe de trilho, mesmo CSS do
+  público. Tela nova que queira mostrar reação liga o mesmo módulo — não duplique o desenho.
+- **Cor dentro de `@keyframes` vai por extenso.** `inherit` num keyframe é pedir para o navegador
+  adivinhar; escreva o valor de ida e o de volta (aqui, `--palco-texto` → `--ouro` → `--palco-texto`).
 ### O chat do intervalo
 
 - **Estado do chat e estado do leilão têm de concordar.** `chat_aberto_ate` é uma hora futura no banco e

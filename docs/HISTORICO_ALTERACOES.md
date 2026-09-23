@@ -22,6 +22,68 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-22 - Leilão: a mesa do locutor sente a sala
+
+### Resumo
+Dois pedidos do clube, do mesmo tipo: quem conduz o pregão **não lê** a mesa —
+está falando, de olho no microfone e na lista. O que chega até ele é
+**movimento**, e a mesa não tinha nenhum.
+
+1. **O nome de quem está ganhando ACENDE a cada lance novo.** Antes o nome só
+   trocava de palavra num canto do monitor. É o mesmo efeito que a tela do
+   público ganhou em 21/09 (`assume-a-ponta`), pela mesma razão — e aqui pesa
+   mais, porque é o locutor quem anuncia esse nome em voz alta.
+2. **As reações do público sobem na mesa também.** O locutor conduz sem
+   plateia na frente (o público está em casa, no celular), e o emoji é o único
+   aplauso que este leilão tem: é por ele que se sabe se a piada pegou e se o
+   item empolgou.
+
+### Arquivos criados/alterados
+- `static/leilao/js/locutor.js`: `acenderLider(lote)` + o estado que ela
+  compara (lote, nome e valor mostrados); chamada no fim do `render`. E o
+  ouvinte do evento `reacoes` no SSE + `window.Reacoes.ligar`.
+- `static/leilao/css/locutor.css`: `.numero-valor.lance-novo`,
+  `@keyframes acende-o-nome`, a trava `overflow-x: clip` no `.numero` e o
+  `prefers-reduced-motion`.
+- `templates/leilao/locutor.html`: o `#reacoesTrilho` (fora da `.mesa`) e o
+  `reacoes.js`, carregado **antes** do `locutor.js`.
+- `leilao/tests.py`: `AMesaSenteASalaTests`.
+
+### Decisões tomadas
+- **Na mesa o efeito é do LANCE, não da troca de nome.** Na tela do público a
+  classe entra quando o líder muda; aqui interessa "entrou lance agora", que é
+  o que o locutor repete. Hoje as duas coisas andam juntas (ninguém cobre o
+  próprio lance), e comparar **também o valor** é o que segura o efeito se essa
+  regra mudar um dia.
+- **Item novo não acende.** Abrir o próximo é ação da própria mesa — o locutor
+  acabou de clicar — e ainda não há lance nenhum. A guarda é o `mesmoLote`.
+- **A mesa só OUVE as reações.** Não há botão de reagir aqui: quem reage é o
+  público. E isso **não custa requisição nenhuma**: o evento `reacoes` já
+  chegava à conexão da mesa (o hub entrega tudo a todos) e ela o jogava fora.
+- **Um jeito só de desenhar emoji**: mesmo `reacoes.js`, mesma classe de
+  trilho, mesmo CSS do público. Nada foi duplicado.
+- **A cor de ida e de volta é escrita por extenso** no keyframe
+  (`--palco-texto` → `--ouro` → `--palco-texto`): `inherit` dentro de keyframe
+  é pedir para o navegador adivinhar.
+- **O crescimento é para a direita** (`transform-origin: left center`): a
+  partir do meio, o nome invadiria a coluna vizinha da grade de números.
+
+### Verificação
+- **Sonda headless** (regra do projeto para efeito que escale alguma coisa):
+  `/locutor/` renderizada pelo test client, nome de 56 letras no `#mesaLider`,
+  a classe aplicada e a medição feita **no pico** da animação — `scrollWidth` ×
+  `clientWidth` e a lista de quem passa da borda. A trava contra a rolagem é
+  `overflow-x: clip` (não `hidden`, que criaria caixa de rolagem) com
+  `overflow-clip-margin` deixando o brilho vazar.
+- `locutor.js` aberto no Chrome headless com um ouvinte de `error` **antes** do
+  script: carrega sem `ReferenceError` nem `TypeError` — a lição do deploy
+  anterior.
+
+### Pendências
+- O ouvinte do evento `arremate_expirado` continua no `locutor.js`, mas o
+  evento **não é mais publicado** (o prazo de pagamento saiu em 21/09). Não
+  quebra nada; é linha morta a limpar junto da faxina de documentação.
+
 ## 2026-09-22 - Leilão: chamada órfã derrubava o JS da tela inteira
 
 ### Resumo

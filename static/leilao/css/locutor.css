@@ -209,6 +209,50 @@ body.tela-locutor {
 }
 .destaque-ouro { color: var(--ouro); }
 
+/* Lance novo: o nome de quem está ganhando ACENDE.
+   O locutor está falando enquanto usa esta tela — ele percebe movimento pelo
+   canto do olho, não texto que trocou de palavra. O efeito é curto de
+   propósito: em noite cheia ele dispara a cada poucos segundos, e um brilho
+   que demorasse viraria tela piscando.
+
+   O crescimento é para a DIREITA (`transform-origin: left`): a partir do meio,
+   o nome invadiria a coluna vizinha. E `transform` não empurra o layout, mas
+   CONTA para a área rolável — nome comprido no pico criaria rolagem horizontal
+   na página, a mesma armadilha que já mordeu no card do pregão. A trava é o
+   `overflow-x: clip` no `.numero` (clip, não hidden: hidden criaria caixa de
+   rolagem), com a margem deixando o brilho vazar sem que nada role. */
+.numero { overflow-x: clip; overflow-clip-margin: 14px; }
+
+.numero-valor.lance-novo {
+    transform-origin: left center;
+    animation: acende-o-nome 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+/* A cor de ida e de volta é escrita por extenso: `inherit` dentro de keyframe
+   é pedir para o navegador adivinhar. `--palco-texto` é o que o
+   `body.tela-locutor` já dá a este texto — o nome volta exatamente ao que era. */
+@keyframes acende-o-nome {
+    0% {
+        transform: scale(1);
+        color: var(--palco-texto);
+        text-shadow: none;
+    }
+    38% {
+        transform: scale(1.14);
+        color: var(--ouro);
+        text-shadow: 0 0 22px rgba(255, 209, 102, 0.9), 0 2px 10px rgba(0, 0, 0, 0.35);
+    }
+    100% {
+        transform: none;
+        color: var(--palco-texto);
+        text-shadow: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .numero-valor.lance-novo { animation: none; }
+}
+
 /* Cronômetro grande: tem de ser legível de longe, o locutor não está colado na tela. */
 .mesa-crono {
     display: flex;
