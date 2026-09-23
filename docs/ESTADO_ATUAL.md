@@ -21,7 +21,12 @@ keyword nova de suporte irregular e o clube entra por celular. Sonda headless em
 (1366×900/700, 1280×600, 900×540, 500×800, 390×844, 1366×1400): nenhum corte, card em y=36 quando
 não cabe e **ainda centralizado** (y=170) quando a janela é alta. Fica registrado que a **captura
 dessa tela engana** — a animação `sobe` desloca o card enquanto roda, então vale a geometria, não a
-foto. Suíte do leilão: **+3 testes** (`CardAltoNaoPerdeOTopoTests`). **Sem migration.**
+foto. Suíte do leilão: **354 testes OK** (+3, `CardAltoNaoPerdeOTopoTests`).
+**Em produção** no commit `9e7f1f0` (23/09/2026): **sem migration**, estáticos do leilão coletados e
+o `pinhaljunior_leilao.service` reiniciado (§7.1) — desta vez com o leilão de teste no ar mas
+**nenhum item em pregão**, que é a condição que o §7.1 pede. Conferido pelo hash do manifesto:
+`leilao.94014612bc9a.css` traz `.entrada { … margin: auto; }` e o `body.tela-entrada` **sem**
+`align-items: center`.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: a rolagem do chat de volta e os dois números que se
 anunciam**): dois pedidos do clube sobre a mesa do locutor. A **rolagem** que faltava era
