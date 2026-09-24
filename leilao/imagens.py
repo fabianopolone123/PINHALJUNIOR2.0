@@ -8,6 +8,7 @@ Usa **Pillow**, que já é dependência do projeto. Nada novo entra por aqui.
 """
 
 import logging
+import secrets
 from io import BytesIO
 
 from django.core.files.base import ContentFile
@@ -18,6 +19,12 @@ logger = logging.getLogger(__name__)
 LARGURA_MAX = 1280
 LARGURA_MINI = 420
 QUALIDADE = 82
+
+# Teto de pixels. Um PNG de ~150 Mpx de cor lisa pesa poucos MB (passa pelo
+# limite de 25 MB do Nginx) e decodificado passa de 1 GB de RAM, no VPS que
+# roda o leilão ao vivo. O Pillow só recusa acima de ~179 Mpx; a câmera de
+# celular mais comum fica em 12–50 Mpx.
+MAX_PIXELS = 60_000_000
 
 
 def _abrir_corrigida(arquivo, largura_alvo=None):
@@ -75,10 +82,28 @@ def preparar_foto(lote):
         buffer_mini = BytesIO()
         mini.convert("RGB").save(buffer_mini, format="JPEG", quality=QUALIDADE, optimize=True)
 
-        base = f"lote-{lote.pk}.jpg"
+        # Nome com sorteio, não `lote-<id>.jpg`: a pasta de fotos é pública, e
+        # nome sequencial deixava qualquer um pedir lote-1, lote-2… e ver a
+        # FILA inteira (até de leilão em rascunho) — justo o que a tela não
+        # mostra (revisão de 24/09).
+        antigas = [lote.foto.name, lote.foto_mini.name if lote.foto_mini else ""]
+        try:
+            lote.foto.close()
+        except Exception:  # noqa: BLE001
+            pass
+        base = f"lote-{lote.pk}-{secrets.token_hex(6)}.jpg"
         lote.foto.save(base, ContentFile(buffer_grande.getvalue()), save=False)
         lote.foto_mini.save(f"mini-{base}", ContentFile(buffer_mini.getvalue()), save=False)
         lote.save(update_fields=["foto", "foto_mini"])
+        # O ORIGINAL vai embora: ele é a foto do celular inteira, com o EXIF
+        # (inclusive a localização GPS de quem fotografou). O que fica no ar é
+        # só a versão regravada, sem EXIF.
+        for nome in antigas:
+            if nome and nome not in (lote.foto.name, lote.foto_mini.name):
+                try:
+                    lote.foto.storage.delete(nome)
+                except Exception:  # noqa: BLE001 — arquivo preso não derruba o cadastro
+                    logger.warning("Leilão: não consegui apagar a foto antiga %s", nome)
         return True
     except Exception:  # noqa: BLE001 — foto ruim não derruba o cadastro
         logger.exception("Leilão: falha ao preparar a foto do lote %s", lote.pk)

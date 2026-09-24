@@ -552,6 +552,7 @@ class ViewsParticipanteTests(TestCase):
         self.assertNotIn("copia_e_cola", r.json())
 
     def test_stream_responde_event_stream(self):
+        self._entrar()      # desde 24/09 o stream do público exige a porta
         r = self.c.get("/stream/")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r["Content-Type"], "text/event-stream")
@@ -6302,3 +6303,287 @@ class RevisaoTelasEEquipeTests(TestCase):
         lote.refresh_from_db()
         self.assertEqual(lote.nome, "Caneca fictícia azul")
         preparar.assert_not_called()
+
+
+class SegundaRevisaoTests(TestCase):
+    """A segunda conferência geral de 24/09: privacidade do telefone, dinheiro
+    na mão de quem pode, "pago" falso, lotação por script, comando de demo,
+    freio de login, fotos e os menores."""
+
+    def setUp(self):
+        from unittest import mock
+
+        servicos.limpar_limites()
+        equipe.limpar_tentativas()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        cfg = ConfigLeilao.get_solo()
+        cfg.access_token_teste = "TEST-token-ficticio"
+        cfg.save()
+        self.n = 0
+
+        def criar_pix_falso(cfg, *, referencia, valor, **_):
+            self.n += 1
+            return {"ok": True, "mp_payment_id": "mp-%d" % self.n, "status": "pendente",
+                    "qr_code": "pix-%s" % referencia, "qr_code_base64": "", "ticket_url": "", "raw": {}}
+
+        for alvo, efeito in (("criar_pix", criar_pix_falso),
+                             ("consultar_pagamento", lambda cfg, pid: {"ok": True, "status": "pendente"})):
+            p = mock.patch.object(servicos.mercadopago, alvo, side_effect=efeito)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _arrematar(self, nome, valor, pessoa=None):
+        lote = criar_lote(self.leilao, nome=nome, ordem=self.leilao.lotes.count() + 1,
+                          lance_inicial=Decimal(valor))
+        servicos.limpar_limites()
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa or self.ana)
+        lote.refresh_from_db()
+        return servicos.fechar_lote(lote, motivo="locutor")
+
+    def _equipe(self, papel, login):
+        User = get_user_model()
+        u = User.objects.create_user(login, password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name=papel)[0])
+        c = Client()
+        c.login(username=login, password="segredo-ficticio")
+        return c
+
+    def _sessao(self, pessoa):
+        c = Client()
+        s = c.session
+        s[CHAVE_SESSAO] = pessoa.token
+        s.save()
+        return c
+
+    # --- 1. O telefone não sai do código da pessoa ------------------------
+    def test_a_chave_nao_e_o_hash_puro_do_telefone(self):
+        import hashlib
+
+        tel = self.ana.telefone_normalizado
+        self.assertNotIn(hashlib.sha256(tel.encode()).hexdigest()[:12], self.ana.chave_pessoa)
+
+    def test_a_chave_depende_do_segredo_do_servidor(self):
+        from django.test import override_settings
+
+        antes = self.ana.chave_pessoa
+        with override_settings(SECRET_KEY="outro-segredo-ficticio"):
+            self.assertNotEqual(self.ana.chave_pessoa, antes)
+
+    def test_a_chave_continua_reconhecendo_a_mesma_pessoa(self):
+        outro_aparelho = criar_pessoa("Ana Fictícia Souza", whatsapp=self.ana.whatsapp)
+        self.assertEqual(outro_aparelho.chave_pessoa, self.ana.chave_pessoa)
+
+    # --- 2. Mercado Pago só com o Diretor ---------------------------------
+    def test_a_preparacao_nao_abre_a_config_do_mercado_pago(self):
+        r = self._equipe("preparacao", "prep_mp").get("/preparacao/config/")
+        self.assertEqual(r.status_code, 302)
+
+    def test_o_diretor_abre_a_config(self):
+        r = self._equipe("diretor", "dir_mp").get("/preparacao/config/")
+        self.assertEqual(r.status_code, 200)
+
+    # --- 3. "Pagamento confirmado" só quando a conta fecha ----------------
+    def test_pix_antigo_aprovado_nao_confirma_a_conta_nova(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        p1 = servicos.cobranca_do_participante(self.ana)
+        servicos._aplicar_retorno(p1, {"status": "aprovado"})
+        a.refresh_from_db()
+        self.assertEqual(a.status, "pago")
+        self._arrematar("Quadro fictício", "30.00")
+        servicos.cobranca_do_participante(self.ana)
+        d = self._sessao(self.ana).get("/conta/conferir/").json()
+        self.assertFalse(d["pago"], "disse 'pago' com o item novo em aberto")
+        self.assertEqual(d["quantos_abertos"], 1)
+
+    # --- 5. Estado publicado é sempre o do leilão no ar -------------------
+    def test_liberar_em_outro_leilao_nao_apaga_o_pregao(self):
+        from unittest import mock
+
+        rascunho = criar_leilao(nome="Leilão fictício 2", status="rascunho")
+        with mock.patch.object(servicos.HUB, "publicar") as publicar:
+            servicos.liberar_pagamentos(rascunho, True)
+        self.assertTrue(publicar.call_args[0][1]["ativo"])
+
+    def test_som_da_mesa_de_outro_leilao_nao_apaga_o_pregao(self):
+        from unittest import mock
+
+        rascunho = criar_leilao(nome="Leilão fictício 2", status="rascunho")
+        c = self._equipe("locutor", "loc_som2")
+        with mock.patch.object(servicos.HUB, "publicar") as publicar:
+            c.post("/equipe/acao/", json.dumps({"acao": "som", "qual": "lance", "ligar": False,
+                                                 "leilao": rascunho.pk}), content_type="application/json")
+        self.assertTrue(publicar.call_args[0][1]["ativo"])
+
+    # --- 6. Referência do Pix nunca repete --------------------------------
+    def test_refazer_no_mesmo_instante_nao_repete_a_referencia(self):
+        from unittest import mock
+
+        self._arrematar("Cesta fictícia", "50.00")
+        fixo = timezone.now()
+        with mock.patch.object(servicos.timezone, "now", return_value=fixo):
+            p1 = servicos.cobranca_do_participante(self.ana, refazer=True)
+            p2 = servicos.cobranca_do_participante(self.ana, refazer=True)
+        self.assertNotEqual(p1.referencia, p2.referencia)
+
+    # --- 9. Stream: só quem passou pela porta, e com teto por pessoa -----
+    def test_stream_sem_cadastro_e_recusado(self):
+        self.assertEqual(Client().get("/stream/").status_code, 403)
+
+    def test_equipe_1_sem_login_nao_vale(self):
+        self.assertEqual(Client().get("/stream/?equipe=1").status_code, 403)
+
+    def test_muitas_telas_da_mesma_pessoa_sao_recusadas(self):
+        try:
+            for _ in range(6):
+                servicos.HUB.assinar(publico=True, nome="Ana", dono=self.ana.pk)
+            r = self._sessao(self.ana).get("/stream/")
+            self.assertEqual(r.status_code, 429)
+        finally:
+            servicos.HUB._assinantes.clear()
+
+    def test_a_equipe_nao_entra_no_teto(self):
+        from django.test import override_settings
+
+        c = self._equipe("locutor", "loc_teto")
+        try:
+            servicos.HUB.assinar(publico=True, nome="Ana", dono=self.ana.pk)
+            with override_settings(LEILAO_MAX_CONEXOES=1):
+                r = c.get("/stream/?equipe=1")
+                # Sem `r.close()`: fechar a resposta em streaming dispara o
+                # `request_finished`, que fecha a conexão do banco de teste
+                # para os testes seguintes. O status já diz o que importa.
+                self.assertEqual(r.status_code, 200)
+        finally:
+            servicos.HUB._assinantes.clear()
+
+    def test_a_contagem_do_hub_percorre_uma_copia(self):
+        hub = Path(settings.BASE_DIR, "leilao", "hub.py").read_text(encoding="utf-8")
+        self.assertIn("list(self._assinantes.values())", hub)
+        self.assertNotIn("in self._assinantes.values():", hub)
+
+    # --- 8. Comando de demonstração ---------------------------------------
+    def test_leilao_demo_se_recusa_fora_do_desenvolvimento(self):
+        from django.core.management import CommandError, call_command
+
+        with self.assertRaises(CommandError):
+            call_command("leilao_demo")
+        self.leilao.refresh_from_db()
+        self.assertEqual(self.leilao.status, "ao_vivo")
+
+    # --- Freio de login ---------------------------------------------------
+    def _login(self, c, usuario, senha):
+        return c.post("/equipe/entrar/", {"usuario": usuario, "senha": senha})
+
+    def test_acertar_a_propria_senha_nao_zera_o_freio_dos_outros(self):
+        User = get_user_model()
+        u = User.objects.create_user("joao_ficticio", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="caixa")[0])
+        c = Client()
+        for i in range(10):
+            self._login(c, "maria_ficticia", "1234")
+            if i == 5:
+                self._login(Client(), "joao_ficticio", "segredo-ficticio")   # acerto no meio
+        self.assertTrue(equipe.login_barrado("127.0.0.1|maria_ficticia"))
+
+    def test_erros_de_um_nao_trancam_o_outro_no_mesmo_wifi(self):
+        User = get_user_model()
+        u = User.objects.create_user("joao_ficticio", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="caixa")[0])
+        for _ in range(10):
+            self._login(Client(), "maria_ficticia", "errada")
+        r = self._login(Client(), "joao_ficticio", "segredo-ficticio")
+        self.assertEqual(r.status_code, 302, "o Wi-Fi do evento trancou a equipe inteira")
+
+    # --- Menores ------------------------------------------------------------
+    def test_nao_se_exclui_item_em_pregao(self):
+        lote = criar_lote(self.leilao, nome="Bolo fictício")
+        servicos.abrir_lote(lote)
+        self._equipe("preparacao", "prep_exc").post("/preparacao/itens/%d/excluir/" % lote.pk)
+        self.assertTrue(Lote.objects.filter(pk=lote.pk).exists())
+
+    def test_leilao_nao_volta_a_rascunho(self):
+        c = self._equipe("preparacao", "prep_rasc")
+        r = c.post("/preparacao/%d/status/" % self.leilao.pk, {"status": "rascunho"})
+        self.assertEqual(r.status_code, 404)
+
+    def test_item_sem_lance_pode_ser_aberto_de_novo(self):
+        lote = criar_lote(self.leilao, nome="Bolo fictício")
+        servicos.abrir_lote(lote)
+        servicos.fechar_lote(lote, motivo="locutor")
+        lote.refresh_from_db()
+        self.assertEqual(lote.status, "sem_lance")
+        c = self._equipe("locutor", "loc_sem")
+        r = c.post("/equipe/acao/", json.dumps({"acao": "abrir", "lote": lote.pk}),
+                   content_type="application/json")
+        self.assertTrue(r.json()["ok"], r.json())
+
+    def test_foto_ganha_nome_sorteado_e_o_original_sai(self):
+        from io import BytesIO
+
+        from django.core.files.base import ContentFile
+        from PIL import Image
+
+        from .imagens import preparar_foto
+
+        buf = BytesIO()
+        Image.new("RGB", (80, 60), (10, 120, 200)).save(buf, format="JPEG")
+        lote = criar_lote(self.leilao, nome="Caneca fictícia")
+        lote.foto.save("original-do-celular.jpg", ContentFile(buf.getvalue()), save=True)
+        original = lote.foto.name
+        self.assertTrue(preparar_foto(lote))
+        lote.refresh_from_db()
+        self.assertNotRegex(lote.foto.name, r"lote-%d\.jpg$" % lote.pk)
+        self.assertRegex(lote.foto.name, r"lote-%d-[0-9a-f]{12}\.jpg$" % lote.pk)
+        self.assertFalse(lote.foto.storage.exists(original), "o original (com EXIF) ficou no disco")
+        for campo in (lote.foto, lote.foto_mini):
+            campo.storage.delete(campo.name)
+
+    def test_foto_com_pixels_demais_e_recusada(self):
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("1", (9000, 9000)).save(buf, format="PNG")     # 81 Mpx, poucos KB
+        f = forms.LoteForm(
+            data={"nome": "Quadro fictício", "lance_inicial": "10", "peso_kg": "350",
+                  "altura_cm": "10", "largura_cm": "10", "profundidade_cm": "10"},
+            files={"foto": SimpleUploadedFile("g.png", buf.getvalue(), "image/png")},
+        )
+        self.assertFalse(f.is_valid())
+        self.assertIn("grande demais", str(f.errors.get("foto")))
+
+    def test_estorno_de_quem_pagou_em_dobro_nao_volta_a_divida(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        p1 = servicos.cobranca_do_participante(self.ana)
+        p2 = servicos.cobranca_do_participante(self.ana, refazer=True)
+        servicos._aplicar_retorno(p1, {"status": "aprovado"})
+        a.refresh_from_db()
+        a.pagamento = p1
+        a.save(update_fields=["pagamento"])
+        with self.assertLogs("leilao.servicos", level="ERROR"):
+            servicos._aplicar_retorno(p2, {"status": "aprovado"})      # pagou em dobro
+        servicos._aplicar_retorno(p1, {"status": "estornado"})
+        a.refresh_from_db()
+        self.assertEqual(a.status, "pago", "o segundo pagamento continua de pé")
+        self.assertEqual(a.pagamento_id, p2.pk)
+
+    def test_o_qr_aberto_se_refaz_quando_um_item_e_quitado(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(encoding="utf-8")
+        trecho = js[js.index('addEventListener("pagamento"'):]
+        trecho = trecho[: trecho.index("});")]
+        self.assertIn("if (arremateAberto) abrirQr();", trecho)
+        gaveta = js[js.index("function fecharGaveta"):]
+        gaveta = gaveta[: gaveta.index("\n    }\n")]
+        self.assertIn('$("modalQr").hidden', gaveta)
+

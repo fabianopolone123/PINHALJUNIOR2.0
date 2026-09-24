@@ -2,7 +2,23 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: correções da revisão geral**): quatro revisões em
+**Última atualização:** 2026-09-24 (**Leilão: correções da segunda conferência geral**): mais uma
+rodada (as correções do dia revisadas, as áreas menos cobertas e o servidor). **Graves**: o código
+da pessoa no broadcast (`chave_pessoa`) virou **HMAC com a `SECRET_KEY`** — o hash puro do telefone
+se revertia em menos de um minuto e entregava o WhatsApp de quem dava lance ou escrevia no chat; a
+**configuração do Mercado Pago/áudio ficou só do Diretor**; e o "Pagamento confirmado!" deixou de
+aparecer falso quando uma cobrança ANTIGA estava aprovada. **Médios**: estado publicado sempre o do
+leilão no ar (a mesa de outro leilão ligando o som apagava a sala), referência do Pix sem colisão no
+mesmo segundo, stream do público exige cadastro com teto de 6 conexões por pessoa e a equipe fora do
+teto, contagens do hub sobre cópia, `leilao_demo` recusa rodar em produção, e o uvicorn com
+`--timeout-graceful-shutdown 3` (**cada reinício com público conectado deixava o leilão 90 s fora do
+ar**). **Menores**: freio de login por usuário e por IP, foto com nome sorteado e original apagado
+(tinha GPS), foto de mais de 60 Mpx recusada, item em pregão não se exclui, leilão não volta a
+rascunho, item sem lance reabre, estorno de quem pagou em dobro, QR que se refaz. Backup diário
+**não** foi criado: o VPS já tem o próprio. Suíte do leilão: **526 testes OK** (+24); core 456 OK.
+**Sem migration.**
+
+**Atualização anterior:** 2026-09-24 (**Leilão: correções da revisão geral**): quatro revisões em
 paralelo (servidor, telas do público, telas da equipe, documentação) acharam 28 problemas reais,
 todos corrigidos. **Dinheiro**: a cobrança passou a gravar **quais itens cobre** (`cobre`, mig.
 **`leilao/0014`**) — o Pix não é mais reaproveitado com valor antigo depois de uma baixa na mão, um Pix

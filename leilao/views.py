@@ -188,15 +188,33 @@ async def stream_view(request):
     """
     garantir_laco(getattr(settings, "LEILAO_TICK_SEGUNDOS", 1))
 
-    teto = getattr(settings, "LEILAO_MAX_CONEXOES", 300)
-    # O teto olha TODAS as conexões (é um limite de recurso); a contagem que vai
-    # para a tela olha só o público (é um número sobre gente).
-    if HUB.total >= teto:
-        return HttpResponse("Leilão lotado. Tente novamente em instantes.", status=503)
+    # A tela da equipe se identifica — e agora PROVA: `?equipe=1` só vale com
+    # login de equipe. Antes o parâmetro não era autenticado, e a mesa do
+    # locutor contava no mesmo teto que o público (revisão de 24/09).
+    usuario = await request.auser()
+    equipe = (
+        request.GET.get("equipe") == "1"
+        and usuario.is_authenticated and usuario.is_staff
+    )
+    publico = not equipe
+    participante = None
+    if publico:
+        # Só quem passou pela porta assiste. Nenhuma tela abre o stream antes
+        # do cadastro, e sem esta exigência um script abria as 300 conexões do
+        # teto sem se identificar e barrava a sala inteira de "lotado".
+        participante = await sync_to_async(participante_atual)(request)
+        if participante is None:
+            return HttpResponse("Entre no leilão primeiro.", status=403)
 
-    # A tela da equipe se identifica: ela acompanha o pregão, mas não é alguém
-    # que chegou para dar lance.
-    publico = request.GET.get("equipe") != "1"
+        teto = getattr(settings, "LEILAO_MAX_CONEXOES", 300)
+        # O teto é um limite de recurso — e é do PÚBLICO: a mesa, o caixa e a
+        # preparação nunca podem ser barrados de acompanhar o próprio leilão.
+        if HUB.total >= teto:
+            return HttpResponse("Leilão lotado. Tente novamente em instantes.", status=503)
+        # A mesma pessoa em algumas abas é normal (celular, computador, aba
+        # que ficou para trás); em dezenas é script.
+        if HUB.do_dono(participante.pk) >= getattr(settings, "LEILAO_MAX_CONEXOES_POR_PESSOA", 6):
+            return HttpResponse("Muitas telas abertas. Feche as outras abas do leilão.", status=429)
 
     ping = getattr(settings, "LEILAO_PING_SEGUNDOS", 15)
     montar = sync_to_async(
@@ -205,14 +223,11 @@ async def stream_view(request):
     # Quem está do outro lado. Serve para a mesa do locutor abrir a lista de
     # quem já chegou — e só para ela: o nome NÃO entra no broadcast. A view é
     # assíncrona, então a consulta ao banco precisa do `sync_to_async`.
-    quem = sync_to_async(
-        lambda: getattr(participante_atual(request), "nome_curto", None),
-        thread_sensitive=False,
-    )
-    nome = await quem() if publico else None
+    nome = participante.nome_curto if participante else None
+    dono = participante.pk if participante else None
 
     async def gerador():
-        fila = HUB.assinar(publico=publico, nome=nome)
+        fila = HUB.assinar(publico=publico, nome=nome, dono=dono)
         HUB.publicar("online", {"online": HUB.conectados})
         try:
             yield sse({"seq": 0, "tipo": "estado", "dados": await montar()})
@@ -418,16 +433,22 @@ def arremate_conferir_view(request, pk=None):
     if not participante:
         return JsonResponse({"ok": False}, status=401)
 
-    abertos = list(servicos.arremates_em_aberto(participante)[:1])
+    _, abertos = servicos.conta_aberta(participante)
     if not abertos:
         # Nada em aberto: ou nunca teve, ou o webhook já quitou tudo.
         return JsonResponse({"ok": True, "pago": True, "quantos_abertos": 0})
 
-    pago = servicos.conferir_pagamento(abertos[0])
+    servicos.conferir_pagamento(abertos[0])
+    # "Pago" é a conta que estava aberta ficar INTEIRA quitada — é isso que a
+    # tela comemora e o que fecha o QR. Um item quitado e outro em aberto não é
+    # "pagamento confirmado".
+    ids = [a.pk for a in abertos]
+    pagos = Arremate.objects.filter(pk__in=ids, status="pago").count()
+    _, restantes = servicos.conta_aberta(participante)
     return JsonResponse({
         "ok": True,
-        "pago": pago,
-        "quantos_abertos": servicos.arremates_em_aberto(participante).count(),
+        "pago": pagos == len(ids),
+        "quantos_abertos": len(restantes),
     })
 
 
@@ -494,8 +515,13 @@ def entrar_equipe_view(request):
     if request.user.is_authenticated and papeis.papeis_do(request.user):
         return redirect("leilao:equipe")
     if request.method == "POST":
-        chave = _ip_do(request)
-        if equipe.login_barrado(chave):
+        ip = _ip_do(request)
+        nome_tentado = request.POST.get("usuario", "").strip().lower()
+        chave = f"{ip}|{nome_tentado}"
+        chave_ip = f"ip:{ip}"
+        if equipe.login_barrado(chave) or equipe.login_barrado(
+            chave_ip, limite=equipe.MAX_TENTATIVAS_POR_IP
+        ):
             # A senha padrão é curta e o usuário sai do nome: sem freio, dá para
             # varrer da internet até acertar — e quem acertasse primeiro
             # trocaria a senha, trancando a pessoa de verdade do lado de fora.
@@ -514,6 +540,7 @@ def entrar_equipe_view(request):
             auth_login(request, usuario)
             return redirect("leilao:equipe")
         equipe.registrar_erro_de_login(chave)
+        equipe.registrar_erro_de_login(chave_ip)
         messages.error(request, "Usuário ou senha inválidos.")
     return render(request, "leilao/equipe_entrar.html")
 
@@ -817,7 +844,9 @@ def locutor_acao_view(request):
         # refaz sozinha, então o ▶ de um item já vendido continuava lá — e o
         # servidor reabria o item zerado, com o arremate antigo de pé: o
         # martelo seguinte criava um SEGUNDO arremate do mesmo item.
-        if lote.status != "fila":
+        # `sem_lance` também: é item que ninguém quis NAQUELA rodada, e volta a
+        # ser leiloável (a tela sempre disse "voltou para a fila").
+        if lote.status not in ("fila", "sem_lance"):
             return JsonResponse(
                 {"ok": False, "msg": f"“{lote.nome}” não está na fila ({lote.get_status_display().lower()})."},
                 status=409,
@@ -962,8 +991,9 @@ def locutor_acao_view(request):
         setattr(leilao, campo, ligar)
         leilao.save(update_fields=[campo])
         # O estado inteiro, como sempre: as telas abertas emudecem (ou voltam a
-        # soar) sem ninguém recarregar nada.
-        HUB.publicar("estado", est.estado_publico(leilao))
+        # soar) sem ninguém recarregar nada. Sempre o do leilão NO AR (ver
+        # `servicos.publicar_estado`).
+        servicos.publicar_estado()
         rotulo = "de lance" if qual == "lance" else "de arremate"
         return JsonResponse({
             "ok": True,
@@ -1385,7 +1415,10 @@ def leilao_status_view(request, pk):
     """Coloca no ar / encerra. **Só um leilão ao vivo por vez.**"""
     leilao = get_object_or_404(Leilao, pk=pk)
     novo = request.POST.get("status")
-    if novo not in {"rascunho", "ao_vivo", "encerrado"}:
+    # "rascunho" não é destino: nenhum botão o manda, e um leilão encerrado
+    # que voltasse a rascunho fecharia o pagamento de quem ainda deve
+    # (`pagamento_aberto_para` só abre para liberado ou encerrado).
+    if novo not in {"ao_vivo", "encerrado"}:
         raise Http404
     if novo == "ao_vivo" and not leilao.lotes.exists():
         messages.error(request, "Cadastre ao menos um item antes de colocar no ar.")
@@ -1465,15 +1498,27 @@ def lote_form_view(request, leilao_id=None, pk=None):
 def lote_excluir_view(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     leilao_id = lote.leilao_id
-    if lote.lances.exists() or lote.arremates.exists():
+    if lote.status == "aberto":
+        # Apagar o item EM PREGÃO deixava as telas mostrando um item que não
+        # existe, com o botão de lance falhando (revisão de 24/09).
+        messages.error(request, "Este item está em pregão agora — não dá para excluir.")
+    elif lote.lances.exists() or lote.arremates.exists():
         messages.error(request, "Este item já teve lance — não dá para excluir.")
     else:
+        # As fotos vão junto: sem isto os arquivos ficavam órfãos no disco.
+        for campo in (lote.foto, lote.foto_mini):
+            if campo:
+                campo.delete(save=False)
         lote.delete()
         messages.success(request, "Item removido.")
     return redirect("leilao:lotes", leilao_id=leilao_id)
 
 
-@papeis.exige("preparacao")
+# Só o DIRETOR (revisão de 24/09). Esta tela tem as credenciais do Mercado
+# Pago: quem a edita decide para qual conta vai o Pix de todo mundo — ou põe o
+# modo "teste" com um token de sandbox e aprova pagamentos que não existem. No
+# sistema do clube a mesma configuração sempre foi só do Diretor.
+@papeis.exige_diretor
 def config_view(request):
     cfg = ConfigLeilao.get_solo()
     if request.method == "POST":

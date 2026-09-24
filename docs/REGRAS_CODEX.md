@@ -1370,6 +1370,39 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **O IP do freio de login é o ÚLTIMO do `X-Forwarded-For`** (o que o nosso Nginx acrescenta); o
   primeiro é escrito pelo cliente.
 
+### O que a segunda conferência de 24/09 fixou
+
+- **`chave_pessoa` é HMAC com a `SECRET_KEY`**, nunca hash puro do telefone: celulares de um DDD
+  são 10⁸ números, e o `sha256` do telefone se revertia em menos de um minuto — quem estava no
+  stream tirava o WhatsApp de quem dava lance ou escrevia no chat. Qualquer identificador derivado
+  de dado pessoal que vá para o broadcast: **com segredo do servidor**.
+- **A configuração do Mercado Pago (e do áudio) é SÓ do Diretor** (`config_view` com
+  `exige_diretor`). Quem a edita decide para qual conta vai o Pix de todo mundo.
+- **"Pago" é a conta inteira quitada, não "alguma cobrança aprovada"**: o `conferir_pagamento`
+  responde se ESTE item foi pago, e a view só diz "pago" quando todos os itens que estavam abertos
+  estão. Cobrança `finalizado` ou que não cobre nada em aberto não é consultada no Mercado Pago.
+- **Todo `estado` publicado é o do leilão NO AR** (`servicos.publicar_estado`). O stream é um só;
+  publicar o de outro leilão mandava "sem leilão" para a sala.
+- **Referência de Pix refeito em milissegundos, com laço até achar a livre**; o `IntegrityError`
+  só devolve a outra cobrança se ela cobrir exatamente esta conta.
+- **O stream do público exige cadastro** e tem **teto de 6 conexões por pessoa**; `?equipe=1` só
+  vale com login de equipe, e a equipe **não entra no teto** (a mesa nunca é barrada).
+- **Contagens do hub percorrem uma cópia** (`list(...)`): rodam em threads enquanto o laço de
+  eventos mexe no dicionário.
+- **`leilao_demo` recusa rodar sem DEBUG** (em produção encerrava o leilão no ar) e nunca reescreve
+  a senha de um `locutor` que já existe.
+- **Freio de login com duas chaves**: `IP|usuário` (10) e `IP` (30). Acertar a própria senha zera só
+  a própria chave; o Wi-Fi do evento não tranca a equipe inteira.
+- **Foto com nome sorteado** (`lote-<id>-<hex>.jpg`) — a pasta é pública e o nome sequencial
+  mostrava a fila; o **original sai** depois de reduzido (tinha EXIF/GPS); **mais de 60 Mpx é
+  recusado** antes de decodificar (`imagens.MAX_PIXELS`).
+- **Não se exclui item em pregão**; excluir leva as fotos junto. **Leilão não volta a rascunho.**
+  **Item sem lance pode ser aberto de novo** (▶ na aba Itens).
+- **Estorno de quem pagou em dobro** não volta a dívida: o item passa a apontar para a outra
+  cobrança aprovada. O QR aberto se refaz quando um item da conta é quitado.
+- **Uvicorn com `--timeout-graceful-shutdown 3`**: sem ele, o reinício com público conectado
+  esperava o stream fechar (nunca fecha) e o leilão ficava **90 s** fora do ar.
+
 ### Quem controla o som da SALA é o locutor
 
 - **Esses efeitos tocam na tela de quem assiste, não na mesa.** Então "mutar" não é preferência

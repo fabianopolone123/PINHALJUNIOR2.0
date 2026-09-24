@@ -155,7 +155,7 @@ def exige_diretor(view):
         if senha_pendente(request.user):
             return redirect("leilao:trocar_senha")
         if not eh_diretor(request.user):
-            messages.error(request, "Só o diretor cadastra a equipe.")
+            messages.error(request, "Esta tela é só do diretor.")
             return redirect("leilao:equipe")
         return view(request, *args, **kwargs)
 

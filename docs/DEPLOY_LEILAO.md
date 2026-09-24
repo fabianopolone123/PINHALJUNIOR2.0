@@ -71,7 +71,7 @@ Group=www-data
 WorkingDirectory=/var/www/pinhaljunior2/current
 EnvironmentFile=/etc/pinhaljunior_leilao.env
 ExecStart=/var/www/pinhaljunior2/.venv/bin/uvicorn config.asgi_leilao:application \
-    --host 127.0.0.1 --port 8011 --workers 1 --timeout-keep-alive 75 --proxy-headers
+    --host 127.0.0.1 --port 8011 --workers 1 --timeout-keep-alive 75 --proxy-headers     --timeout-graceful-shutdown 3
 Restart=always
 RestartSec=3
 
@@ -89,6 +89,14 @@ WantedBy=multi-user.target
 systemctl daemon-reload && systemctl enable --now pinhaljunior_leilao.service
 systemctl status pinhaljunior_leilao.service
 ```
+
+> **`--timeout-graceful-shutdown 3` não é enfeite** (24/09/2026). Sem ele, o uvicorn, ao reiniciar,
+> **espera todas as conexões fecharem** — e as do stream (SSE) nunca fecham sozinhas. Com gente na
+> tela, cada reinício ficava parado em "Waiting for connections to close" até o `TimeoutStopSec` do
+> systemd (**90 s**) e só então o processo era morto: **um minuto e meio de leilão fora do ar** a
+> cada deploy. Medido no journal de 24/09: todos os reinícios com público conectado levaram 90 s;
+> sem ninguém, menos de 1 s. Com a opção, ele espera 3 s e fecha; as telas reconectam sozinhas
+> (`fonte_viva.js`).
 
 ## 5. Nginx
 
@@ -222,7 +230,7 @@ authInternalUsers:
 
   # Falar exige senha: só o locutor publica.
   - user: locutor
-    pass: <senha forte, a MESMA da tela /leilao/preparacao/config/ (⚙️ Mercado Pago e áudio)>
+    pass: <senha forte, a MESMA da tela /leilao/preparacao/config/ (⚙️ Mercado Pago e áudio, só Diretor)>
     ips: []
     permissions:
       - action: publish

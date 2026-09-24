@@ -61,7 +61,12 @@ class Hub:
     @property
     def conectados(self):
         """Quantas PESSOAS estão no leilão (a equipe não conta)."""
-        return sum(1 for publico, _ in self._assinantes.values() if publico)
+        # `list(...)`: estas contagens rodam em threads de trabalho (dentro do
+        # `estado_publico`) enquanto o laço de eventos inclui e remove conexões
+        # — iterar o dicionário vivo dava "dictionary changed size during
+        # iteration" justo numa tempestade de reconexões, e o `lote_vendido`
+        # não saía (revisão de 24/09).
+        return sum(1 for v in list(self._assinantes.values()) if v[0])
 
     def nomes_conectados(self):
         """Quem está no leilão agora — **só para a equipe**.
@@ -75,7 +80,7 @@ class Hub:
         de fora da lista, mas conta no número.
         """
         vistos = {}
-        for publico, nome in self._assinantes.values():
+        for publico, nome, _dono in list(self._assinantes.values()):
             if not publico or not nome:
                 continue
             vistos[nome] = vistos.get(nome, 0) + 1
@@ -126,7 +131,7 @@ class Hub:
                     pass
 
     # -- assinatura --------------------------------------------------------
-    def assinar(self, publico=True, nome=None):
+    def assinar(self, publico=True, nome=None, dono=None):
         """Devolve uma fila nova já inscrita. Lembre de `cancelar()` no fim.
 
         `publico=False` para as telas da equipe: elas recebem tudo, mas não
@@ -136,8 +141,12 @@ class Hub:
         poder abrir a lista de quem chegou. Não vai no broadcast.
         """
         fila = asyncio.Queue(maxsize=FILA_MAX)
-        self._assinantes[fila] = (bool(publico), nome or None)
+        self._assinantes[fila] = (bool(publico), nome or None, dono)
         return fila
+
+    def do_dono(self, dono):
+        """Quantas conexões abertas são desta pessoa (ver `stream_view`)."""
+        return sum(1 for v in list(self._assinantes.values()) if dono is not None and v[2] == dono)
 
     def cancelar(self, fila):
         self._assinantes.pop(fila, None)

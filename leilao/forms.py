@@ -261,6 +261,29 @@ class LoteForm(EstiloMixin, forms.ModelForm):
             self.initial["peso_kg"] = self.instance.peso_gramas
         self._aplicar_estilo()
 
+    def clean_foto(self):
+        """Recusa imagem com pixels demais ANTES de decodificar (ver
+        `imagens.MAX_PIXELS`): o tamanho vem do cabeçalho, sem abrir a imagem."""
+        foto = self.cleaned_data.get("foto")
+        if foto and hasattr(foto, "seek") and getattr(foto, "size", None) is not None and not getattr(foto, "_committed", False):
+            from PIL import Image
+
+            from .imagens import MAX_PIXELS
+
+            try:
+                foto.seek(0)
+                with Image.open(foto) as img:
+                    largura, altura = img.size
+            except Exception:  # noqa: BLE001 — o ImageField já recusa o que não é imagem
+                return foto
+            finally:
+                foto.seek(0)
+            if largura * altura > MAX_PIXELS:
+                raise forms.ValidationError(
+                    "Foto grande demais (%d × %d). Tire outra ou reduza antes de enviar." % (largura, altura)
+                )
+        return foto
+
     def clean_peso_kg(self):
         """Lê GRAMAS e guarda quilos.
 

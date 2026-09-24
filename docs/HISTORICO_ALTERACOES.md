@@ -22,6 +22,66 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: correções da segunda conferência geral
+
+### Resumo
+Segunda rodada, a pedido do clube: as correções do dia revisadas em busca de
+regressão, as áreas que a primeira revisão pegou menos (porta, contas da
+equipe, configuração, hub, imagens, comandos) e o servidor de produção.
+
+### Graves
+- **Telefone reversível no broadcast.** `chave_pessoa` era `sha256(telefone)[:12]`
+  — 10⁸ números por DDD, revertidos em ~45 s. Agora HMAC com a `SECRET_KEY`
+  (16 hex). A mesma pessoa em dois aparelhos continua com a mesma chave.
+- **Mercado Pago na mão da Preparação.** `config_view` passou a `exige_diretor`;
+  os links para a tela (preparação e o "Configurar áudio" da mesa) só aparecem
+  para o Diretor.
+- **"Pagamento confirmado!" falso.** `conferir_pagamento` parava no primeiro
+  `True` do `_aplicar_retorno`, que é `True` para qualquer cobrança aprovada —
+  inclusive a antiga. Agora responde se o item foi pago, pula cobrança
+  `finalizado` ou que não cobre nada em aberto, e a view só diz "pago" com a
+  conta que estava aberta inteira quitada.
+
+### Médios
+- `servicos.publicar_estado()`: todo estado publicado é o do leilão no ar
+  (liberar/som na mesa de outro leilão mandavam "sem leilão" à sala).
+- Referência do Pix refeito em ms com laço; o `IntegrityError` só reaproveita a
+  outra cobrança se ela cobrir exatamente a conta.
+- Stream: cadastro obrigatório para o público, 6 conexões por pessoa (429),
+  `?equipe=1` só com login de equipe, equipe fora do teto de 300.
+- Hub: contagens sobre `list(...)` (`RuntimeError` em tempestade de reconexão).
+- `leilao_demo`: recusa sem DEBUG, entra no ar por `mudar_status` e não
+  reescreve a senha de um `locutor` existente.
+- Uvicorn `--timeout-graceful-shutdown 3`: o journal de 24/09 mostra que todo
+  reinício com gente conectada ficava 90 s em "Waiting for connections to
+  close" até o systemd matar o processo.
+
+### Menores
+- Freio de login com `IP|usuário` (10) e `IP` (30); o dicionário de tentativas
+  se limpa.
+- Foto `lote-<id>-<hex>.jpg`, original apagado depois de reduzido, recusa acima
+  de 60 Mpx; exclusão leva as fotos junto.
+- Item em pregão não se exclui; status "rascunho" recusado; item `sem_lance`
+  pode ser aberto de novo (▶ na aba Itens, mensagens corrigidas).
+- Estorno de quem pagou em dobro reaponta para a outra cobrança aprovada, e
+  avisa as telas; QR aberto se refaz quando um item da conta é quitado (e fecha
+  se não houver mais nada); fechar a gaveta não solta a trava do QR.
+
+### Decisões tomadas
+- **Backup diário não foi criado**: o clube informou que o VPS já faz o seu.
+- Achado sem correção: o telefone não é verificado na porta (quem sabe o número
+  de alguém pode entrar como "a mesma pessoa"). É o desenho da porta sem senha.
+
+### Arquivos
+`leilao/{models,servicos,views,hub,equipe,forms,imagens,papeis,tests}.py`,
+`leilao/management/commands/leilao_demo.py`, `static/leilao/js/{leilao,locutor}.js`,
+`templates/leilao/{preparacao,locutor}.html`, `CLAUDE.md`,
+`docs/{DEPLOY_LEILAO,MANUAL_LEILAO,REGRAS_CODEX,ESTADO_ATUAL}.md`.
+
+### Verificação
+Leilão 526 testes OK (+24, `SegundaRevisaoTests`), core 456 OK, `node --check`
+em todos os JS, `makemigrations --check` limpo.
+
 ## 2026-09-24 - Leilão: correções da revisão geral
 
 ### Resumo

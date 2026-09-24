@@ -49,6 +49,10 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   sempre** (`pagamento_aberto_para`). Ver REGRAS "O que a revisão geral de 24/09 fixou".
 - **Toda tela da equipe manda o leilão dela** (`data-leilao` → `corpo.leilao`, `?leilao=`); o servidor
   usa `_leilao_da_tela`. Ação nova da equipe: mande o leilão.
+- **Estado publicado é sempre o do leilão NO AR** (`servicos.publicar_estado`). **`chave_pessoa` é
+  HMAC** (nunca hash puro de dado pessoal no broadcast). **Config do Mercado Pago/áudio só do
+  Diretor.** Stream do público exige cadastro, 6 conexões por pessoa, equipe fora do teto. Uvicorn
+  com `--timeout-graceful-shutdown 3` (sem ele o reinício com público levava 90 s).
 - **O broadcast só leva o que pode ser dito em voz alta** — Pix, telefone e endereço saem por `GET`
   autenticado.
 - **A prioridade do dia é: voz ao vivo e lance primeiro; emoji e enfeite depois** — e é o enfeite que o

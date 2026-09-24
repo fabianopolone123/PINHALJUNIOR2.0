@@ -14,6 +14,7 @@ Duas regras atravessam o arquivo inteiro:
 """
 
 import hashlib
+import hmac
 import re
 import secrets
 from decimal import Decimal
@@ -430,14 +431,21 @@ class Participante(models.Model):
     def chave_pessoa(self):
         """Identidade **estável** da pessoa, segura para ir no broadcast.
 
-        É um hash do telefone: serve para a tela saber "o líder sou eu" mesmo
-        quando a pessoa entrou de novo em outro aparelho (e virou outro
-        registro), **sem** expor o número para as outras 50 pessoas.
+        Serve para a tela saber "o líder sou eu" mesmo quando a pessoa entrou
+        de novo em outro aparelho (e virou outro registro), **sem** expor o
+        número para as outras 50 pessoas.
+
+        **HMAC com a `SECRET_KEY`, não um hash puro.** Era `sha256(telefone)`:
+        celulares de um DDD são só 10⁸ números, e quem estivesse no stream
+        testava todos em menos de um minuto e tirava o WhatsApp de todo mundo
+        que dava lance ou escrevia no chat (revisão de 24/09). Sem a chave do
+        servidor não há o que testar.
         """
         tel = self.telefone_normalizado
         if not tel:
             return f"id{self.pk}"
-        return hashlib.sha256(tel.encode("utf-8")).hexdigest()[:12]
+        segredo = ("leilao-chave-pessoa:" + settings.SECRET_KEY).encode("utf-8")
+        return hmac.new(segredo, tel.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
 
     @property
     def whatsapp_link(self):

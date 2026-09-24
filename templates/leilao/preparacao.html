@@ -16,7 +16,10 @@
     {% endcomment %}
     <div class="secao-barra">
         <button type="button" class="btn-mini destaque" id="btnNovoLeilao">➕ Novo leilão</button>
+        {% if 'diretor' in meus_papeis %}
+        {# Só o Diretor: é onde ficam as credenciais do Mercado Pago. #}
         <a href="{% url 'leilao:config' %}" class="btn-mini">⚙️ Mercado Pago e áudio</a>
+        {% endif %}
     </div>
 
     <ul class="itens">

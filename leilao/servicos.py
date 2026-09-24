@@ -441,8 +441,19 @@ def liberar_pagamentos(leilao, liberar=True):
     leilao.save(update_fields=["pagamentos_liberados"])
     # O estado inteiro, como sempre: quem está com a tela aberta vê o botão de
     # pagar aparecer sem recarregar nada.
-    HUB.publicar("estado", est.estado_publico(leilao))
+    publicar_estado()
     return leilao
+
+
+def publicar_estado():
+    """Publica o estado do leilão QUE ESTÁ NO AR — sempre ele.
+
+    O stream é um só, e quem está nele é a sala do leilão ao vivo. Publicar o
+    `estado_publico` de outro leilão (a mesa aberta no rascunho do mês que vem
+    ligando o som, ou liberando pagamentos) mandava `{"ativo": False}` para
+    todo mundo, e a sala via "sem leilão" no meio do pregão (revisão de 24/09).
+    """
+    HUB.publicar("estado", est.estado_publico(Leilao.ao_vivo()))
 
 
 def cobranca_viva(participante):
@@ -508,11 +519,19 @@ def cobranca_do_participante(participante, *, refazer=False):
         if viva:
             return viva
 
-    referencia = f"LEILAOC-{participante.id}-{leilao_id}"
+    base = f"LEILAOC-{participante.id}-{leilao_id}"
+    referencia = base
     if refazer or PagamentoLeilao.objects.filter(referencia=referencia).exists():
         # A referência é a chave de idempotência no Mercado Pago: repeti-la
-        # devolveria a cobrança antiga, com o valor antigo.
-        referencia += f"-R{int(timezone.now().timestamp())}"
+        # devolveria a cobrança antiga, com o valor antigo. O sufixo era em
+        # SEGUNDOS — refazer duas vezes no mesmo segundo (baixa na mão e novo
+        # pedido) repetia a chave e voltava o Pix velho. Milissegundos e, se
+        # ainda assim colidir, o seguinte livre.
+        marca = int(timezone.now().timestamp() * 1000)
+        referencia = f"{base}-R{marca}"
+        while PagamentoLeilao.objects.filter(referencia=referencia).exists():
+            marca += 1
+            referencia = f"{base}-R{marca}"
 
     notificacao = ""
     if cfg.site_url:
@@ -552,9 +571,14 @@ def cobranca_do_participante(participante, *, refazer=False):
     except IntegrityError:
         # Duas abas pedindo o Pix no mesmo instante passam juntas pela
         # conferência da referência e a segunda bate no `unique`. Em vez de um
-        # 500 na cara de quem vai pagar, devolve a cobrança que a outra criou.
-        logger.warning("Leilão: Pix de %s criado em dobro; usando o primeiro.", participante.id)
-        return PagamentoLeilao.objects.filter(referencia=referencia).first()
+        # 500 na cara de quem vai pagar, devolve a cobrança que a outra criou —
+        # MAS só se ela cobre exatamente esta conta; senão, nada (a tela pede
+        # de novo em instantes), nunca um Pix com o valor errado.
+        logger.warning("Leilão: Pix de %s criado em dobro; conferindo o primeiro.", participante.id)
+        outra = PagamentoLeilao.objects.filter(referencia=referencia).first()
+        if outra and sorted(outra.cobre or []) == ids and outra.valor_bruto == total:
+            return outra
+        return None
     Arremate.objects.filter(pk__in=[a.pk for a in abertos]).update(pagamento=pagamento)
     HUB.publicar(
         "arremate_pix",
@@ -692,13 +716,31 @@ def conferir_pagamento(arremate):
         if antiga.pk not in vistas:
             candidatas.append(antiga)
 
+    # A pergunta é "ESTE item foi pago?", não "alguma cobrança desta pessoa
+    # está aprovada?". Antes a volta parava no primeiro `True` do
+    # `_aplicar_retorno` — que é `True` para QUALQUER cobrança aprovada, mesmo
+    # uma antiga que não quitou nada agora: quem já tinha pago o Pix do item 1
+    # e abria o QR do item 2 via "Pagamento confirmado! 🎉" com o item 2 em
+    # aberto (revisão de 24/09).
+    #
+    # E só se consulta o Mercado Pago pelo que pode ter pago algo em aberto:
+    # cobrança já processada (`finalizado`) ou que não cobre nenhum item em
+    # aberto não vale uma chamada a cada 5 s.
+    _, abertos = conta_aberta(arremate.participante)
+    ids_abertos = {a.pk for a in abertos} | {arremate.pk}
     for pagamento in candidatas:
-        if pagamento.status == "aprovado" and not pagamento.finalizado:
-            if _aplicar_retorno(pagamento, {"status": "aprovado"}):
-                return True
+        if pagamento.finalizado:
             continue
-        r = mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)
-        if r.get("ok") and _aplicar_retorno(pagamento, r):
+        if pagamento.cobre and not (set(pagamento.cobre) & ids_abertos):
+            continue
+        if pagamento.status == "aprovado":
+            _aplicar_retorno(pagamento, {"status": "aprovado"})
+        else:
+            r = mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)
+            if r.get("ok"):
+                _aplicar_retorno(pagamento, r)
+        arremate.refresh_from_db(fields=["status"])
+        if arremate.status == "pago":
             return True
     return False
 
@@ -833,6 +875,20 @@ def _desfazer_baixa_do_estorno(pagamento):
     voltaram = []
     for arremate in _arremates_do_pagamento(pagamento):
         if arremate.status == "pago" and arremate.pagamento_id == pagamento.id and not arremate.pago_manual:
+            # Quem pagou EM DOBRO tem outra cobrança aprovada cobrindo o item:
+            # estornar uma delas não o põe de volta na dívida — o item passa a
+            # apontar para a que ficou.
+            outra = next(
+                (p for p in PagamentoLeilao.objects.filter(
+                    status="aprovado", referencia__startswith=f"LEILAOC-{arremate.participante_id}-",
+                ).exclude(pk=pagamento.pk)
+                 if arremate.pk in (p.cobre or [])),
+                None,
+            )
+            if outra:
+                arremate.pagamento = outra
+                arremate.save(update_fields=["pagamento"])
+                continue
             arremate.status = "aguardando"
             arremate.pago_em = None
             arremate.save(update_fields=["status", "pago_em"])
@@ -843,6 +899,9 @@ def _desfazer_baixa_do_estorno(pagamento):
             pagamento.referencia, len(voltaram),
             ", ".join(f"#{a.pk} {a.lote.nome}" for a in voltaram),
         )
+        # O caixa e a tela da pessoa refazem a conta sem ninguém recarregar.
+        for a in voltaram:
+            HUB.publicar("arremate_pix", {"participante": a.participante_id, "ok": True})
 
 
 class DevolucaoRecusada(Exception):
@@ -918,7 +977,7 @@ def devolver_ao_leilao(arremate, motivo, por=None):
     # devolução quase sempre acontece depois do evento, e o `estado_publico` de
     # um leilão encerrado é "sem leilão" — publicá-lo apagava o pregão da tela
     # de todo mundo se outro leilão estivesse no ar.
-    HUB.publicar("estado", est.estado_publico(Leilao.ao_vivo()))
+    publicar_estado()
     return lote
 
 

@@ -649,6 +649,9 @@
         buscarPix().then(function (d) {
             if (!d.ok) {
                 toast(d.msg || "O Pix ainda está sendo gerado. Tente em instantes.", "info");
+                // Com o QR aberto, um código que já não vale não pode ficar na
+                // tela para ser copiado.
+                if (arremateAberto) fecharQr();
                 return;
             }
             arremateAberto = true;
@@ -775,7 +778,7 @@
             emitir("vendido", { vendido: !!d.vendido, euGanhei: !!euGanhei, valor: d.valor });
 
             if (!d.vendido) {
-                toast("Item sem lance — volta para a fila.", "info");
+                toast("Item sem lance — pode voltar mais tarde.", "info");
                 return;
             }
             if (euGanhei) {
@@ -856,6 +859,10 @@
             if (EU && d.participante === EU) {
                 toast("Pagamento confirmado: " + d.lote + " 🎉", "success");
                 carregarArremates();
+                // Um item da conta foi quitado (Pix ou baixa na mão do caixa):
+                // o QR aberto é da conta ANTIGA. Pede o de novo — o servidor
+                // refaz pelo valor que sobrou ou diz que não há mais nada.
+                if (arremateAberto) abrirQr();
             }
         });
 
@@ -911,7 +918,9 @@
     function fecharGaveta() {
         gavetaAberta = false;
         $("gaveta").hidden = true;
-        document.body.classList.remove("modal-aberto");
+        // A trava de rolagem é do QR também: fechar a gaveta com o QR aberto
+        // não pode soltá-la.
+        if ($("modalQr").hidden) document.body.classList.remove("modal-aberto");
     }
 
     /* ---------------------------------------------------------------

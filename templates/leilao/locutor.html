@@ -166,7 +166,11 @@
                     A transmissão de voz está <b>desligada</b> na configuração.
                     {% if audio_externo %}Os participantes veem o link da live externa.{% endif %}
                 </p>
+                {% if 'diretor' in meus_papeis %}
                 <a href="{% url 'leilao:config' %}" class="btn-mini">Configurar áudio</a>
+                {% else %}
+                <p class="micro-ajuda">Quem liga a transmissão é o <b>diretor</b> (⚙️ Mercado Pago e áudio).</p>
+                {% endif %}
                 {% endif %}
             </div>
 
@@ -251,8 +255,9 @@
                         {% if l.voltas %} · voltou {{ l.voltas }}x{% endif %}
                     </span>
                 </div>
-                {% if l.status == 'fila' %}
-                <button type="button" class="btn-mini destaque" data-acao="abrir" data-lote="{{ l.id }}">▶</button>
+                {% if l.status == 'fila' or l.status == 'sem_lance' %}
+                <button type="button" class="btn-mini destaque" data-acao="abrir" data-lote="{{ l.id }}"
+                        title="{% if l.status == 'sem_lance' %}Ninguém deu lance — abrir de novo{% else %}Abrir{% endif %}">▶</button>
                 {% endif %}
             </li>
             {% empty %}

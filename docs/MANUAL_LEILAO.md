@@ -21,7 +21,8 @@ um entra no **mesmo endereço** e cai direto na sua tela.
 | 🎤 | **Locutor** | Conduz o pregão: abre o item, bate o martelo, fala ao microfone |
 | 💰 | **Caixa** | Confere quem pagou e cuida da entrega |
 
-O **Diretor** enxerga as três, **cadastra a equipe** (aba 👤 Usuários) e distribui as funções.
+O **Diretor** enxerga as três, **cadastra a equipe** (aba 👤 Usuários), distribui as funções e é o
+**único que mexe na configuração do Mercado Pago e do áudio**.
 
 **Uma pessoa pode ter mais de uma função.** Se você tem só uma, o sistema já te
 joga direto nela ao entrar.
@@ -144,6 +145,8 @@ Três coisas que valem saber:
 
 - **O número não é a posição na fila.** A ordem muda toda vez que vocês
   reorganizam a noite; o número **nunca muda**.
+- **Item que ninguém quis** (fechado sem lance) pode ser aberto de novo pelo ▶ da aba
+  **📦 Itens** da mesa do locutor.
 - **Item que o caixa devolve ao leilão** (↩️ Voltar ao leilão) volta para a fila
   com **o mesmo número** — a etiqueta continua valendo, não precisa reetiquetar
   nada.
@@ -411,6 +414,11 @@ não é afetado.
 A tela reconecta sozinha — continua tentando, com calma, até conseguir — e volta
 com tudo atualizado. Ele não perde nada.
 
+**"Muitas telas abertas" no celular de alguém?**
+Cada pessoa pode ter até **6 telas do leilão abertas** ao mesmo tempo (celular, computador, abas
+esquecidas). Passou disso, a tela nova avisa para fechar as outras — é o que impede alguém de lotar o
+leilão com um programa.
+
 **"E se eu precisar reiniciar o sistema no meio?"**
 Nada se perde: lances, líder e valores estão no banco, e as telas reconectam
 sozinhas. Ainda assim, **não faça isso com uma disputa rolando** — quem estiver
@@ -430,7 +438,9 @@ fim — de propósito: ninguém deve sair do pregão para mexer em banco.
 Na **mesma conta** do Mercado Pago que o clube já usa para mensalidades, loja e eventos.
 
 **"Dá para ensaiar sem cobrar de verdade?"**
-Dá: em Preparação → **⚙️ Mercado Pago e áudio**, mude o modo para **Teste**. Aí o Pix é de sandbox e não move
+Dá: o **Diretor**, em Preparação → **⚙️ Mercado Pago e áudio**, muda o modo para **Teste**
+(essa tela é só do Diretor: é onde ficam as credenciais do Mercado Pago, e quem mexe nela decide
+para qual conta vai o dinheiro). Aí o Pix é de sandbox e não move
 dinheiro. **Volte para Produção antes do evento** — em modo Teste, ninguém consegue pagar de verdade.
 
 **"Quantas pessoas aguenta?"**

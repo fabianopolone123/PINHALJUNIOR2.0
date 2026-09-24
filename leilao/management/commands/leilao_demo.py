@@ -12,7 +12,7 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from PIL import Image, ImageDraw
 
 from leilao.models import Leilao, Lote, Participante
@@ -67,6 +67,17 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **opcoes):
+        # SÓ EM DESENVOLVIMENTO (revisão de 24/09). No servidor, ele criava um
+        # leilão fictício "ao vivo", ENCERRAVA o leilão real que estivesse no
+        # ar e, com `--locutor`, dava a um usuário `locutor` a senha 1234 e
+        # acesso de superusuário — sem troca obrigatória de senha.
+        from django.conf import settings
+
+        if not settings.DEBUG:
+            raise CommandError(
+                "leilao_demo é só para desenvolvimento (DEBUG ligado). "
+                "Em produção ele encerraria o leilão que está no ar."
+            )
         leilao, criado = Leilao.objects.get_or_create(
             nome="Leilão de demonstração",
             defaults={
@@ -78,7 +89,12 @@ class Command(BaseCommand):
             },
         )
         if criado:
-            Leilao.objects.filter(status="ao_vivo").exclude(pk=leilao.pk).update(status="encerrado")
+            # Pelo serviço: o leilão que sai do ar leva o item em pregão de
+            # volta para a fila e as telas são avisadas (o `.update()` direto
+            # deixava item "aberto" num leilão encerrado).
+            from leilao import servicos
+
+            servicos.mudar_status(leilao, "ao_vivo")
         self.stdout.write(self.style.SUCCESS(
             f"{'Criado' if criado else 'Reaproveitado'}: {leilao.nome} ({leilao.get_status_display()})"
         ))
@@ -135,7 +151,11 @@ class Command(BaseCommand):
             user, novo = User.objects.get_or_create(
                 username="locutor", defaults={"is_staff": True, "is_superuser": True}
             )
-            user.is_staff = True
+            if not novo:
+                # Nunca reescrever a senha de uma conta que já existe.
+                self.stdout.write(self.style.WARNING("  locutor já existe — senha mantida."))
+                self.stdout.write(self.style.SUCCESS("Pronto. Abra /locutor/ para conduzir."))
+                return
             user.set_password("1234")
             user.save()
             self.stdout.write(self.style.WARNING(

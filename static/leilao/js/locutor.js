@@ -361,7 +361,7 @@
         render(d.estado);
         desenharHistorico([]);
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
-        else toast("Item sem lance: voltou para a fila.", "info");
+        else toast("Item sem lance. Dá para abrir de novo pela aba Itens.", "info");
     });
     fonte.addEventListener("chat", function (e) {
         // Teto: a mesa fica aberta a noite inteira e não pode acumular memória.

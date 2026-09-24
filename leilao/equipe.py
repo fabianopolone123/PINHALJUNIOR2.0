@@ -200,14 +200,33 @@ def _agora():
     return time.monotonic()
 
 
-def login_barrado(chave):
-    """Este IP já errou demais nos últimos minutos?"""
+# O freio tem DUAS chaves (revisão de 24/09):
+#   - `IP|usuário`, com o limite de sempre (10): é o que segura quem varre
+#     `nome/1234`, e acertar a PRÓPRIA senha zera só a própria chave — antes
+#     zerava o IP inteiro, e quem tinha uma conta válida intercalava logins
+#     próprios e seguia testando as dos outros sem limite;
+#   - `IP`, com um limite bem maior (30): segura a varredura de muitos nomes,
+#     sem que 10 erros somados de quem divide o Wi-Fi do evento tranquem a
+#     equipe inteira.
+MAX_TENTATIVAS_POR_IP = 30
+
+
+def login_barrado(chave, limite=MAX_TENTATIVAS):
+    """Esta chave já errou demais nos últimos minutos?"""
     marcas = [t for t in _tentativas.get(chave, []) if _agora() - t < JANELA_TENTATIVAS]
-    _tentativas[chave] = marcas
-    return len(marcas) >= MAX_TENTATIVAS
+    if marcas:
+        _tentativas[chave] = marcas
+    else:
+        _tentativas.pop(chave, None)
+    return len(marcas) >= limite
 
 
 def registrar_erro_de_login(chave):
+    # O dicionário não pode crescer para sempre (uma chave por IP/usuário
+    # tentado): de tempos em tempos, joga fora o que já expirou.
+    if len(_tentativas) > 2000:
+        for k in list(_tentativas):
+            login_barrado(k)
     _tentativas.setdefault(chave, []).append(_agora())
 
 
