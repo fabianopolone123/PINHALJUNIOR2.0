@@ -17,7 +17,7 @@ da fila confirma disputa e Abrir/VENDIDO travam contra toque duplo, QR se atuali
 refeito, "liberar" atualiza a conta aberta, peso com ponto de milhar, foto e miniatura, IP do freio
 de login, quadro de entregas por POST e com o leilão certo, chat no segundo aparelho. **Manual da
 equipe** e guia de deploy reescritos onde estavam velhos. Suíte do leilão: **502 testes OK** (+37);
-core 456 OK.
+core 456 OK. **Em produção** no commit `af47c20` (24/09/2026, 15:43), com a `leilao/0014` aplicada.
 
 **Atualização anterior:** 2026-09-24 (**Leilão: a tela "show" vira a padrão**): aprovada pelo clube
 depois do teste. **`/leilao/` abre a show para todo mundo**; a clássica ficou de **backup em

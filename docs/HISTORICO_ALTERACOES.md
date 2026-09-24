@@ -116,6 +116,18 @@ Leilão 502 testes OK (+37: `DinheiroDaRevisaoTests` 16, `RevisaoTelasEEquipeTes
 `makemigrations --check` limpo, `node --check` em todos os JS. Sonda headless:
 tela show (superado, vendido) e clássica sem erro de JS e sem estouro.
 
+### Deploy
+Em produção no commit `af47c20` (24/09/2026, 15:43): backup
+`backup/leilao_antes_revisao_20260924_184318.sqlite3` (nome em UTC),
+`pinhaljunior2-deploy` e o §7.1 com **`migrate` aplicando a `leilao/0014`**,
+leilão reiniciado depois do código novo (no ar só o leilão de TESTE 5, último
+lance duas horas antes). Conferido: manifesto serve `fonte_viva.6c40571ebdda.js`
+e o motor novo `leilao.ec3a959c641f.js` (com `FonteViva` e `respostaAindaVale`);
+`/leilao/` e `/leilao/classico/` 302 para a porta, `/leilao/entrar/` 200, o
+stream responde; clube 200; nenhum erro no journal. As **17 cobranças
+anteriores** ficaram com `cobre` vazio, como previsto — para elas vale o
+palpite pela referência só quando o valor bate.
+
 ## 2026-09-24 - Leilão: a tela "show" vira a padrão, a clássica fica de backup
 
 ### Resumo
