@@ -45,11 +45,26 @@ para trás era texto.
   de `arremate_expirado` já tinha saído na faxina de 23/09 (conferido: não há
   mais nenhum no JS). Removida da lista.
 
+### O deploy que ficou sem registro
+Os commits `93bb809` (sons do clube) e `021f340` (som que volta sozinho)
+**estavam em produção**, só não tinham o "Registra o deploy" de sempre — a
+queda de energia veio depois de subir e antes de anotar. Conferido no VPS:
+- código em `021f340`; `pinhaljunior2-deploy` às 22:43 de 23/09 (backup
+  `backup/db_before_deploy_20260924_014343.sqlite3`, nome em UTC);
+- §7.1 feito: `pinhaljunior_leilao.service` reiniciado às 22:48, **depois** do
+  código novo, e os estáticos coletados — o manifesto aponta
+  `audio_ouvir.0ef05bf5d8b3.js` (tem o vigia de `bytesReceived`, não tem mais
+  `desistiu`, idêntico ao do repositório) e `som/lance.35a423c082fb.wav` /
+  `som/arremate.bafacb787f32.mp3`;
+- migrations do leilão até `0013`; clube responde 200, leilão 302 (vai para a
+  entrada); nenhum erro no journal do leilão nas últimas 12 h; o
+  `sitepinhal.service` antigo segue parado.
+
+Este commit é **só documentação** e não pede deploy. Na conferência havia um
+leilão `ao_vivo` com **um item em pregão**, então nada foi reiniciado.
+
 ### Pendências
-- **Deploy dos commits `93bb809` e `021f340` não registrado.** Não foi
-  possível conferir o VPS nesta sessão; se não subiram, falta o
-  `pinhaljunior2-deploy` **e** o passo do `DEPLOY_LEILAO.md` §7.1 (collectstatic
-  e restart do leilão — são só estáticos, sem migration).
+- Nenhuma nova.
 
 ## 2026-09-24 - Leilão: o som não voltava quando o locutor retomava a transmissão
 

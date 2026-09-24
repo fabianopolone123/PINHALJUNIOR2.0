@@ -6,9 +6,10 @@
 de energia no meio do trabalho. Código inteiro, suítes verdes (core **456**, leilão **438**), sem
 migration pendente. Corrigidos os trechos que ainda diziam "som sintetizado, sem arquivo", a regra
 de reconexão que falava em "teto de tentativas", a pendência de procedência dos sons (já confirmada
-pelo clube) e a "linha morta no `locutor.js`" (já removida em 23/09). **Pendente:** registrar o
-deploy de `93bb809` e `021f340` (não conferido no VPS nesta sessão; se não subiram, falta o
-`pinhaljunior2-deploy` + `DEPLOY_LEILAO.md` §7.1). **Sem migration.**
+pelo clube) e a "linha morta no `locutor.js`" (já removida em 23/09). **Em produção**, conferido no VPS:
+`93bb809` e `021f340` já estavam no ar (deploy às 22:43 de 23/09, leilão reiniciado às 22:48 com os
+estáticos coletados — o `audio_ouvir.js` servido é o novo), só faltava o registro. Esta faxina é só
+documentação e não pede deploy. **Sem migration.**
 
 **Atualização anterior:** 2026-09-24 (**Leilão: o som não voltava quando o locutor retomava a
 transmissão**): relatado pelo clube — o locutor encerra a transmissão e volta minutos depois, e em
