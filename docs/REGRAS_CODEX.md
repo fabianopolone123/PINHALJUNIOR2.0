@@ -1232,12 +1232,25 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
   há o que mostrar lá.
 
-### Som do leilão: sintetizado, sempre
+### Som do leilão: arquivo do clube, com três amarras
 
-- **Nenhum arquivo de áudio entra no repositório.** Pedido de "põe esse som do vídeo" se resolve
-  **sintetizando** um som com o mesmo caráter, nunca copiando o áudio — que é material de terceiros,
-  além de trazer de volta o download que a regra existe para evitar (50 celulares buscando o mesmo
-  arquivo no instante em que o pregão pega fogo). Há teste varrendo `static/` por mp3/wav/ogg/m4a.
+- **A regra era "nenhum arquivo de áudio", e caiu** em 24/09, quando o clube trouxe os próprios
+  arquivos. O que **não** caiu foram os três motivos dela — download, latência e binário versionado
+  —, e é por isso que a troca tem amarras em vez de ser um `src` solto.
+- **O arquivo baixa na ENTRADA, nunca no pregão.** A carga acontece no `ativar()`, quando a pessoa
+  toca "Entrar com som" e está parada lendo a tela. Buscar no primeiro lance atrasaria justamente o
+  som que precisa sair no instante do evento, e poria tráfego na hora de maior disputa.
+- **O sintetizado continua existindo como RESERVA.** Rede ruim, formato que aquele navegador não
+  decodifica, arquivo trocado por engano: o leilão não pode ficar mudo por causa de um download.
+  `tocarArquivo` devolve `false` quando o buffer não chegou, e é esse `false` que aciona a reserva.
+- **Teto de 500 kB por arquivo**, com teste. Efeito de leilão não precisa de taxa de música.
+- **O caminho vem do servidor** (`data-som-*` no template), nunca escrito no JS: em produção o
+  `static` acrescenta o hash do conteúdo, e um caminho chumbado apontaria para a versão antiga
+  depois do primeiro deploy.
+- **Licença: confira a procedência antes de subir áudio.** O repositório é **público** e o site
+  também, então um arquivo tirado de vídeo alheio passa a ser distribuído pelo clube. Áudio novo só
+  entra sendo gravação própria, material livre de direitos ou coisa licenciada — e **na dúvida,
+  sintetize**, que é o caminho que o módulo já tem pronto e que não depende de licença nenhuma.
 - **Como se sintetiza o que o clube costuma pedir**: palma é uma rajada de ~30 ms de ruído filtrado
   em banda alta, e uma plateia é dezenas delas em instantes diferentes com a densidade **caindo**
   (aplauso de verdade termina rareando; espalhado por igual soa como chuva). Torcida é ruído de

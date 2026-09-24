@@ -2,7 +2,20 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: caixa registradora no lance, palmas no martelo, e
+**Última atualização:** 2026-09-24 (**Leilão: os sons passam a ser os arquivos do clube**): o clube
+colocou `som lance.wav` e `som de arremate.mp3` na pasta do projeto e pediu para usá-los no lugar dos
+sintetizados. A regra de **não ter arquivo de áudio** caiu por decisão de quem conduz o evento — mas
+os três motivos dela (download, latência, binário versionado) não desapareceram, então a troca veio
+com **três amarras**: os arquivos **baixam na entrada** (quando a pessoa toca "Entrar com som", não
+no primeiro lance — buscar ali atrasaria justo o som do evento e poria tráfego na hora de maior
+disputa); o **sintetizado continua como reserva** (rede ruim ou formato não suportado não pode deixar
+o leilão mudo); e há **teto de 500 kB** por arquivo, com teste. Hoje: 157 kB / 0,91 s (lance) e
+269 kB / 5,2 s (arremate). Os caminhos vêm do **servidor** (`data-som-lance`/`data-som-arremate`),
+porque em produção o `static` acrescenta o hash e um caminho chumbado apontaria para a versão antiga.
+Os arquivos são do clube e livres para uso — confirmado por ele antes de subir, porque o
+repositório é público e o histórico do Git não se reescreve. **Sem migration.**
+
+**Atualização anterior:** 2026-09-23 (**Leilão: caixa registradora no lance, palmas no martelo, e
 quem já chegou**): três pedidos do clube — e uma recusa que fica registrada. O clube apontou dois
 vídeos e pediu "esse som"; **o áudio não foi copiado**. Os efeitos deste módulo são **sintetizados
 em WebAudio** (zero download, zero latência, zero binário no repositório — e áudio de vídeo alheio é

@@ -5225,12 +5225,17 @@ class QuemJaChegouTests(TestCase):
 class SonsDoLeilaoTests(TestCase):
     """Caixa registradora no lance, palmas e gritaria no martelo.
 
-    Pedido do clube, apontando dois vídeos. **O áudio não foi copiado de lugar
-    nenhum**: todo efeito deste módulo é sintetizado em WebAudio, que é regra do
-    projeto por três motivos — zero download (50 celulares baixando o mesmo mp3
-    no instante em que o pregão pega fogo é banda desperdiçada), zero latência e
-    zero binário no repositório. Palma é uma rajada curta de ruído filtrado;
-    torcida é ruído de banda média com a frequência subindo e caindo.
+    Começou sintetizado — palma é uma rajada curta de ruído filtrado, torcida é
+    ruído de banda média com a frequência varrendo — porque a regra do projeto
+    era não ter arquivo de áudio: zero download (50 celulares baixando o mesmo
+    arquivo no instante em que o pregão pega fogo é banda desperdiçada), zero
+    latência e zero binário versionado.
+
+    **O clube trouxe os próprios arquivos** e eles passaram a valer. Os três
+    motivos não sumiram, então a troca veio com três amarras: os arquivos
+    baixam **na entrada** (não no primeiro lance), têm **teto de tamanho**, e o
+    sintetizado **continua como reserva** — rede ruim ou formato não suportado
+    não pode deixar o leilão mudo.
     """
 
     def _som(self):
@@ -5267,15 +5272,66 @@ class SonsDoLeilaoTests(TestCase):
         js = self._som()
         self.assertIn("bufferRuido", js)
 
-    def test_NENHUM_arquivo_de_audio_entrou_no_repositorio(self):
-        """A regra que este pedido poderia ter quebrado: o som do leilão é
-        sintetizado, e não um arquivo baixado de um vídeo (que ainda seria
-        material de terceiros)."""
-        estaticos = Path(settings.BASE_DIR, "static")
-        achados = []
-        for ext in ("*.mp3", "*.wav", "*.ogg", "*.m4a", "*.aac", "*.opus", "*.flac"):
-            achados += [str(x.relative_to(estaticos)) for x in estaticos.rglob(ext)]
-        self.assertEqual(achados, [], "áudio no repositório: " + ", ".join(achados))
+    def test_o_audio_do_clube_esta_onde_o_template_procura(self):
+        """O clube trouxe dois arquivos, e eles substituem os sintetizados.
+
+        A regra anterior era "nenhum áudio no repositório", pelos três motivos
+        que continuam valendo em parte (download, latência, binário versionado).
+        Ela caiu por decisão de quem conduz o evento — e o que sobrou destes
+        testes é garantir que a troca não traga de volta os problemas que a
+        regra evitava.
+        """
+        som = Path(settings.BASE_DIR, "static", "leilao", "som")
+        self.assertTrue((som / "lance.wav").exists())
+        self.assertTrue((som / "arremate.mp3").exists())
+
+    def test_o_audio_tem_TETO_de_tamanho(self):
+        """O motivo técnico da regra antiga não desapareceu: 50 celulares
+        baixam esses arquivos. Meio megabyte cada é o limite em que isso
+        continua sendo um download na entrada, e não um problema."""
+        som = Path(settings.BASE_DIR, "static", "leilao", "som")
+        for arquivo in som.glob("*"):
+            with self.subTest(arquivo=arquivo.name):
+                mb = arquivo.stat().st_size / 1e6
+                self.assertLess(mb, 0.5, "%s tem %.2f MB" % (arquivo.name, mb))
+
+    def test_o_audio_baixa_na_ENTRADA_e_nao_no_primeiro_lance(self):
+        """Buscar o arquivo no primeiro lance atrasaria justamente o som que
+        precisa sair no instante do evento, e poria tráfego na hora de maior
+        disputa. Ele baixa quando a pessoa toca "Entrar com som" — momento em
+        que ela está parada, lendo a tela."""
+        js = self._som()
+        ativar = js[js.index("function ativar("):]
+        ativar = ativar[: ativar.index(chr(10) + "    }")]
+        self.assertIn('carregar("lance"', ativar)
+        self.assertIn('carregar("arremate"', ativar)
+
+    def test_o_sintetizado_continua_como_RESERVA(self):
+        """Rede ruim, formato que o navegador não decodifica, arquivo trocado:
+        o leilão não pode ficar mudo por causa de um download."""
+        js = self._som()
+        for nome in ("lance: function", "vendido: function"):
+            trecho = js[js.index(nome):]
+            trecho = trecho[: trecho.index("},")]
+            self.assertIn("tocarArquivo(", trecho, nome)
+            # Depois do `return` do arquivo vem o sintetizado — é ele que toca
+            # quando o buffer não chegou.
+            self.assertTrue(
+                "sopro(" in trecho or "palmas(" in trecho,
+                nome + " ficou sem reserva sintetizada",
+            )
+
+    def test_o_caminho_do_audio_vem_do_SERVIDOR(self):
+        """Em produção o `static` acrescenta o hash do conteúdo ao nome; um
+        caminho chumbado no JS apontaria para a versão antiga depois do
+        primeiro deploy."""
+        html = Path(
+            settings.BASE_DIR, "templates", "leilao", "leilao.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("data-som-lance=", html)
+        self.assertIn("data-som-arremate=", html)
+        js = self._som()
+        self.assertNotIn("leilao/som/lance.wav", js)
 
     def test_o_aviso_de_arremate_nao_promete_mais_prazo(self):
         """Não há prazo para pagar desde 21/09, e o toast ainda dizia

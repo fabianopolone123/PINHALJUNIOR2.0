@@ -816,7 +816,14 @@
        Som: a porta de entrada
        --------------------------------------------------------------- */
     function ligarSom() {
-        somLigado = window.SomLeilao ? window.SomLeilao.ativar() : false;
+        // Os caminhos vêm do servidor (o `{% static %}` acrescenta o hash do
+        // conteúdo em produção). É na ativação que os arquivos baixam: a
+        // pessoa acabou de tocar a porta do som e está parada olhando a tela —
+        // buscar no primeiro lance atrasaria justo o som do evento.
+        somLigado = window.SomLeilao ? window.SomLeilao.ativar({
+            lance: dados.dataset.somLance,
+            arremate: dados.dataset.somArremate
+        }) : false;
         $("btnSom").textContent = "🔊";
         $("btnSom").setAttribute("aria-pressed", "true");
 

@@ -22,6 +22,67 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: os sons passam a ser os arquivos do clube
+
+### Resumo
+O clube colocou dois arquivos na pasta do projeto — `som lance.wav` e
+`som de arremate.mp3` — e pediu para usá-los no lugar dos sintetizados.
+
+### A regra que mudou
+O módulo não tinha **nenhum** arquivo de áudio, de propósito, por três motivos:
+zero download (50 celulares buscando o mesmo arquivo no instante em que o
+pregão pega fogo é banda desperdiçada), zero latência e zero binário
+versionado. A regra caiu por decisão de quem conduz o evento.
+
+Os três motivos, porém, não desapareceram — então a troca veio com **três
+amarras**:
+
+1. **Os arquivos baixam na ENTRADA, não no pregão.** O download acontece
+   quando a pessoa toca "Entrar com som" — momento em que ela está parada,
+   lendo a tela. Buscar no primeiro lance atrasaria justamente o som que
+   precisa sair no instante do evento, e poria tráfego na hora de maior
+   disputa. Depois de decodificados, tocam da memória: zero latência, como os
+   sintetizados.
+2. **O sintetizado continua como RESERVA.** Rede ruim, formato que aquele
+   navegador não decodifica, arquivo trocado — o leilão não pode ficar mudo por
+   causa de um download. Sem o buffer pronto, toca o sintetizado e ninguém
+   percebe falta.
+3. **Teto de tamanho** (500 kB por arquivo), com teste. Hoje são 157 kB
+   (lance, 0,91 s) e 269 kB (arremate, 5,2 s).
+
+### Arquivos criados/alterados
+- `static/leilao/som/lance.wav` e `arremate.mp3` (movidos da raiz, com nomes
+  sem espaço — espaço em nome de arquivo estático quebra URL e manifesto).
+- `static/leilao/js/som.js`: `carregar`, `tocarArquivo`, e `ativar(urls)`.
+- `static/leilao/js/leilao.js`: passa os caminhos na ativação.
+- `templates/leilao/leilao.html`: `data-som-lance` / `data-som-arremate`.
+- `leilao/tests.py`: a guarda "nenhum áudio no repositório" foi **substituída**
+  pelas três que agora importam (entrada, reserva, teto).
+
+### Decisões tomadas
+- **O caminho vem do servidor, não escrito no JS.** Em produção o `static`
+  acrescenta o hash do conteúdo ao nome; um caminho chumbado apontaria para a
+  versão antiga depois do primeiro deploy. Há teste.
+- **`ativar()` sem argumento continua válido**: uma tela que só queira o
+  sintetizado não pode estourar. Conferido no navegador.
+- **Quem arremata ouve o mesmo som da sala mais a fanfarra por cima** — é o
+  que diz "foi VOCÊ", sem precisar de um segundo arquivo.
+
+### Verificação
+- 18 testes das duas classes de som, verdes.
+- `som.js` e `leilao.js` carregam no headless sem erro, e `ativar()` sem
+  argumento não estoura.
+- Duração e formato medidos: 0,91 s / 44,1 kHz / estéreo (lance) e 5,2 s /
+  48 kHz / 320 kbps (arremate).
+
+### Pendências
+- **A procedência dos arquivos não foi verificada** — ver a nota de licença no
+  `REGRAS_CODEX`. O repositório é público e o site também.
+- O `lance.wav` é WAV sem compressão (157 kB para 0,91 s); em MP3 ficaria perto
+  de 15 kB. O `arremate.mp3` está em 320 kbps, taxa de música, não de efeito.
+  Nenhum dos dois é problema hoje — baixam uma vez, na entrada —, mas é folga
+  fácil de ganhar se o evento for numa rede ruim.
+
 ## 2026-09-23 - Leilão: caixa registradora no lance, palmas no martelo, e quem já chegou
 
 ### Resumo

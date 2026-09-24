@@ -15,7 +15,56 @@ window.SomLeilao = (function () {
     let mestre = null;
     let ligado = false;
 
-    function ativar() {
+    /* ---------------------------------------------------------------
+       Os sons GRAVADOS (lance e arremate)
+       ---------------------------------------------------------------
+       O clube trouxe dois arquivos e eles substituem os sintetizados
+       correspondentes. Duas decisões seguram isso em pé num evento:
+
+       1. **Baixam na ENTRADA, não no pregão.** O download acontece quando a
+          pessoa toca "Entrar com som" — momento em que ela está parada, lendo
+          a tela. Buscar o arquivo no primeiro lance atrasaria justamente o
+          som que precisa sair no instante do evento, e poria tráfego na hora
+          de maior disputa. Depois de decodificados, tocam da memória: zero
+          latência, como os sintetizados.
+       2. **O sintetizado continua existindo como RESERVA.** Rede ruim, formato
+          que aquele navegador não decodifica, arquivo trocado — o leilão não
+          pode ficar mudo por causa de um download. Se o buffer não está
+          pronto, toca o sintetizado e ninguém percebe falta.
+    */
+    const arquivos = {};   // nome -> AudioBuffer
+    let caminhos = {};
+
+    function carregar(nome, url) {
+        if (!url || !ctx || arquivos[nome]) return;
+        fetch(url)
+            .then(function (r) { return r.ok ? r.arrayBuffer() : Promise.reject(r.status); })
+            .then(function (dados) {
+                // `decodeAudioData` com callbacks: o Safari antigo não devolve
+                // promessa, e é ele que mais aparece num evento de clube.
+                return new Promise(function (ok, falhou) {
+                    ctx.decodeAudioData(dados, ok, falhou);
+                });
+            })
+            .then(function (buffer) { arquivos[nome] = buffer; })
+            .catch(function () { /* fica o sintetizado */ });
+    }
+
+    /* Toca um buffer já decodificado. Devolve `false` quando ele ainda não
+       chegou, e é esse `false` que faz o chamador usar o sintetizado. */
+    function tocarArquivo(nome, volume) {
+        if (!ctx || !arquivos[nome]) return false;
+        const fonte = ctx.createBufferSource();
+        fonte.buffer = arquivos[nome];
+        const g = ctx.createGain();
+        g.gain.value = volume === undefined ? 1 : volume;
+        fonte.connect(g);
+        g.connect(mestre);
+        fonte.start(ctx.currentTime);
+        return true;
+    }
+
+    function ativar(urls) {
         if (!ctx) {
             const AC = window.AudioContext || window.webkitAudioContext;
             if (!AC) return false;
@@ -26,6 +75,11 @@ window.SomLeilao = (function () {
         }
         if (ctx.state === "suspended") ctx.resume();
         ligado = true;
+        if (urls) caminhos = urls;
+        // Aqui, e não no primeiro lance: a pessoa acabou de tocar a porta do
+        // som e está parada olhando a tela.
+        carregar("lance", caminhos.lance);
+        carregar("arremate", caminhos.arremate);
         return true;
     }
 
@@ -181,6 +235,9 @@ window.SomLeilao = (function () {
            terceira vez. */
         lance: function () {
             tocar(function () {
+                // O arquivo do clube primeiro; a caixa registradora
+                // sintetizada é a reserva de quando ele não chegou.
+                if (tocarArquivo("lance", 0.9)) return;
                 sopro({ inicio: 0, duracao: 0.035, freq: 3600, q: 0.7, volume: 0.1 });
                 nota(1760, 0.015, 0.3, 0.2, "triangle");
                 nota(2489, 0.03, 0.26, 0.14, "triangle");
@@ -217,6 +274,7 @@ window.SomLeilao = (function () {
            gastar. */
         vendido: function () {
             tocar(function () {
+                if (tocarArquivo("arremate", 0.9)) return;
                 nota(523.25, 0, 0.14, 0.26, "triangle");
                 nota(783.99, 0.09, 0.3, 0.28, "triangle");
                 torcida(0.05, 1.3, 0.09);
@@ -228,6 +286,12 @@ window.SomLeilao = (function () {
            fanfarra por cima — é a hora da pessoa. */
         arrematei: function () {
             tocar(function () {
+                // Quem arrematou ouve o mesmo som da sala — mais a fanfarra
+                // por cima, que é o que diz "foi VOCÊ".
+                if (tocarArquivo("arremate", 1)) {
+                    nota(1046.5, 0.02, 0.5, 0.3, "triangle");
+                    return;
+                }
                 nota(523.25, 0, 0.14, 0.3, "triangle");
                 nota(659.25, 0.09, 0.14, 0.3, "triangle");
                 nota(783.99, 0.18, 0.14, 0.3, "triangle");

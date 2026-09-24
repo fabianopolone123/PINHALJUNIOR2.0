@@ -209,7 +209,14 @@ Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do proje
      data-eu-chave="{{ participante.chave_pessoa }}"
      data-rajada="{{ rajada_reacoes }}"
      data-audio="{{ audio_whep }}"
-     data-audio-externo="{{ audio_externo }}"></div>
+     data-audio-externo="{{ audio_externo }}"
+     {% comment %}
+     Os arquivos de som vêm por aqui, e não escritos no JS: em produção o
+     `{% static %}` acrescenta o hash do conteúdo ao nome, e um caminho
+     chumbado apontaria para a versão antiga depois do primeiro deploy.
+     {% endcomment %}
+     data-som-lance="{% static 'leilao/som/lance.wav' %}"
+     data-som-arremate="{% static 'leilao/som/arremate.mp3' %}"></div>
 
 {{ estado_inicial|json_script:"estadoInicial" }}
 {% endblock %}
