@@ -71,6 +71,7 @@
 </div>
 
 <div id="dadosMesa" hidden
+     data-leilao="{{ leilao.pk }}"
      data-csrf="{{ csrf_token }}"
      data-acao-url="{% url 'leilao:acao' %}"></div>
 {% endblock %}

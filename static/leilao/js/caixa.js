@@ -36,6 +36,9 @@
     }
 
     function acao(corpo) {
+        // O leilão DESTA tela vai junto: sem ele o servidor adivinhava ("o que
+        // está no ar") e o botão agia no leilão errado.
+        if (dados.dataset.leilao && corpo.leilao === undefined) corpo.leilao = dados.dataset.leilao;
         return fetch(URL_ACAO, {
             method: "POST",
             headers: {
@@ -312,7 +315,7 @@
     }
 
     if (URL_STREAM && window.EventSource) {
-        var fonte = new EventSource(URL_STREAM);
+        var fonte = window.FonteViva ? window.FonteViva.abrir(URL_STREAM) : new EventSource(URL_STREAM);
 
         fonte.addEventListener("pagamento", function (e) {
             var d = JSON.parse(e.data || "{}");

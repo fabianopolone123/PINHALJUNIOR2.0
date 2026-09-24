@@ -322,6 +322,7 @@ celular e o computador), então ela pode ser MENOR que o número de conexões �
 </div>
 
 <div id="dadosMesa" hidden
+     data-leilao="{{ leilao.pk }}"
      data-csrf="{{ csrf_token }}"
      data-acao-url="{% url 'leilao:acao' %}"
      data-dados-url="{% url 'leilao:locutor_dados' %}"
@@ -337,5 +338,6 @@ celular e o computador), então ela pode ser MENOR que o número de conexões �
 <script src="{% static 'leilao/js/modal.js' %}"></script>
 <script src="{% static 'leilao/js/seletor_leilao.js' %}"></script>
 <script src="{% static 'leilao/js/reacoes.js' %}"></script>
+<script src="{% static 'leilao/js/fonte_viva.js' %}"></script>
 <script src="{% static 'leilao/js/locutor.js' %}"></script>
 {% endblock %}

@@ -137,6 +137,10 @@ def mensagem_publica(m):
         "id": m.id,
         "autor": m.autor,
         "autor_id": m.participante_id,
+        # A mesma chave do lance (hash do telefone, segura para o broadcast):
+        # sem ela, no SEGUNDO aparelho da pessoa a própria mensagem aparecia
+        # com o nome dela e contava como não lida.
+        "autor_chave": m.participante.chave_pessoa if m.participante_id else "",
         "texto": m.texto,
         "em": iso(m.criado_em),
     }

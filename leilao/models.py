@@ -818,6 +818,12 @@ class PagamentoLeilao(models.Model):
     qr_code_base64 = models.TextField("QR (imagem base64)", blank=True)
     ticket_url = models.URLField("Link do Mercado Pago", blank=True, max_length=500)
     payload = models.TextField("Retorno bruto (JSON)", blank=True)
+    # QUAIS arremates esta cobrança cobre, gravado na criação e nunca mais
+    # mexido. A FK `Arremate.pagamento` aponta só para a cobrança mais nova e é
+    # trocada quando o Pix é refeito — sem esta lista, um Pix antigo pago
+    # depois quitava "tudo o que a pessoa tinha em aberto", inclusive o que ele
+    # nunca cobrou (mig. 0014). Vazia nas cobranças anteriores a ela.
+    cobre = models.JSONField("Arremates cobertos", default=list, blank=True)
 
     finalizado = models.BooleanField(
         "Já processado", default=False,

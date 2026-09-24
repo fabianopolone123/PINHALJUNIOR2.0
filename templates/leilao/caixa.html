@@ -195,7 +195,13 @@
                 arrastam o que estiver errado — o sistema <b>não consulta mapa</b> e não sabe que um
                 bairro é perto do outro. Cada arrastada já fica salva. Abrir antes leva só quem já pagou.
             </p>
-            <form method="get" action="{% url 'leilao:entregas_quadro' %}" class="form-entregadores">
+            {% comment %}
+            POST e com o leilão DESTA tela: o número de entregadores cria e apaga
+            colunas, e num GET sem id ele caía no leilão "padrão" — o caixa da
+            noite passada montava o quadro do rascunho do mês seguinte.
+            {% endcomment %}
+            <form method="post" action="{% url 'leilao:entregas_quadro_leilao' leilao.pk %}" class="form-entregadores">
+                {% csrf_token %}
                 <label for="entregadores">Quantos entregadores vocês têm?</label>
                 <input type="number" id="entregadores" name="entregadores"
                        min="1" max="20" step="1" inputmode="numeric"
@@ -364,6 +370,7 @@ saber por quê sem ter de perguntar a alguém.
 </div>
 
 <div id="dadosMesa" hidden
+     data-leilao="{{ leilao.pk }}"
      data-csrf="{{ csrf_token }}"
      data-stream="{% url 'leilao:stream' %}?equipe=1"
      data-pix-url="{% url 'leilao:caixa_pix_pessoa' 0 %}"
@@ -374,5 +381,6 @@ saber por quê sem ter de perguntar a alguém.
 <script src="{% static 'js/copiar_texto.js' %}"></script>
 <script src="{% static 'leilao/js/modal.js' %}"></script>
 <script src="{% static 'leilao/js/seletor_leilao.js' %}"></script>
+<script src="{% static 'leilao/js/fonte_viva.js' %}"></script>
 <script src="{% static 'leilao/js/caixa.js' %}"></script>
 {% endblock %}

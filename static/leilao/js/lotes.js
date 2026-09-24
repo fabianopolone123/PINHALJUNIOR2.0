@@ -23,6 +23,9 @@
                 },
                 body: JSON.stringify({
                     acao: "mover",
+                    // O leilão desta tela — reordenar o do mês que vem com
+                    // outro no ar dava 404 e "Sem conexão".
+                    leilao: dados.dataset.leilao,
                     lote: alvo.dataset.lote,
                     direcao: alvo.dataset.direcao
                 })

@@ -2792,7 +2792,9 @@ class TelaDeDividirEntregasTests(TestCase):
         self.assertEqual(r.request["PATH_INFO"], f"/caixa/{self.leilao.pk}/")
 
     def test_dividir_por_dois(self):
-        r = self.c.get("/caixa/entregas/?entregadores=2", follow=True)
+        # POST desde a revisão de 24/09: o número de entregadores cria e apaga
+        # colunas, e por GET um link velho ou um prefetch apagava as de alguém.
+        r = self.c.post("/caixa/%d/entregas/" % self.leilao.pk, {"entregadores": 2}, follow=True)
         self.assertEqual(len(r.context["colunas"]), 2)
         self.assertEqual([len(c["paradas"]) for c in r.context["colunas"]], [1, 1])
         # Nasce já distribuído: a divisão por bairro é o ponto de partida.
@@ -2850,7 +2852,8 @@ class QuadroDeEntregasTests(TestCase):
         return pessoa
 
     def _abrir(self, quantos=2):
-        return self.c.get("/caixa/entregas/?entregadores=" + str(quantos), follow=True)
+        # POST (revisão de 24/09): mudar o número de entregadores mexe no banco.
+        return self.c.post("/caixa/%d/entregas/" % self.leilao.pk, {"entregadores": quantos}, follow=True)
 
     def _mover(self, pessoa, entregador):
         return self.c.post(
@@ -2996,7 +2999,7 @@ class QuadroDeEntregasTests(TestCase):
     def test_numero_invalido_de_entregadores_nao_quebra(self):
         self._abrir(2)
         for valor in ("abc", "-3", "999"):
-            r = self.c.get("/caixa/entregas/?entregadores=" + valor, follow=True)
+            r = self.c.post("/caixa/%d/entregas/" % self.leilao.pk, {"entregadores": valor}, follow=True)
             self.assertEqual(r.status_code, 200)
 
     # --- recomeçar ---
@@ -5840,4 +5843,462 @@ class ConferirPixNaoMorreTests(TestCase):
         trecho = trecho[: trecho.index("\n    }\n")]
         limpo = re.sub(r"//[^\n]*", " ", trecho)
         self.assertNotIn("=== id", limpo)
-        self.assertIn("setTimeout(conferirPagamento, 5000)", limpo)
+        self.assertIn("conferirPagamento(geracao); }, 5000)", limpo)
+
+
+class DinheiroDaRevisaoTests(TestCase):
+    """Os buracos de dinheiro achados na revisão geral de 24/09.
+
+    Todos têm a mesma raiz: a cobrança não sabia QUAIS itens cobria. A FK
+    `Arremate.pagamento` aponta só para a mais nova, e o resto era palpite —
+    "reaproveita se os itens apontam para ela", "quita tudo o que a pessoa tem
+    em aberto". Desde a mig. 0014 a cobrança grava a lista (`cobre`), e cada
+    teste aqui é um dos cenários em que o palpite errava o dinheiro.
+    """
+
+    def setUp(self):
+        from unittest import mock
+
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        cfg = ConfigLeilao.get_solo()
+        cfg.access_token_teste = "TEST-token-ficticio"
+        cfg.save()
+
+        self.gerados = []
+
+        def criar_pix_falso(cfg, *, referencia, valor, **_):
+            self.gerados.append((referencia, valor))
+            return {
+                "ok": True, "mp_payment_id": "mp-%d" % len(self.gerados),
+                "status": "pendente", "qr_code": "pix-%s-%s" % (referencia, valor),
+                "qr_code_base64": "", "ticket_url": "", "raw": {},
+            }
+
+        p = mock.patch.object(servicos.mercadopago, "criar_pix", side_effect=criar_pix_falso)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _arrematar(self, nome, lance_inicial, pessoa=None, leilao=None):
+        leilao = leilao or self.leilao
+        lote = criar_lote(leilao, nome=nome, ordem=leilao.lotes.count() + 1,
+                          lance_inicial=Decimal(lance_inicial))
+        servicos.limpar_limites()
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa or self.ana)
+        lote.refresh_from_db()
+        return servicos.fechar_lote(lote, motivo="locutor")
+
+    def _aprovar(self, pagamento):
+        return servicos._aplicar_retorno(pagamento, {"status": "aprovado"})
+
+    # --- 1. O Pix reaproveitado com o valor antigo ------------------------
+    def test_baixa_na_mao_de_um_item_refaz_o_pix_pelo_valor_novo(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        b = self._arrematar("Quadro fictício", "30.00")
+        p1 = servicos.cobranca_do_participante(self.ana)
+        self.assertEqual(p1.valor_bruto, Decimal("80.00"))
+
+        a.refresh_from_db()
+        servicos.marcar_pago(a, manual=True)          # pagou A em dinheiro
+        p2 = servicos.cobranca_do_participante(self.ana)
+        self.assertNotEqual(p2.pk, p1.pk, "reaproveitou o Pix de R$ 80")
+        self.assertEqual(p2.valor_bruto, Decimal("30.00"))
+        self.assertEqual(p2.cobre, [b.pk])
+
+    def test_mesma_conta_reaproveita_o_mesmo_pix(self):
+        self._arrematar("Cesta fictícia", "50.00")
+        p1 = servicos.cobranca_do_participante(self.ana)
+        p2 = servicos.cobranca_do_participante(self.ana)
+        self.assertEqual(p1.pk, p2.pk)
+        self.assertEqual(len(self.gerados), 1)
+
+    def test_pix_antigo_pago_nao_ressuscita_item_devolvido(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        b = self._arrematar("Quadro fictício", "30.00")
+        p1 = servicos.cobranca_do_participante(self.ana)
+        a.refresh_from_db()
+        servicos.devolver_ao_leilao(a, "Desistiu (teste).")
+
+        with self.assertLogs("leilao.servicos", level="ERROR"):
+            self._aprovar(p1)                          # pagou o código velho
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertEqual(a.status, "cancelado", "item devolvido virou pago")
+        self.assertEqual(b.status, "pago")
+
+    def test_webhook_repetido_nao_gera_alarme(self):
+        self._arrematar("Cesta fictícia", "50.00")
+        p = servicos.cobranca_do_participante(self.ana)
+        self._aprovar(p)
+        with self.assertNoLogs("leilao.servicos", level="ERROR"):
+            self._aprovar(p)
+
+    # --- 2. O Pix antigo quitando item que não cobria ---------------------
+    def test_pix_antigo_so_quita_o_que_ele_cobria(self):
+        c = self._arrematar("Cesta fictícia", "10.00")
+        q1 = servicos.cobranca_do_participante(self.ana)          # R$ 10, só C
+        d = self._arrematar("Quadro fictício", "100.00")
+        q2 = servicos.cobranca_do_participante(self.ana)          # R$ 110, C + D
+        self.assertEqual(q2.valor_bruto, Decimal("110.00"))
+
+        self._aprovar(q1)                                          # pagou o de R$ 10
+        c.refresh_from_db()
+        d.refresh_from_db()
+        self.assertEqual(c.status, "pago")
+        self.assertEqual(d.status, "aguardando", "o item de R$ 100 foi quitado com R$ 10")
+
+    def test_cobranca_antiga_sem_lista_so_quita_se_o_valor_bate(self):
+        """Cobrança anterior à 0014 (sem `cobre`) e órfã: o palpite pelo que
+        está em aberto só vale se o valor bater."""
+        self._arrematar("Cesta fictícia", "10.00")
+        self._arrematar("Quadro fictício", "100.00")
+        velha = PagamentoLeilao.objects.create(
+            referencia="LEILAOC-%d-%d" % (self.ana.pk, self.leilao.pk),
+            valor_bruto=Decimal("10.00"), qr_code="pix-velho",
+        )
+        with self.assertLogs("leilao.servicos", level="ERROR"):
+            self._aprovar(velha)
+        self.assertFalse(Arremate.objects.filter(participante=self.ana, status="pago").exists())
+
+    # --- 3. Pix depois de encerrado ---------------------------------------
+    def test_depois_de_encerrado_a_pessoa_consegue_o_pix(self):
+        self._arrematar("Cesta fictícia", "50.00")
+        self.leilao.status = "encerrado"
+        self.leilao.pagamentos_liberados = False
+        self.leilao.save()
+        c = Client()
+        s = c.session
+        s[CHAVE_SESSAO] = self.ana.token
+        s.save()
+        d = c.get("/conta/pix/").json()
+        self.assertTrue(d["ok"], d)
+        self.assertEqual(Decimal(d["valor"]), Decimal("50.00"))
+        self.assertTrue(c.get("/meus-arremates/").json()["liberado"])
+
+    def test_no_ar_e_sem_liberar_continua_travado(self):
+        self._arrematar("Cesta fictícia", "50.00")
+        c = Client()
+        s = c.session
+        s[CHAVE_SESSAO] = self.ana.token
+        s.save()
+        self.assertEqual(c.get("/conta/pix/").status_code, 409)
+
+    def test_o_caixa_gera_o_pix_de_quem_nunca_abriu(self):
+        self._arrematar("Cesta fictícia", "50.00")
+        self.leilao.status = "encerrado"
+        self.leilao.save()
+        User = get_user_model()
+        u = User.objects.create_user("caixa_rev", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="caixa")[0])
+        c = Client()
+        c.login(username="caixa_rev", password="segredo-ficticio")
+        d = c.get("/caixa/pessoa/%d/pix/" % self.ana.pk).json()
+        self.assertTrue(d["ok"], d)
+        self.assertEqual(Decimal(d["valor"]), Decimal("50.00"))
+
+    # --- Conta de um leilão só --------------------------------------------
+    def test_a_conta_nao_mistura_leiloes(self):
+        self._arrematar("Cesta fictícia", "50.00")
+        self.leilao.status = "encerrado"
+        self.leilao.save()
+        outro = criar_leilao(nome="Leilão fictício 2")
+        self._arrematar("Quadro fictício", "30.00", leilao=outro)
+        self.assertEqual(servicos.total_em_aberto(self.ana), Decimal("50.00"))
+        p = servicos.cobranca_do_participante(self.ana)
+        self.assertEqual(p.valor_bruto, Decimal("50.00"))
+        self.assertTrue(p.referencia.startswith("LEILAOC-%d-%d" % (self.ana.pk, self.leilao.pk)))
+
+    # --- Estorno ----------------------------------------------------------
+    def test_estorno_devolve_a_divida(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        p = servicos.cobranca_do_participante(self.ana)
+        self._aprovar(p)
+        with self.assertLogs("leilao.servicos", level="ERROR"):
+            servicos._aplicar_retorno(p, {"status": "estornado"})
+        a.refresh_from_db()
+        self.assertEqual(a.status, "aguardando")
+        self.assertFalse(a.a_entregar)
+
+    def test_estorno_nao_mexe_na_baixa_manual(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        p = servicos.cobranca_do_participante(self.ana)
+        a.refresh_from_db()
+        servicos.marcar_pago(a, manual=True)
+        servicos._aplicar_retorno(p, {"status": "estornado"})
+        a.refresh_from_db()
+        self.assertEqual(a.status, "pago")
+
+    # --- 4. Reabrir item vendido ------------------------------------------
+    def _locutor(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_rev", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        c = Client()
+        c.login(username="loc_rev", password="segredo-ficticio")
+        return c
+
+    def test_a_mesa_nao_reabre_item_vendido(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        r = self._locutor().post("/equipe/acao/", json.dumps({"acao": "abrir", "lote": a.lote_id}),
+                                 content_type="application/json")
+        self.assertEqual(r.status_code, 409)
+        a.lote.refresh_from_db()
+        self.assertEqual(a.lote.status, "vendido")
+        self.assertEqual(Arremate.objects.filter(lote=a.lote).count(), 1)
+
+    def test_a_mesa_nao_abre_item_de_leilao_fora_do_ar(self):
+        self.leilao.status = "rascunho"
+        self.leilao.save()
+        lote = criar_lote(self.leilao, nome="Bolo fictício")
+        r = self._locutor().post("/equipe/acao/", json.dumps({"acao": "abrir", "lote": lote.id}),
+                                 content_type="application/json")
+        self.assertEqual(r.status_code, 409)
+
+    def test_lance_em_leilao_fora_do_ar_e_recusado(self):
+        lote = criar_lote(self.leilao, nome="Bolo fictício")
+        servicos.abrir_lote(lote)
+        self.leilao.status = "rascunho"
+        self.leilao.save()
+        ok, msg, _ = servicos.dar_lance(lote.id, self.ana)
+        self.assertFalse(ok)
+
+    # --- Item devolvido fora da conta -------------------------------------
+    def test_item_devolvido_nao_volta_a_ser_cobrado_nem_pago(self):
+        a = self._arrematar("Cesta fictícia", "50.00")
+        servicos.devolver_ao_leilao(a, "Desistiu (teste).")
+        User = get_user_model()
+        u = User.objects.create_user("caixa_dev", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="caixa")[0])
+        c = Client()
+        c.login(username="caixa_dev", password="segredo-ficticio")
+        for acao in ("combinado", "pago", "entregue"):
+            r = c.post("/equipe/acao/", json.dumps({"acao": acao, "arremate": a.pk}),
+                       content_type="application/json")
+            self.assertEqual(r.status_code, 409, acao)
+        a.refresh_from_db()
+        self.assertEqual(a.status, "cancelado")
+
+
+class RevisaoTelasEEquipeTests(TestCase):
+    """O resto da revisão geral de 24/09: leilão da tela, conexão que desiste,
+    lance atrasado, peso, IP do freio de login, foto e quadro de entregas."""
+
+    JS = Path(settings.BASE_DIR, "static", "leilao", "js")
+    TPL = Path(settings.BASE_DIR, "templates", "leilao")
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.no_ar = criar_leilao(nome="Leilão fictício no ar")
+        self.rascunho = criar_leilao(nome="Leilão fictício do mês que vem", status="rascunho")
+
+    def _equipe(self, papel, login):
+        User = get_user_model()
+        u = User.objects.create_user(login, password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name=papel)[0])
+        c = Client()
+        c.login(username=login, password="segredo-ficticio")
+        return c
+
+    def _acao(self, c, **corpo):
+        return c.post("/equipe/acao/", json.dumps(corpo), content_type="application/json")
+
+    @staticmethod
+    def _limpo(txt):
+        txt = re.sub(r"/\*.*?\*/", " ", txt, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", txt)
+
+    def _ler(self, *partes):
+        return Path(settings.BASE_DIR, *partes).read_text(encoding="utf-8")
+
+    # --- O leilão da TELA, não o adivinhado -------------------------------
+    def test_a_acao_age_no_leilao_que_a_tela_mandou(self):
+        c = self._equipe("locutor", "loc_tela")
+        r = self._acao(c, acao="liberar", leilao=self.rascunho.pk)
+        self.assertTrue(r.json()["ok"])
+        self.rascunho.refresh_from_db()
+        self.no_ar.refresh_from_db()
+        self.assertTrue(self.rascunho.pagamentos_liberados)
+        self.assertFalse(self.no_ar.pagamentos_liberados, "mexeu no leilão que está no ar")
+
+    def test_sem_leilao_na_acao_vale_o_palpite_antigo(self):
+        """Aba aberta antes da correção continua funcionando."""
+        c = self._equipe("locutor", "loc_velho")
+        self._acao(c, acao="liberar")
+        self.no_ar.refresh_from_db()
+        self.assertTrue(self.no_ar.pagamentos_liberados)
+
+    def test_os_dados_da_mesa_sao_do_leilao_da_url(self):
+        criar_lote(self.rascunho, nome="Quadro fictício do mês que vem")
+        c = self._equipe("locutor", "loc_dados")
+        d = c.get("/locutor/dados/?leilao=%d" % self.rascunho.pk).json()
+        self.assertEqual([x["nome"] for x in d["fila"]], ["Quadro fictício do mês que vem"])
+
+    def test_as_telas_da_equipe_mandam_o_leilao(self):
+        for tpl in ("locutor.html", "caixa.html", "lotes.html", "entregas_quadro.html"):
+            self.assertIn('data-leilao="{{ leilao.pk }}"', self._ler("templates", "leilao", tpl), tpl)
+        for js in ("locutor.js", "caixa.js", "entregas_quadro.js"):
+            self.assertIn("corpo.leilao = dados.dataset.leilao", self._limpo(self._ler("static", "leilao", "js", js)), js)
+        self.assertIn("leilao: dados.dataset.leilao", self._ler("static", "leilao", "js", "lotes.js"))
+        self.assertIn('"leilao="', self._ler("static", "leilao", "js", "locutor.js"))
+
+    # --- Quadro de entregas -----------------------------------------------
+    def test_numero_de_entregadores_por_get_nao_mexe_no_banco(self):
+        c = self._equipe("caixa", "caixa_get")
+        c.get("/caixa/%d/entregas/?entregadores=3" % self.rascunho.pk)
+        self.assertEqual(self.rascunho.entregadores.count(), 0)
+
+    def test_os_formularios_do_quadro_levam_o_leilao(self):
+        caixa = self._ler("templates", "leilao", "caixa.html")
+        self.assertIn("{% url 'leilao:entregas_quadro_leilao' leilao.pk %}", caixa)
+        quadro = self._ler("templates", "leilao", "entregas_quadro.html")
+        self.assertIn('<input type="hidden" name="leilao" value="{{ leilao.pk }}">', quadro)
+        self.assertIn("{% url 'leilao:caixa_leilao' leilao.pk %}", quadro)
+        self.assertNotIn('method="get" class="form-entregadores"', quadro + caixa)
+
+    def test_respostas_fora_de_ordem_do_quadro_sao_ignoradas(self):
+        js = self._ler("static", "leilao", "js", "entregas_quadro.js")
+        self.assertIn("if (seq < ultimoAplicado) return;", js)
+        self.assertEqual(js.count("var seq = ++pedidoSeq;"), 2)
+
+    # --- Devolver item de leilão encerrado não apaga o pregão -------------
+    def test_devolver_publica_o_estado_do_leilao_no_ar(self):
+        from unittest import mock
+
+        lote = criar_lote(self.no_ar)
+        pessoa = criar_pessoa()
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        arremate = servicos.fechar_lote(lote, motivo="locutor")
+        encerrado = criar_leilao(nome="Leilão fictício encerrado", status="encerrado")
+        Lote.objects.filter(pk=lote.pk).update(leilao=encerrado)
+        arremate.refresh_from_db()
+        with mock.patch.object(servicos.HUB, "publicar") as publicar:
+            servicos.devolver_ao_leilao(arremate, "Desistiu (teste).")
+        estado = publicar.call_args[0][1]
+        self.assertTrue(estado["ativo"], "mandou 'sem leilão' para a sala")
+
+    # --- A conexão ao vivo que não desiste --------------------------------
+    def test_as_quatro_telas_usam_a_fonte_viva(self):
+        for tpl in ("leilao.html", "leilao_show.html", "locutor.html", "caixa.html"):
+            self.assertIn("leilao/js/fonte_viva.js", self._ler("templates", "leilao", tpl), tpl)
+        for js in ("leilao.js", "locutor.js", "caixa.js"):
+            self.assertIn("window.FonteViva.abrir(", self._ler("static", "leilao", "js", js), js)
+
+    def test_a_fonte_viva_reabre_quando_o_navegador_desiste(self):
+        js = self._limpo(self._ler("static", "leilao", "js", "fonte_viva.js"))
+        self.assertIn("es.readyState === 2) agendar()", js)
+        self.assertIn("Math.random()", js, "espera fixa sincroniza 100 celulares")
+        self.assertIn("ouvintes.forEach", js, "os ouvintes têm de ser religados na conexão nova")
+
+    def test_a_fonte_viva_carrega_antes_de_quem_a_usa(self):
+        for tpl, js in (("leilao_show.html", "leilao.js"), ("leilao.html", "leilao.js"),
+                        ("locutor.html", "locutor.js"), ("caixa.html", "caixa.js")):
+            html = self._ler("templates", "leilao", tpl)
+            self.assertLess(html.index("leilao/js/fonte_viva.js"), html.index("leilao/js/" + js + "'"), tpl)
+
+    # --- Motor do público --------------------------------------------------
+    def test_resposta_atrasada_do_lance_nao_sobrescreve_lance_mais_novo(self):
+        js = self._limpo(self._ler("static", "leilao", "js", "leilao.js"))
+        dar = js[js.index("function darLance"):]
+        dar = dar[: dar.index("function abrirGaveta")]
+        self.assertEqual(dar.count("respostaAindaVale(d.lote)"), 2)
+        self.assertNotIn("if (d.lote) { estado.lote = d.lote", dar)
+
+    def test_item_reaberto_zera_o_estado_da_rodada(self):
+        js = self._limpo(self._ler("static", "leilao", "js", "leilao.js"))
+        trecho = js[js.index('addEventListener("lote_aberto"'):]
+        trecho = trecho[: trecho.index("render(")]
+        self.assertIn("loteId = null", trecho)
+        self.assertIn("fecharGaveta()", trecho)
+
+    def test_o_pix_refeito_atualiza_o_qr_aberto(self):
+        js = self._limpo(self._ler("static", "leilao", "js", "leilao.js"))
+        trecho = js[js.index('addEventListener("arremate_pix"'):]
+        trecho = trecho[: trecho.index("});")]
+        self.assertNotIn("String(arremateAberto)", trecho)
+        self.assertIn("abrirQr()", trecho)
+
+    def test_mensagem_do_chat_leva_a_chave_da_pessoa(self):
+        pessoa = criar_pessoa()
+        m = servicos.enviar_mensagem(self.no_ar, pessoa, "Oi, pessoal!")
+        publico = est.mensagem_publica(m)
+        self.assertEqual(publico["autor_chave"], pessoa.chave_pessoa)
+        self.assertNotIn(pessoa.whatsapp, json.dumps(publico))
+
+    # --- Mesa -------------------------------------------------------------
+    def test_o_abrir_da_fila_passa_pela_confirmacao(self):
+        js = self._limpo(self._ler("static", "leilao", "js", "locutor.js"))
+        self.assertIn('b.dataset.acao = "abrir"', js)
+        self.assertNotIn('acao({ acao: "abrir", lote: l.id })', js)
+        self.assertIn('var travar = qual === "abrir" || qual === "fechar"', js)
+
+    # --- Peso, IP, foto ---------------------------------------------------
+    def _form(self, peso):
+        return forms.LoteForm(data={
+            "nome": "Caneca fictícia", "lance_inicial": "10", "peso_kg": peso,
+            "altura_cm": "10", "largura_cm": "10", "profundidade_cm": "10",
+        })
+
+    def test_peso_com_ponto_de_milhar_e_lido_em_gramas(self):
+        f = self._form("12.500")
+        self.assertTrue(f.is_valid(), f.errors)
+        self.assertEqual(f.cleaned_data["peso_kg"], Decimal("12.50"))
+
+    def test_peso_com_decimal_e_recusado_em_vez_de_virar_10_g(self):
+        for valor in ("15,5", "1.5", "0,35"):
+            f = self._form(valor)
+            self.assertFalse(f.is_valid(), valor)
+            self.assertIn("GRAMAS", str(f.errors["peso_kg"]))
+
+    def test_o_freio_de_login_usa_o_ip_que_o_nosso_proxy_viu(self):
+        from django.test import RequestFactory
+
+        r = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.9")
+        self.assertEqual(views._ip_do(r), "203.0.113.9")
+
+    def test_limpar_a_foto_tira_a_miniatura(self):
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("RGB", (60, 40), (200, 120, 40)).save(buf, format="JPEG")
+        c = self._equipe("preparacao", "prep_foto")
+        dados = {"nome": "Caneca fictícia", "lance_inicial": "10", "peso_kg": "350",
+                 "altura_cm": "10", "largura_cm": "10", "profundidade_cm": "10"}
+        c.post("/preparacao/%d/itens/novo/" % self.no_ar.pk,
+               {**dados, "foto": SimpleUploadedFile("f.jpg", buf.getvalue(), "image/jpeg")})
+        lote = Lote.objects.get(nome="Caneca fictícia")
+        self.assertTrue(lote.foto_mini)
+        c.post("/preparacao/itens/%d/editar/" % lote.pk, {**dados, "foto-clear": "on"})
+        lote.refresh_from_db()
+        self.assertFalse(lote.foto)
+        self.assertFalse(lote.foto_mini, "a miniatura ficou para trás")
+
+    def test_editar_sem_mexer_na_foto_nao_a_recomprime(self):
+        from unittest import mock
+
+        lote = criar_lote(self.no_ar, nome="Caneca fictícia")
+        c = self._equipe("preparacao", "prep_edita")
+        with mock.patch.object(views, "preparar_foto") as preparar:
+            c.post("/preparacao/itens/%d/editar/" % lote.pk, {
+                "nome": "Caneca fictícia azul", "lance_inicial": "10", "peso_kg": "350",
+                "altura_cm": "10", "largura_cm": "10", "profundidade_cm": "10",
+            })
+        lote.refresh_from_db()
+        self.assertEqual(lote.nome, "Caneca fictícia azul")
+        preparar.assert_not_called()

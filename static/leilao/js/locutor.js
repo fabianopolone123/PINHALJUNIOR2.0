@@ -19,7 +19,10 @@
 
     var CSRF = dados.dataset.csrf;
     var URL_ACAO = dados.dataset.acaoUrl;
-    var URL_DADOS = dados.dataset.dadosUrl;
+    // Os dados da mesa são DO LEILÃO DA URL (a mesa pode estar num leilão que
+    // não é o que está no ar).
+    var URL_DADOS = dados.dataset.dadosUrl +
+        (dados.dataset.leilao ? (dados.dataset.dadosUrl.indexOf("?") < 0 ? "?" : "&") + "leilao=" + dados.dataset.leilao : "");
     var URL_STREAM = dados.dataset.streamUrl;
 
     var estado = JSON.parse(($("estadoInicial") || {}).textContent || "{}");
@@ -57,6 +60,9 @@
     }
 
     function acao(corpo) {
+        // O leilão DESTA tela vai junto: sem ele o servidor adivinhava ("o que
+        // está no ar") e o botão agia no leilão errado.
+        if (dados.dataset.leilao && corpo.leilao === undefined) corpo.leilao = dados.dataset.leilao;
         return fetch(URL_ACAO, {
             method: "POST",
             headers: {
@@ -194,7 +200,12 @@
             b.type = "button";
             b.className = "btn-mini destaque";
             b.textContent = "▶ Abrir";
-            b.addEventListener("click", function () { acao({ acao: "abrir", lote: l.id }); });
+            // `data-acao`, e não um ouvinte próprio: é o caminho único dos
+            // botões da mesa, onde mora a pergunta "este item está em disputa,
+            // abrir outro mesmo assim?". O ouvinte próprio pulava a pergunta, e
+            // um toque na fila jogava fora um pregão com lances.
+            b.dataset.acao = "abrir";
+            b.dataset.lote = l.id;
             li.appendChild(b);
             ul.appendChild(li);
         });
@@ -334,7 +345,9 @@
         }, 700);
     }
 
-    var fonte = new EventSource(URL_STREAM);
+    // `FonteViva`: a mesa também congelava quando o EventSource desistia
+    // (502 no reinício do serviço) — e é a tela que menos pode parar.
+    var fonte = window.FonteViva ? window.FonteViva.abrir(URL_STREAM) : new EventSource(URL_STREAM);
 
     fonte.addEventListener("estado", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
     fonte.addEventListener("lote_aberto", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
@@ -549,11 +562,20 @@
             }
         }
 
+        // Abrir e VENDIDO ficam travados enquanto o pedido anda: um toque duplo
+        // em "Abrir próximo" abria DOIS itens seguidos (o primeiro voltava para
+        // a fila sem aviso, porque ainda não tinha lance).
+        var travar = qual === "abrir" || qual === "fechar";
+        if (travar) {
+            if (alvo.disabled) return;
+            alvo.disabled = true;
+        }
         acao(corpo).then(function (d) {
+            if (travar) alvo.disabled = false;
             if (!d) return;
             if (qual === "pago" || qual === "bloquear") { window.location.reload(); return; }
             recarregarDados();
-        });
+        }, function () { if (travar) alvo.disabled = false; });
     });
 
     var avisoForm = $("avisoForm");

@@ -24,8 +24,9 @@
             </p>
         </div>
         <div class="quadro-acoes">
-            <a class="btn-mesa" href="{% url 'leilao:caixa' %}">← Voltar ao caixa</a>
-            <form method="get" class="form-entregadores">
+            <a class="btn-mesa" href="{% url 'leilao:caixa_leilao' leilao.pk %}">← Voltar ao caixa</a>
+            <form method="post" class="form-entregadores">
+                {% csrf_token %}
                 <label for="entregadores">Entregadores</label>
                 <input type="number" id="entregadores" name="entregadores"
                        min="1" max="20" step="1" inputmode="numeric" value="{{ quantos }}">
@@ -34,6 +35,8 @@
             <form method="post" action="{% url 'leilao:entregas_redistribuir' %}"
                   data-confirmar="Isto joga fora o que já foi arrastado e refaz a divisão por bairro. Continuar?">
                 {% csrf_token %}
+                {# O leilão DESTE quadro: sem ele, o refazer apagava o quadro de outro leilão. #}
+                <input type="hidden" name="leilao" value="{{ leilao.pk }}">
                 <button type="submit" class="btn-mesa">🔄 Refazer por bairro</button>
             </form>
         </div>
@@ -78,6 +81,7 @@
 </div>
 
 <div id="dadosQuadro" hidden
+     data-leilao="{{ leilao.pk }}"
      data-csrf="{{ csrf_token }}"
      data-acao-url="{% url 'leilao:acao' %}"></div>
 {% endblock %}

@@ -123,8 +123,8 @@ gesto que o navegador exige para liberar áudio e segurar a tela acesa.
     O chat NÃO ocupa a tela: aqui só as duas últimas mensagens, que aparecem e
     somem sozinhas. Tocar abre o bate-papo inteiro, subindo de baixo.
     {% endcomment %}
-    <button type="button" class="show-ticker" id="showTicker" hidden
-            aria-label="Abrir o bate-papo">
+    {# Sem aria-label: ele sobrepunha o conteúdo, e o leitor de tela não lia as mensagens. #}
+    <button type="button" class="show-ticker" id="showTicker" hidden>
         <ul class="show-ticker-lista" id="showTickerLista"></ul>
         <span class="show-ticker-dica">💬 toque para conversar</span>
     </button>
@@ -277,6 +277,7 @@ a tocar (ver a tela clássica e o `audio_ouvir.js`).
     "conferir": "{% url 'leilao:conta_conferir' %}"
 }</script>
 <script src="{% static 'leilao/js/modal.js' %}"></script>
+<script src="{% static 'leilao/js/fonte_viva.js' %}"></script>
 <script src="{% static 'leilao/js/som.js' %}"></script>
 <script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/confete.js' %}"></script>

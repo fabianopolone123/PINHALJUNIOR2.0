@@ -142,12 +142,13 @@ cd /var/www/pinhaljunior2/current
 export $(grep -v '^#' /etc/pinhaljunior_leilao.env | xargs)
 /var/www/pinhaljunior2/.venv/bin/python manage.py migrate
 /var/www/pinhaljunior2/.venv/bin/python manage.py collectstatic --noinput
-/var/www/pinhaljunior2/.venv/bin/python manage.py createsuperuser   # o locutor
+/var/www/pinhaljunior2/.venv/bin/python manage.py createsuperuser   # o Diretor do leilão
 chown -R www-data:www-data /var/www/pinhaljunior2/data /var/www/pinhaljunior2/staticfiles_leilao
 ```
 
 > O `createsuperuser` cria o **Diretor** do leilão (vê as três áreas). A conta do sistema do clube
-> **não serve** aqui — bancos diferentes, de propósito.
+> **não serve** aqui — bancos diferentes, de propósito. O resto da equipe **não** se cria pelo
+> terminal: é o Diretor que cadastra, na aba **👤 Usuários** (senha `1234`, trocada no 1º acesso).
 
 ### Distribuir os papéis da equipe
 
@@ -172,7 +173,7 @@ python manage.py leilao_papel joao  --tirar caixa
 Todos entram pelo mesmo endereço, `/leilao/equipe/entrar/`. Quem tem **uma** área só cai direto nela.
 
 O `collectstatic` do leilão usa o mesmo cache-busting do clube (`core.storages`, que é importável sem o
-app `core` instalado) — conferido localmente: 188 arquivos, todos pós-processados.
+app `core` instalado) — conferido localmente em 09/2026 (o número de arquivos cresce com o módulo), todos pós-processados.
 
 O `manage.py check --deploy` deste serviço mostra **as mesmas três** advertências do sistema do clube, e
 elas são **esperadas**: `W004` (HSTS ainda sem valor — dívida conhecida do projeto), `W008` (quem
@@ -221,7 +222,7 @@ authInternalUsers:
 
   # Falar exige senha: só o locutor publica.
   - user: locutor
-    pass: <senha forte, a MESMA da tela /leilao/locutor/config/>
+    pass: <senha forte, a MESMA da tela /leilao/preparacao/config/ (⚙️ Mercado Pago e áudio)>
     ips: []
     permissions:
       - action: publish
@@ -261,7 +262,7 @@ Firewall:
 ufw allow 8189/udp comment "MediaMTX - audio do leilao"
 ```
 
-Depois, na tela `/leilao/locutor/config/`: ligar **"Transmitir a voz do locutor"**, caminho `leilao`,
+Depois, na tela `/leilao/preparacao/config/` (⚙️ Mercado Pago e áudio): ligar **"Transmitir a voz do locutor"**, caminho `leilao`,
 e o usuário/senha de publicação — **os mesmos** do `authInternalUsers`.
 
 Conferência rápida, sem precisar de navegador:
@@ -394,11 +395,21 @@ ouvinte). É **estimativa, não prova**; se não convencer, a saída já está p
 systemctl is-active pinhaljunior_leilao.service mediamtx.service nginx
 curl -sI https://pinhaljunior.com.br/leilao/entrar/ | head -1
 curl -sN --max-time 3 https://pinhaljunior.com.br/leilao/stream/ | head -3   # tem de sair "event: estado"
+curl -sI https://pinhaljunior.com.br/leilao/classico/ | head -1   # a tela de RESERVA (302 para a porta)
 ```
+
+> **A tela de reserva.** Desde 24/09 a tela do público é a "show" (`/leilao/`); a anterior ficou
+> em **`/leilao/classico/`**, com o mesmo motor de lance, chat e Pix. Se a show der problema no
+> evento, divulgue esse link — não é preciso deploy nem reiniciar nada.
+
+> **Reiniciar com gente conectada não congela mais as telas** (desde 24/09, `fonte_viva.js`): o
+> navegador desistia da conexão ao vivo quando pegava o 502 do reinício, e a tela ficava parada
+> sem aviso. Agora ela reabre sozinha em alguns segundos. A regra de **não reiniciar com item em
+> pregão** continua: quem tocar no botão durante o blecaute leva erro.
 
 ## 10. O que NÃO fazer
 
-- **Não subir com mais de um worker** (dois cronômetros — ver §1).
+- **Não subir com mais de um worker** (dois hubs, dois pregões — ver §1).
 - **Não apontar o leilão para `db.sqlite3`**: bancos separados é o que protege mensalidades, eventos e
   loja de uma rajada de lances.
 - **Não repetir o nome do cookie** do sistema do clube: um derruba a sessão do outro no navegador.

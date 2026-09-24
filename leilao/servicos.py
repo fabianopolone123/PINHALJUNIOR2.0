@@ -21,7 +21,7 @@ import time
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db import connections, transaction
+from django.db import IntegrityError, connections, transaction
 from django.db.models import F, Max, Sum
 from django.utils import timezone
 
@@ -280,6 +280,11 @@ def dar_lance(lote_id, participante, *, valor_visto=None, origem="botao"):
 
             if lote.status != "aberto":
                 return False, "Este lote não está em pregão.", None
+            # Item aberto num leilão que não está no ar não recebe lance: sem
+            # público não há pregão (e o `abrir` sem leilão no ar caía no mais
+            # recente, que podia ser o rascunho do mês seguinte).
+            if lote.leilao.status != "ao_vivo":
+                return False, "Este leilão não está no ar.", None
             # TRAVA: ninguém cobre o próprio lance.
             #
             # A comparação é pela **pessoa**, não pelo registro. A entrada cria
@@ -387,9 +392,40 @@ def arremates_em_aberto(participante):
     )
 
 
+def conta_aberta(participante):
+    """`(leilao_id, abertos)` — a conta em aberto da pessoa, de UM leilão só.
+
+    A sessão dura 30 dias: quem volta no leilão do mês seguinte ainda carrega
+    o que deixou em aberto no anterior. Somar os dois num total só era errado
+    duas vezes — a tela mostrava um valor que nenhuma cobrança cobria, e a
+    referência do Pix (`LEILAOC-<pessoa>-<leilão>`) levava só um dos leilões.
+    A conta é a do leilão do item MAIS ANTIGO em aberto: ela é paga primeiro,
+    e a seguinte aparece quando esta fechar.
+    """
+    abertos = list(arremates_em_aberto(participante))
+    if not abertos:
+        return None, []
+    leilao_id = abertos[0].lote.leilao_id
+    return leilao_id, [a for a in abertos if a.lote.leilao_id == leilao_id]
+
+
 def total_em_aberto(participante):
-    soma = arremates_em_aberto(participante).aggregate(t=Sum("valor"))["t"]
-    return soma or Decimal("0.00")
+    _, abertos = conta_aberta(participante)
+    return sum((a.valor for a in abertos), Decimal("0.00"))
+
+
+def pagamento_aberto_para(leilao_id):
+    """Já se pode pagar a conta deste leilão?
+
+    Durante o pregão, só depois de o locutor liberar (`pagamentos_liberados`).
+    **Depois de encerrado, sempre**: o caixa cobra por dias quem ficou devendo,
+    e antes daqui o Pix exigia um leilão AO VIVO — encerrar à noite deixava
+    quem não tinha aberto o próprio Pix sem jeito nenhum de pagar.
+    """
+    if not leilao_id:
+        return False
+    leilao = Leilao.objects.filter(pk=leilao_id).first()
+    return bool(leilao and (leilao.pagamentos_liberados or leilao.status == "encerrado"))
 
 
 def liberar_pagamentos(leilao, liberar=True):
@@ -407,6 +443,33 @@ def liberar_pagamentos(leilao, liberar=True):
     # pagar aparecer sem recarregar nada.
     HUB.publicar("estado", est.estado_publico(leilao))
     return leilao
+
+
+def cobranca_viva(participante):
+    """A cobrança que ainda vale para a conta em aberto, ou `None`.
+
+    Vale se cobre **exatamente** os itens em aberto, **pelo mesmo valor**, e
+    ainda está pendente com código. "Exatamente" é o que faltava: bastava os
+    itens em aberto apontarem para ela. Quando o caixa dava baixa na mão num
+    deles (ou o devolvia ao leilão), os que sobravam CONTINUAVAM apontando para
+    a cobrança antiga, e ela voltava com o valor antigo — a tela dizia R$ 30 e
+    o código cobrava R$ 80.
+    """
+    _, abertos = conta_aberta(participante)
+    if not abertos:
+        return None
+    total = sum((a.valor for a in abertos), Decimal("0.00"))
+    ids = sorted(a.pk for a in abertos)
+    atual = abertos[0].pagamento
+    if (
+        atual
+        and atual.status == "pendente" and atual.qr_code
+        and atual.valor_bruto == total
+        and all(a.pagamento_id == atual.id for a in abertos)
+        and (not atual.cobre or sorted(atual.cobre) == ids)
+    ):
+        return atual
+    return None
 
 
 def cobranca_do_participante(participante, *, refazer=False):
@@ -430,20 +493,21 @@ def cobranca_do_participante(participante, *, refazer=False):
         logger.warning("Leilão: Mercado Pago não configurado — sem Pix para %s.", participante.id)
         return None
 
-    abertos = list(arremates_em_aberto(participante))
+    leilao_id, abertos = conta_aberta(participante)
     if not abertos:
         return None
 
-    # Já existe cobrança viva cobrindo exatamente estes itens? Devolve a mesma.
-    # Sem isto, cada abertura da gaveta geraria um Pix novo — vários códigos
-    # vivos do mesmo dinheiro, e o caixa sem saber qual a pessoa pagou.
-    atual = abertos[0].pagamento
-    if atual and not refazer and all(a.pagamento_id == atual.id for a in abertos):
-        if atual.status == "pendente" and atual.qr_code:
-            return atual
-
     total = sum((a.valor for a in abertos), Decimal("0.00"))
-    leilao_id = abertos[0].lote.leilao_id
+    ids = sorted(a.pk for a in abertos)
+
+    # Já existe cobrança viva cobrindo exatamente estes itens, por este valor?
+    # Devolve a mesma — sem isto, cada abertura da gaveta geraria um Pix novo,
+    # vários códigos vivos do mesmo dinheiro.
+    if not refazer:
+        viva = cobranca_viva(participante)
+        if viva:
+            return viva
+
     referencia = f"LEILAOC-{participante.id}-{leilao_id}"
     if refazer or PagamentoLeilao.objects.filter(referencia=referencia).exists():
         # A referência é a chave de idempotência no Mercado Pago: repeti-la
@@ -473,16 +537,24 @@ def cobranca_do_participante(participante, *, refazer=False):
 
     import json
 
-    pagamento = PagamentoLeilao.objects.create(
-        referencia=referencia,
-        mp_payment_id=resposta.get("mp_payment_id", ""),
-        status=resposta.get("status", "pendente"),
-        valor_bruto=total,
-        qr_code=resposta.get("qr_code", ""),
-        qr_code_base64=resposta.get("qr_code_base64", ""),
-        ticket_url=resposta.get("ticket_url", ""),
-        payload=json.dumps(resposta.get("raw") or {}, ensure_ascii=False, default=str),
-    )
+    try:
+        pagamento = PagamentoLeilao.objects.create(
+            referencia=referencia,
+            mp_payment_id=resposta.get("mp_payment_id", ""),
+            status=resposta.get("status", "pendente"),
+            valor_bruto=total,
+            cobre=ids,
+            qr_code=resposta.get("qr_code", ""),
+            qr_code_base64=resposta.get("qr_code_base64", ""),
+            ticket_url=resposta.get("ticket_url", ""),
+            payload=json.dumps(resposta.get("raw") or {}, ensure_ascii=False, default=str),
+        )
+    except IntegrityError:
+        # Duas abas pedindo o Pix no mesmo instante passam juntas pela
+        # conferência da referência e a segunda bate no `unique`. Em vez de um
+        # 500 na cara de quem vai pagar, devolve a cobrança que a outra criou.
+        logger.warning("Leilão: Pix de %s criado em dobro; usando o primeiro.", participante.id)
+        return PagamentoLeilao.objects.filter(referencia=referencia).first()
     Arremate.objects.filter(pk__in=[a.pk for a in abertos]).update(pagamento=pagamento)
     HUB.publicar(
         "arremate_pix",
@@ -647,11 +719,24 @@ def _arremates_do_pagamento(pagamento):
     (`LEILAO-<id>` ou `LEILAO-<id>-R<timestamp>`), que é gravada na criação e
     não muda.
     """
+    # A lista gravada na criação é a resposta EXATA (mig. 0014): nem a FK (que
+    # muda quando o Pix é refeito) nem um palpite pelo que a pessoa tem em
+    # aberto HOJE.
+    if pagamento.cobre:
+        return list(
+            Arremate.objects.select_related("lote", "participante").filter(pk__in=pagamento.cobre)
+        )
+
     ligados = list(pagamento.arremates.select_related("lote", "participante"))
     if ligados:
         return ligados
 
-    # Formato ATUAL: a cobrança é da pessoa, pelo total.
+    # Formato ATUAL sem a lista (cobrança anterior à 0014): a cobrança é da
+    # pessoa, pelo total. O palpite pelo que está em aberto agora só vale se o
+    # VALOR bater — um Pix antigo de R$ 10 pago depois de ela arrematar outro
+    # item de R$ 100 quitava os dois, e o de R$ 100 ia para a entrega sem ter
+    # sido pago. Não batendo, ninguém é quitado sozinho: fica no log para o
+    # caixa acertar, que é melhor do que dinheiro inventado.
     conta = _conta_da_referencia(pagamento.referencia)
     if conta:
         participante_id, leilao_id = conta
@@ -662,6 +747,14 @@ def _arremates_do_pagamento(pagamento):
                 status__in=("aguardando", "combinado"),
             )
         )
+        soma = sum((a.valor for a in achados), Decimal("0.00"))
+        if achados and soma != pagamento.valor_bruto:
+            logger.error(
+                "Leilão: pagamento %s (R$ %s) não bate com o que está em aberto "
+                "(R$ %s em %s item(ns)) — nada quitado sozinho; acerto no caixa.",
+                pagamento.referencia, pagamento.valor_bruto, soma, len(achados),
+            )
+            return []
         if achados:
             logger.warning(
                 "Leilão: pagamento %s quitou %s arremate(s) pela referência "
@@ -695,14 +788,61 @@ def _aplicar_retorno(pagamento, r):
     pagamento.valor_liquido = r.get("liquido") or pagamento.valor_bruto
     pagamento.save(update_fields=["status", "taxa", "valor_liquido"])
 
+    if pagamento.status == "estornado":
+        _desfazer_baixa_do_estorno(pagamento)
+        return False
     if pagamento.status != "aprovado":
         return False
     if not pagamento.finalizado:
         pagamento.finalizado = True
         pagamento.save(update_fields=["finalizado"])
+
+    # Só quita o que AINDA ESTÁ EM ABERTO. Sem esta conferência, o Pix pago
+    # depois de o caixa devolver um item ao leilão (ou dar baixa na mão)
+    # transformava o arremate cancelado em "pago" — e o item, talvez já
+    # vendido de novo para outra pessoa, voltava para a entrega de quem pagou.
+    fora = []
     for arremate in _arremates_do_pagamento(pagamento):
-        marcar_pago(arremate, pagamento=pagamento)
+        if arremate.status in ("aguardando", "combinado") and not arremate.devolvido_em:
+            marcar_pago(arremate, pagamento=pagamento)
+        elif arremate.status == "pago" and arremate.pagamento_id == pagamento.id:
+            continue   # o webhook repetiu o aviso: já quitado por esta mesma cobrança
+        else:
+            fora.append(arremate)
+    if fora:
+        # Dinheiro que entrou por item que já não estava em aberto (pago na
+        # mão, devolvido ao leilão). Não é estorno automático — quem decide é
+        # o caixa, com a pessoa — mas não pode passar em silêncio.
+        logger.error(
+            "Leilão: pagamento %s aprovado cobre item(ns) que não estavam mais em "
+            "aberto: %s — conferir com a pessoa (pagou em dobro ou item devolvido).",
+            pagamento.referencia,
+            ", ".join(f"#{a.pk} {a.lote.nome} ({a.status})" for a in fora),
+        )
     return True
+
+
+def _desfazer_baixa_do_estorno(pagamento):
+    """O Mercado Pago devolveu o dinheiro (estorno, contestação): quem estava
+    pago POR ESTA COBRANÇA volta a dever.
+
+    Sem isto o item seguia "pago" e na lista de entrega — o voluntário
+    levava na casa de alguém um item cujo dinheiro já tinha voltado para ela.
+    A baixa manual não é tocada: ela não passou por esta cobrança.
+    """
+    voltaram = []
+    for arremate in _arremates_do_pagamento(pagamento):
+        if arremate.status == "pago" and arremate.pagamento_id == pagamento.id and not arremate.pago_manual:
+            arremate.status = "aguardando"
+            arremate.pago_em = None
+            arremate.save(update_fields=["status", "pago_em"])
+            voltaram.append(arremate)
+    if voltaram:
+        logger.error(
+            "Leilão: pagamento %s ESTORNADO — %s item(ns) voltaram a dever: %s.",
+            pagamento.referencia, len(voltaram),
+            ", ".join(f"#{a.pk} {a.lote.nome}" for a in voltaram),
+        )
 
 
 class DevolucaoRecusada(Exception):
@@ -773,7 +913,12 @@ def devolver_ao_leilao(arremate, motivo, por=None):
     lote.refresh_from_db()
     # A fila e o estado mudaram: quem está com a mesa ou o pregão aberto vê
     # sozinho, sem recarregar.
-    HUB.publicar("estado", est.estado_publico(lote.leilao))
+    #
+    # O estado publicado é o do leilão QUE ESTÁ NO AR, não o do item: a
+    # devolução quase sempre acontece depois do evento, e o `estado_publico` de
+    # um leilão encerrado é "sem leilão" — publicá-lo apagava o pregão da tela
+    # de todo mundo se outro leilão estivesse no ar.
+    HUB.publicar("estado", est.estado_publico(Leilao.ao_vivo()))
     return lote
 
 

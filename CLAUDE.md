@@ -39,8 +39,16 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
 
 As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
 
-- **Um worker só, sempre.** O hub de eventos e o relógio vivem na memória do processo.
-- **Tempo real é SSE** (`/leilao/stream/`); o lance é `POST`. O **relógio é do servidor**.
+- **Um worker só, sempre.** O hub de eventos e o laço central vivem na memória do processo.
+- **Tempo real é SSE** (`/leilao/stream/`), sempre pela **`fonte_viva.js`** (o `EventSource` sozinho
+  desiste de vez num 502 do reinício e a tela congela); o lance é `POST`. Não há cronômetro; o
+  `servidor_em` só acerta o "sem lance há" da mesa.
+- **O dinheiro**: a cobrança grava **quais itens cobre** (`PagamentoLeilao.cobre`, mig. **0014**); só
+  se reaproveita o Pix com a mesma lista e o mesmo valor (`cobranca_viva`); pagamento só quita item
+  ainda em aberto; a conta é de **um leilão** (`conta_aberta`) e, **encerrado o leilão, paga-se
+  sempre** (`pagamento_aberto_para`). Ver REGRAS "O que a revisão geral de 24/09 fixou".
+- **Toda tela da equipe manda o leilão dela** (`data-leilao` → `corpo.leilao`, `?leilao=`); o servidor
+  usa `_leilao_da_tela`. Ação nova da equipe: mande o leilão.
 - **O broadcast só leva o que pode ser dito em voz alta** — Pix, telefone e endereço saem por `GET`
   autenticado.
 - **A prioridade do dia é: voz ao vivo e lance primeiro; emoji e enfeite depois** — e é o enfeite que o

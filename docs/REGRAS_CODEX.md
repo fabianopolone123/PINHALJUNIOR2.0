@@ -703,9 +703,9 @@ Lançamento **manual** de parcelas para uma conta (família ou diretoria), divid
 O leilão é **outra aplicação Django** na mesma base de código (settings, URLs, banco, cookies e serviço
 próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 
-- **UM worker uvicorn, sempre.** O hub de eventos (`leilao/hub.py`) e o relógio do pregão vivem **na
-  memória do processo**. Dois workers = dois leilões paralelos, cada um com o seu cronômetro, e metade
-  das pessoas vendo um pregão e metade vendo outro. Se um dia precisar escalar, o caminho é trocar o hub
+- **UM worker uvicorn, sempre.** O hub de eventos (`leilao/hub.py`) e o laço central vivem **na
+  memória do processo**. Dois workers = dois hubs, e metade das pessoas vendo um pregão e metade
+  vendo outro. Se um dia precisar escalar, o caminho é trocar o hub
   em memória por Redis pub/sub — **só isso** muda.
 - **O leilão não pode morar no serviço do clube.** Ele usa **SSE**, que segura a conexão aberta; em
   worker **síncrono** (o do clube é gunicorn sync) cada participante prenderia um worker inteiro e
@@ -723,9 +723,10 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   processor a **cada página** e por uma thread de fundo a cada item vendido: toda leitura virava
   tentativa de escrita, disputando a trava com quem estava dando lance. Sem linha salva, devolve
   instância em memória.
-- **O relógio é do servidor.** `Lote.fecha_em` é data/hora **absoluta** e todo estado leva `servidor_em`;
-  o navegador calcula a diferença uma vez e aplica. Celular com a hora errada (tem muitos) vê o mesmo
-  cronômetro. **Nunca** mandar "faltam N segundos" e deixar o cliente contar sozinho.
+- **O relógio é do servidor.** Não há cronômetro (o martelo é do locutor, e `Lote.fecha_em` está
+  dormente), mas todo estado leva `servidor_em`: o navegador calcula a diferença uma vez e aplica, e é
+  isso que mantém certo o contador "sem lance há…" da mesa num computador com a hora errada.
+  **Nunca** mandar "faltam N segundos" e deixar o cliente contar sozinho.
 - **O broadcast só leva o que pode ser dito em voz alta**: nome curto e valor. **Código Pix, telefone e
   endereço nunca entram no stream** — saem por `GET` próprio, autenticado pela sessão. Há teste.
 - **Reconexão manda o estado inteiro**, nunca uma repetição de eventos perdidos. É o que dispensa lógica
@@ -737,8 +738,9 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   faria alguém pagar mais do que pretendia. E o **freio de repetição vem depois** das recusas que têm
   explicação própria, senão quem toca duas vezes ouve "Calma!" quando a resposta certa era "você já está
   ganhando".
-- **Lances são por RODADA** (`Lote.lances_da_rodada()`): um item volta para a fila quando o arrematante
-  não paga, e os lances da rodada anulada não podem aparecer na tela.
+- **Lances são por RODADA** (`Lote.lances_da_rodada()`): um item pode voltar para a fila — hoje só
+  pelo **↩️ Voltar ao leilão** do caixa (mig. 0012), ou quando o locutor abre outro com este sem
+  lance —, e os lances da rodada anulada não podem aparecer na tela.
 - **Não há "desfazer lance"**, e a decisão é do clube. `Lance.cancelado` é coluna dormente — não religue
   por conta própria. `SemDesfazerLanceTests` guarda a porta.
 - **Chamada externa lenta sai do caminho crítico.** O Pix é gerado numa thread **depois** de publicar o
@@ -1328,6 +1330,45 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   **garantia do valor final** por `setTimeout` — aba no fundo para de dar quadros.
 - **Verificação**: a sonda headless mede posição, estouro e o dígito final de cada fita; a captura
   **congela animação no meio** (nome do líder "sumido", contador entre dois números) — não é defeito.
+
+### O que a revisão geral de 24/09 fixou (dinheiro, conexão, leilão da tela)
+
+- **A cobrança grava QUAIS itens cobre** (`PagamentoLeilao.cobre`, mig. **0014**), na criação, e nunca
+  mais muda. É a resposta do webhook para "quem esta cobrança quita" — não a FK (trocada quando o Pix é
+  refeito) e não "tudo o que a pessoa tem em aberto hoje" (que fazia um Pix antigo de R$ 10 quitar um
+  item novo de R$ 100). Cobrança anterior à 0014 sem lista só quita pelo palpite se o **valor bater**.
+- **Reaproveitar o Pix exige a MESMA lista e o MESMO valor** (`servicos.cobranca_viva`). Bastar "os
+  itens apontam para ela" devolvia o Pix de R$ 80 depois de o caixa dar baixa num item de R$ 50.
+- **Pagamento só quita item AINDA EM ABERTO** (`aguardando`/`combinado`, sem `devolvido_em`). Dinheiro
+  por item já pago ou devolvido vira `logger.error` para o caixa acertar — nunca ressuscita um
+  arremate cancelado. **Estorno** (`estornado`) devolve a dívida de quem foi pago POR AQUELA cobrança
+  (a baixa manual não é tocada).
+- **A conta é de UM leilão** (`servicos.conta_aberta`: o do item mais antigo em aberto). A sessão dura
+  30 dias; somar dois leilões mostrava um total que nenhum Pix cobria.
+- **Depois de ENCERRADO, paga-se sempre** (`servicos.pagamento_aberto_para`). Antes o Pix exigia leilão
+  ao vivo e liberado, e quem não tinha aberto o próprio Pix na noite ficava sem jeito de pagar. O
+  **📋 Pix do caixa GERA a cobrança** (antes só lia a pendurada no 1º item).
+- **Item devolvido/cancelado fica fora da conta**: `pago`, `combinado` e `entregue` são recusados no
+  servidor (outro terminal do caixa ainda tem o botão).
+- **Toda tela da equipe manda o leilão dela** (`data-leilao` → `corpo.leilao`; `?leilao=` nos dados da
+  mesa; campo oculto no "Refazer por bairro"). O servidor usa `_leilao_da_tela` e só cai no palpite
+  antigo sem id. Ação nova da equipe: **mande o leilão**.
+- **A mesa só abre item da FILA num leilão NO AR**, e o lance recusa leilão fora do ar. Abrir e VENDIDO
+  ficam travados durante o POST (toque duplo abria dois itens), e o ▶ da fila passa pela mesma
+  confirmação de "está em disputa".
+- **Mudar o nº de entregadores é POST** (cria e apaga colunas; por GET, um prefetch apagava).
+- **Conexão ao vivo não desiste** (`fonte_viva.js`, nas telas do público, mesa e caixa): o
+  `EventSource` desiste de vez ao pegar um 502/503 na reconexão (todo reinício do serviço), e a tela
+  congelava sem aviso. A `FonteViva` reabre com espera crescente e **sorteada** e religa os ouvintes.
+- **Resposta do POST do lance não sobrescreve lance mais novo** (`respostaAindaVale`): o stream do lance
+  de outra pessoa pode chegar antes da resposta do meu.
+- **Item aberto é rodada nova mesmo com o mesmo id** (devolvido ao leilão): o `lote_aberto` zera o
+  estado por item e fecha a gaveta que cobriria o botão.
+- **Peso em gramas**: `12.500` é ponto de milhar (12,5 kg); vírgula/ponto decimal é recusado com
+  explicação — antes virava 10 g calado. **Foto** só é reprocessada quando muda; limpar tira a
+  miniatura. **Editar item** grava só os campos do formulário.
+- **O IP do freio de login é o ÚLTIMO do `X-Forwarded-For`** (o que o nosso Nginx acrescenta); o
+  primeiro é escrito pelo cliente.
 
 ### Quem controla o som da SALA é o locutor
 

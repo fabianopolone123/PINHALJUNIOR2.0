@@ -272,10 +272,20 @@ class LoteForm(EstiloMixin, forms.ModelForm):
         O banco continua em **quilos** de propósito: os itens já cadastrados
         valem como estão e nenhuma tela que lê `peso_kg` precisou mudar.
         """
-        # Vírgula e ponto continuam aceitos: quem está acostumado com o campo
-        # antigo pode digitar "1,5" pensando em quilo, e `peso_para_decimal`
-        # segue sendo o único lugar que interpreta número escrito à mão.
-        gramas = peso_para_decimal(self.cleaned_data.get("peso_kg"))
+        bruto = str(self.cleaned_data.get("peso_kg") or "").strip()
+        # O campo é em GRAMAS, então número com separador só tem uma leitura
+        # certa: o PONTO DE MILHAR do português ("12.500" = 12,5 kg). Antes ele
+        # passava pelo `peso_para_decimal`, que lê o ponto como decimal — e
+        # "12.500" virava 12,5 g, salvo como 10 g sem erro nenhum. Vírgula ou
+        # ponto decimal ("15,5", "1.5") é quase sempre alguém pensando em
+        # QUILO: recusar com a explicação é melhor do que guardar 20 g calado.
+        if re.fullmatch(r"\d{1,3}(\.\d{3})+", bruto):
+            bruto = bruto.replace(".", "")
+        elif "," in bruto or "." in bruto:
+            raise forms.ValidationError(
+                "O peso é em GRAMAS, só números — ex.: 350 para uma caneca, 1500 para 1,5 kg."
+            )
+        gramas = peso_para_decimal(bruto)
         if gramas is None:
             raise forms.ValidationError("Informe o peso em gramas (ex.: 1500).")
         if gramas <= 0:

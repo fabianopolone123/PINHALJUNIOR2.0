@@ -344,12 +344,12 @@ def meus_arremates_view(request):
             }
         )
 
-    leilao = Leilao.ao_vivo()
-    total_aberto = servicos.total_em_aberto(participante)
-    pagamento = None
-    abertos = servicos.arremates_em_aberto(participante).first()
-    if abertos and abertos.pagamento_id:
-        pagamento = abertos.pagamento
+    # A conta é de UM leilão (o do item mais antigo em aberto) — ver
+    # `servicos.conta_aberta`. Total, quantidade e "liberado" saem todos dela,
+    # para a tela nunca somar o que nenhuma cobrança cobre.
+    leilao_id, abertos = servicos.conta_aberta(participante)
+    total_aberto = sum((a.valor for a in abertos), Decimal("0.00"))
+    pagamento = abertos[0].pagamento if abertos and abertos[0].pagamento_id else None
 
     # Sem Mercado Pago configurado, Pix nenhum vai nascer — e a tela precisa
     # dizer isso, em vez de prometer um "gerando…" que nunca termina. O leilão
@@ -359,8 +359,8 @@ def meus_arremates_view(request):
             "ok": True,
             "arremates": itens,
             "total": str(total_aberto),
-            "quantos_abertos": servicos.arremates_em_aberto(participante).count(),
-            "liberado": bool(leilao and leilao.pagamentos_liberados),
+            "quantos_abertos": len(abertos),
+            "liberado": servicos.pagamento_aberto_para(leilao_id),
             "tem_pix": bool(pagamento and pagamento.qr_code),
             "pix_possivel": ConfigLeilao.get_solo().configurado,
         }
@@ -378,16 +378,18 @@ def arremate_pix_view(request, pk=None):
     if not participante:
         return JsonResponse({"ok": False}, status=401)
 
-    leilao = Leilao.ao_vivo()
-    if not (leilao and leilao.pagamentos_liberados):
+    leilao_id, abertos = servicos.conta_aberta(participante)
+    if not abertos:
+        return JsonResponse({"ok": False, "msg": "Você não tem nada a pagar."}, status=409)
+
+    if not servicos.pagamento_aberto_para(leilao_id):
         # A trava é do SERVIDOR: esconder o botão não impede um POST forjado, e
-        # gerar cobrança antes da hora encheria a noite de Pix vivos.
+        # gerar cobrança antes da hora encheria a noite de Pix vivos. Depois de
+        # ENCERRADO o leilão, paga-se sempre (era aqui que quem não tinha aberto
+        # o Pix na noite ficava sem jeito de pagar).
         return JsonResponse(
             {"ok": False, "msg": "O pagamento ainda não foi liberado."}, status=409
         )
-
-    if not servicos.arremates_em_aberto(participante).exists():
-        return JsonResponse({"ok": False, "msg": "Você não tem nada a pagar."}, status=409)
 
     if not ConfigLeilao.get_solo().configurado:
         return JsonResponse({
@@ -403,7 +405,7 @@ def arremate_pix_view(request, pk=None):
         {
             "ok": True,
             "valor": str(pagamento.valor_bruto),
-            "quantos": servicos.arremates_em_aberto(participante).count(),
+            "quantos": len(pagamento.cobre) or len(abertos),
             "copia_e_cola": pagamento.qr_code,
             "qr_base64": pagamento.qr_code_base64,
         }
@@ -524,7 +526,12 @@ def _ip_do(request):
     """
     encaminhado = request.META.get("HTTP_X_FORWARDED_FOR", "")
     if encaminhado:
-        return encaminhado.split(",")[0].strip()
+        # O ÚLTIMO da lista, não o primeiro. O Nginx usa
+        # `$proxy_add_x_forwarded_for`, que PRESERVA o que o cliente mandou e
+        # acrescenta o IP real no fim: o primeiro valor é escrito por quem está
+        # do outro lado, e trocá-lo a cada tentativa zerava o freio da senha
+        # padrão. O último é o que o nosso próprio proxy viu.
+        return encaminhado.split(",")[-1].strip()
     return request.META.get("REMOTE_ADDR", "") or "?"
 
 
@@ -670,10 +677,26 @@ def _painel_locutor(leilao):
     }
 
 
+def _leilao_da_tela(bruto):
+    """O leilão que a TELA da equipe diz estar mostrando.
+
+    Toda tela da equipe trabalha sobre o leilão da URL (regra do módulo), e o
+    `fetch` dela manda o id. Antes, as ações e os dados da mesa adivinhavam —
+    "o que está no ar, senão o mais recente" —, e com dois leilões existindo
+    (o da noite e o rascunho do mês seguinte) o VENDIDO, o "liberar", a fila e
+    as arrastadas do quadro caíam no leilão errado. Sem id (aba aberta antes
+    desta correção), o palpite antigo continua valendo.
+    """
+    bruto = str(bruto or "").strip()
+    if bruto.isdigit():
+        return Leilao.objects.filter(pk=int(bruto)).first()
+    return Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+
+
 @papeis.exige("locutor")
 def locutor_dados_view(request):
     """Estado + histórico do pregão para a mesa (recarga por `fetch`)."""
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+    leilao = _leilao_da_tela(request.GET.get("leilao"))
     if not leilao:
         return JsonResponse({"ok": False})
     lote = leilao.lote_atual
@@ -778,7 +801,7 @@ def locutor_acao_view(request):
             {"ok": False, "msg": f"Esta ação é de {rotulos}."}, status=403
         )
 
-    leilao = Leilao.ao_vivo() or Leilao.objects.order_by("-criado_em").first()
+    leilao = _leilao_da_tela(dados.get("leilao"))
     if not leilao:
         return JsonResponse({"ok": False, "msg": "Nenhum leilão."}, status=404)
 
@@ -790,6 +813,20 @@ def locutor_acao_view(request):
             lote = leilao.lotes.filter(status="fila").order_by("ordem", "id").first()
         if not lote:
             return JsonResponse({"ok": False, "msg": "A fila está vazia."}, status=409)
+        # Só abre item DA FILA, num leilão NO AR. A aba Itens da mesa não se
+        # refaz sozinha, então o ▶ de um item já vendido continuava lá — e o
+        # servidor reabria o item zerado, com o arremate antigo de pé: o
+        # martelo seguinte criava um SEGUNDO arremate do mesmo item.
+        if lote.status != "fila":
+            return JsonResponse(
+                {"ok": False, "msg": f"“{lote.nome}” não está na fila ({lote.get_status_display().lower()})."},
+                status=409,
+            )
+        if leilao.status != "ao_vivo":
+            return JsonResponse(
+                {"ok": False, "msg": "Este leilão não está no ar. Coloque-o no ar pela preparação."},
+                status=409,
+            )
         servicos.abrir_lote(lote)
         return JsonResponse({"ok": True, "msg": f"{lote.nome} em pregão!"})
 
@@ -837,7 +874,7 @@ def locutor_acao_view(request):
         # nada para receber.
         pendente = Arremate.objects.filter(
             lote__leilao=leilao, participante_id=pessoa_id,
-            status="pago", entregue_em__isnull=True,
+            status="pago", entregue_em__isnull=True, devolvido_em__isnull=True,
         ).exists()
         if not pendente:
             return JsonResponse(
@@ -868,6 +905,23 @@ def locutor_acao_view(request):
         return JsonResponse(
             {"ok": True, "rotulo": coluna.rotulo, **_resumo_colunas(leilao)}
         )
+
+    if acao in ("pago", "combinado", "entregue"):
+        arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
+        # Item devolvido ao leilão (ou cancelado) saiu da conta: dar baixa,
+        # combinar ou entregar recolocaria a pessoa cobrando/recebendo um item
+        # que voltou para a prateleira. A tela esconde os botões, mas outro
+        # terminal do caixa aberto antes da devolução ainda os tem.
+        if arremate.status == "cancelado" or (arremate.devolvido_em and acao != "entregue"):
+            return JsonResponse(
+                {"ok": False, "msg": "Este item voltou ao leilão — ele não está mais na conta."},
+                status=409,
+            )
+        if acao == "entregue" and arremate.devolvido_em and not dados.get("desfazer"):
+            return JsonResponse(
+                {"ok": False, "msg": "Este item voltou ao leilão — não há o que entregar."},
+                status=409,
+            )
 
     if acao == "pago":
         arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
@@ -1205,13 +1259,18 @@ def entregas_quadro_view(request, leilao_id=None):
 
     leilao = get_object_or_404(Leilao, pk=leilao_id)
 
-    try:
-        pedido = int(request.GET.get("entregadores") or 0)
-    except (TypeError, ValueError):
-        pedido = 0
-    pedido = max(0, min(20, pedido))
-    if pedido:
-        _ajustar_entregadores(leilao, pedido)
+    # Mudar o número de entregadores cria e APAGA colunas — só por POST (com
+    # CSRF). Por GET, um link velho ou um prefetch do navegador com um número
+    # menor apagava as colunas de alguém. Depois, volta para o GET limpo.
+    if request.method == "POST":
+        try:
+            pedido = int(request.POST.get("entregadores") or 0)
+        except (TypeError, ValueError):
+            pedido = 0
+        pedido = max(0, min(20, pedido))
+        if pedido:
+            _ajustar_entregadores(leilao, pedido)
+        return redirect("leilao:entregas_quadro_leilao", leilao_id=leilao.pk)
 
     quantos = leilao.entregadores.count()
     if not quantos:
@@ -1372,8 +1431,22 @@ def lote_form_view(request, leilao_id=None, pk=None):
             if not pk:
                 ultima = leilao.lotes.order_by("-ordem").first()
                 novo.ordem = (ultima.ordem + 1) if ultima else 1
-            novo.save()
-            preparar_foto(novo)
+                novo.save()
+            else:
+                # Editar grava SÓ o que o formulário tem. O `save()` inteiro
+                # regravava valor e líder lidos no começo do pedido — num item
+                # em pregão, um lance dado naquele instante sumia.
+                novo.save(update_fields=list(form.fields))
+            # A foto só é reprocessada quando MUDOU: cada edição recomprimia o
+            # JPEG (perdendo qualidade toda vez) e gravava arquivo novo.
+            if "foto" in form.changed_data:
+                if novo.foto:
+                    preparar_foto(novo)
+                elif novo.foto_mini:
+                    # "Limpar" a foto deixava a miniatura para trás, e é ela
+                    # que a mesa, o caixa e a tela do público mostram.
+                    novo.foto_mini = None
+                    novo.save(update_fields=["foto_mini"])
             messages.success(request, "Item salvo!")
             if "salvar_e_novo" in request.POST:
                 return redirect("leilao:lote_novo", leilao_id=leilao.pk)
@@ -1606,19 +1679,30 @@ def caixa_pix_pessoa_view(request, pk):
     "resolvi agora" e "depois eu vejo isso".
     """
     participante = get_object_or_404(Participante, pk=pk)
-    abertos = list(servicos.arremates_em_aberto(participante))
+    leilao_id, abertos = servicos.conta_aberta(participante)
     if not abertos:
         return JsonResponse({"ok": False, "msg": "Esta pessoa não tem nada em aberto."})
 
-    pagamento = abertos[0].pagamento
-    if not pagamento or not pagamento.qr_code:
+    # O caixa PEDE a cobrança, não só lê a que existe. Antes esta view devolvia
+    # o Pix pendurado no primeiro item — com o valor de quando foi gerado, e
+    # "sendo gerado…" para sempre para quem nunca abriu o próprio Pix. A mesma
+    # regra da tela da pessoa decide reaproveitar ou refazer, então os dois
+    # lados sempre mostram o mesmo código, pelo mesmo valor.
+    pagamento = servicos.cobranca_viva(participante)
+    if not pagamento:
         if not ConfigLeilao.get_solo().configurado:
             return JsonResponse(
                 {"ok": False, "msg": "Sem Mercado Pago configurado — o acerto é por fora."}
             )
-        return JsonResponse({"ok": False, "gerando": True, "msg": "O Pix ainda está sendo gerado…"})
+        if not servicos.pagamento_aberto_para(leilao_id):
+            return JsonResponse(
+                {"ok": False, "msg": "Os pagamentos ainda estão fechados — libere na mesa do locutor."}
+            )
+        pagamento = servicos.cobranca_do_participante(participante)
+    if not pagamento or not pagamento.qr_code:
+        return JsonResponse({"ok": False, "msg": "Não deu para gerar o Pix agora. Tente de novo."})
 
-    total = sum((a.valor for a in abertos), Decimal("0.00"))
+    total = pagamento.valor_bruto
     return JsonResponse(
         {
             "ok": True,

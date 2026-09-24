@@ -22,6 +22,100 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: correções da revisão geral
+
+### Resumo
+Revisão geral do módulo a pedido do clube, em quatro frentes paralelas
+(servidor, telas do público, telas da equipe, documentação × código). Os
+achados foram conferidos no código antes de corrigir; 28 eram reais.
+
+### Dinheiro
+- **A cobrança grava quais itens cobre** (`PagamentoLeilao.cobre`, JSON, mig.
+  **0014**). É a resposta de "quem esta cobrança quita", no lugar da FK (que
+  muda quando o Pix é refeito) e do palpite "tudo o que a pessoa tem em aberto".
+- **Pix com valor antigo**: reaproveitar exigia só "os itens apontam para ela".
+  Depois de uma baixa na mão (ou devolução) de um item, o Pix de R$ 80 voltava
+  com a tela dizendo R$ 30. Agora `cobranca_viva` exige a mesma lista e o
+  mesmo valor.
+- **Pix antigo quitando o que não cobria**: um Pix de R$ 10 pago depois de a
+  pessoa arrematar outro item de R$ 100 quitava os dois. Com a lista, quita só
+  o que cobria; cobrança sem lista (anterior à 0014) só pelo palpite se o valor
+  bater.
+- **Pagamento só quita item ainda em aberto**: o Pix pago depois de uma
+  devolução transformava o arremate cancelado em "pago". Dinheiro por item fora
+  da conta vira `logger.error` para o caixa acertar.
+- **Estorno** (`estornado`) devolve a dívida de quem foi pago por aquela
+  cobrança; a baixa manual não é tocada.
+- **Conta de um leilão só** (`conta_aberta`) e **Pix depois de encerrado**
+  (`pagamento_aberto_para`): antes o Pix exigia leilão ao vivo e liberado. O
+  **📋 Pix do caixa gera** a cobrança (antes: "sendo gerado…" para sempre).
+- **Duas abas pedindo o Pix juntas** davam 500 (`IntegrityError`); agora
+  devolve a cobrança que a outra criou.
+- **Item devolvido/cancelado**: `pago`, `combinado` e `entregue` recusados no
+  servidor; o quadro de entregas não aceita devolvido.
+
+### Mesa, telas e conexão
+- **A mesa não reabre item vendido** (criava um segundo arremate) nem abre
+  item de leilão fora do ar; o lance também recusa leilão fora do ar.
+- **Leilão da tela**: `_leilao_da_tela` — as ações da equipe, os dados da mesa,
+  a reordenação e o quadro de entregas usam o leilão que a tela manda
+  (`data-leilao`). "Refazer por bairro" apagava o quadro de outro leilão.
+- **`fonte_viva.js`**: o `EventSource` desiste de vez ao pegar 502/503 na
+  reconexão (todo reinício do serviço) e a tela congelava sem aviso — no
+  público, na mesa e no caixa. Reabre com espera crescente e sorteada.
+- **Lance atrasado**: a resposta do POST não sobrescreve um lance mais novo
+  que já chegou pelo stream (`respostaAindaVale`).
+- **Item reaberto com o mesmo id** (devolvido): zera o estado por item — não
+  acusa mais "te superaram" à toa — e fecha a gaveta que cobriria o botão.
+- ▶ da fila passa pela confirmação de disputa; Abrir/VENDIDO travam durante o
+  POST (toque duplo abria dois itens).
+- QR do Pix se atualiza quando o Pix é refeito (a comparação nunca batia); a
+  conferência do pagamento não se multiplica ao abrir e fechar o QR;
+  "Liberar pagamentos" atualiza a conta aberta e avisa quem tem o que pagar.
+- Devolver item de leilão encerrado publicava "sem leilão" para a sala.
+- Chat: a mensagem da própria pessoa é reconhecida no segundo aparelho
+  (`autor_chave`); sem "não lidas" falsas na tela larga; ticker legível por
+  leitor de tela.
+
+### Menores
+- Peso: `12.500` é ponto de milhar; vírgula/ponto decimal recusado com
+  explicação (antes virava 10 g calado).
+- Foto só reprocessada quando muda; limpar tira a miniatura; editar item grava
+  só os campos do formulário (não regrava valor/líder de item em pregão).
+- Freio de login usa o ÚLTIMO IP do `X-Forwarded-For` (o primeiro é do
+  cliente e zerava o freio a cada troca).
+- Quadro de entregas: nº de entregadores só por POST; respostas fora de ordem
+  ignoradas; "Voltar ao caixa" volta ao caixa do mesmo leilão.
+
+### Documentação
+- `MANUAL_LEILAO.md`: incremento por item (não existe), chat "entre itens",
+  prazo no "vai pagar depois", caixa por item (é por pessoa) e o "↩️ Voltar ao
+  leilão", o som da sala, a porta "Entrar com som", a mesa em duas linhas com
+  "Online agora", peso em gramas, a tela show e a **reserva `/classico/`**.
+- `DEPLOY_LEILAO.md`: `/leilao/locutor/config/` não existe (é
+  `/preparacao/config/`), "cronômetros", conferência da tela de reserva.
+- `REGRAS_CODEX.md`: trechos de cronômetro; seção nova com o que a revisão
+  fixou. `ESTADO_ATUAL.md`: listas de telas, estáticos e rotas, modelos.
+
+### Achados que ficaram de fora
+- Os toasts do `base.css` (compartilhado com o sistema do clube) cobrem o topo
+  do celular por alguns segundos — mexer ali afeta o clube inteiro.
+- Os eventos `pagamento`/`arremate_pix` levam o id do participante no
+  broadcast (dá para deduzir quem já pagou). Sem Pix, telefone ou endereço.
+
+### Arquivos
+`leilao/{models,servicos,views,estado,forms,tests}.py`,
+`leilao/migrations/0014_pix_guarda_o_que_cobre.py`, `static/leilao/js/{fonte_viva
+(novo),leilao,palco_show,locutor,caixa,lotes,entregas_quadro}.js`,
+`templates/leilao/{leilao,leilao_show,locutor,caixa,lotes,entregas_quadro}.html`,
+`CLAUDE.md`, `docs/{MANUAL_LEILAO,DEPLOY_LEILAO,REGRAS_CODEX,ESTADO_ATUAL}.md`.
+
+### Verificação
+Leilão 502 testes OK (+37: `DinheiroDaRevisaoTests` 16, `RevisaoTelasEEquipeTests`
+21; testes do quadro passaram a abrir por POST), core 456 OK,
+`makemigrations --check` limpo, `node --check` em todos os JS. Sonda headless:
+tela show (superado, vendido) e clássica sem erro de JS e sem estouro.
+
 ## 2026-09-24 - Leilão: a tela "show" vira a padrão, a clássica fica de backup
 
 ### Resumo

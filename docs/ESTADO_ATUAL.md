@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: a tela "show" vira a padrão**): aprovada pelo clube
+**Última atualização:** 2026-09-24 (**Leilão: correções da revisão geral**): quatro revisões em
+paralelo (servidor, telas do público, telas da equipe, documentação) acharam 28 problemas reais,
+todos corrigidos. **Dinheiro**: a cobrança passou a gravar **quais itens cobre** (`cobre`, mig.
+**`leilao/0014`**) — o Pix não é mais reaproveitado com valor antigo depois de uma baixa na mão, um Pix
+antigo só quita o que cobria, pagamento não ressuscita item devolvido, estorno devolve a dívida, a
+conta é de um leilão só, **depois de encerrado paga-se sempre** e o 📋 Pix do caixa **gera** a
+cobrança. **A mesa não reabre item vendido** nem abre item de leilão fora do ar. **Tela congelada**:
+a nova `fonte_viva.js` reabre a conexão ao vivo quando o navegador desiste (502 no reinício) —
+público, mesa e caixa. **Leilão da tela**: toda ação da equipe manda o leilão (antes adivinhava o
+"no ar" — VENDIDO, liberar, fila e quadro de entregas podiam cair no leilão errado). Mais: resposta
+atrasada do lance não sobrescreve lance mais novo, item devolvido não acusa "te superaram" à toa, ▶
+da fila confirma disputa e Abrir/VENDIDO travam contra toque duplo, QR se atualiza quando o Pix é
+refeito, "liberar" atualiza a conta aberta, peso com ponto de milhar, foto e miniatura, IP do freio
+de login, quadro de entregas por POST e com o leilão certo, chat no segundo aparelho. **Manual da
+equipe** e guia de deploy reescritos onde estavam velhos. Suíte do leilão: **502 testes OK** (+37);
+core 456 OK.
+
+**Atualização anterior:** 2026-09-24 (**Leilão: a tela "show" vira a padrão**): aprovada pelo clube
 depois do teste. **`/leilao/` abre a show para todo mundo**; a clássica ficou de **backup em
 `/leilao/classico/`** (quem entra por ela sem cadastro volta para ela depois da porta); o link de
 teste `/leilao/nova/` redireciona para `/leilao/`. O clube decidiu **não** mexer agora nas três
@@ -2628,7 +2645,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # 384 testes
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao   # suíte própria (502 em 24/09)
 ```
 
 Locutor de desenvolvimento: **`locutor` / `1234`** (trocar em produção). O `leilao_demo` cria 6 itens
@@ -2645,7 +2662,7 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   `core/mercadopago.py` — biblioteca pura — precisa.
 - `Leilao` — a noite de leilão: `status` (rascunho/**ao_vivo**/encerrado; **só um ao vivo**),
   `pagamentos_liberados` (a alavanca do locutor que abre o pagamento no fim), `boas_vindas_titulo`/
-  `boas_vindas_texto` e `ultimo_numero_item`.
+  `boas_vindas_texto`, `ultimo_numero_item` e `som_lance`/`som_arremate` (o som da sala, mig. 0013).
   **Colunas dormentes, que nada lê** (ficaram de recursos removidos a pedido do clube — não religue
   por conta própria): `incremento_padrao` e `Lote.incremento` (o incremento é fixo em R$ 5),
   `segundos_por_lote`, `segundos_extra`, `reiniciar_cronometro` e `fechamento_automatico` (não há
@@ -2699,7 +2716,7 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
 **Papéis da equipe** (`leilao/papeis.py`, grupos nativos do Django no banco do leilão) — três funções
 diferentes numa noite de leilão, e raramente a mesma pessoa:
 - **`preparacao`** 📦 — cadastra itens, monta a fila, cria leilões e configura (Mercado Pago, áudio).
-- **`locutor`** 🎤 — conduz o pregão: abre lote, cronômetro, martelo, chat, microfone.
+- **`locutor`** 🎤 — conduz o pregão: abre lote, martelo, chat, microfone, som da sala e a liberação dos pagamentos.
 - **`caixa`** 💰 — confere pagamento e cuida da **entrega**.
 - **`diretor`** — enxerga as três e distribui os papéis (`is_superuser` também).
 
@@ -2854,19 +2871,24 @@ duas coisas (chegar × esperar o próximo), e o texto é do clube: `boas_vindas_
 ar** — ao salvar, o `estado` é publicado e quem está com a tela aberta vê a mudança sem recarregar. A tela
 mostra também **quantos já estão esperando**, em tempo real (a frase é montada no cliente, com plural certo).
 
-**Os emojis saem da frente do chat:** a coluna de reações e o trilho ficam no canto inferior direito, onde
-mora o **➤** de enviar — no celular um cobria o outro. Com o chat aberto (`body.chat-aberto`, posta pelo
-`desenharChat`) os dois passam para a **esquerda**; o botão de lance não está na tela nesse momento.
+**Os botões de reagir moram no FLUXO da página**, numa faixa própria (não flutuam): elemento que não
+flutua não cobre nada. Só o **trilho** por onde os emojis sobem é fixo, com `pointer-events: none`. A
+troca de lado com o chat aberto (`body.chat-aberto`) não existe mais — a classe continua sendo posta,
+mas não move nada.
 
 **Rotas** — as telas de equipe levam o **id do leilão**: `/locutor/<id>/`, `/caixa/<id>/` e
 `/caixa/<id>/entregas/`, com um **seletor** no topo de cada uma. As versões sem id continuam
 existindo e **redirecionam** (preservando a query string).
 
-Público: `/` (pregão), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`,
-`/meus-arremates/`, `/arremate/<id>/pix|conferir/`, `/webhooks/mercadopago/`.
+Público: `/` (pregão — a tela **show**), `/classico/` (a tela clássica, de **reserva**), `/nova/`
+(redireciona para `/`), `/entrar/`, `/sair/`, `/stream/` (SSE), `/lance/`, `/chat/enviar/`, `/reagir/`,
+`/meus-arremates/`, `/conta/pix|conferir/` (o Pix da pessoa, pelo total; `/arremate/<id>/pix|conferir/`
+sobra de link antigo e ignora o id), `/webhooks/mercadopago/`.
 Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único), `/equipe/senha/`
 (troca obrigatória no 1º acesso); **só diretor**: `/equipe/usuarios/` (+ `/equipe/usuarios/<pk>/`);
-`/locutor/` + `/locutor/dados/`; `/caixa/` + `/caixa/arremate/<id>/pix/`;
+`/locutor/` + `/locutor/dados/` (`?leilao=`); `/caixa/` + `/caixa/pessoa/<id>/pix/` (o Pix da pessoa,
+que o caixa **gera** se preciso) + `/caixa/arremate/<id>/pix/`; `/caixa/<id>/entregas/` (o nº de
+entregadores entra por **POST**) + `/caixa/entregas/redistribuir/`;
 `/preparacao/` (leilões), `/preparacao/config/`, `/preparacao/<id>/status|editar/`,
 `/preparacao/<id>/itens/` (+`novo/`), `/preparacao/itens/<id>/editar|excluir/`.
 
@@ -2877,12 +2899,17 @@ jogava os itens novos **dentro do pregão em andamento**. Migration **0002** tro
 entra na lista **o que já foi pago**. A aba tem o **roteiro de entrega** pronto para copiar (nome,
 WhatsApp e endereço) — documento de quem entrega, não texto para grupo aberto.
 
-**Telas**: `templates/leilao/` — `entrar`, `leilao` (o pregão), `equipe` (hub), `equipe_entrar`,
-`locutor` (mesa), `caixa` (pagamentos + entrega), `preparacao` (leilões), `lotes`, `lote_form`,
-`config`, `leilao_form` (editar), `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`.
-**Estáticos**: `static/leilao/css/{leilao,locutor,entregas}.css` e
-`static/leilao/js/{leilao,locutor,som,confete,reacoes,tela_acesa,audio_ouvir,audio_falar,lotes,
-lote_form,entrar,caixa,usuarios,modal,preparacao,seletor_leilao}.js`. O **`modal.js`** é o
+**Telas**: `templates/leilao/` — `entrar`, `leilao_show` (o pregão, **padrão**), `leilao` (o pregão
+clássico, **reserva** em `/classico/`), `equipe` (hub), `equipe_entrar`, `locutor` (mesa), `caixa`
+(pagamentos + entrega), `entregas_quadro`, `preparacao` (leilões), `lotes`, `lote_form`, `config`,
+`leilao_form` (editar), `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`,
+`_seletor_leilao`, `_parada_entrega`.
+**Estáticos**: `static/leilao/css/{leilao,palco_show,locutor,entregas}.css`,
+`static/leilao/js/{leilao,palco_show,fonte_viva,locutor,som,confete,reacoes,tela_acesa,audio_ouvir,
+audio_falar,lotes,lote_form,entrar,caixa,entregas_quadro,usuarios,modal,preparacao,seletor_leilao}.js`
+e `static/leilao/som/{lance.wav,arremate.mp3}`. O `leilao.js` é o **motor** das duas telas do pregão
+(emite `leilao:*`, que o `palco_show.js` enfeita); o `fonte_viva.js` é a conexão ao vivo que não
+desiste, usada pelo público, pela mesa e pelo caixa. O **`modal.js`** é o
 comportamento das janelas suspensas num lugar só (abrir, travar o corpo, X, Esc e o fundo com
 `mousedown`+`click`) — carregue-o **antes** do script da tela que o usa. Reaproveita `css/base.css`
 (modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.

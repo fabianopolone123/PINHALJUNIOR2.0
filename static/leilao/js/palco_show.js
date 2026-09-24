@@ -503,8 +503,9 @@
             tickerIniciado = true;
             var dadosTela = $("dadosLeilao");
             var eu = dadosTela ? parseInt(dadosTela.dataset.eu, 10) : NaN;
+            var euChave = dadosTela ? dadosTela.dataset.euChave : "";
             est.chat.mensagens.slice(-quantasNoTicker()).forEach(function (m) {
-                var meu = !!(eu && m.autor_id === eu);
+                var meu = !!m.autor_id && ((eu && m.autor_id === eu) || (euChave && m.autor_chave === euChave));
                 empurrarTicker({ autor: meu ? "Você" : m.autor, texto: m.texto, meu: meu, locutor: !m.autor_id });
             });
         }
@@ -546,6 +547,9 @@
         var d = e.detail || {};
         esfriar();
         if (!d.vendido) return;
+        // Quem arrematou ganha a gaveta aberta sozinha pelo motor — e a folha
+        // do chat (z-index maior) a esconderia por baixo.
+        if (d.euGanhei) fecharFolha();
         chuvaDeMoedas(d.euGanhei ? 3200 : 2000, d.euGanhei ? 6 : 3);
         // O valor da festa sobe contando até o final, como placar de prêmio.
         var alvo = $("festaValor");
@@ -578,7 +582,9 @@
     document.addEventListener("leilao:chat", function (e) {
         var m = e.detail || {};
         empurrarTicker(m);
-        if (folha && folha.hidden && !m.meu) {
+        // Na tela larga o ticker JÁ É a conversa inteira à vista: contar "não
+        // lidas" ali seria um alarme falso.
+        if (folha && folha.hidden && !m.meu && !largo()) {
             naoLidas++;
             marcarNaoLidas();
         }

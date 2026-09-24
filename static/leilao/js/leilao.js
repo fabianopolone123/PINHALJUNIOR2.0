@@ -54,6 +54,12 @@
     var somLigado = false;
     var gavetaAberta = false;
     var arremateAberto = null;
+    // Cada abertura do QR ganha um número; a conferência do pagamento só
+    // continua enquanto for a da abertura ATUAL. Sem isto, fechar e abrir o QR
+    // rápido deixava cadeias antigas vivas, e cada uma consultava o Mercado
+    // Pago a cada 5 s.
+    var geracaoQr = 0;
+    var liberadoVisto = null;
     var codigoPix = "";
     var pixPossivel = true;
 
@@ -161,6 +167,19 @@
         desenharChat();
         desenharBarra();
         precarregarProxima();
+
+        // O locutor liberou os pagamentos: quem está com a conta aberta vê o
+        // botão de pagar na hora (antes seguia lendo "o pagamento abre no fim"
+        // até fechar e abrir de novo), e quem tem algo a pagar é avisado.
+        var liberado = !!(estado && estado.leilao && estado.leilao.pagamentos_liberados);
+        if (liberadoVisto === false && liberado) {
+            carregarArremates().then(function (itens) {
+                if ($("btnArremates").classList.contains("pendente")) {
+                    toast("💳 Pagamentos liberados! Toque em “Meus arremates” para pagar.", "success");
+                }
+            });
+        }
+        liberadoVisto = liberado;
         emitir("estado", { estado: estado, euGanhando: !!(lote && souEu(lote.lider)) });
     }
 
@@ -359,6 +378,20 @@
         $("acaoDica").hidden = euGanhando;
     }
 
+    /* A resposta do POST do lance só vale se NÃO for mais velha do que o que
+       já está na tela. O lance volta por dois caminhos — a resposta HTTP e o
+       stream — e, com dois lances quase juntos em 4G, o stream do lance de
+       OUTRA pessoa pode chegar antes da resposta do meu. Aplicar a resposta
+       atrasada redesenhava "VOCÊ ESTÁ GANHANDO" para quem já tinha sido
+       superado, e o martelo ia para o outro. */
+    function respostaAindaVale(novo) {
+        if (!novo) return false;
+        var atual = estado && estado.lote;
+        if (!atual) return true;                  // nada na tela para proteger
+        if (atual.id !== novo.id) return false;   // já é outro item em pregão
+        return parseFloat(novo.valor_atual || 0) >= parseFloat(atual.valor_atual || 0);
+    }
+
     /* "Esta pessoa sou eu?" — id ou chave (dois aparelhos = dois registros). */
     function souEu(pessoa) {
         if (!pessoa) return false;
@@ -409,13 +442,19 @@
         lista.scrollTop = lista.scrollHeight;
     }
 
+    /* A mensagem é minha? Pelo id OU pela chave — dois aparelhos da mesma
+       pessoa são dois registros (a mesma regra do "o líder sou eu"). */
+    function mensagemMinha(m) {
+        return !!m.autor_id && souEu({ id: m.autor_id, chave: m.autor_chave });
+    }
+
     function linhaChat(m) {
         var li = document.createElement("li");
         if (!m.autor_id) li.className = "locutor";
-        else if (EU && m.autor_id === EU) li.className = "meu";
+        else if (mensagemMinha(m)) li.className = "meu";
         var b = document.createElement("span");
         b.className = "autor";
-        b.textContent = (EU && m.autor_id === EU ? "Você" : m.autor) + ": ";
+        b.textContent = (mensagemMinha(m) ? "Você" : m.autor) + ": ";
         li.appendChild(b);
         li.appendChild(document.createTextNode(m.texto));
         return li;
@@ -628,11 +667,13 @@
             $("qrPrazo").textContent = "";
             $("modalQr").hidden = false;
             document.body.classList.add("modal-aberto");
-            conferirPagamento();
+            geracaoQr++;
+            conferirPagamento(geracaoQr);
         }).catch(function () { toast("Não consegui abrir o QR agora.", "error"); });
     }
 
     function fecharQr() {
+        geracaoQr++;
         $("modalQr").hidden = true;
         document.body.classList.remove("modal-aberto");
         arremateAberto = false;
@@ -641,7 +682,8 @@
     /* Reforço do webhook: enquanto o QR estiver aberto, pergunta ao servidor se
        o Pix caiu. O webhook do Mercado Pago atrasa, e quem acabou de pagar está
        olhando a tela esperando o selo mudar. */
-    function conferirPagamento() {
+    function conferirPagamento(geracao) {
+        if (geracao !== geracaoQr) return;
         if (!arremateAberto) return;
         fetch(URLS.conferir, { headers: { "X-Requested-With": "XMLHttpRequest" } })
             .then(function (r) { return r.json(); })
@@ -656,10 +698,10 @@
                 // desde que o pagamento virou UM Pix pelo total: o
                 // ReferenceError matava a volta e o reforço parava na
                 // primeira conferência. Corrigido em 24/09.
-                if (arremateAberto) setTimeout(conferirPagamento, 5000);
+                if (arremateAberto) setTimeout(function () { conferirPagamento(geracao); }, 5000);
             })
             .catch(function () {
-                if (arremateAberto) setTimeout(conferirPagamento, 8000);
+                if (arremateAberto) setTimeout(function () { conferirPagamento(geracao); }, 8000);
             });
     }
 
@@ -668,7 +710,17 @@
        --------------------------------------------------------------- */
     function conectar() {
         if (fonte) fonte.close();
-        fonte = new EventSource(URLS.stream);
+        // A `FonteViva` traz a conexão de volta quando o EventSource DESISTE
+        // (502 no reinício do serviço, 503 de lotado) — sem ela a tela
+        // congelava sem aviso. Ver `fonte_viva.js`.
+        fonte = window.FonteViva
+            ? window.FonteViva.abrir(URLS.stream, {
+                aoCair: function () {
+                    var selo = $("seloVivo");
+                    if (selo) selo.classList.add("parado");
+                }
+            })
+            : new EventSource(URLS.stream);
 
         fonte.addEventListener("estado", function (e) {
             render(JSON.parse(e.data));
@@ -701,6 +753,14 @@
         });
 
         fonte.addEventListener("lote_aberto", function (e) {
+            // Item aberto é SEMPRE rodada nova, mesmo com o mesmo id (item
+            // devolvido ao leilão volta com o id de antes). Sem zerar aqui, quem
+            // liderou a rodada anterior via "TE SUPERARAM" no primeiro lance de
+            // outra pessoa — e nome/foto editados na fila não eram redesenhados.
+            loteId = null;
+            // A gaveta aberta sozinha no arremate anterior não pode cobrir o
+            // botão de lance do item que acabou de abrir.
+            if (gavetaAberta) fecharGaveta();
             render(JSON.parse(e.data));
             toast("Novo item! 🔔", "info");
             if (window.SomLeilao && somLiberado("lance")) window.SomLeilao.lance();
@@ -737,8 +797,8 @@
             if (estado && estado.chat && estado.chat.aberto) {
                 empurrarChat(m);
                 emitir("chat", {
-                    autor: EU && m.autor_id === EU ? "Você" : m.autor,
-                    texto: m.texto, meu: !!(EU && m.autor_id === EU), locutor: !m.autor_id
+                    autor: mensagemMinha(m) ? "Você" : m.autor,
+                    texto: m.texto, meu: mensagemMinha(m), locutor: !m.autor_id
                 });
             }
         });
@@ -775,8 +835,12 @@
             // O Pix pode ter sido REFEITO (prazo esticado, pagamento combinado).
             // Com o modal aberto, a pessoa ficaria olhando um código que já não
             // é o dela — e copiaria esse.
-            if (arremateAberto && String(arremateAberto) === String(d.arremate)) {
-                abrirQr(d.arremate);
+            // Comparava `String(arremateAberto)` com `d.arremate` — mas o evento
+            // não traz arremate (o Pix é da pessoa) e `arremateAberto` virou
+            // booleano: nunca batia, e quem estava com o QR aberto seguia
+            // copiando o código antigo. O evento já é só desta pessoa.
+            if (arremateAberto) {
+                abrirQr();
             }
         });
 
@@ -795,11 +859,13 @@
             }
         });
 
-        fonte.onerror = function () {
-            // O EventSource reconecta sozinho; só avisamos visualmente.
-            var selo = $("seloVivo");
-            if (selo) selo.classList.add("parado");
-        };
+        // Sem a FonteViva (arquivo não carregou), o aviso visual de sempre.
+        if (!window.FonteViva) {
+            fonte.onerror = function () {
+                var selo = $("seloVivo");
+                if (selo) selo.classList.add("parado");
+            };
+        }
     }
 
     /* ---------------------------------------------------------------
@@ -821,11 +887,15 @@
             if (!d.ok) {
                 toast(d.msg || "Não deu para registrar o lance.", "error");
                 if (window.SomLeilao) window.SomLeilao.erro();
-                if (d.lote) { estado.lote = d.lote; desenharLote(d.lote); }
+                if (d.lote && respostaAindaVale(d.lote)) { estado.lote = d.lote; desenharLote(d.lote); }
+                else if (estado && estado.lote) desenharLote(estado.lote);   // devolve o botão ao estado certo
                 else btn.disabled = false;
                 return;
             }
-            if (d.lote) { estado.lote = d.lote; desenharLote(d.lote); }
+            if (d.lote && respostaAindaVale(d.lote)) { estado.lote = d.lote; desenharLote(d.lote); }
+            else if (estado && estado.lote) desenharLote(estado.lote);
+            // Os efeitos (contador, mini placar) acompanham o redesenho.
+            emitir("estado", { estado: estado, euGanhando: !!(estado && estado.lote && souEu(estado.lote.lider)) });
         }).catch(function () {
             toast("Sem conexão. Tente de novo.", "error");
             btn.disabled = false;
@@ -1015,7 +1085,8 @@
     document.addEventListener("visibilitychange", function () {
         if (!document.hidden) {
             carregarArremates();
-            if (fonte && fonte.readyState === 2) conectar();  // 2 = fechado
+            var caiu = fonte && (fonte.fechada ? fonte.fechada() : fonte.readyState === 2);
+            if (caiu) conectar();
             if (somLigado && window.AudioLeilao && window.AudioLeilao.retomar) {
                 window.AudioLeilao.retomar();
             }

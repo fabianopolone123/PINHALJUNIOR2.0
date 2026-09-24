@@ -101,11 +101,13 @@ Na linha do leilão, clique em **📦 Itens** → **+ Cadastrar item**.
 - **Descrição**: uma linha. É o que cabe embaixo da foto no celular.
 - **Lance inicial**: o primeiro toque no botão paga **exatamente este valor** (não
   soma o incremento).
-- **Incremento próprio**: deixe vazio para usar o do leilão. Preencha só num item
-  caro, em que R$ 5 por vez demoraria a noite toda.
-- **Tamanho e peso** (obrigatórios): peso em quilos e as três medidas em
+- **Todo item sobe de R$ 5 em R$ 5**, inclusive os caros — não há incremento
+  por item.
+- **Tamanho e peso** (obrigatórios): peso em **gramas** e as três medidas em
   centímetros — altura, largura e profundidade. **Medida aproximada serve; em
-  branco, não.** No peso vale vírgula ou ponto (`1,5` ou `1.5`, tanto faz).
+  branco, não.** No peso, só números: `350` para uma caneca, `1500` para 1,5 kg
+  (`1.500` também vale). Número com vírgula, como `1,5`, é recusado com um aviso
+  — quase sempre é alguém pensando em quilo.
 
 Use **"Salvar e cadastrar outro"** para emendar vários de uma vez.
 
@@ -142,8 +144,9 @@ Três coisas que valem saber:
 
 - **O número não é a posição na fila.** A ordem muda toda vez que vocês
   reorganizam a noite; o número **nunca muda**.
-- **Item que volta para a fila** (o arrematante não pagou) volta com **o mesmo
-  número** — a etiqueta continua valendo, não precisa reetiquetar nada.
+- **Item que o caixa devolve ao leilão** (↩️ Voltar ao leilão) volta para a fila
+  com **o mesmo número** — a etiqueta continua valendo, não precisa reetiquetar
+  nada.
 - **Cada leilão começa do nº 1.** Apagar um item não devolve o número dele para
   a fila: se o nº 5 foi apagado, o próximo cadastro é o 6. É de propósito —
   número que já foi colado numa caixa não pode reaparecer em outro objeto.
@@ -190,10 +193,17 @@ Tela: **🎤 Locutor**.
 
 ### O que você vê
 
-- **O item atual** com foto, valor, quem está ganhando e o próximo valor
-- **Cronômetro grande**, legível de longe
+Duas linhas de cards. **Em cima**, o que você acompanha o tempo todo:
+
+- **O item atual** com foto, valor, quem está ganhando e o próximo valor, mais o
+  contador "sem lance há…" (ver abaixo)
 - **Lances deste item**, ao vivo
-- **Fila** dos próximos
+- **💬 Chat ao vivo**, com o campo para você falar com todos
+- **🟢 Online agora**: os nomes de quem está no leilão (numa tela menor, esta
+  lista aparece numa faixa logo abaixo)
+
+**Embaixo**, o que se usa uma vez na noite: **Fila** dos próximos, **🎙️ Sua voz**
+(o microfone) e **💳 Pagamentos** (liberar o pagamento e o som da sala).
 
 ### Os botões
 
@@ -202,9 +212,10 @@ Tela: **🎤 Locutor**.
 | **▶ Abrir próximo** | Começa o próximo item da fila |
 | **🔨 VENDIDO** | Bate o martelo: o item é de quem está na frente |
 
-> **"Abrir próximo" com uma disputa acontecendo joga o item atual de volta para a
-> fila e a disputa se perde.** O sistema avisa e pede confirmação. Para vender,
-> use **VENDIDO**.
+> **"Abrir próximo" (ou o ▶ da fila) com uma disputa acontecendo joga o item
+> atual de volta para a fila e a disputa se perde.** O sistema avisa e pede
+> confirmação. Para vender, use **VENDIDO** — que também pede confirmação antes
+> de bater o martelo. Item já vendido não reabre: o sistema recusa.
 
 > **Não existe "pausar".** Para segurar o pregão — falar com alguém, resolver um
 > problema, dar um respiro —, é só **não abrir o próximo item**. Nada fecha
@@ -224,13 +235,22 @@ Botão **🎤 Transmitir**. O navegador vai pedir permissão do microfone — ac
 A barrinha mostra que está saindo som: **se ela não mexe quando você fala, ninguém
 está te ouvindo**.
 
-Quem está no leilão precisa apertar **🔊** na própria tela para escutar — o
-navegador não deixa tocar som sozinho.
+Quem entra no leilão toca **"Entrar com som"** logo na primeira tela — é o toque
+que o navegador exige para liberar o áudio. Se o som cair no meio (celular
+bloqueado, você parou e voltou a transmitir), a tela dele tenta religar sozinha
+e, se precisar, mostra **"🔊 Voltar a ouvir"**.
+
+### O som da sala
+
+No card **💳 Pagamentos** há dois interruptores: **🔔 Lance** (a caixa
+registradora a cada lance) e **🔔 Arremate** (as palmas do martelo). Eles valem
+**para a tela de todo mundo** ao mesmo tempo. O aviso de **"te superaram"**
+continua tocando mesmo com eles desligados — é o alerta de quem perdeu a ponta.
 
 ### O chat
 
-Abre sozinho entre um item e outro, pelo tempo configurado. Você pode abrir e
-fechar na mão, e mandar **avisos** que aparecem destacados.
+Fica **aberto o leilão inteiro**, ao lado dos lances. Pelo campo **"Falar com
+todos…"** você manda **avisos**, que aparecem destacados na tela de todo mundo.
 
 ### Se alguém abusar
 
@@ -258,28 +278,35 @@ precisa recarregar nada nem ficar apertando F5. Se você estiver digitando algum
 coisa na hora, aparece um botão **🔄 Há novidades — atualizar**: aperte quando
 terminar.
 
-Em cada linha você tem:
+**Cada linha é uma pessoa**, com o total dela — quem deve aparece primeiro.
+Na linha há o **💬 WhatsApp** (abre a conversa sem digitar o número) e **Ver
+itens**, que abre a conta dela:
 
-| Botão | Para quê |
-|---|---|
-| **💬 WhatsApp** | Abre a conversa da pessoa direto, sem você digitar o número |
-| **Marcar pago** | Ela acertou por fora (dinheiro, transferência). Fica com a etiqueta "na mão" |
-| **📋 Pix** | Mostra o código Pix dela e deixa você **mandar no WhatsApp** com a mensagem pronta |
-| **📞 Vai pagar depois** | Você falou com ela e ficou acertado. Fica registrado |
+| Botão | Onde | Para quê |
+|---|---|---|
+| **📋 Pix de R$ …** | na conta da pessoa | O código Pix **pelo total**, com o botão para **mandar no WhatsApp** com a mensagem pronta |
+| **Marcar pago** | em cada item | Ela acertou por fora (dinheiro, transferência). Fica com a etiqueta "na mão" |
+| **📞 Vai pagar depois** | em cada item | Você falou com ela e ficou acertado. Fica registrado |
+| **↩️ Voltar ao leilão** | em cada item | O item volta para a fila (com o mesmo número). Pede o **motivo**, sempre. Se ela **não pagou**, a dívida some; se **já pagou**, conta como **doação** — o dinheiro fica, não há estorno — e ela sai da entrega |
+
+> **O 📋 Pix sai sempre pelo valor certo.** Se você der baixa na mão num item ou
+> devolver um item ao leilão, o próximo Pix dela já vem com o total novo.
 
 > **Não pagou?** Ela **fica devendo** — o item não volta para a fila e não há
 > prazo correndo. Quem cobra é você, pelo 💬 WhatsApp, com o 📋 Pix na mão.
 
 ### "Vai pagar depois": como fica
 
-Depois de apertar **📞 Vai pagar depois**, o item para de correr contra o relógio
-— ela pode pagar em uma hora, em três, amanhã. Aí:
+Depois de apertar **📞 Vai pagar depois**, fica registrado que você falou com a
+pessoa e que ela vai pagar depois — em uma hora, em três, amanhã. Aí:
 
-1. Aperte **📋 Pix** na linha dela.
+1. Abra a conta dela (**Ver itens**) e aperte **📋 Pix**.
 2. Aperte **💬 Mandar no WhatsApp da pessoa** — a mensagem já vai pronta, com o
    código no fim (é assim que ela consegue copiar no celular).
 
-O código de quem combinou pagar depois vale **7 dias**.
+O código de quem combinou pagar depois vale **7 dias**. **Depois que o leilão é
+encerrado o pagamento continua aberto**: o 📋 Pix funciona e a pessoa também
+consegue pagar pela própria tela.
 
 ### Aba A entregar
 
@@ -345,9 +372,17 @@ arrastado e recomeça do ponto de partida. Ele pergunta antes.
 2. Preenche nome, WhatsApp e endereço (**sem senha, sem cadastro**)
 3. Cai direto na tela do leilão
 
-Na tela ele vê a foto grande, **quem está ganhando**, o **valor** e um botão
-enorme que soma R$ 5 por toque. A cada lance a tela pisca, toca um som e vibra o
-celular — dá para saber que entrou lance sem estar olhando.
+Antes de tudo ele toca **"Entrar com som"** (é o que libera a narração ao vivo).
+
+Na tela ele vê a foto grande (sempre inteira, nunca cortada), **quem está
+ganhando**, o **valor** — com os números rolando a cada lance — e um botão
+enorme que soma R$ 5 por toque. A cada lance a tela pisca, pulam moedas, toca
+um som (se o locutor não tiver deixado mudo) e o celular vibra — dá para saber
+que entrou lance sem estar olhando. Quem lidera ganha uma **coroa 👑**; quando a
+disputa esquenta, um **termômetro 🔥** acende no alto.
+
+Embaixo ficam o **bate-papo** (as duas últimas mensagens; tocar abre a conversa
+inteira) e os **emojis** para reagir, sempre à vista.
 
 Dois estados impossíveis de confundir:
 
@@ -360,6 +395,10 @@ pessoa pelo WhatsApp.
 
 No rodapé, **🏆 Meus arremates** mostra o que ele já levou e o que falta pagar.
 
+> **Tela de reserva:** se a tela do leilão der qualquer problema no evento, mande
+> o link **https://pinhaljunior.com.br/leilao/classico/** — é a tela anterior,
+> mais simples, e funciona com os mesmos lances, chat e Pix.
+
 ---
 
 ## 6. Perguntas que vão aparecer
@@ -369,7 +408,8 @@ Pode. Crie o leilão novo e cadastre os itens entrando por ele. O que está no a
 não é afetado.
 
 **"E se cair a internet do participante?"**
-A tela reconecta sozinha e volta com tudo atualizado. Ele não perde nada.
+A tela reconecta sozinha — continua tentando, com calma, até conseguir — e volta
+com tudo atualizado. Ele não perde nada.
 
 **"E se eu precisar reiniciar o sistema no meio?"**
 Nada se perde: lances, líder e valores estão no banco, e as telas reconectam
@@ -390,7 +430,7 @@ fim — de propósito: ninguém deve sair do pregão para mexer em banco.
 Na **mesma conta** do Mercado Pago que o clube já usa para mensalidades, loja e eventos.
 
 **"Dá para ensaiar sem cobrar de verdade?"**
-Dá: em Preparação → Configuração, mude o modo para **Teste**. Aí o Pix é de sandbox e não move
+Dá: em Preparação → **⚙️ Mercado Pago e áudio**, mude o modo para **Teste**. Aí o Pix é de sandbox e não move
 dinheiro. **Volte para Produção antes do evento** — em modo Teste, ninguém consegue pagar de verdade.
 
 **"Quantas pessoas aguenta?"**

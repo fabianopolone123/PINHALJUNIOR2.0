@@ -34,6 +34,9 @@
     }
 
     function acao(corpo) {
+        // O leilão DESTA tela vai junto: sem ele o servidor adivinhava ("o que
+        // está no ar") e o botão agia no leilão errado.
+        if (dados.dataset.leilao && corpo.leilao === undefined) corpo.leilao = dados.dataset.leilao;
         return fetch(URL_ACAO, {
             method: "POST",
             headers: {
@@ -46,8 +49,18 @@
     }
 
     /* ---- o que o servidor devolve depois de cada mudança ---- */
-    function aplicarResumo(d) {
+    /* Só a resposta do pedido MAIS RECENTE redesenha o resumo. Duas arrastadas
+       rápidas mandam dois pedidos; se a resposta do primeiro chegasse depois,
+       ela gravava o roteiro VELHO no texto que a equipe copia para o
+       WhatsApp do entregador. */
+    var pedidoSeq = 0;
+    var ultimoAplicado = 0;
+    function aplicarResumo(d, seq) {
         if (!d) return;
+        if (seq !== undefined) {
+            if (seq < ultimoAplicado) return;
+            ultimoAplicado = seq;
+        }
         var fila = quadro.querySelector('.coluna[data-entregador="0"] [data-contagem]');
         if (fila && typeof d.a_distribuir === "number") {
             fila.textContent = d.a_distribuir + " parada(s)";
@@ -125,13 +138,14 @@
         // Move na tela primeiro: quem arrasta precisa ver o cartão chegar.
         zona.appendChild(cartao);
 
+        var seq = ++pedidoSeq;
         acao({
             acao: "entrega_mover",
             participante: cartao.dataset.participante,
             entregador: numero
         }).then(function (d) {
             if (!d || !d.ok) throw new Error((d && d.msg) || "");
-            aplicarResumo(d);
+            aplicarResumo(d, seq);
         }).catch(function (erro) {
             // O banco é quem manda: desfaz na tela para não mandar ao voluntário
             // uma rota que ninguém guardou.
@@ -160,13 +174,14 @@
     });
 
     function salvarNome(campo) {
+        var seq = ++pedidoSeq;
         acao({
             acao: "entrega_nome",
             entregador: campo.dataset.nome,
             nome: campo.value
         }).then(function (d) {
             if (!d || !d.ok) throw new Error((d && d.msg) || "");
-            aplicarResumo(d);
+            aplicarResumo(d, seq);
         }).catch(function () {
             toast("Não consegui salvar o nome.", "error");
         });
