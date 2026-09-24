@@ -17,7 +17,8 @@ duas ligações ao mesmo tempo terminam com uma só viva. **Caixa**: a conta da 
 (`leilao_carga --cadastrar ... --confirmo-leilao-de-teste`, que agora passa pela porta): 290 conexões +
 60 lances + rajada de emoji sem queda, lance p95 46 ms, 116 reações/s; 30 lances simultâneos por
 rodada sem valor repetido e com valor/líder consistentes. Suíte do leilão: **545 testes OK** (+19);
-core 456 OK. **Sem migration.**
+core 456 OK. **Sem migration.** **Em produção** no commit `d01f0a0` (24/09/2026, 16:50); a voz foi testada
+na produção pela internet (entrar 0,7 s, mudo sem queda, parar e voltar com aviso 0,9 s).
 
 **Atualização anterior:** 2026-09-24 (**Leilão: correções da segunda conferência geral**): mais uma
 rodada (as correções do dia revisadas, as áreas menos cobertas e o servidor). **Graves**: o código

@@ -84,6 +84,14 @@ Leilão 545 testes OK (+19: `VozMudoEFichaTests` 14, `VozCorridasTests` 5),
 core 456 OK, `node --check` em todos os JS, `makemigrations --check` limpo;
 capturas da mesa (Mudo) e da ficha no caixa conferidas.
 
+### Deploy
+Em produção no commit `d01f0a0` (24/09/2026, 16:50), com `pinhaljunior2-deploy`
+e o §7.1 (nenhuma conexão aberta; backup `backup/leilao_antes_voz_mudo_*`).
+Conferido o JS novo no manifesto. **Voz testada na PRODUÇÃO pela internet**
+(locutor e ouvinte em Chrome fora do VPS, senha de publicação só em memória):
+entrar 0,7 s; mudo com a conexão de pé e volta imediata; parar 15 s e voltar
+com o aviso em 0,9 s.
+
 ## 2026-09-24 - Leilão: correções da segunda conferência geral
 
 ### Resumo

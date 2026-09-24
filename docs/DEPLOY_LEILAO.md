@@ -406,7 +406,7 @@ cadastros ficam no banco, com nome "Carga Fictícia NNN".
 ```bash
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_carga \
     --url https://pinhaljunior.com.br/leilao --cadastrar 60 --ouvintes 290 \
-    --lances 60 --intervalo 0.2 --lote <id do item em pregão> --reacoes 15
+    --lances 60 --intervalo 0.2 --lote <id do item em pregão> --reacoes 15 \n    --confirmo-leilao-de-teste
 ```
 
 | Cenário (uvicorn 1 worker, local) | Resultado |
@@ -418,6 +418,7 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_carga \
 | Voz: mudo 6 s | silêncio, conexão de pé, volta imediata |
 | Voz: parar 20 s e voltar, sem / com o aviso `voz` | 4,9 s / 0,7 s |
 | Voz: servidor de áudio cai e volta | locutor percebe a queda, religa; ouvinte volta em 0,7 s |
+| **Voz na PRODUÇÃO**, pela internet (locutor e ouvinte simulados fora do VPS) | entrar 0,7 s; mudo sem queda; parar 15 s e voltar com aviso 0,9 s |
 
 Medir de fora (outra máquina, pela internet) continua sendo a prova de verdade para o dia.
 
