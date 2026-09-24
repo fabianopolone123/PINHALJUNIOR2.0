@@ -466,6 +466,45 @@ class Participante(models.Model):
         partes = [rua, self.complemento, self.bairro, self.cidade, self.estado, self.cep]
         return " · ".join(p for p in partes if p)
 
+    @property
+    def cidade_uf(self):
+        return " / ".join(p for p in [self.cidade, self.estado] if p)
+
+    @property
+    def mapa_link(self):
+        """Busca do endereço num mapa — só um LINK, aberto por quem clica.
+
+        O sistema continua sem consultar mapa nenhum (regra da entrega): é o
+        voluntário que abre, no celular dele, para achar a casa.
+        """
+        if not (self.logradouro and self.cidade):
+            return ""
+        from urllib.parse import quote
+
+        consulta = ", ".join(p for p in [
+            " ".join(p for p in [self.logradouro, self.numero] if p),
+            self.bairro, self.cidade_uf, self.cep,
+        ] if p)
+        return "https://www.google.com/maps/search/?api=1&query=" + quote(consulta)
+
+    @property
+    def ficha_texto(self):
+        """Os dados da pessoa em texto, prontos para colar no WhatsApp de quem
+        vai entregar. Documento de trabalho: leva telefone e endereço."""
+        linhas = [self.nome]
+        if self.whatsapp:
+            linhas.append(f"WhatsApp: {self.whatsapp}")
+        rua = " ".join(p for p in [self.logradouro, self.numero] if p)
+        if rua:
+            linhas.append(rua + (f" — {self.complemento}" if self.complemento else ""))
+        if self.bairro:
+            linhas.append(f"Bairro: {self.bairro}")
+        if self.cidade_uf:
+            linhas.append(self.cidade_uf)
+        if self.cep:
+            linhas.append(f"CEP: {self.cep}")
+        return "\n".join(linhas)
+
 
 # ---------------------------------------------------------------------------
 # O item leiloado

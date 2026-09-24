@@ -44,6 +44,16 @@ window.AudioLeilao = (function () {
        Religar a conexão mil vezes não adianta; o que adianta é pedir um toque. */
     let aoMudar = null;
     let ouvindo = false;
+    // A espera da próxima tentativa, guardada para poder ser CANCELADA: sem
+    // isto, uma reconexão pedida na hora (a voz voltou, a aba voltou) era
+    // seguida pela tentativa que já estava agendada, e a conexão recém-aberta
+    // era derrubada para abrir outra igual.
+    let relogioReligar = null;
+    // Cada `conectar` ganha um número. A tentativa substituída por outra (a
+    // voz voltou, a aba voltou) tem as operações pendentes rejeitadas quando a
+    // conexão dela é fechada — e o `catch` dela agendava uma religação que,
+    // 1–2 s depois, derrubava a conexão nova que já estava tocando.
+    let geracaoConexao = 0;
 
     function avisar(estado) {
         if (ouvindo === estado) return;   // só na virada, nunca repetido
@@ -81,6 +91,9 @@ window.AudioLeilao = (function () {
 
     async function conectar() {
         if (!url || !elemento) return false;
+        const minha = ++geracaoConexao;
+        clearTimeout(relogioReligar);
+        relogioReligar = null;
         desligarConexao();
         parado = false;
 
@@ -188,6 +201,7 @@ window.AudioLeilao = (function () {
             log("ligado");
             return true;
         } catch (e) {
+            if (minha !== geracaoConexao) return false;   // substituída: não é falha dela
             log("falhou: " + e.message, true);
             religar();
             return false;
@@ -272,7 +286,11 @@ window.AudioLeilao = (function () {
            Sorteando ±40%, o bando se espalha sozinho: a primeira volta já
            desalinha os relógios e eles não voltam a se juntar. */
         const espera = Math.round(base * (0.6 + Math.random() * 0.8));
-        setTimeout(function () { if (!parado) conectar(); }, espera);
+        clearTimeout(relogioReligar);
+        relogioReligar = setTimeout(function () {
+            relogioReligar = null;
+            if (!parado) conectar();
+        }, espera);
     }
 
     function desligarConexao() {
@@ -367,6 +385,49 @@ window.AudioLeilao = (function () {
         ativo: function () { return !!pc && !parado; },
         // Exposto para a tela poder forçar (o `leilao.js` chama junto da
         // reconexão do SSE, que é o mesmo momento).
-        retomar: retomar
+        retomar: retomar,
+
+        /* O servidor avisou que o locutor VOLTOU a transmitir.
+
+           Sem isto, quem estava esperando só voltava a ouvir na próxima
+           tentativa agendada — até ~20 s depois de o locutor já estar falando.
+           Aqui a espera é pulada: zera o contador e reconecta já (o
+           `leilao.js` espalha os celulares em alguns segundos, para 100
+           negociações não caírem no mesmo instante). Quem já está ouvindo de
+           verdade não é derrubado. */
+        vozVoltou: function () {
+            if (parado) return;
+            tentativas = 0;
+            const viva = pc;
+            if (!(ouvindo && viva && viva.connectionState === "connected")) {
+                log("o locutor voltou — reconectando já");
+                conectar();
+                return;
+            }
+            // "connected" não quer dizer "com som": quando o locutor volta
+            // RÁPIDO, a sessão antiga ainda parece de pé por alguns segundos
+            // (até os vigias perceberem). Confere se os bytes estão crescendo;
+            // parados, a conexão é da transmissão que já acabou.
+            function bytesDe(c) {
+                return c.getStats(null).then(function (rel) {
+                    let b = -1;
+                    rel.forEach(function (r) {
+                        if (r.type === "inbound-rtp" && r.kind === "audio") b = r.bytesReceived || 0;
+                    });
+                    return b;
+                });
+            }
+            bytesDe(viva).then(function (antes) {
+                setTimeout(function () {
+                    if (pc !== viva || parado) return;
+                    bytesDe(viva).then(function (depois) {
+                        if (pc !== viva || parado) return;
+                        if (depois > antes) { tocar(); return; }
+                        log("o locutor voltou e a conexão antiga está muda — reconectando");
+                        conectar();
+                    }).catch(function () { if (pc === viva) conectar(); });
+                }, 1200);
+            }).catch(function () { if (pc === viva) conectar(); });
+        }
     };
 })();

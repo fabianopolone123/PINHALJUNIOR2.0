@@ -2,7 +2,24 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: correções da segunda conferência geral**): mais uma
+**Última atualização:** 2026-09-24 (**Leilão: voz com mudo, "a voz voltou", ficha da pessoa no caixa
+e provas de carga**): pedidos do clube. **Voz**: botão **🔇 Mudo** na mesa (desliga a faixa, a
+transmissão continua de pé, o som volta na hora); ao voltar a transmitir, o servidor avisa as telas
+(ação/evento **`voz`**) e os ouvintes reconectam já (`AudioLeilao.vozVoltou`, espalhados em até 4 s,
+conferindo os bytes antes de confiar numa conexão "connected"); a transmissão do **locutor** ganhou
+vigia de queda e **religa sozinha**; corridas de duas ligações simultâneas resolvidas por geração
+(`audio_falar.js`, `audio_ouvir.js`). Provado num **laboratório** com o MediaMTX v1.21.0 (a versão da
+produção) e dois Chrome: entrar 0,7 s; mudo sem queda e volta imediata; parar e voltar 6,2 s sem aviso
+× **0,7 s com aviso**; parar/voltar em < 1 s volta em 2 s; queda do servidor percebida e religada;
+duas ligações ao mesmo tempo terminam com uma só viva. **Caixa**: a conta da pessoa abre com os
+**dados completos** (nome, WhatsApp, endereço inteiro, bairro, cidade/UF, CEP, entrada, bloqueio),
+**📋 Copiar dados** e **🗺️ Abrir no mapa** (`Participante.ficha_texto`/`mapa_link`). **Carga**
+(`leilao_carga --cadastrar ... --confirmo-leilao-de-teste`, que agora passa pela porta): 290 conexões +
+60 lances + rajada de emoji sem queda, lance p95 46 ms, 116 reações/s; 30 lances simultâneos por
+rodada sem valor repetido e com valor/líder consistentes. Suíte do leilão: **545 testes OK** (+19);
+core 456 OK. **Sem migration.**
+
+**Atualização anterior:** 2026-09-24 (**Leilão: correções da segunda conferência geral**): mais uma
 rodada (as correções do dia revisadas, as áreas menos cobertas e o servidor). **Graves**: o código
 da pessoa no broadcast (`chave_pessoa`) virou **HMAC com a `SECRET_KEY`** — o hash puro do telefone
 se revertia em menos de um minuto e entregava o WhatsApp de quem dava lance ou escrevia no chat; a

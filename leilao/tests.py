@@ -8,6 +8,7 @@ armadilhas de template que este projeto já pagou caro.
 """
 
 import itertools
+import os
 import json
 import re
 import threading
@@ -6587,3 +6588,203 @@ class SegundaRevisaoTests(TestCase):
         gaveta = gaveta[: gaveta.index("\n    }\n")]
         self.assertIn('$("modalQr").hidden', gaveta)
 
+
+
+class VozMudoEFichaTests(TestCase):
+    """Voz ao vivo (mudo, queda do locutor, "a voz voltou") e a ficha completa
+    da pessoa no caixa — pedidos do clube em 24/09.
+
+    O comportamento do áudio em si foi medido num laboratório com o MediaMTX
+    da mesma versão da produção e dois Chrome (locutor com microfone simulado
+    e ouvinte): mudo sem queda de conexão e volta imediata; parar e voltar em
+    0,7 s com o aviso (4,9 s sem ele); queda do servidor percebida pelo locutor
+    e religada. Aqui ficam as guardas de estrutura.
+    """
+
+    JS = Path(settings.BASE_DIR, "static", "leilao", "js")
+
+    def _js(self, nome):
+        txt = (self.JS / nome).read_text(encoding="utf-8")
+        txt = re.sub(r"/\*.*?\*/", " ", txt, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", txt)
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+
+    def _locutor(self):
+        User = get_user_model()
+        u = User.objects.create_user("loc_voz", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        c = Client()
+        c.login(username="loc_voz", password="segredo-ficticio")
+        return c
+
+    # --- Servidor ---------------------------------------------------------
+    def test_a_voz_voltou_e_avisada_a_sala(self):
+        from unittest import mock
+
+        with mock.patch.object(views.HUB, "publicar") as publicar:
+            r = self._locutor().post("/equipe/acao/", json.dumps({"acao": "voz", "no_ar": True,
+                                                                   "leilao": self.leilao.pk}),
+                                     content_type="application/json")
+        self.assertTrue(r.json()["ok"])
+        publicar.assert_called_once_with("voz", {"no_ar": True})
+        self.assertNotIn("msg", r.json(), "o aviso da voz não pode virar toast na mesa")
+
+    def test_voz_de_leilao_fora_do_ar_nao_avisa_ninguem(self):
+        from unittest import mock
+
+        rascunho = criar_leilao(nome="Leilão fictício 2", status="rascunho")
+        with mock.patch.object(views.HUB, "publicar") as publicar:
+            self._locutor().post("/equipe/acao/", json.dumps({"acao": "voz", "no_ar": True,
+                                                               "leilao": rascunho.pk}),
+                                 content_type="application/json")
+        publicar.assert_not_called()
+
+    def test_so_o_locutor_avisa_a_voz(self):
+        self.assertEqual(views.ACOES_AREAS["voz"], ("locutor",))
+
+    # --- Transmissor (locutor) --------------------------------------------
+    def test_o_mudo_desliga_a_faixa_sem_derrubar_a_transmissao(self):
+        js = self._js("audio_falar.js")
+        self.assertIn("t.enabled = !mudoAgora", js)
+        mudo = js[js.index("mudo: function"):]
+        mudo = mudo[: mudo.index("},")]
+        self.assertNotIn("parar(", mudo, "mudo não pode parar a transmissão")
+        self.assertNotIn("close(", mudo)
+
+    def test_a_queda_do_locutor_e_percebida(self):
+        js = self._js("audio_falar.js")
+        self.assertIn('s === "failed"', js)
+        self.assertIn('s === "disconnected"', js)
+        self.assertIn("pc !== conexao || !rodando", js, "o close() do parar não é queda")
+
+    def test_a_mesa_religa_sozinha_e_respeita_o_parar(self):
+        js = self._js("locutor.js")
+        self.assertIn("window.AudioFalar.aoCair(", js)
+        self.assertIn("function religarVoz", js)
+        self.assertIn("if (ok && !querNoAr)", js, "Parar durante a religação ligaria a voz de novo")
+        self.assertIn('acao({ acao: "voz", no_ar: true })', js)
+
+    def test_a_mesa_tem_o_botao_de_mudo(self):
+        html = Path(settings.BASE_DIR, "templates", "leilao", "locutor.html").read_text(encoding="utf-8")
+        self.assertIn('id="btnMudo"', html)
+        self.assertIn(".btn-mesa.mudo[hidden]",
+                      Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(encoding="utf-8"))
+
+    # --- Ouvinte ----------------------------------------------------------
+    def test_o_ouvinte_reconecta_ja_quando_a_voz_volta(self):
+        js = self._js("audio_ouvir.js")
+        volta = js[js.index("vozVoltou: function"):]
+        volta = volta[: volta.index("\n        }")]
+        self.assertIn("if (parado) return;", volta, "quem desligou o som não é religado")
+        self.assertIn("tentativas = 0", volta)
+        self.assertIn("conectar()", volta)
+
+    def test_a_tentativa_agendada_e_cancelada_ao_reconectar(self):
+        js = self._js("audio_ouvir.js")
+        conectar = js[js.index("async function conectar"):]
+        conectar = conectar[: conectar.index("desligarConexao();")]
+        self.assertIn("clearTimeout(relogioReligar)", conectar, "duas conexões seguidas")
+
+    def test_os_celulares_se_espalham_ao_voltar(self):
+        js = self._js("leilao.js")
+        trecho = js[js.index('addEventListener("voz"'):]
+        trecho = trecho[: trecho.index("});")]
+        self.assertIn("Math.random() * 4000", trecho)
+        self.assertIn("!somLigado", trecho)
+
+    # --- Ficha da pessoa no caixa -----------------------------------------
+    def test_o_caixa_mostra_todos_os_dados_da_pessoa(self):
+        pessoa = criar_pessoa("Ana Fictícia Souza", complemento="Casa 2 (fictícia)")
+        lote = criar_lote(self.leilao)
+        servicos.abrir_lote(lote)
+        lote.refresh_from_db()
+        servicos.dar_lance(lote.id, pessoa)
+        lote.refresh_from_db()
+        servicos.fechar_lote(lote, motivo="locutor")
+        User = get_user_model()
+        u = User.objects.create_user("caixa_ficha", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="caixa")[0])
+        c = Client()
+        c.login(username="caixa_ficha", password="segredo-ficticio")
+        html = c.get("/caixa/%d/" % self.leilao.pk).content.decode()
+        ficha = html[html.index('id="conta-detalhe-%d"' % pessoa.pk):]
+        ficha = ficha[: ficha.index("conta-resumo")]
+        for dado in ("Ana Fictícia Souza", pessoa.whatsapp, "Rua Fictícia", "Casa 2 (fictícia)",
+                     "Centro", "Cidade Exemplo / SP", "00000-000", "Copiar dados", "Abrir no mapa"):
+            self.assertIn(dado, ficha, dado)
+
+    def test_a_ficha_de_texto_leva_endereco_e_escapa_html(self):
+        pessoa = criar_pessoa("Ana <b>Fictícia</b>", complemento="Fundos")
+        texto = pessoa.ficha_texto
+        self.assertIn("Rua Fictícia 1 — Fundos", texto)
+        self.assertIn("CEP: 00000-000", texto)
+        from django.template import Context, Template
+
+        saida = Template("{{ p.ficha_texto }}").render(Context({"p": pessoa}))
+        self.assertNotIn("<b>", saida, "a ficha vai numa <textarea>: tem de sair escapada")
+
+    def test_o_link_do_mapa_codifica_o_endereco(self):
+        pessoa = criar_pessoa(logradouro="Rua & Travessa #1")
+        self.assertIn("query=", pessoa.mapa_link)
+        self.assertNotIn(" ", pessoa.mapa_link)
+        self.assertNotIn("#", pessoa.mapa_link.split("query=")[1])
+        self.assertEqual(criar_pessoa(logradouro="").mapa_link, "")
+
+    # --- Teste de carga ---------------------------------------------------
+    def test_a_carga_passa_pela_porta(self):
+        from leilao.management.commands.leilao_carga import Ouvinte
+
+        o = Ouvinte("http://exemplo.invalid", threading.Event(), [], cookie="leilao_sessionid=x")
+        self.assertEqual(o.cookie, "leilao_sessionid=x")
+        cmd = Path(settings.BASE_DIR, "leilao", "management", "commands", "leilao_carga.py").read_text(encoding="utf-8")
+        self.assertIn('"--cadastrar"', cmd)
+        self.assertIn('headers={"Referer": url + "/entrar/"}', cmd)
+
+
+class VozCorridasTests(TestCase):
+    """As corridas da voz achadas na revisão (e medidas no laboratório: duas
+    ligações ao mesmo tempo terminam com UMA viva; parar e voltar em menos de
+    1 s volta em 2 s)."""
+
+    def _js(self, nome):
+        txt = Path(settings.BASE_DIR, "static", "leilao", "js", nome).read_text(encoding="utf-8")
+        txt = re.sub(r"/\*.*?\*/", " ", txt, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", txt)
+
+    def test_cada_ligacao_da_voz_tem_a_sua_vez(self):
+        js = self._js("audio_falar.js")
+        iniciar = js[js.index("async function iniciar"):js.index("function caiu")]
+        self.assertIn("var minha = ++geracao;", iniciar)
+        self.assertGreaterEqual(iniciar.count("if (superada()) return false;"), 5)
+        self.assertIn("if (!superada()) parar();", iniciar, "o catch derrubava a ligação da outra chamada")
+        self.assertIn("geracao++", js[js.index("function parar"):])
+
+    def test_reconexao_substituida_nao_agenda_outra(self):
+        js = self._js("audio_ouvir.js")
+        self.assertIn("const minha = ++geracaoConexao;", js)
+        self.assertIn("if (minha !== geracaoConexao) return false;", js)
+
+    def test_a_voz_voltou_confere_os_bytes_antes_de_confiar(self):
+        js = self._js("audio_ouvir.js")
+        volta = js[js.index("vozVoltou: function"):]
+        self.assertIn("bytesDe(viva)", volta)
+        self.assertIn("if (depois > antes) { tocar(); return; }", volta)
+
+    def test_copiar_so_diz_copiado_quando_copiou(self):
+        js = self._js("caixa.js")
+        self.assertIn('ok = document.execCommand("copy")', js)
+        self.assertIn("if (ok) pronto();", js)
+
+    def test_a_carga_exige_confirmacao_para_cadastrar(self):
+        from django.core.management import CommandError, call_command
+
+        with self.assertRaises(CommandError):
+            call_command("leilao_carga", url="http://exemplo.invalid", cadastrar=1, ouvintes=0,
+                         stdout=open(os.devnull, "w"))

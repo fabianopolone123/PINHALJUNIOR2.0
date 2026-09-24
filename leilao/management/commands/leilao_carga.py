@@ -25,12 +25,15 @@ Não usa dependência nova — `urllib` e threads da biblioteca padrão, como o 
 das integrações do projeto.
 """
 
+import http.cookiejar
 import json
+import math
 import re
 import statistics
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from django.core.management.base import BaseCommand
@@ -39,18 +42,26 @@ from django.core.management.base import BaseCommand
 class Ouvinte(threading.Thread):
     """Uma conexão SSE aberta, como a de um celular no leilão."""
 
-    def __init__(self, url, parar, chegadas):
+    def __init__(self, url, parar, chegadas, cookie=""):
         super().__init__(daemon=True)
         self.url = url.rstrip("/") + "/stream/"
         self.parar = parar
         self.chegadas = chegadas
+        self.cookie = cookie
         self.eventos = 0
         self.caiu = False
+        self.status = None
 
     def run(self):
         try:
-            req = urllib.request.Request(self.url, headers={"Accept": "text/event-stream"})
+            # Desde 24/09 o stream do público exige cadastro (a sessão da
+            # porta): sem cookie, o servidor responde 403.
+            cabecalhos = {"Accept": "text/event-stream"}
+            if self.cookie:
+                cabecalhos["Cookie"] = self.cookie
+            req = urllib.request.Request(self.url, headers=cabecalhos)
             with urllib.request.urlopen(req, timeout=30) as resp:
+                self.status = resp.status
                 for linha in resp:
                     if self.parar.is_set():
                         return
@@ -81,6 +92,16 @@ class Command(BaseCommand):
                                  "cookie só, do segundo lance em diante tudo é recusado. "
                                  "Sem nenhum, só mede as conexões.")
         parser.add_argument("--lote", type=int, default=0, help="Id do lote em pregão.")
+        parser.add_argument("--cadastrar", type=int, default=0,
+                            help="Cadastra N participantes FICTÍCIOS pela porta (/entrar/), "
+                                 "como um celular faz, e usa as sessões deles para os "
+                                 "ouvintes (até 5 conexões por pessoa, abaixo do teto de 6) "
+                                 "e para os lances. Use num leilão de TESTE: os cadastros "
+                                 "ficam no banco, com nome 'Carga Fictícia NNN'.")
+        parser.add_argument("--confirmo-leilao-de-teste", action="store_true",
+                            help="Obrigatório com --cadastrar: os cadastros fictícios ficam no "
+                                 "banco e, com --lote, dão lances de verdade. Nunca contra um "
+                                 "leilão real.")
         parser.add_argument("--reacoes", type=int, default=0,
                             help="Segundos de rajada de emoji: todos os --cookie "
                                  "martelando ao mesmo tempo. É o pior caso de "
@@ -91,8 +112,28 @@ class Command(BaseCommand):
         parar = threading.Event()
         chegadas = []
 
+        cookies = [c for c in (o["cookie"] or []) if c.strip()]
+        if o["cadastrar"] and not o["confirmo_leilao_de_teste"]:
+            from django.core.management.base import CommandError
+
+            raise CommandError(
+                "--cadastrar cria participantes FICTÍCIOS no banco do leilão (e, com --lote, "
+                "lances de verdade). Rode só contra um leilão de TESTE e confirme com "
+                "--confirmo-leilao-de-teste."
+            )
+        if o["cadastrar"]:
+            precisa = max(o["cadastrar"], math.ceil(o["ouvintes"] / 5))
+            self.stdout.write(f"Cadastrando {precisa} participantes fictícios em {url}/entrar/ …")
+            novos = [self._cadastrar(url, i) for i in range(precisa)]
+            falhas = novos.count("")
+            cookies += [c for c in novos if c]
+            self.stdout.write(f"  cadastrados: {len(novos) - falhas}/{precisa}")
+
         self.stdout.write(f"Abrindo {o['ouvintes']} conexões em {url}/stream/ …")
-        ouvintes = [Ouvinte(url, parar, chegadas) for _ in range(o["ouvintes"])]
+        ouvintes = [
+            Ouvinte(url, parar, chegadas, cookies[(i // 5) % len(cookies)] if cookies else "")
+            for i in range(o["ouvintes"])
+        ]
         for x in ouvintes:
             x.start()
             time.sleep(0.02)   # não abrir tudo no mesmo milissegundo
@@ -108,7 +149,6 @@ class Command(BaseCommand):
         atrasos = []
         recusados = 0
 
-        cookies = [c for c in (o["cookie"] or []) if c.strip()]
         if cookies and o["lote"]:
             if len(cookies) == 1:
                 self.stdout.write(self.style.WARNING(
@@ -253,6 +293,33 @@ class Command(BaseCommand):
         for t in threads:
             t.join(timeout=5)
         return sum(enviadas), sum(recusadas), tempos
+
+    def _cadastrar(self, url, i):
+        """Passa pela porta como um celular: GET (CSRF) + POST do formulário.
+        Devolve o cabeçalho `Cookie` da sessão, ou "" se falhar."""
+        pote = http.cookiejar.CookieJar()
+        abridor = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(pote))
+        try:
+            html = abridor.open(url + "/entrar/", timeout=15).read().decode("utf-8", "replace")
+            achado = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', html)
+            if not achado:
+                return ""
+            dados = urllib.parse.urlencode({
+                "csrfmiddlewaretoken": achado.group(1),
+                "nome": f"Carga Fictícia {i:03d}",
+                "whatsapp": f"(11) 9{int(time.time()) % 1000:03d}{i:05d}"[:15],
+                "cep": "00000-000", "logradouro": "Rua Fictícia", "numero": str(i + 1),
+                "bairro": "Centro", "cidade": "Cidade Exemplo", "estado": "SP",
+            }).encode("utf-8")
+            req = urllib.request.Request(url + "/entrar/", data=dados,
+                                         headers={"Referer": url + "/entrar/"})
+            abridor.open(req, timeout=15).read()
+        except Exception:  # noqa: BLE001 — cadastro que falha é resultado
+            return ""
+        partes = [f"{c.name}={c.value}" for c in pote]
+        if not any("sessionid" in p for p in partes):
+            return ""
+        return "; ".join(partes)
 
     def _lance(self, url, cookie, lote):
         corpo = json.dumps({"lote": lote}).encode("utf-8")

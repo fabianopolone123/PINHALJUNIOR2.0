@@ -363,6 +363,42 @@
         abrirConta(alvo.dataset.abrirConta);
     });
 
+    /* "Copiar dados": o texto vem PRONTO do servidor (`ficha_texto`), numa
+       textarea da própria ficha — procurada a partir do botão, porque o
+       conteúdo do modal é clonado e ids se repetiriam. */
+    document.addEventListener("click", function (e) {
+        var botao = e.target.closest("[data-copiar-ficha]");
+        if (!botao) return;
+        var caixaFicha = botao.closest(".conta-pessoa");
+        var fonte = caixaFicha && caixaFicha.querySelector(".copiar-fonte");
+        if (!fonte) return;
+        var texto = fonte.value;
+        function pronto() { toast("Dados copiados.", "success"); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(pronto).catch(function () { copiarNaMarra(texto, pronto); });
+        } else {
+            copiarNaMarra(texto, pronto);
+        }
+    });
+
+    function copiarNaMarra(texto, pronto) {
+        // Cópia de reserva: precisa de um campo REAL na página (não `hidden`).
+        var ta = document.createElement("textarea");
+        ta.value = texto;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (erro) { ok = false; }
+        ta.remove();
+        // `execCommand` devolve `false` quando não copiou (acesso fora de
+        // HTTPS, navegador que recusa): dizer "copiado" aí mandava o caixa
+        // colar texto vazio no WhatsApp de quem entrega.
+        if (ok) pronto();
+        else toast("Não consegui copiar — selecione o texto e copie na mão.", "error");
+    }
+
     /* =====================================================================
        Voltar o item ao leilão — com MOTIVO
        ===================================================================== */

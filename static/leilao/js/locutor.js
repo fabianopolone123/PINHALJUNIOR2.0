@@ -623,37 +623,118 @@
        Microfone (WHIP)
        --------------------------------------------------------------- */
     var btnMic = $("btnMicrofone");
-    if (btnMic && window.AudioFalar) {
-        btnMic.addEventListener("click", function () {
-            if (window.AudioFalar.ativo()) {
+    var btnMudo = $("btnMudo");
+    // O locutor QUER estar no ar (apertou Transmitir e não apertou Parar).
+    // É o que separa "a conexão caiu, religue" de "ele desligou de propósito".
+    var querNoAr = false;
+    var relogioVoz = null;
+    var quedasSeguidas = 0;
+
+    function estadoMic(texto) { $("microEstado").textContent = texto; }
+
+    function mostrarNoAr() {
+        btnMic.textContent = "⏹ Parar transmissão";
+        btnMic.classList.add("ligado");
+        if (btnMudo) btnMudo.hidden = false;
+        estadoMic(window.AudioFalar.estaMudo()
+            ? "🔇 No MUDO — a transmissão continua, mas ninguém ouve você."
+            : "🔴 No ar — todos que ligaram o som estão ouvindo você.");
+    }
+
+    function mostrarDesligado() {
+        btnMic.textContent = "🎤 Transmitir";
+        btnMic.classList.remove("ligado");
+        if (btnMudo) { btnMudo.hidden = true; btnMudo.classList.remove("ativo"); btnMudo.textContent = "🔇 Mudo"; }
+        $("microBarra").style.width = "0%";
+    }
+
+    function ligarVoz() {
+        return window.AudioFalar.iniciar(
+            btnMic.dataset.whip,
+            function (nivel) {
+                $("microBarra").style.width = Math.min(100, nivel * 140) + "%";
+            },
+            btnMic.dataset.whipUsuario,
+            btnMic.dataset.whipSenha
+        ).then(function (ok) {
+            // O locutor apertou PARAR enquanto esta ligação estava a caminho
+            // (a religação automática leva alguns segundos): ela não pode
+            // terminar colocando a voz no ar de novo.
+            if (ok && !querNoAr) {
                 window.AudioFalar.parar();
-                btnMic.textContent = "🎤 Transmitir";
-                btnMic.classList.remove("ligado");
-                $("microEstado").textContent = "Desligado. Ninguém está ouvindo você pelo sistema.";
-                $("microBarra").style.width = "0%";
+                return false;
+            }
+            if (ok) {
+                quedasSeguidas = 0;
+                mostrarNoAr();
+                // Avisa as telas: quem estava esperando reconecta JÁ, em vez
+                // de só na próxima tentativa agendada (até ~20 s depois).
+                acao({ acao: "voz", no_ar: true });
+            }
+            return ok;
+        });
+    }
+
+    /* A transmissão caiu sem o locutor pedir (celular bloqueou, Wi-Fi
+       oscilou): religa sozinha, com espera crescente, até ele apertar Parar.
+       Antes a mesa seguia dizendo "No ar" com ninguém ouvindo. */
+    function religarVoz() {
+        if (!querNoAr) return;
+        clearTimeout(relogioVoz);
+        var espera = Math.min(15000, 2000 * Math.pow(2, quedasSeguidas));
+        quedasSeguidas++;
+        estadoMic("⚠️ A transmissão caiu — religando sozinha… (continue falando quando voltar)");
+        relogioVoz = setTimeout(function () {
+            if (!querNoAr) return;
+            ligarVoz().then(function (ok) {
+                if (ok) toast("A transmissão voltou.", "success");
+                else religarVoz();
+            });
+        }, espera);
+    }
+
+    if (btnMic && window.AudioFalar) {
+        window.AudioFalar.aoCair(function () {
+            toast("A transmissão de voz caiu. Religando…", "error");
+            religarVoz();
+        });
+
+        btnMic.addEventListener("click", function () {
+            if (querNoAr) {
+                querNoAr = false;
+                clearTimeout(relogioVoz);
+                window.AudioFalar.parar();
+                window.AudioFalar.mudo(false);
+                mostrarDesligado();
+                estadoMic("Desligado. Ninguém está ouvindo você pelo sistema.");
+                acao({ acao: "voz", no_ar: false });
                 return;
             }
+            querNoAr = true;
+            quedasSeguidas = 0;
             btnMic.disabled = true;
-            $("microEstado").textContent = "Pedindo acesso ao microfone…";
-            window.AudioFalar.iniciar(
-                btnMic.dataset.whip,
-                function (nivel) {
-                    $("microBarra").style.width = Math.min(100, nivel * 140) + "%";
-                },
-                btnMic.dataset.whipUsuario,
-                btnMic.dataset.whipSenha
-            ).then(function (ok) {
+            estadoMic("Pedindo acesso ao microfone…");
+            ligarVoz().then(function (ok) {
                 btnMic.disabled = false;
                 if (ok) {
-                    btnMic.textContent = "⏹ Parar transmissão";
-                    btnMic.classList.add("ligado");
-                    $("microEstado").textContent = "🔴 No ar — todos que ligaram o som estão ouvindo você.";
                     toast("Transmissão de voz ligada.", "success");
                 } else {
-                    $("microEstado").textContent = "Não consegui transmitir. Confira o microfone e o servidor de áudio.";
+                    querNoAr = false;
+                    mostrarDesligado();
+                    estadoMic("Não consegui transmitir. Confira o microfone e o servidor de áudio.");
                     toast("Falha ao ligar o microfone.", "error");
                 }
             });
+        });
+    }
+
+    if (btnMudo && window.AudioFalar) {
+        btnMudo.addEventListener("click", function () {
+            var mudo = window.AudioFalar.mudo(!window.AudioFalar.estaMudo());
+            btnMudo.classList.toggle("ativo", mudo);
+            btnMudo.textContent = mudo ? "🎙️ Voltar a falar" : "🔇 Mudo";
+            mostrarNoAr();
+            toast(mudo ? "Microfone no mudo — a transmissão continua." : "Microfone de volta.", mudo ? "info" : "success");
         });
     }
 

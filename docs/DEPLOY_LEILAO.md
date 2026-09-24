@@ -397,6 +397,30 @@ ouvinte). É **estimativa, não prova**; se não convencer, a saída já está p
 
 **No dia:** parar os serviços que puderem parar e conferir `systemctl status pinhaljunior_leilao mediamtx`.
 
+### Prova de carga (medida em 24/09/2026, na máquina de desenvolvimento)
+
+`leilao_carga --cadastrar N` passa pela porta como um celular (desde 24/09 o stream do público
+exige cadastro) e usa as sessões nos ouvintes e nos lances. **Rode num leilão de TESTE**: os
+cadastros ficam no banco, com nome "Carga Fictícia NNN".
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_carga \
+    --url https://pinhaljunior.com.br/leilao --cadastrar 60 --ouvintes 290 \
+    --lances 60 --intervalo 0.2 --lote <id do item em pregão> --reacoes 15
+```
+
+| Cenário (uvicorn 1 worker, local) | Resultado |
+|---|---|
+| 120 conexões + 40 lances + 10 s de emoji | 0 quedas; lance p50 16 ms, p95 31 ms; 48 reações/s sem recusa |
+| 290 conexões (perto do teto) + 60 lances + 15 s de emoji | 0 quedas; lance p95 46 ms; 116 reações/s sem recusa |
+| 30 pessoas tocando o lance no MESMO instante, 5 rodadas | 2 aceitos por rodada (tolerância de 1 degrau), nenhum valor repetido, sempre +R$ 5, valor e líder batendo com o último lance; 30 pedidos em ~190 ms |
+| Voz (MediaMTX v1.21.0 + 2 Chrome): entrar | áudio em 0,7 s |
+| Voz: mudo 6 s | silêncio, conexão de pé, volta imediata |
+| Voz: parar 20 s e voltar, sem / com o aviso `voz` | 4,9 s / 0,7 s |
+| Voz: servidor de áudio cai e volta | locutor percebe a queda, religa; ouvinte volta em 0,7 s |
+
+Medir de fora (outra máquina, pela internet) continua sendo a prova de verdade para o dia.
+
 ## 9. Conferência rápida
 
 ```bash

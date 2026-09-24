@@ -809,6 +809,16 @@
         // Sem `chat_estado`: o chat fica aberto o leilão inteiro, e se está
         // aberto ou não vem no `estado` como todo o resto.
 
+        // A voz do locutor VOLTOU: quem estava esperando reconecta já, em vez
+        // de só na próxima tentativa agendada (até ~20 s depois). Cada celular
+        // sorteia até 4 s: 100 negociações de áudio no mesmo instante cairiam
+        // todas no mesmo vCPU do servidor de áudio.
+        fonte.addEventListener("voz", function (e) {
+            var d = JSON.parse(e.data || "{}");
+            if (!d.no_ar || !somLigado || !window.AudioLeilao || !window.AudioLeilao.vozVoltou) return;
+            setTimeout(function () { window.AudioLeilao.vozVoltou(); }, Math.random() * 4000);
+        });
+
         fonte.addEventListener("reacoes", function (e) {
             if (window.Reacoes) window.Reacoes.receber(JSON.parse(e.data));
         });

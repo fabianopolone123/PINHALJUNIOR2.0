@@ -1403,6 +1403,24 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Uvicorn com `--timeout-graceful-shutdown 3`**: sem ele, o reinício com público conectado
   esperava o stream fechar (nunca fecha) e o leilão ficava **90 s** fora do ar.
 
+### Voz ao vivo: pausar é MUDO, e a volta é avisada
+
+- **Mudo desliga a faixa (`track.enabled = false`), não a transmissão.** A conexão de todos os
+  ouvintes continua de pé e o som volta no mesmo instante. Parar/voltar derruba e refaz as
+  negociações de todo mundo — medido: 4,9 s sem aviso, até ~20 s numa pausa longa.
+- **"A voz voltou" é avisado pelo servidor** (ação `voz` → evento SSE `voz`), e o ouvinte pula a
+  espera (`AudioLeilao.vozVoltou`), sorteando até 4 s por celular para 100 negociações não caírem
+  no mesmo instante. Medido: 0,7 s. Quem entrou sem som ou desligou o som não é religado.
+- **A transmissão do locutor tem vigia próprio** (`AudioFalar.aoCair`: `failed`, ou `disconnected`
+  por 4 s) e a mesa **religa sozinha** com espera crescente. Parar durante uma religação pendente
+  não pode religar a voz (`if (ok && !querNoAr)`).
+- **A tentativa agendada do ouvinte é cancelável** (`relogioReligar`): sem isso, a reconexão pedida
+  na hora era seguida pela agendada, e a conexão recém-aberta caía.
+- **Laboratório de áudio**: MediaMTX da mesma versão da produção + dois Chrome headless
+  (`--use-fake-device-for-media-stream`, `--allow-loopback-in-peer-connection`,
+  `--disable-features=WebRtcHideLocalIpsWithMdns`) comandados por CDP a partir do Node. É o que
+  prova o comportamento que os testes Python só guardam na estrutura.
+
 ### Quem controla o som da SALA é o locutor
 
 - **Esses efeitos tocam na tela de quem assiste, não na mesa.** Então "mutar" não é preferência

@@ -15,6 +15,19 @@ window.AudioFalar = (function () {
     var contexto = null;
     var medidor = null;
     var rodando = false;
+    // MUDO: o microfone para de mandar voz, mas a transmissão continua de pé.
+    // É o jeito certo de pausar: parar e voltar derruba a conexão de TODOS os
+    // ouvintes, que levam alguns segundos para reconectar; no mudo ninguém
+    // perde nada, e o som volta no mesmo instante em que o locutor desmuta.
+    var mudoAgora = false;
+    var aoCair = null;
+    var vigiaQueda = null;
+    // Cada `iniciar` ganha um número; só o da vez pode mexer no estado do
+    // módulo. Duas ligações ao mesmo tempo acontecem de verdade (uma religação
+    // automática a caminho + o locutor apertando Parar e Transmitir), e antes
+    // a que perdia a vez derrubava a outra no `catch` — ou deixava o microfone
+    // de uma delas aberto e dois publicadores no mesmo caminho do servidor.
+    var geracao = 0;
 
     function esperarIce(conexao, limite) {
         return new Promise(function (resolve) {
@@ -72,8 +85,19 @@ window.AudioFalar = (function () {
     async function iniciar(url, aoNivel, usuario, senha) {
         if (!url) return false;
         parar();
+        var minha = ++geracao;
+        var stream = null;
+        var conexao = null;
+        // Perdeu a vez para outra chamada (ou para um Parar): limpa SÓ o que
+        // é desta chamada e sai sem tocar no estado do módulo.
+        function superada() {
+            if (minha === geracao) return false;
+            if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+            if (conexao) { try { conexao.close(); } catch (e) { /* já fechada */ } }
+            return true;
+        }
         try {
-            var stream = await navigator.mediaDevices.getUserMedia({
+            stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
@@ -81,15 +105,39 @@ window.AudioFalar = (function () {
                 },
                 video: false
             });
+            if (superada()) return false;
             trilha = stream;
+            aplicarMudo();
             ligarMedidor(stream, aoNivel);
 
-            pc = new RTCPeerConnection({ iceServers: [] });
-            stream.getAudioTracks().forEach(function (t) { pc.addTrack(t, stream); });
+            conexao = new RTCPeerConnection({ iceServers: [] });
+            pc = conexao;
+            stream.getAudioTracks().forEach(function (t) { conexao.addTrack(t, stream); });
 
-            var oferta = await pc.createOffer();
-            await pc.setLocalDescription(oferta);
-            await esperarIce(pc, 2500);
+            /* A transmissão do PRÓPRIO locutor também cai (celular bloqueado,
+               Wi-Fi que oscila) — e antes nada avisava: a mesa seguia dizendo
+               "🔴 No ar" com ninguém ouvindo. `disconnected` pisca em soluço de
+               rede, então espera 4 s antes de dar como caída; `failed` é
+               definitivo. Só vale para a conexão viva (`pc === conexao`): o
+               `close()` do parar dispara `closed`, e isso não é queda. */
+            conexao.onconnectionstatechange = function () {
+                if (pc !== conexao || !rodando) return;
+                var s = conexao.connectionState;
+                clearTimeout(vigiaQueda);
+                if (s === "failed") {
+                    caiu(s);
+                } else if (s === "disconnected") {
+                    vigiaQueda = setTimeout(function () {
+                        if (pc === conexao && rodando && conexao.connectionState !== "connected") caiu(s);
+                    }, 4000);
+                }
+            };
+
+            var oferta = await conexao.createOffer();
+            if (superada()) return false;
+            await conexao.setLocalDescription(oferta);
+            await esperarIce(conexao, 2500);
+            if (superada()) return false;
 
             var cabecalhos = { "Content-Type": "application/sdp" };
             var auth = autorizacao(usuario, senha);
@@ -98,26 +146,43 @@ window.AudioFalar = (function () {
             var resposta = await fetch(url, {
                 method: "POST",
                 headers: cabecalhos,
-                body: pc.localDescription.sdp
+                body: conexao.localDescription.sdp
             });
+            if (superada()) return false;
             if (resposta.status === 401) {
                 throw new Error("o servidor de audio recusou o usuario/senha de publicacao");
             }
             if (!resposta.ok) throw new Error("WHIP respondeu " + resposta.status);
 
             var sdp = await resposta.text();
-            await pc.setRemoteDescription({ type: "answer", sdp: sdp });
+            if (superada()) return false;
+            await conexao.setRemoteDescription({ type: "answer", sdp: sdp });
+            if (superada()) return false;
             rodando = true;
             return true;
         } catch (e) {
             if (window.console) console.warn("[audio-falar] " + e.message);
-            parar();
+            // Só derruba o estado do módulo se esta ainda é a chamada da vez;
+            // senão, limpa só o que é dela (a outra segue viva).
+            if (!superada()) parar();
             return false;
         }
     }
 
-    function parar() {
+    function caiu(motivo) {
         rodando = false;
+        if (aoCair) aoCair(motivo);
+    }
+
+    function aplicarMudo() {
+        if (!trilha) return;
+        trilha.getAudioTracks().forEach(function (t) { t.enabled = !mudoAgora; });
+    }
+
+    function parar() {
+        geracao++;          // qualquer `iniciar` a caminho perde a vez
+        rodando = false;
+        clearTimeout(vigiaQueda);
         if (medidor) { clearInterval(medidor); medidor = null; }
         if (contexto) { try { contexto.close(); } catch (e) { /* já fechado */ } contexto = null; }
         if (trilha) {
@@ -130,6 +195,11 @@ window.AudioFalar = (function () {
     return {
         iniciar: iniciar,
         parar: parar,
-        ativo: function () { return rodando; }
+        ativo: function () { return rodando; },
+        /* Mudo sem derrubar a transmissão (ver `mudoAgora`). O medidor cai a
+           zero junto — o locutor VÊ que está mudo. */
+        mudo: function (valor) { mudoAgora = !!valor; aplicarMudo(); return mudoAgora; },
+        estaMudo: function () { return mudoAgora; },
+        aoCair: function (fn) { aoCair = fn; }
     };
 })();

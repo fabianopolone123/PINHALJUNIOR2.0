@@ -93,6 +93,40 @@
             <div id="conta-detalhe-{{ c.participante.id }}"
                  data-titulo="{{ c.participante.nome }}">
                 {% comment %}
+                Os DADOS da pessoa, completos — é o que o caixa precisa para
+                cobrar e para combinar a entrega sem abrir outra tela. Tela da
+                equipe (caixa): pode e deve mostrar telefone e endereço.
+                {% endcomment %}
+                {% with p=c.participante %}
+                <div class="conta-pessoa">
+                    <h3 class="conta-pessoa-titulo">👤 Dados da pessoa
+                        {% if p.bloqueado %}<b class="selo selo-sem_lance">bloqueada</b>{% endif %}
+                    </h3>
+                    <dl class="conta-pessoa-dados">
+                        <dt>Nome</dt><dd class="selecionavel">{{ p.nome }}</dd>
+                        <dt>WhatsApp</dt>
+                        <dd class="selecionavel">{{ p.whatsapp }}
+                            {% if p.whatsapp_link %}<a href="{{ p.whatsapp_link }}" target="_blank" rel="noopener" class="btn-mini">💬 Conversar</a>{% endif %}
+                        </dd>
+                        <dt>Endereço</dt>
+                        <dd class="selecionavel">
+                            {% if p.logradouro or p.numero %}{{ p.logradouro }}{% if p.numero %}, {{ p.numero }}{% endif %}{% else %}<i>não informado</i>{% endif %}
+                            {% if p.complemento %}<br>{{ p.complemento }}{% endif %}
+                        </dd>
+                        <dt>Bairro</dt><dd class="selecionavel">{{ p.bairro|default:"—" }}</dd>
+                        <dt>Cidade</dt><dd class="selecionavel">{{ p.cidade_uf|default:"—" }}</dd>
+                        <dt>CEP</dt><dd class="selecionavel">{{ p.cep|default:"—" }}</dd>
+                        <dt>Entrou em</dt><dd>{{ p.criado_em|date:"d/m/Y H:i" }}</dd>
+                        {% if p.observacao %}<dt>Observação</dt><dd>{{ p.observacao }}</dd>{% endif %}
+                    </dl>
+                    <div class="conta-pessoa-acoes">
+                        <textarea class="copiar-fonte" hidden readonly>{{ p.ficha_texto }}</textarea>
+                        <button type="button" class="btn-mini" data-copiar-ficha>📋 Copiar dados</button>
+                        {% if p.mapa_link %}<a href="{{ p.mapa_link }}" target="_blank" rel="noopener" class="btn-mini">🗺️ Abrir no mapa</a>{% endif %}
+                    </div>
+                </div>
+                {% endwith %}
+                {% comment %}
                 UM Pix, da pessoa, pelo total — não um por item. Antes havia um
                 botão em cada linha, e quem levou três coisas via três botões
                 que devolviam o MESMO código, cada um anunciando o valor do seu

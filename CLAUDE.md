@@ -53,6 +53,10 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   HMAC** (nunca hash puro de dado pessoal no broadcast). **Config do Mercado Pago/áudio só do
   Diretor.** Stream do público exige cadastro, 6 conexões por pessoa, equipe fora do teto. Uvicorn
   com `--timeout-graceful-shutdown 3` (sem ele o reinício com público levava 90 s).
+- **Voz: pausar é 🔇 Mudo** (`AudioFalar.mudo`, a faixa desligada, a conexão de pé). A volta da voz é
+  avisada pela ação/evento `voz` e o ouvinte reconecta já (`vozVoltou`, espalhado em até 4 s); a
+  transmissão do locutor tem vigia e religa sozinha. Caixa: a conta abre com os **dados completos da
+  pessoa** (`Participante.ficha_texto`/`mapa_link`).
 - **O broadcast só leva o que pode ser dito em voz alta** — Pix, telefone e endereço saem por `GET`
   autenticado.
 - **A prioridade do dia é: voz ao vivo e lance primeiro; emoji e enfeite depois** — e é o enfeite que o

@@ -331,6 +331,37 @@ body.tela-locutor {
 .btn-mesa.vendido { background: linear-gradient(135deg, #c9391f, var(--vermelho-claro)); border-color: transparent; color: #fff; }
 .btn-mesa.tempo { background: rgba(240, 162, 2, 0.2); border-color: rgba(240, 162, 2, 0.5); }
 .btn-mesa.micro { background: linear-gradient(135deg, var(--verde), #2f8f4f); border-color: transparent; color: #fff; }
+/* ---- Caixa: os dados da pessoa, no topo da conta ---- */
+.conta-pessoa {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--palco-borda);
+    border-radius: 14px;
+}
+.conta-pessoa-titulo { font-size: 0.95rem; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
+.conta-pessoa-dados {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 4px 12px;
+    font-size: 0.9rem;
+}
+.conta-pessoa-dados dt { color: var(--palco-suave); font-size: 0.8rem; padding-top: 2px; }
+.conta-pessoa-dados dd { margin: 0; overflow-wrap: anywhere; }
+.conta-pessoa-dados dd .btn-mini { margin-left: 6px; }
+.conta-pessoa-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* Mudo: pausa a voz sem derrubar a transmissão. Aceso em âmbar enquanto
+   ativo — é o estado que o locutor não pode esquecer ligado. */
+.btn-mesa.mudo { margin-top: 8px; background: rgba(255, 255, 255, 0.06); }
+.btn-mesa.mudo.ativo {
+    background: linear-gradient(135deg, #f0a202, #ffc53d);
+    border-color: transparent;
+    color: #2a1a00;
+    animation: pisca-mudo 1.4s ease-in-out infinite;
+}
+.btn-mesa.mudo[hidden] { display: none; }
+@keyframes pisca-mudo { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 /* A bilheteria: abre o pagamento para todo mundo no fim do leilão. Cor própria
    (âmbar) porque não é "abrir item" nem "vendido" — é um gesto de uma vez só,
    e confundi-lo com o martelo no meio do pregão sairia caro. */

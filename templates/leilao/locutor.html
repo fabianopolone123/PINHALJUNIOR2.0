@@ -161,6 +161,13 @@
                         data-whip="{{ audio_whip }}"
                         data-whip-usuario="{{ config_leilao.audio_publicar_usuario }}"
                         data-whip-senha="{{ config_leilao.audio_publicar_senha }}">🎤 Transmitir</button>
+                {% comment %}
+                MUDO: para pausar (falar com alguém, tossir, resolver algo), use
+                este — a transmissão continua de pé e o som volta NA HORA ao
+                desmutar. Parar e voltar a transmitir derruba a conexão de
+                todos os ouvintes, que levam alguns segundos para reconectar.
+                {% endcomment %}
+                <button type="button" class="btn-mesa mudo" id="btnMudo" hidden>🔇 Mudo</button>
                 {% else %}
                 <p class="micro-ajuda">
                     A transmissão de voz está <b>desligada</b> na configuração.

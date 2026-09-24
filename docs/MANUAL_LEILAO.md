@@ -238,6 +238,17 @@ Botão **🎤 Transmitir**. O navegador vai pedir permissão do microfone — ac
 A barrinha mostra que está saindo som: **se ela não mexe quando você fala, ninguém
 está te ouvindo**.
 
+**Para pausar, use 🔇 Mudo — não "Parar transmissão".** O mudo silencia o
+microfone e **mantém a transmissão de pé**: ao apertar **🎙️ Voltar a falar**, o
+som volta **na hora** para todo mundo. "Parar" derruba a conexão de todos os
+ouvintes; ao voltar a transmitir, o sistema avisa os celulares e eles reconectam
+em cerca de 1 a 4 segundos. O botão do mudo fica **âmbar piscando** enquanto
+estiver ligado — é o estado que não dá para esquecer.
+
+**Se a SUA transmissão cair** (celular bloqueou, Wi-Fi oscilou), a mesa avisa
+"⚠️ A transmissão caiu — religando sozinha…" e religa sem você fazer nada.
+Quando voltar, continue falando.
+
 Quem entra no leilão toca **"Entrar com som"** logo na primeira tela — é o toque
 que o navegador exige para liberar o áudio. Se o som cair no meio (celular
 bloqueado, você parou e voltou a transmitir), a tela dele tenta religar sozinha
@@ -283,7 +294,11 @@ terminar.
 
 **Cada linha é uma pessoa**, com o total dela — quem deve aparece primeiro.
 Na linha há o **💬 WhatsApp** (abre a conversa sem digitar o número) e **Ver
-itens**, que abre a conta dela:
+itens**. Tocar no **nome** ou em **Ver itens** abre a conta dela, que começa pelos
+**👤 Dados da pessoa**: nome completo, WhatsApp, endereço completo (rua, número,
+complemento, bairro, cidade, CEP), quando ela entrou e se está bloqueada — com
+**📋 Copiar dados** (pronto para colar no WhatsApp de quem vai entregar) e
+**🗺️ Abrir no mapa**. Embaixo, os botões da conta:
 
 | Botão | Onde | Para quê |
 |---|---|---|

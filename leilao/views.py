@@ -799,6 +799,9 @@ ACOES_AREAS = {
     # `liberar`: ele conduz, e o som toca na tela de quem está assistindo.
     "som": ("locutor",),
     "entregue": ("caixa",),
+    # A voz do locutor voltou ao ar (ou saiu): avisa as telas para os ouvintes
+    # reconectarem NA HORA, em vez de esperar a próxima tentativa agendada.
+    "voz": ("locutor",),
     # Quadro de entregas: arrastar uma parada e nomear a coluna.
     "entrega_mover": ("caixa",),
     "entrega_nome": ("caixa",),
@@ -1018,6 +1021,13 @@ def locutor_acao_view(request):
     if acao == "entregue":
         arremate = get_object_or_404(Arremate, pk=dados.get("arremate"))
         return JsonResponse(_marcar_entrega(arremate, request.user, dados))
+
+    if acao == "voz":
+        # Só um aviso, sem estado no banco: quem está ouvindo reconecta já.
+        # O stream é da sala do leilão no ar; de outro leilão, não há a quem avisar.
+        if leilao.status == "ao_vivo":
+            HUB.publicar("voz", {"no_ar": bool(dados.get("no_ar"))})
+        return JsonResponse({"ok": True})
 
     return JsonResponse({"ok": False, "msg": "Ação desconhecida."}, status=400)
 

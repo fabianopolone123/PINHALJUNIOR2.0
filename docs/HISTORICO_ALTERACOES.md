@@ -22,6 +22,68 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: voz com mudo e "a voz voltou", ficha da pessoa no caixa, provas de carga
+
+### Resumo
+O clube perguntou se parar e voltar a transmitir a voz volta normal para as
+pessoas ("senão coloca um botão mute"), pediu que o nome da pessoa no caixa
+mostre todos os dados dela, inclusive o endereço, e muitos testes, inclusive
+de desempenho.
+
+### Voz ao vivo
+- **Parar e voltar funcionava, mas devagar**: o ouvinte só voltava na próxima
+  tentativa agendada (até ~20 s numa pausa longa). E a queda da transmissão
+  do PRÓPRIO locutor não era percebida: a mesa seguia dizendo "No ar".
+- **🔇 Mudo** (`AudioFalar.mudo`): desliga a faixa, mantém a conexão; âmbar
+  piscando enquanto ligado. É o jeito de pausar.
+- **"A voz voltou"**: ação `voz` (só locutor, só leilão no ar) → evento SSE
+  `voz` → `AudioLeilao.vozVoltou()` com atraso sorteado de até 4 s. Confere se
+  os bytes estão crescendo antes de confiar numa conexão "connected".
+- **Vigia do locutor** (`aoCair`: `failed` ou `disconnected` por 4 s) e
+  religação automática com espera crescente; Parar durante a religação não
+  religa.
+- **Corridas** (achadas na revisão): cada `iniciar` do locutor tem geração
+  própria — a chamada superada limpa só o que é dela; cada `conectar` do
+  ouvinte também, e a tentativa substituída não agenda outra.
+
+### Laboratório de áudio (MediaMTX v1.21.0 + 2 Chrome headless por CDP)
+| Cenário | Resultado |
+|---|---|
+| Entrar com o locutor no ar | 0,7 s |
+| Mudo 6 s | nível 0, conexão de pé, volta imediata, 1 conexão só |
+| Parar 20 s e voltar, sem aviso | 6,2 s (4,9 s na 1ª rodada) |
+| Parar 20 s e voltar, com aviso | 0,7 s |
+| Parar e voltar em < 1 s, com aviso | 2,0 s |
+| Servidor de áudio cai e volta | locutor percebe (aoCair), religa; ouvinte 0,7 s |
+| Duas ligações ao mesmo tempo | `[false, true]`: uma só vence, áudio normal |
+
+### Caixa
+- A conta da pessoa abre com **👤 Dados da pessoa**: nome completo, WhatsApp
+  (com botão de conversa), endereço inteiro com complemento, bairro, cidade/UF,
+  CEP, quando entrou, bloqueio e observação; **📋 Copiar dados** (texto pronto,
+  `Participante.ficha_texto`) e **🗺️ Abrir no mapa** (só um link,
+  `mapa_link`). A cópia só diz "copiado" quando copiou.
+
+### Provas de carga (local, uvicorn 1 worker)
+- `leilao_carga` passou a cadastrar participantes pela porta (`--cadastrar`,
+  exige `--confirmo-leilao-de-teste`), porque o stream do público exige
+  cadastro desde a segunda conferência.
+- 120 conexões + 40 lances + 10 s de emoji: 0 quedas, lance p95 31 ms, 48
+  reações/s. 290 conexões + 60 lances + 15 s: 0 quedas, p95 46 ms, 116/s.
+- 30 pessoas no mesmo instante, 5 rodadas: 2 aceitos por rodada, nenhum valor
+  repetido, degrau sempre R$ 5, valor e líder batendo com o último lance.
+
+### Arquivos
+`static/leilao/js/{audio_falar,audio_ouvir,locutor,leilao,caixa}.js`,
+`static/leilao/css/locutor.css`, `templates/leilao/{locutor,caixa}.html`,
+`leilao/{views,models,tests}.py`, `leilao/management/commands/leilao_carga.py`,
+`CLAUDE.md`, `docs/{MANUAL_LEILAO,DEPLOY_LEILAO,REGRAS_CODEX,ESTADO_ATUAL}.md`.
+
+### Verificação
+Leilão 545 testes OK (+19: `VozMudoEFichaTests` 14, `VozCorridasTests` 5),
+core 456 OK, `node --check` em todos os JS, `makemigrations --check` limpo;
+capturas da mesa (Mudo) e da ficha no caixa conferidas.
+
 ## 2026-09-24 - Leilão: correções da segunda conferência geral
 
 ### Resumo
