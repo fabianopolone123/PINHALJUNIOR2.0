@@ -30,7 +30,15 @@ prazo que saiu em 21/09.
 **Limite conhecido**: o áudio em si **não foi medido** — a ideia era renderizar num
 `OfflineAudioContext`, mas o `startRendering()` não resolve sob o relógio virtual do headless (mesma
 limitação do `createImageBitmap`). Está provado que o código roda e que os efeitos existem; como
-soam, só ouvindo. Suíte do leilão: **+21 testes** novos.
+soam, só ouvindo. Suíte do leilão: **422 testes OK** (+21).
+**Em produção** no commit `4f7f388` (24/09/2026), com a migration **`leilao/0013`** aplicada, os
+estáticos do leilão coletados e o `pinhaljunior_leilao.service` reiniciado (§7.1), com nenhum leilão
+no ar. Backup do banco do leilão em `backup/leilao_antes_som_da_sala_20260924_004221.sqlite3`.
+Conferido depois: os **5 leilões** do banco nasceram com `som_lance` e `som_arremate` ligados, e o
+JS servido (`leilao.0a24cd56c5ee.js`, `som.3d2361cac2b4.js`) traz o `somLiberado` e as funções
+`palmas`/`torcida`. As chaves de som **não** aparecem no SSE agora porque não há leilão no ar — o
+`estado_publico` devolve o retrato de "sem leilão", que é o comportamento documentado, e não uma
+falha; quem cobre esse caminho é o teste `test_a_chave_vai_no_broadcast`.
 
 **Atualização anterior:** 2026-09-23 (**Leilão: peso em gramas, e o cadastro de item deixa de
 demorar**): dois pedidos do clube. **(1) O peso é digitado em gramas** — quem cadastra pensa em
