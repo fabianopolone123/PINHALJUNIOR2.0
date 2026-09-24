@@ -1291,6 +1291,43 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Som que toca a cada lance é curto** (~0,35 s). Som que toca uma vez por item pode ser longo e
   caro — é a mesma regra de prioridade do módulo: o que se repete não pode pesar.
 
+### A tela "show" do pregão: um motor, duas telas
+
+- **A clássica é a padrão (`/`) e a "show" está em teste (`/nova/`)** — decisão do clube: a atual
+  fica de **backup**. Quem abre `/nova/` sem cadastro passa pela porta e **volta para a nova**
+  (`views.CHAVE_TELA` na sessão); abrir `/` apaga a marca. Quando a nova for aprovada, a troca é só
+  de template nas duas views — a clássica passa a morar em `/classico/`.
+- **Não existe segundo motor.** Lance, chat, Pix, som, porta e tela acesa são do `leilao.js`, para as
+  duas telas. Ele só **emite avisos** (`emitir` → `CustomEvent` `leilao:estado|lance|lote_aberto|
+  vendido|chat|toque_lance`) e o `palco_show.js` enfeita em cima. O `emitir` tem `try/catch`: um
+  enfeite que quebre não derruba o pregão. Duplicar a lógica de lance numa tela nova é o jeito certo
+  de as duas passarem a discordar sobre quem está ganhando.
+- **Todo id que o motor procura existe nos DOIS templates** (há teste para a nova). O `.pregao` é a
+  classe que o motor liga em `eu-ganhando`/`superado` — o placar da nova a carrega por isso.
+- **O botão de lance da nova mora fora do bloco do item** (os emojis e o chat ficam entre eles),
+  então o motor não o esconde no intervalo: quem esconde é o `palco_show.js` (`#showAcao`).
+- **A foto nunca some e nunca é cortada**: ela fica com o espaço que sobra, com piso de altura
+  (`--foto-min`), em `object-fit: contain` sobre um borrão da própria foto. Janela baixa demais faz a
+  página **rolar** — nada de `overflow: hidden` no palco, que cortaria o botão.
+- **O chat não ocupa a tela**: no celular, duas bolhas que somem sozinhas (ticker); tocar abre a
+  **folha** com o `#chat` de sempre. A folha cobre o placar com o teclado aberto, então o topo dela
+  tem um **mini placar** ao vivo — o "te superaram" não se esconde de quem conversa. Na tela larga
+  (900px+) o ticker vira a conversa inteira na coluna da direita.
+- **Efeito é enfeite, e enfeite se descarta primeiro**: só `transform`/`opacity`; camadas de efeito
+  com `pointer-events: none`; **um** canvas de partículas cujo laço só roda com partícula viva e cujo
+  **teto cai pela metade** depois de 20 quadros lentos seguidos; `prefers-reduced-motion` desliga
+  tudo. O `palco_show.js` **não faz requisição nenhuma** — o termômetro 🔥 conta os lances que já
+  chegam pelo stream (há teste).
+- **O "cassino" tem limite**: da interação de jogo vem a graça (contador que rola, moedas, combo,
+  coroa, jackpot no martelo), **nunca** a pressão — nada de contagem regressiva (o martelo é do
+  locutor), lance ou gente falsa, "quase ganhou". É dinheiro de verdade num leilão beneficente.
+- **O público continua sem saber quantos itens faltam**: o carimbo diz "NOVO ITEM!", nunca o número.
+- **Animação com relógio usa SÓ o carimbo do `requestAnimationFrame`**. Misturar com
+  `performance.now()` deu tempo negativo e a festa contou "R$ -6,17"; e contagem de valor tem
+  **garantia do valor final** por `setTimeout` — aba no fundo para de dar quadros.
+- **Verificação**: a sonda headless mede posição, estouro e o dígito final de cada fita; a captura
+  **congela animação no meio** (nome do líder "sumido", contador entre dois números) — não é defeito.
+
 ### Quem controla o som da SALA é o locutor
 
 - **Esses efeitos tocam na tela de quem assiste, não na mesa.** Então "mutar" não é preferência

@@ -2,7 +2,31 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: card "🟢 Online agora" na mesa do locutor**): pedido
+**Última atualização:** 2026-09-24 (**Leilão: tela "show" do pregão, em teste em `/nova/`**): pedido do
+clube — uma tela do público "bem legal, imersiva, com muitos efeitos", no espírito da interação de
+jogo, **mantendo a atual como backup**. A clássica continua a padrão em `/`; a nova abre em
+**`/leilao/nova/`** (quem entra por ela sem cadastro passa pela porta e volta para ela). **Um motor
+só**: o `leilao.js` serve às duas e passou a **emitir avisos** (`leilao:estado|lance|lote_aberto|
+vendido|chat|toque_lance`, em `try/catch`); a nova é `leilao_show.html` + `palco_show.css` +
+`palco_show.js`, que só enfeita. **O que tem**: uma tela só no celular, sem rolagem, com a **foto que
+nunca some nem é cortada** (fica com o espaço que sobra, piso `--foto-min`, `contain` sobre o borrão da
+própria foto) e nome/descrição/medidas **por cima** dela; **placar** sobreposto à foto com o valor em
+**contador de dígitos que rolam**, **coroa 👑** e aura dourada para quem está ganhando, **tremor +
+vermelho** e botão âmbar "COBRIR O LANCE" para quem foi superado; **chat compacto** (duas bolhas que
+somem; tocar abre a folha do bate-papo, com **mini placar** no topo e contador de não lidas); **emojis
+grandes numa faixa fixa** com **combo "x5!"** e mini explosão; **botão 3D** com brilho passando e
+**moedas pulando** a cada lance; **termômetro 🔥** da disputa (lances nos últimos 30 s deste item,
+contados na própria tela) que acende brasas e fogo nas bordas; **"NOVO ITEM!"** carimbado e foto com
+zoom ao abrir; **VENDIDO em modo jackpot** (raios girando, chuva de moedas, valor contando). Na tela
+larga (900px+) vira duas colunas, com o chat inteiro à direita. **Limites**: sem contagem regressiva,
+sem número do item, nenhuma requisição nova por enfeite, camadas de efeito com `pointer-events:
+none`, teto de partículas que cai sozinho em aparelho lento, `prefers-reduced-motion` desliga tudo.
+**De quebra**, corrigido um bug da clássica: a conferência do Pix com o QR aberto usava um `id`
+inexistente e parava na primeira volta (`ReferenceError`). Conferido por sonda headless em
+390×844, 360×640 e 1280×800 (sem estouro horizontal, contador no valor do motor) e a clássica
+recebendo lances sem erro. Suíte do leilão: **464 testes OK** (+22). **Sem migration.**
+
+**Atualização anterior:** 2026-09-24 (**Leilão: card "🟢 Online agora" na mesa do locutor**): pedido
 do clube — os nomes de quem está no leilão, à vista na linha do pregão, ao lado de lances e chat,
 sem precisar clicar no 👥. É a **mesma lista** da janela (mesma função `desenharQuemChegou`, mesmo
 `/locutor/dados/` autenticado — **nada novo no broadcast**) e se atualiza sozinha a cada entrada e

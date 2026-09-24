@@ -1,0 +1,288 @@
+{% extends "leilao/_base.html" %}
+{% load static %}
+
+{% block titulo %}{% if leilao %}{{ leilao.nome }}{% else %}Leilão{% endif %}{% endblock %}
+{% comment %}
+A tela "show" do pregão. Roda sobre o MESMO motor da clássica (`leilao.js`):
+todos os ids que ele procura estão aqui, com o mesmo papel. O que muda é o
+desenho — uma tela só, sem rolagem no celular — e os efeitos, que moram no
+`palco_show.js` e escutam os avisos do motor (`leilao:lance`, `leilao:vendido`…).
+
+`tela-palco` continua na classe do corpo de propósito: as peças que as duas
+telas dividem (porta do som, gaveta, janela do Pix, trilho dos emojis, festa)
+já têm estilo no `leilao.css`; o `palco_show.css` só redesenha o palco.
+{% endcomment %}
+{% block corpo_classe %}tela-palco tela-show{% endblock %}
+{% block css %}<link rel="stylesheet" href="{% static 'leilao/css/palco_show.css' %}">{% endblock %}
+
+{% block conteudo %}
+{% comment %}
+Porta do som: um caminho só, "Entrar com som" (regra do projeto). O toque é o
+gesto que o navegador exige para liberar áudio e segurar a tela acesa.
+{% endcomment %}
+<div class="porta-som" id="portaSom">
+    <div class="porta-som-caixa">
+        <div class="porta-som-icone">🔊</div>
+        <h1>Toque para entrar com som</h1>
+        <p>Você vai ouvir a narração ao vivo e o aviso de cada lance novo.</p>
+        <button type="button" class="btn-porta-som" id="btnPortaSom">Entrar com som</button>
+        <p class="porta-som-pe">Dá para desligar depois no 🔇 lá em cima.</p>
+    </div>
+</div>
+
+<main class="show" id="show">
+
+    <header class="show-topo">
+        <span class="selo-vivo" id="seloVivo"><i></i> AO VIVO</span>
+        <span class="show-nome">{% if leilao %}{{ leilao.nome }}{% else %}Leilão{% endif %}</span>
+        <span class="show-online" title="Pessoas no leilão">👥 <b id="online">1</b></span>
+        <button type="button" class="btn-som" id="btnSom" aria-pressed="false"
+                title="Ligar ou desligar o som">🔇</button>
+        {% comment %}
+        Termômetro da disputa: esquenta com a VELOCIDADE dos lances deste item
+        (contada na própria tela, a partir dos lances que já chegam). É leitura
+        do que aconteceu, nunca pressão — não existe prazo neste leilão.
+        {% endcomment %}
+        <div class="show-calor" id="showCalor" aria-hidden="true"><span></span></div>
+    </header>
+
+    {# Estado vazio: nenhum leilão no ar. #}
+    <section class="palco-vazio show-meio" id="palcoVazio" hidden>
+        <div class="vazio-icone">🎪</div>
+        <h1>O leilão ainda não começou</h1>
+        <p>Assim que iniciarmos, esta tela acende sozinha. Pode deixar aberta.</p>
+    </section>
+
+    {% comment %}
+    Entre um item e outro. NÃO diz quantos faltam — saber o que vem pela frente
+    muda como a pessoa dá lance. Comemora quem acabou de arrematar.
+    {% endcomment %}
+    <section class="palco-intervalo show-meio" id="palcoIntervalo" hidden>
+        <div class="festa" id="festa" hidden>
+            <div class="festa-raios" aria-hidden="true"></div>
+            <div class="festa-faixa">🎉 VENDIDO! 🎉</div>
+            <img class="festa-foto" id="festaFoto" alt="" hidden>
+            <div class="festa-item" id="festaItem"></div>
+            <div class="festa-nome" id="festaNome"></div>
+            <div class="festa-valor" id="festaValor"></div>
+            <div class="festa-parabens" id="festaParabens">Parabéns!</div>
+        </div>
+
+        <div class="intervalo-simples" id="intervaloSimples" hidden>
+            <div class="intervalo-icone">⏸️</div>
+            <h1>Intervalo</h1>
+            <p>Estamos preparando o próximo item…</p>
+        </div>
+
+        <div class="boas-vindas" id="boasVindas" hidden>
+            <div class="bv-icone">👋</div>
+            <h1 id="bvTitulo">Seja bem-vindo!</h1>
+            <ul class="bv-lista" id="bvLista"></ul>
+            <p class="bv-online" id="bvOnline">Você já está aqui. O pessoal vai chegando…</p>
+        </div>
+    </section>
+
+    <div class="show-pregao" id="palcoPregao" hidden>
+        {% comment %}
+        A FOTO nunca some: ela ocupa o espaço que sobrar, com piso de altura no
+        CSS. Nome, descrição e medidas moram POR CIMA dela, num degradê — é o que
+        libera altura para o placar e o botão caberem sem rolagem.
+        {% endcomment %}
+        <section class="show-foto" id="loteFoto">
+            <img id="loteImg" alt="" hidden>
+            <div class="lote-foto-vazia" id="loteSemFoto">📦</div>
+            <div class="show-foto-brilho" aria-hidden="true"></div>
+            <div class="show-carimbo" id="showCarimbo" aria-hidden="true">NOVO ITEM!</div>
+            <div class="show-foto-info">
+                <h1 class="lote-nome" id="loteNome">—</h1>
+                <p class="lote-desc" id="loteDesc"></p>
+                <p class="lote-medidas" id="loteMedidas" hidden></p>
+            </div>
+        </section>
+
+        {% comment %}
+        O placar. `.pregao` é a classe que o motor liga em `eu-ganhando` e
+        `superado`; a coroa e o tremor são CSS em cima delas. O `#liderValor`
+        continua sendo o texto de verdade (o motor escreve nele); o
+        `#showValor` é o contador que gira os dígitos por cima.
+        {% endcomment %}
+        <section class="pregao show-placar">
+            <div class="show-coroa" aria-hidden="true">👑</div>
+            <div class="lider" id="lider">
+                <span class="lider-rotulo" id="liderRotulo">Lance inicial</span>
+                <span class="lider-nome" id="liderNome">Ninguém ainda</span>
+            </div>
+            <div class="show-valor-caixa">
+                <span class="lider-valor show-texto-oculto" id="liderValor">R$ 0,00</span>
+                <span class="show-valor" id="showValor" aria-hidden="true">R$ 0,00</span>
+            </div>
+        </section>
+    </div>
+
+    {% comment %}
+    O chat NÃO ocupa a tela: aqui só as duas últimas mensagens, que aparecem e
+    somem sozinhas. Tocar abre o bate-papo inteiro, subindo de baixo.
+    {% endcomment %}
+    <button type="button" class="show-ticker" id="showTicker" hidden
+            aria-label="Abrir o bate-papo">
+        <ul class="show-ticker-lista" id="showTickerLista"></ul>
+        <span class="show-ticker-dica">💬 toque para conversar</span>
+    </button>
+
+    {% comment %}
+    Os botões de reagir ficam NO FLUXO da página (regra do projeto: elemento
+    que não flutua não cobre nada). Sempre à vista, grandes, numa faixa própria.
+    {% endcomment %}
+    <div class="reacoes-botoes show-reacoes" id="reacoesBotoes" hidden>
+        {% for e in emojis %}
+        <button type="button" class="btn-reacao" data-emoji="{{ e }}"
+                aria-label="Reagir com {{ e }}">{{ e }}</button>
+        {% endfor %}
+    </div>
+
+    <div class="acao show-acao" id="showAcao">
+        <button type="button" class="btn-lance show-btn-lance" id="btnLance">
+            <span class="show-btn-brilho" aria-hidden="true"></span>
+            <span class="btn-lance-rotulo">DAR LANCE</span>
+            <span class="btn-lance-valor" id="btnLanceValor">R$ 0,00</span>
+        </button>
+        <p class="acao-dica" id="acaoDica">Cada toque sobe <b id="dicaIncremento">R$ 5,00</b></p>
+    </div>
+
+    <footer class="show-barra">
+        <button type="button" class="barra-btn" id="btnArremates">
+            🏆 Meus arremates <b id="qtdArremates">0</b>
+        </button>
+        <span class="barra-info" id="barraInfo"></span>
+        <button type="button" class="barra-btn show-btn-chat" id="btnChat" hidden
+                aria-label="Abrir o bate-papo">
+            💬 <b class="show-nao-lidas" id="showNaoLidas" hidden>0</b>
+        </button>
+    </footer>
+</main>
+
+{% comment %}
+O bate-papo inteiro, numa folha que sobe de baixo. Por dentro é o MESMO `#chat`
+da tela clássica (o motor desenha e envia por ele); a folha só decide onde ele
+aparece. Com o teclado aberto ela cobre o placar — por isso o topo dela traz um
+MINI PLACAR ao vivo: o "te superaram" não se esconde de quem está conversando.
+{% endcomment %}
+<aside class="show-folha" id="showFolha" hidden>
+    <div class="show-folha-caixa" role="dialog" aria-label="Bate-papo">
+        <header class="show-folha-topo">
+            <h2>💬 Bate-papo</h2>
+            <span class="show-folha-placar" id="showFolhaPlacar" aria-live="polite"></span>
+            <button type="button" class="gaveta-fechar" id="showFolhaFechar" aria-label="Fechar">✕</button>
+        </header>
+        <section class="chat show-chat" id="chat" hidden>
+            <ul class="chat-lista" id="chatLista"></ul>
+            <form class="chat-form" id="chatForm">
+                <input type="text" id="chatTexto" maxlength="300" placeholder="Escreva uma mensagem…"
+                       autocomplete="off">
+                <button type="submit" aria-label="Enviar">➤</button>
+            </form>
+        </section>
+    </div>
+</aside>
+
+{% comment %}
+Trilho dos emojis e a camada de efeitos: os dois `position: fixed` com
+`pointer-events: none` — passam por cima sem nunca roubar o toque do botão de
+lance, que é o que não pode falhar.
+{% endcomment %}
+<div class="reacoes-trilho" id="reacoesTrilho" aria-hidden="true"></div>
+<canvas id="showFx" class="show-fx" aria-hidden="true"></canvas>
+<div class="show-vinheta" id="showVinheta" aria-hidden="true"></div>
+
+{# ---- Gaveta: meus arremates (abre por cima, o pregão continua atrás) ---- #}
+<aside class="gaveta" id="gaveta" hidden>
+    <div class="gaveta-caixa" role="dialog" aria-label="Meus arremates">
+        <header class="gaveta-topo">
+            <h2>🏆 Meus arremates</h2>
+            <button type="button" class="gaveta-fechar" id="gavetaFechar" aria-label="Fechar">✕</button>
+        </header>
+        <div class="gaveta-corpo" id="gavetaCorpo">
+            <p class="gaveta-vazio">Você ainda não arrematou nada. Boa sorte!</p>
+        </div>
+    </div>
+</aside>
+
+{% comment %}
+O som caiu — o botão desta janela É o gesto que o navegador espera para voltar
+a tocar (ver a tela clássica e o `audio_ouvir.js`).
+{% endcomment %}
+<div class="modal-overlay" id="modalSomCaiu" hidden>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="somCaiuTitulo">
+        <div class="modal-topo">
+            <h2 class="modal-titulo" id="somCaiuTitulo">🔇 O som parou</h2>
+            <button type="button" class="modal-fechar" data-fechar-modal aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo som-caiu-corpo">
+            <p>
+                A voz do locutor parou de chegar no seu aparelho. Isso costuma acontecer quando a
+                transmissão é retomada ou quando o celular fica um tempo bloqueado.
+            </p>
+            <button type="button" class="btn-entrar" id="btnVoltarASomar">
+                🔊 Voltar a ouvir
+            </button>
+            <p class="qr-ajuda">
+                Os lances continuam funcionando normalmente, com ou sem som.
+            </p>
+        </div>
+    </div>
+</div>
+
+{# ---- Modal do QR Code ---- #}
+<div class="modal-overlay" id="modalQr" hidden>
+    <div class="modal-caixa" role="dialog" aria-label="Pagar com Pix">
+        <div class="modal-topo">
+            <h2 class="modal-titulo">Pagar com Pix</h2>
+            <button type="button" class="modal-fechar" id="qrFechar" aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo qr-corpo">
+            <p class="qr-item" id="qrItem"></p>
+            <p class="qr-valor" id="qrValor"></p>
+            <img id="qrImagem" alt="QR Code do Pix" hidden>
+            <p class="qr-prazo" id="qrPrazo"></p>
+            <button type="button" class="btn-copiar" id="qrCopiar">📋 Copiar código Pix</button>
+            <p class="qr-ajuda">Abra o app do banco, escolha <b>Pix Copia e Cola</b> e cole o código.</p>
+        </div>
+    </div>
+</div>
+
+<canvas id="confete" class="confete" aria-hidden="true"></canvas>
+<audio id="audioLocutor" playsinline></audio>
+
+<div id="dadosLeilao" hidden
+     data-csrf="{{ csrf_token }}"
+     data-eu="{{ participante.id }}"
+     data-eu-chave="{{ participante.chave_pessoa }}"
+     data-rajada="{{ rajada_reacoes }}"
+     data-audio="{{ audio_whep }}"
+     data-audio-externo="{{ audio_externo }}"
+     data-som-lance="{% static 'leilao/som/lance.wav' %}"
+     data-som-arremate="{% static 'leilao/som/arremate.mp3' %}"></div>
+
+{{ estado_inicial|json_script:"estadoInicial" }}
+{% endblock %}
+
+{% block js %}
+<script id="urlsLeilao" type="application/json">{
+    "stream": "{% url 'leilao:stream' %}",
+    "lance": "{% url 'leilao:lance' %}",
+    "chat": "{% url 'leilao:chat_enviar' %}",
+    "reagir": "{% url 'leilao:reagir' %}",
+    "arremates": "{% url 'leilao:meus_arremates' %}",
+    "pix": "{% url 'leilao:conta_pix' %}",
+    "conferir": "{% url 'leilao:conta_conferir' %}"
+}</script>
+<script src="{% static 'leilao/js/modal.js' %}"></script>
+<script src="{% static 'leilao/js/som.js' %}"></script>
+<script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
+<script src="{% static 'leilao/js/confete.js' %}"></script>
+<script src="{% static 'leilao/js/reacoes.js' %}"></script>
+<script src="{% static 'leilao/js/audio_ouvir.js' %}"></script>
+{# ANTES do motor: os efeitos precisam estar escutando quando o primeiro aviso sair. #}
+<script src="{% static 'leilao/js/palco_show.js' %}"></script>
+<script src="{% static 'leilao/js/leilao.js' %}"></script>
+{% endblock %}

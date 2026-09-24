@@ -18,6 +18,8 @@ app_name = "leilao"
 urlpatterns = [
     # --- Participante ---
     path("", views.leilao_view, name="leilao"),
+    # A tela "show", em teste ao lado da clássica (mesmo motor e endpoints).
+    path("nova/", views.leilao_nova_view, name="leilao_nova"),
     path("entrar/", views.entrar_view, name="entrar"),
     path("sair/", views.sair_view, name="sair"),
     path("stream/", views.stream_view, name="stream"),

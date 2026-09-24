@@ -79,7 +79,7 @@ def _json(request):
 def entrar_view(request):
     """A porta: nome, WhatsApp e endereço. Sem senha."""
     if participante_atual(request):
-        return redirect("leilao:leilao")
+        return redirect(_destino_do_pregao(request))
 
     leilao = Leilao.ao_vivo()
     if request.method == "POST":
@@ -93,7 +93,7 @@ def entrar_view(request):
             participante.save()
             sessao_entrar(request, participante)
             messages.success(request, f"Bem-vindo, {participante.nome_curto}!")
-            return redirect("leilao:leilao")
+            return redirect(_destino_do_pregao(request))
         messages.error(request, "Confira os campos destacados.")
     else:
         form = EntrarForm()
@@ -106,8 +106,36 @@ def sair_view(request):
     return redirect("leilao:entrar")
 
 
+# Qual tela do pregão a pessoa estava abrindo antes de ir para a porta. Existe
+# enquanto a tela "show" está em teste: quem abre `/nova/` sem cadastro faz o
+# cadastro e VOLTA para a nova, em vez de cair na clássica.
+CHAVE_TELA = "leilao_tela"
+
+
+def _destino_do_pregao(request):
+    return "leilao:leilao_nova" if request.session.get(CHAVE_TELA) == "nova" else "leilao:leilao"
+
+
 def leilao_view(request):
     """A tela do pregão. Uma só, que nunca recarrega."""
+    # Quem volta à clássica deixa de ser mandado para a nova depois da porta.
+    if request.session.get(CHAVE_TELA):
+        del request.session[CHAVE_TELA]
+    return _tela_do_pregao(request, "leilao/leilao.html")
+
+
+def leilao_nova_view(request):
+    """A tela "show" do pregão, em teste ao lado da clássica.
+
+    Mesmo contexto, mesmo motor (`leilao.js`), mesmos endpoints — muda só o
+    desenho e os efeitos. Enquanto a clássica for a padrão, esta é a tela de
+    quem abre `/nova/`.
+    """
+    request.session[CHAVE_TELA] = "nova"
+    return _tela_do_pregao(request, "leilao/leilao_show.html")
+
+
+def _tela_do_pregao(request, template):
     participante = participante_atual(request)
     if not participante:
         return redirect("leilao:entrar")
@@ -116,7 +144,7 @@ def leilao_view(request):
     leilao = Leilao.ao_vivo()
     return render(
         request,
-        "leilao/leilao.html",
+        template,
         {
             "leilao": leilao,
             # Objeto, não string: o `json_script` do template é quem serializa.

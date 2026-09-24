@@ -69,6 +69,12 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
 - **A entrega não tem mapa**: a divisão por bairro é ponto de partida e a palavra final é do **quadro**
   (`/caixa/entregas/`), onde a equipe arrasta as paradas entre os entregadores e cada arrastada já salva
   (`EntregadorLeilao` + `AtribuicaoEntrega`, mig. **0009**). A unidade é a **pessoa**, não o item.
+- **Duas telas do pregão, UM motor** (desde 24/09): a clássica (`/`, `leilao.html`, a padrão) e a
+  **"show"** em teste (`/nova/`, `leilao_show.html` + `palco_show.css` + `palco_show.js`). Lance, chat,
+  Pix e som são do `leilao.js` para as duas; ele só **emite avisos** (`leilao:estado|lance|lote_aberto|
+  vendido|chat|toque_lance`) e o `palco_show.js` enfeita em cima. Mudou algo no motor? Os **ids** que ele
+  procura têm de existir nos **dois** templates (há teste). Efeito novo: só `transform`/`opacity`,
+  `pointer-events: none`, teto de partículas que cai sozinho, e nada de requisição por enfeite.
 - **Deploy tem passo extra**: o `pinhaljunior2-deploy` **não** reinicia o serviço do leilão nem coleta os
   estáticos dele (ver `docs/DEPLOY_LEILAO.md` §7.1).
 

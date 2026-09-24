@@ -22,6 +22,85 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: tela "show" do pregão, em teste ao lado da clássica
+
+### Resumo
+Pedido do clube: refazer a tela do público "bem legal, interativa, imersiva,
+com muitos efeitos" — no espírito da interação de jogo, sem o tema —, 100%
+responsiva no celular, sem a foto sumir, com o chat visível sem ocupar espaço e
+os emojis bem à vista. E **deixar a tela atual como backup**.
+
+### Como ficou
+- **A clássica continua a padrão** em `/`. A nova abre em **`/nova/`**; quem
+  chega nela sem cadastro passa pela porta e volta para ela
+  (`views.CHAVE_TELA`); abrir `/` apaga a marca.
+- **Um motor só.** O `leilao.js` serve às duas telas e ganhou `emitir()`, que
+  dispara `leilao:estado`, `leilao:lance`, `leilao:lote_aberto`,
+  `leilao:vendido`, `leilao:chat` e `leilao:toque_lance` (com `try/catch`). A
+  tela nova só escuta e enfeita. Lance, Pix e chat não foram duplicados.
+- **Layout de uma tela só** no celular: topo com termômetro · foto (fica com o
+  espaço que sobra, com piso de altura, `contain` sobre o borrão dela mesma, e
+  nome/descrição/medidas por cima) · placar sobreposto à foto · chat compacto ·
+  faixa de emojis · botão de lance · barra. Na tela larga, duas colunas.
+- **Efeitos**: contador de dígitos que rolam; moedas pulando do botão (poucas
+  no toque, mais quando o lance confirma, mais ainda se é seu); flash dourado
+  no seu lance e vermelho quando te tiram; coroa e aura para quem lidera;
+  tremor e botão âmbar "COBRIR O LANCE" para quem foi superado; faixa de luz na
+  foto a cada lance; carimbo "NOVO ITEM!" e zoom quando o item abre; termômetro
+  da disputa (lances nos últimos 30 s) com brasas e fogo nas bordas acima de
+  60%; combo "x5!" e mini explosão nos emojis; VENDIDO com raios girando, chuva
+  de moedas e o valor contando.
+- **Chat**: no celular, duas bolhas que somem em 12 s; tocar abre a folha com o
+  `#chat` de sempre, com **mini placar ao vivo** no topo (o teclado cobre o
+  placar grande) e contador de não lidas no botão 💬.
+
+### Decisões tomadas
+- **O "cassino" tem limite**: nada de contagem regressiva, lance ou gente
+  falsa, "quase ganhou". É dinheiro de verdade num leilão beneficente de um
+  clube de crianças; da interação de jogo vem a graça, não a pressão.
+- **Enfeite se descarta primeiro**: `transform`/`opacity`, `pointer-events:
+  none`, um canvas cujo laço só roda com partícula viva, teto de partículas
+  que cai pela metade depois de 20 quadros lentos, `prefers-reduced-motion`
+  desliga tudo, e **nenhuma requisição** nova (o termômetro conta o que já
+  chega pelo stream).
+- **O número do item continua fora da tela do público** — o carimbo diz só
+  "NOVO ITEM!".
+
+### Bug corrigido de passagem (vale para a clássica também)
+- `conferirPagamento` usava `arremateAberto === id`, com um `id` que não existe
+  desde que o pagamento virou UM Pix pelo total. O `ReferenceError` matava a
+  volta: com o QR aberto, a tela conferia uma vez e parava. A confirmação ainda
+  chegava pelo webhook, mas o reforço não funcionava. Há teste.
+
+### Achados que ficaram de fora (não mexidos)
+- O ouvinte de `arremate_pix` compara `String(arremateAberto)` com
+  `d.arremate`, mas `arremateAberto` virou `true`: com o QR aberto e o Pix
+  refeito, a janela não se atualiza sozinha. Raro (o Pix só é refeito pela
+  equipe) e fora do pedido; fica registrado.
+
+### Arquivos criados/alterados
+- `templates/leilao/leilao_show.html`, `static/leilao/css/palco_show.css`,
+  `static/leilao/js/palco_show.js` (novos).
+- `static/leilao/js/leilao.js`: `emitir()` e os avisos; correção do Pix.
+- `leilao/views.py` (`leilao_nova_view`, `_tela_do_pregao`, `CHAVE_TELA`) e
+  `leilao/urls.py` (`nova/`).
+- `leilao/tests.py`: `TelaShowTests` (21) e `ConferirPixNaoMorreTests`.
+- `CLAUDE.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`.
+
+### Verificação
+- Leilão 464 testes OK, core 456 OK; `node --check` nos dois JS.
+- Sonda headless com stream simulado (lance, superado, vendido, chat, folha)
+  em 390×844, 360×640 e 1280×800: sem erro de JS, sem estouro horizontal, o
+  contador para no mesmo valor que o motor escreveu. A clássica, com o motor
+  alterado, recebe lances sem erro.
+- Foto de teste desenhada com Pillow (fictícia), apagada depois.
+
+### Pendências
+- **Teste do clube no celular** em `/leilao/nova/`, com o leilão de teste.
+- Aprovada, trocar a padrão: a nova em `/`, a clássica em `/classico/`.
+- Deploy: `pinhaljunior2-deploy` + `DEPLOY_LEILAO.md` §7.1 (collectstatic e
+  restart do leilão). Sem migration.
+
 ## 2026-09-24 - Leilão: card "Online agora" na mesa do locutor
 
 ### Resumo

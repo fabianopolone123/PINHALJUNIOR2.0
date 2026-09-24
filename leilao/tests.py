@@ -5635,3 +5635,205 @@ class AudioVoltaQuandoOLocutorVoltaTests(TestCase):
         ontrack = js[js.index("conexao.ontrack"):]
         ontrack = ontrack[: ontrack.index("tocar();")]
         self.assertIn("srcObject = null", ontrack)
+
+
+class TelaShowTests(TestCase):
+    """A tela "show" do pregão (`/nova/`), em teste ao lado da clássica.
+
+    Ela é só DESENHO: roda sobre o mesmo motor (`leilao.js`) e os mesmos
+    endpoints. Por isso o que se guarda aqui é o que faria as duas telas
+    divergirem — um id que o motor procura e a nova não tem, um efeito que
+    pega toque, o número do item vazando para o público — e que a clássica
+    continua sendo a padrão enquanto a nova não for aprovada.
+    """
+
+    HTML = Path(settings.BASE_DIR, "templates", "leilao", "leilao_show.html")
+    JS_MOTOR = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js")
+    JS_SHOW = Path(settings.BASE_DIR, "static", "leilao", "js", "palco_show.js")
+    CSS_SHOW = Path(settings.BASE_DIR, "static", "leilao", "css", "palco_show.css")
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.c = Client()
+
+    def _logar(self):
+        p = criar_pessoa()
+        sessao = self.c.session
+        sessao[CHAVE_SESSAO] = p.token
+        sessao.save()
+        return p
+
+    @staticmethod
+    def _sem_comentarios(js):
+        limpo = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    # --- As duas telas convivem -------------------------------------------
+    def test_a_classica_continua_sendo_a_padrao(self):
+        self._logar()
+        r = self.c.get("/")
+        self.assertTemplateUsed(r, "leilao/leilao.html")
+        self.assertTemplateNotUsed(r, "leilao/leilao_show.html")
+
+    def test_a_nova_abre_em_nova(self):
+        self._logar()
+        r = self.c.get("/nova/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, "leilao/leilao_show.html")
+
+    def test_sem_cadastro_a_nova_manda_para_a_porta_e_volta_para_ela(self):
+        r = self.c.get("/nova/")
+        self.assertRedirects(r, "/entrar/")
+        r = self.c.post("/entrar/", {
+            "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0000", "cep": "01001-000",
+            "logradouro": "Rua Exemplo", "numero": "10", "bairro": "Centro",
+            "cidade": "Cidade Exemplo", "estado": "SP",
+        })
+        self.assertRedirects(r, "/nova/")
+
+    def test_quem_volta_a_classica_nao_e_mais_mandado_para_a_nova(self):
+        self.c.get("/nova/")
+        self.c.get("/")          # sem cadastro: vai para a porta, mas esquece a nova
+        self.assertNotIn(views.CHAVE_TELA, self.c.session)
+
+    # --- O motor encontra tudo o que procura ------------------------------
+    def test_todo_id_que_o_motor_procura_existe_na_nova(self):
+        js = self.JS_MOTOR.read_text(encoding="utf-8")
+        html = self.HTML.read_text(encoding="utf-8")
+        faltando = [
+            i for i in set(re.findall(r'\$\("([A-Za-z0-9_]+)"\)', js))
+            if f'id="{i}"' not in html and f'json_script:"{i}"' not in html
+        ]
+        self.assertEqual(sorted(faltando), [], "o motor procura ids que a tela nova não tem")
+
+    def test_todo_id_que_os_efeitos_procuram_existe_na_nova(self):
+        js = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        html = self.HTML.read_text(encoding="utf-8")
+        faltando = [i for i in set(re.findall(r'\$\("([A-Za-z0-9_]+)"\)', js)) if f'id="{i}"' not in html]
+        self.assertEqual(sorted(faltando), [])
+
+    def test_o_placar_tem_a_classe_que_o_motor_liga(self):
+        """O motor faz `querySelector(".pregao")` para ligar `eu-ganhando` e
+        `superado` — sem a classe, a coroa e o tremor nunca acenderiam."""
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertRegex(html, r'<section class="pregao show-placar"')
+
+    def test_os_efeitos_carregam_antes_do_motor(self):
+        """O primeiro `leilao:estado` sai na carga do motor; ouvinte registrado
+        depois perderia a primeira pintura."""
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertLess(html.index("leilao/js/palco_show.js"), html.index("leilao/js/leilao.js"))
+
+    def test_a_nova_segura_a_tela_e_liga_o_som(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertIn("leilao/js/tela_acesa.js", html)
+        self.assertIn("leilao/js/audio_ouvir.js", html)
+        self.assertIn("data-som-lance=", html)
+
+    def test_a_porta_da_nova_tambem_so_tem_um_caminho(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        porta = html[html.index('id="portaSom"'):html.index("<main")]
+        self.assertEqual(re.findall(r'<button[^>]*id="(bt[^"]+)"', porta), ["btnPortaSom"])
+
+    # --- O motor avisa, e o aviso não pode derrubá-lo ---------------------
+    def test_o_motor_emite_os_avisos_que_os_efeitos_escutam(self):
+        motor = self._sem_comentarios(self.JS_MOTOR.read_text(encoding="utf-8"))
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        for aviso in ("estado", "lance", "lote_aberto", "vendido", "chat", "toque_lance"):
+            self.assertIn(f'emitir("{aviso}"', motor, f"o motor não emite {aviso}")
+            self.assertIn(f'"leilao:{aviso}"', show, f"os efeitos não escutam {aviso}")
+
+    def test_aviso_que_falha_nao_derruba_o_motor(self):
+        motor = self.JS_MOTOR.read_text(encoding="utf-8")
+        emitir = motor[motor.index("function emitir"):]
+        emitir = emitir[: emitir.index("\n    }\n")]
+        self.assertIn("try", emitir)
+        self.assertIn("catch", emitir)
+
+    # --- Nada flutua em cima de controle ----------------------------------
+    def test_camadas_de_efeito_nao_pegam_toque(self):
+        css = self.CSS_SHOW.read_text(encoding="utf-8")
+        for seletor in (".show-fx {", ".show-vinheta {", ".show-foto-brilho {", ".show-carimbo {",
+                        ".show-combo {", ".show-estouro {", ".show-btn-brilho {"):
+            bloco = css[css.index(seletor):]
+            bloco = bloco[: bloco.index("}")]
+            self.assertIn("pointer-events: none", bloco, f"{seletor} pegaria o toque")
+
+    def test_emojis_e_barra_moram_no_fluxo(self):
+        """Regra do projeto: elemento que não flutua não cobre nada."""
+        css = self.CSS_SHOW.read_text(encoding="utf-8")
+        for seletor in (".tela-show .show-reacoes {", ".tela-show .show-barra {"):
+            bloco = css[css.index(seletor):]
+            bloco = bloco[: bloco.index("}")]
+            self.assertNotIn("position: fixed", bloco)
+
+    def test_blocos_flex_escondidos_tem_regra_de_hidden(self):
+        css = self.CSS_SHOW.read_text(encoding="utf-8")
+        for classe in (".show-pregao[hidden]", ".show-ticker[hidden]", ".show-folha[hidden]",
+                       ".show-chat[hidden]", ".show-acao[hidden]"):
+            self.assertIn(classe, css)
+
+    # --- O público não aprende o que não pode saber -----------------------
+    def test_a_nova_nao_mostra_o_numero_do_item(self):
+        """"Item 12" conta que existem pelo menos 12 — e quantos faltam é o
+        que o público não pode saber. O carimbo diz só NOVO ITEM."""
+        self._logar()
+        servicos.abrir_lote(self.lote)
+        html = self.c.get("/nova/").content.decode()
+        self.assertNotIn("numero_atual", html)
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        self.assertNotIn(".numero", show)
+
+    def test_a_nova_nao_cria_requisicao_nenhuma(self):
+        """Enfeite não gasta banda do pregão: o termômetro conta os lances que
+        já chegam pelo stream."""
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        self.assertNotIn("fetch(", show)
+        self.assertNotIn("XMLHttpRequest", show)
+        self.assertNotIn("EventSource", show)
+
+    def test_texto_de_gente_entra_como_texto(self):
+        """Nome e mensagem vêm de quem está do outro lado: `textContent`, nunca
+        `innerHTML` com o conteúdo deles."""
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        for linha in show.splitlines():
+            if "innerHTML" in linha:
+                self.assertRegex(linha, r'innerHTML\s*=\s*""', linha.strip())
+
+    # --- Os limites do "cassino" ------------------------------------------
+    def test_sem_contagem_regressiva_nem_prazo(self):
+        """O martelo é do locutor: nenhuma contagem na tela promete um prazo
+        que o sistema não cumpre (nem pressiona quem está dando lance)."""
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8")).lower()
+        for proibido in ("cronometro", "cronômetro", "contagem", "restam", "segundos para"):
+            self.assertNotIn(proibido, show)
+
+    def test_o_teto_de_particulas_cai_quando_o_aparelho_sofre(self):
+        show = self.JS_SHOW.read_text(encoding="utf-8")
+        self.assertIn("quadrosLentos", show)
+        self.assertIn("teto = Math.max(24, Math.floor(teto / 2))", show)
+        self.assertIn("prefers-reduced-motion", show)
+
+    def test_a_festa_nao_fica_parada_em_zero(self):
+        """A contagem do valor da festa tem garantia de valor final — um
+        prêmio parado em "R$ 0,00" seria pior do que nenhuma animação."""
+        show = self.JS_SHOW.read_text(encoding="utf-8")
+        trecho = show[show.index('"leilao:vendido"'):]
+        self.assertIn("Math.max(0,", trecho)
+        self.assertIn("DURACAO + 250", trecho)
+
+
+class ConferirPixNaoMorreTests(TestCase):
+    """O reforço da conferência do Pix (QR aberto) usava um `id` que deixou de
+    existir quando o pagamento virou UM Pix pelo total. O `ReferenceError`
+    matava a volta, e a conferência parava na primeira tentativa."""
+
+    def test_a_conferencia_nao_usa_variavel_que_nao_existe(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(encoding="utf-8")
+        trecho = js[js.index("function conferirPagamento"):]
+        trecho = trecho[: trecho.index("\n    }\n")]
+        limpo = re.sub(r"//[^\n]*", " ", trecho)
+        self.assertNotIn("=== id", limpo)
+        self.assertIn("setTimeout(conferirPagamento, 5000)", limpo)

@@ -85,6 +85,20 @@
         if (navigator.vibrate) { try { navigator.vibrate(padrao); } catch (e) { /* nada */ } }
     }
 
+    /* O motor AVISA o que aconteceu; quem quiser enfeitar escuta.
+
+       É o que deixa existir mais de uma tela sobre este mesmo arquivo: a tela
+       clássica ignora os avisos, e a tela "show" (`palco_show.js`) desenha os
+       efeitos em cima deles. Lance, Pix e chat continuam num lugar só — as
+       duas telas nunca discordam sobre o que aconteceu no pregão.
+
+       Aviso é enfeite: um ouvinte que quebre não pode levar o motor junto. */
+    function emitir(nome, detalhe) {
+        try {
+            document.dispatchEvent(new CustomEvent("leilao:" + nome, { detail: detalhe || {} }));
+        } catch (e) { /* enfeite que falhou não derruba o pregão */ }
+    }
+
     function post(url, corpo) {
         return fetch(url, {
             method: "POST",
@@ -147,6 +161,7 @@
         desenharChat();
         desenharBarra();
         precarregarProxima();
+        emitir("estado", { estado: estado, euGanhando: !!(lote && souEu(lote.lider)) });
     }
 
     var festaMostrada = null;
@@ -637,10 +652,14 @@
                     carregarArremates();
                     return;
                 }
-                if (arremateAberto === id) setTimeout(conferirPagamento, 5000);
+                // Era `arremateAberto === id`, com um `id` que não existia
+                // desde que o pagamento virou UM Pix pelo total: o
+                // ReferenceError matava a volta e o reforço parava na
+                // primeira conferência. Corrigido em 24/09.
+                if (arremateAberto) setTimeout(conferirPagamento, 5000);
             })
             .catch(function () {
-                if (arremateAberto === id) setTimeout(conferirPagamento, 8000);
+                if (arremateAberto) setTimeout(conferirPagamento, 8000);
             });
     }
 
@@ -675,6 +694,10 @@
                 else if (somLiberado("lance")) window.SomLeilao.lance();
             }
             vibrar(meTiraram ? [50, 60, 50] : meu ? 40 : 25);
+            emitir("lance", {
+                lote: d.lote, meu: meu, meTiraram: meTiraram,
+                euGanhando: souEu(d.lote && d.lote.lider)
+            });
         });
 
         fonte.addEventListener("lote_aberto", function (e) {
@@ -682,12 +705,14 @@
             toast("Novo item! 🔔", "info");
             if (window.SomLeilao && somLiberado("lance")) window.SomLeilao.lance();
             vibrar([30, 40, 30]);
+            emitir("lote_aberto", { lote: estado && estado.lote });
         });
 
         fonte.addEventListener("lote_vendido", function (e) {
             var d = JSON.parse(e.data);
             var euGanhei = d.vendido && souEu({ id: d.vencedor_id, chave: d.vencedor_chave });
             render(d.estado);
+            emitir("vendido", { vendido: !!d.vendido, euGanhei: !!euGanhei, valor: d.valor });
 
             if (!d.vendido) {
                 toast("Item sem lance — volta para a fila.", "info");
@@ -709,7 +734,13 @@
 
         fonte.addEventListener("chat", function (e) {
             var m = JSON.parse(e.data);
-            if (estado && estado.chat && estado.chat.aberto) empurrarChat(m);
+            if (estado && estado.chat && estado.chat.aberto) {
+                empurrarChat(m);
+                emitir("chat", {
+                    autor: EU && m.autor_id === EU ? "Você" : m.autor,
+                    texto: m.texto, meu: !!(EU && m.autor_id === EU), locutor: !m.autor_id
+                });
+            }
         });
 
         // Sem `chat_estado`: o chat fica aberto o leilão inteiro, e se está
@@ -781,6 +812,7 @@
         var btn = $("btnLance");
         onda(btn, evento);
         vibrar(20);
+        emitir("toque_lance", {});
 
         var pretendido = lote.proximo_valor;
         btn.disabled = true;
