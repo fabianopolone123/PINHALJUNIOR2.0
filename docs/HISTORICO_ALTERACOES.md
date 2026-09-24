@@ -49,7 +49,16 @@ convivência reescritos para a nova ordem), `CLAUDE.md`, `docs/REGRAS_CODEX.md`,
 `docs/ESTADO_ATUAL.md`.
 
 ### Verificação
-Suíte do leilão: 465 testes OK.
+Suíte do leilão: 465 testes OK; core 456 OK.
+
+### Deploy
+Em produção no commit `45dd8fd` (24/09/2026, 12:24): backup
+`backup/leilao_antes_show_padrao_20260924_152343.sqlite3` (nome em UTC),
+`pinhaljunior2-deploy` e o §7.1, leilão reiniciado depois do código novo — com
+o item de TESTE nº 6 do leilão 5 aberto (lances do próprio clube testando).
+Conferido: `/` → `leilao_view` (show), `/classico/` → clássica, `/nova/` → 302
+para `/leilao/`; sem cadastro as duas telas mandam para a porta; clube 200;
+nenhum erro no journal.
 
 ## 2026-09-24 - Leilão: tela "show" do pregão, em teste ao lado da clássica
 

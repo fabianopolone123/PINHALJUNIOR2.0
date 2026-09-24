@@ -7,7 +7,7 @@ depois do teste. **`/leilao/` abre a show para todo mundo**; a clássica ficou d
 `/leilao/classico/`** (quem entra por ela sem cadastro volta para ela depois da porta); o link de
 teste `/leilao/nova/` redireciona para `/leilao/`. O clube decidiu **não** mexer agora nas três
 animações contínuas que repintam (brilho do botão, aura de quem lidera, vermelho de quem foi
-superado) — ficam como estão. Suíte do leilão: **465 testes OK**. **Sem migration.**
+superado) — ficam como estão. Suíte do leilão: **465 testes OK**. **Sem migration.** **Em produção** no commit `45dd8fd` (24/09/2026, 12:24), com `pinhaljunior2-deploy` + §7.1; rotas conferidas no servidor.
 
 **Atualização anterior:** 2026-09-24 (**Leilão: tela "show" do pregão, em teste em `/nova/`**): pedido do
 clube — uma tela do público "bem legal, imersiva, com muitos efeitos", no espírito da interação de
