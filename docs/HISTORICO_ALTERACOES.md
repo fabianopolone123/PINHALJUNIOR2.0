@@ -98,8 +98,16 @@ os emojis bem à vista. E **deixar a tela atual como backup**.
 ### Pendências
 - **Teste do clube no celular** em `/leilao/nova/`, com o leilão de teste.
 - Aprovada, trocar a padrão: a nova em `/`, a clássica em `/classico/`.
-- Deploy: `pinhaljunior2-deploy` + `DEPLOY_LEILAO.md` §7.1 (collectstatic e
-  restart do leilão). Sem migration.
+- ~~Deploy~~ feito (abaixo).
+
+### Deploy
+Em produção no commit `a2e8e79` (24/09/2026, 11:35): backup
+`backup/leilao_antes_tela_show_20260924_143549.sqlite3` (nome em UTC),
+`pinhaljunior2-deploy` (healthcheck OK) e o §7.1, com o leilão reiniciado
+depois do código novo. Conferido: o manifesto serve `palco_show.d8ab2cd8bb42.js`,
+`palco_show.e900a130b247.css` e o motor novo `leilao.5f2e4268613b.js` (com o
+`emitir`); `/leilao/nova/` e `/leilao/` respondem 302 para a porta sem
+cadastro, como devem; clube 200; nenhum erro no journal.
 
 ## 2026-09-24 - Leilão: card "Online agora" na mesa do locutor
 

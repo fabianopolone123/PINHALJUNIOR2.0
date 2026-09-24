@@ -24,7 +24,7 @@ none`, teto de partículas que cai sozinho em aparelho lento, `prefers-reduced-m
 **De quebra**, corrigido um bug da clássica: a conferência do Pix com o QR aberto usava um `id`
 inexistente e parava na primeira volta (`ReferenceError`). Conferido por sonda headless em
 390×844, 360×640 e 1280×800 (sem estouro horizontal, contador no valor do motor) e a clássica
-recebendo lances sem erro. Suíte do leilão: **464 testes OK** (+22). **Sem migration.**
+recebendo lances sem erro. Suíte do leilão: **464 testes OK** (+22). **Sem migration.** **Em produção** no commit `a2e8e79` (24/09/2026, 11:35), com `pinhaljunior2-deploy` + §7.1 e o JS/CSS novos conferidos no manifesto.
 
 **Atualização anterior:** 2026-09-24 (**Leilão: card "🟢 Online agora" na mesa do locutor**): pedido
 do clube — os nomes de quem está no leilão, à vista na linha do pregão, ao lado de lances e chat,
