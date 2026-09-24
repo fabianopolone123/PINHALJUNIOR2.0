@@ -188,6 +188,12 @@ def estado_publico(leilao, *, com_chat=True):
             # todo mundo ao mesmo tempo, sem recarregar — e não conta segredo
             # nenhum: é o locutor anunciando "podem pagar".
             "pagamentos_liberados": leilao.pagamentos_liberados,
+            # Os sons tocam na tela do PÚBLICO, e quem os desliga é o locutor:
+            # por isso vão no broadcast, como o `pagamentos_liberados` — é o
+            # que faz a sala inteira emudecer (ou voltar a soar) de uma vez,
+            # sem ninguém recarregar nada.
+            "som_lance": leilao.som_lance,
+            "som_arremate": leilao.som_arremate,
         },
         # Espera e intervalo são coisas diferentes, e a tela precisa saber qual
         # das duas mostrar: antes do primeiro item a pessoa acabou de chegar

@@ -15,7 +15,14 @@
     <div class="mesa-titulo">
         <h1>{{ leilao.nome }}</h1>
         <span class="mesa-status status-{{ leilao.status }}">{{ leilao.get_status_display }}</span>
-        <span class="mesa-online">👥 <b id="online">0</b></span>
+        {% comment %}
+        O número de gente é a informação pela qual o locutor decide a hora de
+        começar — e a pergunta seguinte é sempre "quem já chegou?". Clicar abre
+        a lista. Os nomes vêm do `/locutor/dados/`, que é autenticado: eles
+        NÃO entram no broadcast, que é lido por todos os celulares da sala.
+        {% endcomment %}
+        <button type="button" class="mesa-online" id="btnQuemChegou"
+                title="Ver quem já está no leilão">👥 <b id="online">0</b></button>
     </div>
 
     {% if leilao.status != 'ao_vivo' %}
@@ -171,6 +178,35 @@
                         data-liberado="{{ leilao.pagamentos_liberados|yesno:"1," }}">
                     {% if leilao.pagamentos_liberados %}🔒 Fechar pagamentos{% else %}💳 Liberar pagamentos{% endif %}
                 </button>
+
+                {% comment %}
+                O som da SALA. Estes efeitos tocam na tela de quem está
+                assistindo, não aqui — por isso quem os desliga é você, e vale
+                para todo mundo de uma vez (o mesmo caminho do botão de
+                liberar: viaja no broadcast e as telas obedecem sem recarregar).
+
+                São dois interruptores porque incomodam de formas diferentes: a
+                caixa registradora toca a CADA lance, e a comemoração uma vez
+                por item, alto. Um botão só obrigaria a sacrificar os dois.
+                {% endcomment %}
+                <div class="micro-separador"></div>
+                <p class="micro-ajuda">Som na tela de quem assiste:</p>
+                <div class="sons-sala">
+                    <button type="button" class="btn-mini" data-som="lance"
+                            data-ligado="{{ leilao.som_lance|yesno:"1," }}"
+                            title="A caixa registradora que toca a cada lance">
+                        {% if leilao.som_lance %}🔔 Lance: ligado{% else %}🔕 Lance: mudo{% endif %}
+                    </button>
+                    <button type="button" class="btn-mini" data-som="arremate"
+                            data-ligado="{{ leilao.som_arremate|yesno:"1," }}"
+                            title="As palmas e a gritaria quando o martelo bate">
+                        {% if leilao.som_arremate %}🔔 Arremate: ligado{% else %}🔕 Arremate: mudo{% endif %}
+                    </button>
+                </div>
+                <p class="micro-ajuda">
+                    O aviso de <b>“te superaram”</b> continua soando: ele é o alerta de quem perdeu
+                    a ponta, não parte da festa.
+                </p>
             </div>
         </div>
     </section>
@@ -251,6 +287,26 @@ reagir aqui, quem reage é o público.
 {% endcomment %}
 <div class="reacoes-trilho" id="reacoesTrilho" aria-hidden="true"></div>
 
+{% comment %}
+Quem já chegou. A lista dobra a mesma pessoa em duas abas numa entrada só (o
+celular e o computador), então ela pode ser MENOR que o número de conexões — e
+é isso que a nota de rodapé explica, para ninguém achar que o contador mente.
+{% endcomment %}
+<div class="modal-overlay" id="modalQuemChegou" hidden>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="quemTitulo">
+        <div class="modal-topo">
+            <h2 class="modal-titulo" id="quemTitulo">Quem já chegou</h2>
+            <button type="button" class="modal-fechar" data-fechar-modal aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo">
+            <ul class="quem-lista" id="quemLista">
+                <li class="vazio">Carregando…</li>
+            </ul>
+            <p class="micro-ajuda" id="quemNota"></p>
+        </div>
+    </div>
+</div>
+
 <div id="dadosMesa" hidden
      data-csrf="{{ csrf_token }}"
      data-acao-url="{% url 'leilao:acao' %}"
@@ -264,6 +320,7 @@ reagir aqui, quem reage é o público.
 <script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/audio_falar.js' %}"></script>
 {# Antes do locutor.js: é ele que chama o window.Reacoes. #}
+<script src="{% static 'leilao/js/modal.js' %}"></script>
 <script src="{% static 'leilao/js/seletor_leilao.js' %}"></script>
 <script src="{% static 'leilao/js/reacoes.js' %}"></script>
 <script src="{% static 'leilao/js/locutor.js' %}"></script>

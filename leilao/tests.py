@@ -5147,3 +5147,243 @@ class FotoSobeReduzidaTests(TestCase):
         # A miniatura sai da GRANDE, não da original: 1280 → 420 custa quase
         # nada, e reduzir 4032 → 420 seria refazer o trabalho caro.
         self.assertIn("_reduzir(grande, LARGURA_MINI)", imagens)
+
+
+class QuemJaChegouTests(TestCase):
+    """Clicar no contador de gente abre a lista de quem está no leilão.
+
+    O número é a informação pela qual o locutor decide a hora de começar, e a
+    pergunta seguinte é sempre "quem já chegou?".
+
+    **Os nomes saem só pelo `/locutor/dados/`**, que é autenticado. Eles nunca
+    entram no broadcast: o estado público é lido por todos os celulares da
+    sala, e quem está online não é coisa que se diga em voz alta — é a mesma
+    regra que mantém Pix, telefone e endereço fora do stream.
+    """
+
+    def setUp(self):
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("loc_quem", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="loc_quem", password="segredo-ficticio")
+
+    def tearDown(self):
+        servicos.HUB._assinantes.clear()
+
+    def test_a_mesa_tem_o_contador_clicavel_e_o_modal(self):
+        html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
+        self.assertIn('id="btnQuemChegou"', html)
+        self.assertIn('id="modalQuemChegou"', html)
+
+    def test_o_hub_guarda_quem_esta_conectado(self):
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        servicos.HUB.assinar(publico=True, nome="Bruno Fictício")
+        nomes = [p["nome"] for p in servicos.HUB.nomes_conectados()]
+        self.assertEqual(nomes, ["Ana Fictícia", "Bruno Fictício"])
+
+    def test_a_mesma_pessoa_em_duas_abas_e_UMA_entrada(self):
+        """Celular e computador da mesma pessoa. A lista dobra num nome só e
+        diz quantas telas — senão pareceria que há duas pessoas."""
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        lista = servicos.HUB.nomes_conectados()
+        self.assertEqual(len(lista), 1)
+        self.assertEqual(lista[0]["telas"], 2)
+        self.assertEqual(servicos.HUB.conectados, 2)   # conexões continuam sendo duas
+
+    def test_a_equipe_nao_entra_na_lista_nem_na_contagem(self):
+        servicos.HUB.assinar(publico=False, nome="mesa")
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        self.assertEqual(servicos.HUB.conectados, 1)
+        self.assertEqual([p["nome"] for p in servicos.HUB.nomes_conectados()], ["Ana Fictícia"])
+
+    def test_quem_ainda_nao_se_cadastrou_conta_mas_nao_tem_nome(self):
+        """A pessoa abriu o link e está na tela de entrada."""
+        servicos.HUB.assinar(publico=True, nome=None)
+        self.assertEqual(servicos.HUB.conectados, 1)
+        self.assertEqual(servicos.HUB.nomes_conectados(), [])
+
+    def test_os_nomes_vem_pelo_endpoint_autenticado(self):
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        dados = self.c.get("/locutor/dados/").json()
+        self.assertIn("conectados_nomes", dados)
+        self.assertEqual([p["nome"] for p in dados["conectados_nomes"]], ["Ana Fictícia"])
+
+    def test_os_nomes_NAO_entram_no_estado_publico(self):
+        """O stream é lido por todos os celulares da sala."""
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        publico = json.dumps(est.estado_publico(self.leilao), default=str)
+        self.assertNotIn("Ana Fictícia", publico)
+        self.assertNotIn("conectados_nomes", publico)
+
+
+class SonsDoLeilaoTests(TestCase):
+    """Caixa registradora no lance, palmas e gritaria no martelo.
+
+    Pedido do clube, apontando dois vídeos. **O áudio não foi copiado de lugar
+    nenhum**: todo efeito deste módulo é sintetizado em WebAudio, que é regra do
+    projeto por três motivos — zero download (50 celulares baixando o mesmo mp3
+    no instante em que o pregão pega fogo é banda desperdiçada), zero latência e
+    zero binário no repositório. Palma é uma rajada curta de ruído filtrado;
+    torcida é ruído de banda média com a frequência subindo e caindo.
+    """
+
+    def _som(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "js", "som.js").read_text(
+            encoding="utf-8"
+        )
+
+    def test_o_lance_toca_caixa_registradora(self):
+        js = self._som()
+        trecho = js[js.index("lance: function"):]
+        trecho = trecho[: trecho.index("superado:")]
+        # O sino (duas parciais) e a gaveta (grave, curta).
+        self.assertIn("sopro(", trecho)
+        self.assertIn("nota(", trecho)
+
+    def test_o_martelo_toca_palmas_e_torcida(self):
+        js = self._som()
+        for nome in ("vendido: function", "arrematei: function"):
+            trecho = js[js.index(nome):]
+            trecho = trecho[: trecho.index("},")]
+            self.assertIn("palmas(", trecho, nome)
+            self.assertIn("torcida(", trecho, nome)
+
+    def test_palma_e_torcida_sao_sintetizadas(self):
+        js = self._som()
+        self.assertIn("function palma(", js)
+        self.assertIn("function palmas(", js)
+        self.assertIn("function torcida(", js)
+        self.assertIn("createBuffer(", js)   # o ruído é gerado, não baixado
+
+    def test_o_ruido_e_gerado_UMA_vez_e_reaproveitado(self):
+        """Gerar dois segundos de ruído a cada palma seria trabalho de CPU no
+        meio do pregão — justamente a hora em que ela falta."""
+        js = self._som()
+        self.assertIn("bufferRuido", js)
+
+    def test_NENHUM_arquivo_de_audio_entrou_no_repositorio(self):
+        """A regra que este pedido poderia ter quebrado: o som do leilão é
+        sintetizado, e não um arquivo baixado de um vídeo (que ainda seria
+        material de terceiros)."""
+        estaticos = Path(settings.BASE_DIR, "static")
+        achados = []
+        for ext in ("*.mp3", "*.wav", "*.ogg", "*.m4a", "*.aac", "*.opus", "*.flac"):
+            achados += [str(x.relative_to(estaticos)) for x in estaticos.rglob(ext)]
+        self.assertEqual(achados, [], "áudio no repositório: " + ", ".join(achados))
+
+    def test_o_aviso_de_arremate_nao_promete_mais_prazo(self):
+        """Não há prazo para pagar desde 21/09, e o toast ainda dizia
+        "Pague em até 15 minutos"."""
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(
+            encoding="utf-8"
+        )
+        limpo = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        limpo = re.sub(r"//[^\n]*", " ", limpo)
+        self.assertNotIn("15 minutos", limpo)
+
+
+class LocutorMutaOSomDaSalaTests(TestCase):
+    """O locutor liga e desliga o som — e o efeito é para TODO MUNDO.
+
+    Estes sons tocam na tela de quem assiste, não na mesa: quem os desliga é
+    quem conduz, e a chave viaja no **broadcast**, como o `pagamentos_liberados`
+    — é o que faz a sala emudecer (ou voltar a soar) de uma vez, sem ninguém
+    recarregar nada.
+
+    São **dois** interruptores porque incomodam de formas diferentes: a caixa
+    registradora toca a cada lance (numa disputa quente, sem parar) e a
+    comemoração toca uma vez por item, alto. Um botão só obrigaria a sacrificar
+    os dois juntos.
+    """
+
+    def setUp(self):
+        self.leilao = criar_leilao()
+        self.c = self._cliente("locutor")
+
+    def _cliente(self, *areas):
+        User = get_user_model()
+        nome = "som_" + "_".join(areas or ["nada"])
+        u = User.objects.create_user(nome, password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        for area in areas:
+            grupo, _ = Group.objects.get_or_create(name=area)
+            u.groups.add(grupo)
+        c = Client()
+        c.login(username=nome, password="segredo-ficticio")
+        return c
+
+    def _acao(self, c, **extra):
+        corpo = {"acao": "som"}
+        corpo.update(extra)
+        return c.post(
+            "/equipe/acao/", data=json.dumps(corpo), content_type="application/json"
+        )
+
+    def test_nascem_ligados(self):
+        self.assertTrue(self.leilao.som_lance)
+        self.assertTrue(self.leilao.som_arremate)
+
+    def test_o_locutor_desliga_e_liga_de_novo(self):
+        for qual in ("lance", "arremate"):
+            with self.subTest(qual=qual):
+                r = self._acao(self.c, qual=qual, ligar=False)
+                self.assertEqual(r.status_code, 200)
+                self.leilao.refresh_from_db()
+                self.assertFalse(getattr(self.leilao, "som_" + qual))
+
+                self._acao(self.c, qual=qual, ligar=True)
+                self.leilao.refresh_from_db()
+                self.assertTrue(getattr(self.leilao, "som_" + qual))
+
+    def test_os_dois_sao_independentes(self):
+        """Mutar a caixa registradora não pode calar a comemoração."""
+        self._acao(self.c, qual="lance", ligar=False)
+        self.leilao.refresh_from_db()
+        self.assertFalse(self.leilao.som_lance)
+        self.assertTrue(self.leilao.som_arremate)
+
+    def test_a_chave_vai_no_broadcast(self):
+        """É o que faz a sala emudecer de uma vez, sem recarregar."""
+        self._acao(self.c, qual="lance", ligar=False)
+        self.leilao.refresh_from_db()
+        publico = est.estado_publico(self.leilao)
+        self.assertFalse(publico["leilao"]["som_lance"])
+        self.assertTrue(publico["leilao"]["som_arremate"])
+
+    def test_o_caixa_nao_mexe_no_som(self):
+        """Quem conduz o pregão é quem decide o som da sala."""
+        r = self._acao(self._cliente("caixa"), qual="lance", ligar=False)
+        self.assertEqual(r.status_code, 403)
+        self.leilao.refresh_from_db()
+        self.assertTrue(self.leilao.som_lance)
+
+    def test_som_desconhecido_e_recusado(self):
+        """Entrada da internet não vira `setattr` no model."""
+        for qual in ("superado", "musica", "", None, "som_lance"):
+            r = self._acao(self.c, qual=qual, ligar=False)
+            self.assertEqual(r.status_code, 400, repr(qual))
+
+    def test_a_mesa_tem_os_dois_botoes(self):
+        html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
+        self.assertIn('data-som="lance"', html)
+        self.assertIn('data-som="arremate"', html)
+
+    def test_a_tela_do_publico_obedece(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("somLiberado", js)
+        # O "te superaram" continua soando: é o alerta de quem perdeu a ponta,
+        # não parte da festa, e é o som mais útil da tela para quem disputa.
+        # A asserção é sobre a LINHA dele — fatiar até a próxima chave pegava a
+        # linha seguinte, que é a do lance e essa sim tem o portão.
+        linha = [x for x in js.splitlines() if "SomLeilao.superado()" in x]
+        self.assertEqual(len(linha), 1, "o superado deveria ser chamado num lugar só")
+        self.assertNotIn("somLiberado", linha[0])

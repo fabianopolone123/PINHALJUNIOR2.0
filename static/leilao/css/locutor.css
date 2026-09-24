@@ -1180,3 +1180,56 @@ body.tela-locutor {
     flex-wrap: wrap;
     margin-bottom: 12px;
 }
+
+/* =========================================================
+   Quem já chegou — a lista por trás do contador
+   ========================================================= */
+/* O contador vira botão: é a informação pela qual o locutor decide a hora de
+   começar, e a pergunta seguinte é sempre "quem já chegou?". Ele continua
+   parecendo texto (é um número no cabeçalho, não um comando), só ganha o
+   cursor e um realce no hover. */
+button.mesa-online {
+    font-family: inherit;
+    font-size: 0.82rem;
+    color: var(--palco-suave);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+button.mesa-online:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--palco-borda);
+}
+
+#modalQuemChegou .modal-caixa {
+    background: var(--palco-fundo-2);
+    border: 1px solid var(--palco-borda);
+    color: var(--palco-texto);
+}
+#modalQuemChegou .micro-ajuda { color: var(--palco-suave); }
+
+.quem-lista {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+    max-height: 360px;      /* sala cheia não pode esticar a janela */
+    overflow-y: auto;
+}
+.quem-lista li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 11px;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 10px;
+}
+.quem-lista .nome { font-weight: 700; overflow-wrap: anywhere; }
+.quem-lista .vazio { justify-content: center; color: var(--palco-suave); }
+
+/* Os dois interruptores de som da sala, lado a lado. */
+.sons-sala { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }

@@ -169,9 +169,17 @@ async def stream_view(request):
     montar = sync_to_async(
         lambda: est.estado_publico(Leilao.ao_vivo()), thread_sensitive=False
     )
+    # Quem está do outro lado. Serve para a mesa do locutor abrir a lista de
+    # quem já chegou — e só para ela: o nome NÃO entra no broadcast. A view é
+    # assíncrona, então a consulta ao banco precisa do `sync_to_async`.
+    quem = sync_to_async(
+        lambda: getattr(participante_atual(request), "nome_curto", None),
+        thread_sensitive=False,
+    )
+    nome = await quem() if publico else None
 
     async def gerador():
-        fila = HUB.assinar(publico=publico)
+        fila = HUB.assinar(publico=publico, nome=nome)
         HUB.publicar("online", {"online": HUB.conectados})
         try:
             yield sse({"seq": 0, "tipo": "estado", "dados": await montar()})
@@ -668,6 +676,12 @@ def locutor_dados_view(request):
             "numero_atual": em_pregao.numero if em_pregao else None,
             "fila": fila,
             "restam_na_fila": leilao.lotes.filter(status="fila").count(),
+            # QUEM está no leilão agora. Sai por aqui, que é autenticado, e
+            # nunca pelo broadcast — o estado público é lido por todos os
+            # celulares da sala, e a lista de quem está online não é coisa que
+            # se diga em voz alta.
+            "conectados": HUB.conectados,
+            "conectados_nomes": HUB.nomes_conectados(),
             # O chat do participante zera a cada intervalo; o do locutor, não.
             # Ele precisa do fio inteiro da noite para moderar.
             "chat": [
@@ -698,6 +712,9 @@ ACOES_AREAS = {
     # último item foi batido. Não mexe em dinheiro de ninguém — só destrava o
     # botão de pagar na tela de quem arrematou.
     "liberar": ("locutor",),
+    # Ligar/desligar o som da SALA. É do locutor pelo mesmo motivo do
+    # `liberar`: ele conduz, e o som toca na tela de quem está assistindo.
+    "som": ("locutor",),
     "entregue": ("caixa",),
     # Quadro de entregas: arrastar uma parada e nomear a coluna.
     "entrega_mover": ("caixa",),
@@ -847,6 +864,27 @@ def locutor_acao_view(request):
         return JsonResponse(
             {"ok": True, "msg": f"“{lote.nome}” voltou para a fila do leilão."}
         )
+
+    if acao == "som":
+        qual = dados.get("qual")
+        if qual not in ("lance", "arremate"):
+            return JsonResponse({"ok": False, "msg": "Som desconhecido."}, status=400)
+        ligar = dados.get("ligar")
+        ligar = True if ligar is None else bool(ligar)
+        campo = "som_" + qual
+        setattr(leilao, campo, ligar)
+        leilao.save(update_fields=[campo])
+        # O estado inteiro, como sempre: as telas abertas emudecem (ou voltam a
+        # soar) sem ninguém recarregar nada.
+        HUB.publicar("estado", est.estado_publico(leilao))
+        rotulo = "de lance" if qual == "lance" else "de arremate"
+        return JsonResponse({
+            "ok": True,
+            "qual": qual,
+            "ligado": ligar,
+            "msg": ("Som %s ligado para todos." % rotulo) if ligar
+                   else ("Som %s desligado para todos." % rotulo),
+        })
 
     if acao == "liberar":
         # Alavanca: o mesmo botão abre e fecha. O locutor pode ter apertado

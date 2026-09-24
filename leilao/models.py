@@ -212,6 +212,29 @@ class Leilao(models.Model):
     # O locutor abre a bilheteria no fim do leilão: até aqui ninguém paga nada,
     # e é UM botão para todo mundo (não por pessoa). Enquanto for False, a tela
     # de arremates mostra a lista e o total, mas sem botão de pagar.
+    # --- Som da sala ---
+    # Estes sons tocam na tela do PÚBLICO, não na mesa — por isso quem os
+    # desliga é o locutor, e o efeito é para todo mundo de uma vez. É a mesma
+    # natureza do `pagamentos_liberados`: uma decisão de quem conduz, que viaja
+    # no broadcast e muda a tela de todos sem ninguém recarregar nada.
+    #
+    # Dois interruptores separados porque incomodam de formas diferentes: a
+    # caixa registradora toca a CADA lance (numa disputa quente, sem parar) e a
+    # comemoração toca uma vez por item, alto. Um só botão obrigaria a
+    # sacrificar os dois juntos.
+    #
+    # O aviso de "te superaram" NÃO entra aqui: ele é um alerta pessoal de quem
+    # perdeu a ponta, não parte da festa, e é o som mais útil da tela para quem
+    # está disputando.
+    som_lance = models.BooleanField(
+        "Som de lance (caixa registradora)", default=True,
+        help_text="Toca na tela de todo mundo a cada lance.",
+    )
+    som_arremate = models.BooleanField(
+        "Som de arremate (palmas)", default=True,
+        help_text="Toca na tela de todo mundo quando o martelo bate.",
+    )
+
     pagamentos_liberados = models.BooleanField(
         "Pagamentos liberados", default=False,
         help_text="Ligado pelo locutor no fim do leilão, libera todo mundo a pagar.",

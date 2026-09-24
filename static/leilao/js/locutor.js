@@ -385,6 +385,75 @@
     }
 
     /* ---------------------------------------------------------------
+       Quem já chegou — a lista por trás do contador
+       --------------------------------------------------------------- */
+    /* O número de gente é o que decide a hora de começar, e a pergunta
+       seguinte é sempre "quem já chegou?". Os nomes vêm do `/locutor/dados/`,
+       que é autenticado — nunca do broadcast, que é lido por todos os
+       celulares da sala. */
+    var modalQuem = window.ModalLeilao ? window.ModalLeilao.ligar($("modalQuemChegou")) : null;
+
+    function desenharQuemChegou(dados) {
+        var ul = $("quemLista");
+        var nota = $("quemNota");
+        if (!ul) return;
+        var nomes = (dados && dados.conectados_nomes) || [];
+        ul.innerHTML = "";
+
+        if (!nomes.length) {
+            var vazio = document.createElement("li");
+            vazio.className = "vazio";
+            vazio.textContent = "Ninguém conectado agora.";
+            ul.appendChild(vazio);
+        } else {
+            nomes.forEach(function (p) {
+                var li = document.createElement("li");
+                var nome = document.createElement("span");
+                nome.className = "nome";
+                nome.textContent = p.nome;
+                li.appendChild(nome);
+                // Duas abas da mesma pessoa (celular e computador) são UMA
+                // entrada; o selo explica por que a lista pode ser menor que o
+                // contador, em vez de deixar parecer que o número mente.
+                if (p.telas > 1) {
+                    var selo = document.createElement("span");
+                    selo.className = "selo selo-fila";
+                    selo.textContent = p.telas + " telas";
+                    li.appendChild(selo);
+                }
+                ul.appendChild(li);
+            });
+        }
+
+        if (nota) {
+            var conectados = (dados && dados.conectados) || 0;
+            var semNome = conectados - nomes.reduce(function (s, p) { return s + p.telas; }, 0);
+            var partes = [conectados + " conexão" + (conectados === 1 ? "" : "ões")];
+            if (nomes.length) partes.push(nomes.length + " pessoa" + (nomes.length === 1 ? "" : "s"));
+            // Quem ainda está na tela de entrada conta no número e não tem nome.
+            if (semNome > 0) partes.push(semNome + " ainda sem cadastro");
+            nota.textContent = partes.join(" · ");
+        }
+    }
+
+    var btnQuem = $("btnQuemChegou");
+    if (btnQuem && modalQuem) {
+        btnQuem.addEventListener("click", function () {
+            var ul = $("quemLista");
+            if (ul) ul.innerHTML = "<li class=\"vazio\">Carregando…</li>";
+            modalQuem.abrir();
+            // Busca na hora: a lista muda a cada pessoa que entra, e mostrar a
+            // de dois minutos atrás seria pior do que não mostrar.
+            fetch(URL_DADOS, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then(function (r) { return r.json(); })
+                .then(desenharQuemChegou)
+                .catch(function () {
+                    if (ul) ul.innerHTML = "<li class=\"vazio\">Sem conexão com o servidor.</li>";
+                });
+        });
+    }
+
+    /* ---------------------------------------------------------------
        Botões
        --------------------------------------------------------------- */
     /* Bilheteria: a alavanca que abre o pagamento para todo mundo no fim.
@@ -411,6 +480,29 @@
             });
         });
     }
+
+    /* Som da SALA: dois interruptores, um por efeito.
+
+       O som toca na tela de quem assiste, não aqui — o botão manda a decisão
+       para o servidor, que a publica no estado, e as telas obedecem sem
+       ninguém recarregar nada. Alavanca: o mesmo botão liga e desliga. */
+    document.querySelectorAll("[data-som]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            var qual = botao.dataset.som;
+            var ligado = botao.dataset.ligado === "1";
+            botao.disabled = true;
+            acao({ acao: "som", qual: qual, ligar: !ligado }).then(function (d) {
+                botao.disabled = false;
+                if (!d || !d.ok) return;
+                var agora = !!d.ligado;
+                botao.dataset.ligado = agora ? "1" : "";
+                var rotulo = qual === "lance" ? "Lance" : "Arremate";
+                botao.textContent = agora
+                    ? "🔔 " + rotulo + ": ligado"
+                    : "🔕 " + rotulo + ": mudo";
+            });
+        });
+    });
 
     document.addEventListener("click", function (e) {
         var alvo = e.target.closest("[data-acao]");

@@ -1232,6 +1232,45 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
   há o que mostrar lá.
 
+### Som do leilão: sintetizado, sempre
+
+- **Nenhum arquivo de áudio entra no repositório.** Pedido de "põe esse som do vídeo" se resolve
+  **sintetizando** um som com o mesmo caráter, nunca copiando o áudio — que é material de terceiros,
+  além de trazer de volta o download que a regra existe para evitar (50 celulares buscando o mesmo
+  arquivo no instante em que o pregão pega fogo). Há teste varrendo `static/` por mp3/wav/ogg/m4a.
+- **Como se sintetiza o que o clube costuma pedir**: palma é uma rajada de ~30 ms de ruído filtrado
+  em banda alta, e uma plateia é dezenas delas em instantes diferentes com a densidade **caindo**
+  (aplauso de verdade termina rareando; espalhado por igual soa como chuva). Torcida é ruído de
+  banda média com a frequência subindo e caindo. Sino metálico são duas parciais **desafinadas
+  entre si** — afinadas, soam musicais em vez de metálicas.
+- **O ruído é gerado UMA vez e reaproveitado.** Gerar dois segundos de ruído a cada palma é trabalho
+  de CPU no meio do pregão, justamente quando ela falta.
+- **Som que toca a cada lance é curto** (~0,35 s). Som que toca uma vez por item pode ser longo e
+  caro — é a mesma regra de prioridade do módulo: o que se repete não pode pesar.
+
+### Quem controla o som da SALA é o locutor
+
+- **Esses efeitos tocam na tela de quem assiste, não na mesa.** Então "mutar" não é preferência
+  local: é decisão de quem conduz, e vale para todo mundo. A chave viaja no **broadcast**, como o
+  `pagamentos_liberados`, e as telas emudecem sem ninguém recarregar nada.
+- **Um interruptor por efeito**, não um geral: eles incomodam de formas diferentes (a caixa
+  registradora toca a cada lance; a comemoração, uma vez por item e alto). Um botão só obrigaria a
+  sacrificar os dois juntos.
+- **O aviso de "te superaram" fica de fora.** É o alerta pessoal de quem perdeu a ponta — o som mais
+  útil da tela para quem está disputando —, não parte da festa. A tela **diz isso** ao lado dos
+  botões, para a escolha não parecer esquecimento.
+- **`qual` vindo da internet não vira `setattr`**: a lista de sons válidos é branca, e fora dela é
+  400. É a mesma lição de `minutos`/`quantos`.
+
+### Quem está online é informação da EQUIPE
+
+- **O nome de quem está conectado sai só pelo `/locutor/dados/`**, que é autenticado. Nunca pelo
+  broadcast: o estado público é lido por todos os celulares da sala — mesma regra que mantém Pix,
+  telefone e endereço fora do stream.
+- **A mesma pessoa em duas abas é UMA entrada** (celular + computador), com selo de quantas telas.
+  Como o contador conta **conexões**, a lista pode ser menor que ele: diga isso na tela, senão
+  parece que o número mente. Quem ainda está na tela de entrada conta e não tem nome.
+
 ### Foto de item: o gargalo é o UPLOAD, e o EXIF é a armadilha
 
 - **O que demora ao cadastrar item não é o servidor.** O `preparar_foto` leva décimos de segundo; a

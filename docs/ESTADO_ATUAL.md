@@ -2,7 +2,37 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-23 (**Leilão: peso em gramas, e o cadastro de item deixa de
+**Última atualização:** 2026-09-23 (**Leilão: caixa registradora no lance, palmas no martelo, e
+quem já chegou**): três pedidos do clube — e uma recusa que fica registrada. O clube apontou dois
+vídeos e pediu "esse som"; **o áudio não foi copiado**. Os efeitos deste módulo são **sintetizados
+em WebAudio** (zero download, zero latência, zero binário no repositório — e áudio de vídeo alheio é
+material de terceiros). O que se fez foi sintetizar sons com o mesmo caráter: **caixa registradora**
+no lance (estalo do mecanismo + sino de duas parciais desafinadas entre si + gaveta grave, ~0,35 s,
+porque toca a cada lance) e **palmas com gritaria** no martelo (a palma é uma rajada de ~30 ms de
+ruído filtrado, dezenas delas com a densidade **caindo** — aplauso de verdade termina rareando; a
+torcida é ruído de banda média com a frequência subindo e caindo). O ruído é gerado **uma vez** e
+reaproveitado.
+
+**O locutor liga e desliga o som, para a SALA** (`som_lance`/`som_arremate`, mig. **`leilao/0013`**):
+os efeitos tocam na tela de quem assiste, não na mesa, então mutar é decisão de quem conduz e vale
+para todo mundo — as chaves viajam no **broadcast**, como o `pagamentos_liberados`, e as telas
+obedecem sem recarregar. São **dois** interruptores porque incomodam de formas diferentes (um toca a
+cada lance, o outro uma vez por item e alto). O **"te superaram" não entra** neles: é o alerta
+pessoal de quem perdeu a ponta, o som mais útil da tela para quem disputa.
+
+**O contador de gente virou botão**: clicar abre **quem já chegou**. O hub passou a guardar o nome de
+cada conexão pública, e os nomes saem **só** pelo `/locutor/dados/`, autenticado — nunca pelo
+broadcast, que é lido por todos os celulares da sala. A mesma pessoa em duas abas é **uma** entrada,
+com selo de quantas telas; como o contador conta **conexões**, a lista pode ser menor, e a nota
+explica a diferença. De quebra, o toast de quem arremata ainda prometia "Pague em até 15 minutos",
+prazo que saiu em 21/09.
+
+**Limite conhecido**: o áudio em si **não foi medido** — a ideia era renderizar num
+`OfflineAudioContext`, mas o `startRendering()` não resolve sob o relógio virtual do headless (mesma
+limitação do `createImageBitmap`). Está provado que o código roda e que os efeitos existem; como
+soam, só ouvindo. Suíte do leilão: **+21 testes** novos.
+
+**Atualização anterior:** 2026-09-23 (**Leilão: peso em gramas, e o cadastro de item deixa de
 demorar**): dois pedidos do clube. **(1) O peso é digitado em gramas** — quem cadastra pensa em
 grama, e pedir "0,35" para uma caneca é convidar ao erro de vírgula (no celular ela é justamente a
 tecla que o teclado numérico de muitos aparelhos não mostra). Em grama o campo é **inteiro**. **O

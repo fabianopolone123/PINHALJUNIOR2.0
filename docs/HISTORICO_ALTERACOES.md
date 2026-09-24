@@ -22,6 +22,84 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-23 - Leilão: caixa registradora no lance, palmas no martelo, e quem já chegou
+
+### Resumo
+Três pedidos do clube, e uma recusa que precisa ficar registrada.
+
+### O som NÃO foi copiado dos vídeos
+O clube apontou dois vídeos e pediu "esse som". Os efeitos deste módulo são
+**sintetizados em WebAudio**, e isso é regra do projeto por três motivos: zero
+download (50 celulares baixando o mesmo arquivo no instante em que o pregão
+pega fogo é banda desperdiçada), zero latência e zero binário no repositório —
+e há ainda o motivo que não é técnico: áudio de vídeo alheio é material de
+terceiros.
+
+O que foi feito é **sintetizar sons com o mesmo caráter**:
+
+- **Caixa registradora, no lance**: o estalo do mecanismo, o sino (duas
+  parciais desafinadas entre si — é a desafinação que soa metálica em vez de
+  musical) e a gaveta, grave e curta. Fica em ~0,35 s de propósito: toca a cada
+  lance, e numa disputa quente são vários por minuto.
+- **Palmas e gritaria, no martelo**: a palma é uma rajada de ~30 ms de ruído
+  filtrado em banda alta; dezenas delas, em instantes diferentes, com a
+  densidade **caindo** ao longo do tempo (aplauso de verdade termina rareando;
+  espalhadas por igual soariam como chuva). A torcida é ruído de banda média
+  com a frequência subindo e caindo, que é o contorno de um "uhuul" coletivo.
+  Aqui pode ser longo e caro: acontece uma vez por item.
+
+### O locutor liga e desliga o som — para a SALA
+Estes sons tocam na tela de quem assiste, não na mesa. Então "mutar" só faz
+sentido como decisão de quem conduz, valendo para todo mundo: os dois
+interruptores (`Leilao.som_lance`, `Leilao.som_arremate`, migration
+**`leilao/0013`**) viajam no **broadcast**, como o `pagamentos_liberados`, e as
+telas emudecem — ou voltam a soar — sem ninguém recarregar nada.
+
+**Dois** interruptores, e não um: eles incomodam de formas diferentes. A caixa
+registradora toca a cada lance; a comemoração, uma vez por item e alto.
+
+### Quem já chegou
+O contador de gente virou **botão**: clicar abre a lista de quem está no leilão.
+O número é o que decide a hora de começar, e a pergunta seguinte é sempre
+"quem?". O hub passou a guardar o nome de cada conexão pública.
+
+### Decisões tomadas
+- **O "te superaram" NÃO entra no interruptor.** Ele é o alerta pessoal de quem
+  perdeu a ponta — o som mais útil da tela para quem está disputando —, não
+  parte da festa. A tela diz isso ao lado dos botões, para a escolha não
+  parecer esquecimento.
+- **Os nomes saem só pelo `/locutor/dados/`**, que é autenticado; nunca pelo
+  broadcast. O estado público é lido por todos os celulares da sala, e quem
+  está online não é coisa que se diga em voz alta — mesma regra que mantém Pix,
+  telefone e endereço fora do stream.
+- **A mesma pessoa em duas abas é UMA entrada** na lista, com um selo dizendo
+  quantas telas. Sem isso ela apareceria duas vezes; e como o contador conta
+  **conexões**, a lista pode ser menor — a nota de rodapé explica a diferença
+  em vez de deixar parecer que o número mente.
+- **O ruído é gerado uma vez e reaproveitado.** Gerar dois segundos de ruído a
+  cada palma seria trabalho de CPU no meio do pregão, justamente quando ela
+  falta.
+
+### De quebra
+O toast de quem arremata ainda prometia *"Pague em até 15 minutos"* — prazo que
+saiu em 21/09.
+
+### Verificação
+- 21 testes novos, entre eles: os nomes **não** aparecem no estado público, o
+  caixa **não** mexe no som, `qual` desconhecido vira 400 (entrada da internet
+  não vira `setattr` no model) e **nenhum arquivo de áudio** entrou no
+  repositório — a guarda que este pedido poderia ter quebrado.
+- `som.js`, `leilao.js` e `locutor.js` carregam no headless sem erro, e os sete
+  efeitos existem.
+
+### Limite desta verificação
+**O áudio em si não foi medido.** A ideia era renderizar cada efeito num
+`OfflineAudioContext` e conferir energia, duração e número de batidas — mas o
+`startRendering()` não resolve sob o relógio virtual do Chrome headless, a mesma
+limitação que já havia aparecido no `createImageBitmap`. Então está provado que
+o código roda e que os sons existem; **como eles soam, só ouvindo**. Vale entrar
+no leilão, apertar o 🔊 e dar um lance de teste.
+
 ## 2026-09-23 - Leilão: peso em gramas, e o cadastro de item deixa de demorar
 
 ### Resumo

@@ -36,11 +36,18 @@ class Hub:
     """Publicador/assinante em memória para os eventos do leilão."""
 
     def __init__(self):
-        # fila -> é do PÚBLICO? As telas da equipe (mesa do locutor, caixa)
+        # fila -> (é do PÚBLICO?, nome de quem está do outro lado)
+        #
+        # O booleano existe porque as telas da equipe (mesa do locutor, caixa)
         # também ficam conectadas, e contá-las estragaria o único número que o
         # locutor usa para decidir a hora de começar: "quantas pessoas já
         # chegaram". Três voluntários com a tela aberta viravam três
         # participantes.
+        #
+        # O NOME fica aqui para o locutor poder ver quem já chegou — e sai
+        # **só** pelo `/locutor/dados/`, que é autenticado. Ele nunca entra no
+        # broadcast: o estado público é lido por todos os celulares da sala, e
+        # a lista de quem está online não é coisa que se diga em voz alta.
         self._assinantes = {}
         self._loop = None
         self._seq = 0
@@ -54,7 +61,28 @@ class Hub:
     @property
     def conectados(self):
         """Quantas PESSOAS estão no leilão (a equipe não conta)."""
-        return sum(1 for publico in self._assinantes.values() if publico)
+        return sum(1 for publico, _ in self._assinantes.values() if publico)
+
+    def nomes_conectados(self):
+        """Quem está no leilão agora — **só para a equipe**.
+
+        A mesma pessoa pode ter duas abas abertas (o celular e o computador), e
+        aí ela apareceria duas vezes; o nome repetido é dobrado numa entrada só.
+        Por isso a lista pode ser **menor** que `conectados`, que conta
+        conexões — e é essa diferença que explica "8 conectados, 7 nomes".
+
+        Quem entrou sem cadastro (a tela ainda na porta) não tem nome e fica
+        de fora da lista, mas conta no número.
+        """
+        vistos = {}
+        for publico, nome in self._assinantes.values():
+            if not publico or not nome:
+                continue
+            vistos[nome] = vistos.get(nome, 0) + 1
+        return sorted(
+            ({"nome": n, "telas": q} for n, q in vistos.items()),
+            key=lambda x: x["nome"].lower(),
+        )
 
     @property
     def total(self):
@@ -98,14 +126,17 @@ class Hub:
                     pass
 
     # -- assinatura --------------------------------------------------------
-    def assinar(self, publico=True):
+    def assinar(self, publico=True, nome=None):
         """Devolve uma fila nova já inscrita. Lembre de `cancelar()` no fim.
 
         `publico=False` para as telas da equipe: elas recebem tudo, mas não
         entram na contagem de gente no leilão.
+
+        `nome` é de quem está do outro lado, e existe só para a mesa do locutor
+        poder abrir a lista de quem chegou. Não vai no broadcast.
         """
         fila = asyncio.Queue(maxsize=FILA_MAX)
-        self._assinantes[fila] = bool(publico)
+        self._assinantes[fila] = (bool(publico), nome or None)
         return fila
 
     def cancelar(self, fila):
