@@ -66,9 +66,18 @@ no contador 👥 — e o locutor chama as pessoas pelo nome enquanto conduz.
   linha; 1100px → faixa inteira abaixo; 900px → empilhado. Sem rolagem
   horizontal em nenhuma.
 
+### Deploy
+Em produção no commit `a058e0f` (24/09/2026, 10:35): backup do banco do
+leilão em `backup/leilao_antes_online_agora_20260924_133537.sqlite3` (nome em
+UTC), `pinhaljunior2-deploy` e o §7.1 do `DEPLOY_LEILAO.md`, com o
+`pinhaljunior_leilao.service` reiniciado **depois** do código novo. O item
+aberto no leilão 5 era **teste** (confirmado pelo clube), por isso o restart
+com ele aberto. Conferido: o manifesto serve `locutor.beb6d56d15cd.js`
+(idêntico ao do repositório, com `desenharOnline`) e `locutor.bd8558a995c7.css`
+(com o `.online-card`); clube 200, leilão 302; nenhum erro no journal.
+
 ### Pendências
-- Deploy: `pinhaljunior2-deploy` + `DEPLOY_LEILAO.md` §7.1 (collectstatic e
-  restart do leilão), **com nenhum item em pregão**. Sem migration.
+- Nenhuma.
 
 ## 2026-09-24 - Faxina: a documentação acompanha os sons do clube e a reconexão sem teto
 

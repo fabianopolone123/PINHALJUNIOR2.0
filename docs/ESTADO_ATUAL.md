@@ -10,8 +10,9 @@ saída (o evento `online` chama a `recarregarDados`, que já junta rajadas em 70
 célula vazia: **quarta coluna em 1280px+**, **faixa inteira** com os nomes lado a lado entre 1000 e
 1279px, empilhado abaixo disso — conferido por sonda headless em 1440/1100/900 px, sem rolagem
 horizontal. Suíte do leilão: **442 testes OK** (+4, e o teste das linhas passou a esperar 4 cards em
-cima). **Sem migration.** Deploy: só estáticos e template do leilão → `pinhaljunior2-deploy` + §7.1,
-**com nenhum item em pregão**.
+cima). **Sem migration.** **Em produção** no commit `a058e0f` (24/09/2026, 10:35), com `pinhaljunior2-deploy`
++ §7.1 (leilão reiniciado depois do código novo; o item aberto no leilão 5 era teste) e o JS/CSS novos
+conferidos no manifesto. Backup: `backup/leilao_antes_online_agora_20260924_133537.sqlite3`.
 
 **Atualização anterior:** 2026-09-24 (**Faxina de documentação**): conferência depois de uma queda
 de energia no meio do trabalho. Código inteiro, suítes verdes (core **456**, leilão **438**), sem
