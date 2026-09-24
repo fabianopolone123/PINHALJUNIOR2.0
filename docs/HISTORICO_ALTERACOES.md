@@ -22,6 +22,20 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Documentação: README do projeto alinhado ao dia
+
+### Resumo
+Conferência final da documentação. O `README_PROJETO.md` ainda:
+- mandava rodar o `leilao_demo` sem `DJANGO_DEBUG=1` (desde a segunda
+  conferência ele se recusa a rodar sem DEBUG, de propósito);
+- dizia que o sistema estava "publicado temporariamente" em `/sistema-novo/`
+  (a raiz é a principal desde julho; o caminho antigo só redireciona);
+- não citava a tela show como padrão, a reserva `/leilao/classico/`, o Mudo, a
+  configuração só do Diretor nem o `--timeout-graceful-shutdown 3`.
+
+### Arquivos alterados
+`docs/README_PROJETO.md`, `docs/ESTADO_ATUAL.md`, `docs/HISTORICO_ALTERACOES.md`.
+
 ## 2026-09-24 - Leilão: voz com mudo e "a voz voltou", ficha da pessoa no caixa, provas de carga
 
 ### Resumo

@@ -114,11 +114,15 @@ Sem essas variáveis, o comportamento local permanece o padrão de desenvolvimen
 
 Detalhes completos em [`docs/DEPLOY_VPS.md`](DEPLOY_VPS.md).
 
-A nova versão está publicada temporariamente em:
+O sistema está publicado na raiz do domínio (o `/sistema-novo/` antigo continua respondendo, por
+compatibilidade, e é reescrito para a raiz no Nginx):
 
 ```text
-https://pinhaljunior.com.br/sistema-novo/
+https://pinhaljunior.com.br/
 ```
+
+O leilão é outro serviço, em `https://pinhaljunior.com.br/leilao/` — o deploy dele tem um passo extra
+(ver `docs/DEPLOY_LEILAO.md` §7.1).
 
 No VPS, o deploy segue o padrão dos outros projetos e deve ser feito pelo GitHub, sem copiar arquivos
 manualmente:
@@ -136,7 +140,8 @@ Estrutura no servidor:
 - Staticfiles: `/var/www/pinhaljunior2/staticfiles`
 - Variáveis de ambiente: `/etc/pinhaljunior2.env`
 - Serviço: `pinhaljunior2.service` (Gunicorn em `127.0.0.1:8010`)
-- Nginx: rotas adicionadas no site `sitepinhal` apenas para `/sistema-novo/`
+- Nginx: site `sitepinhal`, com a raiz `/`, `/static/` e `/media/` apontando para o sistema novo (e
+  `/leilao/` para o serviço do leilão)
 
 Em 2026-07-06, o banco e a pasta `media/` locais foram importados uma vez para essa instalação. Futuras
 alterações de código devem continuar indo pelo GitHub e pelo comando `pinhaljunior2-deploy`; não copiar código
@@ -278,12 +283,14 @@ PINHALJUNIOR2.0/
 
 Leilão beneficente ao vivo, com o público remoto no celular: lance de **R$ 5 em R$ 5** (fixo), tempo
 real por **SSE**, **chat aberto o leilão inteiro**, reações em emoji e a **voz do locutor** por
-WebRTC. **Não há cronômetro** — quem bate o martelo é o locutor — e **não há prazo para pagar**: os
-itens se acumulam na conta de quem arremata e ela paga **tudo num Pix só**, quando o locutor libera
-no fim. Roda como um **segundo serviço**, na mesma base de código:
+WebRTC (com **🔇 Mudo** para pausar sem derrubar ninguém). **Não há cronômetro** — quem bate o martelo
+é o locutor — e **não há prazo para pagar**: os itens se acumulam na conta de quem arremata e ela paga
+**tudo num Pix só**, quando o locutor libera no fim (e sempre, depois de encerrado). A tela do público é
+a **"show"** (`/leilao/`); a anterior fica de **reserva** em `/leilao/classico/`, com o mesmo motor.
+Roda como um **segundo serviço**, na mesma base de código:
 
 ```
-pinhaljunior.com.br/sistema-novo/  → pinhaljunior2.service        → gunicorn sync      → db.sqlite3
+pinhaljunior.com.br/               → pinhaljunior2.service        → gunicorn sync      → db.sqlite3
 pinhaljunior.com.br/leilao/        → pinhaljunior_leilao.service  → uvicorn (1 worker) → leilao.sqlite3
 ```
 
@@ -292,7 +299,7 @@ Para rodar local:
 ```bash
 pip install -r requirements-leilao.txt
 DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py migrate
-DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py leilao_demo --locutor
+DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 python manage.py leilao_demo --locutor
 DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
   python -m uvicorn config.asgi_leilao:application --port 8011 --workers 1
 ```
@@ -300,9 +307,15 @@ DJANGO_SETTINGS_MODULE=config.settings_leilao DJANGO_DEBUG=1 \
 Testes: `DJANGO_SETTINGS_MODULE=config.settings_leilao python manage.py test leilao`.
 (O `python manage.py test` do clube **pula** essa suíte sozinho — são duas aplicações.)
 
+> O `leilao_demo` **só roda com `DJANGO_DEBUG=1`**: em produção ele encerraria o leilão no ar.
+> Prova de carga: `leilao_carga --cadastrar N --confirmo-leilao-de-teste` (resultados e comando
+> completo no `DEPLOY_LEILAO.md`).
+
 - **`uvicorn` é a única dependência nova**, isolada em `requirements-leilao.txt` para não mexer no
   ambiente do sistema do clube.
-- **Sempre um worker só**: o hub de eventos e o relógio do pregão vivem na memória do processo.
+- **Sempre um worker só**: o hub de eventos e o laço central vivem na memória do processo. O
+  uvicorn roda com `--timeout-graceful-shutdown 3` (sem ele, reiniciar com público levava 90 s).
+- **A configuração do Mercado Pago e do áudio é só do Diretor.**
 - **O diretor cadastra a equipe pela tela** (aba 👤 Usuários): nome + função, senha padrão `1234` e
   **troca obrigatória no primeiro acesso**. O comando `leilao_papel` continua existindo para o terminal.
 - Plano e decisões: `docs/PLANEJAMENTO_LEILAO.md`. Deploy: `docs/DEPLOY_LEILAO.md`.

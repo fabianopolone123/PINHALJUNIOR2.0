@@ -2,7 +2,13 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: voz com mudo, "a voz voltou", ficha da pessoa no caixa
+**Última atualização:** 2026-09-24 (**Documentação: README do projeto alinhado ao dia**): o
+`README_PROJETO.md` passou a trazer o `leilao_demo` com `DJANGO_DEBUG=1` (sem ele o comando se recusa,
+de propósito), a raiz como endereço principal do sistema (o `/sistema-novo/` só redireciona), a tela
+show como padrão com a reserva `/leilao/classico/`, o Mudo da voz, a configuração só do Diretor e o
+`--timeout-graceful-shutdown 3`. Só documentação.
+
+**Atualização anterior:** 2026-09-24 (**Leilão: voz com mudo, "a voz voltou", ficha da pessoa no caixa
 e provas de carga**): pedidos do clube. **Voz**: botão **🔇 Mudo** na mesa (desliga a faixa, a
 transmissão continua de pé, o som volta na hora); ao voltar a transmitir, o servidor avisa as telas
 (ação/evento **`voz`**) e os ouvintes reconectam já (`AudioLeilao.vozVoltou`, espalhados em até 4 s,
