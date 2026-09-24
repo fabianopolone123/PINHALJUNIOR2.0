@@ -2,7 +2,14 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: tela "show" do pregão, em teste em `/nova/`**): pedido do
+**Última atualização:** 2026-09-24 (**Leilão: a tela "show" vira a padrão**): aprovada pelo clube
+depois do teste. **`/leilao/` abre a show para todo mundo**; a clássica ficou de **backup em
+`/leilao/classico/`** (quem entra por ela sem cadastro volta para ela depois da porta); o link de
+teste `/leilao/nova/` redireciona para `/leilao/`. O clube decidiu **não** mexer agora nas três
+animações contínuas que repintam (brilho do botão, aura de quem lidera, vermelho de quem foi
+superado) — ficam como estão. Suíte do leilão: **465 testes OK**. **Sem migration.**
+
+**Atualização anterior:** 2026-09-24 (**Leilão: tela "show" do pregão, em teste em `/nova/`**): pedido do
 clube — uma tela do público "bem legal, imersiva, com muitos efeitos", no espírito da interação de
 jogo, **mantendo a atual como backup**. A clássica continua a padrão em `/`; a nova abre em
 **`/leilao/nova/`** (quem entra por ela sem cadastro passa pela porta e volta para ela). **Um motor

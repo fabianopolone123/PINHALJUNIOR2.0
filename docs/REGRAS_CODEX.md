@@ -1293,10 +1293,11 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 
 ### A tela "show" do pregão: um motor, duas telas
 
-- **A clássica é a padrão (`/`) e a "show" está em teste (`/nova/`)** — decisão do clube: a atual
-  fica de **backup**. Quem abre `/nova/` sem cadastro passa pela porta e **volta para a nova**
-  (`views.CHAVE_TELA` na sessão); abrir `/` apaga a marca. Quando a nova for aprovada, a troca é só
-  de template nas duas views — a clássica passa a morar em `/classico/`.
+- **A "show" é a padrão (`/`) e a clássica é o backup (`/classico/`)** — decisão do clube, aprovada
+  em 24/09 depois do teste em `/nova/` (que agora só redireciona para `/`). Quem abre `/classico/`
+  sem cadastro passa pela porta e **volta para ela** (`views.CHAVE_TELA` na sessão); abrir `/` apaga
+  a marca. A clássica **continua recebendo** o que mudar no motor — não a deixe apodrecer: ela é a
+  saída de emergência se a show der problema num evento.
 - **Não existe segundo motor.** Lance, chat, Pix, som, porta e tela acesa são do `leilao.js`, para as
   duas telas. Ele só **emite avisos** (`emitir` → `CustomEvent` `leilao:estado|lance|lote_aberto|
   vendido|chat|toque_lance`) e o `palco_show.js` enfeita em cima. O `emitir` tem `try/catch`: um

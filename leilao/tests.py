@@ -5638,13 +5638,13 @@ class AudioVoltaQuandoOLocutorVoltaTests(TestCase):
 
 
 class TelaShowTests(TestCase):
-    """A tela "show" do pregão (`/nova/`), em teste ao lado da clássica.
+    """A tela "show" do pregão — a PADRÃO desde 24/09; a clássica é o backup.
 
     Ela é só DESENHO: roda sobre o mesmo motor (`leilao.js`) e os mesmos
     endpoints. Por isso o que se guarda aqui é o que faria as duas telas
     divergirem — um id que o motor procura e a nova não tem, um efeito que
     pega toque, o número do item vazando para o público — e que a clássica
-    continua sendo a padrão enquanto a nova não for aprovada.
+    continua de pé em `/classico/`.
     """
 
     HTML = Path(settings.BASE_DIR, "templates", "leilao", "leilao_show.html")
@@ -5671,31 +5671,35 @@ class TelaShowTests(TestCase):
         return re.sub(r"//[^\n]*", " ", limpo)
 
     # --- As duas telas convivem -------------------------------------------
-    def test_a_classica_continua_sendo_a_padrao(self):
+    def test_a_show_e_a_padrao(self):
+        """Pedido do clube em 24/09: a show virou a tela de todo mundo."""
         self._logar()
         r = self.c.get("/")
-        self.assertTemplateUsed(r, "leilao/leilao.html")
-        self.assertTemplateNotUsed(r, "leilao/leilao_show.html")
-
-    def test_a_nova_abre_em_nova(self):
-        self._logar()
-        r = self.c.get("/nova/")
-        self.assertEqual(r.status_code, 200)
         self.assertTemplateUsed(r, "leilao/leilao_show.html")
+        self.assertTemplateNotUsed(r, "leilao/leilao.html")
 
-    def test_sem_cadastro_a_nova_manda_para_a_porta_e_volta_para_ela(self):
-        r = self.c.get("/nova/")
+    def test_a_classica_fica_de_backup_em_classico(self):
+        self._logar()
+        r = self.c.get("/classico/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, "leilao/leilao.html")
+
+    def test_o_link_antigo_da_nova_leva_a_padrao(self):
+        self.assertRedirects(self.c.get("/nova/"), "/", fetch_redirect_response=False)
+
+    def test_sem_cadastro_a_classica_manda_para_a_porta_e_volta_para_ela(self):
+        r = self.c.get("/classico/")
         self.assertRedirects(r, "/entrar/")
         r = self.c.post("/entrar/", {
             "nome": "Fulano de Teste", "whatsapp": "(11) 90000-0000", "cep": "01001-000",
             "logradouro": "Rua Exemplo", "numero": "10", "bairro": "Centro",
             "cidade": "Cidade Exemplo", "estado": "SP",
         })
-        self.assertRedirects(r, "/nova/")
+        self.assertRedirects(r, "/classico/")
 
-    def test_quem_volta_a_classica_nao_e_mais_mandado_para_a_nova(self):
-        self.c.get("/nova/")
-        self.c.get("/")          # sem cadastro: vai para a porta, mas esquece a nova
+    def test_quem_volta_a_padrao_nao_e_mais_mandado_para_a_classica(self):
+        self.c.get("/classico/")
+        self.c.get("/")          # sem cadastro: vai para a porta, mas esquece a clássica
         self.assertNotIn(views.CHAVE_TELA, self.c.session)
 
     # --- O motor encontra tudo o que procura ------------------------------
@@ -5781,7 +5785,7 @@ class TelaShowTests(TestCase):
         que o público não pode saber. O carimbo diz só NOVO ITEM."""
         self._logar()
         servicos.abrir_lote(self.lote)
-        html = self.c.get("/nova/").content.decode()
+        html = self.c.get("/").content.decode()
         self.assertNotIn("numero_atual", html)
         show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
         self.assertNotIn(".numero", show)

@@ -106,33 +106,38 @@ def sair_view(request):
     return redirect("leilao:entrar")
 
 
-# Qual tela do pregão a pessoa estava abrindo antes de ir para a porta. Existe
-# enquanto a tela "show" está em teste: quem abre `/nova/` sem cadastro faz o
-# cadastro e VOLTA para a nova, em vez de cair na clássica.
+# Qual tela do pregão a pessoa estava abrindo antes de ir para a porta. Desde
+# 24/09 a padrão é a "show"; a clássica ficou de BACKUP em `/classico/`, e quem
+# chega por ela sem cadastro faz o cadastro e VOLTA para ela.
 CHAVE_TELA = "leilao_tela"
 
 
 def _destino_do_pregao(request):
-    return "leilao:leilao_nova" if request.session.get(CHAVE_TELA) == "nova" else "leilao:leilao"
+    return "leilao:leilao_classico" if request.session.get(CHAVE_TELA) == "classico" else "leilao:leilao"
 
 
 def leilao_view(request):
-    """A tela do pregão. Uma só, que nunca recarrega."""
-    # Quem volta à clássica deixa de ser mandado para a nova depois da porta.
+    """A tela do pregão — a "show", padrão desde 24/09 (pedido do clube).
+
+    Mesmo contexto, mesmo motor (`leilao.js`) e mesmos endpoints da clássica;
+    muda só o desenho e os efeitos (`palco_show.css`/`palco_show.js`).
+    """
+    # Quem volta à padrão deixa de ser mandado para a clássica depois da porta.
     if request.session.get(CHAVE_TELA):
         del request.session[CHAVE_TELA]
+    return _tela_do_pregao(request, "leilao/leilao_show.html")
+
+
+def leilao_classico_view(request):
+    """A tela clássica do pregão, mantida de BACKUP (pedido do clube)."""
+    request.session[CHAVE_TELA] = "classico"
     return _tela_do_pregao(request, "leilao/leilao.html")
 
 
 def leilao_nova_view(request):
-    """A tela "show" do pregão, em teste ao lado da clássica.
-
-    Mesmo contexto, mesmo motor (`leilao.js`), mesmos endpoints — muda só o
-    desenho e os efeitos. Enquanto a clássica for a padrão, esta é a tela de
-    quem abre `/nova/`.
-    """
-    request.session[CHAVE_TELA] = "nova"
-    return _tela_do_pregao(request, "leilao/leilao_show.html")
+    """`/nova/` foi o endereço da tela show enquanto ela estava em teste.
+    Virou a padrão — quem guardou o link cai nela."""
+    return redirect("leilao:leilao")
 
 
 def _tela_do_pregao(request, template):

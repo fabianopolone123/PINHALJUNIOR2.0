@@ -18,7 +18,9 @@ app_name = "leilao"
 urlpatterns = [
     # --- Participante ---
     path("", views.leilao_view, name="leilao"),
-    # A tela "show", em teste ao lado da clássica (mesmo motor e endpoints).
+    # A tela clássica, de backup desde que a "show" virou a padrão (24/09).
+    path("classico/", views.leilao_classico_view, name="leilao_classico"),
+    # Endereço da show enquanto ela estava em teste: agora leva à padrão.
     path("nova/", views.leilao_nova_view, name="leilao_nova"),
     path("entrar/", views.entrar_view, name="entrar"),
     path("sair/", views.sair_view, name="sair"),

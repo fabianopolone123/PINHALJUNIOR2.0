@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: a tela "show" vira a padrão, a clássica fica de backup
+
+### Resumo
+O clube testou a show em `/nova/` e aprovou: "deixa esse novo como padrão".
+
+### O que mudou
+- `/` → `leilao_view` renderiza `leilao_show.html`.
+- `/classico/` → `leilao_classico_view`, a clássica (`leilao.html`), de backup.
+  Quem chega por ela sem cadastro volta para ela depois da porta
+  (`CHAVE_TELA = "classico"`); abrir `/` apaga a marca.
+- `/nova/` → redireciona para `/` (quem guardou o link de teste não cai em 404).
+
+### Decisões tomadas
+- **Desempenho no celular fraco: fica como está**, por decisão do clube. Havia
+  três animações contínuas que repintam a cada quadro (`respira` no botão,
+  `aura` de quem lidera, `alerta` de quem foi superado — `filter`/`box-shadow`,
+  não `transform`/`opacity`). Custo só no aparelho, nunca no servidor; se um
+  dia pesar, a troca é por uma camada com `opacity` animada, mesmo visual.
+- **Servidor**: a show não faz requisição nenhuma a mais que a clássica (há
+  teste); os estáticos novos somam ~52 KB e ficam em cache 30 dias.
+
+### Arquivos alterados
+`leilao/views.py`, `leilao/urls.py`, `leilao/tests.py` (5 testes da
+convivência reescritos para a nova ordem), `CLAUDE.md`, `docs/REGRAS_CODEX.md`,
+`docs/ESTADO_ATUAL.md`.
+
+### Verificação
+Suíte do leilão: 465 testes OK.
+
 ## 2026-09-24 - Leilão: tela "show" do pregão, em teste ao lado da clássica
 
 ### Resumo
