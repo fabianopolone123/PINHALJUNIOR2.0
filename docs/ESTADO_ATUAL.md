@@ -16,7 +16,8 @@ ar**). **Menores**: freio de login por usuário e por IP, foto com nome sorteado
 (tinha GPS), foto de mais de 60 Mpx recusada, item em pregão não se exclui, leilão não volta a
 rascunho, item sem lance reabre, estorno de quem pagou em dobro, QR que se refaz. Backup diário
 **não** foi criado: o VPS já tem o próprio. Suíte do leilão: **526 testes OK** (+24); core 456 OK.
-**Sem migration.**
+**Sem migration.** **Em produção** no commit `147cd5f` (24/09/2026, 16:17), com o serviço do leilão
+já rodando com `--timeout-graceful-shutdown 3`.
 
 **Atualização anterior:** 2026-09-24 (**Leilão: correções da revisão geral**): quatro revisões em
 paralelo (servidor, telas do público, telas da equipe, documentação) acharam 28 problemas reais,

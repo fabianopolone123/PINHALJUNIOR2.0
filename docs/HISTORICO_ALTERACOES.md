@@ -82,6 +82,18 @@ equipe, configuração, hub, imagens, comandos) e o servidor de produção.
 Leilão 526 testes OK (+24, `SegundaRevisaoTests`), core 456 OK, `node --check`
 em todos os JS, `makemigrations --check` limpo.
 
+### Deploy
+Em produção no commit `147cd5f` (24/09/2026, 16:17). Antes, no servidor:
+`--timeout-graceful-shutdown 3` acrescentado ao `ExecStart` de
+`/etc/systemd/system/pinhaljunior_leilao.service` (cópia do anterior em
+`backup/pinhaljunior_leilao.service.antes_graceful_*`) + `daemon-reload`, e
+backup `backup/leilao_antes_revisao2_*.sqlite3`. Depois `pinhaljunior2-deploy` e o
+§7.1 (sem migration nova). Conferido: o processo do uvicorn roda com a opção;
+`/leilao/stream/` sem cadastro responde **403**; `/leilao/preparacao/config/` sem
+login de Diretor redireciona; `/leilao/`, `/leilao/classico/` 302 e
+`/leilao/entrar/` 200; clube 200; nenhum erro no journal. O teste do reinício
+**com gente conectada** (que era o de 90 s) fica para o ensaio com celular.
+
 ## 2026-09-24 - Leilão: correções da revisão geral
 
 ### Resumo
