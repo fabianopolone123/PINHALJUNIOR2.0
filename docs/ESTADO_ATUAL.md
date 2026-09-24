@@ -2,7 +2,15 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: o som não voltava quando o locutor retomava a
+**Última atualização:** 2026-09-24 (**Faxina de documentação**): conferência depois de uma queda
+de energia no meio do trabalho. Código inteiro, suítes verdes (core **456**, leilão **438**), sem
+migration pendente. Corrigidos os trechos que ainda diziam "som sintetizado, sem arquivo", a regra
+de reconexão que falava em "teto de tentativas", a pendência de procedência dos sons (já confirmada
+pelo clube) e a "linha morta no `locutor.js`" (já removida em 23/09). **Pendente:** registrar o
+deploy de `93bb809` e `021f340` (não conferido no VPS nesta sessão; se não subiram, falta o
+`pinhaljunior2-deploy` + `DEPLOY_LEILAO.md` §7.1). **Sem migration.**
+
+**Atualização anterior:** 2026-09-24 (**Leilão: o som não voltava quando o locutor retomava a
 transmissão**): relatado pelo clube — o locutor encerra a transmissão e volta minutos depois, e em
 alguns celulares o som não volta, às vezes nem desligando e ligando o 🔊, chegando a só resolver
 **reiniciando o aparelho**. Eram **três causas somadas**, nenhuma visível na tela. (1) A reconexão
@@ -766,7 +774,7 @@ fila, histórico ao vivo, controle de **pagamentos** (com baixa manual), lista d
 **pessoas** (contato e endereço, para entregar) e o **microfone**: a voz do locutor vai ao vivo por
 **WebRTC/MediaMTX** com atraso de 200-500 ms, em `RTCPeerConnection` puro — **sem biblioteca JS
 externa**. Item é cadastrado com foto **tirada na hora ou escolhida do aparelho** (dois botões, dois inputs — ver
-abaixo) e a foto é reduzida com Pillow. Efeitos: som **sintetizado em WebAudio** (zero arquivo para baixar), vibração, confete e o par
+abaixo) e a foto é reduzida com Pillow. Efeitos: som (arquivos do clube no lance/arremate, **sintetizado em WebAudio** de reserva), vibração, confete e o par
 de estados **🟢 VOCÊ ESTÁ GANHANDO** × **🔴 TE SUPERARAM**. Decisões que mais importam: **um worker só**
 (o hub de eventos e o relógio vivem na memória do processo — dois seriam dois leilões paralelos);
 **`transaction_mode: IMMEDIATE`** no SQLite (sem ele, toda transação de lance — que lê e depois escreve
@@ -2725,7 +2733,7 @@ equipe.
 
 **Som e reações:** a **porta do som** (tela de entrada com um toque, e **só** esse caminho) existe porque
 o navegador proíbe áudio sem gesto — o botão no canto não era achado, e por isso o aviso sonoro de cada
-lance nunca tocava. Os efeitos são **sintetizados em WebAudio** (zero download, zero licença); **música de
+lance nunca tocava. Lance e arremate tocam os **arquivos do clube** (desde 24/09), com o sintetizado em WebAudio de reserva; **música de
 fundo não existe mais** (ver abaixo). As **reações em emoji** sobem na tela de todo mundo, **4 por
 toque** (`reacoes.EMOJIS_POR_TOQUE`; a multiplicação é do **servidor**, e o cliente lê `data-rajada` só
 para descontar o que já desenhou — o resumo é broadcast e volta para quem mandou, o que fazia quem
@@ -2830,8 +2838,9 @@ comportamento das janelas suspensas num lugar só (abrir, travar o corpo, X, Esc
 `mousedown`+`click`) — carregue-o **antes** do script da tela que o usa. Reaproveita `css/base.css`
 (modal + toast) e `js/inicio.js` (módulo único de toasts) do sistema do clube.
 
-**Os efeitos sonoros não usam arquivo nenhum** (`som.js`): `SomLeilao` sintetiza lance, superado, vendido e
-arrematei em WebAudio — zero download, zero licenciamento, nada de binário no repositório.
+**Os efeitos sonoros** (`som.js`): desde 24/09 lance e arremate tocam os **arquivos do clube**
+(`static/leilao/som/lance.wav` e `arremate.mp3`, baixados na entrada, teto de 500 kB); `SomLeilao` continua
+sintetizando em WebAudio o superado e servindo de **reserva** quando o arquivo não chegou.
 
 **A entrega se divide entre os voluntários** (`leilao/entregas.py` + o **quadro** em `/caixa/entregas/`):
 informa-se quantos entregadores e abre um quadro com uma coluna por entregador, onde a equipe **arrasta** as
@@ -2971,8 +2980,6 @@ antes do evento**).
   R$ 1 prova a cadeia inteira) e o **ensaio do áudio** com aparelhos reais (`docs/DEPLOY_LEILAO.md`
   §8, obrigatório e **não no dia**). Os itens cadastrados antes da migration `0010` estão sem
   peso/dimensões — a lista da preparação os marca, e completam-se ao editar.
-- **Linha morta no `locutor.js`**: o ouvinte do evento `arremate_expirado` continua ali, mas o evento
-  **não é publicado desde 21/09** (o prazo de pagamento saiu). Não quebra nada; é limpeza.
 - **Refinos de inscrição ainda em aberto**: gating de "diretoria" por perfil real, editar inscrição e
   e-mail de confirmação. Exportação da lista por **arquivo** (CSV) não foi feita — os botões de cópia
   (planilha / WhatsApp) resolveram o caso de uso em 08/2026; só compensa se pedirem valores e situação

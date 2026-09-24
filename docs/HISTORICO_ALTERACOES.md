@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Faxina: a documentação acompanha os sons do clube e a reconexão sem teto
+
+### Resumo
+Conferência da documentação depois de uma queda de energia no meio do
+trabalho. O código estava inteiro e as duas suítes verdes (core **456**,
+leilão **438**, `makemigrations --check` limpo nos dois); o que tinha ficado
+para trás era texto.
+
+### O que estava incoerente
+- **Quatro trechos ainda diziam "som sintetizado, sem arquivo nenhum"**
+  (`ESTADO_ATUAL` ×3, `REGRAS_CODEX` ×2), contradizendo a troca pelos arquivos
+  do clube feita no mesmo dia. Corrigidos: lance e arremate tocam o arquivo,
+  o sintetizado fica de reserva e segue fazendo superado/tique/erro.
+- **`REGRAS_CODEX` §"Conexão que o navegador derruba"** ainda justificava um
+  "teto de tentativas" que deixou de existir com a reconexão sem desistência.
+  Agora aponta para a regra nova (o freio é o intervalo).
+- **Pendência da entrada "os sons passam a ser os arquivos do clube"** dizia
+  que a procedência não tinha sido verificada, enquanto o commit `93bb809` e o
+  `ESTADO_ATUAL` registram a confirmação do clube. Marcada como corrigida.
+- **"Linha morta no `locutor.js`"** seguia em "Próximas etapas", mas o ouvinte
+  de `arremate_expirado` já tinha saído na faxina de 23/09 (conferido: não há
+  mais nenhum no JS). Removida da lista.
+
+### Pendências
+- **Deploy dos commits `93bb809` e `021f340` não registrado.** Não foi
+  possível conferir o VPS nesta sessão; se não subiram, falta o
+  `pinhaljunior2-deploy` **e** o passo do `DEPLOY_LEILAO.md` §7.1 (collectstatic
+  e restart do leilão — são só estáticos, sem migration).
+
 ## 2026-09-24 - Leilão: o som não voltava quando o locutor retomava a transmissão
 
 ### Resumo
@@ -182,8 +211,10 @@ amarras**:
   48 kHz / 320 kbps (arremate).
 
 ### Pendências
-- **A procedência dos arquivos não foi verificada** — ver a nota de licença no
-  `REGRAS_CODEX`. O repositório é público e o site também.
+- ~~A procedência dos arquivos não foi verificada~~ — **corrigido em 24/09**: o
+  clube confirmou antes de subir que os arquivos são dele e livres para uso (está
+  no commit `93bb809` e no `ESTADO_ATUAL`). A nota de licença do `REGRAS_CODEX`
+  continua valendo para qualquer áudio novo.
 - O `lance.wav` é WAV sem compressão (157 kB para 0,91 s); em MP3 ficaria perto
   de 15 kB. O `arremate.mp3` está em 320 kbps, taxa de música, não de efeito.
   Nenhum dos dois é problema hoje — baixam uma vez, na entrada —, mas é folga

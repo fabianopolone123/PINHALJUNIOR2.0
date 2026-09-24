@@ -745,8 +745,8 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   "vendido" — ninguém espera o Mercado Pago com a tela parada. Sem credencial, o leilão **não para**: o
   locutor dá baixa manual. Thread de fundo **fecha a conexão** no fim (`connections.close_all()`).
 - **Sem biblioteca externa, aqui também.** WebRTC é API nativa (`RTCPeerConnection` + `fetch` do SDP, ~40
-  linhas); o QR vem pronto em base64 do Mercado Pago; o som é **sintetizado em WebAudio** (zero arquivo
-  para baixar, zero latência); confete é canvas escrito à mão. A única dependência nova é o **uvicorn**,
+  linhas); o QR vem pronto em base64 do Mercado Pago; o som de lance/arremate é **arquivo do clube**
+  baixado na entrada, com o **sintetizado em WebAudio** de reserva (nenhuma biblioteca); confete é canvas escrito à mão. A única dependência nova é o **uvicorn**,
   isolada em `requirements-leilao.txt`.
 - **`leilao/tests.py` se auto-pula** quando o app não está instalado (`apps.is_installed`). O
   `manage.py test` do clube varre o diretório inteiro e encontraria o arquivo; sem a guarda, ele vira um
@@ -1139,9 +1139,10 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   Lock. O navegador derruba a conexão WebRTC quando a aba sai da frente e **não a devolve**: quem voltava ao
   leilão ficava sem ouvir e só resolvia fechando o navegador, que ninguém adivinha. O módulo escuta o evento
   **ele mesmo**, em vez de confiar que cada tela lembre de chamá-lo.
-- **Desistir de reconectar não pode ser definitivo.** O teto de tentativas existe para não martelar o
-  servidor com 50 celulares — não para punir quem atendeu uma ligação. Voltar para a tela é sinal novo:
-  zera o contador e tenta de novo.
+- **Desistir de reconectar não pode ser definitivo.** O freio contra martelar o servidor com 50
+  celulares é o **intervalo** (até 20 s, sorteado), não um teto de tentativas — desde 24/09 não existe
+  mais desistência (ver "Áudio ao vivo: o que quebra é o que NÃO avisa"). Voltar para a tela continua
+  sendo sinal novo: zera o contador e tenta na hora.
 - **O `<audio>` volta PAUSADO mesmo com a conexão de pé.** Reconectar sem mandar tocar deixa a pessoa
   olhando um leilão mudo com tudo aparentemente funcionando.
 - **Handler de `RTCPeerConnection` fica amarrado à conexão que o criou.** `pc.close()` dispara
@@ -1471,8 +1472,9 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   há como a pessoa adivinhar que o silêncio foi escolha dela. A saída continua no 🔇 do topo, onde ela
   sabe o que está desligando. Esse toque é também o **gesto** que o navegador exige para liberar áudio;
   sem ele nada toca, e foi assim que o aviso de lance ficou mudo a primeira vez.
-- **Os efeitos sonoros são sintetizados, sem arquivo nenhum** (`som.js`). Zero download, zero
-  licenciamento e nada de binário no repositório.
+- **Lance e arremate tocam os arquivos do clube** (`static/leilao/som/`, desde 24/09), baixados na
+  entrada e com o **sintetizado em WebAudio como reserva** (`som.js`); superado e demais efeitos seguem
+  sintetizados. As três amarras estão em "Som do leilão: arquivo do clube, com três amarras".
 - **Não há música de fundo, e isso foi decidido de ouvido.** Existiu, pronta e funcionando, e o clube
   ouviu e não quis. Sobraram colunas dormentes (`Leilao.musica_ligada`, `musica_volume`,
   `ConfigLeilao.musica`) que **nada lê**. Não religue por conta própria — é o tipo de decisão que só quem
