@@ -2,7 +2,18 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Faxina de documentação**): conferência depois de uma queda
+**Última atualização:** 2026-09-24 (**Leilão: card "🟢 Online agora" na mesa do locutor**): pedido
+do clube — os nomes de quem está no leilão, à vista na linha do pregão, ao lado de lances e chat,
+sem precisar clicar no 👥. É a **mesma lista** da janela (mesma função `desenharQuemChegou`, mesmo
+`/locutor/dados/` autenticado — **nada novo no broadcast**) e se atualiza sozinha a cada entrada e
+saída (o evento `online` chama a `recarregarDados`, que já junta rajadas em 700 ms). Para não abrir
+célula vazia: **quarta coluna em 1280px+**, **faixa inteira** com os nomes lado a lado entre 1000 e
+1279px, empilhado abaixo disso — conferido por sonda headless em 1440/1100/900 px, sem rolagem
+horizontal. Suíte do leilão: **442 testes OK** (+4, e o teste das linhas passou a esperar 4 cards em
+cima). **Sem migration.** Deploy: só estáticos e template do leilão → `pinhaljunior2-deploy` + §7.1,
+**com nenhum item em pregão**.
+
+**Atualização anterior:** 2026-09-24 (**Faxina de documentação**): conferência depois de uma queda
 de energia no meio do trabalho. Código inteiro, suítes verdes (core **456**, leilão **438**), sem
 migration pendente. Corrigidos os trechos que ainda diziam "som sintetizado, sem arquivo", a regra
 de reconexão que falava em "teto de tentativas", a pendência de procedência dos sons (já confirmada
@@ -2704,7 +2715,12 @@ usa uma vez na noite — **fila**, **sua voz** e **pagamentos**. A coluna do mar
 (`1.5fr 1fr 1.15fr`). Abaixo de **1000px** as duas grades **empilham**: a regra base é `2fr 1fr`, e
 três cards em duas colunas deixam uma **célula vazia** ao lado do último — foi exatamente o que
 apareceu quando a bilheteria virou o terceiro card, em 21/09, e o clube perguntou que retângulo
-morto era aquele. **Card novo aqui entra de três em três**, ou reabre o buraco.
+morto era aquele. **Card novo aqui não pode deixar célula vazia**, ou reabre o buraco.
+**Desde 24/09 a linha de cima tem um 4º card, 🟢 Online agora** (pedido do clube): os nomes de quem
+está no leilão, à vista, sem clicar no 👥 — mesma lista e mesma função da janela, vinda do
+`/locutor/dados/` autenticado (nunca do broadcast) e atualizada a cada entrada/saída pelo evento
+`online`. Em **1280px+** é a quarta coluna (`1.4fr 1fr 1.1fr 0.8fr`); entre **1000 e 1279px** vira
+uma **faixa inteira** abaixo da linha, com os nomes lado a lado; abaixo de 1000px empilha.
 
 **A mesa sente a sala.** Quem conduz **não lê** a tela — está falando, de olho no microfone e na
 lista —, então o que chega até ele tem de ser **movimento**. Duas coisas foram desse jeito: o **nome

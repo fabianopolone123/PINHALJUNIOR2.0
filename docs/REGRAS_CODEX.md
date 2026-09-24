@@ -1409,13 +1409,20 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   dentro de `.historico, .fila, …, .chat-mesa`, e o corpo daquele é outro — a guarda caiu nisso na
   primeira execução. Procure a regra por **regex** (`\.classe\s*\{[^}]*propriedade`).
 
-### A mesa do locutor: três cards por linha
+### A mesa do locutor: nenhuma célula vazia
 
 - **A grade do pregão é de duas colunas, e três cards não cabem nela.** Foi assim que nasceu a
   "faixa": a bilheteria entrou como terceiro card, o microfone caiu sozinho na segunda linha e
   sobrou uma **célula vazia** de 353 × 119 px, que o clube viu e perguntou o que era. **Card novo
-  entra de três em três** — ou a linha volta a ficar com um buraco do lado.
-- **A ordem é o USO, não a simetria.** Linha de cima: **item em pregão · lances · chat**, que é o
+  não pode deixar célula vazia em NENHUMA largura** — ou entra de três em três, ou faz como o
+  **"Online agora"** (24/09, 4º card da linha de cima): em três colunas (1000–1279px) ele ocupa a
+  **linha inteira** (`grid-column: 1 / -1`, nomes lado a lado) e só a partir de **1280px** vira a
+  quarta coluna. Há teste para as duas faixas.
+- **"Online agora" é a mesma lista da janela do 👥**, desenhada pela mesma função
+  (`desenharQuemChegou`), vinda do `/locutor/dados/` autenticado — **nunca** do broadcast. Ela se
+  atualiza no evento `online` (entrou/saiu alguém) pela `recarregarDados`, que já junta rajadas em
+  700 ms; não crie um segundo fetch nem um timer próprio para ela.
+- **A ordem é o USO, não a simetria.** Linha de cima: **item em pregão · lances · chat · online agora**, que é o
   que o locutor acompanha ao mesmo tempo enquanto conduz. Linha de baixo: **fila · sua voz ·
   pagamentos**, que se usam uma vez por noite. Quem separa isso por "tamanho de card" acaba
   mandando o locutor procurar informação em dois cantos da tela no meio do pregão.

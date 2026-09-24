@@ -4324,7 +4324,10 @@ class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
             encoding="utf-8"
         )
 
-    def test_as_duas_linhas_tem_tres_cards_cada(self):
+    def test_as_duas_linhas_tem_os_cards_certos(self):
+        """Em 24/09 a linha do pregão ganhou um 4º card, "Online agora" (pedido
+        do clube). Ele não abre buraco: até caber ao lado (1280px) vira faixa
+        inteira embaixo — ver `test_o_quarto_card_nunca_deixa_celula_vazia`."""
         html = self.c.get("/locutor/", follow=True).content.decode()
         # A ordem no HTML é a ordem na tela: o que se acompanha primeiro.
         pregao = html.index('class="pregao-grade pregao-linha"')
@@ -4332,11 +4335,11 @@ class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
         linha1 = html[pregao:segunda]
         linha2 = html[segunda:html.index("</section>", segunda)]
 
-        self.assertEqual(linha1.count('class="cartao'), 3, "a linha do pregão tem de ter 3 cards")
+        self.assertEqual(linha1.count('class="cartao'), 4, "a linha do pregão tem de ter 4 cards")
         self.assertEqual(linha2.count('class="cartao'), 3, "a segunda linha tem de ter 3 cards")
 
-        # O martelo, os lances e o chat juntos.
-        for marca in ("lote-atual", "Lances deste item", "Chat ao vivo"):
+        # O martelo, os lances, o chat e quem está online juntos.
+        for marca in ("lote-atual", "Lances deste item", "Chat ao vivo", "Online agora"):
             self.assertIn(marca, linha1, f"{marca} saiu da linha do pregão")
         # O que se usa uma vez por noite.
         for marca in ("Fila", "Sua voz", "Pagamentos"):
@@ -4356,6 +4359,22 @@ class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
         self.assertIn(".pregao-grade.tres", trecho)
         self.assertIn(".pregao-grade.pregao-linha", trecho)
         self.assertIn("grid-template-columns: minmax(0, 1fr)", trecho)
+
+    def test_o_quarto_card_nunca_deixa_celula_vazia(self):
+        """Com três colunas (1000–1279px), o 4º card cairia sozinho numa célula
+        e deixaria duas vazias ao lado — o mesmo buraco de antes. Ali ele ocupa
+        a linha inteira; a partir de 1280px vira a quarta coluna."""
+        css = self._css()
+        inicio = css.index("@media (min-width: 1000px)", css.index("Mesa: as linhas de TRÊS cards"))
+        entre = css[inicio: css.index("@media (min-width: 1280px)", inicio)]
+        self.assertIn(".online-card { grid-column: 1 / -1; }", entre)
+
+        largo = css[css.index("@media (min-width: 1280px)", inicio):]
+        largo = largo[: largo.index("\n}\n")]
+        regra = re.search(r"\.pregao-grade\.pregao-linha \{\s*grid-template-columns: ([^;]+);", largo)
+        self.assertIsNotNone(regra, "falta a grade de 4 colunas da tela larga")
+        self.assertEqual(regra.group(1).count("minmax("), 4)
+        self.assertIn("grid-column: auto", largo)
 
     def test_o_chat_nao_promete_mais_hora_de_fechar(self):
         js = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js").read_text(
@@ -5179,6 +5198,36 @@ class QuemJaChegouTests(TestCase):
         html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
         self.assertIn('id="btnQuemChegou"', html)
         self.assertIn('id="modalQuemChegou"', html)
+
+    def test_o_card_online_agora_fica_no_pregao(self):
+        """Pedido do clube em 24/09: a lista à vista, sem clicar."""
+        html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
+        pregao = html[html.index('class="pregao-grade pregao-linha"'):html.index('class="pregao-grade tres"')]
+        self.assertIn('class="cartao online-card"', pregao)
+        self.assertIn('id="onlineLista"', pregao)
+        self.assertIn('id="contaOnline"', pregao)
+
+    def test_o_card_online_nao_leva_nome_no_html(self):
+        """Os nomes chegam pelo JS, do endpoint autenticado — a página não os
+        traz prontos (ela ficaria velha no minuto seguinte)."""
+        servicos.HUB.assinar(publico=True, nome="Ana Fictícia")
+        html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
+        self.assertNotIn("Ana Fictícia", html)
+
+    def test_o_card_se_atualiza_quando_alguem_entra_ou_sai(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js").read_text(encoding="utf-8")
+        limpo = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        limpo = re.sub(r"//[^\n]*", " ", limpo)
+        # A recarga da mesa desenha o card...
+        recarga = limpo[limpo.index("function recarregarDados"):]
+        recarga = recarga[: recarga.index("var fonte")]
+        self.assertIn("desenharOnline(d)", recarga)
+        # ...e o evento `online` (entrou/saiu alguém) pede a recarga.
+        online = limpo[limpo.index('addEventListener("online"'):]
+        online = online[: online.index("});")]
+        self.assertIn("recarregarDados()", online)
+        # Um desenho só para a janela e para o card.
+        self.assertIn('desenharQuemChegou(dados, $("onlineLista")', limpo)
 
     def test_o_hub_guarda_quem_esta_conectado(self):
         servicos.HUB.assinar(publico=True, nome="Ana Fictícia")

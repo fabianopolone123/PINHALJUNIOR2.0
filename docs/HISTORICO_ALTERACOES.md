@@ -22,6 +22,54 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: card "Online agora" na mesa do locutor
+
+### Resumo
+Pedido do clube: uma coluna ao lado de "Lances deste item" e do chat com os
+nomes de todos que estão online. Antes a lista existia, mas só abria clicando
+no contador 👥 — e o locutor chama as pessoas pelo nome enquanto conduz.
+
+### O que foi feito
+- **Card 🟢 Online agora** na linha do pregão, com a contagem de pessoas no
+  título e a nota "N conexões · N pessoas · N ainda sem cadastro".
+- **A mesma lista da janela**: `desenharQuemChegou` passou a receber a lista, a
+  nota e o contador de destino, e desenha as duas. Uma função só, para a
+  janela e o card nunca discordarem.
+- **Atualiza sozinho**: a `recarregarDados` (lance, abertura, estado) desenha o
+  card, e o evento `online` — entrou ou saiu alguém — passou a pedir a recarga.
+  Ela já junta rajadas em 700 ms, então uma sala chegando de uma vez vira
+  poucos pedidos, e só das telas da mesa.
+
+### Decisões tomadas
+- **Nada novo no broadcast.** Os nomes continuam saindo só pelo
+  `/locutor/dados/` autenticado; o HTML da mesa não os traz prontos (há teste).
+- **Nenhuma célula vazia**: a regra "card novo entra de três em três" virou
+  "card novo não deixa buraco em largura nenhuma". Em 1280px+ o card é a
+  quarta coluna (`1.4fr 1fr 1.1fr 0.8fr`); entre 1000 e 1279px, com três
+  colunas, ele ocuparia uma célula e deixaria duas vazias — ali ele vira
+  **faixa inteira** (`grid-column: 1 / -1`) com os nomes lado a lado e teto de
+  140px; abaixo de 1000px empilha como o resto.
+
+### Arquivos alterados
+- `templates/leilao/locutor.html`: o card.
+- `static/leilao/js/locutor.js`: `desenharQuemChegou` com destino,
+  `desenharOnline`, recarga no evento `online`.
+- `static/leilao/css/locutor.css`: as duas faixas de largura e o card.
+- `leilao/tests.py`: `ATelaDaMesaNaoDeixaBuracoTests` espera 4 cards em cima
+  e ganhou a guarda da faixa inteira/quarta coluna; `QuemJaChegouTests` ganhou
+  3 testes (card no pregão, nomes fora do HTML, atualização no `online`).
+- `CLAUDE.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`.
+
+### Verificação
+- Suíte do leilão: 442 testes OK. `locutor.js` carrega no headless sem erro.
+- Sonda headless com 12 nomes fictícios: 1440px → quatro colunas na mesma
+  linha; 1100px → faixa inteira abaixo; 900px → empilhado. Sem rolagem
+  horizontal em nenhuma.
+
+### Pendências
+- Deploy: `pinhaljunior2-deploy` + `DEPLOY_LEILAO.md` §7.1 (collectstatic e
+  restart do leilão), **com nenhum item em pregão**. Sem migration.
+
 ## 2026-09-24 - Faxina: a documentação acompanha os sons do clube e a reconexão sem teto
 
 ### Resumo

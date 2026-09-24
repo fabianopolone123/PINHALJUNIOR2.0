@@ -125,6 +125,20 @@
                     <button type="submit" class="btn-mini destaque">Enviar</button>
                 </form>
             </div>
+
+            {% comment %}
+            Quem está online, sempre à vista — a mesma lista da janela do 👥,
+            mas sem precisar clicar: o locutor chama as pessoas pelo nome
+            enquanto conduz. Vem do `/locutor/dados/` (autenticado), NUNCA do
+            broadcast, e se atualiza sozinha a cada entrada e saída.
+            {% endcomment %}
+            <div class="cartao online-card">
+                <h3>🟢 Online agora <span class="conta" id="contaOnline"></span></h3>
+                <ul class="quem-lista online-lista" id="onlineLista">
+                    <li class="vazio">Carregando…</li>
+                </ul>
+                <p class="micro-ajuda" id="onlineNota"></p>
+            </div>
         </div>
 
         {% comment %}

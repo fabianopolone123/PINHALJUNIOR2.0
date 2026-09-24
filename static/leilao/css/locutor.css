@@ -862,7 +862,34 @@ body.tela-locutor {
     .pregao-grade.pregao-linha {
         grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.15fr);
     }
+    /* O 4º card da linha do pregão ("Online agora"). Com três colunas ele
+       ocuparia UMA célula da linha de baixo e deixaria duas vazias — então,
+       até caber ao lado, ele vira uma faixa inteira embaixo, com os nomes
+       lado a lado. */
+    .pregao-grade.pregao-linha .online-card { grid-column: 1 / -1; }
+    .pregao-grade.pregao-linha .online-lista {
+        flex-direction: row;
+        flex-wrap: wrap;
+        max-height: 140px;
+    }
 }
+
+/* Tela larga: cabe como QUARTA coluna, ao lado de lances e chat. */
+@media (min-width: 1280px) {
+    .pregao-grade.pregao-linha {
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.8fr);
+    }
+    .pregao-grade.pregao-linha .online-card { grid-column: auto; }
+    .pregao-grade.pregao-linha .online-lista {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        max-height: 320px;   /* o mesmo teto dos lances e do chat */
+    }
+}
+
+.cartao.online-card { display: flex; flex-direction: column; }
+.online-lista { margin-bottom: 6px; }
+.online-card .online-lista li { padding: 6px 10px; font-size: 0.9rem; }
 
 .micro-separador {
     margin-top: 16px;

@@ -56,9 +56,10 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
 - **A mesa do locutor é organizada por uso, e ele não LÊ a tela** (está falando): o que chega até ele é
   **movimento**. O nome de quem ganha **acende a cada lance**; as reações do público **sobem na mesa
   também** (mesmo `reacoes.js`, mesma classe de trilho — a mesa só ouve, não há botão de reagir lá). A
-  tela é de **duas linhas de TRÊS cards** — em cima *pregão · lances · chat*, que se acompanham juntos;
-  embaixo *fila · sua voz · pagamentos*, de uma vez por noite. **Card novo entra de três em três**: a
-  grade é de duas colunas e o terceiro card sobrando deixa uma **célula vazia** (já aconteceu). Lista
+  tela tem duas linhas — em cima *pregão · lances · chat · online agora*, que se acompanham juntos;
+  embaixo *fila · sua voz · pagamentos*, de uma vez por noite. **Card novo não pode deixar célula
+  vazia** em largura nenhuma: a grade base é de duas colunas e um card sobrando abre buraco (já
+  aconteceu). O *Online agora* resolve isso virando faixa inteira entre 1000 e 1279px. Lista
   dentro desses cards precisa de **teto + rolagem**, senão ela cresce e leva os três juntos.
 - **Três áreas de equipe** (preparação/locutor/caixa) + diretor; quem protege é a view, nunca o menu.
 - **O item tem peso e dimensões, obrigatórios** (mig. **0010**): a exigência mora no `LoteForm`, não no

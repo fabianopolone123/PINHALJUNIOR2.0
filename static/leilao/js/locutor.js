@@ -328,6 +328,7 @@
                     // conversa da noite é só da mesa.
                     desenharFila(d.fila, d.restam_na_fila);
                     desenharChatMesa(d.chat);
+                    desenharOnline(d);
                 })
                 .catch(function () { /* a próxima volta resolve */ });
         }, 700);
@@ -360,6 +361,10 @@
         var d = JSON.parse(e.data);
         if (estado) estado.online = d.online;
         if ($("online")) $("online").textContent = d.online;
+        // Entrou ou saiu alguém: o card "Online agora" busca os nomes de novo.
+        // O `recarregarDados` já junta rajadas (700 ms), então uma sala
+        // chegando de uma vez vira poucos pedidos, e só desta tela.
+        recarregarDados();
     });
     fonte.addEventListener("pagamento", function () {
         toast("Pagamento confirmado.", "success");
@@ -393,10 +398,16 @@
        celulares da sala. */
     var modalQuem = window.ModalLeilao ? window.ModalLeilao.ligar($("modalQuemChegou")) : null;
 
-    function desenharQuemChegou(dados) {
-        var ul = $("quemLista");
-        var nota = $("quemNota");
+    /* Serve às DUAS listas: a janela do 👥 e o card "Online agora" do pregão.
+       Um desenho só, para as duas nunca discordarem. */
+    function desenharQuemChegou(dados, ul, nota, conta) {
+        ul = ul || $("quemLista");
+        nota = nota || $("quemNota");
         if (!ul) return;
+        if (conta) {
+            var n = ((dados && dados.conectados_nomes) || []).length;
+            conta.textContent = n ? String(n) : "";
+        }
         var nomes = (dados && dados.conectados_nomes) || [];
         ul.innerHTML = "";
 
@@ -436,6 +447,10 @@
         }
     }
 
+    function desenharOnline(dados) {
+        desenharQuemChegou(dados, $("onlineLista"), $("onlineNota"), $("contaOnline"));
+    }
+
     var btnQuem = $("btnQuemChegou");
     if (btnQuem && modalQuem) {
         btnQuem.addEventListener("click", function () {
@@ -446,7 +461,7 @@
             // de dois minutos atrás seria pior do que não mostrar.
             fetch(URL_DADOS, { headers: { "X-Requested-With": "XMLHttpRequest" } })
                 .then(function (r) { return r.json(); })
-                .then(desenharQuemChegou)
+                .then(function (d) { desenharQuemChegou(d); })
                 .catch(function () {
                     if (ul) ul.innerHTML = "<li class=\"vazio\">Sem conexão com o servidor.</li>";
                 });
