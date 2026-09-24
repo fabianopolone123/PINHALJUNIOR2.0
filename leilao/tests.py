@@ -5443,3 +5443,146 @@ class LocutorMutaOSomDaSalaTests(TestCase):
         linha = [x for x in js.splitlines() if "SomLeilao.superado()" in x]
         self.assertEqual(len(linha), 1, "o superado deveria ser chamado num lugar só")
         self.assertNotIn("somLiberado", linha[0])
+
+
+class AudioVoltaQuandoOLocutorVoltaTests(TestCase):
+    """O locutor encerra a transmissão, volta minutos depois — e alguns
+    celulares ficavam mudos até **reiniciar o aparelho**.
+
+    Relatado pelo clube. Eram duas causas somadas, e nenhuma delas aparecia
+    como erro na tela:
+
+    1. **A reconexão desistia de vez.** Depois de 8 falhas o módulo parava de
+       tentar até a aba sair e voltar. Só que o caso real é a pessoa **olhando
+       a tela o tempo todo** enquanto o locutor está fora do ar: a aba nunca sai
+       da frente, nada dispara `retomar()`, e o silêncio é definitivo.
+    2. **O contador de tentativas não zerava no clique.** Tocar o 🔊 chamava
+       `conectar()` sem zerar `tentativas`; depois de uma sequência ruim ele já
+       estava no teto, então cada clique valia UMA tentativa que nascia
+       estourada — e se o locutor ainda não tivesse voltado naquele instante, o
+       módulo desistia na hora. É o "nem clicando no ícone volta".
+
+    E havia um terceiro buraco, esse silencioso: quando a fonte some, a conexão
+    costuma continuar **"connected"** — o ICE não cai e o `connectionState` não
+    muda. Nenhum handler disparava, então nada percebia que não vinha mais som.
+    """
+
+    def _js(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "js", "audio_ouvir.js").read_text(
+            encoding="utf-8"
+        )
+
+    def test_a_reconexao_NAO_desiste_mais(self):
+        """O freio passou a ser o INTERVALO, não um teto de desistência: 50
+        celulares tentando a cada 20 s são 2,5 pedidos por segundo, cada um um
+        404 curto enquanto não há ninguém no ar."""
+        js = self._js()
+        religar = js[js.index("function religar()"):]
+        religar = religar[: religar.index(chr(10) + "    }")]
+        self.assertNotIn("desistiu", religar)
+        self.assertIn("Math.min", religar)   # a espera tem teto
+
+    def test_a_espera_e_SORTEADA_para_o_bando_se_espalhar(self):
+        """Cem celulares percebem o silêncio no MESMO instante — é o mesmo
+        evento para todo mundo.
+
+        Com espera fixa, as tentativas ficam **sincronizadas** para o resto da
+        noite: em vez de 100 aparelhos espalhados em 20 segundos, são 100
+        pedidos no mesmo segundo, de 20 em 20. E a rajada cai justamente no
+        pior momento — quando o locutor volta, as 100 negociações acontecem
+        juntas, no mesmo vCPU que roda o leilão e o MediaMTX.
+        """
+        js = self._js()
+        religar = js[js.index("function religar()"):]
+        religar = religar[: religar.index(chr(10) + "    }")]
+        self.assertIn("Math.random()", religar)
+
+    def test_o_clique_no_icone_zera_o_contador(self):
+        """Pedido explícito é começo do zero."""
+        js = self._js()
+        ligar = js[js.index("ligar: function"):]
+        ligar = ligar[: ligar.index("},")]
+        self.assertIn("tentativas = 0", ligar)
+
+    def test_a_flag_de_desistencia_nao_ficou_dormente(self):
+        """Ela não é mais marcada em lugar nenhum: some, não fica pendurada."""
+        self.assertNotIn("desistiu", self._js())
+
+    def test_percebe_conectado_e_MUDO(self):
+        """Quando a fonte some, o ICE não cai: sem ouvir a faixa, nada percebe."""
+        js = self._js()
+        self.assertIn("onmute", js)
+        self.assertIn("onunmute", js)
+        self.assertIn("onended", js)
+
+    def test_tem_o_segundo_vigia_por_bytes(self):
+        """Nem todo navegador dispara `mute` — e falha justamente nos celulares
+        mais antigos, que são os que mais aparecem num evento de clube."""
+        js = self._js()
+        self.assertIn("getStats", js)
+        self.assertIn("bytesReceived", js)
+        self.assertIn("inbound-rtp", js)
+
+    def test_os_vigias_morrem_com_a_conexao(self):
+        """Relógio sobrevivente religa uma conexão que já foi substituída."""
+        js = self._js()
+        desligar = js[js.index("function desligarConexao()"):]
+        desligar = desligar[: desligar.index(chr(10) + "    }")]
+        self.assertIn("clearTimeout", desligar)
+        self.assertIn("clearInterval", desligar)
+
+    def test_a_tela_PEDE_o_toque_quando_o_som_cai(self):
+        """O caso que nenhuma reconexão conserta.
+
+        Quando o navegador **recusa tocar** (política de autoplay, aparelho que
+        voltou do bloqueio), só um **gesto** libera o áudio. Religar a conexão
+        mil vezes não adianta — o que adianta é pedir um toque. Por isso a
+        janela não é um aviso: o botão dentro dela **é** o gesto.
+        """
+        html = Path(
+            settings.BASE_DIR, "templates", "leilao", "leilao.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn('id="modalSomCaiu"', html)
+        self.assertIn('id="btnVoltarASomar"', html)
+
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("aoMudar", js)
+        # O botão refaz o caminho inteiro da porta do som.
+        botao = js[js.index('$("btnVoltarASomar")'):]
+        botao = botao[: botao.index("});")]
+        self.assertIn("ligarSom()", botao)
+
+    def test_o_play_recusado_avisa_a_tela(self):
+        """É a diferença entre "o som sumiu" e "o som sumiu e ninguém soube"."""
+        js = self._js()
+        tocar = js[js.index("function tocar()"):]
+        tocar = tocar[: tocar.index(chr(10) + "    }")]
+        self.assertIn("avisar(false)", tocar)
+        self.assertIn("avisar(true)", tocar)
+
+    def test_desligar_de_proposito_NAO_pede_para_religar(self):
+        """A pessoa acabou de calar o som: pedir o toque de volta seria brigar
+        com ela."""
+        js = self._js()
+        desligar = js[js.index("desligar: function"):]
+        desligar = desligar[: desligar.index("},")]
+        self.assertIn("ouvindo = false", desligar)
+        self.assertNotIn("avisar(", desligar)
+
+    def test_a_janela_nao_insiste_com_quem_fechou(self):
+        """Insistir num leilão ao vivo é pior do que ficar quieto."""
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("caladoDesde", js)
+        self.assertIn("60000", js)
+
+    def test_o_elemento_e_limpo_antes_de_receber_a_stream_nova(self):
+        """O elemento segurando a stream anterior é um dos jeitos de o celular
+        travar o áudio de vez — o caso em que nem desligar e ligar resolve."""
+        js = self._js()
+        ontrack = js[js.index("conexao.ontrack"):]
+        ontrack = ontrack[: ontrack.index("tocar();")]
+        self.assertIn("srcObject = null", ontrack)

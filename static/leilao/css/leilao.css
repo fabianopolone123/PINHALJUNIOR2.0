@@ -1115,3 +1115,9 @@ body.tela-palco {
 }
 .bv-online { font-size: 0.88rem; color: var(--palco-suave); }
 .bv-online b { color: var(--verde-claro); font-size: 1.05rem; }
+
+/* "O som parou": a janela que pede o toque. O botão é grande porque ELE é o
+   gesto que o navegador está esperando — não é um aviso para ler e fechar. */
+.som-caiu-corpo { text-align: center; }
+.som-caiu-corpo p { margin-bottom: 14px; line-height: 1.5; }
+.som-caiu-corpo .btn-entrar { width: 100%; margin-bottom: 10px; }

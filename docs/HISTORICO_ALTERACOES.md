@@ -22,6 +22,112 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-24 - Leilão: o som não voltava quando o locutor retomava a transmissão
+
+### Resumo
+Relatado pelo clube: o locutor encerra a transmissão e volta minutos depois, e
+em alguns celulares o som **não volta** — às vezes nem desligando e ligando o
+ícone 🔊, chegando ao ponto de só resolver **reiniciando o aparelho**.
+
+### Eram três causas somadas, nenhuma visível na tela
+
+**1. A reconexão desistia de vez.** Depois de 8 falhas o módulo parava de
+tentar até a aba sair e voltar. Mas o caso real é a pessoa **olhando a tela o
+tempo todo** enquanto o locutor está fora do ar: a aba nunca sai da frente,
+nada dispara o `retomar()`, e o silêncio vira definitivo. O freio existia por
+um bom motivo (50 celulares não podem martelar o servidor) — só que ele
+precisava ser o **intervalo**, não um teto de desistência.
+
+**2. O contador de tentativas não zerava no clique.** Tocar o 🔊 chamava
+`conectar()` sem zerar `tentativas`. Depois de uma sequência ruim ele já estava
+no teto, então **cada clique valia uma tentativa que nascia estourada**: se o
+locutor não tivesse voltado naquele instante exato, o módulo desistia na hora.
+É exatamente o "nem clicando no ícone volta".
+
+**3. Conectado e mudo.** Quando a fonte some, a conexão costuma continuar
+`connected` — o ICE não cai e o `connectionState` não muda. Nenhum handler
+disparava, então **nada percebia** que não chegava mais áudio.
+
+### O que foi feito
+- **A reconexão não desiste mais**: a espera cresce até 20 s e fica ali. São
+  2,5 pedidos por segundo com 50 aparelhos, cada um um 404 curto do MediaMTX
+  enquanto não há ninguém no ar — e o áudio volta sozinho no instante em que o
+  locutor retoma.
+- **`ligar()` zera o contador**: pedido explícito é começo do zero.
+- **Dois vigias para o "conectado e mudo"**: a faixa avisa (`onmute`/`onended`,
+  com 3 s de espera porque `mute` também pisca em soluço de rede) e, para os
+  navegadores que não avisam — justamente os celulares mais antigos, que são os
+  que mais aparecem num evento de clube —, um relógio confere o
+  `bytesReceived` do `getStats()`: três voltas sem crescer (15 s) com a conexão
+  de pé significa conexão morta. **15 s e não 5**, porque o locutor faz pausas
+  ao falar e o RTP continua mandando mesmo em silêncio; o que para de crescer é
+  quando a **fonte** some.
+- **O elemento é limpo antes de receber a stream nova** (`srcObject = null`
+  antes de reatribuir). O elemento segurando a stream anterior é um dos jeitos
+  de o celular travar o áudio de vez — o caso em que nem desligar e ligar
+  resolvia.
+- A flag `desistiu` **saiu**: nada mais a marca, então ela não fica dormente.
+
+### Arquivos alterados
+`static/leilao/js/audio_ouvir.js` e `leilao/tests.py`
+(`AudioVoltaQuandoOLocutorVoltaTests`).
+
+### E a janela que PEDE o toque
+Detectar o silêncio é metade do problema. A outra metade é o caso que
+**reconexão nenhuma conserta**: quando o navegador recusa tocar (política de
+autoplay, aparelho que voltou do bloqueio), só um **gesto** da pessoa libera o
+áudio. Religar a conexão mil vezes não adianta.
+
+Por isso, quando o som cai, abre uma janela na tela de quem está assistindo —
+e o botão dentro dela **é** o gesto que o navegador está esperando, refazendo o
+caminho inteiro da porta do som. Ela some sozinha quando o áudio volta. Quem
+fecha na mão tem **um minuto** de paz antes de ser perguntado de novo: insistir
+num leilão ao vivo é pior do que ficar quieto. E desligar o som de propósito
+não dispara nada — a pessoa acabou de calar, pedir de volta seria brigar com
+ela.
+
+### O bando de 100 celulares
+A pergunta do clube — *"isso pode causar lentidão com 100 celulares?"* — achou
+um problema que eu não tinha considerado.
+
+Quando o locutor encerra a transmissão, os celulares percebem o silêncio **no
+mesmo instante**: é o mesmo evento para todos, e a espera de 3 s após o aviso
+era **fixa**. Com isso as tentativas nasciam **sincronizadas** e ficavam assim
+a noite inteira — em vez de 100 aparelhos espalhados em 20 segundos, 100
+pedidos no mesmo segundo. E a rajada caía no pior momento possível: quando o
+locutor volta, as 100 negociações de áudio acontecem juntas, no mesmo vCPU que
+roda o leilão e o MediaMTX.
+
+A correção é **sortear as esperas**: 3 a 5 s na detecção e ±40% em cada
+tentativa.
+
+Medido por simulação de 100 aparelhos, 12 repetições:
+
+| | pico no mesmo segundo | média |
+|---|---|---|
+| sem dispersão | **73** (pior 81) | 6,2 pedidos/s |
+| com dispersão | **49** (pior 57) | 6,2 pedidos/s |
+
+A média é idêntica — a dispersão não reduz a carga, **achata o pico**. E vale
+registrar o que a medição mostrou depois: **quem resolve é o sorteio na
+detecção**; com ele no lugar, o sorteio das tentativas seguintes não muda mais
+o número. Ele ficou porque é uma linha e protege o caminho em que a detecção
+vem do vigia de bytes.
+
+Registrado também um **erro de medição**: a primeira simulação espalhava a
+detecção entre 3 e 15 s e concluiu que a dispersão não servia para nada. Esse
+espalhamento não existe na vida real — quem tem o aviso da faixa detecta tudo
+junto —, e era a hipótese, não o resultado, que estava errada.
+
+### Limite desta verificação
+Os testes garantem a **estrutura** (não há mais desistência, o clique zera o
+contador, os dois vigias existem, as esperas são sorteadas, os relógios morrem
+com a conexão, a janela existe e o botão refaz o caminho do som). O
+comportamento em si — locutor sai do ar, volta, e o som retorna sozinho — só se
+prova **com o MediaMTX no ar e um celular na mão**. Vale ensaiar isso antes do
+evento: entrar com som, o locutor parar de transmitir, esperar um minuto e
+retomar.
+
 ## 2026-09-24 - Leilão: os sons passam a ser os arquivos do clube
 
 ### Resumo

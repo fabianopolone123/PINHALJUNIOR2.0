@@ -178,6 +178,40 @@ no fluxo normal da página (logo acima do chat) — ver o comentário lá.
     </div>
 </aside>
 
+{% comment %}
+O som caiu — e quem resolve é a pessoa.
+
+Os vigias do `audio_ouvir.js` percebem o silêncio e religam sozinhos, mas há um
+caso que reconexão nenhuma conserta: quando o navegador **recusa tocar**
+(política de autoplay, aparelho que voltou do bloqueio), só um **gesto** libera
+o áudio. Por isso esta janela não é um aviso — ela é o **gesto**: o botão dentro
+dela é o toque que o navegador está esperando.
+
+Ela some sozinha quando o som volta, e não reaparece enquanto a pessoa estiver
+ouvindo. Quem fecha na mão tem um minuto de paz antes de ser perguntado de novo
+— insistir num leilão ao vivo é pior do que ficar quieto.
+{% endcomment %}
+<div class="modal-overlay" id="modalSomCaiu" hidden>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="somCaiuTitulo">
+        <div class="modal-topo">
+            <h2 class="modal-titulo" id="somCaiuTitulo">🔇 O som parou</h2>
+            <button type="button" class="modal-fechar" data-fechar-modal aria-label="Fechar">✕</button>
+        </div>
+        <div class="modal-corpo som-caiu-corpo">
+            <p>
+                A voz do locutor parou de chegar no seu aparelho. Isso costuma acontecer quando a
+                transmissão é retomada ou quando o celular fica um tempo bloqueado.
+            </p>
+            <button type="button" class="btn-entrar" id="btnVoltarASomar">
+                🔊 Voltar a ouvir
+            </button>
+            <p class="qr-ajuda">
+                Os lances continuam funcionando normalmente, com ou sem som.
+            </p>
+        </div>
+    </div>
+</div>
+
 {# ---- Modal do QR Code ---- #}
 <div class="modal-overlay" id="modalQr" hidden>
     <div class="modal-caixa" role="dialog" aria-label="Pagar com Pix">
@@ -231,6 +265,7 @@ Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do proje
     "pix": "{% url 'leilao:conta_pix' %}",
     "conferir": "{% url 'leilao:conta_conferir' %}"
 }</script>
+<script src="{% static 'leilao/js/modal.js' %}"></script>
 <script src="{% static 'leilao/js/som.js' %}"></script>
 <script src="{% static 'leilao/js/tela_acesa.js' %}"></script>
 <script src="{% static 'leilao/js/confete.js' %}"></script>

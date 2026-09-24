@@ -2,7 +2,45 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Leilão: os sons passam a ser os arquivos do clube**): o clube
+**Última atualização:** 2026-09-24 (**Leilão: o som não voltava quando o locutor retomava a
+transmissão**): relatado pelo clube — o locutor encerra a transmissão e volta minutos depois, e em
+alguns celulares o som não volta, às vezes nem desligando e ligando o 🔊, chegando a só resolver
+**reiniciando o aparelho**. Eram **três causas somadas**, nenhuma visível na tela. (1) A reconexão
+**desistia de vez** depois de 8 falhas, esperando a aba sair e voltar — mas o caso real é a pessoa
+olhando a tela o tempo todo, então nada disparava o `retomar()` e o silêncio virava definitivo; o
+freio passou a ser o **intervalo** (até 20 s, para sempre) e não um teto de desistência. (2) O
+**contador de tentativas não zerava no clique**: depois de uma sequência ruim ele já estava no teto,
+e cada toque no ícone valia uma tentativa que nascia estourada — o "nem clicando volta". (3)
+**Conectado e mudo**: quando a fonte some o ICE não cai e o `connectionState` não muda, então nenhum
+handler disparava; agora a faixa avisa (`onmute`/`onended`, com 3 s de espera porque `mute` pisca em
+soluço de rede) e, para os navegadores que não avisam, um relógio confere o `bytesReceived` do
+`getStats()` — três voltas sem crescer (**15 s**, porque o locutor faz pausas e o RTP continua
+mandando em silêncio; o que para é quando a **fonte** some). O elemento também é **limpo** antes de
+receber a stream nova, que é um dos jeitos de o celular travar o áudio de vez.
+
+**E entrou a janela que PEDE o toque.** Detectar o silêncio é metade do problema; a outra é o caso
+que **reconexão nenhuma conserta** — quando o navegador recusa tocar (autoplay, aparelho que voltou
+do bloqueio), só um **gesto** libera o áudio. Então, quando o som cai, abre uma janela na tela de
+quem assiste, e o botão dentro dela **é** o gesto: ele refaz o caminho inteiro da porta do som. Ela
+some sozinha quando o áudio volta; quem fecha na mão tem **um minuto** de paz antes de ser
+perguntado de novo (insistir num leilão ao vivo é pior do que ficar quieto); e desligar o som de
+propósito não dispara nada.
+
+**As esperas são SORTEADAS** (3 a 5 s na detecção, ±40% em cada tentativa), e isso saiu de uma
+pergunta do clube: *"pode causar lentidão com 100 celulares?"*. Quando o locutor sai do ar, todos
+percebem **no mesmo instante** — é o mesmo evento — e, com espera fixa, as tentativas ficavam
+sincronizadas a noite inteira: 100 pedidos no mesmo segundo em vez de espalhados em 20. A rajada
+caía no pior momento, o da volta, quando as 100 negociações acontecem juntas no mesmo vCPU do
+MediaMTX. Simulado com 100 aparelhos: pico de **73** (pior 81) caiu para **49** (pior 57), com a
+média igual — a dispersão **achata o pico**, não reduz a carga. Quem resolve é o sorteio na
+**detecção**; o das tentativas seguintes ficou por ser uma linha e cobrir o caminho do vigia de
+bytes. Fora isso, o custo é baixo: com tudo funcionando não há tentativa nenhuma, e os vigias rodam
+**dentro do celular** — custo zero para o servidor.
+
+**Limite**: os testes garantem a estrutura; o comportamento só se prova com o MediaMTX no ar e um
+celular na mão — vale ensaiar antes do evento. Suíte do leilão: **438 testes OK**. **Sem migration.**
+
+**Atualização anterior:** 2026-09-24 (**Leilão: os sons passam a ser os arquivos do clube**): o clube
 colocou `som lance.wav` e `som de arremate.mp3` na pasta do projeto e pediu para usá-los no lugar dos
 sintetizados. A regra de **não ter arquivo de áudio** caiu por decisão de quem conduz o evento — mas
 os três motivos dela (download, latência, binário versionado) não desapareceram, então a troca veio

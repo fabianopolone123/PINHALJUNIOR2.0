@@ -840,6 +840,54 @@
         $("btnSom").setAttribute("aria-pressed", "false");
     }
 
+    /* ---------------------------------------------------------------
+       "O som parou" — a janela que PEDE o toque
+       ---------------------------------------------------------------
+       Os vigias do `audio_ouvir.js` percebem o silêncio e religam sozinhos,
+       mas há um caso que reconexão nenhuma conserta: quando o navegador recusa
+       tocar (política de autoplay, aparelho que voltou do bloqueio), só um
+       **gesto** libera o áudio. Esta janela não é um aviso — o botão dentro
+       dela É o gesto que o navegador está esperando. */
+    var modalSom = window.ModalLeilao ? window.ModalLeilao.ligar($("modalSomCaiu")) : null;
+    var caladoDesde = 0;
+
+    function mostrarSomCaiu() {
+        if (!modalSom || !somLigado) return;
+        // Quem fechou na mão tem um minuto de paz: insistir num leilão ao vivo
+        // é pior do que ficar quieto.
+        if (Date.now() - caladoDesde < 60000) return;
+        modalSom.abrir();
+    }
+
+    if (window.AudioLeilao && window.AudioLeilao.aoMudar) {
+        window.AudioLeilao.aoMudar(function (estaOuvindo) {
+            if (estaOuvindo) {
+                // Voltou: a janela some sozinha, sem a pessoa precisar fechar.
+                if (modalSom) modalSom.fechar();
+            } else {
+                mostrarSomCaiu();
+            }
+        });
+    }
+
+    if ($("btnVoltarASomar")) {
+        $("btnVoltarASomar").addEventListener("click", function () {
+            // Este clique é o gesto. Refaz o caminho inteiro da porta do som:
+            // reativa os efeitos e reconecta a voz do zero.
+            if (modalSom) modalSom.fechar();
+            ligarSom();
+        });
+    }
+
+    if ($("modalSomCaiu")) {
+        // Fechar na mão marca a hora — é o que dá o minuto de silêncio.
+        $("modalSomCaiu").addEventListener("click", function (e) {
+            if (e.target.closest("[data-fechar-modal]") || e.target === this) {
+                caladoDesde = Date.now();
+            }
+        });
+    }
+
     function fecharPorta() {
         var porta = $("portaSom");
         if (porta) porta.hidden = true;

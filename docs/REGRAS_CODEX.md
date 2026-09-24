@@ -1232,6 +1232,35 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   área sem leilão nenhum manda de volta — página que nunca carrega. O hub só pula para a área quando
   há o que mostrar lá.
 
+### Áudio ao vivo: o que quebra é o que NÃO avisa
+
+- **Reconexão de áudio não pode desistir de vez.** O freio contra martelar o servidor é o
+  **intervalo** (até 20 s), nunca um teto de tentativas: o caso real é o locutor sair do ar e voltar
+  minutos depois, com a pessoa olhando a tela o tempo todo — a aba nunca sai da frente, então nada
+  dispara o `retomar()`, e a desistência vira silêncio definitivo até reiniciar o aparelho.
+- **Pedido explícito zera o contador.** Tocar o 🔊 é um começo do zero; sem isso, depois de uma
+  sequência ruim cada clique vale uma tentativa que **nasce estourada** — e foi por isso que nem
+  clicando o som voltava.
+- **"Conectado" não quer dizer "com som".** Quando a fonte some, o ICE não cai e o
+  `connectionState` não muda: nada dispara. Ouça a **faixa** (`onmute`/`onended`) e, porque nem todo
+  navegador a avisa, tenha um segundo vigia lendo `bytesReceived` do `getStats()`.
+- **O vigia de bytes espera 15 s, não 5.** O locutor faz pausas ao falar e o RTP continua mandando
+  mesmo em silêncio; o que para de crescer é quando a **fonte** some, não quando ele respira.
+- **Limpe o `srcObject` antes de reatribuir.** O elemento segurando a stream anterior é um dos
+  jeitos de o celular travar o áudio de vez — o caso em que nem desligar e ligar o som resolve.
+- **Espera de reconexão é SORTEADA, nunca fixa.** Cem celulares percebem a mesma queda no mesmo
+  instante, então espera fixa os mantém **sincronizados a noite inteira**: 100 pedidos no mesmo
+  segundo em vez de espalhados. E a rajada cai no pior momento — o da volta, quando as negociações
+  acontecem todas juntas. Sorteie **na detecção** (é ela que resolve) e também no intervalo.
+  Medido: pico de 73 para 49 com 100 aparelhos, com a média igual — dispersão **achata o pico**,
+  não reduz a carga.
+- **Simulação com hipótese errada mente com confiança.** A primeira medição espalhava a detecção
+  entre 3 e 15 s e concluiu que a dispersão era inútil; esse espalhamento não existe na vida real.
+  Antes de acreditar num número, confira se o **cenário** simulado é o que acontece.
+- **Relógio de vigia morre com a conexão que o criou.** Um `setInterval` sobrevivente religa uma
+  conexão já substituída, e a reconexão legítima vira duas. Mesma disciplina dos handlers de
+  `RTCPeerConnection`.
+
 ### Som do leilão: arquivo do clube, com três amarras
 
 - **A regra era "nenhum arquivo de áudio", e caiu** em 24/09, quando o clube trouxe os próprios
