@@ -2,7 +2,11 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-24 (**Documentação: README do projeto alinhado ao dia**): o
+**Última atualização:** 2026-09-26 (**Leilão: a "mesa show" do locutor sai do ar**): testada e não
+aprovada pelo clube; desfeita por `git revert` (o código voltou ao do commit `dade1b7`). A mesa
+clássica segue sendo a única. O desenho continua no histórico do Git (`ea51382`).
+
+**Atualização anterior:** 2026-09-24 (**Documentação: README do projeto alinhado ao dia**): o
 `README_PROJETO.md` passou a trazer o `leilao_demo` com `DJANGO_DEBUG=1` (sem ele o comando se recusa,
 de propósito), a raiz como endereço principal do sistema (o `/sistema-novo/` só redireciona), a tela
 show como padrão com a reserva `/leilao/classico/`, o Mudo da voz, a configuração só do Diretor e o

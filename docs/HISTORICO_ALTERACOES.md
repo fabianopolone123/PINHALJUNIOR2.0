@@ -22,6 +22,22 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: a "mesa show" do locutor sai do ar
+
+### Resumo
+O clube testou a mesa show (`/locutor/<id>/nova/`, commit `ea51382`) e não aprovou. Ela foi
+**desfeita por `git revert`** dos dois commits (`ea51382` e o registro do deploy `f702ec2`), sem
+reescrever histórico: o código voltou a ser idêntico ao do commit `dade1b7`. A mesa clássica segue
+sendo a única.
+
+### Decisões tomadas
+- Revert inteiro, como pedido — inclusive a correção da nota "0 conexãoões" da sala, que ia junto e
+  voltou. Se for refeita, é uma linha no `locutor.js`.
+- O desenho e o molde (motor único emitindo `mesa:*`, placar da noite por `?resumo=1`) continuam no
+  histórico do Git, no `ea51382`, se um dia se quiser partir dele.
+
+---
+
 ## 2026-09-24 - Documentação: README do projeto alinhado ao dia
 
 ### Resumo
