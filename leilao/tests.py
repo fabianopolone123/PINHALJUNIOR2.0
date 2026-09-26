@@ -6672,8 +6672,27 @@ class VozMudoEFichaTests(TestCase):
     def test_a_mesa_tem_o_botao_de_mudo(self):
         html = Path(settings.BASE_DIR, "templates", "leilao", "locutor.html").read_text(encoding="utf-8")
         self.assertIn('id="btnMudo"', html)
-        self.assertIn(".btn-mesa.mudo[hidden]",
-                      Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(encoding="utf-8"))
+
+    def test_o_mudo_fica_sempre_a_vista_ao_lado_do_transmitir(self):
+        """Pedido de 26/09: escondido até a transmissão começar, o locutor
+        achava que não existia e parava a transmissão para pausar."""
+        html = Path(settings.BASE_DIR, "templates", "leilao", "locutor.html").read_text(encoding="utf-8")
+        botao = re.search(r'<button[^>]*id="btnMudo"[^>]*>', html).group(0)
+        self.assertNotIn("hidden", botao)
+        bloco = html[html.index('<div class="micro-botoes">'):]
+        bloco = bloco[: bloco.index("</div>")]
+        self.assertIn('id="btnMicrofone"', bloco)
+        self.assertIn('id="btnMudo"', bloco)
+
+    def test_o_mudo_e_independente_do_transmitir(self):
+        js = self._js("locutor.js")
+        self.assertNotIn("btnMudo.hidden", js, "o mudo não pode sumir")
+        clique = js[js.index("btnMudo.addEventListener"):]
+        clique = clique[: clique.index("});")]
+        self.assertNotIn("iniciar(", clique, "mudo não liga a transmissão")
+        self.assertNotIn("parar(", clique, "mudo não derruba a transmissão")
+        self.assertNotIn("mudo(false)", js[js.index("btnMic.addEventListener"):js.index("btnMudo && window")],
+                      "parar a transmissão não pode soltar o mudo sozinho")
 
     # --- Ouvinte ----------------------------------------------------------
     def test_o_ouvinte_reconecta_ja_quando_a_voz_volta(self):

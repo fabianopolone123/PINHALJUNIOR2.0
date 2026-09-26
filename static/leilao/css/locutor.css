@@ -353,7 +353,15 @@ body.tela-locutor {
 
 /* Mudo: pausa a voz sem derrubar a transmissão. Aceso em âmbar enquanto
    ativo — é o estado que o locutor não pode esquecer ligado. */
-.btn-mesa.mudo { margin-top: 8px; background: rgba(255, 255, 255, 0.06); }
+/* Transmitir e Mudo lado a lado: o mudo é o botão da pausa rápida, e tem de
+   estar à mão sem procurar. */
+.micro-botoes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+}
+.micro-botoes .btn-mesa { min-width: 0; }
+.btn-mesa.mudo { background: rgba(255, 255, 255, 0.06); }
 .btn-mesa.mudo.ativo {
     background: linear-gradient(135deg, #f0a202, #ffc53d);
     border-color: transparent;

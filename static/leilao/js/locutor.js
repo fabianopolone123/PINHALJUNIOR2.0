@@ -635,17 +635,23 @@
     function mostrarNoAr() {
         btnMic.textContent = "⏹ Parar transmissão";
         btnMic.classList.add("ligado");
-        if (btnMudo) btnMudo.hidden = false;
         estadoMic(window.AudioFalar.estaMudo()
             ? "🔇 No MUDO — a transmissão continua, mas ninguém ouve você."
             : "🔴 No ar — todos que ligaram o som estão ouvindo você.");
     }
 
+    // O Mudo é independente do Transmitir: desligar a transmissão não o solta
+    // (nem o esconde). Ele continua valendo para a próxima vez que ligar.
     function mostrarDesligado() {
         btnMic.textContent = "🎤 Transmitir";
         btnMic.classList.remove("ligado");
-        if (btnMudo) { btnMudo.hidden = true; btnMudo.classList.remove("ativo"); btnMudo.textContent = "🔇 Mudo"; }
         $("microBarra").style.width = "0%";
+    }
+
+    function textoDesligado() {
+        return window.AudioFalar && window.AudioFalar.estaMudo()
+            ? "Desligado, com o MUDO armado: a voz vai entrar no ar já no mudo."
+            : "Desligado. Ninguém está ouvindo você pelo sistema.";
     }
 
     function ligarVoz() {
@@ -704,9 +710,8 @@
                 querNoAr = false;
                 clearTimeout(relogioVoz);
                 window.AudioFalar.parar();
-                window.AudioFalar.mudo(false);
                 mostrarDesligado();
-                estadoMic("Desligado. Ninguém está ouvindo você pelo sistema.");
+                estadoMic(textoDesligado());
                 acao({ acao: "voz", no_ar: false });
                 return;
             }
@@ -733,8 +738,14 @@
             var mudo = window.AudioFalar.mudo(!window.AudioFalar.estaMudo());
             btnMudo.classList.toggle("ativo", mudo);
             btnMudo.textContent = mudo ? "🎙️ Voltar a falar" : "🔇 Mudo";
-            mostrarNoAr();
-            toast(mudo ? "Microfone no mudo — a transmissão continua." : "Microfone de volta.", mudo ? "info" : "success");
+            // Mudo NUNCA liga nem desliga a transmissão: só troca o texto do
+            // estado. Com a voz fora do ar, ele fica armado para a próxima vez.
+            if (querNoAr) {
+                mostrarNoAr();
+                toast(mudo ? "Microfone no mudo — a transmissão continua." : "Microfone de volta.", mudo ? "info" : "success");
+            } else {
+                estadoMic(textoDesligado());
+            }
         });
     }
 

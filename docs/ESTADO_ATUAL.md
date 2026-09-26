@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: a "mesa show" do locutor sai do ar**): testada e não
+**Última atualização:** 2026-09-26 (**Leilão: o Mudo do locutor fica sempre à vista e independente do Transmitir**): o botão **🔇 Mudo** da mesa deixou de ficar escondido até a transmissão começar: agora mora ao lado do **🎤 Transmitir**, sempre visível, e nunca liga nem encerra a transmissão. Dá para armá-lo antes de transmitir (a voz entra no ar já no mudo), e "Parar" não o solta.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: a "mesa show" do locutor sai do ar**): testada e não
 aprovada pelo clube; desfeita por `git revert` (o código voltou ao do commit `dade1b7`). A mesa
 clássica segue sendo a única. O desenho continua no histórico do Git (`ea51382`).
 

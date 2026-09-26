@@ -157,17 +157,26 @@
                 {% if audio_ativo %}
                 <p class="micro-ajuda" id="microEstado">Desligado. Ninguém está ouvindo você pelo sistema.</p>
                 <div class="micro-nivel"><span id="microBarra"></span></div>
-                <button type="button" class="btn-mesa micro" id="btnMicrofone"
-                        data-whip="{{ audio_whip }}"
-                        data-whip-usuario="{{ config_leilao.audio_publicar_usuario }}"
-                        data-whip-senha="{{ config_leilao.audio_publicar_senha }}">🎤 Transmitir</button>
                 {% comment %}
                 MUDO: para pausar (falar com alguém, tossir, resolver algo), use
                 este — a transmissão continua de pé e o som volta NA HORA ao
                 desmutar. Parar e voltar a transmitir derruba a conexão de
                 todos os ouvintes, que levam alguns segundos para reconectar.
+
+                Ele fica SEMPRE à vista, ao lado do Transmitir, e é independente
+                dele (pedido do clube em 26/09): escondido até a transmissão
+                começar, o locutor achava que não existia e parava a transmissão
+                para pausar. Dá até para armar antes de transmitir — a voz entra
+                no ar já no mudo e ele solta quando estiver pronto.
                 {% endcomment %}
-                <button type="button" class="btn-mesa mudo" id="btnMudo" hidden>🔇 Mudo</button>
+                <div class="micro-botoes">
+                    <button type="button" class="btn-mesa micro" id="btnMicrofone"
+                            data-whip="{{ audio_whip }}"
+                            data-whip-usuario="{{ config_leilao.audio_publicar_usuario }}"
+                            data-whip-senha="{{ config_leilao.audio_publicar_senha }}">🎤 Transmitir</button>
+                    <button type="button" class="btn-mesa mudo" id="btnMudo"
+                            title="Pausa o seu microfone sem encerrar a transmissão">🔇 Mudo</button>
+                </div>
                 {% else %}
                 <p class="micro-ajuda">
                     A transmissão de voz está <b>desligada</b> na configuração.

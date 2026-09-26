@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: o Mudo do locutor fica sempre à vista e independente do Transmitir
+
+### Resumo
+Pedido do clube: um botão de mudo que só desligue o microfone do locutor, sem iniciar nem encerrar a
+transmissão. O Mudo já existia (desliga a faixa, a conexão continua de pé), mas ficava **escondido
+até a transmissão começar** — então, na mesa, parecia não existir, e o locutor parava a transmissão
+para pausar, derrubando todos os ouvintes.
+
+### O que mudou
+- O **🔇 Mudo** fica sempre à vista, lado a lado com o **🎤 Transmitir** (`.micro-botoes`).
+- Ele é **independente**: apertar Mudo nunca chama `iniciar` nem `parar`; apertar Parar não solta o
+  mudo. Com a voz fora do ar, o mudo fica **armado** e a transmissão entra no ar já muda (o
+  `audio_falar.js` já reaplicava o mudo a cada ligação — inclusive na religação automática).
+- O texto do card diz o estado: no ar, no mudo, ou "desligado, com o MUDO armado".
+
+### Arquivos alterados
+`templates/leilao/locutor.html`, `static/leilao/css/locutor.css`, `static/leilao/js/locutor.js`,
+`leilao/tests.py` (`VozMudoEFichaTests`: o mudo sempre à vista e independente do Transmitir).
+
+### Decisões tomadas
+- **Parar não solta o mudo** — pedido explícito de separar as duas coisas. O risco (voltar a
+  transmitir esquecido no mudo) é coberto pelo botão âmbar piscando e pelo texto do estado.
+
+---
+
 ## 2026-09-26 - Leilão: a "mesa show" do locutor sai do ar
 
 ### Resumo
