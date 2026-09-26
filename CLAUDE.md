@@ -67,6 +67,11 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   não paga fica devendo — o item **não volta para a fila**.
 - **Não há cronômetro, nem contagem no chat, nem incremento configurável**: o martelo é do locutor, o chat
   fica aberto o leilão inteiro e o lance soma **R$ 5 fixos**. As colunas ficaram dormentes; não religue.
+- **O martelo tem três tempos na mesa** (26/09): **Dou-lhe uma · Dou-lhe duas · VENDIDO**. Os dois
+  primeiros são **anúncio** (`servicos.dou_lhe` → broadcast `dou_lhe`), não mexem no banco e **não
+  fecham nada** — não são cronômetro; quem fecha é o VENDIDO. Só com lance e só para o item que a mesa
+  mostra (item trocado = 409). Depois do "duas", sem lance novo, o VENDIDO bate **sem a pergunta**.
+  O som da sala é **sempre ligado** (a ação `som` saiu; `som_lance`/`som_arremate` dormentes).
 - **Nada flutuante em cima de controle**: os botões de reagir moram no fluxo da página. Elemento que não
   flutua não cobre nada. A exceção é o **trilho** dos emojis, que é fixo e `pointer-events: none`.
 - **A mesa do locutor é organizada por uso, e ele não LÊ a tela** (está falando): o que chega até ele é

@@ -93,9 +93,24 @@
                     <span class="mesa-crono-rotulo" id="mesaCronoRotulo">sem lance há</span>
                 </div>
 
+                {% comment %}
+                O MARTELO em três tempos (pedido do clube em 26/09): dou-lhe uma,
+                dou-lhe duas, VENDIDO — lado a lado, na ordem em que se aperta.
+                Os dois primeiros são anúncio para a sala (todas as telas mostram
+                o efeito) e não fecham nada; quem fecha é o VENDIDO. Depois do
+                "dou-lhe duas", sem lance novo, o VENDIDO bate direto, sem a
+                pergunta de confirmação — é o terceiro tempo natural, e a pergunta
+                ali só atrasava o martelo. Fora dessa sequência ela continua.
+                {% endcomment %}
+                <div class="mesa-botoes martelo">
+                    <button type="button" class="btn-mesa dou-lhe" data-acao="dou_lhe" data-vez="1"
+                            title="Anuncia para a sala: dou-lhe uma!">🔨 Dou-lhe uma</button>
+                    <button type="button" class="btn-mesa dou-lhe duas" data-acao="dou_lhe" data-vez="2"
+                            title="Anuncia para a sala: dou-lhe duas!">🔨🔨 Dou-lhe duas</button>
+                    <button type="button" class="btn-mesa vendido" data-acao="fechar">🔨 VENDIDO</button>
+                </div>
                 <div class="mesa-botoes">
                     <button type="button" class="btn-mesa abrir" data-acao="abrir">▶ Abrir próximo</button>
-                    <button type="button" class="btn-mesa vendido" data-acao="fechar">🔨 VENDIDO</button>
                 </div>
             </div>
 

@@ -309,6 +309,30 @@ body.tela-locutor {
 .mesa-crono.final { animation: pulso 1s infinite; }
 
 .mesa-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.mesa-botoes + .mesa-botoes { margin-top: 8px; }
+
+/* O martelo em três tempos: três colunas iguais, na ordem em que se aperta. */
+.mesa-botoes.martelo {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.mesa-botoes.martelo .btn-mesa { min-width: 0; padding-left: 8px; padding-right: 8px; }
+.btn-mesa.dou-lhe {
+    background: rgba(240, 162, 2, 0.2);
+    border-color: rgba(240, 162, 2, 0.55);
+}
+.btn-mesa.dou-lhe.duas {
+    background: rgba(255, 120, 40, 0.26);
+    border-color: rgba(255, 140, 60, 0.7);
+}
+/* Já anunciado neste item (até o próximo lance): aceso, para o locutor ver em
+   que tempo do martelo está sem ter de lembrar. */
+.btn-mesa.dou-lhe.feito {
+    background: linear-gradient(135deg, #f0a202, #ffc53d);
+    border-color: transparent;
+    color: #2a1a00;
+}
+.btn-mesa.dou-lhe.duas.feito { background: linear-gradient(135deg, #e8590c, #ff922b); color: #fff; }
 
 .btn-mesa {
     flex: 1 1 auto;

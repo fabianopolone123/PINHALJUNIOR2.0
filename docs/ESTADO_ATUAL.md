@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: o som da sala passa a ser sempre ligado**): a mesa perdeu os dois interruptores de som da sala (🔔 Lance / 🔔 Arremate): a caixa registradora e as palmas tocam **sempre** na tela de quem assiste. A ação `som` saiu (POST com ela é 400), a chave saiu do broadcast e as colunas `som_lance`/`som_arremate` ficaram dormentes.
+**Última atualização:** 2026-09-26 (**Leilão: o martelo em três tempos — Dou-lhe uma, Dou-lhe duas, VENDIDO**): a mesa ganhou os botões **🔨 Dou-lhe uma** e **🔨🔨 Dou-lhe duas** ao lado do **VENDIDO** (o ▶ Abrir próximo foi para baixo). O "dou-lhe" é anúncio pelo broadcast (`dou_lhe`), não fecha nada nem grava no banco; só vale com lance e para o item que a mesa mostra. Depois do "duas", sem lance novo, o VENDIDO bate sem a pergunta de confirmação.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: o som da sala passa a ser sempre ligado**): a mesa perdeu os dois interruptores de som da sala (🔔 Lance / 🔔 Arremate): a caixa registradora e as palmas tocam **sempre** na tela de quem assiste. A ação `som` saiu (POST com ela é 400), a chave saiu do broadcast e as colunas `som_lance`/`som_arremate` ficaram dormentes.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: o Mudo do locutor fica sempre à vista e independente do Transmitir**): o botão **🔇 Mudo** da mesa deixou de ficar escondido até a transmissão começar: agora mora ao lado do **🎤 Transmitir**, sempre visível, e nunca liga nem encerra a transmissão. Dá para armá-lo antes de transmitir (a voz entra no ar já no mudo), e "Parar" não o solta.
 

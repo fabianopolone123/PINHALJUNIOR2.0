@@ -6749,3 +6749,112 @@ class VozCorridasTests(TestCase):
         with self.assertRaises(CommandError):
             call_command("leilao_carga", url="http://exemplo.invalid", cadastrar=1, ouvintes=0,
                          stdout=open(os.devnull, "w"))
+
+
+class DouLheTests(TestCase):
+    """O martelo em três tempos: dou-lhe uma, dou-lhe duas, VENDIDO (26/09).
+
+    Os dois primeiros são ANÚNCIO para a sala — vão no broadcast e não mexem
+    em nada no banco. Quem fecha continua sendo o VENDIDO: não há cronômetro, e
+    o "dou-lhe" não pode virar um.
+    """
+
+    def setUp(self):
+        from unittest import mock  # noqa: F401 — usado nos testes
+
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.c = self._cliente("locutor", "doulhe_loc")
+
+    def _cliente(self, area, nome):
+        User = get_user_model()
+        u = User.objects.create_user(nome, password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name=area)[0])
+        c = Client()
+        c.login(username=nome, password="segredo-ficticio")
+        return c
+
+    def _abrir_com_lance(self):
+        servicos.abrir_lote(self.lote)
+        servicos.dar_lance(self.lote.id, criar_pessoa())
+
+    def _dou_lhe(self, c=None, **extra):
+        corpo = {"acao": "dou_lhe", "leilao": self.leilao.pk}
+        corpo.update(extra)
+        return (c or self.c).post("/equipe/acao/", data=json.dumps(corpo), content_type="application/json")
+
+    def test_anuncia_para_a_sala_pelo_broadcast(self):
+        from unittest import mock
+
+        self._abrir_com_lance()
+        for vez in (1, 2):
+            with self.subTest(vez=vez), mock.patch.object(servicos.HUB, "publicar") as publicar:
+                r = self._dou_lhe(vez=vez, lote=self.lote.pk)
+                self.assertEqual(r.status_code, 200, r.content)
+                tipo, dados = publicar.call_args[0]
+                self.assertEqual(tipo, "dou_lhe")
+                self.assertEqual(dados["vez"], vez)
+                self.assertEqual(dados["lote"], self.lote.pk)
+                self.assertNotIn("msg", r.json(), "o anúncio não vira toast duplo na mesa")
+
+    def test_nao_fecha_nada_nem_mexe_no_banco(self):
+        self._abrir_com_lance()
+        self._dou_lhe(vez=2, lote=self.lote.pk)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "aberto")
+        self.assertFalse(Arremate.objects.exists())
+
+    def test_sem_lance_nao_ha_o_que_anunciar(self):
+        from unittest import mock
+
+        servicos.abrir_lote(self.lote)
+        with mock.patch.object(servicos.HUB, "publicar") as publicar:
+            r = self._dou_lhe(vez=1, lote=self.lote.pk)
+        self.assertEqual(r.status_code, 409)
+        publicar.assert_not_called()
+
+    def test_item_que_ja_trocou_e_recusado(self):
+        """O "dou-lhe duas" do item anterior não cai em cima do item novo."""
+        from unittest import mock
+
+        outro = criar_lote(self.leilao, nome="Outro item fictício", ordem=2)
+        self._abrir_com_lance()
+        with mock.patch.object(servicos.HUB, "publicar") as publicar:
+            r = self._dou_lhe(vez=2, lote=outro.pk)
+        self.assertEqual(r.status_code, 409)
+        publicar.assert_not_called()
+
+    def test_vez_fora_de_1_e_2_e_recusada(self):
+        self._abrir_com_lance()
+        for vez in (0, 3, "tres", None, -1):
+            with self.subTest(vez=vez):
+                self.assertEqual(self._dou_lhe(vez=vez, lote=self.lote.pk).status_code, 409)
+
+    def test_leilao_fora_do_ar_nao_anuncia(self):
+        self._abrir_com_lance()
+        Leilao.objects.filter(pk=self.leilao.pk).update(status="encerrado")
+        self.assertEqual(self._dou_lhe(vez=1, lote=self.lote.pk).status_code, 409)
+
+    def test_so_o_locutor_anuncia(self):
+        self._abrir_com_lance()
+        r = self._dou_lhe(self._cliente("caixa", "doulhe_caixa"), vez=1, lote=self.lote.pk)
+        self.assertEqual(r.status_code, 403)
+
+    def test_a_mesa_tem_os_tres_botoes_na_ordem(self):
+        html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
+        bloco = html[html.index('class="mesa-botoes martelo"'):]
+        bloco = bloco[: bloco.index("</div>")]
+        ordem = re.findall(r'data-acao="([a-z_]+)"(?: data-vez="(\d)")?', bloco)
+        self.assertEqual(ordem, [("dou_lhe", "1"), ("dou_lhe", "2"), ("fechar", "")])
+
+    def test_o_vendido_so_pula_a_pergunta_depois_do_duas(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js").read_text(encoding="utf-8")
+        self.assertIn('window.confirm("Bater o martelo e fechar este item?")', js)
+        self.assertIn("martelo.lote === emPregao.id && martelo.vez === 2", js)
+        lance = js[js.index('fonte.addEventListener("lance"'):]
+        lance = lance[: lance.index("});")]
+        self.assertIn("martelo = { lote: null, vez: 0 }", lance, "lance novo tem de zerar o martelo")
+

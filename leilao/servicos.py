@@ -445,6 +445,47 @@ def liberar_pagamentos(leilao, liberar=True):
     return leilao
 
 
+class DouLheRecusado(Exception):
+    """O "dou-lhe" não cabe agora (sem item, sem lance, item trocado)."""
+
+
+def dou_lhe(leilao, vez, lote=None):
+    """O locutor anuncia "dou-lhe uma" (vez=1) ou "dou-lhe duas" (vez=2).
+
+    **Não muda nada no banco e não fecha nada sozinho**: o martelo continua
+    sendo do locutor (regra do módulo — não há cronômetro). É um anúncio, como
+    o locutor dizendo em voz alta, e por isso pode ir no broadcast: todas as
+    telas mostram o efeito ao mesmo tempo, e quem estava em dúvida corre para
+    dar o lance.
+
+    O `lote` é o que a MESA estava mostrando. Se ele não é mais o do pregão (o
+    locutor apertou no instante em que o item trocou), o anúncio é recusado —
+    senão o "dou-lhe duas" do item anterior cairia em cima do item novo.
+
+    Só com lance: "dou-lhe uma" sem ninguém ter dado lance não é anúncio de
+    nada (o VENDIDO de um item sem lance devolve para a fila).
+    """
+    if vez not in (1, 2):
+        raise DouLheRecusado("Diga 1 ou 2.")
+    if leilao.status != "ao_vivo":
+        raise DouLheRecusado("Este leilão não está no ar.")
+    atual = leilao.lote_atual
+    if not atual:
+        raise DouLheRecusado("Nenhum item em pregão.")
+    if lote is not None and lote.pk != atual.pk:
+        raise DouLheRecusado("Esse item não está mais em pregão.")
+    if not atual.tem_lance:
+        raise DouLheRecusado("Ainda não há lance neste item.")
+    dados = {
+        "vez": vez,
+        "lote": atual.pk,
+        "valor": str(atual.valor_atual),
+        "lider": est.participante_publico(atual.lider),
+    }
+    HUB.publicar("dou_lhe", dados)
+    return dados
+
+
 def publicar_estado():
     """Publica o estado do leilão QUE ESTÁ NO AR — sempre ele.
 

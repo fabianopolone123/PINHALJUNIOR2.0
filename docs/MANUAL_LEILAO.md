@@ -209,6 +209,15 @@ Duas linhas de cards. **Em cima**, o que você acompanha o tempo todo:
 (o microfone, com o **🔇 Mudo** sempre ao lado do Transmitir) e **💳 Pagamentos**
 (liberar o pagamento).
 
+### O martelo: dou-lhe uma, dou-lhe duas, VENDIDO
+
+No card do item há três botões lado a lado, na ordem em que se aperta:
+**🔨 Dou-lhe uma**, **🔨🔨 Dou-lhe duas** e **🔨 VENDIDO**. Os dois primeiros
+**anunciam para a sala** (a tela de todo mundo mostra o aviso) e não fecham nada;
+quem fecha é o VENDIDO. Eles só acendem quando o item já tem lance, e um lance
+novo recomeça a contagem. Depois do "dou-lhe duas", o VENDIDO bate direto, sem
+perguntar. O **▶ Abrir próximo** fica embaixo.
+
 ### Os botões
 
 | Botão | Quando usar |

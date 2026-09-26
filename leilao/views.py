@@ -782,6 +782,9 @@ def locutor_dados_view(request):
 ACOES_AREAS = {
     "abrir": ("locutor",),
     "fechar": ("locutor",),
+    # "Dou-lhe uma" / "dou-lhe duas": anúncio do locutor para a sala inteira.
+    # Não fecha nada — o martelo continua sendo o VENDIDO.
+    "dou_lhe": ("locutor",),
     "aviso": ("locutor",),
     "mover": ("locutor", "preparacao"),
     "bloquear": ("locutor", "caixa"),
@@ -982,6 +985,19 @@ def locutor_acao_view(request):
         return JsonResponse(
             {"ok": True, "msg": f"“{lote.nome}” voltou para a fila do leilão."}
         )
+
+    if acao == "dou_lhe":
+        try:
+            vez = int(dados.get("vez"))
+        except (TypeError, ValueError):
+            vez = 0
+        try:
+            servicos.dou_lhe(leilao, vez, lote)
+        except servicos.DouLheRecusado as erro:
+            return JsonResponse({"ok": False, "msg": str(erro)}, status=409)
+        # Sem `msg`: a mesa já mostra o anúncio pelo stream, e um toast a
+        # mais por clique só atrapalharia quem está falando.
+        return JsonResponse({"ok": True, "vez": vez})
 
     if acao == "liberar":
         # Alavanca: o mesmo botão abre e fecha. O locutor pode ter apertado

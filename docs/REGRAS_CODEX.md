@@ -1421,6 +1421,19 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   `--disable-features=WebRtcHideLocalIpsWithMdns`) comandados por CDP a partir do Node. É o que
   prova o comportamento que os testes Python só guardam na estrutura.
 
+### O martelo em três tempos: dou-lhe uma, dou-lhe duas, VENDIDO (desde 26/09)
+
+- **"Dou-lhe" é anúncio, não cronômetro.** `servicos.dou_lhe` só publica `dou_lhe` no broadcast
+  (`vez`, `lote`, `valor`, `lider` — tudo que se diz em voz alta); não grava nada e **não fecha o
+  item**. O martelo continua sendo o VENDIDO, apertado pelo locutor. Nada de fechar sozinho depois do
+  "duas".
+- **Só com lance, e só para o item que a mesa mostra**: a mesa manda o `lote` que está na tela e o
+  servidor recusa (409) se o pregão já trocou — senão o "duas" do item anterior cairia no novo.
+- **Lance novo, item novo ou martelo zeram o tempo** na mesa. O estado do martelo vem do **stream**
+  (não da resposta do clique), para duas telas de mesa ficarem no mesmo tempo.
+- **O VENDIDO só pula a confirmação depois do "dou-lhe duas" sem lance novo** — é o terceiro tempo
+  natural. Fora da sequência, a pergunta continua (mexe em dinheiro).
+
 ### O som da SALA é sempre ligado (desde 26/09)
 
 - **Não há mais interruptor.** Decisão do clube: o leilão soa sempre. Os botões "🔔 Lance" e

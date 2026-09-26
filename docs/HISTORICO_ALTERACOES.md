@@ -22,6 +22,38 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: o martelo em três tempos — Dou-lhe uma, Dou-lhe duas, VENDIDO
+
+### Resumo
+Pedido do clube: três botões na mesa para conduzir mais rápido — dou-lhe uma, dou-lhe duas,
+vendido.
+
+### O que mudou
+- **Mesa**: uma linha com os três botões, na ordem em que se aperta; o **▶ Abrir próximo** desceu
+  para a linha de baixo. O botão já anunciado fica aceso (âmbar no "uma", laranja no "duas") até o
+  próximo lance, e os dois ficam apagados quando o item não tem lance.
+- **Servidor**: `servicos.dou_lhe(leilao, vez, lote)` publica `dou_lhe` no broadcast com `vez`,
+  `lote`, `valor` e `lider` — o que o locutor diria em voz alta. Ação nova `dou_lhe` (só locutor).
+  Recusa (409) sem item, sem lance, com leilão fora do ar, `vez` fora de 1/2 ou item que já trocou.
+- **Não é cronômetro**: nada grava, nada fecha sozinho. O martelo continua sendo o VENDIDO.
+- **VENDIDO depois do "duas"**: sem lance novo desde o "dou-lhe duas", ele bate sem a pergunta de
+  confirmação (o terceiro tempo natural). Fora dessa sequência, a pergunta continua.
+- O efeito na tela de quem disputa é a próxima entrega; por ora as telas do público ignoram o aviso.
+
+### Arquivos alterados
+`leilao/servicos.py` (`dou_lhe`, `DouLheRecusado`), `leilao/views.py` (ação `dou_lhe`),
+`templates/leilao/locutor.html`, `static/leilao/css/locutor.css`, `static/leilao/js/locutor.js`,
+`leilao/tests.py` (`DouLheTests`, 9 testes), `CLAUDE.md`, `docs/REGRAS_CODEX.md`,
+`docs/MANUAL_LEILAO.md`.
+
+### Decisões tomadas
+- **O tempo do martelo vem do stream**, não da resposta do clique: duas telas de mesa abertas ficam
+  no mesmo tempo.
+- **Lance novo zera** o martelo na mesa — o "duas" de antes do lance não autoriza pular a pergunta
+  depois dele.
+
+---
+
 ## 2026-09-26 - Leilão: o som da sala passa a ser sempre ligado
 
 ### Resumo

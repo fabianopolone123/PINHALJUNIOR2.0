@@ -161,10 +161,30 @@
             foto.hidden = true;
         }
         acenderLider(lote);
+        pintarMartelo();
 
         desenharFila();
         desenharChatMesa();
         tick();
+    }
+
+    /* Em que tempo do martelo o item está: {lote, vez} do último "dou-lhe".
+       Zera com lance novo, item novo ou martelo batido — o "dou-lhe duas" de
+       antes do lance não vale mais depois dele. */
+    var martelo = { lote: null, vez: 0 };
+
+    function zerarMartelo() { martelo = { lote: null, vez: 0 }; pintarMartelo(); }
+
+    function pintarMartelo() {
+        var lote = estado && estado.ativo ? estado.lote : null;
+        var vale = lote && martelo.lote === lote.id ? martelo.vez : 0;
+        document.querySelectorAll('[data-acao="dou_lhe"]').forEach(function (b) {
+            var vez = parseInt(b.dataset.vez, 10);
+            b.classList.toggle("feito", vale >= vez);
+            // Sem item ou sem lance não há o que anunciar (o servidor recusa
+            // também); o botão apagado diz isso antes do clique.
+            b.disabled = !(lote && lote.tem_lance);
+        });
     }
 
     var filaCache = [];
@@ -350,14 +370,29 @@
     var fonte = window.FonteViva ? window.FonteViva.abrir(URL_STREAM) : new EventSource(URL_STREAM);
 
     fonte.addEventListener("estado", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
-    fonte.addEventListener("lote_aberto", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
+    fonte.addEventListener("lote_aberto", function (e) {
+        martelo = { lote: null, vez: 0 };
+        render(JSON.parse(e.data));
+        recarregarDados();
+    });
     fonte.addEventListener("lance", function (e) {
         var d = JSON.parse(e.data);
+        martelo = { lote: null, vez: 0 };      // lance novo recomeça o martelo
         if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
         recarregarDados();
     });
+    /* O anúncio vem pelo stream, e não pela resposta do clique: assim duas
+       telas de mesa abertas ficam no mesmo tempo do martelo. */
+    fonte.addEventListener("dou_lhe", function (e) {
+        var d = JSON.parse(e.data);
+        martelo = { lote: d.lote, vez: d.vez };
+        pintarMartelo();
+        toast(d.vez === 2 ? "🔨🔨 Dou-lhe duas!" : "🔨 Dou-lhe uma!", "info");
+    });
+
     fonte.addEventListener("lote_vendido", function (e) {
         var d = JSON.parse(e.data);
+        zerarMartelo();
         render(d.estado);
         desenharHistorico([]);
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
@@ -521,9 +556,22 @@
         if (alvo.dataset.arremate) corpo.arremate = alvo.dataset.arremate;
         if (alvo.dataset.participante) corpo.participante = alvo.dataset.participante;
         if (alvo.dataset.direcao) corpo.direcao = alvo.dataset.direcao;
+        if (alvo.dataset.vez) corpo.vez = parseInt(alvo.dataset.vez, 10);
 
-        // Bater o martelo mexe em dinheiro: confirma.
-        if (qual === "fechar" && !window.confirm("Bater o martelo e fechar este item?")) return;
+        var emPregao = estado && estado.ativo ? estado.lote : null;
+        // O "dou-lhe" leva o item que ESTA tela mostra: se ele acabou de
+        // trocar, o servidor recusa em vez de anunciar em cima do item novo.
+        if (qual === "dou_lhe") {
+            if (!emPregao) return;
+            corpo.lote = emPregao.id;
+        }
+
+        // Bater o martelo mexe em dinheiro: confirma — MENOS depois do "dou-lhe
+        // duas" sem lance novo, que é o terceiro tempo natural do martelo.
+        var depoisDoDuas = qual === "fechar" && emPregao &&
+            martelo.lote === emPregao.id && martelo.vez === 2;
+        if (qual === "fechar" && !depoisDoDuas &&
+            !window.confirm("Bater o martelo e fechar este item?")) return;
 
         // Abrir outro item com um pregão ACONTECENDO joga o atual de volta para a
         // fila e a disputa se perde. É um acidente fácil de cometer falando ao
@@ -542,13 +590,14 @@
         // Abrir e VENDIDO ficam travados enquanto o pedido anda: um toque duplo
         // em "Abrir próximo" abria DOIS itens seguidos (o primeiro voltava para
         // a fila sem aviso, porque ainda não tinha lance).
-        var travar = qual === "abrir" || qual === "fechar";
+        var travar = qual === "abrir" || qual === "fechar" || qual === "dou_lhe";
         if (travar) {
             if (alvo.disabled) return;
             alvo.disabled = true;
         }
         acao(corpo).then(function (d) {
             if (travar) alvo.disabled = false;
+            if (qual === "dou_lhe") { pintarMartelo(); return; }
             if (!d) return;
             if (qual === "pago" || qual === "bloquear") { window.location.reload(); return; }
             recarregarDados();
