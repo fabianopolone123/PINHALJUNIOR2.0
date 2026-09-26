@@ -45,6 +45,10 @@ equipe também estavam abaixo).
 ### Arquivos
 `static/leilao/css/leilao.css`, `leilao/tests.py` (`SemZoomNoIphoneTests`).
 
+### Deploy
+Em produção no commit `a95fe49` (26/09, 18h40), com um leilão ao vivo e **nenhum item em pregão**
+(conferido antes do deploy e antes do restart). O `leilao.css` publicado já traz a regra e responde 200.
+
 ---
 
 ## 2026-09-26 - Leilão: deploy da revisão geral (lotes A–D) e da revisão da voz
