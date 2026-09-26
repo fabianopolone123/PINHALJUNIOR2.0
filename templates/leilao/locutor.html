@@ -344,7 +344,8 @@
                         {{ p.n_arremates }} arremate{{ p.n_arremates|pluralize }}</span>
                 </div>
                 <button type="button" class="btn-mini {% if p.bloqueado %}destaque{% endif %}"
-                        data-acao="bloquear" data-participante="{{ p.id }}">
+                        data-acao="bloquear" data-participante="{{ p.id }}"
+                        data-bloquear="{% if p.bloqueado %}0{% else %}1{% endif %}">
                     {% if p.bloqueado %}Desbloquear{% else %}Bloquear{% endif %}
                 </button>
             </li>

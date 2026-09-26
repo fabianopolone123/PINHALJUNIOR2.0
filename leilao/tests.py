@@ -7509,3 +7509,87 @@ class RevisaoGeralLoteBTests(TestCase):
         js = self._js("som.js")
         self.assertNotIn('ctx.state === "suspended"', js)
         self.assertEqual(js.count('ctx.state !== "running"'), 2)
+
+
+class RevisaoGeralLoteCTests(TestCase):
+    """Lote C da revisão geral de 26/09: a mesa e o caixa."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+
+    @staticmethod
+    def _ler(*partes):
+        return Path(settings.BASE_DIR, *partes).read_text(encoding="utf-8")
+
+    def _cliente(self, area):
+        User = get_user_model()
+        u = User.objects.create_user(f"{area}_c_ficticio", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name=area)[0])
+        c = Client()
+        c.force_login(u)
+        return c
+
+    # 7 ---------------------------------------------------------------
+    def test_resposta_velha_da_mesa_e_descartada(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        self.assertIn("if (eventosDoPregao !== eventosNaSaida) return;", js)
+        for evento in ('"lance"', '"lote_aberto"', '"lote_vendido"'):
+            trecho = js[js.index("fonte.addEventListener(" + evento):]
+            trecho = trecho[: trecho.index("});")]
+            self.assertIn("eventosDoPregao++", trecho, evento)
+
+    # 8 ---------------------------------------------------------------
+    def test_clique_duplo_em_bloquear_nao_desbloqueia(self):
+        c = self._cliente("locutor")
+        corpo = {"acao": "bloquear", "participante": self.ana.pk, "bloquear": True, "leilao": self.leilao.pk}
+        for _ in range(2):
+            c.post("/equipe/acao/", json.dumps(corpo), content_type="application/json")
+        self.ana.refresh_from_db()
+        self.assertTrue(self.ana.bloqueado)
+
+    def test_a_mesa_manda_o_estado_desejado_e_trava(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        self.assertIn('corpo.bloquear = alvo.dataset.bloquear === "1"', js)
+        self.assertIn('|| qual === "bloquear"', js)
+        self.assertIn("if (movendo) return;", self._ler("static", "leilao", "js", "lotes.js"))
+
+    # 9 ---------------------------------------------------------------
+    def test_pix_do_caixa_nao_sai_de_outro_leilao(self):
+        anterior = criar_leilao(nome="Leilão fictício de outubro", status="encerrado")
+        lote = criar_lote(anterior, nome="Item antigo fictício")
+        Arremate.objects.create(lote=lote, participante=self.ana, valor=Decimal("30.00"))
+        c = self._cliente("caixa")
+        d = c.get(f"/caixa/pessoa/{self.ana.pk}/pix/?leilao={self.leilao.pk}").json()
+        self.assertFalse(d["ok"])
+        self.assertIn("Leilão fictício de outubro", d["msg"])
+        self.assertIn("R$ 30,00", d["msg"])
+
+    # 10 --------------------------------------------------------------
+    def test_ligacao_substituida_nao_derruba_a_voz(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        self.assertIn('if (minha !== vezDaVoz) return "substituida";', js)
+        self.assertLess(js.index("if (ok && !querNoAr)"), js.index('if (minha !== vezDaVoz) return "substituida";'),
+                        "o Parar tem de desligar antes de a vez ser conferida")
+        religar = js[js.index("function religarVoz"):]
+        religar = religar[: religar.index("\n    }\n")]
+        self.assertIn('if (ok === "substituida") return;', religar)
+
+    # 20, 21, 28 ------------------------------------------------------
+    def test_a_fila_tem_teto(self):
+        css = self._ler("static", "leilao", "css", "locutor.css")
+        self.assertRegex(css, r"\.fila \{ max-height: \d+px; overflow-y: auto; \}")
+
+    def test_o_caixa_nao_recarrega_com_janela_aberta(self):
+        js = self._ler("static", "leilao", "js", "caixa.js")
+        ocupado = js[js.index("function ocupado"):]
+        ocupado = ocupado[: ocupado.index("\n    }\n")]
+        self.assertIn('$("modalConta")', ocupado)
+        self.assertIn('$("modalDevolver")', ocupado)
+
+    def test_a_mesa_cresce_com_a_quarta_coluna(self):
+        css = self._ler("static", "leilao", "css", "locutor.css")
+        self.assertIn(".mesa { max-width: 1440px; }", css)

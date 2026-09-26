@@ -1038,8 +1038,11 @@ def locutor_acao_view(request):
         # Bloqueia a PESSOA, não o registro: quem entrou de dois aparelhos tem
         # dois cadastros, e bloquear só o que está na tela deixaria o outro
         # dando lance.
+        # O estado DESEJADO quando a tela manda (`bloquear`): o "inverta" fazia o
+        # clique duplo bloquear e desbloquear em seguida. Sem ele, alterna.
+        desejado = dados.get("bloquear")
         bloqueado, quantos = servicos.bloquear_pessoa(
-            participante, not participante.bloqueado
+            participante, (not participante.bloqueado) if desejado is None else bool(desejado)
         )
         recado = "Bloqueado." if bloqueado else "Desbloqueado."
         if quantos > 1:
@@ -1879,6 +1882,20 @@ def caixa_pix_pessoa_view(request, pk):
     leilao_id, abertos = servicos.conta_aberta(participante)
     if not abertos:
         return JsonResponse({"ok": False, "msg": "Esta pessoa não tem nada em aberto."})
+    # A conta da pessoa é a do leilão MAIS ANTIGO em aberto (é paga primeiro).
+    # Se o caixa está noutro leilão, o Pix e a mensagem sairiam com os itens e
+    # o valor DAQUELE — o botão dizia um valor e o WhatsApp levava outro
+    # (revisão de 26/09). Diz com clareza em vez de mandar o Pix errado.
+    tela = (request.GET.get("leilao") or "").strip()
+    if tela.isdigit() and int(tela) != leilao_id:
+        anterior = Leilao.objects.filter(pk=leilao_id).first()
+        devido = f"{sum((a.valor for a in abertos), Decimal('0.00')):.2f}".replace(".", ",")
+        nome = anterior.nome if anterior else "outro leilão"
+        return JsonResponse({
+            "ok": False,
+            "msg": f"Esta pessoa ainda deve R$ {devido} de “{nome}”. "
+                   "O Pix sai primeiro por aquele leilão — acerte pelo caixa dele.",
+        })
 
     # O caixa PEDE a cobrança, não só lê a que existe. Antes esta view devolvia
     # o Pix pendurado no primeiro item — com o valor de quando foi gerado, e

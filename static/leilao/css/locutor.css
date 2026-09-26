@@ -1495,3 +1495,13 @@ button.mesa-online:hover {
 .gente-top li:first-child:not(.vazio) { background: rgba(255, 209, 102, 0.14); outline: 1px solid rgba(255, 209, 102, 0.35); }
 .gente-lista .online { font-size: 0.6rem; flex-shrink: 0; }
 
+/* A FILA também tem teto (revisão de 26/09): com 40 itens ela esticava a
+   linha fila · voz · pagamentos para 2.300 px, e os três cards juntos. */
+.fila { max-height: 360px; overflow-y: auto; }
+
+/* 28. A partir de 1280 px a linha do pregão tem 4 colunas — com a mesa presa
+   em 1100 px, o card do item encolhia e o valor quebrava em duas linhas. */
+@media (min-width: 1280px) {
+    .mesa { max-width: 1440px; }
+}
+

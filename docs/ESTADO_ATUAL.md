@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: revisão geral, lote B — a tela do público**): revisão geral do leilão (lote B): resposta atrasada não ressuscita item vendido nem mostra "TE SUPERARAM" por engano; com dois aparelhos a gaveta só abre no que arrematou; a janela "O som parou" não cobre o botão de lance no pregão (o 🔊 pisca e religa); conexão que morre calada é reaberta (ping nomeado + vigia de 45 s); telefone com +55 não é cortado errado; o som de efeito volta no iPhone depois de ligação.
+**Última atualização:** 2026-09-26 (**Leilão: revisão geral, lote C — a mesa e o caixa**): revisão geral do leilão (lote C): resposta atrasada não volta a mesa atrás; clique duplo em Bloquear não desbloqueia (e as setas da fila não andam duas casas); o caixa não manda o Pix de outro leilão; a religação do microfone não derruba a transmissão boa; a fila da mesa tem teto; o caixa não recarrega com a janela aberta; a mesa cresce com a 4ª coluna.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: revisão geral, lote B — a tela do público**): revisão geral do leilão (lote B): resposta atrasada não ressuscita item vendido nem mostra "TE SUPERARAM" por engano; com dois aparelhos a gaveta só abre no que arrematou; a janela "O som parou" não cobre o botão de lance no pregão (o 🔊 pisca e religa); conexão que morre calada é reaberta (ping nomeado + vigia de 45 s); telefone com +55 não é cortado errado; o som de efeito volta no iPhone depois de ligação.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: revisão geral, lote A — dinheiro e segurança**): revisão geral do leilão (lote A): o `/admin/` só deixa entrar superusuário e tem freio de tentativas; o lance tem tempo máximo de espera; Pix pago depois da baixa manual gera alerta; a baixa confere o valor pago e refaz Pix que volta com valor antigo; o VENDIDO confere, dentro da transação, o item e o valor da mesa (e o "Abrir" recusa toque duplo e item em disputa sem confirmação); estorno de item devolvido não volta a cobrar; lance inicial zero/negativo não vira lance de R$ 0.
 

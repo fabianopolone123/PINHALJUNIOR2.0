@@ -543,6 +543,12 @@
        Stream
        --------------------------------------------------------------- */
     var recargaAgendada = null;
+    // Conta os eventos do stream que mexem no pregão. Uma resposta do
+    // `/locutor/dados/` que saiu ANTES de um deles é mais velha do que a tela:
+    // aplicá-la voltava valor e líder atrás (e acendia o nome como se fosse
+    // lance novo). Ela é descartada — o evento já agendou outra busca
+    // (revisão de 26/09).
+    var eventosDoPregao = 0;
 
     /* O histórico completo vem por `fetch`, e numa disputa quente chega um lance
        por segundo. Sem o agrupamento abaixo, a mesa dispararia uma consulta por
@@ -551,10 +557,12 @@
         if (recargaAgendada) return;
         recargaAgendada = setTimeout(function () {
             recargaAgendada = null;
+            var eventosNaSaida = eventosDoPregao;
             fetch(URL_DADOS, { headers: { "X-Requested-With": "XMLHttpRequest" } })
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (!d.ok) return;
+                    if (eventosDoPregao !== eventosNaSaida) return;   // velha: outra já vem
                     // O número ANTES do render: é ele que a etiqueta do item em
                     // pregão desenha, e pintar duas vezes só pisca na tela.
                     numeroAtual = d.numero_atual;
@@ -593,8 +601,9 @@
     // (502 no reinício do serviço) — e é a tela que menos pode parar.
     var fonte = window.FonteViva ? window.FonteViva.abrir(URL_STREAM) : new EventSource(URL_STREAM);
 
-    fonte.addEventListener("estado", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
+    fonte.addEventListener("estado", function (e) { eventosDoPregao++; render(JSON.parse(e.data)); recarregarDados(); });
     fonte.addEventListener("lote_aberto", function (e) {
+        eventosDoPregao++;
         martelo = { lote: null, valor: null, vez: 0 };
         esfriarMesa();
         render(JSON.parse(e.data));
@@ -602,6 +611,7 @@
     });
     fonte.addEventListener("lance", function (e) {
         var d = JSON.parse(e.data);
+        eventosDoPregao++;
         martelo = { lote: null, valor: null, vez: 0 };      // lance novo recomeça o martelo
         if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
         festejarLance(d.lote);
@@ -618,6 +628,7 @@
 
     fonte.addEventListener("lote_vendido", function (e) {
         var d = JSON.parse(e.data);
+        eventosDoPregao++;
         zerarMartelo();
         esfriarMesa();
         render(d.estado);
@@ -787,6 +798,9 @@
         if (alvo.dataset.participante) corpo.participante = alvo.dataset.participante;
         if (alvo.dataset.direcao) corpo.direcao = alvo.dataset.direcao;
         if (alvo.dataset.vez) corpo.vez = parseInt(alvo.dataset.vez, 10);
+        // O estado DESEJADO, não "inverta": o clique duplo bloqueava e em
+        // seguida desbloqueava o encrenqueiro (revisão de 26/09).
+        if (alvo.dataset.bloquear) corpo.bloquear = alvo.dataset.bloquear === "1";
 
         var emPregao = estado && estado.ativo ? estado.lote : null;
         // O "dou-lhe" leva o item que ESTA tela mostra: se ele acabou de
@@ -828,7 +842,7 @@
         // Abrir e VENDIDO ficam travados enquanto o pedido anda: um toque duplo
         // em "Abrir próximo" abria DOIS itens seguidos (o primeiro voltava para
         // a fila sem aviso, porque ainda não tinha lance).
-        var travar = qual === "abrir" || qual === "fechar" || qual === "dou_lhe";
+        var travar = qual === "abrir" || qual === "fechar" || qual === "dou_lhe" || qual === "bloquear";
         if (travar) {
             if (alvo.disabled) return;
             alvo.disabled = true;
@@ -920,7 +934,15 @@
             : "Desligado. Ninguém está ouvindo você pelo sistema.";
     }
 
+    // Cada ligação da voz tem a sua vez. Uma que foi SUBSTITUÍDA por outra
+    // (Parar + Transmitir enquanto a religação estava a caminho) devolve
+    // `false` do `AudioFalar` — e era tratada como falha: a religação agendava
+    // outra, que derrubava a transmissão boa (revisão de 26/09). Agora ela
+    // resolve "substituida" e ninguém reage a ela.
+    var vezDaVoz = 0;
+
     function ligarVoz() {
+        var minha = ++vezDaVoz;
         return window.AudioFalar.iniciar(
             btnMic.dataset.whip,
             function (nivel) {
@@ -931,11 +953,13 @@
         ).then(function (ok) {
             // O locutor apertou PARAR enquanto esta ligação estava a caminho
             // (a religação automática leva alguns segundos): ela não pode
-            // terminar colocando a voz no ar de novo.
+            // terminar colocando a voz no ar de novo. ANTES da checagem da vez:
+            // o Parar também passa a vez, e a voz ficaria no ar.
             if (ok && !querNoAr) {
                 window.AudioFalar.parar();
-                return false;
+                return "substituida";
             }
+            if (minha !== vezDaVoz) return "substituida";
             if (ok) {
                 quedasSeguidas = 0;
                 mostrarNoAr();
@@ -959,6 +983,7 @@
         relogioVoz = setTimeout(function () {
             if (!querNoAr) return;
             ligarVoz().then(function (ok) {
+                if (ok === "substituida") return;
                 if (ok) toast("A transmissão voltou.", "success");
                 else religarVoz();
             });
@@ -974,6 +999,7 @@
         btnMic.addEventListener("click", function () {
             if (querNoAr) {
                 querNoAr = false;
+                vezDaVoz++;             // qualquer ligação a caminho perde a vez
                 clearTimeout(relogioVoz);
                 window.AudioFalar.parar();
                 mostrarDesligado();
@@ -987,6 +1013,7 @@
             estadoMic("Pedindo acesso ao microfone…");
             ligarVoz().then(function (ok) {
                 btnMic.disabled = false;
+                if (ok === "substituida") return;
                 if (ok) {
                     toast("Transmissão de voz ligada.", "success");
                 } else {

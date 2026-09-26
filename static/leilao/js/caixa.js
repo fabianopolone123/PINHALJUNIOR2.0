@@ -186,7 +186,11 @@
     // levou. Era por arremate, e quem levou três itens via três botões que
     // devolviam o mesmo código com valores diferentes escritos ao lado.
     function buscarPix(id) {
-        return fetch(URL_PIX.replace(/0\/pix\/$/, id + "/pix/"), {
+        // O leilão DESTA tela vai junto: a pessoa pode dever outro leilão, e
+        // o Pix dela sai primeiro pelo mais antigo (revisão de 26/09).
+        var url = URL_PIX.replace(/0\/pix\/$/, id + "/pix/") +
+            (dados.dataset.leilao ? "?leilao=" + encodeURIComponent(dados.dataset.leilao) : "");
+        return fetch(url, {
             headers: { "X-Requested-With": "XMLHttpRequest" }
         }).then(function (r) { return r.json(); });
     }
@@ -260,7 +264,11 @@
         // recarregar aqui apagaria o trabalho de quem está no meio dele.
         var foco = document.activeElement;
         var digitando = foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName);
-        var modal = modalPix && !modalPix.hidden;
+        // As TRÊS janelas contam — antes só a do Pix, e a recarga fechava a
+        // conta que o caixa estava lendo ou apagava o motivo da devolução.
+        var modal = [modalPix, $("modalConta"), $("modalDevolver")].some(function (m) {
+            return m && !m.hidden;
+        });
         return Boolean(digitando || modal);
     }
 

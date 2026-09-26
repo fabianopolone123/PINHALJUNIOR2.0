@@ -10,10 +10,16 @@
 
     var dados = document.getElementById("dadosMesa");
 
+    var movendo = false;
+
     if (dados && dados.dataset.acaoUrl) {
         document.addEventListener("click", function (e) {
             var alvo = e.target.closest("[data-acao='mover']");
             if (!alvo) return;
+            // Um movimento por vez: a página recarrega no fim, e o clique duplo
+            // andava DUAS posições (revisão de 26/09).
+            if (movendo) return;
+            movendo = true;
             fetch(dados.dataset.acaoUrl, {
                 method: "POST",
                 headers: {
@@ -31,10 +37,12 @@
                 })
             }).then(function (r) { return r.json(); })
               .then(function (d) {
-                  if (d && d.ok) window.location.reload();
-                  else if (window.mostrarToast) window.mostrarToast(d.msg || "Não deu.", "error");
+                  if (d && d.ok) { window.location.reload(); return; }
+                  movendo = false;
+                  if (window.mostrarToast) window.mostrarToast((d && d.msg) || "Não deu.", "error");
               })
               .catch(function () {
+                  movendo = false;
                   if (window.mostrarToast) window.mostrarToast("Sem conexão.", "error");
               });
         });

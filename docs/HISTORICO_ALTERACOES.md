@@ -22,6 +22,39 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: revisão geral, lote C — a mesa e o caixa
+
+### Resumo
+Terceiro lote da revisão geral: itens 7, 8, 9, 10, 20, 21 e 28 da lista.
+
+### O que mudou
+7. **Resposta atrasada da mesa.** A mesa conta os eventos do stream que mexem no pregão; a resposta
+   do `/locutor/dados/` que saiu antes de um deles é descartada (outra busca já foi agendada). Antes
+   ela voltava valor e líder atrás e acendia o nome como lance novo.
+8. **Bloquear.** A mesa manda o estado **desejado** (`bloquear`) e trava o botão: o clique duplo
+   bloqueava e desbloqueava em seguida. As setas ▲▼ da lista de itens fazem um movimento por vez.
+9. **Pix do caixa.** O caixa manda o leilão da tela; se a pessoa ainda deve um leilão anterior (a
+   conta é paga pelo mais antigo), o caixa recebe o aviso claro — em vez de o botão dizer um valor e
+   o WhatsApp levar o Pix e os itens do outro leilão.
+10. **Microfone.** Cada ligação tem a sua vez: a substituída (Parar + Transmitir durante a religação)
+    não conta mais como falha e não agenda outra religação que derrubava a transmissão boa. O Parar
+    continua desligando a ligação que completar depois dele.
+20. **A fila da mesa com teto** (360 px e rolagem) — com 40 itens a linha chegava a 2.300 px.
+21. **O caixa não recarrega** com a janela da conta ou a de devolver abertas (só a do Pix contava).
+28. **A mesa cresce com a 4ª coluna** (1440 px a partir de 1280): o card do item encolhia e o valor
+    quebrava em duas linhas.
+
+### Arquivos alterados
+`static/leilao/js/locutor.js`, `static/leilao/js/caixa.js`, `static/leilao/js/lotes.js`,
+`static/leilao/css/locutor.css`, `templates/leilao/locutor.html`, `leilao/views.py`,
+`leilao/tests.py` (`RevisaoGeralLoteCTests`, 9 testes).
+
+### Verificação
+Mesa a 1440 px no headless (valor numa linha, sem rolagem lateral) e sintaxe dos JS alterados
+conferida no Chrome.
+
+---
+
 ## 2026-09-26 - Leilão: revisão geral, lote B — a tela do público
 
 ### Resumo
