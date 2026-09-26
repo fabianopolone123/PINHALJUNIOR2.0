@@ -6936,3 +6936,55 @@ class DouLheNaTelaDoPublicoTests(TestCase):
         reduzido = css[css.rindex("@media (prefers-reduced-motion: reduce)"):]
         self.assertIn("body.treme-forte", reduzido)
 
+
+class EmocaoDoLanceNaMesaTests(TestCase):
+    """A cada lance, a mesa do locutor sente o movimento (26/09).
+
+    Borda do card piscando, valor pulando, "+R$ 5" e moedas saindo da caixa do
+    valor, selo de ritmo com lances rápidos — tudo DENTRO do card, sem pegar
+    toque, e sem som (o microfone aberto devolveria o som para a sala).
+    """
+
+    def _ler(self, *partes):
+        return Path(settings.BASE_DIR, *partes).read_text(encoding="utf-8")
+
+    def test_o_lance_dispara_a_festa_na_mesa(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        lance = js[js.index('fonte.addEventListener("lance"'):]
+        lance = lance[: lance.index("});")]
+        self.assertIn("festejarLance(d.lote)", lance)
+
+    def test_as_moedas_ficam_presas_na_caixa_do_valor(self):
+        html = self._ler("templates", "leilao", "locutor.html")
+        caixa = html[html.index('class="numero numero-grande numero-valor-atual"'):]
+        caixa = caixa[: caixa.index("</div>")]
+        self.assertIn('id="mesaFx"', caixa)
+        css = self._ler("static", "leilao", "css", "locutor.css")
+        bloco = css[css.index(".mesa-fx {"):]
+        bloco = bloco[: bloco.index("}")]
+        self.assertIn("pointer-events: none", bloco)
+        self.assertIn("overflow: hidden", bloco)
+
+    def test_a_festa_tem_teto_e_nao_toca_som(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        festa = js[js.index("function festejarLance"):js.index("function esfriarMesa")]
+        self.assertIn("Math.min(14", festa, "teto de moedas")
+        self.assertNotIn("SomLeilao", festa, "som na mesa voltaria pela transmissão")
+
+    def test_item_novo_e_martelo_esfriam_a_mesa(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        for evento in ('fonte.addEventListener("lote_aberto"', 'fonte.addEventListener("lote_vendido"'):
+            trecho = js[js.index(evento):]
+            trecho = trecho[: trecho.index("});")]
+            self.assertIn("esfriarMesa()", trecho, evento)
+
+    def test_o_tempo_do_martelo_aparece_no_card(self):
+        js = self._ler("static", "leilao", "js", "locutor.js")
+        pintar = js[js.index("function pintarMartelo"):]
+        pintar = pintar[: pintar.index("\n    }\n")]
+        self.assertIn('"martelo-2"', pintar)
+
+    def test_movimento_reduzido_desliga(self):
+        css = self._ler("static", "leilao", "css", "locutor.css")
+        self.assertIn(".mesa-fx { display: none; }", css)
+

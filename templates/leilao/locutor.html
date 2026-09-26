@@ -55,6 +55,8 @@
                     <img id="mesaFoto" alt="" class="mesa-foto" hidden>
                     <div class="lote-atual-info">
                         <span class="etiqueta" id="mesaEtiqueta">Nenhum item em pregão</span>
+                        {# O ritmo da disputa: aparece quando os lances vêm rápidos. #}
+                        <span class="mesa-combo" id="mesaCombo" hidden></span>
                         <h2 id="mesaNome">—</h2>
                         <p id="mesaDesc" class="mesa-desc"></p>
                         {# O locutor anuncia o tamanho em voz alta ao abrir o item. #}
@@ -69,9 +71,16 @@
                 ele é o valor atual mais cinco, e quem conduz já sabe disso.
                 {% endcomment %}
                 <div class="mesa-numeros">
-                    <div class="numero numero-grande">
+                    {% comment %}
+                    A cada lance o valor PULA, sobe um "+R$ 5" e saem moedas de
+                    dentro desta caixa (pedido de 26/09: o locutor também tem de
+                    sentir a emoção). A camada `mesa-fx` fica presa DENTRO da
+                    caixa do valor e não pega toque — nada voa por cima dos botões.
+                    {% endcomment %}
+                    <div class="numero numero-grande numero-valor-atual">
                         <span class="numero-rotulo">Valor atual</span>
                         <span class="numero-valor destaque-ouro" id="mesaValor">R$ 0,00</span>
+                        <span class="mesa-fx" id="mesaFx" aria-hidden="true"></span>
                     </div>
                     <div class="numero numero-grande numero-nome">
                         <span class="numero-rotulo">Ganhando</span>
@@ -104,9 +113,9 @@
                 {% endcomment %}
                 <div class="mesa-botoes martelo">
                     <button type="button" class="btn-mesa dou-lhe" data-acao="dou_lhe" data-vez="1"
-                            title="Anuncia para a sala: dou-lhe uma!">🔨 Dou-lhe uma</button>
+                            title="Anuncia para a sala: dou-lhe uma!">🔨 Dou‑lhe uma</button>
                     <button type="button" class="btn-mesa dou-lhe duas" data-acao="dou_lhe" data-vez="2"
-                            title="Anuncia para a sala: dou-lhe duas!">🔨🔨 Dou-lhe duas</button>
+                            title="Anuncia para a sala: dou-lhe duas!">🔨🔨 Dou‑lhe duas</button>
                     <button type="button" class="btn-mesa vendido" data-acao="fechar">🔨 VENDIDO</button>
                 </div>
                 <div class="mesa-botoes">

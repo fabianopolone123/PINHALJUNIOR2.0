@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: o "dou-lhe uma / duas" aparece na tela de quem disputa**): quando o locutor aperta **Dou-lhe uma**, a tela de quem assiste (show e clássica) mostra o carimbo **DOU-LHE UMA!** sobre a foto, um brilho dourado nas bordas, um tremor leve e a batida de martelo; no **Dou-lhe duas** tudo fica mais intenso — carimbo vermelho que fica batendo, bordas pulsando, botão de lance pulsando, tremor forte e duas batidas — até o próximo lance, item novo ou martelo. Novo `dou_lhe.js`; som sintetizado `SomLeilao.douLhe`.
+**Última atualização:** 2026-09-26 (**Leilão: a mesa do locutor sente a emoção a cada lance**): a cada lance, a borda do card do item pisca em ouro (em fogo quando está quente), o valor atual pula, sobe um "+R$ 5,00" e saem moedas de dentro da caixa do valor; com 3+ lances em 20 s aparece o selo "🔥 N lances em 20 s" e o efeito cresce. O tempo do martelo também aparece no card (âmbar no "uma", vermelho pulsando no "duas"). Tudo dentro do card, sem pegar toque e sem som.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: o "dou-lhe uma / duas" aparece na tela de quem disputa**): quando o locutor aperta **Dou-lhe uma**, a tela de quem assiste (show e clássica) mostra o carimbo **DOU-LHE UMA!** sobre a foto, um brilho dourado nas bordas, um tremor leve e a batida de martelo; no **Dou-lhe duas** tudo fica mais intenso — carimbo vermelho que fica batendo, bordas pulsando, botão de lance pulsando, tremor forte e duas batidas — até o próximo lance, item novo ou martelo. Novo `dou_lhe.js`; som sintetizado `SomLeilao.douLhe`.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: o martelo em três tempos — Dou-lhe uma, Dou-lhe duas, VENDIDO**): a mesa ganhou os botões **🔨 Dou-lhe uma** e **🔨🔨 Dou-lhe duas** ao lado do **VENDIDO** (o ▶ Abrir próximo foi para baixo). O "dou-lhe" é anúncio pelo broadcast (`dou_lhe`), não fecha nada nem grava no banco; só vale com lance e para o item que a mesa mostra. Depois do "duas", sem lance novo, o VENDIDO bate sem a pergunta de confirmação.
 

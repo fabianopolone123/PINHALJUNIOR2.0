@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: a mesa do locutor sente a emoção a cada lance
+
+### Resumo
+Pedido do clube: a cada lance, mais efeitos na tela do locutor, para ele também sentir a emoção do
+momento.
+
+### O que mudou
+- **A cada lance**: a borda do card do item pisca em ouro; o **valor atual pula**; sobe um
+  **"+R$ 5,00"** e saem **moedas** (💰/💵) de dentro da caixa do valor — o nome de quem está ganhando
+  continua acendendo, como já fazia.
+- **Ritmo**: com 3 ou mais lances em 20 s aparece o selo **"🔥 N lances em 20 s"**, a borda vira
+  "fogo" e saem mais moedas (teto de 14); com 6 ou mais o selo fica vermelho. Item novo ou martelo
+  esfriam a mesa.
+- **Tempo do martelo no card**: borda âmbar depois do "dou-lhe uma" e vermelha pulsando depois do
+  "dou-lhe duas" — o locutor vê onde está sem olhar os botões.
+- Os botões do martelo usam hífen que não quebra ("Dou‑lhe"), e a letra deles diminuiu um pouco para
+  caber em três colunas.
+
+### Arquivos alterados
+`templates/leilao/locutor.html`, `static/leilao/css/locutor.css`, `static/leilao/js/locutor.js`,
+`leilao/tests.py` (`EmocaoDoLanceNaMesaTests`, 6 testes).
+
+### Decisões tomadas
+- **Sem som na mesa**: com o microfone aberto no alto-falante, o som da mesa voltaria para a sala
+  pela transmissão, com atraso. A emoção na mesa é visual.
+- **Tudo dentro do card**: a camada das moedas fica presa na caixa do valor (`overflow: hidden`,
+  `pointer-events: none`) — nada voa por cima do VENDIDO.
+- **💵 e não 🪙**: o 🪙 é de 2020 e vira quadrado vazio em aparelho antigo (visto no headless).
+
+### Verificação
+Conferido no Chrome headless a 1280 px com os estados forçados (selo, martelo, moedas, "+R$").
+
+---
+
 ## 2026-09-26 - Leilão: o "dou-lhe uma / duas" aparece na tela de quem disputa
 
 ### Resumo

@@ -178,6 +178,11 @@
     function pintarMartelo() {
         var lote = estado && estado.ativo ? estado.lote : null;
         var vale = lote && martelo.lote === lote.id ? martelo.vez : 0;
+        var card = document.querySelector(".cartao.lote-atual");
+        if (card) {
+            card.classList.toggle("martelo-1", vale === 1);
+            card.classList.toggle("martelo-2", vale === 2);
+        }
         document.querySelectorAll('[data-acao="dou_lhe"]').forEach(function (b) {
             var vez = parseInt(b.dataset.vez, 10);
             b.classList.toggle("feito", vale >= vez);
@@ -185,6 +190,85 @@
             // também); o botão apagado diz isso antes do clique.
             b.disabled = !(lote && lote.tem_lance);
         });
+    }
+
+    /* ---------------------------------------------------------------
+       A emoção do lance na mesa
+       --------------------------------------------------------------- */
+    /* O locutor não lê a tela — ele sente o movimento. A cada lance a borda
+       do card pisca, o valor pula, sobe o "+R$ 5" e saem moedas de dentro da
+       caixa do valor; com lances rápidos aparece o selo de ritmo e o efeito
+       cresce. Tudo dentro do card (nada voa por cima dos botões) e SEM som:
+       com o microfone aberto no alto-falante, o som da mesa voltaria para a
+       sala pela transmissão. */
+    var reduzido = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var batidas = [];          // horários dos lances do item atual
+    var batidasLote = null;
+
+    function reanimar(el, classe) {
+        if (!el) return;
+        el.classList.remove(classe);
+        void el.offsetWidth;
+        el.classList.add(classe);
+    }
+
+    function festejarLance(lote) {
+        var agora = Date.now();
+        if (!lote || batidasLote !== lote.id) { batidas = []; batidasLote = lote ? lote.id : null; }
+        batidas = batidas.filter(function (t) { return agora - t < 20000; }).concat([agora]);
+        var ritmo = batidas.length;
+        var quente = ritmo >= 3;
+
+        var card = document.querySelector(".cartao.lote-atual");
+        if (card) {
+            card.classList.toggle("quente", quente);
+            reanimar(card, "lance-agora");
+        }
+        reanimar($("mesaValor"), "pulou");
+
+        var selo = $("mesaCombo");
+        if (selo) {
+            selo.hidden = !quente;
+            if (quente) {
+                selo.textContent = "🔥 " + ritmo + " lances em 20 s";
+                selo.classList.toggle("fogo", ritmo >= 6);
+                reanimar(selo, "entrou");
+            }
+        }
+
+        var fx = $("mesaFx");
+        if (!fx || reduzido) return;
+        var mais = document.createElement("span");
+        mais.className = "mais";
+        mais.textContent = "+" + moeda(lote && lote.incremento ? lote.incremento : 5);
+        fx.appendChild(mais);
+        // Mais moedas quanto mais quente — mas com teto: a mesa pode estar
+        // num notebook velho transmitindo voz ao mesmo tempo.
+        var quantas = Math.min(14, 4 + ritmo * 2);
+        for (var i = 0; i < quantas; i++) {
+            var m = document.createElement("span");
+            m.className = "moeda";
+            // 💰 e 💵 existem desde os aparelhos antigos (o 🪙 é de 2020 e vira
+            // quadrado vazio em celular velho).
+            m.textContent = i % 3 === 0 ? "💰" : "💵";
+            m.style.left = Math.round(8 + Math.random() * 80) + "%";
+            m.style.setProperty("--dx", Math.round(Math.random() * 60 - 30) + "px");
+            m.style.setProperty("--giro", Math.round(Math.random() * 360 - 180) + "deg");
+            m.style.animationDelay = Math.round(Math.random() * 180) + "ms";
+            fx.appendChild(m);
+        }
+        setTimeout(function () {
+            while (fx.firstChild) fx.removeChild(fx.firstChild);
+        }, 1400);
+    }
+
+    function esfriarMesa() {
+        batidas = [];
+        batidasLote = null;
+        var selo = $("mesaCombo");
+        if (selo) selo.hidden = true;
+        var card = document.querySelector(".cartao.lote-atual");
+        if (card) card.classList.remove("quente");
     }
 
     var filaCache = [];
@@ -372,6 +456,7 @@
     fonte.addEventListener("estado", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
     fonte.addEventListener("lote_aberto", function (e) {
         martelo = { lote: null, vez: 0 };
+        esfriarMesa();
         render(JSON.parse(e.data));
         recarregarDados();
     });
@@ -379,6 +464,7 @@
         var d = JSON.parse(e.data);
         martelo = { lote: null, vez: 0 };      // lance novo recomeça o martelo
         if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
+        festejarLance(d.lote);
         recarregarDados();
     });
     /* O anúncio vem pelo stream, e não pela resposta do clique: assim duas
@@ -393,6 +479,7 @@
     fonte.addEventListener("lote_vendido", function (e) {
         var d = JSON.parse(e.data);
         zerarMartelo();
+        esfriarMesa();
         render(d.estado);
         desenharHistorico([]);
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
