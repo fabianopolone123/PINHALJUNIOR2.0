@@ -17,7 +17,7 @@ pagamentos embaixo; aba nova **🏆 Noite** (andamento, quem mais arrematou, úl
 Itens em vitrine com foto. Carimbo **NOVO ITEM / VENDIDO!** com confete, dentro da foto. Estado da
 **voz** sempre visível no topo (desligada / NO AR / NO MUDO / caiu). O `/locutor/dados/` ganhou
 `?resumo=1` (placar da noite + foto e medidas na fila), que **só a mesa show pede**. De passagem:
-a nota "0 conexãoões" das duas mesas virou "0 conexões".
+a nota "0 conexãoões" das duas mesas virou "0 conexões". **Em produção** desde o commit `ea51382` (26/09).
 
 **Atualização anterior:** 2026-09-24 (**Documentação: README do projeto alinhado ao dia**): o
 `README_PROJETO.md` passou a trazer o `leilao_demo` com `DJANGO_DEBUG=1` (sem ele o comando se recusa,

@@ -79,6 +79,13 @@ nenhuma.
   nenhuma rolagem horizontal (sonda de `scrollWidth`), placar, gráfico e disputa desenhados com os
   dados do servidor, carimbo VENDIDO disparado por aviso falso.
 
+### Deploy
+Em produção no commit `ea51382` (26/09, madrugada, sem leilão ao vivo nem item em pregão):
+`pinhaljunior2-deploy` com healthcheck OK, depois o passo extra do leilão (DEPLOY_LEILAO §7.1 —
+`collectstatic` e restart do `pinhaljunior_leilao.service`, que voltou `active`). Conferido pela
+internet: `/leilao/locutor/<id>/nova/` pede o login da equipe (302, não 404) e o `mesa_show.css`/`.js`
+com hash respondem 200.
+
 ### Pendências
 - Ensaiar num evento de teste (com voz e várias pessoas dando lance) antes de pensar em torná-la a
   padrão. O comportamento ao vivo (stream, microfone) é o mesmo motor da clássica, mas o desenho só se
