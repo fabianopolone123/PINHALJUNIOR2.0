@@ -42,6 +42,10 @@ caixa, preparação, entregas…) e, pelo mesmo motivo, nas duas telas do públi
 `static/leilao/css/locutor.css`, `static/leilao/css/leilao.css`, `static/leilao/css/palco_show.css`,
 `leilao/tests.py` (`FundoSemFaixaTests`).
 
+### Deploy
+Em produção no commit `1d08929` (26/09, sem item em pregão): deploy do clube OK, `collectstatic` e
+restart do serviço do leilão (`active`); o `locutor.css` novo, com hash, responde 200.
+
 ### Verificação
 Headless a 1280×900 com a mesa de 1380 px de altura: a cor do fundo fora dos cards ficou igual antes
 e depois da altura da janela (antes, era ali a faixa).
