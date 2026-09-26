@@ -1460,3 +1460,34 @@ button.mesa-online:hover {
 }
 .ultimos-lances .historico { margin-top: 6px; max-height: 220px; }
 
+/* =========================================================
+   A linha da GENTE (26/09): top 5 arremates, sem lance, sem arremate
+   ========================================================= */
+.cartao.gente-card { display: flex; flex-direction: column; }
+.gente-lista {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 260px;      /* sala cheia não estica a linha */
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+.gente-lista li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 9px;
+    min-width: 0;
+}
+.gente-lista li.vazio { background: none; padding: 4px 2px; }
+.gente-lista .nome { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 700; line-height: 1.2; }
+.gente-lista .detalhe { font-size: 0.75rem; color: var(--palco-suave); white-space: nowrap; }
+.gente-lista .valor { font-weight: 800; color: var(--ouro); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gente-lista .medalha { width: 24px; text-align: center; font-weight: 900; color: var(--palco-suave); flex-shrink: 0; }
+.gente-top li:first-child:not(.vazio) { background: rgba(255, 209, 102, 0.14); outline: 1px solid rgba(255, 209, 102, 0.35); }
+.gente-lista .online { font-size: 0.6rem; flex-shrink: 0; }
+

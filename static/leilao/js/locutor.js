@@ -394,6 +394,64 @@
         });
     }
 
+    /* A linha da GENTE: top 5 arremates, quem está online sem lance, quem deu
+       lance e não arrematou. As três listas vêm prontas do servidor. */
+    function linhaGente(partes) {
+        var li = document.createElement("li");
+        partes.forEach(function (p) {
+            var s = document.createElement("span");
+            s.className = p[0];
+            s.textContent = p[1];
+            li.appendChild(s);
+        });
+        return li;
+    }
+
+    function preencher(ul, itens, vazio, montar) {
+        if (!ul) return;
+        ul.innerHTML = "";
+        if (!itens.length) {
+            var li = document.createElement("li");
+            li.className = "vazio";
+            li.textContent = vazio;
+            ul.appendChild(li);
+            return;
+        }
+        itens.forEach(function (x, i) { ul.appendChild(montar(x, i)); });
+    }
+
+    var MEDALHAS_TOP = ["🥇", "🥈", "🥉", "4º", "5º"];
+
+    function desenharGente(g) {
+        if (!g) return;
+        preencher($("genteTop"), g.top || [], "Ninguém arrematou ainda.", function (t, i) {
+            return linhaGente([
+                ["medalha", MEDALHAS_TOP[i] || ""],
+                ["nome", t.quem],
+                ["detalhe", t.itens + (t.itens === 1 ? " item" : " itens")],
+                ["valor", moeda(t.total)]
+            ]);
+        });
+        var semLance = g.sem_lance || [];
+        var vazioSemLance = g.online ? "Todo mundo online já deu lance. 🎉" : "Ninguém online agora.";
+        preencher($("genteSemLance"), semLance, vazioSemLance, function (p) {
+            return linhaGente([["nome", p.quem]]);
+        });
+        var cSem = $("contaSemLance");
+        if (cSem) cSem.textContent = semLance.length ? "(" + semLance.length + ")" : "";
+
+        var semArremate = g.sem_arremate || [];
+        preencher($("genteSemArremate"), semArremate, "Ninguém nessa situação agora.", function (p) {
+            return linhaGente([
+                ["online", p.online ? "🟢" : "⚪"],
+                ["nome", p.quem],
+                ["detalhe", p.lances + (p.lances === 1 ? " lance" : " lances")]
+            ]);
+        });
+        var cArr = $("contaSemArremate");
+        if (cArr) cArr.textContent = semArremate.length ? "(" + semArremate.length + ")" : "";
+    }
+
     var chatCache = [];
 
     function desenharChatMesa(mensagens) {
@@ -488,6 +546,7 @@
                     render(d.estado);
                     desenharHistorico(d.historico);
                     desenharDisputa(d.disputa);
+                    desenharGente(d.gente);
                     // A fila e o histórico do chat NÃO vêm no broadcast: o
                     // público não pode saber quantos itens faltam, e o fio da
                     // conversa da noite é só da mesa.
@@ -533,6 +592,8 @@
         render(d.estado);
         desenharHistorico([]);
         desenharDisputa([]);
+        // O martelo mexe no top 5 e em quem ainda não arrematou.
+        recarregarDados();
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
         else toast("Item sem lance. Dá para abrir de novo pela aba Itens.", "info");
     });

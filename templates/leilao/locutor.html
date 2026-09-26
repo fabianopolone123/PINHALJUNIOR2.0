@@ -179,7 +179,38 @@
         </div>
 
         {% comment %}
-        Segunda linha: o que se usa UMA vez na noite. A fila, para saber o que
+        A linha da GENTE (pedido de 26/09) — três cards, três colunas, sem
+        célula vazia. É o que o locutor usa DURANTE o pregão para chamar as
+        pessoas pelo nome: quem mais comprou (agradecer), quem está online e
+        ainda não deu lance (convidar), quem tentou e ainda não levou nada
+        (dar um empurrão). Vem do `/locutor/dados/`, autenticado — nunca do
+        broadcast. Cada lista tem teto e rolagem.
+        {% endcomment %}
+        <div class="pregao-grade tres gente">
+            <div class="cartao gente-card">
+                <h3>🏆 Top 5 arremates</h3>
+                <ol class="gente-lista gente-top" id="genteTop">
+                    <li class="vazio">Ninguém arrematou ainda.</li>
+                </ol>
+            </div>
+            <div class="cartao gente-card">
+                <h3>🙋 Ainda sem lance <span class="conta" id="contaSemLance"></span></h3>
+                <ul class="gente-lista" id="genteSemLance">
+                    <li class="vazio">Carregando…</li>
+                </ul>
+                <p class="micro-ajuda">Quem está online agora e ainda não deu nenhum lance.</p>
+            </div>
+            <div class="cartao gente-card">
+                <h3>🎯 Deram lance, sem arrematar <span class="conta" id="contaSemArremate"></span></h3>
+                <ul class="gente-lista" id="genteSemArremate">
+                    <li class="vazio">Carregando…</li>
+                </ul>
+                <p class="micro-ajuda">Já tentaram e ainda não levaram nada. 🟢 = online agora.</p>
+            </div>
+        </div>
+
+        {% comment %}
+        Terceira linha: o que se usa UMA vez na noite. A fila, para saber o que
         vem; o microfone, ligado no começo; e a bilheteria, aberta no fim.
         Nenhum deles disputa a atenção durante o pregão.
         {% endcomment %}

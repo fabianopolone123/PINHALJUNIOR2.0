@@ -4335,13 +4335,19 @@ class ATelaDaMesaNaoDeixaBuracoTests(TestCase):
         inteira embaixo — ver `test_o_quarto_card_nunca_deixa_celula_vazia`."""
         html = self.c.get("/locutor/", follow=True).content.decode()
         # A ordem no HTML é a ordem na tela: o que se acompanha primeiro.
+        # Em 26/09 entrou a linha da GENTE entre as duas (três cards).
         pregao = html.index('class="pregao-grade pregao-linha"')
+        gente = html.index('class="pregao-grade tres gente"')
         segunda = html.index('class="pregao-grade tres"')
-        linha1 = html[pregao:segunda]
+        linha1 = html[pregao:gente]
+        linha_gente = html[gente:segunda]
         linha2 = html[segunda:html.index("</section>", segunda)]
 
         self.assertEqual(linha1.count('class="cartao'), 4, "a linha do pregão tem de ter 4 cards")
-        self.assertEqual(linha2.count('class="cartao'), 3, "a segunda linha tem de ter 3 cards")
+        self.assertEqual(linha_gente.count('class="cartao'), 3, "a linha da gente tem de ter 3 cards")
+        self.assertEqual(linha2.count('class="cartao'), 3, "a última linha tem de ter 3 cards")
+        for marca in ("Top 5 arremates", "Ainda sem lance", "Deram lance, sem arrematar"):
+            self.assertIn(marca, linha_gente, f"{marca} saiu da linha da gente")
 
         # O martelo, os lances, o chat e quem está online juntos.
         for marca in ("lote-atual", "Lances deste item", "Chat ao vivo", "Online agora"):
@@ -7054,6 +7060,100 @@ class DisputaDoItemNaMesaTests(TestCase):
     def test_a_lista_da_mesa_tem_teto(self):
         css = Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(encoding="utf-8")
         bloco = css[css.index(".disputa {"):]
+        bloco = bloco[: bloco.index("}")]
+        self.assertIn("max-height", bloco)
+        self.assertIn("overflow-y: auto", bloco)
+
+
+class GenteDaNoiteNaMesaTests(TestCase):
+    """A linha da GENTE na mesa (26/09): top 5 arremates, quem está online sem
+    lance, quem deu lance e não arrematou."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("gente_loc", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        self.c = Client()
+        self.c.login(username="gente_loc", password="segredo-ficticio")
+        self.p = {n: criar_pessoa(f"{n} Fictício") for n in ("Ana", "Beto", "Caio", "Duda", "Edu", "Fabi")}
+        self.ordem = itertools.count(1)
+
+    def _vender(self, vencedor, *outros, valor_extra=0):
+        """Abre um item, dá os lances (os `outros` antes) e bate o martelo."""
+        lote = criar_lote(self.leilao, nome=f"Item fictício {next(self.ordem)}")
+        servicos.abrir_lote(lote)
+        for n in list(outros) + [vencedor]:
+            servicos.limpar_limites()
+            ok, msg, _ = servicos.dar_lance(lote.id, self.p[n])
+            self.assertTrue(ok, msg)
+        servicos.fechar_lote(Lote.objects.get(pk=lote.pk))
+        return lote
+
+    def _gente(self, online=()):
+        from unittest import mock
+
+        pks = {self.p[n].pk for n in online}
+        with mock.patch.object(servicos.HUB, "donos_conectados", return_value=pks):
+            return self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}").json()["gente"]
+
+    def test_top_5_pelo_total_arrematado(self):
+        self._vender("Ana", "Beto")
+        self._vender("Ana", "Caio")
+        self._vender("Beto", "Duda")
+        top = self._gente()["top"]
+        self.assertEqual(top[0]["quem"], self.p["Ana"].nome_curto)
+        self.assertEqual(top[0]["itens"], 2)
+        self.assertEqual([t["quem"] for t in top], [self.p["Ana"].nome_curto, self.p["Beto"].nome_curto])
+
+    def test_top_para_no_quinto(self):
+        for n in ("Ana", "Beto", "Caio", "Duda", "Edu", "Fabi"):
+            self._vender(n)
+        self.assertEqual(len(self._gente()["top"]), 5)
+
+    def test_arremate_cancelado_nao_entra_no_top(self):
+        lote = self._vender("Ana")
+        Arremate.objects.filter(lote=lote).update(status="cancelado")
+        self.assertEqual(self._gente()["top"], [])
+
+    def test_sem_lance_e_so_quem_esta_online_e_nao_deu_lance(self):
+        self._vender("Ana", "Beto")
+        g = self._gente(online=("Ana", "Caio", "Duda"))
+        self.assertEqual({x["quem"] for x in g["sem_lance"]},
+                         {self.p["Caio"].nome_curto, self.p["Duda"].nome_curto})
+        self.assertEqual(g["online"], 3)
+
+    def test_quem_deu_lance_e_nao_arrematou(self):
+        self._vender("Ana", "Beto", "Caio")      # Beto e Caio tentaram
+        self._vender("Caio", "Beto")             # Caio levou; Beto tentou de novo
+        g = self._gente(online=("Beto",))
+        sem = g["sem_arremate"]
+        self.assertEqual([x["quem"] for x in sem], [self.p["Beto"].nome_curto])
+        self.assertEqual(sem[0]["lances"], 2)
+        self.assertTrue(sem[0]["online"])
+
+    def test_a_gente_nao_vai_para_o_broadcast(self):
+        self._vender("Ana", "Beto")
+        publico = json.dumps(est.estado_publico(self.leilao), default=str)
+        for chave in ('"gente"', '"sem_lance"', '"sem_arremate"'):
+            self.assertNotIn(chave, publico)
+
+    def test_o_hub_conta_so_telas_do_publico_com_cadastro(self):
+        from .hub import Hub
+
+        hub = Hub()
+        hub.assinar(publico=True, nome="Ana", dono=1)
+        hub.assinar(publico=True, nome="Ana", dono=1)     # 2ª aba da mesma pessoa
+        hub.assinar(publico=True, nome=None, dono=None)   # ainda na porta
+        hub.assinar(publico=False, nome="Equipe", dono=9)  # mesa/caixa
+        self.assertEqual(hub.donos_conectados(), {1})
+
+    def test_as_listas_tem_teto(self):
+        css = Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(encoding="utf-8")
+        bloco = css[css.index(".gente-lista {"):]
         bloco = bloco[: bloco.index("}")]
         self.assertIn("max-height", bloco)
         self.assertIn("overflow-y: auto", bloco)

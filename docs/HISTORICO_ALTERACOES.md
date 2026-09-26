@@ -22,6 +22,44 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: linha da gente na mesa — top 5 arremates, quem não deu lance, quem não arrematou
+
+### Resumo
+Pedido do clube: uma coluna com os 5 que mais arremataram, a lista de quem ainda não deu nenhum lance
+e a lista de quem deu lance mas não arrematou nada até agora.
+
+### O que mudou
+- **Mesa**: linha nova de **três cards** entre a linha do pregão e a de fila/voz/pagamentos — é o que
+  o locutor usa DURANTE o pregão para chamar as pessoas pelo nome:
+  - **🏆 Top 5 arremates**: pelo total arrematado no leilão, com quantos itens (medalhas; o 1º em
+    destaque). Arremate cancelado ou vencido não conta.
+  - **🙋 Ainda sem lance (N)**: quem está **online agora** e não deu lance nenhum neste leilão.
+    Sem ninguém online, diz "Ninguém online agora." (e não "todo mundo já deu lance").
+  - **🎯 Deram lance, sem arrematar (N)**: quem já deu lance e ainda não levou nada, com quantos
+    lances e 🟢 para quem está online.
+  - Cada lista com teto e rolagem.
+- **Servidor**: `_gente_da_noite(leilao)` em `/locutor/dados/` (`gente`); `HUB.donos_conectados()`
+  devolve os participantes com tela do público aberta (duas abas contam uma vez; equipe e quem está na
+  porta ficam fora). A mesa busca de novo depois do martelo (o top 5 muda).
+- **Teste da grade** atualizado para as três linhas (4 · 3 · 3 cards).
+- De passagem: o `Lance` voltou ao import das views (tinha saído com o revert da mesa show).
+
+### Arquivos alterados
+`leilao/hub.py`, `leilao/views.py`, `templates/leilao/locutor.html`, `static/leilao/css/locutor.css`,
+`static/leilao/js/locutor.js`, `leilao/tests.py` (`GenteDaNoiteNaMesaTests`, 8 testes; e
+`ATelaDaMesaNaoDeixaBuracoTests`), `CLAUDE.md`.
+
+### Decisões tomadas
+- **"Sem lance" é de quem está online**: é a lista de quem o locutor chama, e quem já saiu não ouve.
+- **Linha nova com três cards**, e não um card a mais numa linha existente: é a regra da mesa (card
+  novo não pode deixar célula vazia).
+
+### Verificação
+Conferido no Chrome headless a 1280 e 420 px sobre banco descartável: três cards lado a lado, sem
+rolagem horizontal.
+
+---
+
 ## 2026-09-26 - Leilão: "Lances deste item" mostra todo mundo que deu lance, com os 4 que mais deram em cima
 
 ### Resumo

@@ -53,6 +53,7 @@ from .models import (
     AtribuicaoEntrega,
     ConfigLeilao,
     EntregadorLeilao,
+    Lance,
     Leilao,
     Lote,
     PagamentoLeilao,
@@ -759,6 +760,9 @@ def locutor_dados_view(request):
             "estado": est.estado_publico(leilao),
             "historico": historico,
             "disputa": disputa,
+            # A linha "gente" da mesa: top 5 que mais arremataram, quem está
+            # online e ainda não deu lance, quem deu lance e não arrematou.
+            "gente": _gente_da_noite(leilao),
             "numero_atual": em_pregao.numero if em_pregao else None,
             "fila": fila,
             "restam_na_fila": leilao.lotes.filter(status="fila").count(),
@@ -778,6 +782,67 @@ def locutor_dados_view(request):
             ][::-1],
         }
     )
+
+
+def _gente_da_noite(leilao):
+    """As três listas de gente da mesa (pedido do clube em 26/09).
+
+    - **top**: os 5 que mais arremataram no leilão (pelo total), com quantos
+      itens. Arremate cancelado ou vencido não é compra de ninguém.
+    - **sem_lance**: quem está ONLINE agora e ainda não deu lance nenhum neste
+      leilão — é a lista de quem o locutor chama pelo nome ("Fulano, está
+      aí? Ainda dá tempo!"). Só online: quem já saiu não vai ouvir.
+    - **sem_arremate**: quem já deu lance neste leilão e ainda não levou nada
+      — quem está tentando e merece um empurrão. Leva a marca de online.
+
+    Nomes de gente: só pelo `/locutor/dados/`, autenticado; nunca no broadcast.
+    """
+    arremates = Arremate.objects.filter(lote__leilao=leilao).exclude(
+        status__in=("cancelado", "expirado")
+    )
+    top = list(
+        arremates.order_by()
+        .values("participante_id")
+        .annotate(total=Sum("valor"), n=Count("id"))
+        .order_by("-total", "-n", "participante_id")[:5]
+    )
+    com_arremate = set(arremates.values_list("participante_id", flat=True))
+    lances = {
+        x["participante_id"]: x
+        for x in Lance.objects.filter(lote__leilao=leilao, cancelado=False)
+        .order_by()
+        .values("participante_id")
+        .annotate(n=Count("id"), maior=Max("valor"))
+    }
+    online = HUB.donos_conectados()
+
+    ids_sem_lance = [pk for pk in online if pk not in lances]
+    ids_sem_arremate = [pk for pk in lances if pk not in com_arremate]
+    ids = set(ids_sem_lance) | set(ids_sem_arremate) | {t["participante_id"] for t in top}
+    nomes = {p.pk: p.nome_curto for p in Participante.objects.filter(pk__in=ids)}
+
+    return {
+        # Quantas pessoas estão online: sem ela, "ninguém sem lance" não
+        # distingue "todo mundo já deu lance" de "não tem ninguém na sala".
+        "online": len(online),
+        "top": [
+            {"quem": nomes.get(t["participante_id"], "—"), "total": str(t["total"]), "itens": t["n"]}
+            for t in top
+        ],
+        "sem_lance": sorted(
+            ({"quem": nomes[pk]} for pk in ids_sem_lance if pk in nomes),
+            key=lambda x: x["quem"].lower(),
+        ),
+        "sem_arremate": [
+            {
+                "quem": nomes.get(pk, "—"),
+                "lances": lances[pk]["n"],
+                "maior": str(lances[pk]["maior"]),
+                "online": pk in online,
+            }
+            for pk in sorted(ids_sem_arremate, key=lambda pk: (-lances[pk]["n"], nomes.get(pk, "").lower()))
+        ],
+    }
 
 
 def _disputa_do_item(lote, destaque=4):

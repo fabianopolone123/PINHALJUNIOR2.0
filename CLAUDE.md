@@ -78,9 +78,13 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   flutua não cobre nada. A exceção é o **trilho** dos emojis, que é fixo e `pointer-events: none`.
 - **A mesa do locutor é organizada por uso, e ele não LÊ a tela** (está falando): o que chega até ele é
   **movimento**. O nome de quem ganha **acende a cada lance**; as reações do público **sobem na mesa
-  também** (mesmo `reacoes.js`, mesma classe de trilho — a mesa só ouve, não há botão de reagir lá). A
-  tela tem duas linhas — em cima *pregão · lances · chat · online agora*, que se acompanham juntos;
-  embaixo *fila · sua voz · pagamentos*, de uma vez por noite. **Card novo não pode deixar célula
+  também** (mesmo `reacoes.js`, mesma classe de trilho — a mesa só ouve, não há botão de reagir lá);
+  a cada lance a mesa também **pisca, o valor pula e saem moedas** — sem som (o microfone aberto o
+  devolveria para a sala). A tela tem três linhas — em cima *pregão · lances · chat · online agora*,
+  que se acompanham juntos; no meio a **gente** (*top 5 arremates · ainda sem lance · deram lance sem
+  arrematar*, de `_gente_da_noite`); embaixo *fila · sua voz · pagamentos*, de uma vez por noite.
+  "Lances deste item" é **por pessoa** (`_disputa_do_item`: todos, os 4 que mais deram em cima).
+  **Card novo não pode deixar célula
   vazia** em largura nenhuma: a grade base é de duas colunas e um card sobrando abre buraco (já
   aconteceu). O *Online agora* resolve isso virando faixa inteira entre 1000 e 1279px. Lista
   dentro desses cards precisa de **teto + rolagem**, senão ela cresce e leva os três juntos.

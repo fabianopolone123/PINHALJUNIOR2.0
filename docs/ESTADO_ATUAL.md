@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: "Lances deste item" mostra todo mundo que deu lance, com os 4 que mais deram em cima**): o card da mesa virou uma lista por PESSOA de todos que deram lance no item, com os 4 que mais deram lance em cima (medalha, quantos lances, até quanto; coroa em quem está ganhando) e o resto embaixo pelo maior lance. Os lances um a um continuam num "▸ Últimos lances" recolhido. Dados novos em `/locutor/dados/` (`disputa`, de `_disputa_do_item`), nunca no broadcast.
+**Última atualização:** 2026-09-26 (**Leilão: linha da gente na mesa — top 5 arremates, quem não deu lance, quem não arrematou**): a mesa ganhou uma linha nova de três cards, entre o pregão e a fila: **🏆 Top 5 arremates** (pelo total, com quantos itens), **🙋 Ainda sem lance** (quem está online agora e não deu lance nenhum) e **🎯 Deram lance, sem arrematar** (com 🟢 para quem está online). Dados de `_gente_da_noite` em `/locutor/dados/` (`gente`), nunca no broadcast; o hub ganhou `donos_conectados()`.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: "Lances deste item" mostra todo mundo que deu lance, com os 4 que mais deram em cima**): o card da mesa virou uma lista por PESSOA de todos que deram lance no item, com os 4 que mais deram lance em cima (medalha, quantos lances, até quanto; coroa em quem está ganhando) e o resto embaixo pelo maior lance. Os lances um a um continuam num "▸ Últimos lances" recolhido. Dados novos em `/locutor/dados/` (`disputa`, de `_disputa_do_item`), nunca no broadcast.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: a mesa do locutor sente a emoção a cada lance**): a cada lance, a borda do card do item pisca em ouro (em fogo quando está quente), o valor atual pula, sobe um "+R$ 5,00" e saem moedas de dentro da caixa do valor; com 3+ lances em 20 s aparece o selo "🔥 N lances em 20 s" e o efeito cresce. O tempo do martelo também aparece no card (âmbar no "uma", vermelho pulsando no "duas"). Tudo dentro do card, sem pegar toque e sem som.
 

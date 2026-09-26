@@ -89,6 +89,18 @@ class Hub:
             key=lambda x: x["nome"].lower(),
         )
 
+    def donos_conectados(self):
+        """Os participantes (pk) com alguma tela do PÚBLICO aberta agora.
+
+        Só para a mesa do locutor (a lista de quem está online e ainda não deu
+        lance). Duas abas da mesma pessoa contam uma vez; a equipe
+        (`publico=False`) e quem ainda está na porta, sem cadastro, ficam fora.
+        """
+        return {
+            dono for publico, _nome, dono in list(self._assinantes.values())
+            if publico and dono is not None
+        }
+
     @property
     def total(self):
         """Todas as conexões abertas — é o que o teto do serviço limita."""
