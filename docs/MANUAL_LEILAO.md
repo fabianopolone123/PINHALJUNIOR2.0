@@ -212,11 +212,13 @@ Duas linhas de cards. **Em cima**, o que você acompanha o tempo todo:
 ### O martelo: dou-lhe uma, dou-lhe duas, VENDIDO
 
 No card do item há três botões lado a lado, na ordem em que se aperta:
-**🔨 Dou-lhe uma**, **🔨🔨 Dou-lhe duas** e **🔨 VENDIDO**. Os dois primeiros
+**🔨 Dou-lhe uma**, **🔨🔨 Dou-lhe duas** e **🔨 VENDIDO**. Eles funcionam em
+**escada**: o "duas" só acende depois do "uma", e o VENDIDO só depois do "duas".
+Nada é automático — você decide o tempo de cada um. Os dois primeiros
 **anunciam para a sala** (a tela de todo mundo mostra o aviso) e não fecham nada;
-quem fecha é o VENDIDO. Eles só acendem quando o item já tem lance, e um lance
-novo recomeça a contagem. Depois do "dou-lhe duas", o VENDIDO bate direto, sem
-perguntar. O **▶ Abrir próximo** fica embaixo.
+quem fecha é o VENDIDO, no primeiro toque, sem janela de confirmação. Um lance
+novo recomeça a escada. Item **sem nenhum lance**: o botão vira **⏭ Encerrar sem
+lance** e fica aceso direto. O **▶ Abrir próximo** fica embaixo.
 
 ### Os botões
 

@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: linha da gente na mesa — top 5 arremates, quem não deu lance, quem não arrematou**): a mesa ganhou uma linha nova de três cards, entre o pregão e a fila: **🏆 Top 5 arremates** (pelo total, com quantos itens), **🙋 Ainda sem lance** (quem está online agora e não deu lance nenhum) e **🎯 Deram lance, sem arrematar** (com 🟢 para quem está online). Dados de `_gente_da_noite` em `/locutor/dados/` (`gente`), nunca no broadcast; o hub ganhou `donos_conectados()`.
+**Última atualização:** 2026-09-26 (**Leilão: o martelo vira escada — um botão só depois do outro, sem confirmação**): os três botões do martelo passam a funcionar em **escada**: o "dou-lhe duas" só acende depois do "uma" e o **VENDIDO** só depois do "duas", fechando no primeiro toque (sem janela de confirmação). Lance novo recomeça a escada; item sem lance mostra **⏭ Encerrar sem lance** direto. A escada vale no servidor (`servicos.martelo_liberado`), não só no botão.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: linha da gente na mesa — top 5 arremates, quem não deu lance, quem não arrematou**): a mesa ganhou uma linha nova de três cards, entre o pregão e a fila: **🏆 Top 5 arremates** (pelo total, com quantos itens), **🙋 Ainda sem lance** (quem está online agora e não deu lance nenhum) e **🎯 Deram lance, sem arrematar** (com 🟢 para quem está online). Dados de `_gente_da_noite` em `/locutor/dados/` (`gente`), nunca no broadcast; o hub ganhou `donos_conectados()`.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: "Lances deste item" mostra todo mundo que deu lance, com os 4 que mais deram em cima**): o card da mesa virou uma lista por PESSOA de todos que deram lance no item, com os 4 que mais deram lance em cima (medalha, quantos lances, até quanto; coroa em quem está ganhando) e o resto embaixo pelo maior lance. Os lances um a um continuam num "▸ Últimos lances" recolhido. Dados novos em `/locutor/dados/` (`disputa`, de `_disputa_do_item`), nunca no broadcast.
 

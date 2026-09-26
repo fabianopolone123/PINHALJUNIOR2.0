@@ -6856,14 +6856,64 @@ class DouLheTests(TestCase):
         ordem = re.findall(r'data-acao="([a-z_]+)"(?: data-vez="(\d)")?', bloco)
         self.assertEqual(ordem, [("dou_lhe", "1"), ("dou_lhe", "2"), ("fechar", "")])
 
-    def test_o_vendido_so_pula_a_pergunta_depois_do_duas(self):
+    # --- A escada: um só depois do outro, sem confirmação (26/09) --------
+    def _fechar(self):
+        return self.c.post("/equipe/acao/", data=json.dumps({"acao": "fechar", "leilao": self.leilao.pk}),
+                           content_type="application/json")
+
+    def test_duas_antes_do_uma_e_recusado(self):
+        self._abrir_com_lance()
+        self.assertEqual(self._dou_lhe(vez=2, lote=self.lote.pk).status_code, 409)
+
+    def test_vendido_antes_do_duas_e_recusado_no_servidor(self):
+        """A escada vale na view, não só no botão apagado."""
+        self._abrir_com_lance()
+        self.assertEqual(self._fechar().status_code, 409)
+        self._dou_lhe(vez=1, lote=self.lote.pk)
+        self.assertEqual(self._fechar().status_code, 409)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "aberto")
+
+    def test_uma_duas_e_vendido_fecha(self):
+        self._abrir_com_lance()
+        self.assertEqual(self._dou_lhe(vez=1, lote=self.lote.pk).status_code, 200)
+        self.assertEqual(self._dou_lhe(vez=2, lote=self.lote.pk).status_code, 200)
+        self.assertEqual(self._fechar().status_code, 200)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "vendido")
+
+    def test_lance_novo_recomeca_a_escada(self):
+        self._abrir_com_lance()
+        self._dou_lhe(vez=1, lote=self.lote.pk)
+        self._dou_lhe(vez=2, lote=self.lote.pk)
+        servicos.limpar_limites()
+        servicos.dar_lance(self.lote.id, criar_pessoa("Outra Pessoa Fictícia"))
+        self.assertEqual(self._fechar().status_code, 409, "o duas de antes do lance não vale mais")
+        self.assertEqual(self._dou_lhe(vez=2, lote=self.lote.pk).status_code, 409)
+
+    def test_item_sem_lance_encerra_direto(self):
+        """Sem lance não há "dou-lhe" — o VENDIDO não pode ficar preso."""
+        servicos.abrir_lote(self.lote)
+        self.assertEqual(self._fechar().status_code, 200)
+        self.lote.refresh_from_db()
+        self.assertEqual(self.lote.status, "sem_lance")
+
+    def test_a_mesa_recarregada_recebe_o_degrau(self):
+        self._abrir_com_lance()
+        self._dou_lhe(vez=1, lote=self.lote.pk)
+        d = self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}").json()
+        self.assertEqual(d["martelo"], 1)
+
+    def test_o_martelo_nao_pede_mais_confirmacao(self):
         js = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js").read_text(encoding="utf-8")
-        self.assertIn('window.confirm("Bater o martelo e fechar este item?")', js)
-        self.assertIn("martelo.lote === emPregao.id && martelo.vez === 2", js)
+        self.assertNotIn("Bater o martelo e fechar este item?", js)
+        pintar = js[js.index("function pintarMartelo"):]
+        pintar = pintar[: pintar.index("\n    }\n")]
+        self.assertIn("vale < vez - 1", pintar, "cada dou-lhe só depois do anterior")
+        self.assertIn("comLance && vale < 2", pintar, "o VENDIDO só depois do duas")
         lance = js[js.index('fonte.addEventListener("lance"'):]
         lance = lance[: lance.index("});")]
         self.assertIn("martelo = { lote: null, vez: 0 }", lance, "lance novo tem de zerar o martelo")
-
 
 class DouLheNaTelaDoPublicoTests(TestCase):
     """O efeito do "dou-lhe" na tela de quem disputa (26/09).

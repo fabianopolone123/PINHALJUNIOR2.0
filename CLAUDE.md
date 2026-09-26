@@ -70,7 +70,9 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
 - **O martelo tem três tempos na mesa** (26/09): **Dou-lhe uma · Dou-lhe duas · VENDIDO**. Os dois
   primeiros são **anúncio** (`servicos.dou_lhe` → broadcast `dou_lhe`), não mexem no banco e **não
   fecham nada** — não são cronômetro; quem fecha é o VENDIDO. Só com lance e só para o item que a mesa
-  mostra (item trocado = 409). Depois do "duas", sem lance novo, o VENDIDO bate **sem a pergunta**.
+  mostra (item trocado = 409). É uma **ESCADA**: "duas" só depois do "uma", VENDIDO só depois do "duas"
+  (item **sem lance** encerra direto), **sem janela de confirmação** — e a escada vale **no servidor**
+  (`servicos.martelo_liberado`, em memória, amarrada a `aberto_em`+`valor_atual`: lance novo recomeça).
   Na tela do público o efeito é do **`dou_lhe.js`** (nas duas telas, antes do motor): mais intenso no
   "duas", carimbo **dentro da foto**, vinheta sem toque, apagado por lance/item novo/martelo.
   O som da sala é **sempre ligado** (a ação `som` saiu; `som_lance`/`som_arremate` dormentes).

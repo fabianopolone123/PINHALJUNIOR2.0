@@ -156,6 +156,7 @@ def abrir_lote(lote, *, segundos=None):
     Não há cronômetro: quem bate o martelo é o locutor, como num leilão de
     verdade. O `segundos` sobrou da assinatura antiga e é ignorado.
     """
+    _esquecer_martelo(lote)
     leilao = lote.leilao
     agora = timezone.now()
 
@@ -202,6 +203,7 @@ def fechar_lote(lote, *, motivo="cronometro"):
     vez. Antes saía um Pix por item, com 15 minutos correndo — o que tirava do
     pregão exatamente quem estava disputando.
     """
+    _esquecer_martelo(lote)
     leilao = lote.leilao
     agora = timezone.now()
     arremate = None
@@ -446,7 +448,48 @@ def liberar_pagamentos(leilao, liberar=True):
 
 
 class DouLheRecusado(Exception):
-    """O "dou-lhe" não cabe agora (sem item, sem lance, item trocado)."""
+    """O "dou-lhe" não cabe agora (sem item, sem lance, item trocado, fora da ordem)."""
+
+
+# O MARTELO EM ESCADA (pedido do clube em 26/09): dou-lhe uma → dou-lhe duas →
+# VENDIDO, um só depois do outro, e sem janela de confirmação. A escada vale
+# no SERVIDOR, não só no botão apagado: toque duplo, duas telas de mesa ou um
+# POST forjado não pulam etapa.
+#
+# Em memória (o serviço é de UM worker, como o hub e o relógio), por item, e
+# amarrada a `(aberto_em, valor_atual)`: lance novo muda o valor e a escada
+# recomeça sozinha; item devolvido e reaberto tem outro `aberto_em`. Se o
+# serviço reiniciar no meio, o pior que acontece é o locutor ter de apertar
+# o "dou-lhe uma" de novo.
+_ESCADA = {}
+_ESCADA_TRAVA = threading.Lock()
+
+
+def _marca_do_martelo(lote):
+    return (lote.aberto_em.isoformat() if lote.aberto_em else "", str(lote.valor_atual))
+
+
+def martelo_vez(lote):
+    """Em que degrau o item está agora: 0 (nada), 1 (dou-lhe uma), 2 (duas)."""
+    if not lote:
+        return 0
+    with _ESCADA_TRAVA:
+        registro = _ESCADA.get(lote.pk)
+    if not registro or registro[0] != _marca_do_martelo(lote):
+        return 0
+    return registro[1]
+
+
+def martelo_liberado(lote):
+    """O VENDIDO pode bater? Só depois do "dou-lhe duas" — ou em item SEM
+    lance, que o VENDIDO encerra devolvendo para a fila (senão ele ficaria
+    preso no pregão, porque sem lance não há "dou-lhe")."""
+    return not lote.tem_lance or martelo_vez(lote) >= 2
+
+
+def _esquecer_martelo(lote):
+    with _ESCADA_TRAVA:
+        _ESCADA.pop(lote.pk, None)
 
 
 def dou_lhe(leilao, vez, lote=None):
@@ -476,6 +519,14 @@ def dou_lhe(leilao, vez, lote=None):
         raise DouLheRecusado("Esse item não está mais em pregão.")
     if not atual.tem_lance:
         raise DouLheRecusado("Ainda não há lance neste item.")
+    marca = _marca_do_martelo(atual)
+    with _ESCADA_TRAVA:
+        registro = _ESCADA.get(atual.pk)
+        degrau = registro[1] if registro and registro[0] == marca else 0
+        if vez == 2 and degrau < 1:
+            raise DouLheRecusado("Primeiro o dou-lhe uma.")
+        # Nunca desce: apertar o "uma" de novo depois do "duas" não volta atrás.
+        _ESCADA[atual.pk] = (marca, max(degrau, vez))
     dados = {
         "vez": vez,
         "lote": atual.pk,

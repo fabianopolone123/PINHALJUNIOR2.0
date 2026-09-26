@@ -1431,8 +1431,16 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   servidor recusa (409) se o pregão já trocou — senão o "duas" do item anterior cairia no novo.
 - **Lance novo, item novo ou martelo zeram o tempo** na mesa. O estado do martelo vem do **stream**
   (não da resposta do clique), para duas telas de mesa ficarem no mesmo tempo.
-- **O VENDIDO só pula a confirmação depois do "dou-lhe duas" sem lance novo** — é o terceiro tempo
-  natural. Fora da sequência, a pergunta continua (mexe em dinheiro).
+- **É uma ESCADA, e sem janela de confirmação** (pedido do clube, 26/09): "dou-lhe duas" só depois do
+  "uma", VENDIDO só depois do "duas". Nada é automático — o tempo é do locutor. A proteção contra o
+  toque errado é a escada, não uma pergunta. Ela vale **no servidor** (`servicos.dou_lhe` recusa o
+  "duas" sem "uma"; a view do `fechar` recusa sem `martelo_liberado`), não só no botão apagado.
+- **A escada mora em memória** (`_ESCADA`, um worker só), por item, amarrada a `(aberto_em,
+  valor_atual)`: lance novo muda o valor e ela recomeça sozinha; `abrir_lote`/`fechar_lote` a esquecem.
+  Reiniciar o serviço no meio só obriga a apertar o "uma" de novo. A mesa recebe o degrau pelo
+  `/locutor/dados/` (`martelo`), então recarregar a tela não a perde.
+- **Item sem lance encerra direto**: sem lance não há "dou-lhe", e o VENDIDO (que ali diz "Encerrar
+  sem lance") não pode ficar preso — o item volta para a fila como antes.
 
 ### O som da SALA é sempre ligado (desde 26/09)
 

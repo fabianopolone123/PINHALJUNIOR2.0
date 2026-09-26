@@ -183,13 +183,21 @@
             card.classList.toggle("martelo-1", vale === 1);
             card.classList.toggle("martelo-2", vale === 2);
         }
+        var comLance = !!(lote && lote.tem_lance);
+        // A ESCADA: cada botão só acende depois do anterior (o servidor recusa
+        // fora da ordem também). Sem lance não há "dou-lhe".
         document.querySelectorAll('[data-acao="dou_lhe"]').forEach(function (b) {
             var vez = parseInt(b.dataset.vez, 10);
             b.classList.toggle("feito", vale >= vez);
-            // Sem item ou sem lance não há o que anunciar (o servidor recusa
-            // também); o botão apagado diz isso antes do clique.
-            b.disabled = !(lote && lote.tem_lance);
+            b.disabled = !comLance || vale < vez - 1;
         });
+        // O VENDIDO só depois do "duas" — ou direto em item SEM lance, que ele
+        // encerra devolvendo para a fila (senão o item ficaria preso).
+        var vendido = document.querySelector('.mesa-botoes.martelo [data-acao="fechar"]');
+        if (vendido) {
+            vendido.disabled = !lote || (comLance && vale < 2);
+            vendido.textContent = lote && !comLance ? "⏭ Encerrar sem lance" : "🔨 VENDIDO";
+        }
     }
 
     /* ---------------------------------------------------------------
@@ -546,6 +554,12 @@
                     render(d.estado);
                     desenharHistorico(d.historico);
                     desenharDisputa(d.disputa);
+                    // A escada do martelo vem do servidor: mesa recarregada não a perde.
+                    var emPregaoAgora = d.estado && d.estado.ativo ? d.estado.lote : null;
+                    if (emPregaoAgora && typeof d.martelo === "number") {
+                        martelo = { lote: emPregaoAgora.id, vez: d.martelo };
+                        pintarMartelo();
+                    }
                     desenharGente(d.gente);
                     // A fila e o histórico do chat NÃO vêm no broadcast: o
                     // público não pode saber quantos itens faltam, e o fio da
@@ -765,12 +779,9 @@
             corpo.lote = emPregao.id;
         }
 
-        // Bater o martelo mexe em dinheiro: confirma — MENOS depois do "dou-lhe
-        // duas" sem lance novo, que é o terceiro tempo natural do martelo.
-        var depoisDoDuas = qual === "fechar" && emPregao &&
-            martelo.lote === emPregao.id && martelo.vez === 2;
-        if (qual === "fechar" && !depoisDoDuas &&
-            !window.confirm("Bater o martelo e fechar este item?")) return;
+        // Sem janela de confirmação no martelo (pedido de 26/09): a proteção é
+        // a ESCADA — o VENDIDO só acende depois do "dou-lhe duas", e o
+        // servidor recusa fora da ordem.
 
         // Abrir outro item com um pregão ACONTECENDO joga o atual de volta para a
         // fila e a disputa se perde. É um acidente fácil de cometer falando ao
@@ -796,7 +807,9 @@
         }
         acao(corpo).then(function (d) {
             if (travar) alvo.disabled = false;
-            if (qual === "dou_lhe") { pintarMartelo(); return; }
+            // Destravar não pode reacender um botão que a escada mantém apagado.
+            pintarMartelo();
+            if (qual === "dou_lhe") return;
             if (!d) return;
             if (qual === "pago" || qual === "bloquear") { window.location.reload(); return; }
             recarregarDados();

@@ -22,6 +22,38 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: o martelo vira escada — um botão só depois do outro, sem confirmação
+
+### Resumo
+Pedido do clube: sem janela de confirmação no VENDIDO nem nos dou-lhe, e cada botão só habilita
+depois do anterior — o "dou-lhe duas" só depois do "uma", o VENDIDO só depois do "duas". O tempo
+continua sendo do locutor: nada é automático.
+
+### O que mudou
+- **Mesa**: o "dou-lhe duas" fica apagado até o "uma"; o VENDIDO fica apagado até o "duas" e fecha
+  no **primeiro toque** — a janela "Bater o martelo e fechar este item?" saiu. Lance novo recomeça a
+  escada (volta a valer só o "uma").
+- **Item sem lance**: o botão vira **⏭ Encerrar sem lance** e fica aceso direto — sem lance não há
+  "dou-lhe", e o item não pode ficar preso no pregão. Ele volta para a fila, como antes.
+- **Servidor**: a escada vale na view. `servicos.dou_lhe` recusa o "duas" sem o "uma" (409); a ação
+  `fechar` recusa sem `martelo_liberado` (409). O degrau fica em memória (`_ESCADA`, um worker só),
+  por item, amarrado a `aberto_em` + `valor_atual` — lance novo zera sozinho; abrir e fechar o item
+  esquecem. O `/locutor/dados/` manda o degrau (`martelo`), e a mesa recarregada não perde a escada.
+- O "Abrir outro item com um em disputa?" continua perguntando — não é um dos três botões.
+
+### Arquivos alterados
+`leilao/servicos.py`, `leilao/views.py`, `templates/leilao/locutor.html`,
+`static/leilao/js/locutor.js`, `leilao/tests.py` (`DouLheTests`: a escada no servidor, lance novo
+recomeça, item sem lance encerra, degrau na recarga, sem confirmação), `CLAUDE.md`,
+`docs/REGRAS_CODEX.md`, `docs/MANUAL_LEILAO.md`.
+
+### Decisões tomadas
+- **A proteção contra o toque errado é a escada, não uma pergunta** — e por isso ela vale no
+  servidor: toque duplo, duas telas de mesa ou POST forjado não pulam etapa.
+- **Reiniciar o serviço no meio** apaga a escada (é memória): o pior caso é apertar o "uma" de novo.
+
+---
+
 ## 2026-09-26 - Leilão: linha da gente na mesa — top 5 arremates, quem não deu lance, quem não arrematou
 
 ### Resumo

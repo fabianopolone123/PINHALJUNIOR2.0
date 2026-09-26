@@ -760,6 +760,9 @@ def locutor_dados_view(request):
             "estado": est.estado_publico(leilao),
             "historico": historico,
             "disputa": disputa,
+            # O degrau do martelo do item em pregão (0, 1 ou 2): a mesa
+            # recarregada não perde a escada.
+            "martelo": servicos.martelo_vez(lote),
             # A linha "gente" da mesa: top 5 que mais arremataram, quem está
             # online e ainda não deu lance, quem deu lance e não arrematou.
             "gente": _gente_da_noite(leilao),
@@ -979,6 +982,11 @@ def locutor_acao_view(request):
         lote = lote or leilao.lote_atual
         if not lote:
             return JsonResponse({"ok": False, "msg": "Nenhum lote em pregão."}, status=409)
+        # A escada do martelo vale aqui, na view — não só no botão apagado.
+        if not servicos.martelo_liberado(lote):
+            return JsonResponse(
+                {"ok": False, "msg": "Primeiro o dou-lhe uma e o dou-lhe duas."}, status=409
+            )
         servicos.fechar_lote(lote, motivo="locutor")
         return JsonResponse({"ok": True, "msg": "Vendido!"})
 
