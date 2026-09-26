@@ -73,7 +73,7 @@ window.SomLeilao = (function () {
             mestre.gain.value = 0.5;
             mestre.connect(ctx.destination);
         }
-        if (ctx.state === "suspended") ctx.resume();
+        if (ctx.state !== "running") ctx.resume();   // o iOS usa "interrupted" depois de ligação
         ligado = true;
         if (urls) caminhos = urls;
         // Aqui, e não no primeiro lance: a pessoa acabou de tocar a porta do
@@ -214,7 +214,7 @@ window.SomLeilao = (function () {
 
     function tocar(fn) {
         if (!ligado || !ctx) return;
-        if (ctx.state === "suspended") ctx.resume();
+        if (ctx.state !== "running") ctx.resume();   // o iOS usa "interrupted" depois de ligação
         fn();
     }
 

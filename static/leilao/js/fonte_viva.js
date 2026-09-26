@@ -28,6 +28,10 @@ window.FonteViva = (function () {
 
     var ESPERA_INICIAL = 2000;   // ms
     var ESPERA_MAXIMA = 30000;   // ms
+    // O servidor manda `ping` a cada ~15 s de silêncio. Sem NADA por 45 s,
+    // a conexão morreu calada (o Wi-Fi parou de passar dados sem derrubar o
+    // TCP): reabre. Antes a tela ficava congelada em "AO VIVO" (26/09).
+    var SILENCIO_MAXIMO = 45000; // ms
 
     function abrir(url, opcoes) {
         opcoes = opcoes || {};
@@ -36,6 +40,18 @@ window.FonteViva = (function () {
         var tentativas = 0;
         var relogio = null;
         var fechadoDeProposito = false;
+        var ultimoSinal = Date.now();
+
+        function sinal() { ultimoSinal = Date.now(); }
+
+        setInterval(function () {
+            if (fechadoDeProposito || relogio || !es || es.readyState !== 1) return;
+            if (Date.now() - ultimoSinal > SILENCIO_MAXIMO) {
+                sinal();
+                if (opcoes.aoCair) opcoes.aoCair();
+                conectar();
+            }
+        }, 10000);
 
         function espera() {
             var base = Math.min(ESPERA_MAXIMA, ESPERA_INICIAL * Math.pow(2, tentativas));
@@ -56,8 +72,13 @@ window.FonteViva = (function () {
         function conectar() {
             if (es) { try { es.close(); } catch (e) { /* já fechado */ } }
             es = new EventSource(url);
+            sinal();
             ouvintes.forEach(function (o) { es.addEventListener(o[0], o[1]); });
+            // Qualquer coisa que chega é sinal de vida — o ping e os eventos.
+            es.addEventListener("ping", sinal);
+            es.addEventListener("message", sinal);
             es.addEventListener("open", function () {
+                sinal();
                 tentativas = 0;
                 if (opcoes.aoVoltar) opcoes.aoVoltar();
             });
@@ -73,8 +94,9 @@ window.FonteViva = (function () {
 
         return {
             addEventListener: function (nome, fn) {
-                ouvintes.push([nome, fn]);
-                if (es) es.addEventListener(nome, fn);
+                var comSinal = function (e) { sinal(); return fn(e); };
+                ouvintes.push([nome, comSinal]);
+                if (es) es.addEventListener(nome, comSinal);
             },
             /* Reabre JÁ (a aba voltou para a frente, a rede voltou). */
             reabrir: function () {

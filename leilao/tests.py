@@ -7454,3 +7454,58 @@ class RevisaoGeralLoteATests(TestCase):
                                      "altura_cm": "10", "largura_cm": "10", "profundidade_cm": "10"})
             self.assertFalse(f.is_valid(), inicial)
             self.assertIn("lance_inicial", f.errors)
+
+
+class RevisaoGeralLoteBTests(TestCase):
+    """Lote B da revisão geral de 26/09: a tela do público."""
+
+    @staticmethod
+    def _js(nome):
+        texto = Path(settings.BASE_DIR, "static", "leilao", "js", nome).read_text(encoding="utf-8")
+        limpo = re.sub(r"/\*.*?\*/", " ", texto, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    def test_resposta_de_lance_sem_item_na_tela_e_descartada(self):
+        js = self._js("leilao.js")
+        guarda = js[js.index("function respostaAindaVale"):]
+        guarda = guarda[: guarda.index("function souEu")]
+        self.assertIn("if (!atual) return false;", guarda)
+
+    def test_evento_de_lance_velho_nao_volta_atras(self):
+        js = self._js("leilao.js")
+        lance = js[js.index('fonte.addEventListener("lance"'):]
+        lance = lance[: lance.index("desenharLote(d.lote)")]
+        self.assertIn("parseFloat(d.lote.valor_atual || 0) < parseFloat(lote.valor_atual || 0)", lance)
+
+    def test_a_gaveta_so_abre_no_aparelho_que_arrematou(self):
+        js = self._js("leilao.js")
+        self.assertIn("if (d.vencedor_id === EU)", js)
+        self.assertIn("agora.id === loteDoMartelo", js, "a gaveta não cobre o item seguinte")
+
+    def test_o_som_caido_nao_cobre_o_botao_no_pregao(self):
+        js = self._js("leilao.js")
+        mostrar = js[js.index("function mostrarSomCaiu"):]
+        mostrar = mostrar[: mostrar.index("modalSom.abrir()")]
+        self.assertIn("if (emPregao())", mostrar)
+        self.assertIn('classList.add("caiu")', mostrar)
+        self.assertIn("if (somLigado && somCaiu)", js, "o 🔊 religa em vez de desligar")
+
+    def test_o_servidor_manda_ping_nomeado(self):
+        views_py = Path(settings.BASE_DIR, "leilao", "views.py").read_text(encoding="utf-8")
+        self.assertIn('yield "event: ping\\ndata: {}\\n\\n"', views_py)
+
+    def test_a_fonte_viva_reabre_a_conexao_muda(self):
+        js = self._js("fonte_viva.js")
+        self.assertIn("SILENCIO_MAXIMO", js)
+        self.assertIn('es.addEventListener("ping", sinal)', js)
+        self.assertIn("var comSinal = function (e) { sinal(); return fn(e); };", js)
+
+    def test_telefone_com_ddi_nao_e_cortado_errado(self):
+        js = self._js("entrar.js")
+        self.assertIn('d.slice(0, 2) === "55"', js)
+        self.assertLess(js.index('d.slice(0, 2) === "55"'), js.index("d = d.slice(0, 11)"))
+
+    def test_o_som_volta_no_iphone(self):
+        js = self._js("som.js")
+        self.assertNotIn('ctx.state === "suspended"', js)
+        self.assertEqual(js.count('ctx.state !== "running"'), 2)

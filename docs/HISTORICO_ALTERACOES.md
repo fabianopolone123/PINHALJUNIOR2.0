@@ -22,6 +22,37 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: revisão geral, lote B — a tela do público
+
+### Resumo
+Segundo lote da revisão geral: itens 6, 11, 12, 13, 14 e 19 da lista.
+
+### O que mudou
+6. **Resposta atrasada.** Sem item na tela, a resposta do lance é descartada (ela ressuscitava o
+   item vendido e o botão de lance voltava no intervalo). E evento de lance com valor **menor** que
+   o da tela, no mesmo item, é ignorado — era o lance de outra pessoa, anterior ao meu, chegando
+   depois da minha resposta e mostrando "TE SUPERARAM" com som e vibração.
+11. **Dois aparelhos.** A gaveta só abre no aparelho (registro) que arrematou; no outro, um aviso.
+    E ela não abre mais por cima do item seguinte se a busca voltar depois de ele abrir.
+12. **"O som parou" no pregão.** Com item em pregão a janela não abre (cobria a tela e o toque de
+    quem ia dar lance só a fechava): o 🔊 pisca, um aviso aparece, e tocar no 🔊 religa. A janela
+    espera o intervalo.
+13. **Conexão muda.** O servidor manda `event: ping` (antes um comentário que o JS não via) e a
+    `FonteViva` reabre a conexão depois de 45 s sem nenhum sinal.
+14. **Telefone com +55.** A máscara tira o DDI (e o 0 de operadora) antes de cortar em 11 dígitos.
+19. **iPhone.** O AudioContext é retomado em qualquer estado que não seja `running` — o iOS usa
+    `interrupted` depois de ligação ou bloqueio.
+
+### Arquivos alterados
+`static/leilao/js/leilao.js`, `static/leilao/js/fonte_viva.js`, `static/leilao/js/entrar.js`,
+`static/leilao/js/som.js`, `static/leilao/css/leilao.css`, `leilao/views.py` (ping nomeado),
+`leilao/tests.py` (`RevisaoGeralLoteBTests`, 8 testes).
+
+### Verificação
+Tela do público e mesa carregadas no Chrome headless sobre banco descartável, sem erro de script.
+
+---
+
 ## 2026-09-26 - Leilão: revisão geral, lote A — dinheiro e segurança
 
 ### Resumo

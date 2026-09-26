@@ -236,8 +236,11 @@ async def stream_view(request):
                 try:
                     evento = await asyncio.wait_for(fila.get(), timeout=ping)
                 except (asyncio.TimeoutError, TimeoutError):
-                    # Comentário SSE: mantém a conexão viva sem inventar evento.
-                    yield ": ping\n\n"
+                    # Evento NOMEADO (não mais comentário): o JS consegue ouvi-lo,
+                    # e a `FonteViva` reabre a conexão que ficar muda demais — o
+                    # Wi-Fi que parou de passar dados sem derrubar o TCP deixava
+                    # a tela congelada em "AO VIVO" (revisão de 26/09).
+                    yield "event: ping\ndata: {}\n\n"
                     continue
                 if evento["tipo"] == "resync":
                     yield sse({"seq": evento["seq"], "tipo": "estado", "dados": await montar()})

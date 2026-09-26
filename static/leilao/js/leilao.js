@@ -390,7 +390,10 @@
     function respostaAindaVale(novo) {
         if (!novo) return false;
         var atual = estado && estado.lote;
-        if (!atual) return true;                  // nada na tela para proteger
+        // Sem item na tela, o martelo já bateu (ou o próximo nem abriu): a
+        // resposta do lance é de um item que ACABOU. Aplicá-la ressuscitava o
+        // item vendido e o botão de lance voltava no intervalo (revisão 26/09).
+        if (!atual) return false;
         if (atual.id !== novo.id) return false;   // já é outro item em pregão
         return parseFloat(novo.valor_atual || 0) >= parseFloat(atual.valor_atual || 0);
     }
@@ -737,6 +740,15 @@
             if (!estado || !estado.ativo) return;
 
             var lote = estado.lote;
+            // O stream e a resposta do MEU lance andam em conexões diferentes:
+            // o lance de outra pessoa, anterior ao meu, pode chegar DEPOIS da
+            // resposta. Aplicá-lo mostrava "TE SUPERARAM" (com som e vibração)
+            // para quem acabou de assumir a ponta. Dentro da mesma rodada o
+            // valor só sobe — evento com valor menor é velho (revisão 26/09).
+            if (lote && d.lote && lote.id === d.lote.id &&
+                parseFloat(d.lote.valor_atual || 0) < parseFloat(lote.valor_atual || 0)) {
+                return;
+            }
             var euLiderava = !!(lote && souEu(lote.lider));
             estado.lote = d.lote;
             desenharLote(d.lote);
@@ -792,6 +804,9 @@
             var d = JSON.parse(e.data);
             var euGanhei = d.vendido && souEu({ id: d.vencedor_id, chave: d.vencedor_chave });
             render(d.estado);
+            // O som caiu durante o pregão e a janela esperou: no intervalo ela
+            // pode abrir (não há mais botão de lance a cobrir).
+            if (somCaiu) setTimeout(mostrarSomCaiu, 1500);
             emitir("vendido", { vendido: !!d.vendido, euGanhei: !!euGanhei, valor: d.valor });
 
             if (!d.vendido) {
@@ -805,7 +820,20 @@
                 if (window.SomLeilao) window.SomLeilao.arrematei();
                 if (window.Confete) window.Confete.soltar(3500);
                 vibrar([60, 50, 60, 50, 120]);
-                carregarArremates().then(function () { abrirGaveta(); });
+                // A conta é do REGISTRO que deu o lance: no outro aparelho da
+                // mesma pessoa a gaveta abria dizendo "não arrematou nada".
+                // Ali, só o aviso (revisão 26/09).
+                if (d.vencedor_id === EU) {
+                    var loteDoMartelo = d.lote && d.lote.id;
+                    carregarArremates().then(function () {
+                        // Se o próximo item já abriu enquanto a busca voltava,
+                        // a gaveta não cobre o botão dele.
+                        var agora = estado && estado.ativo ? estado.lote : null;
+                        if (!agora || agora.id === loteDoMartelo) abrirGaveta();
+                    });
+                } else {
+                    toast("O item ficou na conta do seu outro aparelho.", "info");
+                }
             } else {
                 toast("Vendido para " + d.vencedor + " por " + moeda(d.valor) + ".", "info");
                 if (window.SomLeilao) window.SomLeilao.vendido();
@@ -991,9 +1019,21 @@
        dela É o gesto que o navegador está esperando. */
     var modalSom = window.ModalLeilao ? window.ModalLeilao.ligar($("modalSomCaiu")) : null;
     var caladoDesde = 0;
+    var somCaiu = false;
+
+    function emPregao() { return !!(estado && estado.ativo && estado.lote); }
 
     function mostrarSomCaiu() {
         if (!modalSom || !somLigado) return;
+        // COM ITEM EM PREGÃO a janela não abre: ela cobre a tela inteira e o
+        // toque de quem ia dar lance só a fechava (revisão 26/09). No pregão, o
+        // 🔊 pisca e ele mesmo é o gesto que religa; a janela espera o intervalo.
+        if (emPregao()) {
+            var b = $("btnSom");
+            if (b) b.classList.add("caiu");
+            toast("🔇 O som do locutor caiu — toque no 🔊 para voltar.", "info");
+            return;
+        }
         // Quem fechou na mão tem um minuto de paz: insistir num leilão ao vivo
         // é pior do que ficar quieto.
         if (Date.now() - caladoDesde < 60000) return;
@@ -1002,9 +1042,12 @@
 
     if (window.AudioLeilao && window.AudioLeilao.aoMudar) {
         window.AudioLeilao.aoMudar(function (estaOuvindo) {
+            somCaiu = !estaOuvindo;
             if (estaOuvindo) {
                 // Voltou: a janela some sozinha, sem a pessoa precisar fechar.
                 if (modalSom) modalSom.fechar();
+                var b = $("btnSom");
+                if (b) b.classList.remove("caiu");
             } else {
                 mostrarSomCaiu();
             }
@@ -1055,6 +1098,9 @@
 
     $("btnLance").addEventListener("click", darLance);
     $("btnSom").addEventListener("click", function () {
+        // Com o som CAÍDO, o 🔊 religa (este toque é o gesto que o navegador
+        // exige) em vez de desligar de vez.
+        if (somLigado && somCaiu) { $("btnSom").classList.remove("caiu"); ligarSom(); return; }
         if (somLigado) desligarSom(); else ligarSom();
     });
     $("btnArremates").addEventListener("click", function () {
