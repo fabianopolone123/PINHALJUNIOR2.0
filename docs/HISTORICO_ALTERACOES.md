@@ -22,6 +22,28 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: deploy da revisão geral (lotes A–D) e da revisão da voz
+
+### Resumo
+Deploy das correções da revisão geral do leilão (commits `2bdb7ff`, `d5a2890`, `9a36619`,
+`8b7c4b1`) e da revisão da voz (`2cb34b2`).
+
+### Como foi feito
+Conferido antes: nenhum leilão ao vivo, nenhum item em pregão — e de novo antes do restart (o
+deploy pararia sozinho se um item abrisse no meio). `pinhaljunior2-deploy` OK (`66f803a` →
+`2cb34b2`), `migrate` sem nada a aplicar, `collectstatic` e restart do `pinhaljunior_leilao.service`
+(`active`).
+
+### Verificação
+Os `audio_falar.js`, `audio_ouvir.js`, `leilao.js` e `locutor.js` publicados (com hash) já trazem as
+correções e respondem 200 pela internet; o login do admin e o site do clube respondem.
+
+### Pendências
+- Ensaio de áudio com o locutor e 2–3 celulares (um iPhone).
+- Saída por TCP no MediaMTX (`docs/DEPLOY_LEILAO.md` §7.0) — configuração do servidor, não feita.
+
+---
+
 ## 2026-09-26 - Leilão: revisão final da voz — microfone, mudo e escuta, com simulador
 
 ### Resumo
