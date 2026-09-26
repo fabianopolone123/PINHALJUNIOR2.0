@@ -65,7 +65,7 @@ _entradas_recentes = {}  # ip -> [instantes]
 CHAT_INTERVALO_MIN = 1.0       # s entre duas mensagens da mesma pessoa
 CHAT_MAX_POR_JANELA = 8        # mensagens por pessoa…
 CHAT_JANELA = 30.0             # …a cada 30 s
-ENTRADAS_MAX_POR_IP = 20       # cadastros por IP… (Wi-Fi do salão é um IP só)
+ENTRADAS_MAX_POR_IP = 60       # cadastros por IP… (o Wi-Fi do salão é UM IP para todo o público)
 ENTRADAS_JANELA = 600.0        # …a cada 10 min
 
 
@@ -189,17 +189,34 @@ def agendar(funcao, *args):
 # ---------------------------------------------------------------------------
 # Abrir / fechar lote
 # ---------------------------------------------------------------------------
-def abrir_lote(lote, *, segundos=None):
+class AberturaRecusada(Exception):
+    """O "Abrir" não cabe agora — a mensagem é para quem está na mesa."""
+
+
+def abrir_lote(lote, *, segundos=None, visto=None, forcar=True):
     """Põe o lote em pregão.
 
     Não há cronômetro: quem bate o martelo é o locutor, como num leilão de
     verdade. O `segundos` sobrou da assinatura antiga e é ignorado.
+
+    `visto` (o id do item que a mesa via em pregão, 0 = nenhum) e `forcar` são
+    conferidos DENTRO da transação: um lance que entra no instante do clique
+    não some com o item voltando zerado para a fila, e o toque duplo não troca
+    o item que acabou de abrir (revisão de 26/09). Recusa com
+    `AberturaRecusada`. Sem `visto`, abre como sempre abriu.
     """
     _esquecer_martelo(lote)
     leilao = lote.leilao
     agora = timezone.now()
 
     with transaction.atomic():
+        outro = Lote.objects.filter(leilao=leilao, status="aberto").exclude(pk=lote.pk).first()
+        if visto is not None:
+            atual = Lote.objects.filter(leilao=leilao, status="aberto").first()
+            if (atual.pk if atual else 0) != visto:
+                raise AberturaRecusada("O pregão mudou agora — confira a tela.")
+        if outro and outro.lider_id and not forcar:
+            raise AberturaRecusada(f"“{outro.nome}” está em disputa. Use o VENDIDO.")
         # Guarda: só um lote em pregão por vez. Se sobrou outro aberto (queda de
         # serviço no meio do pregão, ou o locutor abriu o próximo sem fechar),
         # ele volta para a fila em vez de existirem dois cronômetros rodando.
@@ -256,7 +273,10 @@ def fechar_lote(lote, *, motivo="cronometro", escada=False, visto=None):
     agora = timezone.now()
     arremate = None
 
-    with transaction.atomic():
+    # O MESMO cadeado do lance: a ordem lance×martelo já é garantida pela
+    # transação IMMEDIATE (há teste em threads, nas duas ordens), e o cadeado
+    # deixa as duas coisas na mesma fila também dentro do processo.
+    with _lock_do_lote(lote.pk), transaction.atomic():
         lote.refresh_from_db()
         if lote.status != "aberto":
             return None  # já fechado por outro caminho (locutor + cronômetro juntos)
@@ -920,12 +940,13 @@ def conferir_pagamento(arremate):
             continue
         if pagamento.cobre and not (set(pagamento.cobre) & ids_abertos):
             continue
-        if pagamento.status == "aprovado":
-            _aplicar_retorno(pagamento, {"status": "aprovado"})
-        else:
-            r = mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)
-            if r.get("ok"):
-                _aplicar_retorno(pagamento, r)
+        # SEMPRE pergunta ao MP (com o valor). Havia um atalho para cobrança já
+        # "aprovado" e não finalizada — que é justamente a que o
+        # `_aplicar_retorno` deixa assim quando o valor pago é MENOR: o atalho a
+        # quitava 5 s depois, sem valor nenhum na mão (revisão de 26/09).
+        r = mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)
+        if r.get("ok"):
+            _aplicar_retorno(pagamento, r)
         arremate.refresh_from_db(fields=["status"])
         if arremate.status == "pago":
             return True

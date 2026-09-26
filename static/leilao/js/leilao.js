@@ -124,6 +124,12 @@
             signal: controle ? controle.signal : undefined
         }).then(function (r) {
             if (relogio) clearTimeout(relogio);
+            // A sessão acabou (cookie apagado, navegador em modo privado): o
+            // stream fica em 403 para sempre e a tela, morta. Leva para a porta.
+            if (r.status === 401 && URLS.entrar) {
+                toast("Sua entrada no leilão expirou. Entre de novo.", "error");
+                setTimeout(function () { window.location.href = URLS.entrar; }, 1500);
+            }
             return r.json().catch(function () { return {}; });
         }, function (erro) {
             if (relogio) clearTimeout(relogio);
@@ -516,7 +522,8 @@
         if (!itens.length) {
             var p = document.createElement("p");
             p.className = "gaveta-vazio";
-            p.textContent = "Você ainda não arrematou nada. Boa sorte!";
+            p.textContent = "Você ainda não arrematou nada neste aparelho. Boa sorte! " +
+                "(Arrematou por outro celular ou navegador? A conta fica lá — ou fale com o caixa.)";
             corpo.appendChild(p);
             return;
         }
@@ -579,6 +586,11 @@
         acoes.appendChild(bQr);
 
         corpo.appendChild(acoes);
+        // O código vem AGORA, antes do toque: o iPhone (e o navegador de dentro
+        // do WhatsApp) só deixa copiar DENTRO do toque — buscar pela rede depois
+        // dele fazia a cópia falhar calada (revisão de 26/09).
+        buscarPix().then(function (d) { if (d && d.ok && d.copia_e_cola) codigoPix = d.copia_e_cola; })
+            .catch(function () { /* o toque tenta de novo */ });
     }
 
     function cartaoArremate(a) {
@@ -629,37 +641,51 @@
     }
 
     function copiarPix() {
-        buscarPix().then(function (d) {
-            if (!d.ok) {
-                toast(d.msg || "O Pix ainda está sendo gerado. Tente em instantes.", "info");
-                return;
-            }
-            copiarTexto(d.copia_e_cola);
-        }).catch(function () { toast("Não consegui buscar o código agora.", "error"); });
+        // Com o código em mãos, copia DENTRO do toque. Sem ele, abre o QR: lá
+        // o código aparece com o próprio botão de copiar (o próximo toque já
+        // tem o código) — copiar depois de ir à rede o iPhone recusa.
+        if (codigoPix) { copiarTexto(codigoPix); return; }
+        abrirQr();
     }
 
     function copiarTexto(texto) {
         if (!texto) { toast("Código indisponível.", "error"); return; }
         function ok() { toast("Código Pix copiado!", "success"); }
+        // A reserva roda JÁ, dentro do toque (o `writeText` pode ser recusado
+        // depois, fora dele). Se ela copiou, ótimo; o `writeText` só reforça.
+        if (reserva(texto)) { ok(); return; }
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(texto).then(ok).catch(function () { reserva(texto, ok); });
+            navigator.clipboard.writeText(texto).then(ok).catch(naoCopiou);
         } else {
-            reserva(texto, ok);
+            naoCopiou();
         }
+    }
+
+    function naoCopiou() {
+        // Nunca dizer "copiado" sem ter copiado: a pessoa colaria nada no banco.
+        toast("Não deu para copiar aqui. Toque e segure no código do QR para copiar.", "error");
+        if (!arremateAberto) abrirQr();
     }
 
     /* Cópia de reserva: precisa de um campo REAL na página (não `hidden`) para
        o `select()` funcionar — mesmo truque do código Pix do sistema do clube. */
-    function reserva(texto, ok) {
+    function reserva(texto) {
         var ta = document.createElement("textarea");
         ta.value = texto;
+        ta.setAttribute("readonly", "");          // não abre o teclado no celular
         ta.style.position = "fixed";
-        ta.style.left = "-9999px";
+        ta.style.top = "0";
+        ta.style.left = "0";
+        ta.style.opacity = "0";
         document.body.appendChild(ta);
         ta.select();
-        try { document.execCommand("copy"); ok(); }
-        catch (e) { toast("Não consegui copiar. Use o QR Code.", "error"); }
+        try { ta.setSelectionRange(0, texto.length); } catch (e) { /* navegador antigo */ }
+        var copiou = false;
+        // `execCommand` devolve false quando NÃO copia (não dá erro): era
+        // tratado como sucesso e a tela dizia "copiado" à toa.
+        try { copiou = document.execCommand("copy"); } catch (e) { copiou = false; }
         ta.remove();
+        return !!copiou;
     }
 
     function abrirQr() {
@@ -790,8 +816,13 @@
             // outra pessoa — e nome/foto editados na fila não eram redesenhados.
             loteId = null;
             // A gaveta aberta sozinha no arremate anterior não pode cobrir o
-            // botão de lance do item que acabou de abrir.
+            // botão de lance do item que acabou de abrir — nem a janela do som
+            // (com item em pregão o aviso é o 🔊 piscando).
             if (gavetaAberta) fecharGaveta();
+            if (modalSom && !$("modalSomCaiu").hidden) {
+                modalSom.fechar();
+                if (somCaiu) $("btnSom").classList.add("caiu");
+            }
             render(JSON.parse(e.data));
             toast("Novo item! 🔔", "info");
             if (window.SomLeilao) window.SomLeilao.lance();
@@ -875,6 +906,7 @@
             var d = JSON.parse(e.data || "{}");
             vozNoAr = !!d.no_ar;
             if (!d.no_ar) {
+                if (motivoCaiu !== "recusado") somCaiu = false;
                 // O locutor PAROU de propósito: a janela/o 🔊 piscando de "som
                 // caiu" não fazem sentido (não é o aparelho). A escuta segue
                 // tentando em silêncio e volta sozinha quando ele voltar.
@@ -1026,6 +1058,7 @@
 
     function desligarSom() {
         somLigado = false;
+        somCaiu = false;
         if (window.SomLeilao) window.SomLeilao.desativar();
         if (window.AudioLeilao) window.AudioLeilao.desligar();
         $("btnSom").textContent = "🔇";
@@ -1043,11 +1076,16 @@
     var modalSom = window.ModalLeilao ? window.ModalLeilao.ligar($("modalSomCaiu")) : null;
     var caladoDesde = 0;
     var somCaiu = false;
+    var motivoCaiu = "";
 
     function emPregao() { return !!(estado && estado.ativo && estado.lote); }
 
     function mostrarSomCaiu() {
-        if (!modalSom || !somLigado) return;
+        if (!modalSom || !somLigado || !somCaiu) return;
+        // Silêncio com o locutor FORA do ar de propósito não é problema do
+        // aparelho — vale aqui também (o martelo chama isto de novo), não só
+        // no aviso da escuta (revisão de 26/09).
+        if (motivoCaiu === "silencio" && vozNoAr === false) return;
         // COM ITEM EM PREGÃO a janela não abre: ela cobre a tela inteira e o
         // toque de quem ia dar lance só a fechava (revisão 26/09). No pregão, o
         // 🔊 pisca e ele mesmo é o gesto que religa; a janela espera o intervalo.
@@ -1065,10 +1103,12 @@
 
     if (window.AudioLeilao && window.AudioLeilao.aoMudar) {
         window.AudioLeilao.aoMudar(function (estaOuvindo, motivo) {
+            // Silêncio com o locutor FORA do ar é esperado — não pede toque e
+            // não conta como "som caído" (senão o 🔊 passava a religar em vez de
+            // desligar). A recusa do navegador ("recusado") pede sempre.
+            if (!estaOuvindo && motivo === "silencio" && vozNoAr === false) { somCaiu = false; return; }
             somCaiu = !estaOuvindo;
-            // Silêncio com o locutor FORA do ar é esperado — não pede toque.
-            // A recusa do navegador ("recusado") pede sempre: só o toque resolve.
-            if (!estaOuvindo && motivo === "silencio" && vozNoAr === false) return;
+            motivoCaiu = estaOuvindo ? "" : (motivo || "");
             if (estaOuvindo) {
                 // Voltou: a janela some sozinha, sem a pessoa precisar fechar.
                 if (modalSom) modalSom.fechar();
@@ -1167,7 +1207,13 @@
         if (!texto) return;
         campo.value = "";
         post(URLS.chat, { texto: texto }).then(function (d) {
-            if (!d.ok) toast(d.msg || "Não deu para enviar.", "error");
+            if (!d.ok) {
+                toast(d.msg || "Não deu para enviar.", "error");
+                // Recusada (freio, rede): o texto volta, para não redigitar.
+                if (!campo.value) campo.value = texto;
+            }
+        }).catch(function () {
+            if (!campo.value) campo.value = texto;
         });
     });
 

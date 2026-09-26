@@ -160,6 +160,26 @@ class Hub:
         """Quantas conexões abertas são desta pessoa (ver `stream_view`)."""
         return sum(1 for v in list(self._assinantes.values()) if dono is not None and v[2] == dono)
 
+    def expulsar_mais_antiga(self, dono):
+        """Encerra a conexão mais ANTIGA desta pessoa (para a nova caber).
+
+        Celular que troca de Wi-Fi para 4G deixa a conexão velha pendurada
+        (meio aberta) por minutos; somadas algumas trocas, a pessoa batia no
+        teto e a tela nova recebia "Muitas telas abertas" — congelada, com a
+        velha já morta do outro lado (revisão de 26/09). A mais antiga é quase
+        sempre a morta; se não for, a aba dela reconecta sozinha.
+        """
+        for fila, (publico, _nome, d) in list(self._assinantes.items()):
+            if d == dono:
+                _esvaziar(fila)
+                try:
+                    fila.put_nowait({"seq": 0, "tipo": "__fim", "dados": {}})
+                except asyncio.QueueFull:   # pragma: no cover — acabou de esvaziar
+                    pass
+                self._assinantes.pop(fila, None)
+                return True
+        return False
+
     def cancelar(self, fila):
         self._assinantes.pop(fila, None)
 

@@ -1421,6 +1421,65 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   `--disable-features=WebRtcHideLocalIpsWithMdns`) comandados por CDP a partir do Node. É o que
   prova o comportamento que os testes Python só guardam na estrutura.
 
+### A revisão geral de 26/09: as regras que ficaram
+
+Quatro revisões em paralelo (servidor/dinheiro, segurança, tela do público, telas da equipe), uma
+revisão só da voz com simulador, uma última revisão das mudanças do dia e uma revisão de **aparelhos
+e jeitos de usar**. O que cada uma mudou está no HISTORICO; aqui fica o que não pode voltar atrás.
+
+**Dinheiro**
+- **Toda baixa confere o VALOR pago** (`_aplicar_retorno`), e a conferência da tela da pessoa
+  (`conferir_pagamento`) **sempre pergunta ao MP** — nada de atalho que quite "aprovado" sem valor.
+- **Baixa manual com a FK ainda no Pix** é dinheiro em dobro se o Pix for pago depois: vai para o
+  alerta, não para o "webhook repetido".
+- **A referência é chave de idempotência no MP**: se a cobrança volta com valor antigo
+  (`_valor_confere`), pede outra com referência nova.
+- **Estorno de item devolvido** vira `cancelado`; **"Voltar ao leilão" só no arremate vigente**.
+- **Lance inicial ≥ R$ 1** no cadastro; item antigo com inicial ≤ 0 tem o 1º lance = incremento.
+
+**O pregão**
+- **O que a mesa via é conferido DENTRO da transação**: VENDIDO (`fechar_lote(escada=True,
+  visto=…)`) e Abrir (`abrir_lote(visto=…, forcar=…)`). Conferir fora dela deixava um lance que
+  entrasse no instante do clique vender sem dou-lhe ou sumir com o item voltando zerado. O VENDIDO
+  usa o **mesmo cadeado do lance** (`_lock_do_lote`). Há testes em **threads, nas duas ordens**
+  (`CorridaNaMesaTests`) — teste de corrida que não força as duas ordens não prova nada (o primeiro
+  rodou 40 vezes e o lance ganhou as 40).
+- **Resposta atrasada nunca volta a tela atrás**: sem item na tela a resposta do lance é descartada;
+  evento de lance com valor menor que o da tela é velho; na mesa, resposta que saiu antes de um evento
+  do pregão não aplica o **estado** (mas aplica disputa/gente/histórico).
+- **Clique duplo manda o estado desejado**, não "inverta" (bloquear); botões de ação travam no voo.
+
+**Segurança e privacidade**
+- `/admin/` do leilão: **login só de superusuário, com o freio da equipe** (`_LoginDoAdmin`).
+- **Avisos de pagamento vão com `para` = `Participante.chave_avisos`** (HMAC próprio), nunca id,
+  situação ou nome do item — cruzados com o `quem_id` dos lances, diziam a todos quem pagou.
+- **A mesa não mostra endereço nem telefone inteiro**, e lista só quem está no leilão.
+- **Freio** no chat (1 s, 8 por 30 s) e na porta (60 cadastros por IP em 10 min — o Wi-Fi do salão é
+  um IP só). **Entrada da internet nunca vira 500**: `_json` só aceita objeto, ids convertidos antes
+  de uso, NaN/Infinity viram "sem valor". **"Sair" só por POST.**
+
+**Conexões ao vivo**
+- **Teto de 4 conexões por pessoa, e a NOVA derruba a mais antiga** (`HUB.expulsar_mais_antiga`) —
+  recusar a nova congelava quem trocou de Wi-Fi para 4G. A derrubada recebe `event: substituida` e
+  **não reconecta sozinha** (senão as abas se derrubam em pingue-pongue); volta quando a pessoa olha
+  a aba ou toca nela. 4 e não 6: **o servidor está em HTTP/1.1** (6 conexões por site no navegador),
+  e cada aba presa no stream é uma — com 6, o POST do lance ia para a fila. Ligar HTTP/2 no Nginx
+  resolve de vez (`DEPLOY_LEILAO.md` §7.0).
+- **Conexão muda é reaberta**: `event: ping` (não comentário) + vigia de 45 s na `FonteViva`, e
+  reabertura na volta da aba (20 s sem sinal) e no `online`.
+- **Lance com tempo máximo de 8 s** (`post(…, 8000)`); **sessão perdida (401) leva para a porta**.
+
+**Aparelhos**
+- **iPhone**: sem zoom de dois toques (`touch-action: manipulation`; pinça liberada; nunca
+  `user-scalable=no`); campos com 16 px em tela de toque; **copiar só DENTRO do toque** (o código do
+  Pix vem antes; `execCommand` conferido — nunca dizer "copiado" sem ter copiado); o som de efeito é
+  retomado em qualquer toque (`AudioContext` "interrupted"); a tela acesa do iPhone antigo volta a
+  tocar o vídeo do plano B na volta da aba; o microfone "mutado" pelo iOS é queda.
+- **Navegador sem `dvh`** (WebView antigo): `@supports not (height: 1dvh)` devolve a foto em `vh`.
+- **Efeito não tira o botão do dedo**: o tremor do dou-lhe é só na foto (`#loteFoto`).
+- **Os avisos (toasts) da tela do público não pegam toque e mostram no máximo dois.**
+- **O caixa não recarrega debaixo do dedo** (6 s sem gesto) e a baixa diz **quem e o quê**.
+
 ### A voz ao vivo: o que a revisão final de 26/09 fixou
 
 - **"No ar" só com a conexão de pé.** O `setRemoteDescription` volta antes do ICE/DTLS: o

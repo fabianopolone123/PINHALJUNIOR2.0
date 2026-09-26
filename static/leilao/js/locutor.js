@@ -549,6 +549,7 @@
     // lance novo). Ela é descartada — o evento já agendou outra busca
     // (revisão de 26/09).
     var eventosDoPregao = 0;
+    var recargaGente = null;
 
     /* O histórico completo vem por `fetch`, e numa disputa quente chega um lance
        por segundo. Sem o agrupamento abaixo, a mesa dispararia uma consulta por
@@ -562,11 +563,17 @@
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (!d.ok) return;
-                    if (eventosDoPregao !== eventosNaSaida) return;   // velha: outra já vem
+                    // Velha (um evento do pregão chegou durante o voo): o ESTADO
+                    // dela não entra — voltaria valor e líder atrás. O resto
+                    // (disputa, gente, histórico, fila, chat) entra: descartar
+                    // tudo congelava esses cards justo no pico da disputa.
+                    var velha = eventosDoPregao !== eventosNaSaida;
                     // O número ANTES do render: é ele que a etiqueta do item em
                     // pregão desenha, e pintar duas vezes só pisca na tela.
-                    numeroAtual = d.numero_atual;
-                    render(d.estado);
+                    if (!velha) {
+                        numeroAtual = d.numero_atual;
+                        render(d.estado);
+                    }
                     desenharHistorico(d.historico);
                     desenharDisputa(d.disputa);
                     // A escada do martelo vem do servidor: mesa recarregada não a
@@ -575,7 +582,7 @@
                     // no mesmo valor, ela nunca rebaixa o degrau (o servidor
                     // também nunca rebaixa). Valor diferente é outra escada.
                     var emPregaoAgora = d.estado && d.estado.ativo ? d.estado.lote : null;
-                    if (emPregaoAgora && typeof d.martelo === "number") {
+                    if (!velha && emPregaoAgora && typeof d.martelo === "number") {
                         var valorAgora = String(emPregaoAgora.valor_atual);
                         var mesmaEscada = martelo.lote === emPregaoAgora.id && martelo.valor === valorAgora;
                         martelo = {
@@ -650,10 +657,12 @@
         var d = JSON.parse(e.data);
         if (estado) estado.online = d.online;
         if ($("online")) $("online").textContent = d.online;
-        // Entrou ou saiu alguém: o card "Online agora" busca os nomes de novo.
-        // O `recarregarDados` já junta rajadas (700 ms), então uma sala
-        // chegando de uma vez vira poucos pedidos, e só desta tela.
-        recarregarDados();
+        // Entrou ou saiu alguém: as listas de gente buscam de novo — mas com
+        // calma (5 s). 100 celulares bloqueando e desbloqueando a noite toda
+        // viravam uma busca completa por segundo no worker do lance (26/09).
+        if (!recargaGente) {
+            recargaGente = setTimeout(function () { recargaGente = null; recarregarDados(); }, 5000);
+        }
     });
     fonte.addEventListener("pagamento", function () {
         toast("Pagamento confirmado.", "success");
@@ -849,6 +858,13 @@
         }
         acao(corpo).then(function (d) {
             if (travar) alvo.disabled = false;
+            // O "dou-lhe" aceito sobe o degrau JÁ, pela própria resposta — sem
+            // esperar o aviso do stream (que pode estar reconectando).
+            if (qual === "dou_lhe" && d && d.ok && emPregao) {
+                var valorVisto = String(emPregao.valor_atual);
+                var mesma = martelo.lote === emPregao.id && martelo.valor === valorVisto;
+                martelo = { lote: emPregao.id, valor: valorVisto, vez: Math.max(mesma ? martelo.vez : 0, d.vez || 0) };
+            }
             // Destravar não pode reacender um botão que a escada mantém apagado.
             pintarMartelo();
             if (qual === "dou_lhe") return;
@@ -992,6 +1008,10 @@
             // A conexão antiga voltou sozinha (soluço de rede): reaproveita, em
             // vez de republicar e derrubar a sala inteira.
             if (window.AudioFalar.reaproveitar && window.AudioFalar.reaproveitar()) {
+                clearTimeout(relogioEstavel);
+                relogioEstavel = setTimeout(function () {
+                    if (querNoAr && window.AudioFalar.ativo()) quedasSeguidas = 0;
+                }, 30000);
                 mostrarNoAr();
                 toast("A transmissão voltou.", "success");
                 acao({ acao: "voz", no_ar: true });

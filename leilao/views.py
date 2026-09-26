@@ -226,8 +226,15 @@ async def stream_view(request):
             return HttpResponse("Leilão lotado. Tente novamente em instantes.", status=503)
         # A mesma pessoa em algumas abas é normal (celular, computador, aba
         # que ficou para trás); em dezenas é script.
-        if HUB.do_dono(participante.pk) >= getattr(settings, "LEILAO_MAX_CONEXOES_POR_PESSOA", 6):
-            return HttpResponse("Muitas telas abertas. Feche as outras abas do leilão.", status=429)
+        # Passou do teto: a conexão NOVA entra e a mais antiga da pessoa sai
+        # (quase sempre a que ficou pendurada numa troca de rede). Recusar a
+        # nova congelava a tela de quem está olhando (revisão de 26/09).
+        # 4 e não 6: sem HTTP/2 o navegador abre só 6 conexões por site, e cada
+        # aba presa no stream é uma — com 6 abas, o POST do lance ficava na fila.
+        teto_pessoa = getattr(settings, "LEILAO_MAX_CONEXOES_POR_PESSOA", 4)
+        while HUB.do_dono(participante.pk) >= teto_pessoa:
+            if not HUB.expulsar_mais_antiga(participante.pk):
+                break
 
     ping = getattr(settings, "LEILAO_PING_SEGUNDOS", 15)
     montar = sync_to_async(
@@ -254,6 +261,11 @@ async def stream_view(request):
                     # a tela congelada em "AO VIVO" (revisão de 26/09).
                     yield "event: ping\ndata: {}\n\n"
                     continue
+                if evento["tipo"] == "__fim":
+                    # Saiu para outra aba da mesma pessoa caber. Avisa o
+                    # navegador para NÃO reconectar sozinho (ver `fonte_viva.js`).
+                    yield "event: substituida\ndata: {}\n\n"
+                    break
                 if evento["tipo"] == "resync":
                     yield sse({"seq": evento["seq"], "tipo": "estado", "dados": await montar()})
                 else:
@@ -1020,19 +1032,20 @@ def locutor_acao_view(request):
         # outra aba — recusa, em vez de devolver à fila, sem aviso, o item que
         # acabou de abrir. E item EM DISPUTA só é trocado com `forcar` (a
         # pergunta da mesa): a proteção é do servidor, não só do `confirm`.
+        # A conferência (item visto, disputa sem `forcar`) é feita DENTRO da
+        # transação do `abrir_lote`: conferir aqui fora deixava um lance que
+        # entrasse no instante do clique sumir com o item voltando zerado.
+        visto, forcar = None, True
         if "atual" in dados:
-            aberto = leilao.lote_atual
             try:
                 visto = int(dados.get("atual") or 0)
             except (TypeError, ValueError):
                 visto = -1
-            if (aberto.pk if aberto else 0) != visto:
-                return JsonResponse({"ok": False, "msg": "O pregão mudou agora — confira a tela."}, status=409)
-            if aberto and aberto.tem_lance and not dados.get("forcar"):
-                return JsonResponse(
-                    {"ok": False, "msg": f"“{aberto.nome}” está em disputa. Use o VENDIDO."}, status=409
-                )
-        servicos.abrir_lote(lote)
+            forcar = bool(dados.get("forcar"))
+        try:
+            servicos.abrir_lote(lote, visto=visto, forcar=forcar)
+        except servicos.AberturaRecusada as erro:
+            return JsonResponse({"ok": False, "msg": str(erro)}, status=409)
         return JsonResponse({"ok": True, "msg": f"{lote.nome} em pregão!"})
 
     if acao == "fechar":

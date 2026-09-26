@@ -56,6 +56,13 @@ window.TelaAcesa = (function () {
        Dois pixels pretos bastam — o que segura a tela é o fato de haver um
        <video> tocando, não o que ele mostra. */
     function planoB() {
+        // O iOS PAUSA o vídeo quando a aba sai da frente; na volta ele existia,
+        // pausado, e nada o tocava de novo — a tela voltava a apagar em 30 s
+        // (iPhones sem Wake Lock, iOS < 16.4). Revisão de 26/09.
+        if (video && querendo) {
+            if (video.paused) { var r = video.play(); if (r && r.catch) r.catch(function () {}); }
+            return;
+        }
         if (video || !querendo) return;
         var tela = document.createElement("canvas");
         tela.width = tela.height = 2;

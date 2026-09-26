@@ -196,41 +196,74 @@ Tela: **🎤 Locutor**.
 
 ### O que você vê
 
-Duas linhas de cards. **Em cima**, o que você acompanha o tempo todo:
+Três linhas de cards, organizadas pelo que você usa e quando.
 
-- **O item atual** com foto, valor, quem está ganhando e o próximo valor, mais o
-  contador "sem lance há…" (ver abaixo)
-- **Lances deste item**, ao vivo
+**Em cima**, o que você acompanha o tempo todo:
+
+- **O item atual**: foto, valor, quem está ganhando, o próximo valor, o contador
+  "sem lance há…" (ver abaixo) e os botões do martelo
+- **Lances deste item**: **todo mundo que deu lance** neste item, uma linha por
+  pessoa. Os **4 que mais deram lance** ficam em cima, com medalha 🥇🥈🥉4º, quantos
+  lances cada um deu e até quanto foi; quem está ganhando tem 👑. Os lances um a um
+  continuam lá embaixo, em "Últimos lances, um a um"
 - **💬 Chat ao vivo**, com o campo para você falar com todos
-- **🟢 Online agora**: os nomes de quem está no leilão (numa tela menor, esta
-  lista aparece numa faixa logo abaixo)
+- **🟢 Online agora**: os nomes de quem está no leilão (numa tela menor, esta lista
+  aparece numa faixa logo abaixo)
+
+**No meio**, as pessoas — para você chamar pelo nome enquanto conduz:
+
+- **🏆 Top 5 arremates**: quem mais comprou na noite, com o total (para agradecer)
+- **🙋 Ainda sem lance**: quem está **online agora** e ainda não deu nenhum lance
+  (para convidar: "Fulano, está aí? Ainda dá tempo!")
+- **🎯 Deram lance, sem arrematar**: quem já tentou e ainda não levou nada, com 🟢
+  para quem está online (para dar aquele empurrão)
 
 **Embaixo**, o que se usa uma vez na noite: **Fila** dos próximos, **🎙️ Sua voz**
 (o microfone, com o **🔇 Mudo** sempre ao lado do Transmitir) e **💳 Pagamentos**
 (liberar o pagamento).
+
+**A cada lance a mesa se mexe** para você sentir o pregão sem ler a tela: a borda
+do card pisca em dourado, o valor dá um pulo, sobe um "+R$ 5,00" e saem moedas.
+Com lances rápidos aparece o selo **"🔥 N lances em 20 s"** e a festa aumenta. A
+mesa **não toca som** de propósito: com o microfone aberto, o som voltaria para a
+sala pela transmissão.
 
 ### O martelo: dou-lhe uma, dou-lhe duas, VENDIDO
 
 No card do item há três botões lado a lado, na ordem em que se aperta:
 **🔨 Dou-lhe uma**, **🔨🔨 Dou-lhe duas** e **🔨 VENDIDO**. Eles funcionam em
 **escada**: o "duas" só acende depois do "uma", e o VENDIDO só depois do "duas".
-Nada é automático — você decide o tempo de cada um. Os dois primeiros
-**anunciam para a sala** (a tela de todo mundo mostra o aviso) e não fecham nada;
-quem fecha é o VENDIDO, no primeiro toque, sem janela de confirmação. Um lance
-novo recomeça a escada. Item **sem nenhum lance**: o botão vira **⏭ Encerrar sem
-lance** e fica aceso direto. O **▶ Abrir próximo** fica embaixo.
+
+- **Nada é automático.** Você decide o tempo de cada um, e o item continua aberto
+  recebendo lance enquanto você não bate o VENDIDO.
+- Os dois primeiros **anunciam para a sala**: a tela de todo mundo mostra o
+  carimbo "DOU-LHE UMA!" — e, no "duas", tudo mais forte (bordas vermelhas
+  pulsando, o botão de lance pulsando, duas batidas de martelo). É o momento em
+  que quem estava em dúvida corre para dar lance.
+- **Um lance novo recomeça a escada** (volta a valer só o "uma"). O card do item
+  mostra em que tempo você está: borda âmbar depois do "uma", vermelha pulsando
+  depois do "duas".
+- **O VENDIDO fecha no primeiro toque**, sem janela de confirmação.
+- **Item sem nenhum lance**: o botão vira **⏭ Encerrar sem lance** e fica aceso
+  direto (o item volta para a fila).
 
 ### Os botões
 
 | Botão | Quando usar |
 |---|---|
 | **▶ Abrir próximo** | Começa o próximo item da fila |
+| **🔨 Dou-lhe uma / duas** | Anuncia para a sala, em escada |
 | **🔨 VENDIDO** | Bate o martelo: o item é de quem está na frente |
 
 > **"Abrir próximo" (ou o ▶ da fila) com uma disputa acontecendo joga o item
 > atual de volta para a fila e a disputa se perde.** O sistema avisa e pede
-> confirmação. Para vender, use **VENDIDO** — que também pede confirmação antes
-> de bater o martelo. Item já vendido não reabre: o sistema recusa.
+> confirmação — e só troca o item com essa confirmação. Um **toque duplo** em
+> "Abrir próximo" não pula dois itens: o segundo toque é recusado. Item já
+> vendido não reabre.
+
+> **"Entrou lance novo agora — confira antes de bater o martelo."** Se alguém der
+> lance no exato segundo em que você aperta VENDIDO, o sistema **não vende**: o
+> valor mudou e a escada recomeça. Olhe o valor novo e siga (dou-lhe uma…).
 
 > **Não existe "pausar".** Para segurar o pregão — falar com alguém, resolver um
 > problema, dar um respiro —, é só **não abrir o próximo item**. Nada fecha
@@ -248,7 +281,8 @@ dou-lhe duas" é seu, e o item só é vendido quando você aperta **VENDIDO**.
 
 Botão **🎤 Transmitir**. O navegador vai pedir permissão do microfone — aceite.
 A barrinha mostra que está saindo som: **se ela não mexe quando você fala, ninguém
-está te ouvindo**.
+está te ouvindo**. A mesa só diz **"🔴 No ar"** quando a voz está saindo de
+verdade — antes disso ela diz que está conectando.
 
 **Para pausar, use 🔇 Mudo — não "Parar transmissão".** O mudo silencia o
 microfone e **mantém a transmissão de pé**: ao apertar **🎙️ Voltar a falar**, o
@@ -257,14 +291,29 @@ ouvintes; ao voltar a transmitir, o sistema avisa os celulares e eles reconectam
 em cerca de 1 a 4 segundos. O botão do mudo fica **âmbar piscando** enquanto
 estiver ligado — é o estado que não dá para esquecer.
 
-**Se a SUA transmissão cair** (celular bloqueou, Wi-Fi oscilou), a mesa avisa
-"⚠️ A transmissão caiu — religando sozinha…" e religa sem você fazer nada.
-Quando voltar, continue falando.
+Três coisas sobre o mudo:
+
+- Ele fica **sempre à vista** e **nunca liga nem desliga** a transmissão.
+- Dá para **armar antes de transmitir**: a voz entra no ar já muda, e você solta
+  quando estiver pronto.
+- **"Parar" não solta o mudo**, e **recarregar a mesa também não** (na mesma aba).
+  Se voltar a transmitir e ninguém te ouvir, confira se o botão está âmbar.
+
+**Se a SUA transmissão cair** (celular bloqueou, Wi-Fi oscilou, o microfone
+Bluetooth desconectou ou ficou sem bateria), a mesa avisa "⚠️ A transmissão caiu —
+religando sozinha…" e religa sem você fazer nada. Quando voltar, continue falando.
+Se foi só um soluço de rede de poucos segundos, ela reaproveita a mesma conexão e
+os ouvintes nem percebem.
+
+**Quando você aperta Parar de propósito**, a tela de quem assiste **não** mostra
+"o som caiu": ela sabe que você parou, espera em silêncio e volta sozinha quando
+você voltar a transmitir.
 
 Quem entra no leilão toca **"Entrar com som"** logo na primeira tela — é o toque
-que o navegador exige para liberar o áudio. Se o som cair no meio (celular
-bloqueado, você parou e voltou a transmitir), a tela dele tenta religar sozinha
-e, se precisar, mostra **"🔊 Voltar a ouvir"**.
+que o navegador exige para liberar o áudio. Se o som cair por um problema no
+aparelho dele (ou o navegador não deixar tocar, como às vezes no iPhone), a tela
+pede um toque: **com item em pregão o 🔊 pisca** (tocar nele religa), e no
+intervalo aparece a janela **"🔊 Voltar a ouvir"**.
 
 ### O som da sala
 
@@ -280,7 +329,15 @@ todos…"** você manda **avisos**, que aparecem destacados na tela de todo mund
 ### Se alguém abusar
 
 Aba **👥 Pessoas** → **Bloquear**. A pessoa para de dar lance na hora, e **entrar
-de novo não resolve para ela** — o bloqueio segue a pessoa.
+de novo não resolve para ela** — o bloqueio segue a pessoa. Um clique duplo não
+desfaz o bloqueio.
+
+A aba mostra **só quem está neste leilão** (deu lance, arrematou ou está online),
+com o **final do WhatsApp** para diferenciar nomes iguais. Endereço e telefone
+completos ficam no **Caixa** — a tela da mesa costuma ficar à vista no evento.
+
+O chat também tem freio: quem manda mensagem demais seguida recebe "Calma — espere
+um pouquinho".
 
 ---
 
@@ -298,10 +355,12 @@ No fim, o **locutor aperta 💳 Liberar pagamentos** e aí sim aparecem, na tela
 quem arrematou, os dois botões: copiar o código Pix e mostrar o QR Code. **É um
 código só, pelo total** — quem levou quatro coisas copia um código, não quatro.
 
-**Quando o Pix cai, a linha muda sozinha na sua tela** e pisca em verde. Você não
-precisa recarregar nada nem ficar apertando F5. Se você estiver digitando alguma
-coisa na hora, aparece um botão **🔄 Há novidades — atualizar**: aperte quando
-terminar.
+**Quando o Pix cai, a tela se atualiza sozinha.** Você não precisa recarregar nada
+nem ficar apertando F5. Se você estiver mexendo na tela (digitando, com uma conta
+aberta, ou tocou em algo nos últimos segundos), ela **não** se refaz debaixo do
+seu dedo: aparece o botão **🔄 Há novidades — atualizar**, e você aperta quando
+terminar. Ao **Marcar pago**, a pergunta diz **quem** e **qual item** — confira
+antes de confirmar.
 
 **Cada linha é uma pessoa**, com o total dela — quem deve aparece primeiro.
 Na linha há o **💬 WhatsApp** (abre a conversa sem digitar o número) e **Ver
@@ -320,6 +379,15 @@ complemento, bairro, cidade, CEP), quando ela entrou e se está bloqueada — co
 
 > **O 📋 Pix sai sempre pelo valor certo.** Se você der baixa na mão num item ou
 > devolver um item ao leilão, o próximo Pix dela já vem com o total novo.
+
+> **"Esta pessoa ainda deve R$ … de outro leilão."** A conta de cada pessoa é
+> paga do leilão **mais antigo** para o mais novo. Se ela ficou devendo num
+> leilão anterior, o 📋 Pix avisa isso em vez de mandar o código — acerte primeiro
+> pelo caixa daquele leilão (escolha no seletor do topo).
+
+> **↩️ Voltar ao leilão** só vale para o arremate **atual** do item. Num arremate
+> antigo (de antes de o item ser vendido de novo) o sistema recusa — senão o item
+> de outra pessoa voltaria para a fila.
 
 > **Não pagou?** Ela **fica devendo** — o item não volta para a fila e não há
 > prazo correndo. Quem cobra é você, pelo 💬 WhatsApp, com o 📋 Pix na mão.
@@ -406,8 +474,11 @@ Antes de tudo ele toca **"Entrar com som"** (é o que libera a narração ao viv
 Na tela ele vê a foto grande (sempre inteira, nunca cortada), **quem está
 ganhando**, o **valor** — com os números rolando a cada lance — e um botão
 enorme que soma R$ 5 por toque. A cada lance a tela pisca, pulam moedas, toca
-um som (se o locutor não tiver deixado mudo) e o celular vibra — dá para saber
-que entrou lance sem estar olhando. Quem lidera ganha uma **coroa 👑**; quando a
+a caixa registradora (o som da sala é sempre ligado; quem não quiser som usa o 🔊
+da própria tela) e o celular vibra — dá para saber que entrou lance sem estar
+olhando. Quando o locutor aperta **dou-lhe uma**, aparece o carimbo na foto e a
+tela treme; no **dou-lhe duas**, as bordas ficam vermelhas pulsando e o botão de
+lance pulsa, até alguém dar lance ou o martelo bater. Quem lidera ganha uma **coroa 👑**; quando a
 disputa esquenta, um **termômetro 🔥** acende no alto.
 
 Embaixo ficam o **bate-papo** (as duas últimas mensagens; tocar abre a conversa
@@ -423,6 +494,19 @@ o leilão no celular e no computador ao mesmo tempo**. O sistema reconhece a
 pessoa pelo WhatsApp.
 
 No rodapé, **🏆 Meus arremates** mostra o que ele já levou e o que falta pagar.
+Quando o pagamento é liberado, **📋 Copiar código Pix** copia na hora; se o
+aparelho não deixar copiar, a tela avisa e abre o QR Code, onde dá para tocar e
+segurar no código. **A conta fica no aparelho/navegador em que a pessoa entrou**:
+se ela abrir o link por outro (ou pelo navegador de dentro do Instagram), a
+gaveta aparece vazia — ela deve voltar ao mesmo, ou o caixa manda o Pix pelo
+WhatsApp.
+
+No iPhone, **tocar rápido duas vezes no botão não dá mais zoom** (e tocar no campo
+do chat também não). O zoom com dois dedos continua funcionando para quem precisa.
+
+Se a internet dele oscilar no meio de um lance, o botão **não fica travado**: em
+até 8 segundos ele volta e avisa "Sem resposta do servidor. Confira o valor e toque
+de novo" — o valor na tela mostra se o lance entrou.
 
 > **Tela de reserva:** se a tela do leilão der qualquer problema no evento, mande
 > o link **https://pinhaljunior.com.br/leilao/classico/** — é a tela anterior,
@@ -432,6 +516,16 @@ No rodapé, **🏆 Meus arremates** mostra o que ele já levou e o que falta pag
 
 ## 6. Perguntas que vão aparecer
 
+**"Apertei VENDIDO e não fechou."**
+Ou entrou um lance naquele segundo (o sistema avisa e a escada recomeça: dou-lhe
+uma, dou-lhe duas, VENDIDO), ou o "dou-lhe duas" ainda não foi dado. O VENDIDO só
+acende depois do "duas" — ou direto, quando o item não tem lance nenhum.
+
+**"A tela de alguém diz que o som caiu."**
+Só aparece quando o problema é no aparelho dela (ou o navegador não deixou tocar).
+Peça para ela **tocar no 🔊 que está piscando**. Se você parou a transmissão de
+propósito, as telas **não** mostram esse aviso.
+
 **"Posso preparar o próximo leilão enquanto este acontece?"**
 Pode. Crie o leilão novo e cadastre os itens entrando por ele. O que está no ar
 não é afetado.
@@ -440,10 +534,10 @@ não é afetado.
 A tela reconecta sozinha — continua tentando, com calma, até conseguir — e volta
 com tudo atualizado. Ele não perde nada.
 
-**"Muitas telas abertas" no celular de alguém?**
-Cada pessoa pode ter até **6 telas do leilão abertas** ao mesmo tempo (celular, computador, abas
-esquecidas). Passou disso, a tela nova avisa para fechar as outras — é o que impede alguém de lotar o
-leilão com um programa.
+**"A tela de alguém parou de atualizar" / "abri o link várias vezes"**
+Cada pessoa pode ter até **4 abas do leilão** recebendo ao vivo. Abriu uma quinta, ela entra e a
+**mais antiga** para de atualizar (fica "pausada"). Basta voltar para a aba que você quer usar, ou
+tocar nela, que ela volta. O ideal é usar **uma aba só** — com muitas abas, o lance pode demorar.
 
 **"E se eu precisar reiniciar o sistema no meio?"**
 Nada se perde: lances, líder e valores estão no banco, e as telas reconectam
@@ -482,5 +576,13 @@ de segundo para todo mundo.
 - [ ] Uma cobrança **real de R$ 1** feita e confirmada, para provar o Pix
 - [ ] Equipe cadastrada na aba **👤 Usuários**, com a função de cada um
 - [ ] **Cada voluntário já entrou uma vez** e **já trocou a senha `1234`** pela dele
-- [ ] Microfone testado **com o celular de outra pessoa** ouvindo
+- [ ] Microfone testado **com o celular de outra pessoa** ouvindo — de
+      preferência **um iPhone e um Android** — incluindo Mudo, Parar e voltar a
+      transmitir
+- [ ] Um ensaio rápido do martelo: dou-lhe uma, dou-lhe duas, VENDIDO, com alguém
+      dando lance no meio (a escada tem de recomeçar)
+- [ ] Logo antes de começar: **recarregar (F5)** a mesa, o caixa e as telas de
+      teste, para todo mundo estar com a versão mais nova
+- [ ] Avisar no grupo: **usar uma aba só** e o **mesmo celular/navegador** a noite toda
+      (a conta de quem arremata fica nele)
 - [ ] Link do leilão divulgado

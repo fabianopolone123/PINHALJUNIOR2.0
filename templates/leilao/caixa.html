@@ -171,7 +171,9 @@
 
                             {% if a.status == 'aguardando' or a.status == 'combinado' %}
                             <button type="button" class="btn-mini destaque"
-                                    data-acao="pago" data-arremate="{{ a.id }}">Marcar pago</button>
+                                    data-acao="pago" data-arremate="{{ a.id }}"
+                                    data-quem="{{ a.participante.nome }}"
+                                    data-item="nº {{ a.lote.numero }} {{ a.lote.nome }} (R$ {{ a.valor }})">Marcar pago</button>
                             {% endif %}
                             {% if a.status == 'aguardando' %}
                             <button type="button" class="btn-mini"

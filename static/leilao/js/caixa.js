@@ -110,7 +110,10 @@
         if (alvo.dataset.minutos) corpo.minutos = alvo.dataset.minutos;
 
         if (alvo.dataset.acao === "pago") {
-            if (!window.confirm("Confirmar que este item foi pago?")) return;
+            // Diz QUEM e O QUÊ: com a lista mudando, a pergunta genérica deixava
+            // confirmar a baixa na pessoa errada.
+            var sobre = [alvo.dataset.quem, alvo.dataset.item].filter(Boolean).join(" — ");
+            if (!window.confirm("Confirmar que foi pago" + (sobre ? ":\n\n" + sobre : "") + "?")) return;
         }
 
         if (alvo.dataset.acao === "combinado") {
@@ -258,6 +261,10 @@
        Tempo real: o pagamento chega sozinho
        ===================================================================== */
     var recarregaAgendada = null;
+    var ultimoGesto = 0;
+    ["pointerdown", "touchstart", "wheel", "keydown"].forEach(function (ev) {
+        document.addEventListener(ev, function () { ultimoGesto = Date.now(); }, { passive: true });
+    });
 
     function ocupado() {
         // Digitando (o "quem recebeu" da entrega) ou com o Pix aberto na tela:
@@ -269,7 +276,11 @@
         var modal = [modalPix, $("modalConta"), $("modalDevolver")].some(function (m) {
             return m && !m.hidden;
         });
-        return Boolean(digitando || modal);
+        // Mexeu na tela há pouco (dedo ou mouse indo até um botão): a lista não
+        // pode se refazer embaixo dele — no fim da noite os Pix caem em série e
+        // a página recarregava a cada 1,5 s (revisão de 26/09).
+        var mexendo = Date.now() - ultimoGesto < 6000;
+        return Boolean(digitando || modal || mexendo);
     }
 
     function mostrarBotaoAtualizar() {

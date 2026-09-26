@@ -142,4 +142,40 @@ window.__cenarios = {};
     return r(abertas() === 1 && __sim.intervalosVivos() <= base + 1,
       "intervalos=" + base + "->" + __sim.intervalosVivos() + " " + resumo());
   };
+
+  // O martelo bate com o locutor FORA do ar de propósito: a janela "O som
+  // parou" não pode abrir (ela abria 1,5 s depois do martelo e ficava por
+  // cima do item seguinte). Achado da revisão final de 26/09.
+  function acao(corpo) {
+    var csrf = (document.querySelector("[data-csrf]") || {}).dataset.csrf;
+    corpo.leilao = 1;
+    return fetch("/equipe/acao/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf, "X-Requested-With": "XMLHttpRequest" },
+      body: JSON.stringify(corpo)
+    }).then(function (x) { return x.json(); });
+  }
+  C.p11_martelo_com_locutor_parado_sem_janela = async function () {
+    if (!(await entrarComSom())) return r(false, "não ouviu: " + resumo());
+    await vozServidor(false);
+    await dormir(400);
+    __sim.whep.status = 404;
+    __sim.ultima().faixa.onmute();
+    await dormir(1500);
+    // o martelo: dou-lhe uma, duas, VENDIDO (a sessão é também de locutor)
+    var d = await (await fetch("/locutor/dados/?leilao=1", { headers: { "X-Requested-With": "XMLHttpRequest" } })).json();
+    var lote = d.estado && d.estado.ativo ? d.estado.lote : null;
+    if (!lote) return r(false, "sem item em pregão no banco de demonstração");
+    if (lote.tem_lance) {
+      await acao({ acao: "dou_lhe", vez: 1, lote: lote.id });
+      await acao({ acao: "dou_lhe", vez: 2, lote: lote.id });
+    }
+    var f = await acao({ acao: "fechar", lote: lote.id, valor: lote.tem_lance ? String(lote.valor_atual) : "" });
+    await dormir(2500);                                   // a janela abria ~1,5 s depois
+    var abriu = modalAberto();
+    await acao({ acao: "abrir", atual: 0 });              // deixa um item em pregão para a próxima vez
+    __sim.whep.status = 201;
+    await vozServidor(true);
+    return r(f.ok && !abriu, "fechou=" + f.ok + " janela_abriu=" + abriu + " " + resumo());
+  };
 })();

@@ -12,6 +12,7 @@ import os
 import json
 import re
 import threading
+import time
 import unittest
 from datetime import timedelta
 from decimal import Decimal
@@ -6386,12 +6387,18 @@ class SegundaRevisaoTests(TestCase):
     def test_equipe_1_sem_login_nao_vale(self):
         self.assertEqual(Client().get("/stream/?equipe=1").status_code, 403)
 
-    def test_muitas_telas_da_mesma_pessoa_sao_recusadas(self):
+    def test_tela_nova_da_mesma_pessoa_derruba_a_mais_antiga(self):
+        """Antes a tela nova levava 429 e congelava — e a que sobrava era quase
+        sempre a conexão morta de uma troca de Wi-Fi para 4G (revisão 26/09).
+        Agora a nova entra e a mais ANTIGA recebe o aviso de encerrar."""
         try:
-            for _ in range(6):
-                servicos.HUB.assinar(publico=True, nome="Ana", dono=self.ana.pk)
+            # Teto de 4 por pessoa (sem HTTP/2 o navegador só abre 6 por site).
+            filas = [servicos.HUB.assinar(publico=True, nome="Ana", dono=self.ana.pk) for _ in range(4)]
             r = self._sessao(self.ana).get("/stream/")
-            self.assertEqual(r.status_code, 429)
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(servicos.HUB.do_dono(self.ana.pk), 3, "a mais antiga tinha de sair")
+            self.assertEqual(filas[0].get_nowait()["tipo"], "__fim")
+            self.assertTrue(filas[1].empty(), "só a mais antiga sai")
         finally:
             servicos.HUB._assinantes.clear()
 
@@ -7511,7 +7518,8 @@ class RevisaoGeralLoteBTests(TestCase):
     def test_o_som_volta_no_iphone(self):
         js = self._js("som.js")
         self.assertNotIn('ctx.state === "suspended"', js)
-        self.assertEqual(js.count('ctx.state !== "running"'), 2)
+        # 2 no tocar/ativar + 1 no `retomar` do toque (revisão final de 26/09).
+        self.assertGreaterEqual(js.count('ctx.state !== "running"'), 2)
 
 
 class RevisaoGeralLoteCTests(TestCase):
@@ -7539,7 +7547,10 @@ class RevisaoGeralLoteCTests(TestCase):
     # 7 ---------------------------------------------------------------
     def test_resposta_velha_da_mesa_e_descartada(self):
         js = self._ler("static", "leilao", "js", "locutor.js")
-        self.assertIn("if (eventosDoPregao !== eventosNaSaida) return;", js)
+        # Desde a revisão final: a resposta velha não aplica o ESTADO (valor e
+        # líder), mas aplica disputa/gente/histórico.
+        self.assertIn("var velha = eventosDoPregao !== eventosNaSaida;", js)
+        self.assertIn("if (!velha) {", js)
         for evento in ('"lance"', '"lote_aberto"', '"lote_vendido"'):
             trecho = js[js.index("fonte.addEventListener(" + evento):]
             trecho = trecho[: trecho.index("});")]
@@ -7804,7 +7815,7 @@ class RevisaoDaVozTests(TestCase):
 
     def test_locutor_fora_do_ar_nao_vira_alarme_no_publico(self):
         js = self._js("leilao.js")
-        self.assertIn('if (!estaOuvindo && motivo === "silencio" && vozNoAr === false) return;', js)
+        self.assertIn('if (!estaOuvindo && motivo === "silencio" && vozNoAr === false) { somCaiu = false; return; }', js)
 
     def test_a_voz_no_ar_vai_no_estado(self):
         leilao = criar_leilao()
@@ -7863,3 +7874,283 @@ class SemZoomNoIphoneTests(TestCase):
         base = Path(settings.BASE_DIR, "templates", "leilao", "_base.html").read_text(encoding="utf-8")
         self.assertIn("leilao/css/leilao.css", base)
 
+
+class CorridaNaMesaTests(TransactionTestCase):
+    """O que acontece quando duas coisas chegam NO MESMO INSTANTE (26/09).
+
+    Threads de verdade, soltas juntas por uma barreira, repetidas várias vezes
+    para passar pelas ordens possíveis. O que se confere são as regras que não
+    podem quebrar em NENHUMA ordem — não qual das duas ganhou.
+    """
+
+    RODADAS = 12
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        self.beto = criar_pessoa("Beto Fictício Lima")
+
+    def _juntos(self, *funcoes):
+        barreira = threading.Barrier(len(funcoes))
+        saidas = [None] * len(funcoes)
+
+        def rodar(i, fn):
+            barreira.wait()
+            try:
+                saidas[i] = ("ok", fn())
+            except Exception as erro:          # noqa: BLE001 — a recusa é o resultado
+                saidas[i] = ("erro", erro)
+            finally:
+                connections.close_all()
+
+        threads = [threading.Thread(target=rodar, args=(i, fn)) for i, fn in enumerate(funcoes)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        return saidas
+
+    def _item_na_escada(self, nome):
+        lote = criar_lote(self.leilao, nome=nome, ordem=self.leilao.lotes.count() + 1)
+        servicos.abrir_lote(lote)
+        servicos.limpar_limites()
+        servicos.dar_lance(lote.id, self.ana)
+        servicos.dou_lhe(Leilao.objects.get(pk=self.leilao.pk), 1)
+        servicos.dou_lhe(Leilao.objects.get(pk=self.leilao.pk), 2)
+        return Lote.objects.get(pk=lote.pk)
+
+    def test_lance_e_vendido_no_mesmo_instante(self):
+        """Ou o lance entra e o VENDIDO é recusado (a escada recomeça), ou o
+        VENDIDO fecha e o lance é recusado. Nunca: vendido para quem não estava
+        na frente, vendido por outro valor, ou lance aceito num item fechado."""
+        vendeu = entrou = 0
+        for i in range(self.RODADAS):
+            lote = self._item_na_escada(f"Item fictício {i}")
+            visto = str(lote.valor_atual)
+            servicos.limpar_limites()
+            # Um atraso pequeno e alternado: sem ele o lance (mais leve) chegava
+            # sempre antes, e o caso "o martelo fecha primeiro" nunca era testado.
+            atraso_lance, atraso_martelo = (0.03, 0) if i % 2 else (0, 0.03)
+            lance, martelo = self._juntos(
+                lambda: (time.sleep(atraso_lance), servicos.dar_lance(lote.id, self.beto))[1],
+                lambda: (time.sleep(atraso_martelo), servicos.fechar_lote(
+                    Lote.objects.get(pk=lote.pk), motivo="locutor", escada=True, visto=visto))[1],
+            )
+            lote.refresh_from_db()
+            aceitou_lance = lance[0] == "ok" and lance[1][0]
+            arremates = list(Arremate.objects.filter(lote=lote))
+            if arremates:
+                vendeu += 1
+                self.assertFalse(aceitou_lance, "lance aceito num item que o martelo fechou")
+                self.assertEqual(lote.status, "vendido")
+                self.assertEqual(arremates[0].participante_id, self.ana.pk, "vendido para quem não estava na frente")
+                self.assertEqual(str(arremates[0].valor), visto, "vendido por um valor que a mesa não viu")
+            else:
+                entrou += 1
+                self.assertTrue(aceitou_lance, "nem vendeu nem aceitou o lance")
+                self.assertEqual(martelo[0], "erro")
+                self.assertIsInstance(martelo[1], servicos.MarteloRecusado)
+                self.assertEqual(lote.status, "aberto")
+                self.assertEqual(lote.lider_id, self.beto.pk)
+            if lote.status == "aberto":
+                servicos.fechar_lote(lote)     # limpa para a próxima rodada
+        self.assertEqual(vendeu + entrou, self.RODADAS)
+        self.assertGreater(vendeu, 0, "a ordem 'o martelo primeiro' não foi exercitada")
+        self.assertGreater(entrou, 0, "a ordem 'o lance primeiro' não foi exercitada")
+
+    def test_dois_vendidos_no_mesmo_instante(self):
+        """Duas mesas abertas batendo o martelo juntas: UM arremate só."""
+        for i in range(self.RODADAS):
+            lote = self._item_na_escada(f"Item fictício {i}")
+            visto = str(lote.valor_atual)
+            self._juntos(
+                lambda: servicos.fechar_lote(Lote.objects.get(pk=lote.pk), escada=True, visto=visto),
+                lambda: servicos.fechar_lote(Lote.objects.get(pk=lote.pk), escada=True, visto=visto),
+            )
+            self.assertEqual(Arremate.objects.filter(lote=lote).count(), 1, f"rodada {i}")
+
+    def test_lance_e_abrir_proximo_no_mesmo_instante(self):
+        """A mesa via o item SEM lance e apertou "Abrir próximo"; alguém deu
+        lance no mesmo instante. Ou o lance entra e a abertura é recusada, ou o
+        item volta à fila e o lance é recusado. Nunca: lance aceito e depois
+        apagado com o item voltando zerado para a fila."""
+        ordens = set()
+        for i in range(self.RODADAS):
+            a = criar_lote(self.leilao, nome=f"Item A fictício {i}", ordem=100 + 2 * i)
+            b = criar_lote(self.leilao, nome=f"Item B fictício {i}", ordem=101 + 2 * i)
+            servicos.abrir_lote(a)
+            servicos.limpar_limites()
+            atraso_lance, atraso_abrir = (0.03, 0) if i % 2 else (0, 0.03)
+            lance, abertura = self._juntos(
+                lambda: (time.sleep(atraso_lance), servicos.dar_lance(a.id, self.ana))[1],
+                lambda: (time.sleep(atraso_abrir), servicos.abrir_lote(
+                    Lote.objects.get(pk=b.pk), visto=a.pk, forcar=False))[1],
+            )
+            a.refresh_from_db()
+            b.refresh_from_db()
+            aceitou_lance = lance[0] == "ok" and lance[1][0]
+            ordens.add("lance" if aceitou_lance else "abrir")
+            if aceitou_lance:
+                self.assertEqual(abertura[0], "erro", "abriu outro por cima de um lance")
+                self.assertEqual(a.status, "aberto")
+                self.assertEqual(a.lider_id, self.ana.pk, "o lance aceito sumiu")
+                self.assertEqual(b.status, "fila")
+                servicos.fechar_lote(a)
+            else:
+                self.assertEqual(b.status, "aberto")
+                self.assertEqual(a.status, "fila")
+                servicos.fechar_lote(b)
+        self.assertEqual(ordens, {"lance", "abrir"}, "as duas ordens têm de ser exercitadas")
+
+
+class TremorNaoTiraOBotaoDoDedoTests(TestCase):
+    """O tremor do dou-lhe balançava a tela inteira — e o botão de lance saía de
+    baixo do dedo justo no "dou-lhe duas" (26/09)."""
+
+    def test_so_a_foto_treme(self):
+        css = Path(settings.BASE_DIR, "static", "leilao", "css", "leilao.css").read_text(encoding="utf-8")
+        self.assertIn("body.treme-forte #loteFoto { animation: dou-lhe-treme-forte", css)
+        self.assertNotIn("body.treme-forte main", css)
+        self.assertNotIn("body.treme .show", css)
+
+    def test_a_foto_tem_o_id_nas_duas_telas(self):
+        for tpl in ("leilao_show.html", "leilao.html"):
+            html = Path(settings.BASE_DIR, "templates", "leilao", tpl).read_text(encoding="utf-8")
+            self.assertIn('id="loteFoto"', html, tpl)
+
+
+class RevisaoFinalEAparelhosTests(TestCase):
+    """Última revisão de 26/09: regressões do dia + aparelhos e jeitos de usar."""
+
+    @staticmethod
+    def _ler(*partes):
+        return Path(settings.BASE_DIR, *partes).read_text(encoding="utf-8")
+
+    def _js(self, nome):
+        texto = self._ler("static", "leilao", "js", nome)
+        limpo = re.sub(r"/\*.*?\*/", " ", texto, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    # --- Dinheiro ---------------------------------------------------------
+    def test_a_conferencia_sempre_pergunta_o_valor_ao_mp(self):
+        """O atalho quitava, 5 s depois, o Pix que a baixa tinha recusado por
+        valor menor — sem valor nenhum na mão."""
+        js = self._ler("leilao", "servicos.py")
+        conferir = js[js.index("def conferir_pagamento"):js.index("def _arremates_do_pagamento")]
+        self.assertNotIn('_aplicar_retorno(pagamento, {"status": "aprovado"})', conferir)
+        self.assertIn("mercadopago.consultar_pagamento(cfg, pagamento.mp_payment_id)", conferir)
+
+    def test_o_vendido_usa_o_cadeado_do_lance(self):
+        js = self._ler("leilao", "servicos.py")
+        fechar = js[js.index("def fechar_lote"):js.index("def dar_lance")]
+        self.assertIn("with _lock_do_lote(lote.pk), transaction.atomic():", fechar)
+
+    def test_a_porta_aguenta_o_wifi_do_salao(self):
+        self.assertGreaterEqual(servicos.ENTRADAS_MAX_POR_IP, 60)
+
+    # --- Conexões ---------------------------------------------------------
+    def test_a_aba_substituida_nao_reconecta_em_pinguepongue(self):
+        views_py = self._ler("leilao", "views.py")
+        self.assertIn('yield "event: substituida\\ndata: {}\\n\\n"', views_py)
+        fonte = self._js("fonte_viva.js")
+        self.assertIn('es.addEventListener("substituida"', fonte)
+        trecho = fonte[fonte.index('es.addEventListener("substituida"'):]
+        trecho = trecho[: trecho.index("});\n")]
+        self.assertIn("fechadoDeProposito = true", trecho)
+
+    def test_teto_por_pessoa_deixa_conexao_para_o_lance(self):
+        """Sem HTTP/2, 6 conexões por site: com o teto em 6, a 6ª aba prendia o
+        POST do lance na fila."""
+        views_py = self._ler("leilao", "views.py")
+        self.assertIn('getattr(settings, "LEILAO_MAX_CONEXOES_POR_PESSOA", 4)', views_py)
+
+    def test_a_volta_da_aba_reabre_a_conexao_muda(self):
+        fonte = self._js("fonte_viva.js")
+        self.assertIn("reabrirSeMuda(20000)", fonte)
+        self.assertIn('window.addEventListener("online"', fonte)
+
+    # --- Tela do público --------------------------------------------------
+    def test_o_pix_copia_dentro_do_toque_e_confere(self):
+        js = self._js("leilao.js")
+        copiar = js[js.index("function copiarPix"):js.index("function copiarTexto")]
+        self.assertNotIn("buscarPix().then", copiar, "copiar depois de ir à rede o iPhone recusa")
+        reserva = js[js.index("function reserva"):js.index("function abrirQr")]
+        self.assertIn('copiou = document.execCommand("copy")', reserva)
+        self.assertIn("return !!copiou", reserva)
+
+    def test_som_caido_nao_alarma_com_locutor_fora_do_ar_nem_no_martelo(self):
+        js = self._js("leilao.js")
+        mostrar = js[js.index("function mostrarSomCaiu"):]
+        mostrar = mostrar[: mostrar.index("modalSom.abrir()")]
+        self.assertIn('motivoCaiu === "silencio" && vozNoAr === false', mostrar)
+        aberto = js[js.index('fonte.addEventListener("lote_aberto"'):]
+        aberto = aberto[: aberto.index("render(")]
+        self.assertIn("modalSom.fechar()", aberto, "a janela não pode ficar por cima do item novo")
+
+    def test_desligar_o_som_zera_o_som_caido(self):
+        js = self._js("leilao.js")
+        desligar = js[js.index("function desligarSom"):]
+        desligar = desligar[: desligar.index("}")]
+        self.assertIn("somCaiu = false", desligar)
+
+    def test_sessao_perdida_vai_para_a_porta(self):
+        js = self._js("leilao.js")
+        self.assertIn("r.status === 401 && URLS.entrar", js)
+        for tpl in ("leilao_show.html", "leilao.html"):
+            self.assertIn('"entrar": "{% url \'leilao:entrar\' %}"', self._ler("templates", "leilao", tpl))
+
+    def test_chat_recusado_devolve_o_texto(self):
+        js = self._js("leilao.js")
+        chat = js[js.index('$("chatForm").addEventListener'):]
+        chat = chat[: chat.index("/* Reações */") if "/* Reações */" in chat else 800]
+        self.assertIn("campo.value = texto", chat)
+
+    def test_avisos_nao_pegam_toque_na_tela_do_publico(self):
+        css = self._ler("static", "leilao", "css", "leilao.css")
+        self.assertIn("body.tela-palco .mensagem { pointer-events: none !important; }", css)
+
+    def test_navegador_sem_dvh_nao_some_com_a_foto(self):
+        css = self._ler("static", "leilao", "css", "palco_show.css")
+        bloco = css[css.index("@supports not (height: 1dvh)"):]
+        self.assertIn("--foto-min: clamp(160px, 30vh, 420px)", bloco)
+
+    def test_iphone_retoma_o_som_no_toque(self):
+        js = self._js("som.js")
+        self.assertIn('document.addEventListener("touchend", retomar', js)
+        self.assertIn("retomar: function ()", js)
+
+    def test_tela_acesa_volta_no_iphone_antigo(self):
+        js = self._js("tela_acesa.js")
+        plano = js[js.index("function planoB"):]
+        plano = plano[: plano.index("var tela")]
+        self.assertIn("video.paused", plano)
+
+    # --- Mesa e caixa -----------------------------------------------------
+    def test_a_mesa_aplica_disputa_mesmo_com_resposta_velha(self):
+        js = self._js("locutor.js")
+        self.assertIn("var velha = eventosDoPregao !== eventosNaSaida;", js)
+        self.assertNotIn("if (eventosDoPregao !== eventosNaSaida) return;", js)
+
+    def test_dou_lhe_sobe_pela_propria_resposta(self):
+        js = self._js("locutor.js")
+        self.assertIn('if (qual === "dou_lhe" && d && d.ok && emPregao)', js)
+
+    def test_entrada_de_gente_nao_martela_a_mesa(self):
+        js = self._js("locutor.js")
+        online = js[js.index('fonte.addEventListener("online"'):]
+        online = online[: online.index("});")]
+        self.assertIn("recargaGente = setTimeout(", online)
+
+    def test_microfone_mutado_pelo_ios_e_queda(self):
+        js = self._js("audio_falar.js")
+        self.assertIn("t.onmute = function ()", js)
+        self.assertIn('caiu("microfone mudo pelo sistema")', js)
+
+    def test_o_caixa_nao_recarrega_debaixo_do_dedo(self):
+        js = self._js("caixa.js")
+        ocupado = js[js.index("function ocupado"):]
+        ocupado = ocupado[: ocupado.index("\n    }\n")]
+        self.assertIn("Date.now() - ultimoGesto < 6000", ocupado)
+        html = self._ler("templates", "leilao", "caixa.html")
+        self.assertIn('data-quem="{{ a.participante.nome }}"', html)

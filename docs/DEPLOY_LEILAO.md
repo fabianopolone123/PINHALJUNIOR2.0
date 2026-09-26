@@ -284,6 +284,17 @@ curl -s -o /dev/null -w "%{http_code}
 " -X POST -H "Content-Type: application/sdp"      --data x https://pinhaljunior.com.br/leilao/audio/leilao/whip
 ```
 
+## 6.9 Recomendação: HTTP/2 no Nginx do leilão
+
+Conferido em 26/09: o `pinhaljunior.com.br` responde em **HTTP/1.1**. Nesse modo o navegador abre
+no máximo **6 conexões por site**, e cada aba do leilão prende uma no stream ao vivo (SSE). Quem
+tocou várias vezes no link do WhatsApp e ficou com várias abas pode ter o POST do lance esperando
+na fila ("Sem resposta do servidor"). O código já se protege (teto de 4 conexões por pessoa, a mais
+nova derruba a mais antiga), mas o conserto de raiz é o **HTTP/2**, que passa tudo por uma conexão
+só. No bloco `server` do `sitepinhal`, trocar `listen 443 ssl;` por `listen 443 ssl http2;` (nginx
+1.24), `nginx -t` e `systemctl reload nginx`. Afeta o site inteiro do clube — fazer num dia sem
+leilão e conferir o site depois.
+
 ## 7.0 Recomendação para a voz: saída por TCP no MediaMTX
 
 Hoje o MediaMTX escuta a mídia só por UDP (`webrtcLocalUDPAddress: :8189`). Quem estiver numa

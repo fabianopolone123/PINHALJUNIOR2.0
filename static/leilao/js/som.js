@@ -221,6 +221,8 @@ window.SomLeilao = (function () {
     return {
         ativar: ativar,
         desativar: desativar,
+        // Retoma o contexto se o iOS o suspendeu/interrompeu (chamado num toque).
+        retomar: function () { if (ctx && ctx.state !== "running") { try { ctx.resume(); } catch (e) { /* só som */ } } },
         ligado: function () { return ligado; },
 
         /* Lance novo: CAIXA REGISTRADORA — pedido do clube, e o som certo:
@@ -301,6 +303,7 @@ window.SomLeilao = (function () {
             });
         },
 
+        /* (ver `destravarNoToque` abaixo) */
         /* "Dou-lhe uma" / "dou-lhe duas": o MARTELO batendo na mesa.
            Sintetizado (nada de arquivo): a batida é um estalo grave de ruído,
            a madeira; no "duas" são duas batidas mais fortes e um acorde de
@@ -330,4 +333,16 @@ window.SomLeilao = (function () {
             });
         }
     };
+})();
+
+/* iOS: depois de uma ligação, da Siri ou de outro app, o AudioContext fica
+   "interrupted" — e o `resume()` só vale DENTRO de um toque. Os sons tocam a
+   partir de eventos do stream (que não são toque), então ficavam mudos até a
+   pessoa mexer no 🔊. Qualquer toque na tela retoma (revisão de 26/09). */
+(function () {
+    function retomar() {
+        try { if (window.SomLeilao && window.SomLeilao.retomar) window.SomLeilao.retomar(); } catch (e) { /* só som */ }
+    }
+    document.addEventListener("touchend", retomar, { passive: true });
+    document.addEventListener("click", retomar);
 })();

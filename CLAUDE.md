@@ -105,6 +105,12 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   vendido|chat|toque_lance`) e o `palco_show.js` enfeita em cima. Mudou algo no motor? Os **ids** que ele
   procura têm de existir nos **dois** templates (há teste). Efeito novo: só `transform`/`opacity`,
   `pointer-events: none`, teto de partículas que cai sozinho, e nada de requisição por enfeite.
+- **Revisão geral de 26/09** (quadro consolidado no `ESTADO_ATUAL.md`, regras em `REGRAS_CODEX.md`
+  "A revisão geral de 26/09"): o que a mesa via é conferido **dentro da transação** (VENDIDO e
+  Abrir, com testes em threads nas duas ordens); toda baixa confere o **valor**; avisos de pagamento
+  vão com `para` (`chave_avisos`); **teto de 4 conexões por pessoa, a nova derruba a mais antiga**
+  (`event: substituida`, sem pingue-pongue) — o servidor está em **HTTP/1.1**; lance com tempo
+  máximo de 8 s; iPhone: sem zoom de dois toques, copiar só dentro do toque, som retomado no toque.
 - **A voz tem simulador** (`ferramentas/simulador_voz/`, ver o LEIAME): abre a mesa e o pregão reais
   no Chrome com o WebRTC e o servidor de áudio falsos e roda os cenários (quedas, mudo, cliques
   rápidos, locutor parando, navegador recusando tocar, noite longa). Mexeu em `audio_falar.js`,

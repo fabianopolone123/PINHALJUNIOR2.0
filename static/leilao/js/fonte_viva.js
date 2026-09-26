@@ -40,6 +40,7 @@ window.FonteViva = (function () {
         var tentativas = 0;
         var relogio = null;
         var fechadoDeProposito = false;
+        var substituida = false;
         var ultimoSinal = Date.now();
 
         function sinal() { ultimoSinal = Date.now(); }
@@ -52,6 +53,25 @@ window.FonteViva = (function () {
                 conectar();
             }
         }, 10000);
+
+        // A volta para a aba (depois do WhatsApp, do app do banco) e a volta da
+        // rede são as horas em que a conexão costuma ter morrido calada. Sem
+        // isto, a tela ficava congelada até o vigia de 45 s — às vezes em
+        // "VOCÊ ESTÁ GANHANDO" com outra pessoa já na frente (revisão 26/09).
+        function reabrirSeMuda(limite) {
+            if (!es) return;
+            if (substituida) { substituida = false; fechadoDeProposito = false; conectar(); return; }
+            if (fechadoDeProposito || relogio) return;
+            if (Date.now() - ultimoSinal > limite) {
+                sinal();
+                if (opcoes.aoCair) opcoes.aoCair();
+                conectar();
+            }
+        }
+        document.addEventListener("visibilitychange", function () {
+            if (!document.hidden) reabrirSeMuda(20000);
+        });
+        window.addEventListener("online", function () { reabrirSeMuda(0); });
 
         function espera() {
             var base = Math.min(ESPERA_MAXIMA, ESPERA_INICIAL * Math.pow(2, tentativas));
@@ -77,6 +97,23 @@ window.FonteViva = (function () {
             // Qualquer coisa que chega é sinal de vida — o ping e os eventos.
             es.addEventListener("ping", sinal);
             es.addEventListener("message", sinal);
+            // O servidor encerrou ESTA conexão para outra aba da mesma pessoa
+            // caber (teto por pessoa). Não reconecta sozinha — senão as abas
+            // se derrubariam em pingue-pongue; volta quando a pessoa olhar para
+            // esta aba de novo (a que está à vista é a que ganha).
+            es.addEventListener("substituida", function () {
+                substituida = true;
+                fechadoDeProposito = true;
+                if (relogio) { clearTimeout(relogio); relogio = null; }
+                try { es.close(); } catch (e) { /* já fechada */ }
+                if (opcoes.aoCair) opcoes.aoCair();
+                // Se esta for a aba que a pessoa está olhando, um toque em
+                // qualquer lugar a traz de volta.
+                document.addEventListener("click", function voltar() {
+                    document.removeEventListener("click", voltar);
+                    reabrirSeMuda(0);
+                });
+            });
             es.addEventListener("open", function () {
                 sinal();
                 tentativas = 0;

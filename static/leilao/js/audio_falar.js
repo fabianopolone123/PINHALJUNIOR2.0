@@ -135,6 +135,18 @@ window.AudioFalar = (function () {
                 t.onended = function () {
                     if (minha === geracao && rodando) caiu("microfone");
                 };
+                // O iOS (ligação, Siri, troca de app) MUTA a trilha sem
+                // encerrá-la: a conexão segue "connected" e ninguém ouve. Muda
+                // por mais de 4 s é queda — o MUDO do locutor é outra coisa
+                // (`enabled = false`), e não dispara este evento.
+                var vigiaMuda = null;
+                t.onmute = function () {
+                    clearTimeout(vigiaMuda);
+                    vigiaMuda = setTimeout(function () {
+                        if (minha === geracao && rodando && t.muted) caiu("microfone mudo pelo sistema");
+                    }, 4000);
+                };
+                t.onunmute = function () { clearTimeout(vigiaMuda); };
             });
 
             conexao = new RTCPeerConnection({ iceServers: [] });

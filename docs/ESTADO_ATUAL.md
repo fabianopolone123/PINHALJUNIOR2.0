@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: sem zoom de dois toques no iPhone**): dois toques rápidos no iPhone davam zoom — e é assim que se toca no botão de lance numa disputa. Todas as telas do leilão passam a ter `touch-action: manipulation` (tira só o zoom de dois toques; a pinça continua) e, em tela de toque, campos com 16 px (o iPhone ampliava ao tocar no chat, que estava em 15,2 px).
+**Última atualização:** 2026-09-26 (**Leilão: última revisão — regressões do dia, aparelhos e jeitos de usar**): última revisão de 26/09: duas revisões das mudanças do dia (servidor e telas) e uma de aparelhos e jeitos de usar (iPhone, Android antigo, navegador do WhatsApp/Instagram, troca de rede, várias abas, cliques simultâneos). Corrigidos 20 pontos — entre eles o Pix que não copiava no iPhone dizendo "copiado", a janela do som que abria no martelo com o locutor parado, o caixa recarregando debaixo do dedo, abas em pingue-pongue e o lance que podia sumir no instante do "Abrir próximo". Testes de corrida em threads nas duas ordens; documentação consolidada.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: sem zoom de dois toques no iPhone**): dois toques rápidos no iPhone davam zoom — e é assim que se toca no botão de lance numa disputa. Todas as telas do leilão passam a ter `touch-action: manipulation` (tira só o zoom de dois toques; a pinça continua) e, em tela de toque, campos com 16 px (o iPhone ampliava ao tocar no chat, que estava em 15,2 px).
 
 **Atualização anterior:** 2026-09-26 (**Leilão: deploy da revisão geral (lotes A–D) e da revisão da voz**): em produção no commit `2cb34b2` (26/09, 17h38, sem leilão ao vivo nem item em pregão): as quatro rodadas da revisão geral (dinheiro e segurança, tela do público, mesa e caixa, robustez) e a revisão da voz (microfone, mudo e escuta).
 
@@ -2719,6 +2721,78 @@ Sistema web do clube com autenticação real, cadastro de conta e de aventureiro
 > próprios. Nada aqui compartilha banco com o clube. Detalhes em `docs/PLANEJAMENTO_LEILAO.md`
 > (o porquê) e `docs/DEPLOY_LEILAO.md` (como publicar).
 
+### Quadro consolidado — o leilão depois da revisão geral de 26/09
+
+Um dia inteiro de mudanças pedidas pelo clube e de revisões (quatro revisões gerais em paralelo, uma
+revisão só da voz com simulador, e uma última revisão de aparelhos e jeitos de usar). O detalhe de
+cada uma está no `HISTORICO_ALTERACOES.md` (entradas de 26/09); aqui fica o **estado em que ficou**.
+
+**Mesa do locutor** (`locutor.html` + `locutor.js`)
+- **Três linhas de cards**: em cima *item · lances deste item · chat · online agora*; no meio a
+  **gente** (*🏆 top 5 arremates · 🙋 ainda sem lance (online) · 🎯 deram lance sem arrematar*,
+  `_gente_da_noite`); embaixo *fila · sua voz · pagamentos*. Nenhuma célula vazia; toda lista tem teto.
+- **"Lances deste item" por pessoa** (`_disputa_do_item`): todos que deram lance na rodada, os 4 que
+  mais deram em cima (medalha), 👑 em quem ganha; os lances um a um num recolhido.
+- **Martelo em escada**: 🔨 Dou‑lhe uma → 🔨🔨 Dou‑lhe duas → VENDIDO, cada um só depois do anterior,
+  **sem confirmação**, nada automático. Lance novo recomeça; item sem lance mostra "⏭ Encerrar sem
+  lance". A escada vale **no servidor** (`servicos.dou_lhe`, `martelo_liberado`, `_ESCADA` em memória
+  amarrada a `aberto_em`+`valor_atual`), e o VENDIDO confere **dentro da transação** o item e o valor
+  que a mesa via (`fechar_lote(escada=True, visto=…)` → `MarteloRecusado`). O "Abrir próximo" confere
+  o item visto e a disputa **dentro da transação** (`abrir_lote(visto=…, forcar=…)` →
+  `AberturaRecusada`).
+- **Emoção a cada lance** (borda, valor que pula, "+R$ 5", moedas, selo de ritmo) — **sem som**.
+- **Microfone**: 🔇 Mudo sempre à vista, independente do Transmitir, armável antes, guardado na aba
+  (`sessionStorage`). "No ar" só com a conexão de pé; microfone que termina é queda; soluço de rede
+  reaproveita a conexão; WHIP com tempo máximo; a espera da religação só zera com voz estável.
+- **Aba Pessoas** só com quem está neste leilão, sem endereço, com o final do WhatsApp.
+
+**Tela do público** (`leilao_show.html`/`leilao.html` + `leilao.js`, `dou_lhe.js`, `audio_ouvir.js`)
+- **Som da sala sempre ligado** (a ação `som` saiu; `som_lance`/`som_arremate` dormentes).
+- **Dou‑lhe** na tela: carimbo na foto, brilho; no "duas" bordas vermelhas pulsando, botão de lance
+  pulsando, duas batidas sintetizadas. Só a **foto** treme (o botão não sai de baixo do dedo).
+- Lance com **tempo máximo de 8 s**; resposta atrasada não ressuscita item vendido nem mostra "te
+  superaram" por engano; gaveta só no aparelho que arrematou; conexão muda reaberta (`event: ping` +
+  vigia de 45 s na `FonteViva`); telefone com +55 gravado certo.
+- **Voz**: o toque destrava o áudio no iPhone; a recusa do navegador pede o toque; silêncio com o
+  locutor **fora do ar de propósito** não vira alarme (`voz_no_ar` no estado, `estado.VOZ`); no
+  pregão o 🔊 pisca em vez de abrir janela por cima do botão.
+- **iPhone sem zoom de dois toques** (`touch-action: manipulation`) e campos com 16 px em tela de toque.
+
+**Dinheiro e segurança**
+- `/admin/` só de superusuário e com o freio de tentativas da equipe.
+- Pix pago depois da baixa manual gera alerta; baixa confere o valor pago; Pix que volta com valor
+  antigo é refeito com referência nova; estorno de item devolvido vira `cancelado`; "Voltar ao
+  leilão" só no arremate vigente; lance inicial ≥ R$ 1 (item antigo com inicial ≤ 0: primeiro lance
+  vale o incremento).
+- Avisos de pagamento vão com `para` (`Participante.chave_avisos`, HMAC próprio) — a sala não sabe
+  mais quem pagou. Caixa não manda Pix de outro leilão. Clique duplo em Bloquear não desbloqueia.
+- Freio no chat (1 s, 8 por 30 s) e na porta (20 cadastros por IP em 10 min); entrada forjada não vira
+  500; "Sair" só por POST.
+
+**Última revisão (regressões do dia + aparelhos e jeitos de usar)**
+- **Conexões**: teto de **4** por pessoa, a nova derruba a mais antiga, que recebe `event: substituida`
+  e só volta quando a pessoa olha/toca a aba (sem pingue-pongue); reabertura na volta da aba e no
+  `online`. O servidor está em **HTTP/1.1** — HTTP/2 recomendado (`DEPLOY_LEILAO.md` §6.9).
+- **Pix na tela da pessoa**: o código vem antes do toque e a cópia confere se copiou (no iPhone e no
+  navegador do WhatsApp a cópia falhava calada e dizia "copiado"); a conferência de 5 s sempre
+  pergunta o valor ao MP; sessão perdida (401) leva para a porta; gaveta vazia explica que a conta
+  fica no aparelho/navegador em que a pessoa entrou.
+- **Som**: a janela "O som parou" não abre no martelo com o locutor fora do ar e fecha quando o item
+  seguinte abre; o 🔊 volta a desligar; o `AudioContext` é retomado no toque (iOS); microfone mutado
+  pelo iOS é queda; tela acesa do iPhone antigo volta a tocar o vídeo do plano B.
+- **Tela**: avisos (toasts) não pegam toque e são no máximo dois; tremor só na foto; navegador sem
+  `dvh` não perde a foto; mensagem de chat recusada volta ao campo.
+- **Mesa e caixa**: resposta velha da mesa não aplica o estado, mas aplica disputa/gente; o dou-lhe
+  sobe pela própria resposta; entrada/saída de gente recarrega com calma (5 s); o caixa não recarrega
+  debaixo do dedo e a baixa diz quem e o quê; VENDIDO com o cadeado do lance; porta com 60 por IP.
+
+**Como provar**: suíte `manage.py test leilao` (classes `RevisaoGeralLote*`, `RevisaoDaVozTests`,
+`RevisaoFinalEAparelhosTests`,
+`CorridaNaMesaTests` — lance×VENDIDO, VENDIDO×VENDIDO e lance×Abrir em threads, nas duas ordens —,
+`SemZoomNoIphoneTests`, `TremorNaoTiraOBotaoDoDedoTests` e as do dia) e o **simulador de voz**
+(`ferramentas/simulador_voz/`, 31 cenários). O que continua pedindo aparelho de verdade: o **ensaio
+de áudio** (MediaMTX, rede do evento, iPhone) e a saída por TCP do MediaMTX (`DEPLOY_LEILAO.md` §7.0).
+
 **Como rodar local**
 
 ```bash
@@ -2744,7 +2818,8 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
   `core/mercadopago.py` — biblioteca pura — precisa.
 - `Leilao` — a noite de leilão: `status` (rascunho/**ao_vivo**/encerrado; **só um ao vivo**),
   `pagamentos_liberados` (a alavanca do locutor que abre o pagamento no fim), `boas_vindas_titulo`/
-  `boas_vindas_texto`, `ultimo_numero_item` e `som_lance`/`som_arremate` (o som da sala, mig. 0013).
+  `boas_vindas_texto`, `ultimo_numero_item` e `som_lance`/`som_arremate` (o som da sala, mig. 0013 —
+**dormentes desde 26/09**: o som da sala é sempre ligado).
   **Colunas dormentes, que nada lê** (ficaram de recursos removidos a pedido do clube — não religue
   por conta própria): `incremento_padrao` e `Lote.incremento` (o incremento é fixo em R$ 5),
   `segundos_por_lote`, `segundos_extra`, `reiniciar_cronometro` e `fechamento_automatico` (não há
@@ -2839,10 +2914,12 @@ empurra o ▶ Abrir e o 🔨 VENDIDO para fora da tela. Encolher é melhor do qu
 exatamente o que ele lê em voz alta. As listas (lances e chat) têm **teto de 320px e rolam**: sem
 teto, uma delas cresce e leva os três cards da linha junto, porque todos têm a altura do mais alto.
 
-**A mesa é organizada por uso, não por simetria.** A tela do pregão tem duas linhas de **três**
+**A mesa é organizada por uso, não por simetria.** (Desde 26/09 são **três** linhas — a do meio é
+a da **gente**, ver o quadro consolidado acima; o texto abaixo conta como se chegou às duas
+primeiras.) A tela do pregão tem linhas de **três**
 cards: em cima, o que se acompanha ao mesmo tempo enquanto se conduz — **item em pregão**
-(valor, ganhando, ▶ Abrir, 🔨 VENDIDO), **lances deste item** e **chat ao vivo**; embaixo, o que se
-usa uma vez na noite — **fila**, **sua voz** e **pagamentos**. A coluna do martelo é a mais larga
+(valor, ganhando, os três botões do martelo e ▶ Abrir), **lances deste item** e **chat ao vivo**;
+embaixo, o que se usa uma vez na noite — **fila**, **sua voz** e **pagamentos**. A coluna do martelo é a mais larga
 (`1.5fr 1fr 1.15fr`). Abaixo de **1000px** as duas grades **empilham**: a regra base é `2fr 1fr`, e
 três cards em duas colunas deixam uma **célula vazia** ao lado do último — foi exatamente o que
 apareceu quando a bilheteria virou o terceiro card, em 21/09, e o clube perguntou que retângulo

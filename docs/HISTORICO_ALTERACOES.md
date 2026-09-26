@@ -22,6 +22,105 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: última revisão — regressões do dia, aparelhos e jeitos de usar
+
+### Resumo
+Pedido do clube: atualizar toda a documentação com as correções do dia e fazer uma última revisão
+do código — "não pode dar nenhum problema" —, pensando também em **tipos de celular e jeitos de usar**
+(como o zoom do iPhone, que ninguém tinha visto), por exemplo "e se a pessoa clicar em dar lance e o
+locutor fechar ao mesmo tempo?".
+
+### Como foi feito
+- **Três revisões independentes**: as mudanças do dia no servidor; as mudanças do dia nas telas; e
+  uma matriz de **aparelhos × jeitos de usar** (iPhone Safari e antigos, modo economia, chave do
+  silencioso, Android 2019–2020, Samsung Internet, navegadores de dentro do WhatsApp/Instagram,
+  celular deitado, fonte grande, troca Wi-Fi→4G, voltar do WhatsApp, várias abas, dois navegadores,
+  sessão perdida, caixa com a lista mudando, cliques simultâneos).
+- **Corridas de verdade** (`CorridaNaMesaTests`): threads soltas juntas por barreira, com atraso
+  alternado para forçar **as duas ordens** — o primeiro teste rodou 40 vezes e o lance ganhou as 40,
+  ou seja, o caso "o martelo primeiro" nunca tinha sido testado. Regras que não podem quebrar em
+  ordem nenhuma: lance × VENDIDO, VENDIDO × VENDIDO (duas mesas), lance × Abrir próximo.
+- **Conferido no servidor**: o site está em **HTTP/1.1** (sem HTTP/2).
+
+### Achados e correções
+**Dinheiro e pregão**
+1. **Pix pago a menor era quitado 5 s depois** pelo atalho da conferência da tela da pessoa: agora ela
+   sempre pergunta o valor ao MP.
+2. **Lance no instante do "Abrir próximo" podia sumir** (item voltava zerado para a fila): a
+   conferência do item visto e da disputa foi para **dentro da transação** (`abrir_lote(visto=,
+   forcar=)`, `AberturaRecusada`), como já era no VENDIDO — que agora também usa o cadeado do lance.
+3. **Porta com 20 cadastros por IP** barraria o público no Wi-Fi do salão: 60.
+
+**Conexões**
+4. **Troca de Wi-Fi para 4G** deixava conexões penduradas e a pessoa batia no teto ("Muitas telas
+   abertas", tela congelada): a conexão **nova derruba a mais antiga** da pessoa.
+5. **Pingue-pongue** (achado ao revisar a correção 4): com 5+ abas, a derrubada reconectava e
+   derrubava outra, sem parar. Agora ela recebe `event: substituida`, **não reconecta sozinha** e volta
+   quando a pessoa olha a aba ou toca nela. **Teto 4** (e não 6): em HTTP/1.1 o navegador abre só 6
+   conexões por site, e 6 abas presas no stream deixavam o POST do lance na fila.
+6. **Voltar do WhatsApp/app do banco** com a conexão morta calada: a tela ficava congelada até 45 s
+   (às vezes em "VOCÊ ESTÁ GANHANDO" já superado). Reabre na volta da aba (20 s sem sinal) e no
+   `online`.
+
+**Tela do público**
+7. **Pix no iPhone / navegador do WhatsApp**: "📋 Copiar código Pix" não copiava e dizia "copiado"
+   (o código era buscado depois do toque; o `execCommand` não era conferido). Agora o código vem
+   antes, a cópia é conferida, e se não der a tela avisa e abre o QR.
+8. **Janela "O som parou" no martelo com o locutor fora do ar** (entrou na revisão da voz): abria em
+   todos os celulares e ficava por cima do item seguinte. Não abre por silêncio com a voz desligada,
+   e fecha quando um item abre. Cenário novo no simulador (**p11**), que falha no código anterior.
+9. **O 🔊 não desligava** enquanto o locutor estava fora do ar: corrigido.
+10. **Toasts no topo pegavam o toque** (caíam em cima do 🔊) e se empilhavam: na tela do público não
+    pegam toque e são no máximo dois.
+11. **iOS**: som de efeito retomado em qualquer toque (`AudioContext` "interrupted"); tela acesa do
+    iPhone sem Wake Lock volta a tocar o vídeo do plano B na volta da aba; microfone "mutado" pelo
+    iOS (ligação, Siri) é queda.
+12. **Navegador sem `dvh`** (WebView antigo): a foto e o nome do item sumiam — `@supports` devolve `vh`.
+13. **Sessão perdida** (cookie apagado): a tela ficava morta; o 401 do lance/chat leva para a porta.
+14. **Gaveta vazia** explica que a conta fica no aparelho/navegador em que a pessoa entrou.
+15. **Mensagem de chat recusada** (freio) volta ao campo.
+16. **Tremor do dou-lhe** só na foto — o botão de lance não sai de baixo do dedo (na tela clássica a
+    barra de baixo também pulava).
+
+**Mesa e caixa**
+17. **Disputa quente**: a mesa descartava toda resposta e congelava disputa/gente; agora descarta só
+    o estado velho.
+18. **Dou-lhe** sobe o degrau pela própria resposta (sem depender do stream).
+19. **Entrada/saída de gente** recarregava a mesa a cada celular: agora com calma (5 s).
+20. **Caixa no fim da noite** recarregava a cada Pix, com a lista mudando debaixo do dedo: não
+    recarrega com gesto nos últimos 6 s, e a baixa manual pergunta **quem e qual item**.
+Também: reaproveitar a conexão de voz rearma o relógio de estabilidade.
+
+### Verificação
+- Suíte do leilão inteira; `RevisaoFinalEAparelhosTests`, `CorridaNaMesaTests`,
+  `TremorNaoTiraOBotaoDoDedoTests` e as classes do dia.
+- Simulador de voz: **31/31** (20 da mesa, 11 do público); o p11 falha no código anterior.
+- Sintaxe dos 20 JS do leilão conferida no Chrome.
+
+### Documentação atualizada
+`docs/MANUAL_LEILAO.md` (a mesa de três linhas, o martelo em escada, a disputa por pessoa, a linha da
+gente, o microfone e o mudo, o caixa, o participante, perguntas novas e a lista de conferência),
+`docs/ESTADO_ATUAL.md` (**quadro consolidado** no topo da seção do leilão), `docs/REGRAS_CODEX.md`
+("A revisão geral de 26/09: as regras que ficaram"), `docs/DEPLOY_LEILAO.md` (§6.9 HTTP/2),
+`docs/README_PROJETO.md` e `CLAUDE.md`.
+
+### Pendências (fora do código)
+- **HTTP/2 no Nginx** (`DEPLOY_LEILAO.md` §6.9) e **TCP no MediaMTX** (§7.0) — configuração do
+  servidor, não feita sem autorização.
+- **Ensaio** com locutor falando e 2–3 celulares (um iPhone), incluindo copiar o Pix no iPhone.
+- **Limpar arremates de ensaio** em produção antes do evento: a conta de cada pessoa é paga do
+  leilão mais antigo em aberto, e itens de ensaio "aguardando" apareceriam no lugar dos da noite.
+- Não tratados (baixo risco): celular deitado deixa o botão de lance abaixo da dobra; a identidade
+  continua sendo o telefone digitado (decisão do clube).
+
+### Arquivos
+`leilao/servicos.py`, `leilao/views.py`, `leilao/hub.py`, `static/leilao/js/{leilao,locutor,caixa,
+fonte_viva,som,tela_acesa,audio_falar}.js`, `static/leilao/css/{leilao,palco_show}.css`,
+`templates/leilao/{leilao,leilao_show,caixa}.html`, `leilao/tests.py`,
+`ferramentas/simulador_voz/cen_publico.js`, e a documentação acima.
+
+---
+
 ## 2026-09-26 - Leilão: sem zoom de dois toques no iPhone
 
 ### Resumo

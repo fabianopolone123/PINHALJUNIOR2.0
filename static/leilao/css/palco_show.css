@@ -761,3 +761,12 @@ body.tela-show {
     .tela-show .show-vinheta { display: none; }
     .tela-show .show-valor .fita { transition: none; }
 }
+
+/* Navegador sem `dvh` (WebView antigo, Android 6, iOS < 15.4): a variável com
+   `dvh` fica inválida e a FOTO encolhia para zero, levando o nome do item junto
+   (revisão de 26/09). Aqui ela volta para `vh`. */
+@supports not (height: 1dvh) {
+    body.tela-show { --foto-min: clamp(160px, 30vh, 420px); }
+    .tela-show .show { min-height: 100vh; }
+}
+

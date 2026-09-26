@@ -287,6 +287,10 @@ WebRTC (com **🔇 Mudo** para pausar sem derrubar ninguém). **Não há cronôm
 é o locutor — e **não há prazo para pagar**: os itens se acumulam na conta de quem arremata e ela paga
 **tudo num Pix só**, quando o locutor libera no fim (e sempre, depois de encerrado). A tela do público é
 a **"show"** (`/leilao/`); a anterior fica de **reserva** em `/leilao/classico/`, com o mesmo motor.
+A mesa do locutor tem o martelo em escada (dou‑lhe uma → duas → VENDIDO), a lista de quem disputa cada
+item e a linha da "gente" (top 5, sem lance, sem arremate). Em 26/09 o leilão passou por uma revisão
+geral (dinheiro, segurança, telas, voz com simulador em `ferramentas/simulador_voz/`, aparelhos e jeitos
+de usar) — o resumo está no quadro consolidado da seção do leilão em `docs/ESTADO_ATUAL.md`.
 Roda como um **segundo serviço**, na mesma base de código:
 
 ```
