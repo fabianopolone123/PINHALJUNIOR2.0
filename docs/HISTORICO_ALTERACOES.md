@@ -22,6 +22,31 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: sem zoom de dois toques no iPhone
+
+### Resumo
+Relatado pelo clube: no iPhone, tocar duas vezes rápido dava zoom na tela.
+
+### Causa
+Dois toques rápidos são o gesto de zoom do Safari. No leilão, tocar rápido no botão de lance é o
+uso normal — a tela ampliava no meio da disputa. De quebra, o iPhone também amplia sozinho ao tocar
+num campo com letra menor que 16 px, e o campo do chat estava em 15,2 px (a busca e os campos da
+equipe também estavam abaixo).
+
+### O que mudou (`static/leilao/css/leilao.css`, carregado por todas as telas do leilão)
+- `touch-action: manipulation` em `html`, `body`, botões, links, campos e rótulos: tira **só** o
+  zoom de dois toques. A **pinça** (dois dedos) continua, para quem precisa enxergar maior.
+- Em tela de toque (`hover: none` + `pointer: coarse`), `input`/`select`/`textarea` com 16 px.
+
+### Decisões tomadas
+- **Nada de `user-scalable=no` / `maximum-scale=1`**: o iPhone ignora desde o iOS 10, e ele tiraria a
+  pinça de quem precisa aumentar a tela. Há teste garantindo que nenhuma tela do leilão os usa.
+
+### Arquivos
+`static/leilao/css/leilao.css`, `leilao/tests.py` (`SemZoomNoIphoneTests`).
+
+---
+
 ## 2026-09-26 - Leilão: deploy da revisão geral (lotes A–D) e da revisão da voz
 
 ### Resumo

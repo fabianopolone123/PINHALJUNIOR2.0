@@ -7832,3 +7832,34 @@ class RevisaoDaVozTests(TestCase):
             self.assertFalse(est.VOZ["no_ar"])
         finally:
             est.VOZ["no_ar"] = False
+
+
+class SemZoomNoIphoneTests(TestCase):
+    """Dois toques rápidos no iPhone davam zoom — e é assim que se toca no
+    botão de lance numa disputa (26/09)."""
+
+    def _css(self):
+        return Path(settings.BASE_DIR, "static", "leilao", "css", "leilao.css").read_text(encoding="utf-8")
+
+    def test_o_zoom_de_dois_toques_esta_desligado(self):
+        css = self._css()
+        regra = css[css.index("touch-action: manipulation") - 120: css.index("touch-action: manipulation")]
+        self.assertIn("button", regra)
+        self.assertIn("html", regra)
+
+    def test_campo_de_texto_nao_da_zoom_ao_tocar(self):
+        css = self._css()
+        bloco = css[css.index("@media (hover: none) and (pointer: coarse)"):]
+        bloco = bloco[: bloco.index("\n}")]
+        self.assertIn("font-size: 16px !important", bloco)
+
+    def test_a_pinca_continua_liberada(self):
+        """Tirar o zoom de quem precisa enxergar maior não é a correção."""
+        for tpl in Path(settings.BASE_DIR, "templates", "leilao").glob("*.html"):
+            self.assertNotIn("user-scalable=no", tpl.read_text(encoding="utf-8"), tpl.name)
+            self.assertNotIn("maximum-scale=1", tpl.read_text(encoding="utf-8"), tpl.name)
+
+    def test_todas_as_telas_do_leilao_carregam_a_regra(self):
+        base = Path(settings.BASE_DIR, "templates", "leilao", "_base.html").read_text(encoding="utf-8")
+        self.assertIn("leilao/css/leilao.css", base)
+

@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: deploy da revisão geral (lotes A–D) e da revisão da voz**): em produção no commit `2cb34b2` (26/09, 17h38, sem leilão ao vivo nem item em pregão): as quatro rodadas da revisão geral (dinheiro e segurança, tela do público, mesa e caixa, robustez) e a revisão da voz (microfone, mudo e escuta).
+**Última atualização:** 2026-09-26 (**Leilão: sem zoom de dois toques no iPhone**): dois toques rápidos no iPhone davam zoom — e é assim que se toca no botão de lance numa disputa. Todas as telas do leilão passam a ter `touch-action: manipulation` (tira só o zoom de dois toques; a pinça continua) e, em tela de toque, campos com 16 px (o iPhone ampliava ao tocar no chat, que estava em 15,2 px).
+
+**Atualização anterior:** 2026-09-26 (**Leilão: deploy da revisão geral (lotes A–D) e da revisão da voz**): em produção no commit `2cb34b2` (26/09, 17h38, sem leilão ao vivo nem item em pregão): as quatro rodadas da revisão geral (dinheiro e segurança, tela do público, mesa e caixa, robustez) e a revisão da voz (microfone, mudo e escuta).
 
 **Atualização anterior:** 2026-09-26 (**Leilão: revisão final da voz — microfone, mudo e escuta, com simulador**): revisão final da voz (26/09), com um simulador que roda a mesa e o pregão reais no Chrome com o WebRTC falso (`ferramentas/simulador_voz/`, 30 cenários). Corrigidos: "No ar" antes de a conexão existir (e o laço que chamava a sala a reconectar), microfone desconectado não percebido, soluço de rede derrubando a plateia, Mudo na religação dizendo "No ar", botão Transmitir travado, mudo perdido ao recarregar; no público, o som que nunca tocava no iPhone sem aviso, o alarme "som caiu" quando o locutor para de propósito, e religações cedo demais em oscilação curta.
 

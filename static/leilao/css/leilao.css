@@ -50,6 +50,23 @@
 
 html, body { height: 100%; }
 
+/* SEM ZOOM DE DOIS TOQUES (pedido de 26/09). No iPhone, dois toques rápidos
+   são o gesto de zoom — e tocar rápido no botão de lance é exatamente o que se
+   faz numa disputa: a tela ampliava no meio do pregão. `manipulation` tira só
+   o zoom de dois toques; a PINÇA (dois dedos) continua, para quem precisa
+   enxergar maior. Nada de `user-scalable=no`: o iPhone ignora e ele tira a
+   pinça de quem precisa. */
+html, body, button, a, input, select, textarea, label, [role="button"] {
+    touch-action: manipulation;
+}
+
+/* E o zoom ao TOCAR num campo: o iPhone amplia sozinho campo com letra menor
+   que 16 px (o chat estava em 15,2 px). Só em tela de toque — no computador os
+   campos seguem o tamanho de cada tela. */
+@media (hover: none) and (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+}
+
 body {
     font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color: var(--texto);
