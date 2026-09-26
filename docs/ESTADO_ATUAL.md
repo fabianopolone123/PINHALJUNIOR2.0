@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: última revisão — regressões do dia, aparelhos e jeitos de usar**): última revisão de 26/09: duas revisões das mudanças do dia (servidor e telas) e uma de aparelhos e jeitos de usar (iPhone, Android antigo, navegador do WhatsApp/Instagram, troca de rede, várias abas, cliques simultâneos). Corrigidos 20 pontos — entre eles o Pix que não copiava no iPhone dizendo "copiado", a janela do som que abria no martelo com o locutor parado, o caixa recarregando debaixo do dedo, abas em pingue-pongue e o lance que podia sumir no instante do "Abrir próximo". Testes de corrida em threads nas duas ordens; documentação consolidada.
+**Última atualização:** 2026-09-26 (**Leilão: HTTP/2 dispensado — orientação de uma aba por celular**): o clube decidiu não ativar o HTTP/2 no Nginx: a orientação é cada celular usar **uma aba só** do leilão (com uma aba, o limite de 6 conexões do HTTP/1.1 nunca é atingido). O teto de 4 conexões por pessoa, com a mais nova derrubando a mais antiga, continua como proteção.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: última revisão — regressões do dia, aparelhos e jeitos de usar**): última revisão de 26/09: duas revisões das mudanças do dia (servidor e telas) e uma de aparelhos e jeitos de usar (iPhone, Android antigo, navegador do WhatsApp/Instagram, troca de rede, várias abas, cliques simultâneos). Corrigidos 20 pontos — entre eles o Pix que não copiava no iPhone dizendo "copiado", a janela do som que abria no martelo com o locutor parado, o caixa recarregando debaixo do dedo, abas em pingue-pongue e o lance que podia sumir no instante do "Abrir próximo". Testes de corrida em threads nas duas ordens; documentação consolidada.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: sem zoom de dois toques no iPhone**): dois toques rápidos no iPhone davam zoom — e é assim que se toca no botão de lance numa disputa. Todas as telas do leilão passam a ter `touch-action: manipulation` (tira só o zoom de dois toques; a pinça continua) e, em tela de toque, campos com 16 px (o iPhone ampliava ao tocar no chat, que estava em 15,2 px).
 
@@ -2772,7 +2774,8 @@ cada uma está no `HISTORICO_ALTERACOES.md` (entradas de 26/09); aqui fica o **e
 **Última revisão (regressões do dia + aparelhos e jeitos de usar)**
 - **Conexões**: teto de **4** por pessoa, a nova derruba a mais antiga, que recebe `event: substituida`
   e só volta quando a pessoa olha/toca a aba (sem pingue-pongue); reabertura na volta da aba e no
-  `online`. O servidor está em **HTTP/1.1** — HTTP/2 recomendado (`DEPLOY_LEILAO.md` §6.9).
+  `online`. O servidor está em **HTTP/1.1**; o HTTP/2 foi **dispensado pelo clube** — a orientação é
+  **uma aba por celular**, e o teto de 4 protege quem abrir mais (`DEPLOY_LEILAO.md` §6.9).
 - **Pix na tela da pessoa**: o código vem antes do toque e a cópia confere se copiou (no iPhone e no
   navegador do WhatsApp a cópia falhava calada e dizia "copiado"); a conferência de 5 s sempre
   pergunta o valor ao MP; sessão perdida (401) leva para a porta; gaveta vazia explica que a conta

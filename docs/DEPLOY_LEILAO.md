@@ -284,7 +284,13 @@ curl -s -o /dev/null -w "%{http_code}
 " -X POST -H "Content-Type: application/sdp"      --data x https://pinhaljunior.com.br/leilao/audio/leilao/whip
 ```
 
-## 6.9 Recomendação: HTTP/2 no Nginx do leilão
+## 6.9 HTTP/2 no Nginx — DISPENSADO por decisão do clube (26/09)
+
+> **Decisão do clube:** não ativar o HTTP/2. A orientação é **cada celular usar uma aba só** do
+> leilão — com uma aba, o limite de 6 conexões do HTTP/1.1 nunca é atingido. O código segue com o
+> teto de 4 conexões por pessoa (a mais nova derruba a mais antiga) como proteção. O texto abaixo
+> fica como referência, caso a decisão mude.
+
 
 Conferido em 26/09: o `pinhaljunior.com.br` responde em **HTTP/1.1**. Nesse modo o navegador abre
 no máximo **6 conexões por site**, e cada aba do leilão prende uma no stream ao vivo (SSE). Quem

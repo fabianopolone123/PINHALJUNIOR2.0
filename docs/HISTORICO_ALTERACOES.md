@@ -22,6 +22,21 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: HTTP/2 dispensado — orientação de uma aba por celular
+
+### Resumo
+Explicado ao clube o limite de 6 conexões por site do HTTP/1.1 (cada aba do leilão prende uma no
+stream ao vivo; com muitas abas o lance espera na fila) e o que o HTTP/2 mudaria. **Decisão do
+clube: não ativar.** A orientação é **uma aba por celular**; o código segue com o teto de 4 como
+proteção para quem abrir mais. Nada mudou no código nem no servidor.
+
+### Arquivos
+`docs/DEPLOY_LEILAO.md` (§6.9 marcado como dispensado), `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`,
+`docs/HISTORICO_ALTERACOES.md`, `CLAUDE.md`. O manual da equipe já pede, na lista de conferência,
+para avisar no grupo: usar uma aba só e o mesmo celular a noite toda.
+
+---
+
 ## 2026-09-26 - Leilão: última revisão — regressões do dia, aparelhos e jeitos de usar
 
 ### Resumo
@@ -105,8 +120,8 @@ gente, o microfone e o mudo, o caixa, o participante, perguntas novas e a lista 
 `docs/README_PROJETO.md` e `CLAUDE.md`.
 
 ### Pendências (fora do código)
-- **HTTP/2 no Nginx** (`DEPLOY_LEILAO.md` §6.9) e **TCP no MediaMTX** (§7.0) — configuração do
-  servidor, não feita sem autorização.
+- **HTTP/2 no Nginx**: **dispensado pelo clube** — a orientação é uma aba por celular (teto de 4
+  como proteção). **TCP no MediaMTX** (§7.0) segue como recomendação, não feita.
 - **Ensaio** com locutor falando e 2–3 celulares (um iPhone), incluindo copiar o Pix no iPhone.
 - **Limpar arremates de ensaio** em produção antes do evento: a conta de cada pessoa é paga do
   leilão mais antigo em aberto, e itens de ensaio "aguardando" apareceriam no lugar dos da noite.

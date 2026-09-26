@@ -1463,8 +1463,9 @@ e jeitos de usar**. O que cada uma mudou está no HISTORICO; aqui fica o que nã
   recusar a nova congelava quem trocou de Wi-Fi para 4G. A derrubada recebe `event: substituida` e
   **não reconecta sozinha** (senão as abas se derrubam em pingue-pongue); volta quando a pessoa olha
   a aba ou toca nela. 4 e não 6: **o servidor está em HTTP/1.1** (6 conexões por site no navegador),
-  e cada aba presa no stream é uma — com 6, o POST do lance ia para a fila. Ligar HTTP/2 no Nginx
-  resolve de vez (`DEPLOY_LEILAO.md` §7.0).
+  e cada aba presa no stream é uma — com 6, o POST do lance ia para a fila. O HTTP/2 foi
+  **dispensado pelo clube** (26/09): a orientação é **uma aba por celular**, e o teto de 4 é a proteção
+  para quem abrir mais (`DEPLOY_LEILAO.md` §6.9).
 - **Conexão muda é reaberta**: `event: ping` (não comentário) + vigia de 45 s na `FonteViva`, e
   reabertura na volta da aba (20 s sem sinal) e no `online`.
 - **Lance com tempo máximo de 8 s** (`post(…, 8000)`); **sessão perdida (401) leva para a porta**.
