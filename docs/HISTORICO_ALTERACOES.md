@@ -22,6 +22,40 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: revisão geral, lote A — dinheiro e segurança
+
+### Resumo
+Primeiro lote da revisão geral do leilão (quatro revisões em paralelo: servidor/dinheiro, segurança,
+tela do público, telas da equipe). Itens 1, 2, 3, 4, 5, 16 e 17 da lista.
+
+### O que mudou
+1. **`/admin/` só de superusuário, com freio.** O `has_permission` barrava o índice, mas o login do
+   admin aceitava qualquer `is_staff` e **sem** o freio da equipe — dava para varrer `nome/1234` e
+   tomar a conta. Agora o `login_form` exige superusuário e usa o mesmo freio (`equipe.login_barrado`).
+2. **Lance com tempo máximo (8 s).** O `post()` do `leilao.js` ganhou `AbortController`: um POST
+   perdido no 4G fraco deixava o botão apagado para sempre. Sem resposta, o botão volta ao estado
+   certo e a pessoa é avisada.
+3. **Pix pago depois da baixa manual.** Com a FK ainda apontando para o Pix e o caixa dando baixa na
+   mão, o Pix pago depois caía no "webhook repetido" e passava calado. Agora gera o alerta de
+   dinheiro em dobro.
+4. **Valor conferido.** A baixa não quita se o valor pago é menor que o cobrado (fica para o caixa,
+   com log). E se o MP devolve a cobrança com valor antigo (a chave de idempotência repetida depois
+   de uma falha de rede), uma nova é pedida com referência nova.
+5. **VENDIDO e Abrir conferem a tela.** A mesa manda o item e o valor que está vendo; o
+   `fechar_lote` confere tudo **dentro da transação** (entrou lance novo, item trocou, escada sem o
+   "duas" → `MarteloRecusado`, 409). O "Abrir" manda o item visto (`atual`): toque duplo ou pregão
+   mudado são recusados, e item em disputa só é trocado com `forcar` (a pergunta da mesa).
+16. **Estorno de item doado de volta** vira `cancelado`, não "devendo".
+17. **Lance inicial.** O cadastro exige pelo menos R$ 1,00; item antigo com inicial ≤ 0 tem o
+   primeiro lance valendo o incremento.
+
+### Arquivos alterados
+`config/urls_leilao.py`, `leilao/servicos.py`, `leilao/views.py`, `leilao/models.py`,
+`leilao/forms.py`, `static/leilao/js/leilao.js`, `static/leilao/js/locutor.js`, `leilao/tests.py`
+(`RevisaoGeralLoteATests`, 16 testes).
+
+---
+
 ## 2026-09-26 - Leilão: correções da revisão da mesa nova
 
 ### Resumo

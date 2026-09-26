@@ -7258,3 +7258,199 @@ class RevisaoDaMesaNovaTests(TestCase):
         self.assertNotIn("while (fx.firstChild)", festa)
         self.assertIn("criadas.forEach", festa)
 
+
+class RevisaoGeralLoteATests(TestCase):
+    """Lote A da revisão geral de 26/09: dinheiro e segurança."""
+
+    def setUp(self):
+        from unittest import mock
+
+        servicos.limpar_limites()
+        equipe.limpar_tentativas()
+        self.leilao = criar_leilao()
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        self.beto = criar_pessoa("Beto Fictício Lima")
+        cfg = ConfigLeilao.get_solo()
+        cfg.access_token_teste = "TEST-token-ficticio"
+        cfg.save()
+        self.gerados = []
+        self.valor_devolvido = None
+
+        def criar_pix_falso(cfg, *, referencia, valor, **_):
+            self.gerados.append((referencia, valor))
+            devolve = self.valor_devolvido if len(self.gerados) == 1 and self.valor_devolvido else valor
+            return {"ok": True, "mp_payment_id": "mp-%d" % len(self.gerados), "status": "pendente",
+                    "qr_code": "pix-%s" % referencia, "qr_code_base64": "", "ticket_url": "",
+                    "raw": {"transaction_amount": float(devolve)}}
+
+        p = mock.patch.object(servicos.mercadopago, "criar_pix", side_effect=criar_pix_falso)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _usuario(self, nome, *, superuser=False, area="caixa"):
+        User = get_user_model()
+        u = User.objects.create_user(nome, password="segredo-ficticio")
+        u.is_staff = True
+        u.is_superuser = superuser
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name=area)[0])
+        return u
+
+    def _arrematar(self, nome, inicial, pessoa=None):
+        lote = criar_lote(self.leilao, nome=nome, ordem=self.leilao.lotes.count() + 1,
+                          lance_inicial=Decimal(inicial))
+        servicos.abrir_lote(lote)
+        servicos.limpar_limites()
+        servicos.dar_lance(lote.id, pessoa or self.ana)
+        return servicos.fechar_lote(Lote.objects.get(pk=lote.pk), motivo="locutor")
+
+    # --- 1. /admin/ ------------------------------------------------------
+    def test_equipe_nao_entra_pelo_login_do_admin(self):
+        self._usuario("voluntaria_ficticia")
+        c = Client()
+        c.post("/admin/login/", {"username": "voluntaria_ficticia", "password": "segredo-ficticio"})
+        self.assertNotIn("_auth_user_id", c.session, "conta da equipe entrou pelo admin")
+
+    def test_superusuario_entra_pelo_admin(self):
+        self._usuario("admin_ficticio", superuser=True)
+        c = Client()
+        c.post("/admin/login/", {"username": "admin_ficticio", "password": "segredo-ficticio"})
+        self.assertIn("_auth_user_id", c.session)
+
+    def test_o_login_do_admin_tem_freio(self):
+        self._usuario("admin_ficticio", superuser=True)
+        c = Client()
+        for _ in range(equipe.MAX_TENTATIVAS):
+            c.post("/admin/login/", {"username": "admin_ficticio", "password": "errada"})
+        c.post("/admin/login/", {"username": "admin_ficticio", "password": "segredo-ficticio"})
+        self.assertNotIn("_auth_user_id", c.session, "o freio não segurou a varredura")
+
+    # --- 2. Lance com tempo máximo ---------------------------------------
+    def test_o_lance_tem_tempo_maximo_de_espera(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(encoding="utf-8")
+        self.assertIn("new AbortController()", js)
+        self.assertIn("valor_visto: pretendido }, 8000)", js)
+
+    # --- 3. Baixa manual e depois o Pix ----------------------------------
+    def test_pix_pago_depois_da_baixa_manual_gera_alerta(self):
+        a = self._arrematar("Cesta fictícia", "30.00")
+        pag = servicos.cobranca_do_participante(self.ana)
+        a.refresh_from_db()
+        servicos.marcar_pago(a, manual=True)
+        with self.assertLogs("leilao.servicos", level="ERROR") as log:
+            servicos._aplicar_retorno(pag, {"status": "aprovado", "valor": pag.valor_bruto})
+        self.assertIn("conferir com a pessoa", "\n".join(log.output))
+
+    # --- 4. Valor pago e valor antigo ------------------------------------
+    def test_pagamento_a_menor_nao_quita(self):
+        a = self._arrematar("Cesta fictícia", "30.00")
+        pag = servicos.cobranca_do_participante(self.ana)
+        with self.assertLogs("leilao.servicos", level="ERROR"):
+            servicos._aplicar_retorno(pag, {"status": "aprovado", "valor": Decimal("10.00")})
+        a.refresh_from_db()
+        self.assertEqual(a.status, "aguardando")
+
+    def test_pix_que_volta_com_valor_antigo_e_refeito(self):
+        self._arrematar("Cesta fictícia", "30.00")
+        self.valor_devolvido = Decimal("10.00")   # a chave repetida devolveu a cobrança velha
+        pag = servicos.cobranca_do_participante(self.ana)
+        self.assertEqual(len(self.gerados), 2, "tinha de pedir outra cobrança")
+        self.assertNotEqual(self.gerados[0][0], self.gerados[1][0], "com referência nova")
+        self.assertEqual(pag.valor_bruto, Decimal("30.00"))
+
+    # --- 5. VENDIDO e abrir conferem a tela --------------------------------
+    def _locutor(self):
+        u = self._usuario("locutor_ficticio", area="locutor")
+        c = Client()
+        c.force_login(u)
+        return c
+
+    def _acao(self, c, **corpo):
+        corpo.setdefault("leilao", self.leilao.pk)
+        return c.post("/equipe/acao/", json.dumps(corpo), content_type="application/json")
+
+    def test_vendido_recusa_se_entrou_lance_novo(self):
+        c = self._locutor()
+        lote = criar_lote(self.leilao, nome="Item fictício", lance_inicial=Decimal("20"))
+        servicos.abrir_lote(lote)
+        servicos.dar_lance(lote.id, self.ana)
+        self._acao(c, acao="dou_lhe", vez=1, lote=lote.pk)
+        self._acao(c, acao="dou_lhe", vez=2, lote=lote.pk)
+        visto = str(Lote.objects.get(pk=lote.pk).valor_atual)
+        servicos.limpar_limites()
+        servicos.dar_lance(lote.id, self.beto)            # entrou depois do "duas"
+        r = self._acao(c, acao="fechar", lote=lote.pk, valor=visto)
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(Lote.objects.get(pk=lote.pk).status, "aberto")
+
+    def test_vendido_com_a_tela_certa_fecha(self):
+        c = self._locutor()
+        lote = criar_lote(self.leilao, nome="Item fictício", lance_inicial=Decimal("20"))
+        servicos.abrir_lote(lote)
+        servicos.dar_lance(lote.id, self.ana)
+        self._acao(c, acao="dou_lhe", vez=1, lote=lote.pk)
+        self._acao(c, acao="dou_lhe", vez=2, lote=lote.pk)
+        visto = str(Lote.objects.get(pk=lote.pk).valor_atual)
+        r = self._acao(c, acao="fechar", lote=lote.pk, valor=visto)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(Lote.objects.get(pk=lote.pk).status, "vendido")
+
+    def test_sem_lance_na_tela_nao_vende_item_que_ganhou_lance(self):
+        c = self._locutor()
+        lote = criar_lote(self.leilao, nome="Item fictício", lance_inicial=Decimal("20"))
+        servicos.abrir_lote(lote)
+        servicos.dar_lance(lote.id, self.ana)             # a mesa ainda via "sem lance"
+        r = self._acao(c, acao="fechar", lote=lote.pk, valor="")
+        self.assertEqual(r.status_code, 409)
+
+    def test_vendido_atrasado_nao_fecha_o_item_seguinte(self):
+        c = self._locutor()
+        a = criar_lote(self.leilao, nome="Item A fictício")
+        b = criar_lote(self.leilao, nome="Item B fictício", ordem=2)
+        servicos.abrir_lote(a)
+        servicos.abrir_lote(Lote.objects.get(pk=b.pk))    # outra aba abriu o B
+        r = self._acao(c, acao="fechar", lote=a.pk, valor="")
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(Lote.objects.get(pk=b.pk).status, "aberto")
+
+    def test_toque_duplo_em_abrir_nao_troca_o_item(self):
+        c = self._locutor()
+        criar_lote(self.leilao, nome="Item A fictício")
+        criar_lote(self.leilao, nome="Item B fictício", ordem=2)
+        r1 = self._acao(c, acao="abrir", atual=0)
+        r2 = self._acao(c, acao="abrir", atual=0)         # o 2º toque ainda via "nenhum"
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 409)
+        self.assertEqual(Leilao.objects.get(pk=self.leilao.pk).lote_atual.nome, "Item A fictício")
+
+    def test_item_em_disputa_so_troca_com_forcar(self):
+        c = self._locutor()
+        a = criar_lote(self.leilao, nome="Item A fictício")
+        criar_lote(self.leilao, nome="Item B fictício", ordem=2)
+        servicos.abrir_lote(a)
+        servicos.dar_lance(a.id, self.ana)
+        self.assertEqual(self._acao(c, acao="abrir", atual=a.pk).status_code, 409)
+        self.assertEqual(self._acao(c, acao="abrir", atual=a.pk, forcar=True).status_code, 200)
+
+    # --- 16. Estorno de item doado de volta ------------------------------
+    def test_estorno_de_item_devolvido_nao_volta_a_cobrar(self):
+        a = self._arrematar("Cesta fictícia", "30.00")
+        pag = servicos.cobranca_do_participante(self.ana)
+        servicos._aplicar_retorno(pag, {"status": "aprovado", "valor": pag.valor_bruto})
+        Arremate.objects.filter(pk=a.pk).update(devolvido_em=timezone.now())
+        servicos._aplicar_retorno(pag, {"status": "estornado"})
+        a.refresh_from_db()
+        self.assertEqual(a.status, "cancelado")
+
+    # --- 17. Lance inicial ----------------------------------------------
+    def test_inicial_zero_ou_negativo_nao_vira_lance_de_zero(self):
+        for inicial in ("0", "-10"):
+            lote = criar_lote(self.leilao, nome=f"Item {inicial}", lance_inicial=Decimal(inicial))
+            self.assertEqual(lote.proximo_valor, lote.incremento_efetivo)
+
+    def test_o_cadastro_recusa_inicial_abaixo_de_um_real(self):
+        for inicial in ("0", "0.50", "-10"):
+            f = forms.LoteForm(data={"nome": "Caneca fictícia", "lance_inicial": inicial, "peso_kg": "500",
+                                     "altura_cm": "10", "largura_cm": "10", "profundidade_cm": "10"})
+            self.assertFalse(f.is_valid(), inicial)
+            self.assertIn("lance_inicial", f.errors)

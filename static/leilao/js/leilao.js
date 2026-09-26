@@ -96,7 +96,12 @@
         } catch (e) { /* enfeite que falhou não derruba o pregão */ }
     }
 
-    function post(url, corpo) {
+    /* `espera` (ms): tempo máximo pela resposta. Sem ele, um POST perdido no
+       4G fraco deixava o fetch pendurado por minutos — e o botão de lance
+       apagado, sem aviso, justo no "dou-lhe duas" (revisão de 26/09). */
+    function post(url, corpo, espera) {
+        var controle = espera && window.AbortController ? new AbortController() : null;
+        var relogio = controle ? setTimeout(function () { controle.abort(); }, espera) : null;
         return fetch(url, {
             method: "POST",
             headers: {
@@ -104,8 +109,15 @@
                 "X-CSRFToken": CSRF,
                 "X-Requested-With": "XMLHttpRequest"
             },
-            body: JSON.stringify(corpo || {})
-        }).then(function (r) { return r.json().catch(function () { return {}; }); });
+            body: JSON.stringify(corpo || {}),
+            signal: controle ? controle.signal : undefined
+        }).then(function (r) {
+            if (relogio) clearTimeout(relogio);
+            return r.json().catch(function () { return {}; });
+        }, function (erro) {
+            if (relogio) clearTimeout(relogio);
+            throw erro;
+        });
     }
 
     /* ---------------------------------------------------------------
@@ -905,7 +917,7 @@
         var pretendido = lote.proximo_valor;
         btn.disabled = true;
 
-        post(URLS.lance, { lote: lote.id, valor_visto: pretendido }).then(function (d) {
+        post(URLS.lance, { lote: lote.id, valor_visto: pretendido }, 8000).then(function (d) {
             if (!d.ok) {
                 toast(d.msg || "Não deu para registrar o lance.", "error");
                 if (window.SomLeilao) window.SomLeilao.erro();
@@ -919,8 +931,11 @@
             // Os efeitos (contador, mini placar) acompanham o redesenho.
             emitir("estado", { estado: estado, euGanhando: !!(estado && estado.lote && souEu(estado.lote.lider)) });
         }).catch(function () {
-            toast("Sem conexão. Tente de novo.", "error");
-            btn.disabled = false;
+            // Sem resposta em 8 s (ou sem rede). O lance PODE ter entrado — se
+            // entrou, o stream mostra; o botão volta para a pessoa decidir.
+            toast("Sem resposta do servidor. Confira o valor e toque de novo.", "error");
+            if (estado && estado.lote) desenharLote(estado.lote);   // devolve o botão ao estado certo
+            else btn.disabled = false;
         });
     }
 

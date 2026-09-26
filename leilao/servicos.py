@@ -195,15 +195,24 @@ def abrir_lote(lote, *, segundos=None):
     return lote
 
 
-def fechar_lote(lote, *, motivo="cronometro"):
+class MarteloRecusado(Exception):
+    """O VENDIDO não cabe agora — a mensagem é para quem está na mesa."""
+
+
+def fechar_lote(lote, *, motivo="cronometro", escada=False, visto=None):
     """Bate o martelo: vendido (com líder) ou sem lance (volta para a fila).
 
     **Não nasce cobrança aqui.** O arremate entra na conta da pessoa e o Pix só
     existe no fim, quando o locutor libera os pagamentos e ela paga tudo de uma
     vez. Antes saía um Pix por item, com 15 minutos correndo — o que tirava do
     pregão exatamente quem estava disputando.
+
+    `escada=True` (o VENDIDO da mesa) e `visto` (o valor que a mesa estava
+    mostrando, `""` = sem lance) são conferidos DENTRO da transação, depois de
+    reler o item: um lance que entra entre o clique e o martelo não vende sem
+    dou-lhe, e o "sem lance" da mesa não vende um item que acabou de ganhar
+    lance (revisão de 26/09). Recusa com `MarteloRecusado`.
     """
-    _esquecer_martelo(lote)
     leilao = lote.leilao
     agora = timezone.now()
     arremate = None
@@ -212,6 +221,15 @@ def fechar_lote(lote, *, motivo="cronometro"):
         lote.refresh_from_db()
         if lote.status != "aberto":
             return None  # já fechado por outro caminho (locutor + cronômetro juntos)
+        if visto is not None:
+            viu_lance = str(visto).strip() != ""
+            if viu_lance != lote.tem_lance or (
+                viu_lance and _decimal_ou_none(visto) != lote.valor_atual
+            ):
+                raise MarteloRecusado("Entrou lance novo agora — confira antes de bater o martelo.")
+        if escada and not martelo_liberado(lote):
+            raise MarteloRecusado("Primeiro o dou-lhe uma e o dou-lhe duas.")
+        _esquecer_martelo(lote)
 
         if lote.tem_lance:
             lote.status = "vendido"
@@ -447,6 +465,14 @@ def liberar_pagamentos(leilao, liberar=True):
     return leilao
 
 
+def _decimal_ou_none(valor):
+    try:
+        d = Decimal(str(valor))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return d if d.is_finite() else None
+
+
 class DouLheRecusado(Exception):
     """O "dou-lhe" não cabe agora (sem item, sem lance, item trocado, fora da ordem)."""
 
@@ -575,6 +601,17 @@ def cobranca_viva(participante):
     return None
 
 
+def _valor_confere(resposta, total):
+    """A cobrança que o MP devolveu é deste valor? Sem o dado, confia."""
+    bruto = (resposta.get("raw") or {}).get("transaction_amount")
+    if bruto is None:
+        return True
+    try:
+        return abs(Decimal(str(bruto)) - total) < Decimal("0.01")
+    except (InvalidOperation, ValueError):
+        return True
+
+
 def cobranca_do_participante(participante, *, refazer=False):
     """UM Pix pelo TOTAL do que a pessoa levou.
 
@@ -640,6 +677,27 @@ def cobranca_do_participante(participante, *, refazer=False):
         notification_url=notificacao,
         expira_minutos=MINUTOS_PIX_COMBINADO,
     )
+    if resposta.get("ok") and not _valor_confere(resposta, total):
+        # A referência é a chave de idempotência do MP. Se uma tentativa
+        # anterior criou a cobrança lá e caiu antes de gravar aqui (timeout),
+        # a mesma chave devolve AQUELA cobrança — com o valor de antes. Uma
+        # referência nova pede uma cobrança nova, pelo total de agora.
+        logger.warning("Leilão: Pix de %s voltou com valor antigo; gerando outro.", participante.id)
+        referencia = f"{base}-R{int(timezone.now().timestamp() * 1000)}"
+        while PagamentoLeilao.objects.filter(referencia=referencia).exists():
+            referencia += "1"
+        resposta = mercadopago.criar_pix(
+            cfg,
+            referencia=referencia,
+            valor=total,
+            descricao=descricao,
+            payer_nome=participante.nome,
+            notification_url=notificacao,
+            expira_minutos=MINUTOS_PIX_COMBINADO,
+        )
+        if resposta.get("ok") and not _valor_confere(resposta, total):
+            logger.error("Leilão: Pix de %s segue com valor divergente; desisti.", participante.id)
+            return None
     if not resposta.get("ok"):
         logger.error(
             "Leilão: falha ao gerar Pix de %s: %s", participante.id, resposta.get("erro")
@@ -927,6 +985,18 @@ def _aplicar_retorno(pagamento, r):
         return False
     if pagamento.status != "aprovado":
         return False
+
+    # O VALOR PAGO tem de cobrir o que a cobrança pedia. Sem esta conferência,
+    # uma cobrança com valor antigo (ou paga a menos) quitava a conta INTEIRA
+    # do `cobre` (revisão de 26/09). Não quita: registra e deixa para o caixa.
+    pago = r.get("valor")
+    if pago is not None and pagamento.valor_bruto and Decimal(str(pago)) + Decimal("0.01") < pagamento.valor_bruto:
+        logger.error(
+            "Leilão: pagamento %s aprovado por R$ %s, mas cobrava R$ %s — NÃO quitado; conferir com a pessoa.",
+            pagamento.referencia, pago, pagamento.valor_bruto,
+        )
+        return False
+
     if not pagamento.finalizado:
         pagamento.finalizado = True
         pagamento.save(update_fields=["finalizado"])
@@ -939,8 +1009,12 @@ def _aplicar_retorno(pagamento, r):
     for arremate in _arremates_do_pagamento(pagamento):
         if arremate.status in ("aguardando", "combinado") and not arremate.devolvido_em:
             marcar_pago(arremate, pagamento=pagamento)
-        elif arremate.status == "pago" and arremate.pagamento_id == pagamento.id:
+        elif arremate.status == "pago" and arremate.pagamento_id == pagamento.id and not arremate.pago_manual:
             continue   # o webhook repetiu o aviso: já quitado por esta mesma cobrança
+        # Baixa MANUAL com a FK ainda apontando para este Pix (o caixa mandou o
+        # Pix, a pessoa pagou em dinheiro, e depois pagou o Pix também): é
+        # dinheiro em dobro, e cai em `fora` para gerar o alerta — antes o
+        # `continue` acima o engolia calado (revisão de 26/09).
         else:
             fora.append(arremate)
     if fora:
@@ -980,6 +1054,15 @@ def _desfazer_baixa_do_estorno(pagamento):
             if outra:
                 arremate.pagamento = outra
                 arremate.save(update_fields=["pagamento"])
+                continue
+            if arremate.devolvido_em:
+                # O item já foi DOADO DE VOLTA ao leilão (talvez revendido): o
+                # dinheiro voltou para a pessoa e o item não vai para ela —
+                # não há dívida. Antes virava "aguardando" e entrava na conta
+                # dela de novo (revisão de 26/09).
+                arremate.status = "cancelado"
+                arremate.pago_em = None
+                arremate.save(update_fields=["status", "pago_em"])
                 continue
             arremate.status = "aguardando"
             arremate.pago_em = None

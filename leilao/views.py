@@ -975,20 +975,47 @@ def locutor_acao_view(request):
                 {"ok": False, "msg": "Este leilão não está no ar. Coloque-o no ar pela preparação."},
                 status=409,
             )
+        # A mesa manda o item que via em pregão (`atual`, 0 = nenhum). Se o
+        # pregão já mudou — o 2º toque de um toque duplo em "Abrir próximo",
+        # outra aba — recusa, em vez de devolver à fila, sem aviso, o item que
+        # acabou de abrir. E item EM DISPUTA só é trocado com `forcar` (a
+        # pergunta da mesa): a proteção é do servidor, não só do `confirm`.
+        if "atual" in dados:
+            aberto = leilao.lote_atual
+            try:
+                visto = int(dados.get("atual") or 0)
+            except (TypeError, ValueError):
+                visto = -1
+            if (aberto.pk if aberto else 0) != visto:
+                return JsonResponse({"ok": False, "msg": "O pregão mudou agora — confira a tela."}, status=409)
+            if aberto and aberto.tem_lance and not dados.get("forcar"):
+                return JsonResponse(
+                    {"ok": False, "msg": f"“{aberto.nome}” está em disputa. Use o VENDIDO."}, status=409
+                )
         servicos.abrir_lote(lote)
         return JsonResponse({"ok": True, "msg": f"{lote.nome} em pregão!"})
 
     if acao == "fechar":
-        lote = lote or leilao.lote_atual
+        atual = leilao.lote_atual
+        # A mesa manda o item que ESTÁ vendo: um VENDIDO atrasado (de outra
+        # aba, ou depois de o próximo item abrir) não fecha o item seguinte.
+        if lote and (not atual or lote.pk != atual.pk):
+            return JsonResponse({"ok": False, "msg": "Esse item não está mais em pregão."}, status=409)
+        lote = lote or atual
         if not lote:
             return JsonResponse({"ok": False, "msg": "Nenhum lote em pregão."}, status=409)
-        # A escada do martelo vale aqui, na view — não só no botão apagado.
-        if not servicos.martelo_liberado(lote):
-            return JsonResponse(
-                {"ok": False, "msg": "Primeiro o dou-lhe uma e o dou-lhe duas."}, status=409
+        try:
+            # A escada e o valor visto são conferidos DENTRO da transação.
+            servicos.fechar_lote(
+                lote, motivo="locutor", escada=True,
+                visto=dados.get("valor") if "valor" in dados else None,
             )
-        servicos.fechar_lote(lote, motivo="locutor")
-        return JsonResponse({"ok": True, "msg": "Vendido!"})
+        except servicos.MarteloRecusado as erro:
+            return JsonResponse({"ok": False, "msg": str(erro)}, status=409)
+        lote.refresh_from_db()
+        if lote.status == "aberto":
+            return JsonResponse({"ok": False, "msg": "Não deu para fechar agora."}, status=409)
+        return JsonResponse({"ok": True, "msg": "Vendido!" if lote.status == "vendido" else "Encerrado sem lance."})
 
     # A ação "chat" (abrir/fechar por tempo) NÃO EXISTE MAIS: o chat fica
     # aberto enquanto o leilão está no ar. Ver `Leilao.chat_aberto`.

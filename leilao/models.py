@@ -754,6 +754,12 @@ class Lote(models.Model):
         anunciado.
         """
         if not self.tem_lance:
+            # Item cadastrado com inicial R$ 0 (o padrão do campo) ou negativo
+            # virava lance e arremate de R$ 0 — e um Pix de R$ 0 que o MP
+            # recusa (revisão de 26/09). O primeiro lance vale ao menos o
+            # incremento.
+            if self.lance_inicial is None or self.lance_inicial <= 0:
+                return self.incremento_efetivo
             return self.lance_inicial
         return self.valor_atual + self.incremento_efetivo
 

@@ -284,6 +284,15 @@ class LoteForm(EstiloMixin, forms.ModelForm):
                 )
         return foto
 
+    def clean_lance_inicial(self):
+        """Lance inicial de R$ 0 (o padrão do campo) ou negativo virava lance e
+        arremate de R$ 0 — e um Pix de R$ 0 que o Mercado Pago recusa, ou um
+        arremate negativo abatendo o Pix dos outros itens (revisão de 26/09)."""
+        valor = self.cleaned_data.get("lance_inicial")
+        if valor is None or valor < Decimal("1.00"):
+            raise forms.ValidationError("Informe o lance inicial — pelo menos R$ 1,00.")
+        return valor
+
     def clean_peso_kg(self):
         """Lê GRAMAS e guarda quilos.
 

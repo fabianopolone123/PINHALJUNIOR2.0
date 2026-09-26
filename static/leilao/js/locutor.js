@@ -795,6 +795,16 @@
             if (!emPregao) return;
             corpo.lote = emPregao.id;
         }
+        // O VENDIDO leva o item e o valor que ESTA tela mostra: o servidor
+        // recusa se entrou lance novo ou se o item já mudou.
+        if (qual === "fechar") {
+            if (!emPregao) return;
+            corpo.lote = emPregao.id;
+            corpo.valor = emPregao.tem_lance ? String(emPregao.valor_atual) : "";
+        }
+        // "Abrir" leva o item que a mesa via em pregão: um toque duplo não
+        // troca o item que acabou de abrir.
+        if (qual === "abrir") corpo.atual = emPregao ? emPregao.id : 0;
 
         // Sem janela de confirmação no martelo (pedido de 26/09): a proteção é
         // a ESCADA — o VENDIDO só acende depois do "dou-lhe duas", e o
@@ -811,6 +821,7 @@
                     "Abrir outro joga este de volta para a fila e a disputa se perde.\n" +
                     "Para vender, use o botão VENDIDO.\n\nAbrir outro mesmo assim?";
                 if (!window.confirm(aviso)) return;
+                corpo.forcar = true;   // o servidor só troca item em disputa com isto
             }
         }
 
