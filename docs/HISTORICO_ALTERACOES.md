@@ -22,6 +22,26 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: deploy da mesa nova (mudo, som, martelo em escada, efeitos e listas de gente)
+
+### Resumo
+Deploy das oito entregas de 26/09 (commits `1c818dd` a `feaeb08`).
+
+### Como foi feito
+Conferido antes: nenhum leilão ao vivo, nenhum item em pregão. `pinhaljunior2-deploy` com healthcheck
+OK (`36aac16` → `feaeb08`), depois o passo extra do leilão (DEPLOY_LEILAO §7.1): `migrate` (nada a
+aplicar), `collectstatic` e restart do `pinhaljunior_leilao.service`, que voltou `active`.
+
+### Verificação
+Pela internet: o `dou_lhe.js` com hash responde 200, a mesa e o pregão pedem login (302) e o site do
+clube responde 200.
+
+### Pendências
+- Ensaio com voz e algumas pessoas dando lance antes do evento: a escada do martelo, o efeito do
+  dou‑lhe nos celulares e as listas de gente só se provam com a sala de verdade.
+
+---
+
 ## 2026-09-26 - Leilão: o martelo vira escada — um botão só depois do outro, sem confirmação
 
 ### Resumo
