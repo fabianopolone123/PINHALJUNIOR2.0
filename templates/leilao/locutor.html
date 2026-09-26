@@ -23,9 +23,6 @@
         {% endcomment %}
         <button type="button" class="mesa-online" id="btnQuemChegou"
                 title="Ver quem já está no leilão">👥 <b id="online">0</b></button>
-        {# A mesa show, em teste: mesmo motor, outro desenho. #}
-        <a class="btn-mini" href="{% url 'leilao:locutor_show' leilao.pk %}"
-           title="Abrir a mesa nova (em teste)">✨ Mesa show</a>
     </div>
 
     {% if leilao.status != 'ao_vivo' %}

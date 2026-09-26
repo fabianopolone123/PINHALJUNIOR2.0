@@ -23,11 +23,6 @@
     // não é o que está no ar).
     var URL_DADOS = dados.dataset.dadosUrl +
         (dados.dataset.leilao ? (dados.dataset.dadosUrl.indexOf("?") < 0 ? "?" : "&") + "leilao=" + dados.dataset.leilao : "");
-    // A mesa show pede o placar da noite junto (`data-resumo="1"`). A clássica
-    // não pede, e o servidor não gasta consulta nenhuma com ela.
-    if (dados.dataset.resumo === "1") {
-        URL_DADOS += (URL_DADOS.indexOf("?") < 0 ? "?" : "&") + "resumo=1";
-    }
     var URL_STREAM = dados.dataset.streamUrl;
 
     var estado = JSON.parse(($("estadoInicial") || {}).textContent || "{}");
@@ -62,18 +57,6 @@
 
     function toast(msg, tipo) {
         if (window.mostrarToast) window.mostrarToast(msg, tipo || "info");
-    }
-
-    /* Avisos para a mesa show (`mesa_show.js`), no mesmo molde do `leilao.js`
-       com a tela show do público: o motor é UM, e quem enfeita só escuta.
-
-       Em try/catch porque um ouvinte com defeito não pode derrubar a mesa —
-       o VENDIDO e o microfone moram neste arquivo. Na mesa clássica ninguém
-       escuta, e o aviso custa nada. */
-    function emitir(nome, detalhe) {
-        try {
-            document.dispatchEvent(new CustomEvent("mesa:" + nome, { detail: detalhe }));
-        } catch (e) { /* enfeite nunca derruba o motor */ }
     }
 
     function acao(corpo) {
@@ -182,7 +165,6 @@
         desenharFila();
         desenharChatMesa();
         tick();
-        emitir("estado", { estado: estado, numero: numeroAtual });
     }
 
     var filaCache = [];
@@ -327,9 +309,6 @@
         caixa.className = "mesa-crono" + (parado >= 30 ? " final" : parado >= 15 ? " apertado" : "");
         $("mesaCronoRotulo").textContent = parado >= 30 ? "sala calada — martelo?" : "sem lance há";
         txt.textContent = mmss(parado);
-        // O anel da mesa show enche com este número; o relógio é o do
-        // servidor (`agora()`), então as duas mesas contam igual.
-        emitir("tick", { parado: parado, tem_lance: !!lote.tem_lance });
     }
     setInterval(tick, 250);
     setInterval(desenharChatMesa, 5000);
@@ -361,7 +340,6 @@
                     desenharFila(d.fila, d.restam_na_fila);
                     desenharChatMesa(d.chat);
                     desenharOnline(d);
-                    emitir("dados", d);
                 })
                 .catch(function () { /* a próxima volta resolve */ });
         }, 700);
@@ -372,34 +350,23 @@
     var fonte = window.FonteViva ? window.FonteViva.abrir(URL_STREAM) : new EventSource(URL_STREAM);
 
     fonte.addEventListener("estado", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
-    fonte.addEventListener("lote_aberto", function (e) {
-        var d = JSON.parse(e.data);
-        render(d);
-        emitir("lote_aberto", d);
-        recarregarDados();
-    });
+    fonte.addEventListener("lote_aberto", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
     fonte.addEventListener("lance", function (e) {
         var d = JSON.parse(e.data);
         if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
-        emitir("lance", d);
         recarregarDados();
     });
     fonte.addEventListener("lote_vendido", function (e) {
         var d = JSON.parse(e.data);
         render(d.estado);
         desenharHistorico([]);
-        emitir("vendido", d);
-        // O placar da noite mudou (vendido, maior arremate, quem comprou).
-        recarregarDados();
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
         else toast("Item sem lance. Dá para abrir de novo pela aba Itens.", "info");
     });
     fonte.addEventListener("chat", function (e) {
         // Teto: a mesa fica aberta a noite inteira e não pode acumular memória.
-        var m = JSON.parse(e.data);
-        chatCache = chatCache.concat([m]).slice(-120);
+        chatCache = chatCache.concat([JSON.parse(e.data)]).slice(-120);
         desenharChatMesa();
-        emitir("chat", m);
     });
     // O evento `chat_estado` NÃO EXISTE MAIS: o chat fica aberto enquanto o
     // leilão está no ar, e isso já vem em `estado.chat.aberto`.
@@ -407,7 +374,6 @@
         var d = JSON.parse(e.data);
         if (estado) estado.online = d.online;
         if ($("online")) $("online").textContent = d.online;
-        emitir("online", d);
         // Entrou ou saiu alguém: o card "Online agora" busca os nomes de novo.
         // O `recarregarDados` já junta rajadas (700 ms), então uma sala
         // chegando de uma vez vira poucos pedidos, e só desta tela.
@@ -415,8 +381,6 @@
     });
     fonte.addEventListener("pagamento", function () {
         toast("Pagamento confirmado.", "success");
-        emitir("pagamento", {});
-        recarregarDados();
     });
 
     /* As reações do público sobem AQUI TAMBÉM.
@@ -434,9 +398,7 @@
     if (window.Reacoes) {
         window.Reacoes.ligar($("reacoesTrilho"), null);
         fonte.addEventListener("reacoes", function (e) {
-            var r = JSON.parse(e.data);
-            window.Reacoes.receber(r);
-            emitir("reacoes", r);
+            window.Reacoes.receber(JSON.parse(e.data));
         });
     }
 
@@ -490,7 +452,7 @@
         if (nota) {
             var conectados = (dados && dados.conectados) || 0;
             var semNome = conectados - nomes.reduce(function (s, p) { return s + p.telas; }, 0);
-            var partes = [conectados + " conex" + (conectados === 1 ? "ão" : "ões")];
+            var partes = [conectados + " conexão" + (conectados === 1 ? "" : "ões")];
             if (nomes.length) partes.push(nomes.length + " pessoa" + (nomes.length === 1 ? "" : "s"));
             // Quem ainda está na tela de entrada conta no número e não tem nome.
             if (semNome > 0) partes.push(semNome + " ainda sem cadastro");
@@ -677,7 +639,6 @@
         estadoMic(window.AudioFalar.estaMudo()
             ? "🔇 No MUDO — a transmissão continua, mas ninguém ouve você."
             : "🔴 No ar — todos que ligaram o som estão ouvindo você.");
-        emitir("voz", { no_ar: true, mudo: window.AudioFalar.estaMudo() });
     }
 
     function mostrarDesligado() {
@@ -685,7 +646,6 @@
         btnMic.classList.remove("ligado");
         if (btnMudo) { btnMudo.hidden = true; btnMudo.classList.remove("ativo"); btnMudo.textContent = "🔇 Mudo"; }
         $("microBarra").style.width = "0%";
-        emitir("voz", { no_ar: false, mudo: false });
     }
 
     function ligarVoz() {
@@ -724,7 +684,6 @@
         var espera = Math.min(15000, 2000 * Math.pow(2, quedasSeguidas));
         quedasSeguidas++;
         estadoMic("⚠️ A transmissão caiu — religando sozinha… (continue falando quando voltar)");
-        emitir("voz", { no_ar: false, caiu: true });
         relogioVoz = setTimeout(function () {
             if (!querNoAr) return;
             ligarVoz().then(function (ok) {

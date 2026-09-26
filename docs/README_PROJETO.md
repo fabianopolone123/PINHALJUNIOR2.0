@@ -286,9 +286,7 @@ real por **SSE**, **chat aberto o leilão inteiro**, reações em emoji e a **vo
 WebRTC (com **🔇 Mudo** para pausar sem derrubar ninguém). **Não há cronômetro** — quem bate o martelo
 é o locutor — e **não há prazo para pagar**: os itens se acumulam na conta de quem arremata e ela paga
 **tudo num Pix só**, quando o locutor libera no fim (e sempre, depois de encerrado). A tela do público é
-a **"show"** (`/leilao/`); a anterior fica de **reserva** em `/leilao/classico/`, com o mesmo motor. A
-mesa do locutor ganhou uma versão **"show"** em teste (`/leilao/locutor/<id>/nova/`), também sobre o
-mesmo motor; a clássica continua a padrão.
+a **"show"** (`/leilao/`); a anterior fica de **reserva** em `/leilao/classico/`, com o mesmo motor.
 Roda como um **segundo serviço**, na mesma base de código:
 
 ```

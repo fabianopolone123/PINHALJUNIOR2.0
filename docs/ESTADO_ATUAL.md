@@ -2,24 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-25 (**Leilão: "mesa show" do locutor, em teste**): pedido do clube —
-uma segunda mesa, reformulada e dinâmica, com tudo do leilão à mão. Abre em
-**`/locutor/<id>/nova/`** (`/locutor/nova/` redireciona para a do leilão padrão); a **clássica continua a
-padrão** em `/locutor/<id>/`, e as duas se apontam por um link no topo. Mesmo molde da tela show do
-público: **um motor só** — o `locutor.js` emite avisos `mesa:*` e o novo `mesa_show.js` só desenha.
-**O que tem**: placar da noite no topo (vendido e recebido, itens batidos com barra, fila, maior
-arremate, lances e média por item — números que rolam quando mudam); o item em pregão com foto grande,
-valor atual enorme, quem está ganhando, **anel do silêncio** (enche de 0 a 30 s sem lance, âmbar em
-15 s e vermelho em 30 s), **ritmo da disputa** (lances no último minuto, com o fundo da tela
-esquentando), gráfico do valor lance a lance, **quem está na disputa** (lances e maior valor de cada
-um), linha do tempo, chat; "A SEGUIR" com a foto do próximo item e a fila; sala online, voz e
-pagamentos embaixo; aba nova **🏆 Noite** (andamento, quem mais arrematou, últimos batidos) e a aba
-Itens em vitrine com foto. Carimbo **NOVO ITEM / VENDIDO!** com confete, dentro da foto. Estado da
-**voz** sempre visível no topo (desligada / NO AR / NO MUDO / caiu). O `/locutor/dados/` ganhou
-`?resumo=1` (placar da noite + foto e medidas na fila), que **só a mesa show pede**. De passagem:
-a nota "0 conexãoões" das duas mesas virou "0 conexões".
-
-**Atualização anterior:** 2026-09-24 (**Documentação: README do projeto alinhado ao dia**): o
+**Última atualização:** 2026-09-24 (**Documentação: README do projeto alinhado ao dia**): o
 `README_PROJETO.md` passou a trazer o `leilao_demo` com `DJANGO_DEBUG=1` (sem ele o comando se recusa,
 de propósito), a raiz como endereço principal do sistema (o `/sistema-novo/` só redireciona), a tela
 show como padrão com a reserva `/leilao/classico/`, o Mudo da voz, a configuração só do Diretor e o
@@ -2944,8 +2927,7 @@ Público: `/` (pregão — a tela **show**), `/classico/` (a tela clássica, de 
 sobra de link antigo e ignora o id), `/webhooks/mercadopago/`.
 Equipe: `/equipe/` (hub), `/equipe/entrar|sair/`, `/equipe/acao/` (POST único), `/equipe/senha/`
 (troca obrigatória no 1º acesso); **só diretor**: `/equipe/usuarios/` (+ `/equipe/usuarios/<pk>/`);
-`/locutor/` + `/locutor/dados/` (`?leilao=`; `&resumo=1` traz o placar da noite, só a mesa show
-pede); `/locutor/<id>/nova/` + `/locutor/nova/` (a **mesa show**, em teste); `/caixa/` + `/caixa/pessoa/<id>/pix/` (o Pix da pessoa,
+`/locutor/` + `/locutor/dados/` (`?leilao=`); `/caixa/` + `/caixa/pessoa/<id>/pix/` (o Pix da pessoa,
 que o caixa **gera** se preciso) + `/caixa/arremate/<id>/pix/`; `/caixa/<id>/entregas/` (o nº de
 entregadores entra por **POST**) + `/caixa/entregas/redistribuir/`;
 `/preparacao/` (leilões), `/preparacao/config/`, `/preparacao/<id>/status|editar/`,
@@ -2959,16 +2941,15 @@ entra na lista **o que já foi pago**. A aba tem o **roteiro de entrega** pronto
 WhatsApp e endereço) — documento de quem entrega, não texto para grupo aberto.
 
 **Telas**: `templates/leilao/` — `entrar`, `leilao_show` (o pregão, **padrão**), `leilao` (o pregão
-clássico, **reserva** em `/classico/`), `equipe` (hub), `equipe_entrar`, `locutor` (mesa), `locutor_show` (a mesa show, em teste), `caixa`
+clássico, **reserva** em `/classico/`), `equipe` (hub), `equipe_entrar`, `locutor` (mesa), `caixa`
 (pagamentos + entrega), `entregas_quadro`, `preparacao` (leilões), `lotes`, `lote_form`, `config`,
 `leilao_form` (editar), `usuarios`, `trocar_senha`, `_base`, `_campo`, `_nav_equipe`,
 `_seletor_leilao`, `_parada_entrega`.
-**Estáticos**: `static/leilao/css/{leilao,palco_show,locutor,mesa_show,entregas}.css`,
-`static/leilao/js/{leilao,palco_show,fonte_viva,locutor,mesa_show,som,confete,reacoes,tela_acesa,audio_ouvir,
+**Estáticos**: `static/leilao/css/{leilao,palco_show,locutor,entregas}.css`,
+`static/leilao/js/{leilao,palco_show,fonte_viva,locutor,som,confete,reacoes,tela_acesa,audio_ouvir,
 audio_falar,lotes,lote_form,entrar,caixa,entregas_quadro,usuarios,modal,preparacao,seletor_leilao}.js`
 e `static/leilao/som/{lance.wav,arremate.mp3}`. O `leilao.js` é o **motor** das duas telas do pregão
-(emite `leilao:*`, que o `palco_show.js` enfeita), e o `locutor.js` é o motor das duas mesas (emite
-`mesa:*`, que o `mesa_show.js` desenha); o `fonte_viva.js` é a conexão ao vivo que não
+(emite `leilao:*`, que o `palco_show.js` enfeita); o `fonte_viva.js` é a conexão ao vivo que não
 desiste, usada pelo público, pela mesa e pelo caixa. O **`modal.js`** é o
 comportamento das janelas suspensas num lugar só (abrir, travar o corpo, X, Esc e o fundo com
 `mousedown`+`click`) — carregue-o **antes** do script da tela que o usa. Reaproveita `css/base.css`

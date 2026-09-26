@@ -92,15 +92,6 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   vendido|chat|toque_lance`) e o `palco_show.js` enfeita em cima. Mudou algo no motor? Os **ids** que ele
   procura têm de existir nos **dois** templates (há teste). Efeito novo: só `transform`/`opacity`,
   `pointer-events: none`, teto de partículas que cai sozinho, e nada de requisição por enfeite.
-- **Duas mesas do locutor, UM motor** (desde 25/09, **em teste**): a clássica continua a **padrão**
-  (`/locutor/<id>/`) e a **"mesa show"** abre em `/locutor/<id>/nova/` (`locutor_show.html` +
-  `mesa_show.css` + `mesa_show.js`; link "✨ Mesa show" na clássica e "↩ Mesa clássica" na volta). Abrir,
-  VENDIDO, microfone, chat e sons são do `locutor.js` para as duas; ele só **emite** `mesa:estado|dados|
-  lance|lote_aberto|vendido|tick|voz|online|chat|reacoes|pagamento` (em `try/catch`) e o `mesa_show.js`
-  desenha em cima **sem requisição nenhuma**. Todo id que o motor procura existe nos **dois** templates
-  (há teste). O placar da noite vem do `/locutor/dados/` **só com `?resumo=1`** (`_resumo_da_noite`:
-  vendido, recebido, maior arremate, quem mais comprou, últimos batidos) — a clássica não pede e não
-  paga consulta a mais; é dinheiro e nome, então **nunca** no broadcast.
 - **Deploy tem passo extra**: o `pinhaljunior2-deploy` **não** reinicia o serviço do leilão nem coleta os
   estáticos dele (ver `docs/DEPLOY_LEILAO.md` §7.1).
 
