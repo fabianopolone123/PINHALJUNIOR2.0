@@ -6988,3 +6988,73 @@ class EmocaoDoLanceNaMesaTests(TestCase):
         css = self._ler("static", "leilao", "css", "locutor.css")
         self.assertIn(".mesa-fx { display: none; }", css)
 
+
+class DisputaDoItemNaMesaTests(TestCase):
+    """"Lances deste item" por PESSOA, com os 4 que mais deram lance em cima (26/09)."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        servicos.abrir_lote(self.lote)
+        User = get_user_model()
+        u = User.objects.create_user("disputa_loc", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        self.c = Client()
+        self.c.login(username="disputa_loc", password="segredo-ficticio")
+        self.p = {n: criar_pessoa(f"{n} Fictício") for n in ("Ana", "Beto", "Caio", "Duda", "Edu")}
+
+    def _lances(self, *nomes):
+        for n in nomes:
+            servicos.limpar_limites()
+            ok, msg, _ = servicos.dar_lance(self.lote.id, self.p[n])
+            self.assertTrue(ok, msg)
+
+    def _disputa(self):
+        return self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}").json()["disputa"]
+
+    def test_uma_linha_por_pessoa_com_os_4_que_mais_deram_em_cima(self):
+        self._lances("Ana", "Beto", "Ana", "Beto", "Caio", "Ana", "Duda", "Edu")
+        d = self._disputa()
+        nomes = [x["quem"] for x in d]
+        curto = {n: p.nome_curto for n, p in self.p.items()}
+        # Ana 3, Beto 2; entre os de 1 lance, quem foi mais alto: Edu, Duda.
+        self.assertEqual(nomes, [curto["Ana"], curto["Beto"], curto["Edu"], curto["Duda"], curto["Caio"]])
+        self.assertEqual([x["topo"] for x in d], [True, True, True, True, False])
+        self.assertEqual([x["n"] for x in d], [3, 2, 1, 1, 1])
+
+    def test_a_lista_e_completa(self):
+        self._lances("Ana", "Beto", "Caio", "Duda", "Edu", "Ana")
+        self.assertEqual(len(self._disputa()), 5, "ninguém que deu lance pode ficar de fora")
+
+    def test_a_coroa_e_de_quem_esta_ganhando(self):
+        self._lances("Ana", "Beto", "Ana")
+        d = self._disputa()
+        lideres = [x["quem"] for x in d if x["lider"]]
+        self.assertEqual(lideres, [self.p["Ana"].nome_curto])
+
+    def test_lance_cancelado_nao_conta(self):
+        self._lances("Ana", "Beto")
+        Lance.objects.filter(participante=self.p["Beto"]).update(cancelado=True)
+        nomes = [x["quem"] for x in self._disputa()]
+        self.assertEqual(nomes, [self.p["Ana"].nome_curto])
+
+    def test_sem_item_em_pregao_a_lista_vem_vazia(self):
+        self._lances("Ana")
+        servicos.fechar_lote(Lote.objects.get(pk=self.lote.pk))
+        self.assertEqual(self._disputa(), [])
+
+    def test_a_disputa_nao_vai_para_o_broadcast(self):
+        self._lances("Ana", "Beto")
+        publico = json.dumps(est.estado_publico(self.leilao), default=str)
+        self.assertNotIn('"disputa"', publico)
+
+    def test_a_lista_da_mesa_tem_teto(self):
+        css = Path(settings.BASE_DIR, "static", "leilao", "css", "locutor.css").read_text(encoding="utf-8")
+        bloco = css[css.index(".disputa {"):]
+        bloco = bloco[: bloco.index("}")]
+        self.assertIn("max-height", bloco)
+        self.assertIn("overflow-y: auto", bloco)
+

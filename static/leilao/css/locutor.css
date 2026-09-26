@@ -1417,3 +1417,46 @@ button.mesa-online:hover {
     .mesa-combo { animation: none; }
 }
 
+/* =========================================================
+   "Lances deste item": quem está disputando, por pessoa (26/09)
+   ========================================================= */
+.cartao.disputa-card { display: flex; flex-direction: column; }
+.disputa {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 340px;      /* noite cheia não estica a linha do pregão */
+    overflow-y: auto;
+}
+.disputa li {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 10px;
+    padding: 7px 10px;
+    font-size: 0.87rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+.disputa li.vazio { display: block; background: none; padding: 6px 2px; }
+.disputa .pos { font-size: 1rem; width: 26px; text-align: center; font-weight: 900; color: var(--palco-suave); }
+/* O nome QUEBRA em vez de cortar: é o que o locutor lê em voz alta. */
+.disputa .nome { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; font-weight: 700; }
+.disputa .valor { font-weight: 800; color: var(--ouro); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.disputa .n { grid-column: 2 / -1; font-size: 0.74rem; color: var(--palco-suave); }
+/* Os 4 que mais deram lance: em cima, maiores, com medalha. */
+.disputa li.topo { padding: 9px 11px; background: rgba(255, 209, 102, 0.08); outline: 1px solid rgba(255, 209, 102, 0.22); }
+.disputa li.topo .nome { font-size: 0.98rem; font-weight: 800; }
+.disputa li.ganhando { outline-color: rgba(255, 209, 102, 0.6); background: rgba(255, 209, 102, 0.16); }
+.disputa li.separa { margin-top: 6px; }
+.ultimos-lances { margin-top: 10px; }
+.ultimos-lances > summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--palco-suave);
+    padding: 4px 0;
+}
+.ultimos-lances .historico { margin-top: 6px; max-height: 220px; }
+

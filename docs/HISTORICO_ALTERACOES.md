@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: "Lances deste item" mostra todo mundo que deu lance, com os 4 que mais deram em cima
+
+### Resumo
+Pedido do clube: em "Lances deste item", a lista completa de quem já deu lance no item, com os 4 que
+mais deram lance na parte de cima.
+
+### O que mudou
+- **Servidor**: `_disputa_do_item(lote)` agrupa os lances **da rodada atual** (sem cancelados) por
+  pessoa — quantos lances, o maior, o último — e devolve **todos**: primeiro os 4 com mais lances
+  (desempate pelo maior valor, depois pelo mais recente), depois o resto pelo maior lance. Sai em
+  `/locutor/dados/` como `disputa`; o broadcast não leva.
+- **Mesa**: o card virou uma lista por pessoa. Os 4 de cima têm medalha (🥇🥈🥉4º), letra maior e
+  fundo dourado; quem está ganhando tem 👑. Contador "(N pessoas)" no título. Teto de altura com
+  rolagem. Os lances um a um continuam embaixo, num **"Últimos lances, um a um"** recolhido.
+- O nome **quebra em duas linhas** em vez de cortar com reticências — é o que o locutor lê em voz alta.
+
+### Arquivos alterados
+`leilao/views.py` (`_disputa_do_item`, `disputa` no `/locutor/dados/`), `templates/leilao/locutor.html`,
+`static/leilao/css/locutor.css`, `static/leilao/js/locutor.js`, `leilao/tests.py`
+(`DisputaDoItemNaMesaTests`, 7 testes).
+
+### Decisões tomadas
+- **Classe `ganhando`, não `lider`**: `.lider` já é o placar da tela do público no `leilao.css` (que a
+  mesa também carrega) e centralizava a linha de quem está ganhando. Visto no headless.
+
+---
+
 ## 2026-09-26 - Leilão: a mesa do locutor sente a emoção a cada lance
 
 ### Resumo

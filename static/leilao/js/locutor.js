@@ -345,6 +345,55 @@
         });
     }
 
+    /* Quem está disputando o item, por pessoa: os 4 que mais deram lance em
+       cima (medalha, quantos, até quanto; coroa em quem ganha), depois todo
+       o resto pelo maior lance. A ordem vem pronta do servidor. */
+    var MEDALHAS = ["🥇", "🥈", "🥉", "4º"];
+
+    function desenharDisputa(lista) {
+        var ol = $("disputa");
+        if (!ol) return;
+        lista = lista || [];
+        ol.innerHTML = "";
+        var conta = $("contaDisputa");
+        if (conta) conta.textContent = lista.length ? "(" + lista.length + (lista.length === 1 ? " pessoa)" : " pessoas)") : "";
+        if (!lista.length) {
+            var vazio = document.createElement("li");
+            vazio.className = "vazio";
+            vazio.textContent = "Nenhum lance ainda.";
+            ol.appendChild(vazio);
+            return;
+        }
+        var posicao = 0;
+        lista.forEach(function (p, i) {
+            var li = document.createElement("li");
+            var classes = [];
+            if (p.topo) classes.push("topo");
+            if (p.lider) classes.push("ganhando");   // `.lider` já é do placar do público (leilao.css)
+            // Uma folga visual entre os 4 de cima e o resto da lista.
+            if (!p.topo && i > 0 && lista[i - 1].topo) classes.push("separa");
+            li.className = classes.join(" ");
+
+            var pos = document.createElement("span");
+            pos.className = "pos";
+            pos.textContent = p.topo ? MEDALHAS[posicao++] || "" : "·";
+            var nome = document.createElement("span");
+            nome.className = "nome";
+            nome.textContent = (p.lider ? "👑 " : "") + p.quem;
+            var valor = document.createElement("span");
+            valor.className = "valor";
+            valor.textContent = moeda(p.maior);
+            var n = document.createElement("span");
+            n.className = "n";
+            n.textContent = p.n + (p.n === 1 ? " lance" : " lances");
+            li.appendChild(pos);
+            li.appendChild(nome);
+            li.appendChild(valor);
+            li.appendChild(n);
+            ol.appendChild(li);
+        });
+    }
+
     var chatCache = [];
 
     function desenharChatMesa(mensagens) {
@@ -438,6 +487,7 @@
                     numeroAtual = d.numero_atual;
                     render(d.estado);
                     desenharHistorico(d.historico);
+                    desenharDisputa(d.disputa);
                     // A fila e o histórico do chat NÃO vêm no broadcast: o
                     // público não pode saber quantos itens faltam, e o fio da
                     // conversa da noite é só da mesa.
@@ -482,6 +532,7 @@
         esfriarMesa();
         render(d.estado);
         desenharHistorico([]);
+        desenharDisputa([]);
         if (d.vendido) toast("Vendido para " + d.vencedor + " — " + moeda(d.valor), "success");
         else toast("Item sem lance. Dá para abrir de novo pela aba Itens.", "info");
     });

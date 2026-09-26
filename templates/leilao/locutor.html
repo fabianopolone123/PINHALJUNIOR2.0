@@ -134,11 +134,24 @@
             O chat é daqui e não de uma aba: para o locutor o fio é o da NOITE
             inteira, e ele precisa ver a conversa acontecendo.
             {% endcomment %}
-            <div class="cartao">
-                <h3>Lances deste item</h3>
-                <ul class="historico" id="historico">
+            {% comment %}
+            Quem está disputando ESTE item (pedido de 26/09): a lista completa
+            de quem já deu lance, uma linha por pessoa, com os 4 que MAIS deram
+            lance em cima (medalha, quantos lances, até quanto foi; a coroa em
+            quem está ganhando). É por eles que o locutor chama. Os lances um a
+            um continuam aqui embaixo, recolhidos.
+            {% endcomment %}
+            <div class="cartao disputa-card">
+                <h3>Lances deste item <span class="conta" id="contaDisputa"></span></h3>
+                <ol class="disputa" id="disputa">
                     <li class="vazio">Nenhum lance ainda.</li>
-                </ul>
+                </ol>
+                <details class="ultimos-lances">
+                    <summary>Últimos lances, um a um</summary>
+                    <ul class="historico" id="historico">
+                        <li class="vazio">Nenhum lance ainda.</li>
+                    </ul>
+                </details>
             </div>
 
             <div class="cartao chat-card">

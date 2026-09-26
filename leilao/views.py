@@ -22,7 +22,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Max, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -735,6 +735,8 @@ def locutor_dados_view(request):
             .select_related("participante")
             .order_by("-criado_em", "-id")[:50]
         ]
+    # QUEM está disputando este item — por pessoa, e não lance a lance.
+    disputa = _disputa_do_item(lote) if lote else []
     # A FILA vem por aqui, não pelo broadcast: o público não pode saber quantos
     # itens faltam (muda como a pessoa dá lance), mas a mesa precisa ver.
     fila = [
@@ -756,6 +758,7 @@ def locutor_dados_view(request):
             "ok": True,
             "estado": est.estado_publico(leilao),
             "historico": historico,
+            "disputa": disputa,
             "numero_atual": em_pregao.numero if em_pregao else None,
             "fila": fila,
             "restam_na_fila": leilao.lotes.filter(status="fila").count(),
@@ -775,6 +778,49 @@ def locutor_dados_view(request):
             ][::-1],
         }
     )
+
+
+def _disputa_do_item(lote, destaque=4):
+    """Todo mundo que deu lance NESTA rodada do item, uma linha por pessoa.
+
+    Pedido do clube (26/09): no card "Lances deste item", a lista COMPLETA de
+    quem já deu lance, com os 4 que MAIS deram lance em cima — é quem está
+    brigando pelo item, e é por eles que o locutor chama. O resto vem embaixo,
+    pelo maior lance de cada um.
+
+    Só a rodada atual (`lances_da_rodada`, que já tira os cancelados): item
+    devolvido ao leilão recomeça a disputa do zero. Sai só pelo
+    `/locutor/dados/`, autenticado — é nome de gente.
+    """
+    linhas = list(
+        lote.lances_da_rodada()
+        .order_by()
+        .values("participante_id")
+        .annotate(n=Count("id"), maior=Max("valor"), ultimo=Max("criado_em"))
+    )
+    nomes = {
+        p.pk: p.nome_curto
+        for p in Participante.objects.filter(pk__in=[x["participante_id"] for x in linhas])
+    }
+    # Os que MAIS deram lance em cima (desempate: quem foi mais alto, depois
+    # quem deu o último lance mais recentemente).
+    por_quantidade = sorted(linhas, key=lambda x: (-x["n"], -x["maior"], -x["ultimo"].timestamp()))
+    topo = por_quantidade[:destaque]
+    ids_topo = {x["participante_id"] for x in topo}
+    resto = sorted(
+        (x for x in linhas if x["participante_id"] not in ids_topo),
+        key=lambda x: (-x["maior"], -x["ultimo"].timestamp()),
+    )
+    return [
+        {
+            "quem": nomes.get(x["participante_id"], "—"),
+            "n": x["n"],
+            "maior": str(x["maior"]),
+            "lider": x["participante_id"] == lote.lider_id,
+            "topo": x["participante_id"] in ids_topo,
+        }
+        for x in topo + resto
+    ]
 
 
 # Qual área pode disparar cada ação da mesa. É aqui que "o locutor não mexe em
