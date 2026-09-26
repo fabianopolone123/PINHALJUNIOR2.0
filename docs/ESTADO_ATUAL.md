@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: o martelo em três tempos — Dou-lhe uma, Dou-lhe duas, VENDIDO**): a mesa ganhou os botões **🔨 Dou-lhe uma** e **🔨🔨 Dou-lhe duas** ao lado do **VENDIDO** (o ▶ Abrir próximo foi para baixo). O "dou-lhe" é anúncio pelo broadcast (`dou_lhe`), não fecha nada nem grava no banco; só vale com lance e para o item que a mesa mostra. Depois do "duas", sem lance novo, o VENDIDO bate sem a pergunta de confirmação.
+**Última atualização:** 2026-09-26 (**Leilão: o "dou-lhe uma / duas" aparece na tela de quem disputa**): quando o locutor aperta **Dou-lhe uma**, a tela de quem assiste (show e clássica) mostra o carimbo **DOU-LHE UMA!** sobre a foto, um brilho dourado nas bordas, um tremor leve e a batida de martelo; no **Dou-lhe duas** tudo fica mais intenso — carimbo vermelho que fica batendo, bordas pulsando, botão de lance pulsando, tremor forte e duas batidas — até o próximo lance, item novo ou martelo. Novo `dou_lhe.js`; som sintetizado `SomLeilao.douLhe`.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: o martelo em três tempos — Dou-lhe uma, Dou-lhe duas, VENDIDO**): a mesa ganhou os botões **🔨 Dou-lhe uma** e **🔨🔨 Dou-lhe duas** ao lado do **VENDIDO** (o ▶ Abrir próximo foi para baixo). O "dou-lhe" é anúncio pelo broadcast (`dou_lhe`), não fecha nada nem grava no banco; só vale com lance e para o item que a mesa mostra. Depois do "duas", sem lance novo, o VENDIDO bate sem a pergunta de confirmação.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: o som da sala passa a ser sempre ligado**): a mesa perdeu os dois interruptores de som da sala (🔔 Lance / 🔔 Arremate): a caixa registradora e as palmas tocam **sempre** na tela de quem assiste. A ação `som` saiu (POST com ela é 400), a chave saiu do broadcast e as colunas `som_lance`/`som_arremate` ficaram dormentes.
 

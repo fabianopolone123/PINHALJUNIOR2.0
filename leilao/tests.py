@@ -6858,3 +6858,81 @@ class DouLheTests(TestCase):
         lance = lance[: lance.index("});")]
         self.assertIn("martelo = { lote: null, vez: 0 }", lance, "lance novo tem de zerar o martelo")
 
+
+class DouLheNaTelaDoPublicoTests(TestCase):
+    """O efeito do "dou-lhe" na tela de quem disputa (26/09).
+
+    Mais intenso no "duas" que no "uma", nas DUAS telas do pregão, sem pegar
+    toque e sem pedir nada ao servidor.
+    """
+
+    TELAS = ("leilao_show.html", "leilao.html")
+
+    @staticmethod
+    def _ler(*partes):
+        return Path(settings.BASE_DIR, *partes).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _sem_comentarios(js):
+        limpo = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    def test_as_duas_telas_tem_o_carimbo_dentro_da_foto(self):
+        for tpl in self.TELAS:
+            with self.subTest(tpl=tpl):
+                html = self._ler("templates", "leilao", tpl)
+                foto = html[html.index('id="loteFoto"'):]
+                foto = foto[: foto.index('id="loteNome"')]
+                self.assertIn('id="douLhe"', foto, "o carimbo tem de morar dentro da foto")
+
+    def test_o_efeito_carrega_antes_do_motor_nas_duas(self):
+        for tpl in self.TELAS:
+            with self.subTest(tpl=tpl):
+                html = self._ler("templates", "leilao", tpl)
+                self.assertLess(html.index("leilao/js/dou_lhe.js"), html.index("leilao/js/leilao.js"))
+
+    def test_o_motor_ouve_o_anuncio_e_repassa(self):
+        js = self._sem_comentarios(self._ler("static", "leilao", "js", "leilao.js"))
+        trecho = js[js.index('fonte.addEventListener("dou_lhe"'):]
+        trecho = trecho[: trecho.index("});")]
+        self.assertIn("lote.id !== d.lote", trecho, "anúncio de item que trocou não vale")
+        self.assertIn('emitir("dou_lhe"', trecho)
+        self.assertIn("SomLeilao.douLhe(d.vez)", trecho)
+
+    def test_o_duas_e_mais_intenso_que_o_uma(self):
+        css = self._ler("static", "leilao", "css", "leilao.css")
+        self.assertIn(".dou-lhe-carimbo.vez-2", css)
+        self.assertIn("body.dou-lhe-2 .dou-lhe-vinheta.duas", css)
+        self.assertIn("body.dou-lhe-2 #btnLance", css)
+        self.assertIn("treme-forte", css)
+        js = self._ler("static", "leilao", "js", "dou_lhe.js")
+        self.assertIn('vez === 2 ? "treme-forte" : "treme"', js)
+
+    def test_o_efeito_nao_pega_toque(self):
+        css = self._ler("static", "leilao", "css", "leilao.css")
+        for seletor in (".dou-lhe-carimbo {", ".dou-lhe-vinheta {"):
+            bloco = css[css.index(seletor):]
+            bloco = bloco[: bloco.index("}")]
+            self.assertIn("pointer-events: none", bloco, seletor)
+
+    def test_acontecimento_no_pregao_apaga_o_dou_lhe(self):
+        js = self._ler("static", "leilao", "js", "dou_lhe.js")
+        for aviso in ("leilao:lance", "leilao:lote_aberto", "leilao:vendido"):
+            self.assertIn(f'"{aviso}"', js)
+
+    def test_o_efeito_nao_fala_com_o_servidor(self):
+        js = self._sem_comentarios(self._ler("static", "leilao", "js", "dou_lhe.js"))
+        self.assertNotIn("fetch(", js)
+        self.assertNotIn("XMLHttpRequest", js)
+
+    def test_o_som_do_martelo_e_sintetizado(self):
+        js = self._ler("static", "leilao", "js", "som.js")
+        trecho = js[js.index("douLhe: function"):]
+        trecho = trecho[: trecho.index("        },")]
+        self.assertNotIn("tocarArquivo", trecho, "nada de arquivo novo para baixar")
+
+    def test_movimento_reduzido_desliga_a_tremedeira(self):
+        css = self._ler("static", "leilao", "css", "leilao.css")
+        reduzido = css[css.rindex("@media (prefers-reduced-motion: reduce)"):]
+        self.assertIn("body.treme-forte", reduzido)
+

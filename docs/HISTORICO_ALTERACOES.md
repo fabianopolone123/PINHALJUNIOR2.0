@@ -22,6 +22,43 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: o "dou-lhe uma / duas" aparece na tela de quem disputa
+
+### Resumo
+Pedido do clube: na tela de quem está disputando, um efeito quando o locutor der "dou-lhe uma", e o
+mesmo efeito com mais intensidade no "dou-lhe duas".
+
+### O que mudou
+- **Motor (`leilao.js`)**: ouve o evento `dou_lhe` do stream, ignora o anúncio de um item que já
+  trocou, toca o som e vibra (mais forte no "duas") e emite `leilao:dou_lhe`.
+- **`dou_lhe.js`** (novo, nas duas telas do pregão, antes do motor): desenha o efeito.
+  - **Uma**: carimbo **DOU-LHE UMA!** sobre a foto (some em 2,6 s), brilho dourado nas bordas e um
+    tremor leve.
+  - **Duas**: carimbo **DOU-LHE DUAS!** vermelho que **fica** batendo como coração, bordas pulsando em
+    vermelho, o **botão de lance pulsando** e um tremor forte.
+  - Lance novo, item novo ou martelo apagam tudo.
+  - Quem está ganhando lê "Você está ganhando!"; os outros, no "duas", "Ainda dá para dar lance".
+- **Som**: `SomLeilao.douLhe(vez)`, sintetizado (sem arquivo novo) — uma batida de martelo no "uma";
+  duas batidas mais fortes e um acorde de tensão no "duas".
+- **CSS** em `leilao.css` (base das duas telas): carimbo dentro da foto e vinheta com
+  `pointer-events: none`; movimento reduzido desliga tremor e pulsos.
+
+### Arquivos criados/alterados
+`static/leilao/js/dou_lhe.js` (novo), `static/leilao/js/leilao.js`, `static/leilao/js/som.js`,
+`static/leilao/css/leilao.css`, `templates/leilao/leilao_show.html`, `templates/leilao/leilao.html`,
+`leilao/tests.py` (`DouLheNaTelaDoPublicoTests`, 9 testes).
+
+### Decisões tomadas
+- **Anúncio verdadeiro, sem pressão inventada** (a regra do "cassino" da tela show): nada de contagem,
+  e o texto diz o que é — "ainda dá para dar lance", não "última chance".
+- **Nada entre o dedo e o botão de lance**: o carimbo mora dentro da foto; a vinheta não pega toque.
+
+### Verificação
+Conferido no Chrome headless na tela show a 420 px, com o "duas" disparado: carimbo sobre a foto,
+bordas vermelhas, anel pulsando no botão de lance, sem rolagem horizontal.
+
+---
+
 ## 2026-09-26 - Leilão: o martelo em três tempos — Dou-lhe uma, Dou-lhe duas, VENDIDO
 
 ### Resumo

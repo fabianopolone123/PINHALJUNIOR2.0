@@ -85,6 +85,11 @@ junto: voz do locutor, música de fundo e o aviso de cada lance.
             <div class="lote-foto" id="loteFoto">
                 <img id="loteImg" alt="" hidden>
                 <div class="lote-foto-vazia" id="loteSemFoto">📦</div>
+            {# O "dou-lhe uma/duas" do locutor (dou_lhe.js): dentro da foto, sem pegar toque. #}
+            <div class="dou-lhe-carimbo" id="douLhe" aria-live="polite" hidden>
+                <span class="dou-lhe-titulo">DOU-LHE UMA!</span>
+                <span class="dou-lhe-sub"></span>
+            </div>
             </div>
             <h1 class="lote-nome" id="loteNome">—</h1>
             <p class="lote-desc" id="loteDesc"></p>
@@ -272,5 +277,7 @@ Dados para o JS: token CSRF, identidade e endereços de áudio. Padrão do proje
 <script src="{% static 'leilao/js/confete.js' %}"></script>
 <script src="{% static 'leilao/js/reacoes.js' %}"></script>
 <script src="{% static 'leilao/js/audio_ouvir.js' %}"></script>
+{# ANTES do motor: o efeito do "dou-lhe" precisa estar escutando. #}
+<script src="{% static 'leilao/js/dou_lhe.js' %}"></script>
 <script src="{% static 'leilao/js/leilao.js' %}"></script>
 {% endblock %}

@@ -93,6 +93,11 @@ gesto que o navegador exige para liberar áudio e segurar a tela acesa.
             <div class="lote-foto-vazia" id="loteSemFoto">📦</div>
             <div class="show-foto-brilho" aria-hidden="true"></div>
             <div class="show-carimbo" id="showCarimbo" aria-hidden="true">NOVO ITEM!</div>
+            {# O "dou-lhe uma/duas" do locutor (dou_lhe.js): dentro da foto, sem pegar toque. #}
+            <div class="dou-lhe-carimbo" id="douLhe" aria-live="polite" hidden>
+                <span class="dou-lhe-titulo">DOU-LHE UMA!</span>
+                <span class="dou-lhe-sub"></span>
+            </div>
             <div class="show-foto-info">
                 <h1 class="lote-nome" id="loteNome">—</h1>
                 <p class="lote-desc" id="loteDesc"></p>
@@ -285,5 +290,6 @@ a tocar (ver a tela clássica e o `audio_ouvir.js`).
 <script src="{% static 'leilao/js/audio_ouvir.js' %}"></script>
 {# ANTES do motor: os efeitos precisam estar escutando quando o primeiro aviso sair. #}
 <script src="{% static 'leilao/js/palco_show.js' %}"></script>
+<script src="{% static 'leilao/js/dou_lhe.js' %}"></script>
 <script src="{% static 'leilao/js/leilao.js' %}"></script>
 {% endblock %}

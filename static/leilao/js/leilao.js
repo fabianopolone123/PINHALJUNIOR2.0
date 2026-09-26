@@ -762,6 +762,20 @@
             emitir("lote_aberto", { lote: estado && estado.lote });
         });
 
+        /* O locutor anunciou "dou-lhe uma/duas". Vale só para o item que está
+           na tela (o anúncio de um item que já trocou é ignorado). O efeito
+           visual é do `dou_lhe.js`; aqui ficam o som e a vibração, que são do
+           motor como os do lance. */
+        fonte.addEventListener("dou_lhe", function (e) {
+            var d = JSON.parse(e.data);
+            var lote = estado && estado.ativo ? estado.lote : null;
+            if (!lote || lote.id !== d.lote) return;
+            var euGanhando = souEu(lote.lider);
+            if (window.SomLeilao && window.SomLeilao.douLhe) window.SomLeilao.douLhe(d.vez);
+            vibrar(d.vez === 2 ? [90, 60, 90, 60, 180] : [70, 50, 70]);
+            emitir("dou_lhe", { vez: d.vez, lote: d.lote, euGanhando: euGanhando });
+        });
+
         fonte.addEventListener("lote_vendido", function (e) {
             var d = JSON.parse(e.data);
             var euGanhei = d.vendido && souEu({ id: d.vencedor_id, chave: d.vencedor_chave });

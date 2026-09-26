@@ -1121,3 +1121,124 @@ body.tela-palco {
 .som-caiu-corpo { text-align: center; }
 .som-caiu-corpo p { margin-bottom: 14px; line-height: 1.5; }
 .som-caiu-corpo .btn-entrar { width: 100%; margin-bottom: 10px; }
+
+/* =========================================================
+   "Dou-lhe uma / dou-lhe duas" (dou_lhe.js) — nas duas telas do pregão.
+
+   O carimbo mora DENTRO da foto e a vinheta é `pointer-events: none`: nada
+   disso fica entre o dedo e o botão de lance. A intensidade cresce do "uma"
+   para o "duas", e o "duas" fica aceso até o próximo acontecimento.
+   ========================================================= */
+.dou-lhe-carimbo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    max-width: 92%;
+    padding: 10px 20px;
+    text-align: center;
+    border: 4px solid currentColor;
+    border-radius: 14px;
+    background: rgba(7, 26, 44, 0.82);
+    pointer-events: none;
+    transform: translate(-50%, -50%) rotate(-7deg);
+}
+.dou-lhe-carimbo[hidden] { display: none !important; }
+.dou-lhe-titulo {
+    font-size: clamp(1.5rem, 7vw, 2.4rem);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    white-space: nowrap;
+}
+.dou-lhe-sub { font-size: 0.85rem; font-weight: 800; color: #fff; }
+.dou-lhe-sub:empty { display: none; }
+.dou-lhe-carimbo.vez-1 { color: var(--ouro); }
+.dou-lhe-carimbo.vez-2 {
+    color: var(--vermelho-claro);
+    border-width: 5px;
+    box-shadow: 0 0 34px rgba(255, 90, 60, 0.55);
+}
+.dou-lhe-carimbo.vez-1.bate { animation: dou-lhe-bate 2.6s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+/* O "duas" bate e FICA, encolhido no alto da foto, batendo como coração. */
+.dou-lhe-carimbo.vez-2.bate {
+    animation: dou-lhe-bate-fica 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+               dou-lhe-coracao 1s ease-in-out 0.7s infinite;
+}
+@keyframes dou-lhe-bate {
+    0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-7deg) scale(2.3); }
+    14%  { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(0.94); }
+    24%  { transform: translate(-50%, -50%) rotate(-7deg) scale(1); }
+    82%  { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) rotate(-7deg) scale(0.9); }
+}
+@keyframes dou-lhe-bate-fica {
+    0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-7deg) scale(2.8); }
+    60%  { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(0.9); }
+    100% { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(1); }
+}
+@keyframes dou-lhe-coracao {
+    0%, 100% { transform: translate(-50%, -50%) rotate(-7deg) scale(1); }
+    20%      { transform: translate(-50%, -50%) rotate(-7deg) scale(1.08); }
+    40%      { transform: translate(-50%, -50%) rotate(-7deg) scale(1); }
+}
+
+/* As bordas da tela: um brilho no "uma", um batimento vermelho no "duas". */
+.dou-lhe-vinheta {
+    position: fixed;
+    inset: 0;
+    z-index: 83;
+    pointer-events: none;
+    opacity: 0;
+}
+.dou-lhe-vinheta.uma { animation: dou-lhe-brilho 1.2s ease-out; }
+body.dou-lhe-2 .dou-lhe-vinheta.duas { animation: dou-lhe-pulso 1s ease-in-out infinite; }
+@keyframes dou-lhe-brilho {
+    0%   { opacity: 1; box-shadow: inset 0 0 90px rgba(255, 197, 61, 0.7); }
+    100% { opacity: 0; box-shadow: inset 0 0 20px rgba(255, 197, 61, 0); }
+}
+@keyframes dou-lhe-pulso {
+    0%, 100% { opacity: 0.55; box-shadow: inset 0 0 50px rgba(255, 60, 30, 0.55); }
+    20%      { opacity: 1; box-shadow: inset 0 0 120px rgba(255, 60, 30, 0.85); }
+}
+
+/* O botão de lance pulsa no "duas": é para ele que o olho tem de ir. */
+body.dou-lhe-2 #btnLance { animation: dou-lhe-botao 1s ease-in-out infinite; }
+@keyframes dou-lhe-botao {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 60, 0.6); }
+    30%      { box-shadow: 0 0 0 10px rgba(255, 90, 60, 0); }
+}
+
+/* A tela treme: de leve no "uma", mais forte no "duas". */
+body.treme main, body.treme .show { animation: dou-lhe-treme 0.45s ease-in-out; }
+body.treme-forte main, body.treme-forte .show { animation: dou-lhe-treme-forte 0.6s ease-in-out; }
+@keyframes dou-lhe-treme {
+    0%, 100% { transform: none; }
+    25% { transform: translateX(-4px); }
+    50% { transform: translateX(4px); }
+    75% { transform: translateX(-2px); }
+}
+@keyframes dou-lhe-treme-forte {
+    0%, 100% { transform: none; }
+    15% { transform: translate(-8px, 2px) rotate(-0.4deg); }
+    30% { transform: translate(8px, -2px) rotate(0.4deg); }
+    45% { transform: translate(-6px, 1px); }
+    60% { transform: translate(6px, -1px); }
+    80% { transform: translate(-3px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dou-lhe-carimbo.bate,
+    .dou-lhe-vinheta.uma,
+    body.dou-lhe-2 .dou-lhe-vinheta.duas,
+    body.dou-lhe-2 #btnLance,
+    body.treme main, body.treme .show,
+    body.treme-forte main, body.treme-forte .show { animation: none !important; }
+    .dou-lhe-carimbo.bate { opacity: 1; }
+    body.dou-lhe-2 .dou-lhe-vinheta { opacity: 0.6; box-shadow: inset 0 0 60px rgba(255, 60, 30, 0.6); }
+}
+

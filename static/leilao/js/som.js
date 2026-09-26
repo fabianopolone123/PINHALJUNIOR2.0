@@ -301,6 +301,28 @@ window.SomLeilao = (function () {
             });
         },
 
+        /* "Dou-lhe uma" / "dou-lhe duas": o MARTELO batendo na mesa.
+           Sintetizado (nada de arquivo): a batida é um estalo grave de ruído,
+           a madeira; no "duas" são duas batidas mais fortes e um acorde de
+           tensão por cima — a intensidade sobe junto com a da tela. */
+        douLhe: function (vez) {
+            tocar(function () {
+                var forte = vez === 2;
+                sopro({ inicio: 0, duracao: 0.09, freq: 420, freqFim: 160,
+                        tipo: "lowpass", q: 1.2, volume: forte ? 0.5 : 0.36 });
+                nota(196, 0, 0.18, forte ? 0.3 : 0.22, "triangle");
+                if (forte) {
+                    sopro({ inicio: 0.2, duracao: 0.1, freq: 460, freqFim: 170,
+                            tipo: "lowpass", q: 1.2, volume: 0.55 });
+                    nota(196, 0.2, 0.22, 0.32, "triangle");
+                    nota(466.16, 0.22, 0.6, 0.16, "sawtooth");
+                    nota(493.88, 0.22, 0.6, 0.12, "sawtooth");
+                } else {
+                    nota(392, 0.1, 0.3, 0.14, "triangle");
+                }
+            });
+        },
+
         /* Aviso/erro discreto. */
         erro: function () {
             tocar(function () {

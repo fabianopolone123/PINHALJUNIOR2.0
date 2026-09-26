@@ -71,6 +71,8 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   primeiros são **anúncio** (`servicos.dou_lhe` → broadcast `dou_lhe`), não mexem no banco e **não
   fecham nada** — não são cronômetro; quem fecha é o VENDIDO. Só com lance e só para o item que a mesa
   mostra (item trocado = 409). Depois do "duas", sem lance novo, o VENDIDO bate **sem a pergunta**.
+  Na tela do público o efeito é do **`dou_lhe.js`** (nas duas telas, antes do motor): mais intenso no
+  "duas", carimbo **dentro da foto**, vinheta sem toque, apagado por lance/item novo/martelo.
   O som da sala é **sempre ligado** (a ação `som` saiu; `som_lance`/`som_arremate` dormentes).
 - **Nada flutuante em cima de controle**: os botões de reagir moram no fluxo da página. Elemento que não
   flutua não cobre nada. A exceção é o **trilho** dos emojis, que é fixo e `pointer-events: none`.
