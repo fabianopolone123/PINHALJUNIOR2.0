@@ -22,6 +22,27 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)
+
+### Resumo
+Deploy da última revisão do dia (`dba8791`) e do registro da decisão sobre o HTTP/2 (`74e16a5`).
+
+### Como foi feito
+Leilão ao vivo, nenhum item em pregão — conferido antes do deploy e de novo antes do restart (o
+deploy pararia sozinho se um item abrisse). `pinhaljunior2-deploy` OK (`a95fe49` → `74e16a5`),
+`migrate` sem nada a aplicar, `collectstatic` e restart do `pinhaljunior_leilao.service` (`active`).
+
+### Verificação
+Os `leilao.js`, `fonte_viva.js` (com o `substituida`) e `caixa.js` publicados, com hash, respondem
+200 pela internet; o site do clube responde.
+
+### Pendências
+- Ensaio com locutor falando e 2–3 celulares (um iPhone), incluindo copiar o Pix no iPhone.
+- Limpar arremates de ensaio em produção antes do evento.
+- Avisar no grupo: uma aba só e o mesmo celular a noite toda.
+
+---
+
 ## 2026-09-26 - Leilão: HTTP/2 dispensado — orientação de uma aba por celular
 
 ### Resumo

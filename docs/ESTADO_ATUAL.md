@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: HTTP/2 dispensado — orientação de uma aba por celular**): o clube decidiu não ativar o HTTP/2 no Nginx: a orientação é cada celular usar **uma aba só** do leilão (com uma aba, o limite de 6 conexões do HTTP/1.1 nunca é atingido). O teto de 4 conexões por pessoa, com a mais nova derrubando a mais antiga, continua como proteção.
+**Última atualização:** 2026-09-26 (**Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)**): em produção no commit `74e16a5` (26/09, 22h05), com um leilão ao vivo e **nenhum item em pregão** (conferido antes do deploy e antes do restart): as 20 correções da última revisão e a documentação consolidada.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: HTTP/2 dispensado — orientação de uma aba por celular**): o clube decidiu não ativar o HTTP/2 no Nginx: a orientação é cada celular usar **uma aba só** do leilão (com uma aba, o limite de 6 conexões do HTTP/1.1 nunca é atingido). O teto de 4 conexões por pessoa, com a mais nova derrubando a mais antiga, continua como proteção.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: última revisão — regressões do dia, aparelhos e jeitos de usar**): última revisão de 26/09: duas revisões das mudanças do dia (servidor e telas) e uma de aparelhos e jeitos de usar (iPhone, Android antigo, navegador do WhatsApp/Instagram, troca de rede, várias abas, cliques simultâneos). Corrigidos 20 pontos — entre eles o Pix que não copiava no iPhone dizendo "copiado", a janela do som que abria no martelo com o locutor parado, o caixa recarregando debaixo do dedo, abas em pingue-pongue e o lance que podia sumir no instante do "Abrir próximo". Testes de corrida em threads nas duas ordens; documentação consolidada.
 
