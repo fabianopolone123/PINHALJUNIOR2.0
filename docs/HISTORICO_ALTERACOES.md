@@ -22,6 +22,32 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: some a faixa clara que atravessava a mesa do locutor
+
+### Resumo
+Relatado pelo clube com print: uma faixa horizontal clara atravessando os cards da mesa do locutor.
+
+### Causa
+O fundo é um degradê radial (o brilho azul do topo) sobre a cor do palco. Sem `background-repeat`,
+o navegador **repete** a camada do degradê a cada altura de janela. Com a mesa mais alta que a
+janela (as três linhas de cards), a borda da cópia aparecia como uma faixa clara exatamente na
+altura da janela — visível também nas capturas de teste.
+
+### O que mudou
+`background-repeat: no-repeat` no fundo de `body.tela-locutor` (todas as telas da equipe: mesa,
+caixa, preparação, entregas…) e, pelo mesmo motivo, nas duas telas do público (`body.tela-palco` e
+`body.tela-show`), que também têm degradê e podem rolar.
+
+### Arquivos alterados
+`static/leilao/css/locutor.css`, `static/leilao/css/leilao.css`, `static/leilao/css/palco_show.css`,
+`leilao/tests.py` (`FundoSemFaixaTests`).
+
+### Verificação
+Headless a 1280×900 com a mesa de 1380 px de altura: a cor do fundo fora dos cards ficou igual antes
+e depois da altura da janela (antes, era ali a faixa).
+
+---
+
 ## 2026-09-26 - Leilão: deploy da mesa nova (mudo, som, martelo em escada, efeitos e listas de gente)
 
 ### Resumo

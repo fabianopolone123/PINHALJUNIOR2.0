@@ -215,6 +215,8 @@ body.tela-palco {
         radial-gradient(1000px 520px at 50% -10%, rgba(23, 105, 170, 0.5), transparent 70%),
         radial-gradient(760px 420px at 110% 110%, rgba(58, 157, 58, 0.32), transparent 70%),
         var(--palco-fundo);
+    /* Degradê repetido a cada altura de janela vira faixa clara ao rolar. */
+    background-repeat: no-repeat;
     color: var(--palco-texto);
 }
 

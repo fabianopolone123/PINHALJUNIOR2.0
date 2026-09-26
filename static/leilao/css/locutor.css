@@ -12,6 +12,10 @@ body.tela-locutor {
     background:
         radial-gradient(900px 480px at 50% -15%, rgba(23, 105, 170, 0.42), transparent 70%),
         var(--palco-fundo);
+    /* Sem isto o degradê se REPETE a cada altura de janela quando a tela é
+       mais alta que ela (a mesa com três linhas é), e a borda da cópia
+       aparece como uma faixa clara atravessando os cards. */
+    background-repeat: no-repeat;
     color: var(--palco-texto);
 }
 

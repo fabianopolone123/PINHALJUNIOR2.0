@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: deploy da mesa nova (mudo, som, martelo em escada, efeitos e listas de gente)**): em produção no commit `feaeb08` (26/09, sem leilão ao vivo nem item em pregão): Mudo sempre à vista, som da sala sempre ligado, martelo em escada (Dou‑lhe uma · duas · VENDIDO, sem confirmação), efeito do dou‑lhe na tela do público, emoção a cada lance na mesa, "Lances deste item" por pessoa e a linha da gente (top 5, sem lance, sem arremate).
+**Última atualização:** 2026-09-26 (**Leilão: some a faixa clara que atravessava a mesa do locutor**): o fundo das telas do leilão (equipe e público) deixou de repetir o degradê a cada altura de janela (`background-repeat: no-repeat`) — era isso que desenhava a faixa clara atravessando os cards da mesa quando ela ficava mais alta que a janela.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: deploy da mesa nova (mudo, som, martelo em escada, efeitos e listas de gente)**): em produção no commit `feaeb08` (26/09, sem leilão ao vivo nem item em pregão): Mudo sempre à vista, som da sala sempre ligado, martelo em escada (Dou‑lhe uma · duas · VENDIDO, sem confirmação), efeito do dou‑lhe na tela do público, emoção a cada lance na mesa, "Lances deste item" por pessoa e a linha da gente (top 5, sem lance, sem arremate).
 
 **Atualização anterior:** 2026-09-26 (**Leilão: o martelo vira escada — um botão só depois do outro, sem confirmação**): os três botões do martelo passam a funcionar em **escada**: o "dou-lhe duas" só acende depois do "uma" e o **VENDIDO** só depois do "duas", fechando no primeiro toque (sem janela de confirmação). Lance novo recomeça a escada; item sem lance mostra **⏭ Encerrar sem lance** direto. A escada vale no servidor (`servicos.martelo_liberado`), não só no botão.
 

@@ -7208,3 +7208,24 @@ class GenteDaNoiteNaMesaTests(TestCase):
         self.assertIn("max-height", bloco)
         self.assertIn("overflow-y: auto", bloco)
 
+
+class FundoSemFaixaTests(TestCase):
+    """O degradê do fundo não pode se repetir (26/09).
+
+    Com a tela mais alta que a janela (a mesa de três linhas é), o degradê
+    repetia a cada altura de janela e a borda da cópia aparecia como uma faixa
+    clara atravessando os cards.
+    """
+
+    def test_os_fundos_com_degrade_nao_se_repetem(self):
+        base = Path(settings.BASE_DIR, "static", "leilao", "css")
+        for arquivo, seletor in (("locutor.css", "body.tela-locutor {"),
+                                 ("leilao.css", "body.tela-palco {"),
+                                 ("palco_show.css", "body.tela-show {")):
+            with self.subTest(seletor=seletor):
+                css = (base / arquivo).read_text(encoding="utf-8")
+                bloco = css[css.index(seletor):]
+                bloco = bloco[: bloco.index("\n}")]
+                self.assertIn("radial-gradient", bloco)
+                self.assertIn("background-repeat: no-repeat", bloco)
+
