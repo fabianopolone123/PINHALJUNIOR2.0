@@ -1505,3 +1505,11 @@ button.mesa-online:hover {
     .mesa { max-width: 1440px; }
 }
 
+/* O aviso embaixo do "Nº do lote" no cadastro de item: livre / já é de outro.
+   Cor E texto — no salão, com a tela no sol, nem sempre se distingue verde de
+   vermelho; a frase diz de quem é o número. */
+.numero-aviso { margin: 0.35rem 0 0; font-size: 0.82rem; line-height: 1.35; font-weight: 600; }
+.numero-aviso[hidden] { display: none; }
+.numero-aviso.numero-livre { color: #1b7f4b; }
+.numero-aviso.numero-ocupado { color: #b3261e; }
+

@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)**): em produção no commit `74e16a5` (26/09, 22h05), com um leilão ao vivo e **nenhum item em pregão** (conferido antes do deploy e antes do restart): as 20 correções da última revisão e a documentação consolidada.
+**Última atualização:** 2026-09-26 (**Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável**): cadastro do item ganhou o campo **Nº do lote** ao lado do peso: vem com o próximo número, pode ser trocado (caixa já etiquetada), é conferido ao vivo e o sistema recusa número repetido no mesmo leilão.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)**): em produção no commit `74e16a5` (26/09, 22h05), com um leilão ao vivo e **nenhum item em pregão** (conferido antes do deploy e antes do restart): as 20 correções da última revisão e a documentação consolidada.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: HTTP/2 dispensado — orientação de uma aba por celular**): o clube decidiu não ativar o HTTP/2 no Nginx: a orientação é cada celular usar **uma aba só** do leilão (com uma aba, o limite de 6 conexões do HTTP/1.1 nunca é atingido). O teto de 4 conexões por pessoa, com a mais nova derrubando a mais antiga, continua como proteção.
 
@@ -3104,7 +3106,10 @@ torna o arrastar possível. A tela **declara o limite em voz alta** — precisã
 declarado. O campo de entrega pede só **"Quem recebeu…"**: rastreio saiu, porque a entrega é na mão, por
 voluntário, e não existe código nenhum para anotar.
 
-**Cada item tem um NÚMERO**, gerado sozinho na criação (1, 2, 3… dentro de cada leilão). É a etiqueta que
+**Cada item tem um NÚMERO** (1, 2, 3… dentro de cada leilão). O campo **Nº do lote** do cadastro fica ao
+lado do peso, **vem preenchido com o próximo** e pode ser trocado (caixa já etiquetada): o formulário confere
+ao vivo se está livre (`lote_numero_livre_view`) e o `clean_numero` recusa duplicado dizendo de qual item é;
+número digitado empurra o contador, e a sugestão não mexida conta como automática. É a etiqueta que
 vai colada no objeto físico — o que liga o que está na tela ao que está na prateleira. Sai de
 `Leilao.ultimo_numero_item`, um contador que **só sobe**: pelo maior número em uso, apagar o último item
 faria o próximo cadastro repetir um número que talvez já esteja etiquetado. **Não muda nunca** — nem quando

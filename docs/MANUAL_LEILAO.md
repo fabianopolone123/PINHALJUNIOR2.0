@@ -133,8 +133,15 @@ sapato" já resolve — arredonde e siga. O que não pode é ficar em branco.
 
 ### O número do item
 
-Cada item ganha um **número** sozinho, na hora do cadastro: nº 1, nº 2, nº 3…
-Você não digita nada.
+Cada item tem um **número**: nº 1, nº 2, nº 3… O campo **Nº do lote** fica ao
+lado do peso e **já vem preenchido com o próximo** — se não mexer, é esse que fica.
+
+**Pode trocar**: se a caixa já chegou etiquetada com outro número, digite o da
+etiqueta. Enquanto você digita, o formulário avisa embaixo do campo se o número
+está **livre** ou se **já é de outro item** (e diz de qual, e qual é o próximo
+livre). Ao salvar, o sistema confere de novo e **não deixa dois itens com o mesmo
+número** no mesmo leilão. Depois de um número alto digitado (ex.: 40), os
+próximos seguem dele (41, 42…).
 
 **Escreva esse número no próprio objeto** (etiqueta, fita-crepe, o que for). Ele
 é o que liga o que está na tela ao que está na prateleira — e é por ele que a

@@ -95,6 +95,9 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   model (item anterior à migration continua válido). O texto sai de **`Lote.medidas_texto`** — um lugar só
   para cadastro, preparação, pregão, mesa, caixa e entrega. O peso aceita **vírgula e ponto**
   (`peso_para_decimal`); nada de `localize=True`, que em pt-BR lê "1.5" como milhar e devolve 15.
+- **Nº do lote no cadastro**: vem **preenchido com o próximo** (`Lote.proximo_numero`), fica ao lado do
+  peso e pode ser trocado; duplicado no mesmo leilão é recusado no `clean_numero`, e número digitado
+  **empurra** `ultimo_numero_item` (que nunca desce). A sugestão não mexida vale como automática.
 - **A entrega não tem mapa**: a divisão por bairro é ponto de partida e a palavra final é do **quadro**
   (`/caixa/entregas/`), onde a equipe arrasta as paradas entre os entregadores e cada arrastada já salva
   (`EntregadorLeilao` + `AtribuicaoEntrega`, mig. **0009**). A unidade é a **pessoa**, não o item.

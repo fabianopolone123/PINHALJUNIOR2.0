@@ -8154,3 +8154,236 @@ class RevisaoFinalEAparelhosTests(TestCase):
         self.assertIn("Date.now() - ultimoGesto < 6000", ocupado)
         html = self._ler("templates", "leilao", "caixa.html")
         self.assertIn('data-quem="{{ a.participante.nome }}"', html)
+
+
+class NumeroDoLoteEscolhidoTests(TestCase):
+    """O nº do item pode ser DIGITADO, e não só sorteado pelo contador.
+
+    Pedido do clube: as caixas chegam etiquetadas (ou a lista vem numerada de
+    outro lugar), e a preparação precisava numerar o cadastro para bater com o
+    que está colado na caixa. Em branco continua sendo o caminho normal — o
+    sistema numera sozinho, como sempre.
+
+    O que este bloco protege, e que não é óbvio: **o número digitado empurra o
+    contador do leilão**. Sem isso, cadastrar o item 40 com o contador em 7
+    deixaria os cadastros automáticos seguintes subindo 8, 9, 10… até baterem
+    no 40 e estourarem a constraint de unicidade — erro de servidor na cara de
+    quem só apertou "salvar".
+    """
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("prep_numero", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="preparacao")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="prep_numero", password="segredo-ficticio")
+
+    def _post(self, **extra):
+        dados = {
+            "nome": "Item fictício", "descricao": "", "lance_inicial": "30.00",
+            "peso_kg": "1500", "altura_cm": "20",
+            "largura_cm": "30", "profundidade_cm": "25",
+        }
+        dados.update(extra)
+        return self.c.post("/preparacao/%d/itens/novo/" % self.leilao.pk, dados)
+
+    def _leilao(self):
+        return Leilao.objects.get(pk=self.leilao.pk)
+
+    # ---------- o caminho normal não mudou ----------
+
+    def test_em_branco_continua_numerando_sozinho(self):
+        self._post(nome="Primeiro", numero="")
+        self._post(nome="Segundo", numero="")
+        self.assertEqual(self.leilao.lotes.get(nome="Primeiro").numero, 1)
+        self.assertEqual(self.leilao.lotes.get(nome="Segundo").numero, 2)
+
+    # ---------- digitar ----------
+
+    def test_numero_digitado_e_respeitado(self):
+        self._post(nome="Etiquetado", numero="40")
+        self.assertEqual(self.leilao.lotes.get(nome="Etiquetado").numero, 40)
+
+    def test_numero_digitado_EMPURRA_o_contador(self):
+        """O automático seguinte não pode tentar o 2 e caminhar até bater no 40."""
+        self._post(nome="Etiquetado", numero="40")
+        self.assertEqual(self._leilao().ultimo_numero_item, 40)
+        self._post(nome="Depois", numero="")
+        self.assertEqual(self.leilao.lotes.get(nome="Depois").numero, 41)
+
+    def test_numero_menor_NAO_puxa_o_contador_para_baixo(self):
+        """O contador só sobe: número usado não volta, mesmo apagando o item."""
+        self._post(nome="Alto", numero="40")
+        self._post(nome="Baixo", numero="3")
+        self.assertEqual(self._leilao().ultimo_numero_item, 40)
+        self._post(nome="Depois", numero="")
+        self.assertEqual(self.leilao.lotes.get(nome="Depois").numero, 41)
+
+    def test_numero_repetido_e_recusado_dizendo_de_quem_e(self):
+        """'Já existe' não ajuda quem está com a caixa na mão."""
+        self._post(nome="Dono do 7", numero="7")
+        r = self._post(nome="Intruso", numero="7")
+        self.assertEqual(r.status_code, 200)          # volta com erro
+        self.assertFalse(self.leilao.lotes.filter(nome="Intruso").exists())
+        self.assertContains(r, "Dono do 7")
+
+    def test_numero_repetido_de_OUTRO_leilao_e_permitido(self):
+        """A numeração é da noite. Dois leilões têm item 1, e está certo."""
+        outro = criar_leilao(nome="Outra noite")
+        self._post(nome="Item do primeiro", numero="5")
+        r = self.c.post("/preparacao/%d/itens/novo/" % outro.pk, {
+            "nome": "Item do outro", "descricao": "", "lance_inicial": "30.00",
+            "peso_kg": "1500", "altura_cm": "20",
+            "largura_cm": "30", "profundidade_cm": "25", "numero": "5",
+        })
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(outro.lotes.get(nome="Item do outro").numero, 5)
+
+    def test_numero_absurdo_e_recusado(self):
+        """Um dígito a mais no teclado contaminaria toda a numeração seguinte."""
+        r = self._post(nome="Absurdo", numero=str(Lote.MAX_NUMERO + 1))
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(self.leilao.lotes.filter(nome="Absurdo").exists())
+        self.assertEqual(self._leilao().ultimo_numero_item, 0)
+
+    # ---------- edição ----------
+
+    def test_editar_sem_mexer_no_numero_mantem_a_etiqueta(self):
+        self._post(nome="Item fictício", numero="12")
+        lote = self.leilao.lotes.get(numero=12)
+        self.c.post("/preparacao/itens/%d/editar/" % lote.pk, {
+            "nome": "Nome novo", "descricao": "", "lance_inicial": "30.00",
+            "peso_kg": "1500", "altura_cm": "20",
+            "largura_cm": "30", "profundidade_cm": "25", "numero": "12",
+        })
+        lote.refresh_from_db()
+        self.assertEqual((lote.nome, lote.numero), ("Nome novo", 12))
+
+    def test_editar_APAGANDO_o_numero_nao_renumera_o_item(self):
+        """A caixa pode já estar etiquetada — campo vazio é 'numere você',
+        e na edição o item já está numerado."""
+        self._post(nome="Item fictício", numero="12")
+        lote = self.leilao.lotes.get(numero=12)
+        self.c.post("/preparacao/itens/%d/editar/" % lote.pk, {
+            "nome": "Item fictício", "descricao": "", "lance_inicial": "30.00",
+            "peso_kg": "1500", "altura_cm": "20",
+            "largura_cm": "30", "profundidade_cm": "25", "numero": "",
+        })
+        lote.refresh_from_db()
+        self.assertEqual(lote.numero, 12)
+
+    def test_o_proprio_numero_nao_conflita_consigo_mesmo(self):
+        self._post(nome="Item fictício", numero="12")
+        lote = self.leilao.lotes.get(numero=12)
+        r = self.c.post("/preparacao/itens/%d/editar/" % lote.pk, {
+            "nome": "Item fictício", "descricao": "", "lance_inicial": "40.00",
+            "peso_kg": "1500", "altura_cm": "20",
+            "largura_cm": "30", "profundidade_cm": "25", "numero": "12",
+        })
+        self.assertEqual(r.status_code, 302)
+
+    # ---------- o campo já vem preenchido (pedido de 26/09) ----------
+
+    def test_o_campo_vem_preenchido_com_o_proximo(self):
+        self._post(nome="Etiquetado", numero="40")
+        r = self.c.get("/preparacao/%d/itens/novo/" % self.leilao.pk)
+        html = r.content.decode()
+        campo = re.search(r'<input[^>]*name="numero"[^>]*>', html).group(0)
+        self.assertIn('value="41"', campo)
+
+    def test_sugestao_nao_mexida_vale_como_automatico(self):
+        """Duas pessoas cadastrando juntas veem o MESMO número sugerido. Quem
+        não mexeu no campo não pode levar "já é de outro item"."""
+        self._post(nome="Primeiro", numero="1", numero_sugerido="1")
+        r = self._post(nome="Segundo", numero="1", numero_sugerido="1")   # a tela dele também sugeria 1
+        self.assertEqual(r.status_code, 302, "levou erro sem ter digitado nada")
+        self.assertEqual(self.leilao.lotes.get(nome="Segundo").numero, 2)
+
+    def test_numero_digitado_diferente_da_sugestao_e_conferido(self):
+        self._post(nome="Dono do 5", numero="5")
+        r = self._post(nome="Outro", numero="5", numero_sugerido="6")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Dono do 5")
+
+    def test_o_campo_fica_ao_lado_do_peso(self):
+        html = Path(settings.BASE_DIR, "templates", "leilao", "lote_form.html").read_text(encoding="utf-8")
+        grade = html[html.index('id="numeroAviso"') - 700: html.index("form.peso_kg")]
+        self.assertIn('class="entrada-grade"', grade)
+        self.assertLess(html.index("form.numero.label"), html.index("form.peso_kg"))
+        bloco = html[html.index("form.numero.label"): html.index("form.altura_cm")]
+        self.assertEqual(bloco.count('<div class="entrada-grade">'), 1, "número e peso na MESMA linha")
+
+    def test_mensagem_de_salvo_diz_o_numero(self):
+        r = self._post(nome="Qualquer", numero="")
+        self.assertRedirects(r, "/preparacao/%d/itens/" % self.leilao.pk, fetch_redirect_response=False)
+        lote = self.leilao.lotes.get(nome="Qualquer")
+        pagina = self.c.get("/preparacao/%d/itens/" % self.leilao.pk).content.decode()
+        self.assertIn("Item nº %d salvo!" % lote.numero, pagina)
+
+    def test_mesmo_numero_digitado_ao_mesmo_tempo_nao_da_erro_de_servidor(self):
+        """Duas pessoas digitam o nº 7 juntas: as duas passam no `clean_numero`
+        e a constraint barra a segunda. Ela tem que voltar ao formulário com o
+        aviso no campo, nunca um erro 500."""
+        from unittest import mock
+        from leilao.forms import LoteForm
+        self._post(nome="Dono do 7", numero="7")
+        with mock.patch.object(LoteForm, "clean_numero", lambda form: 7):
+            r = self._post(nome="Segundo", numero="7")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "acabou de ser usado em outro item")
+        self.assertFalse(self.leilao.lotes.filter(nome="Segundo").exists())
+
+    def test_proximo_numero_nunca_reaproveita_apos_apagar(self):
+        self._post(nome="Um", numero="")
+        self._post(nome="Dois", numero="")
+        self.leilao.lotes.get(nome="Dois").delete()
+        self.assertEqual(Lote.proximo_numero(self._leilao()), 3)
+
+    # ---------- a conferência ao vivo ----------
+
+    def test_conferencia_diz_livre_e_ocupado(self):
+        self._post(nome="Dono do 7", numero="7")
+        url = "/preparacao/%d/itens/numero/" % self.leilao.pk
+        livre = self.c.get(url, {"n": "8"}).json()
+        self.assertTrue(livre["livre"])
+        ocupado = self.c.get(url, {"n": "7"}).json()
+        self.assertFalse(ocupado["livre"])
+        self.assertEqual(ocupado["de"], "Dono do 7")
+        self.assertEqual(ocupado["proximo"], 8)
+
+    def test_conferencia_ignora_o_item_que_esta_sendo_editado(self):
+        self._post(nome="Dono do 7", numero="7")
+        lote = self.leilao.lotes.get(numero=7)
+        r = self.c.get("/preparacao/%d/itens/numero/" % self.leilao.pk,
+                       {"n": "7", "lote": str(lote.pk)})
+        self.assertTrue(r.json()["livre"])
+
+    def test_conferencia_com_lixo_nao_estoura(self):
+        """Campo vazio ou texto não é 'ocupado' — é 'nada a dizer'."""
+        url = "/preparacao/%d/itens/numero/" % self.leilao.pk
+        for valor in ["", "abc", "0", "-3", str(Lote.MAX_NUMERO + 1)]:
+            with self.subTest(valor=valor):
+                r = self.c.get(url, {"n": valor})
+                self.assertEqual(r.status_code, 200)
+                self.assertFalse(r.json()["consultou"])
+
+    def test_conferencia_exige_papel_de_preparacao(self):
+        """Quem protege é a view, nunca o menu."""
+        anonimo = Client()
+        r = anonimo.get("/preparacao/%d/itens/numero/" % self.leilao.pk)
+        self.assertEqual(r.status_code, 302)
+
+    # ---------- o caminho do lance não paga por isso ----------
+
+    def test_o_lance_nao_consulta_o_contador(self):
+        """`registrar_lance` grava `valor_atual`/`lider` com `update_fields`, e
+        é esse `update_fields` que mantém o empurrão do contador FORA do
+        caminho mais quente do leilão. Se alguém trocar por um `save()` cru,
+        este teste cai."""
+        fonte = Path(settings.BASE_DIR, "leilao", "servicos.py").read_text(encoding="utf-8")
+        self.assertIn('lote.save(update_fields=["valor_atual", "lider"])', fonte)

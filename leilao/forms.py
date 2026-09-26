@@ -205,6 +205,24 @@ class LoteForm(EstiloMixin, forms.ModelForm):
         help_text="Aproximado, em gramas. 1 kg = 1000 g.",
     )
 
+    # O Nº DO LOTE (pedido do clube em 26/09): vem PREENCHIDO com o próximo
+    # número, e dá para trocar — a caixa já veio etiquetada, a lista chegou
+    # numerada de outro lugar. É declarado aqui à mão (o do model é
+    # `editable=False`) para existir SÓ nesta tela, com a conferência de quem já
+    # tem o número — e não em qualquer ModelForm, nem no /admin/.
+    numero = forms.IntegerField(
+        label="Nº do lote",
+        required=False,
+        min_value=1,
+        max_value=Lote.MAX_NUMERO,
+        widget=forms.NumberInput(attrs={"inputmode": "numeric", "min": "1"}),
+        help_text="Já vem o próximo. Pode trocar — o sistema confere se já é de outro item.",
+    )
+    # O número que a tela SUGERIU. Se a pessoa não mexeu, ele vale como
+    # "numere você": duas pessoas cadastrando juntas viam o mesmo número
+    # preenchido, e a segunda levava "já é de outro item" sem ter digitado nada.
+    numero_sugerido = forms.IntegerField(required=False, widget=forms.HiddenInput)
+
     class Meta:
         model = Lote
         fields = [
@@ -224,8 +242,17 @@ class LoteForm(EstiloMixin, forms.ModelForm):
 
     LADOS = ["altura_cm", "largura_cm", "profundidade_cm"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, leilao=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # O leilão vem da view (o da URL); na edição, também da instância.
+        self.leilao = leilao or (self.instance.leilao if self.instance.pk else None)
+        if self.instance and self.instance.pk:
+            # Editando: o campo mostra o número do item (a etiqueta da caixa).
+            self.initial["numero"] = self.instance.numero
+        elif self.leilao:
+            proximo = Lote.proximo_numero(self.leilao)
+            self.initial["numero"] = proximo
+            self.initial["numero_sugerido"] = proximo
         self.fields["descricao"].required = False
         # Campo de valor em R$ usa a máscara pt-BR do projeto, no modo "inline"
         # (o próprio campo é enviado, normalizado pouco antes do submit).
@@ -283,6 +310,48 @@ class LoteForm(EstiloMixin, forms.ModelForm):
                     "Foto grande demais (%d × %d). Tire outra ou reduza antes de enviar." % (largura, altura)
                 )
         return foto
+
+    def clean_numero(self):
+        """Confere se o número já é de outro item deste leilão — e diz de qual.
+
+        A conferência ao vivo no campo (`lote_form.js`) é conveniência; ESTA é a
+        que vale, e a constraint `numero_unico_por_leilao` é a última linha. A
+        mensagem diz DE QUEM é o número, não "já existe": quem está etiquetando
+        caixas precisa saber se bateu no item errado ou no próprio.
+
+        Número sugerido e não mexido (item novo) vale como automático: o
+        sistema dá o próximo livre ao salvar.
+        """
+        numero = self.cleaned_data.get("numero")
+        sugerido = self.data.get("numero_sugerido") if hasattr(self, "data") else None
+        if numero and not self.instance.pk and sugerido and str(numero) == str(sugerido).strip():
+            return None
+        if not numero or not self.leilao:
+            return numero
+        dono = (
+            Lote.objects.filter(leilao=self.leilao, numero=numero)
+            .exclude(pk=self.instance.pk)
+            .first()
+        )
+        if dono:
+            raise forms.ValidationError(
+                "O nº %d já é do item “%s”. Escolha outro." % (numero, dono.nome)
+            )
+        return numero
+
+    def save(self, commit=True):
+        """Grava o número escolhido (o do model é `editable=False`, e o Django
+        não o copia sozinho). Campo vazio na EDIÇÃO não apaga a etiqueta que o
+        item já tem — zerar faria o `Lote.save` dar um número novo a um item que
+        talvez já esteja com a etiqueta antiga colada na caixa."""
+        obj = super().save(commit=False)
+        numero = self.cleaned_data.get("numero")
+        if numero:
+            obj.numero = numero
+        if commit:
+            obj.save()
+            self.save_m2m()
+        return obj
 
     def clean_lance_inicial(self):
         """Lance inicial de R$ 0 (o padrão do campo) ou negativo virava lance e

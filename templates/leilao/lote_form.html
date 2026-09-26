@@ -31,10 +31,11 @@
             LoteForm, o asterisco aqui só a anuncia.
             {% endcomment %}
             <fieldset class="medidas">
-                <legend>Tamanho e peso</legend>
+                <legend>Nº do lote, peso e tamanho</legend>
                 <small class="ajuda ajuda-bloco">
-                    É o que diz se o item cabe no carro de quem vai entregar.
-                    Medida aproximada serve; em branco, não.
+                    O nº é o que vai colado na caixa. O peso e o tamanho dizem se o
+                    item cabe no carro de quem vai entregar — medida aproximada
+                    serve; em branco, não.
                 </small>
 
                 {% comment %}
@@ -44,7 +45,28 @@
                 altura/largura/profundidade são outra, e as três cabem exatas
                 numa linha (2+2+2).
                 {% endcomment %}
+                {% comment %}
+                O Nº DO LOTE fica AO LADO DO PESO (pedido do clube): a
+                `.entrada-grade` tem 6 colunas e cada `.col-num` ocupa 2, então os
+                dois juntos somam 4 e cabem numa linha. Vem preenchido com o
+                próximo número e dá para trocar. Renderizado à mão (sem o
+                `_campo.html`) por causa da linha de aviso embaixo. A URL da
+                conferência vem daqui por `data-`, nunca escrita no JS: o prefixo
+                do leilão é configurável.
+                {% endcomment %}
                 <div class="entrada-grade">
+                    <div class="col-num">
+                        <div class="campo">
+                            <label for="{{ form.numero.id_for_label }}">{{ form.numero.label }}</label>
+                            {{ form.numero }}
+                            {{ form.numero_sugerido }}
+                            <p class="numero-aviso" id="numeroAviso"
+                               data-url="{% url 'leilao:lote_numero_livre' leilao.id %}"
+                               data-lote="{{ lote.id|default:'' }}" hidden></p>
+                            <small class="ajuda">{{ form.numero.help_text }}</small>
+                            {% if form.numero.errors %}<div class="erros">{{ form.numero.errors }}</div>{% endif %}
+                        </div>
+                    </div>
                     <div class="col-num">{% include "leilao/_campo.html" with campo=form.peso_kg %}</div>
                 </div>
 

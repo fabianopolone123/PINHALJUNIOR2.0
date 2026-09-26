@@ -22,6 +22,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1663,19 +1664,36 @@ def lote_form_view(request, leilao_id=None, pk=None):
         leilao = get_object_or_404(Leilao, pk=leilao_id)
 
     if request.method == "POST":
-        form = LoteForm(request.POST, request.FILES, instance=lote)
+        form = LoteForm(request.POST, request.FILES, instance=lote, leilao=leilao)
+        salvo = False
         if form.is_valid():
             novo = form.save(commit=False)
             novo.leilao = leilao
-            if not pk:
-                ultima = leilao.lotes.order_by("-ordem").first()
-                novo.ordem = (ultima.ordem + 1) if ultima else 1
-                novo.save()
-            else:
-                # Editar grava SÓ o que o formulário tem. O `save()` inteiro
-                # regravava valor e líder lidos no começo do pedido — num item
-                # em pregão, um lance dado naquele instante sumia.
-                novo.save(update_fields=list(form.fields))
+            try:
+                # Atômico: o empurrão do contador (`Lote.save`) volta junto se
+                # a gravação do item falhar.
+                with transaction.atomic():
+                    if not pk:
+                        ultima = leilao.lotes.order_by("-ordem").first()
+                        novo.ordem = (ultima.ordem + 1) if ultima else 1
+                        novo.save()
+                    else:
+                        # Editar grava SÓ o que o formulário tem. O `save()` inteiro
+                        # regravava valor e líder lidos no começo do pedido — num item
+                        # em pregão, um lance dado naquele instante sumia.
+                        # `numero_sugerido` é só do formulário (não é campo do model).
+                        novo.save(update_fields=[f for f in form.fields if f != "numero_sugerido"])
+                salvo = True
+            except IntegrityError:
+                # Duas pessoas digitaram o MESMO nº ao mesmo tempo: as duas
+                # passaram no `clean_numero`, e a constraint barrou a segunda.
+                # Volta com o aviso no campo, nunca um erro de servidor.
+                form.add_error(
+                    "numero",
+                    "O nº %s acabou de ser usado em outro item. Escolha outro."
+                    % form.cleaned_data.get("numero"),
+                )
+        if salvo:
             # A foto só é reprocessada quando MUDOU: cada edição recomprimia o
             # JPEG (perdendo qualidade toda vez) e gravava arquivo novo.
             if "foto" in form.changed_data:
@@ -1686,17 +1704,52 @@ def lote_form_view(request, leilao_id=None, pk=None):
                     # que a mesa, o caixa e a tela do público mostram.
                     novo.foto_mini = None
                     novo.save(update_fields=["foto_mini"])
-            messages.success(request, "Item salvo!")
+            messages.success(request, f"Item nº {novo.numero} salvo!")
             if "salvar_e_novo" in request.POST:
                 return redirect("leilao:lote_novo", leilao_id=leilao.pk)
             return redirect("leilao:lotes", leilao_id=leilao.pk)
         messages.error(request, "Confira os campos destacados.")
     else:
-        form = LoteForm(instance=lote)
+        form = LoteForm(instance=lote, leilao=leilao)
 
     return render(
         request, "leilao/lote_form.html", {"form": form, "lote": lote, "leilao": leilao}
     )
+
+
+@papeis.exige("preparacao")
+def lote_numero_livre_view(request, leilao_id):
+    """Diz se um nº de lote já está em uso — enquanto a pessoa digita.
+
+    Conveniência, não segurança: quem decide é o `clean_numero` do `LoteForm`,
+    e a última linha é a constraint do banco. Devolve também o PRÓXIMO livre,
+    que é a pergunta seguinte de quem descobriu que o número bateu. Só olha o
+    leilão da URL (a numeração é por leilão).
+    """
+    leilao = get_object_or_404(Leilao, pk=leilao_id)
+    proximo = Lote.proximo_numero(leilao)
+    try:
+        numero = int(request.GET.get("n") or 0)
+    except (TypeError, ValueError):
+        numero = 0
+    if numero < 1 or numero > Lote.MAX_NUMERO:
+        # Vazio ou lixo não é "ocupado" — é "nada a dizer". Quem reclama de
+        # número fora da faixa é o formulário, no envio.
+        return JsonResponse({"consultou": False, "proximo": proximo})
+    itens = Lote.objects.filter(leilao=leilao, numero=numero)
+    try:
+        editando = int(request.GET.get("lote") or 0)
+    except (TypeError, ValueError):
+        editando = 0
+    if editando:
+        itens = itens.exclude(pk=editando)   # o próprio número não conflita consigo
+    dono = itens.first()
+    return JsonResponse({
+        "consultou": True,
+        "livre": dono is None,
+        "de": dono.nome if dono else "",
+        "proximo": proximo,
+    })
 
 
 @papeis.exige("preparacao")

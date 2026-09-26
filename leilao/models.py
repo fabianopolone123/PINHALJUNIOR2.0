@@ -22,7 +22,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Max
 from django.utils import timezone
 
 
@@ -584,6 +584,12 @@ class Lote(models.Model):
     # medida assim **quebra a tela do pregão para as 100 pessoas** que estão
     # olhando. Nenhum item de leilão de clube chega perto disso; o que chega
     # perto é o dedo escorregando no teclado do celular.
+    # Teto do número digitado à mão. Não é limite do banco — é para o erro de
+    # digitação não contaminar o resto: o número escolhido EMPURRA o contador
+    # do leilão (ver `save`), então um "12" que saiu "120000" faria todos os
+    # itens seguintes nascerem na casa dos cem mil.
+    MAX_NUMERO = 9999
+
     MAX_PESO_KG = Decimal("1000")
     MAX_LADO_CM = 1000
 
@@ -681,7 +687,34 @@ class Lote(models.Model):
                     "ultimo_numero_item", flat=True
                 ).get(pk=self.leilao_id)
                 return super().save(*args, **kwargs)
+
+        # NÚMERO ESCOLHIDO À MÃO (o campo "Nº do lote" do cadastro): empurra o
+        # contador para ele. Sem isto, cadastrar o item 40 com o contador em 7
+        # deixaria o automático seguinte tentando 8, 9, 10… até bater no 40 e
+        # estourar a unicidade — erro de servidor na cara de quem só salvou. O
+        # contador só SOBE, nunca desce para um número menor.
+        #
+        # O `update_fields` mantém isto fora do caminho do lance: ele grava
+        # `valor_atual`/`lider` e, por não citar o número, não paga a consulta.
+        campos = kwargs.get("update_fields")
+        if self.leilao_id and self.numero and (campos is None or "numero" in campos):
+            Leilao.objects.filter(
+                pk=self.leilao_id, ultimo_numero_item__lt=self.numero
+            ).update(ultimo_numero_item=self.numero)
         return super().save(*args, **kwargs)
+
+    @staticmethod
+    def proximo_numero(leilao):
+        """O número que o próximo cadastro recebe — o que vem PREENCHIDO no campo.
+
+        `max(contador, maior em uso) + 1`: o contador é a regra (número usado
+        não volta, mesmo apagando o item), e o maior em uso cobre item anterior
+        a ele. Nunca reaproveita número e nunca sugere um que já está na lista.
+        """
+        if not leilao:
+            return 1
+        em_uso = leilao.lotes.aggregate(n=Max("numero"))["n"] or 0
+        return max(leilao.ultimo_numero_item, em_uso) + 1
 
     @property
     def peso_numero(self):

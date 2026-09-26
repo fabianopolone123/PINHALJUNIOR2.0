@@ -220,3 +220,91 @@
         });
     }
 })();
+
+/*
+ * A CONFERÊNCIA DO Nº DO LOTE, enquanto se digita.
+ *
+ * Bloco separado de propósito: o de cima sai cedo quando não acha o campo da
+ * foto, e o número não pode ficar refém disso.
+ *
+ * É CONVENIÊNCIA, NÃO TRAVA. Nada aqui impede o envio: quem decide é o
+ * `clean_numero` no servidor, e a última linha é a constraint do banco. Duas
+ * pessoas etiquetando caixas ao mesmo tempo podem digitar o mesmo número no
+ * mesmo minuto — a resposta daqui já estaria velha quando chegasse à tela.
+ * Bloquear o botão com base nela só faria quem está certo não conseguir
+ * salvar quando a rede falhasse.
+ */
+(function () {
+    "use strict";
+
+    var campo = document.getElementById("id_numero");
+    var aviso = document.getElementById("numeroAviso");
+    if (!campo || !aviso) return;
+
+    var url = aviso.dataset.url;
+    var lote = aviso.dataset.lote || "";
+    if (!url) return;
+
+    var relogio = null;
+    var emVoo = null;
+
+    function mostrar(texto, classe) {
+        aviso.textContent = texto;
+        aviso.className = "numero-aviso " + classe;
+        aviso.hidden = !texto;
+    }
+
+    function consultar() {
+        var valor = (campo.value || "").trim();
+        if (!valor) {
+            // Vazio é o caminho normal — o sistema numera sozinho. Nada a dizer.
+            mostrar("", "");
+            return;
+        }
+
+        // `AbortController` porque quem digita "1", "12", "123" dispara três
+        // consultas, e elas podem voltar fora de ordem: a resposta do "1"
+        // chegando depois pintaria o aviso do número errado.
+        if (emVoo) emVoo.abort();
+        emVoo = new AbortController();
+
+        var endereco = url + "?n=" + encodeURIComponent(valor) +
+            (lote ? "&lote=" + encodeURIComponent(lote) : "");
+
+        fetch(endereco, {
+            signal: emVoo.signal,
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+        })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) return;
+                if (!d.consultou) { mostrar("", ""); return; }
+                if (d.livre) {
+                    mostrar("Nº " + valor + " livre.", "numero-livre");
+                } else {
+                    mostrar(
+                        "Nº " + valor + " já é do item “" + d.de +
+                            "”. O próximo livre é o " + d.proximo + ".",
+                        "numero-ocupado"
+                    );
+                }
+            })
+            .catch(function () {
+                // Rede ruim no salão do clube é o normal, não a exceção. Sem
+                // resposta, o campo fica como estava: o servidor confere no
+                // envio de qualquer jeito.
+            });
+    }
+
+    campo.addEventListener("input", function () {
+        // Uma espera curta para não consultar a cada tecla. Ela é o bastante:
+        // são poucos dígitos, e quem digita para de digitar rápido.
+        mostrar("", "");
+        clearTimeout(relogio);
+        relogio = setTimeout(consultar, 350);
+    });
+
+    // Quem chega com o campo já preenchido (edição, ou o navegador
+    // restaurando o formulário ao voltar) merece o aviso sem ter de tocar nele.
+    if ((campo.value || "").trim()) consultar();
+})();

@@ -1053,12 +1053,18 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 
 ### O número do item
 
-- **É a etiqueta do objeto físico, não a posição na fila.** `Lote.numero` nasce sozinho e **não muda
-  nunca**; `Lote.ordem` é a fila e muda a cada reorganização. Trocar um pelo outro faz a caixa na
+- **É a etiqueta do objeto físico, não a posição na fila.** `Lote.numero` vem **sugerido**
+  (`Lote.proximo_numero`) e a preparação **pode digitar outro** (caixa que chegou etiquetada); fora isso
+  **não muda nunca**; `Lote.ordem` é a fila e muda a cada reorganização. Trocar um pelo outro faz a caixa na
   prateleira apontar para outro item, e o erro só aparece na hora de entregar.
 - **O contador fica no leilão (`Leilao.ultimo_numero_item`) e só sobe.** Numerar pelo `Max()` do que
   existe parece igual e não é: apagando o último item, o próximo cadastro repete um número que talvez já
   esteja colado numa caixa. Há teste.
+- **Número digitado empurra o contador** (`Lote.save`, só quando `numero` está no `update_fields`). Sem
+  isso, digitar o 40 com o contador em 7 faria os automáticos subirem até bater no 40 e estourar a
+  unicidade. A sugestão **não mexida** conta como automática (`numero_sugerido` oculto): dois cadastros
+  abertos ao mesmo tempo não brigam pelo mesmo número. Duplicado é recusado no `clean_numero` dizendo
+  **de qual item** é; a conferência ao vivo (`/preparacao/<id>/itens/numero/`) é só ajuda — a trava é o form.
 - **Item que volta para a fila mantém o número.** Não reetiquete nada, e não "corrija" isso.
 - **O número NÃO vai no broadcast.** "Item nº 12" conta ao público que existem pelo menos 12 itens, e
   quantos faltam é justamente o que ele não pode saber. Vai pelo `/locutor/dados/`, o caminho autenticado

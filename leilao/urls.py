@@ -75,6 +75,12 @@ urlpatterns = [
     path("preparacao/<int:pk>/editar/", views.leilao_editar_view, name="leilao_editar"),
     path("preparacao/<int:leilao_id>/itens/", views.lotes_view, name="lotes"),
     path("preparacao/<int:leilao_id>/itens/novo/", views.lote_form_view, name="lote_novo"),
+    # Conferência do nº do lote enquanto se digita (ver `lote_numero_livre_view`).
+    path(
+        "preparacao/<int:leilao_id>/itens/numero/",
+        views.lote_numero_livre_view,
+        name="lote_numero_livre",
+    ),
     path("preparacao/itens/<int:pk>/editar/", views.lote_form_view, name="lote_editar"),
     path("preparacao/itens/<int:pk>/excluir/", views.lote_excluir_view, name="lote_excluir"),
 ]

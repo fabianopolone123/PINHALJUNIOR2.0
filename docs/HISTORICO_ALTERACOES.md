@@ -22,6 +22,39 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável
+
+### Resumo
+Pedido do clube: ao cadastrar um item não havia onde pôr o número do lote. Agora o campo existe,
+**ao lado do peso**, já vem **preenchido com o próximo** e pode ser trocado — com conferência para não
+duplicar.
+
+### Como funciona
+- **Sugestão**: `Lote.proximo_numero(leilao)` = maior entre o contador (`ultimo_numero_item`) e o maior
+  número em uso, + 1. Se ninguém mexer, a sugestão conta como **automática** (campo oculto
+  `numero_sugerido`) — dois cadastros abertos ao mesmo tempo não disputam o mesmo número.
+- **Trocar**: número digitado é conferido no `clean_numero` (mesmo leilão, fora o próprio item); repetido
+  volta com "O nº X já é do item “…”. Escolha outro." Limite 1–9999.
+- **Ao vivo**: enquanto digita, `lote_form.js` consulta `/preparacao/<id>/itens/numero/` (papel
+  preparação) e mostra "Nº X livre." ou de quem é e qual o próximo livre.
+- **Contador**: número digitado **empurra** `ultimo_numero_item` (nunca desce), para os automáticos
+  seguintes não baterem nele. O caminho do lance não paga por isso (`update_fields`).
+- **Edição**: mostra o número atual; campo vazio mantém o número.
+- **Dois digitando o mesmo nº juntos**: a constraint barra o segundo e a view devolve o formulário com
+  "acabou de ser usado em outro item" (gravação atômica; nunca erro 500).
+- A mensagem de salvo diz o número ("Item nº 12 salvo!").
+
+### Verificação
+`NumeroDoLoteEscolhidoTests` (22 testes) e a suíte do leilão inteira; conferido na tela (420 px): campo
+ao lado do peso, aviso de livre/ocupado.
+
+### Arquivos
+`leilao/models.py`, `leilao/forms.py`, `leilao/views.py`, `leilao/urls.py`,
+`templates/leilao/lote_form.html`, `static/leilao/js/lote_form.js`, `static/leilao/css/locutor.css`,
+`leilao/tests.py`, `docs/MANUAL_LEILAO.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`, `CLAUDE.md`.
+
+---
+
 ## 2026-09-26 - Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)
 
 ### Resumo
