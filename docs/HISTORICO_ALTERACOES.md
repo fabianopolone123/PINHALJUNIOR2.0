@@ -22,6 +22,52 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: revisão geral, lote D — robustez
+
+### Resumo
+Último lote da revisão geral: itens 15, 18, 22, 23, 24, 25, 26 e 27 da lista.
+
+### O que mudou
+15. **Freio.** Chat: 1 s entre mensagens e no máximo 8 a cada 30 s por pessoa (429). Porta: no
+    máximo 20 cadastros por IP a cada 10 min (o Wi-Fi do salão é um IP só). Sem isso, um script
+    inundava o chat (escrita que disputa a trava com os lances + broadcast em rajada, resync em
+    massa) ou cadastrava dezenas de pessoas para lotar as conexões.
+18. **Entrada forjada.** `_json` só aceita objeto; o `lote` do lance é convertido para número antes
+    do cadeado (texto e lista davam 500, e cada valor distinto criava um cadeado eterno); NaN e
+    Infinity no valor visto viram "sem valor"; chat com texto não-texto é ignorado; ids inválidos na
+    mesa/caixa dão 400.
+22. **Sair só por POST** (um link de outro site deslogava a pessoa, que perdia a conta e o Pix).
+23. **A mesa** lista só quem tem lance ou arremate NESTE leilão, ou está online — antes eram 200
+    cadastros de todas as noites — e mostra só o fim do WhatsApp, sem endereço.
+24. **Avisos de pagamento** (`pagamento`, `arremate_pix`, `arremate_combinado`) levam só `para`: um
+    HMAC separado (`Participante.chave_avisos`) que só a tela da própria pessoa conhece. Antes iam o
+    id, a situação e o nome do item — cruzados com o `quem_id` dos lances, diziam a todos quem pagou e
+    quem ficou devendo. O caixa perdeu só o "pintar a linha" (a página se refaz logo depois).
+25. **"Voltar ao leilão"** recusa arremate antigo (vencido, cancelado, ou anterior a uma revenda) —
+    ele punha na fila, zerado, um item já de outra pessoa. O botão some para os vencidos.
+26. **Cadastro de item** não reenvia no segundo toque durante o upload lento.
+27. **A vinheta do "dou-lhe duas"** anima só a opacidade (a sombra da tela inteira repintava a cada
+    quadro). As três animações contínuas da tela show (aura, alerta, respira) **continuam como
+    estão**: foi decisão do clube em 24/09 (commit `45dd8fd`).
+
+### Também
+Um teste do lote B procurava o **último** bloco de movimento reduzido do CSS e quebrou quando o lote
+B acrescentou outro no fim; agora procura o bloco do próprio dou-lhe.
+
+### Arquivos alterados
+`leilao/servicos.py`, `leilao/views.py`, `leilao/models.py` (`chave_avisos`),
+`static/leilao/js/leilao.js`, `static/leilao/js/caixa.js`, `static/leilao/js/lote_form.js`,
+`static/leilao/css/leilao.css`, `templates/leilao/locutor.html`, `templates/leilao/caixa.html`,
+`templates/leilao/leilao.html`, `templates/leilao/leilao_show.html`, `leilao/tests.py`
+(`RevisaoGeralLoteDTests`, 14 testes).
+
+### Fora desta revisão (decisão do clube)
+A identidade da pessoa continua sendo o telefone digitado, sem confirmação: quem entrar com o
+WhatsApp de outra pessoa impede essa pessoa de cobrir o lance. Resolver pede confirmação por código
+no WhatsApp — mudança de fluxo, deixada para depois.
+
+---
+
 ## 2026-09-26 - Leilão: revisão geral, lote C — a mesa e o caixa
 
 ### Resumo

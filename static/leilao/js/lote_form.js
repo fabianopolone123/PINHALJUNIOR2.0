@@ -180,11 +180,19 @@
     var form = campo.form;
     var enviando = false;
 
+    // Depois que o POST de verdade saiu, um segundo toque (o upload leva
+    // dezenas de segundos no 4G) reenviava o formulário e o item nascia em
+    // dobro, com número novo (revisão de 26/09). `enviado` trava; voltar à
+    // página pelo "voltar" do navegador destrava.
+    var enviado = false;
+    window.addEventListener("pageshow", function () { enviado = false; enviando = false; });
+
     if (form) {
         form.addEventListener("submit", function (e) {
-            if (enviando) return;                     // a segunda passada é a de verdade
+            if (enviado) { e.preventDefault(); return; }
+            if (enviando) { enviado = true; return; }   // a segunda passada é a de verdade
             var arquivo = campo.files && campo.files[0];
-            if (!arquivo) return;                     // sem foto, nada a fazer
+            if (!arquivo) { enviado = true; return; }   // sem foto: vai direto, uma vez só
 
             e.preventDefault();
             var botao = e.submitter;

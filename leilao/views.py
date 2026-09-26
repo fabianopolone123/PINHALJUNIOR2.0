@@ -67,11 +67,16 @@ logger = logging.getLogger(__name__)
 
 
 def _json(request):
-    """Corpo JSON do pedido (as telas mandam `fetch` com JSON)."""
+    """Corpo JSON do pedido (as telas mandam `fetch` com JSON).
+
+    Só OBJETO vale: um corpo `[1]` ou `5` virava `.get` em lista e 500 na cara
+    de quem mandou (revisão de 26/09).
+    """
     try:
-        return json.loads(request.body.decode("utf-8") or "{}")
+        dados = json.loads(request.body.decode("utf-8") or "{}")
     except (ValueError, UnicodeDecodeError):
         return {}
+    return dados if isinstance(dados, dict) else {}
 
 
 # ===========================================================================
@@ -85,6 +90,9 @@ def entrar_view(request):
     leilao = Leilao.ao_vivo()
     if request.method == "POST":
         form = EntrarForm(request.POST)
+        if form.is_valid() and not servicos.entrada_liberada(_ip_do(request)):
+            messages.error(request, "Muitos cadastros deste endereço agora. Espere alguns minutos.")
+            return render(request, "leilao/entrar.html", {"form": form, "leilao": leilao})
         if form.is_valid():
             participante = form.save(commit=False)
             # Entrar de novo NÃO limpa o bloqueio: sem isto, quem o locutor
@@ -102,7 +110,11 @@ def entrar_view(request):
     return render(request, "leilao/entrar.html", {"form": form, "leilao": leilao})
 
 
+@require_POST
 def sair_view(request):
+    # Só POST (com CSRF): por GET, um simples link de outro site deslogava a
+    # pessoa — e ela perdia o acesso à própria conta e ao Pix, que ficam no
+    # registro da sessão (revisão de 26/09).
     sessao_sair(request)
     return redirect("leilao:entrar")
 
@@ -299,6 +311,10 @@ def chat_enviar_view(request):
     if not leilao.chat_aberto:
         return JsonResponse({"ok": False, "msg": "O chat está fechado agora."}, status=409)
 
+    if not servicos.chat_liberado(participante.id):
+        return JsonResponse(
+            {"ok": False, "msg": "Calma — espere um pouquinho para mandar outra mensagem."}, status=429
+        )
     m = servicos.enviar_mensagem(leilao, participante, _json(request).get("texto"))
     if not m:
         return JsonResponse({"ok": False, "msg": "Mensagem vazia ou bloqueada."}, status=400)
@@ -697,14 +713,24 @@ def locutor_view(request, leilao_id=None):
 
 
 def _painel_locutor(leilao):
-    """Quem está no leilão — para a moderação do pregão."""
+    """Quem está no leilão — para a moderação do pregão.
+
+    Só quem tem algo NESTE leilão (lance, arremate) ou está online agora: a
+    lista antiga trazia 200 cadastros de todas as noites. E a mesa não mostra
+    mais endereço nem telefone inteiro (revisão de 26/09): moderar pede nome e
+    o botão de bloquear; endereço é trabalho do caixa, e a tela da mesa fica
+    à vista no evento. O fim do telefone fica, para distinguir homônimos.
+    """
+    online = HUB.donos_conectados()
     return {
         "participantes": Participante.objects.annotate(
             n_lances=Count(
                 "lances", filter=Q(lances__lote__leilao=leilao, lances__cancelado=False)
             ),
             n_arremates=Count("arremates", filter=Q(arremates__lote__leilao=leilao)),
-        ).order_by("-n_lances", "nome")[:200],
+        ).filter(
+            Q(n_lances__gt=0) | Q(n_arremates__gt=0) | Q(pk__in=online)
+        ).order_by("-n_lances", "nome")[:300],
     }
 
 
@@ -949,6 +975,17 @@ def locutor_acao_view(request):
         return JsonResponse(
             {"ok": False, "msg": f"Esta ação é de {rotulos}."}, status=403
         )
+
+    # Ids que vêm da tela: texto no lugar de número era ValueError dentro do
+    # `get_object_or_404` — 500 em vez de uma recusa (revisão de 26/09).
+    for chave in ("lote", "participante", "arremate"):
+        bruto = dados.get(chave)
+        if bruto in (None, ""):
+            continue
+        try:
+            int(bruto)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "msg": "Pedido inválido."}, status=400)
 
     leilao = _leilao_da_tela(dados.get("leilao"))
     if not leilao:

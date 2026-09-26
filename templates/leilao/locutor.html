@@ -331,15 +331,14 @@
 
     {# ================= PESSOAS ================= #}
     <section class="mesa-secao" data-secao="pessoas" hidden>
-        <input type="search" class="busca" id="buscaPessoas" placeholder="Buscar por nome ou WhatsApp…">
+        <input type="search" class="busca" id="buscaPessoas" placeholder="Buscar por nome…">
         <ul class="pessoas" id="listaPessoas">
             {% for p in painel.participantes %}
             <li class="pessoa {% if p.bloqueado %}bloqueada{% endif %}"
-                data-busca="{{ p.nome|lower }} {{ p.whatsapp }}">
+                data-busca="{{ p.nome|lower }}">
                 <div class="pessoa-corpo">
                     <b>{{ p.nome }}</b>
-                    <span class="pessoa-linha selecionavel">{{ p.whatsapp }}</span>
-                    <span class="pessoa-linha endereco selecionavel">{{ p.endereco_uma_linha }}</span>
+                    <span class="pessoa-linha">WhatsApp final {{ p.whatsapp|slice:"-4:" }}</span>
                     <span class="pessoa-linha">{{ p.n_lances }} lance{{ p.n_lances|pluralize }} ·
                         {{ p.n_arremates }} arremate{{ p.n_arremates|pluralize }}</span>
                 </div>

@@ -56,6 +56,17 @@ MINUTOS_PIX_COMBINADO = 60 * 24 * 7
 _locks = {}
 _locks_guard = threading.Lock()
 _ultimo_lance = {}
+# Freios de repetição do chat e da porta (revisão de 26/09). Sem eles, um
+# script inundava o chat — cada mensagem é uma escrita que disputa a trava com
+# os lances, e o broadcast em rajada estoura a fila dos celulares (resync em
+# massa) — ou cadastrava dezenas de pessoas para lotar as conexões da sala.
+_msgs_recentes = {}      # participante_id -> [instantes]
+_entradas_recentes = {}  # ip -> [instantes]
+CHAT_INTERVALO_MIN = 1.0       # s entre duas mensagens da mesma pessoa
+CHAT_MAX_POR_JANELA = 8        # mensagens por pessoa…
+CHAT_JANELA = 30.0             # …a cada 30 s
+ENTRADAS_MAX_POR_IP = 20       # cadastros por IP… (Wi-Fi do salão é um IP só)
+ENTRADAS_JANELA = 600.0        # …a cada 10 min
 
 
 def limpar_limites():
@@ -69,6 +80,8 @@ def limpar_limites():
     with _locks_guard:
         _locks.clear()
     _ultimo_lance.clear()
+    _msgs_recentes.clear()
+    _entradas_recentes.clear()
 
 
 def _mesma_pessoa(a, b):
@@ -115,6 +128,28 @@ def bloquear_pessoa(participante, bloquear=True):
     return bloquear, quantos
 
 
+def _freio(tabela, chave, janela, maximo, intervalo=0.0):
+    """True = pode; False = segurou. Registra a tentativa aceita."""
+    agora = time.monotonic()
+    marcas = [t for t in tabela.get(chave, []) if agora - t < janela]
+    if len(tabela) > 5000:          # não cresce para sempre
+        tabela.clear()
+    if len(marcas) >= maximo or (intervalo and marcas and agora - marcas[-1] < intervalo):
+        tabela[chave] = marcas
+        return False
+    marcas.append(agora)
+    tabela[chave] = marcas
+    return True
+
+
+def chat_liberado(participante_id):
+    return _freio(_msgs_recentes, participante_id, CHAT_JANELA, CHAT_MAX_POR_JANELA, CHAT_INTERVALO_MIN)
+
+
+def entrada_liberada(ip):
+    return _freio(_entradas_recentes, ip, ENTRADAS_JANELA, ENTRADAS_MAX_POR_IP)
+
+
 def _lock_do_lote(lote_id):
     """Um cadeado por lote.
 
@@ -123,6 +158,10 @@ def _lock_do_lote(lote_id):
     precisa de lock no banco, que no SQLite seria bem mais caro.
     """
     with _locks_guard:
+        # Só lotes que existem chegam aqui (o id é conferido antes), mas o
+        # dicionário não pode crescer sem fim numa noite longa.
+        if len(_locks) > 5000:
+            _locks.clear()
         return _locks.setdefault(lote_id, threading.Lock())
 
 
@@ -289,6 +328,16 @@ def dar_lance(lote_id, participante, *, valor_visto=None, origem="botao"):
     if participante.bloqueado:
         return False, "Seus lances estão bloqueados. Fale com o locutor.", None
 
+    # O id vem da internet: "abc" era ValueError, [1] era TypeError no cadeado
+    # (500), e cada valor distinto criava um cadeado que nunca saía da memória
+    # — "5" e 5 eram até cadeados diferentes (revisão de 26/09).
+    try:
+        lote_id = int(lote_id)
+    except (TypeError, ValueError):
+        return False, "Lote não encontrado.", None
+    if lote_id <= 0:
+        return False, "Lote não encontrado.", None
+
     agora_mono = time.monotonic()
 
     with _lock_do_lote(lote_id):
@@ -327,10 +376,7 @@ def dar_lance(lote_id, participante, *, valor_visto=None, origem="botao"):
             valor = lote.proximo_valor
 
             if valor_visto is not None:
-                try:
-                    visto = Decimal(str(valor_visto))
-                except (InvalidOperation, ValueError):
-                    visto = None
+                visto = _decimal_ou_none(valor_visto)   # NaN/Infinity viravam 500
                 # Um degrau de tolerância: o normal é o valor ter subido uma vez
                 # entre o desenho da tela e o toque. Mais que isso, a pessoa
                 # confirma de novo.
@@ -383,11 +429,7 @@ def marcar_combinado(arremate, usuario=None, observacao=""):
 
     HUB.publicar(
         "arremate_combinado",
-        {
-            "arremate": arremate.id,
-            "participante": arremate.participante_id,
-            "situacao": "combinado",
-        },
+        {"para": arremate.participante.chave_avisos},
     )
     return arremate
 
@@ -732,7 +774,7 @@ def cobranca_do_participante(participante, *, refazer=False):
     Arremate.objects.filter(pk__in=[a.pk for a in abertos]).update(pagamento=pagamento)
     HUB.publicar(
         "arremate_pix",
-        {"participante": participante.id, "ok": True},
+        {"para": participante.chave_avisos},
     )
     return pagamento
 
@@ -751,12 +793,7 @@ def marcar_pago(arremate, *, manual=False, pagamento=None):
     arremate.save(update_fields=["status", "pago_em", "pago_manual", "pagamento"])
     HUB.publicar(
         "pagamento",
-        {
-            "arremate": arremate.id,
-            "participante": arremate.participante_id,
-            "lote": arremate.lote.nome,
-            "situacao": "pago",
-        },
+        {"para": arremate.participante.chave_avisos},
     )
     return arremate
 
@@ -1076,7 +1113,7 @@ def _desfazer_baixa_do_estorno(pagamento):
         )
         # O caixa e a tela da pessoa refazem a conta sem ninguém recarregar.
         for a in voltaram:
-            HUB.publicar("arremate_pix", {"participante": a.participante_id, "ok": True})
+            HUB.publicar("arremate_pix", {"para": a.participante.chave_avisos})
 
 
 class DevolucaoRecusada(Exception):
@@ -1123,6 +1160,13 @@ def devolver_ao_leilao(arremate, motivo, por=None):
         raise DevolucaoRecusada(
             "Este item está em pregão agora. Espere o martelo para devolvê-lo."
         )
+    # Só o arremate VIGENTE do item. Um antigo (vencido no fluxo de prazo, ou
+    # anterior a uma revenda) punha na fila, zerado, um item que já é de outra
+    # pessoa — talvez paga e a caminho da entrega (revisão de 26/09).
+    if arremate.status in ("expirado", "cancelado") or Arremate.objects.filter(
+        lote=lote, criado_em__gt=arremate.criado_em
+    ).exclude(status__in=("cancelado", "expirado")).exists():
+        raise DevolucaoRecusada("Este arremate é antigo: o item já foi vendido de novo depois dele.")
 
     with transaction.atomic():
         arremate.devolvido_em = timezone.now()
@@ -1229,7 +1273,7 @@ def mudar_status(leilao, novo):
 
 
 def enviar_mensagem(leilao, participante, texto):
-    texto = (texto or "").strip()[:300]
+    texto = (texto if isinstance(texto, str) else "").strip()[:300]
     if not texto:
         return None
     if participante is not None and participante.bloqueado:

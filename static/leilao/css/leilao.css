@@ -1203,9 +1203,13 @@ body.dou-lhe-2 .dou-lhe-vinheta.duas { animation: dou-lhe-pulso 1s ease-in-out i
     0%   { opacity: 1; box-shadow: inset 0 0 90px rgba(255, 197, 61, 0.7); }
     100% { opacity: 0; box-shadow: inset 0 0 20px rgba(255, 197, 61, 0); }
 }
+/* Só OPACIDADE: animar a sombra de uma camada do tamanho da tela repintava a
+   tela inteira a cada quadro, a noite toda (revisão de 26/09). A sombra fica
+   parada; o que pulsa é a transparência, que o celular compõe de graça. */
+body.dou-lhe-2 .dou-lhe-vinheta.duas { box-shadow: inset 0 0 110px rgba(255, 60, 30, 0.85); }
 @keyframes dou-lhe-pulso {
-    0%, 100% { opacity: 0.55; box-shadow: inset 0 0 50px rgba(255, 60, 30, 0.55); }
-    20%      { opacity: 1; box-shadow: inset 0 0 120px rgba(255, 60, 30, 0.85); }
+    0%, 100% { opacity: 0.45; }
+    20%      { opacity: 1; }
 }
 
 /* O botão de lance pulsa no "duas": é para ele que o olho tem de ir. */

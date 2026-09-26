@@ -431,6 +431,25 @@ class Participante(models.Model):
         return digitos
 
     @property
+    def chave_avisos(self):
+        """Endereço opaco dos avisos de pagamento DESTE registro.
+
+        Os avisos (`pagamento`, `arremate_pix`, `arremate_combinado`, …) vão
+        para a sala inteira, e levavam o id da pessoa, a situação e o nome do
+        item — que, cruzados com o `quem_id` dos lances, contavam para todos
+        "Fulano pagou o item X" ou "ficou de pagar depois" (revisão de 26/09).
+        Esta chave é um HMAC separado, que só a tela da própria pessoa conhece.
+        """
+        import hashlib
+        import hmac
+
+        from django.conf import settings
+
+        return hmac.new(
+            settings.SECRET_KEY.encode(), f"avisos:{self.pk}".encode(), hashlib.sha256
+        ).hexdigest()[:20]
+
+    @property
     def chave_pessoa(self):
         """Identidade **estável** da pessoa, segura para ir no broadcast.
 

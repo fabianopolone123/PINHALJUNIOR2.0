@@ -26,6 +26,12 @@
     var CSRF = dados.dataset.csrf;
     var EU = parseInt(dados.dataset.eu, 10) || null;
     var EU_CHAVE = dados.dataset.euChave || "";
+    // Endereço opaco dos avisos de pagamento deste registro (ver
+    // `Participante.chave_avisos`): a sala inteira recebe o aviso, só esta
+    // tela sabe que é dela.
+    var EU_AVISOS = dados.dataset.euAvisos || "";
+
+    function avisoMeu(d) { return !!(EU_AVISOS && d && d.para === EU_AVISOS); }
     var AUDIO_URL = dados.dataset.audio || "";
 
     var estado = JSON.parse($("estadoInicial").textContent || "{}");
@@ -880,7 +886,7 @@
 
         fonte.addEventListener("arremate_combinado", function (e) {
             var d = JSON.parse(e.data);
-            if (EU && d.participante === EU) {
+            if (avisoMeu(d)) {
                 toast("Pagamento combinado com a organização. 🤝", "success");
                 carregarArremates();
             }
@@ -888,7 +894,7 @@
 
         fonte.addEventListener("arremate_pix", function (e) {
             var d = JSON.parse(e.data);
-            if (!EU || d.participante !== EU) return;
+            if (!avisoMeu(d)) return;
             carregarArremates();
             // O Pix pode ter sido REFEITO (prazo esticado, pagamento combinado).
             // Com o modal aberto, a pessoa ficaria olhando um código que já não
@@ -904,15 +910,15 @@
 
         fonte.addEventListener("arremate_prazo", function (e) {
             var d = JSON.parse(e.data);
-            if (!EU || d.participante !== EU) return;
+            if (!avisoMeu(d)) return;
             toast("A organização te deu mais tempo para pagar. ⏱️", "success");
             carregarArremates();
         });
 
         fonte.addEventListener("pagamento", function (e) {
             var d = JSON.parse(e.data);
-            if (EU && d.participante === EU) {
-                toast("Pagamento confirmado: " + d.lote + " 🎉", "success");
+            if (avisoMeu(d)) {
+                toast("Pagamento confirmado! 🎉", "success");
                 carregarArremates();
                 // Um item da conta foi quitado (Pix ou baixa na mão do caixa):
                 // o QR aberto é da conta ANTIGA. Pede o de novo — o servidor

@@ -327,14 +327,14 @@
 
         fonte.addEventListener("pagamento", function (e) {
             var d = JSON.parse(e.data || "{}");
-            pintarLinha(d.arremate, "pago", "Pago");
-            toast("💰 Pagamento confirmado: " + (d.lote || "item"), "success");
+            // O aviso não diz mais QUAL item (vai para a sala inteira): a
+            // linha se acerta na recarga logo abaixo.
+            toast("💰 Pagamento confirmado.", "success");
             agendarRecarga();
         });
 
         fonte.addEventListener("arremate_combinado", function (e) {
             var d = JSON.parse(e.data || "{}");
-            pintarLinha(d.arremate, "combinado", "Combinado — vai pagar depois");
             // Pode ter sido OUTRA pessoa do caixa que combinou: os totais
             // fecham na recarga.
             agendarRecarga();

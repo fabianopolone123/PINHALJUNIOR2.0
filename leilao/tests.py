@@ -6989,7 +6989,10 @@ class DouLheNaTelaDoPublicoTests(TestCase):
 
     def test_movimento_reduzido_desliga_a_tremedeira(self):
         css = self._ler("static", "leilao", "css", "leilao.css")
-        reduzido = css[css.rindex("@media (prefers-reduced-motion: reduce)"):]
+        # O bloco de movimento reduzido DO DOU-LHE (não o último do arquivo:
+        # outros blocos entram depois dele).
+        inicio = css.index("@media (prefers-reduced-motion: reduce)", css.index(".dou-lhe-carimbo {"))
+        reduzido = css[inicio: css.index("\n}\n", inicio)]
         self.assertIn("body.treme-forte", reduzido)
 
 
@@ -7593,3 +7596,126 @@ class RevisaoGeralLoteCTests(TestCase):
     def test_a_mesa_cresce_com_a_quarta_coluna(self):
         css = self._ler("static", "leilao", "css", "locutor.css")
         self.assertIn(".mesa { max-width: 1440px; }", css)
+
+
+class RevisaoGeralLoteDTests(TestCase):
+    """Lote D da revisão geral de 26/09: robustez."""
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao)
+        self.ana = criar_pessoa("Ana Fictícia Souza")
+        self.c = Client()
+        sessao = self.c.session
+        sessao[CHAVE_SESSAO] = self.ana.token
+        sessao.save()
+
+    def _post(self, url, corpo):
+        return self.c.post(url, corpo if isinstance(corpo, str) else json.dumps(corpo),
+                           content_type="application/json")
+
+    def _equipe(self, area):
+        User = get_user_model()
+        u = User.objects.create_user(f"{area}_d_ficticio", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name=area)[0])
+        c = Client()
+        c.force_login(u)
+        return c
+
+    # 15 --------------------------------------------------------------
+    def test_o_chat_tem_freio(self):
+        respostas = [self._post("/chat/enviar/", {"texto": f"oi {i}"}).status_code for i in range(12)]
+        self.assertIn(429, respostas)
+        self.assertLessEqual(respostas.count(200), servicos.CHAT_MAX_POR_JANELA)
+
+    def test_a_porta_tem_freio_por_ip(self):
+        dados = {"nome": "Pessoa Fictícia", "cep": "01001-000", "logradouro": "Rua Exemplo",
+                 "numero": "10", "bairro": "Centro", "cidade": "Cidade Exemplo", "estado": "SP"}
+        antes = Participante.objects.count()
+        for i in range(servicos.ENTRADAS_MAX_POR_IP + 5):
+            Client().post("/entrar/", {**dados, "whatsapp": "(11) 9%04d-0000" % i})
+        self.assertEqual(Participante.objects.count() - antes, servicos.ENTRADAS_MAX_POR_IP)
+
+    # 18 --------------------------------------------------------------
+    def test_entrada_forjada_nao_da_500(self):
+        servicos.abrir_lote(self.lote)
+        for corpo in ({"lote": "abc"}, {"lote": [1]}, {"lote": self.lote.pk, "valor_visto": "NaN"},
+                      {"lote": self.lote.pk, "valor_visto": "Infinity"}, "[1]", "5"):
+            with self.subTest(corpo=corpo):
+                servicos.limpar_limites()
+                self.assertLess(self._post("/lance/", corpo).status_code, 500)
+        self.assertLess(self._post("/chat/enviar/", {"texto": 5}).status_code, 500)
+
+    def test_ids_forjados_na_mesa_nao_dao_500(self):
+        c = self._equipe("caixa")
+        for corpo in ({"acao": "pago", "arremate": "abc"}, {"acao": "bloquear", "participante": "x"}):
+            with self.subTest(corpo=corpo):
+                r = c.post("/equipe/acao/", json.dumps(corpo), content_type="application/json")
+                self.assertEqual(r.status_code, 400)
+
+    def test_o_cadeado_e_por_numero(self):
+        servicos.abrir_lote(self.lote)
+        servicos.dar_lance(str(self.lote.pk), self.ana)
+        self.assertIn(self.lote.pk, servicos._locks)
+        self.assertNotIn(str(self.lote.pk), servicos._locks)
+
+    # 22 --------------------------------------------------------------
+    def test_sair_so_por_post(self):
+        self.assertEqual(self.c.get("/sair/").status_code, 405)
+        self.assertEqual(self.c.session.get(CHAVE_SESSAO), self.ana.token, "o GET deslogou")
+
+    # 23 --------------------------------------------------------------
+    def test_a_mesa_so_lista_quem_esta_neste_leilao_sem_endereco(self):
+        de_outra_noite = criar_pessoa("Pessoa De Outra Noite")
+        servicos.abrir_lote(self.lote)
+        servicos.dar_lance(self.lote.id, self.ana)
+        html = self._equipe("locutor").get(f"/locutor/{self.leilao.pk}/").content.decode()
+        pessoas = html[html.index('id="listaPessoas"'):]
+        self.assertIn(self.ana.nome, pessoas)
+        self.assertNotIn(de_outra_noite.nome, pessoas)
+        self.assertNotIn(self.ana.endereco_uma_linha, pessoas)
+        self.assertNotIn(self.ana.whatsapp, pessoas)
+
+    # 24 --------------------------------------------------------------
+    def test_aviso_de_pagamento_nao_diz_de_quem(self):
+        from unittest import mock
+
+        servicos.abrir_lote(self.lote)
+        servicos.dar_lance(self.lote.id, self.ana)
+        arremate = servicos.fechar_lote(Lote.objects.get(pk=self.lote.pk))
+        with mock.patch.object(servicos.HUB, "publicar") as publicar:
+            servicos.marcar_pago(arremate, manual=True)
+        tipo, dados = publicar.call_args[0]
+        self.assertEqual(tipo, "pagamento")
+        self.assertEqual(set(dados), {"para"})
+        self.assertEqual(dados["para"], self.ana.chave_avisos)
+        self.assertNotEqual(dados["para"], self.ana.chave_pessoa, "não pode casar com o lance")
+
+    def test_a_tela_da_pessoa_conhece_a_propria_chave(self):
+        html = self.c.get("/").content.decode()
+        self.assertIn(f'data-eu-avisos="{self.ana.chave_avisos}"', html)
+
+    # 25 --------------------------------------------------------------
+    def test_arremate_antigo_nao_desmancha_a_revenda(self):
+        antigo = Arremate.objects.create(lote=self.lote, participante=self.ana, valor=Decimal("40"),
+                                         status="expirado")
+        beto = criar_pessoa("Beto Fictício Lima")
+        Arremate.objects.create(lote=self.lote, participante=beto, valor=Decimal("45"), status="pago")
+        Lote.objects.filter(pk=self.lote.pk).update(status="vendido")
+        with self.assertRaises(servicos.DevolucaoRecusada):
+            servicos.devolver_ao_leilao(antigo, "teste fictício")
+        self.assertEqual(Lote.objects.get(pk=self.lote.pk).status, "vendido")
+
+    # 26, 27 ----------------------------------------------------------
+    def test_o_cadastro_de_item_nao_sai_em_dobro(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "lote_form.js").read_text(encoding="utf-8")
+        self.assertIn("if (enviado) { e.preventDefault(); return; }", js)
+
+    def test_a_vinheta_do_duas_anima_so_opacidade(self):
+        css = Path(settings.BASE_DIR, "static", "leilao", "css", "leilao.css").read_text(encoding="utf-8")
+        quadro = css[css.index("@keyframes dou-lhe-pulso"):]
+        quadro = quadro[: quadro.index("\n}")]
+        self.assertNotIn("box-shadow", quadro)

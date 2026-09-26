@@ -187,6 +187,7 @@
                             ser leiloado outra vez (pagou). O motivo é
                             obrigatório, e quem exige é o servidor.
                             {% endcomment %}
+                            {% if a.status != 'expirado' %}
                             <button type="button" class="btn-mini perigo"
                                     data-devolver="{{ a.id }}"
                                     data-item="nº {{ a.lote.numero }} — {{ a.lote.nome }}"
@@ -194,6 +195,7 @@
                                     title="Tirar da conta desta pessoa e devolver o item à fila do leilão">
                                 ↩️ Voltar ao leilão
                             </button>
+                            {% endif %}
                         </div>
                     </li>
                     {% endfor %}
