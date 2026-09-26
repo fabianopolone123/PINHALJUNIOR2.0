@@ -53,6 +53,12 @@ ao lado do peso, aviso de livre/ocupado.
 `templates/leilao/lote_form.html`, `static/leilao/js/lote_form.js`, `static/leilao/css/locutor.css`,
 `leilao/tests.py`, `docs/MANUAL_LEILAO.md`, `docs/REGRAS_CODEX.md`, `docs/ESTADO_ATUAL.md`, `CLAUDE.md`.
 
+### Deploy
+Publicado em 26/09 (`05b85a1`): conferido antes e depois que nenhum item estava em pregão;
+`pinhaljunior2-deploy` + passo do leilão (migrate sem migrations novas, `collectstatic`, `chown`,
+restart do `pinhaljunior_leilao.service`). O `lote_form.js` servido (hash do manifesto) já tem a
+conferência do número; a rota `/preparacao/<id>/itens/numero/` responde (302 para anônimo).
+
 ---
 
 ## 2026-09-26 - Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)
