@@ -41,6 +41,12 @@ listas de gente).
 3. **Moedas cortadas cedo (cosmético).** A limpeza de um lance apagava as moedas do lance seguinte;
    cada lance agora limpa só as que criou.
 
+### Deploy
+Em produção no commit `66f803a` (26/09, 13h08), com um leilão AO VIVO mas **nenhum item em
+pregão** (a regra do DEPLOY_LEILAO §7.1 permite): a trava foi conferida antes do deploy e de novo
+antes do restart. Deploy do clube OK, `collectstatic` e restart do serviço do leilão (`active`); os
+`dou_lhe.js`/`locutor.js` publicados já têm as correções e respondem 200.
+
 ### Conferido e sem problema
 Travas da escada no servidor (recusa fora da ordem, lance novo recomeça, item sem lance encerra),
 listas de gente e disputa só pelo GET autenticado, mudo independente, som sempre ligado.
