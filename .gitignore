@@ -50,3 +50,5 @@ migracao_mesclagem.json
 .idea/
 .DS_Store
 Thumbs.db
+# Perfil temporário do Chrome do simulador de voz
+ferramentas/simulador_voz/chrome_voz/

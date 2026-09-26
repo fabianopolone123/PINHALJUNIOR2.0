@@ -105,6 +105,13 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   vendido|chat|toque_lance`) e o `palco_show.js` enfeita em cima. Mudou algo no motor? Os **ids** que ele
   procura têm de existir nos **dois** templates (há teste). Efeito novo: só `transform`/`opacity`,
   `pointer-events: none`, teto de partículas que cai sozinho, e nada de requisição por enfeite.
+- **A voz tem simulador** (`ferramentas/simulador_voz/`, ver o LEIAME): abre a mesa e o pregão reais
+  no Chrome com o WebRTC e o servidor de áudio falsos e roda os cenários (quedas, mudo, cliques
+  rápidos, locutor parando, navegador recusando tocar, noite longa). Mexeu em `audio_falar.js`,
+  `audio_ouvir.js` ou no microfone/som de `locutor.js`/`leilao.js`? Rode-o — e cenário novo só vale
+  se **falha no código antigo**. "No ar" só com a conexão **de pé** (`esperarConectar`); a voz no ar
+  vai no estado (`estado.VOZ`, `voz_no_ar`) para o público não chamar de "som caiu" o locutor que
+  parou de propósito.
 - **Deploy tem passo extra**: o `pinhaljunior2-deploy` **não** reinicia o serviço do leilão nem coleta os
   estáticos dele (ver `docs/DEPLOY_LEILAO.md` §7.1).
 

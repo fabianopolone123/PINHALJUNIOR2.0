@@ -5571,7 +5571,7 @@ class AudioVoltaQuandoOLocutorVoltaTests(TestCase):
         js = self._js()
         tocar = js[js.index("function tocar()"):]
         tocar = tocar[: tocar.index(chr(10) + "    }")]
-        self.assertIn("avisar(false)", tocar)
+        self.assertIn('avisar(false, "recusado")', tocar)
         self.assertIn("avisar(true)", tocar)
 
     def test_desligar_de_proposito_NAO_pede_para_religar(self):
@@ -5580,7 +5580,7 @@ class AudioVoltaQuandoOLocutorVoltaTests(TestCase):
         js = self._js()
         desligar = js[js.index("desligar: function"):]
         desligar = desligar[: desligar.index("},")]
-        self.assertIn("ouvindo = false", desligar)
+        self.assertIn("ouvindo = null", desligar)   # nem "ouvindo" nem "perdeu" (26/09)
         self.assertNotIn("avisar(", desligar)
 
     def test_a_janela_nao_insiste_com_quem_fechou(self):
@@ -7719,3 +7719,116 @@ class RevisaoGeralLoteDTests(TestCase):
         quadro = css[css.index("@keyframes dou-lhe-pulso"):]
         quadro = quadro[: quadro.index("\n}")]
         self.assertNotIn("box-shadow", quadro)
+
+
+class RevisaoDaVozTests(TestCase):
+    """Revisão final da voz ao vivo (26/09): microfone, mudo e escuta.
+
+    Estas guardas estruturais acompanham o simulador de voz
+    (`ferramentas/simulador_voz/`), que roda as telas reais no Chrome com o
+    WebRTC falso e provou cada cenário nos dois lados: falha no código antigo,
+    passa no novo.
+    """
+
+    @staticmethod
+    def _js(nome):
+        texto = Path(settings.BASE_DIR, "static", "leilao", "js", nome).read_text(encoding="utf-8")
+        limpo = re.sub(r"/\*.*?\*/", " ", texto, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    # --- Quem fala --------------------------------------------------------
+    def test_no_ar_so_com_a_conexao_de_pe(self):
+        js = self._js("audio_falar.js")
+        iniciar = js[js.index("async function iniciar"):js.index("function caiu")]
+        self.assertIn("await esperarConectar(conexao, 12000)", iniciar)
+        self.assertLess(iniciar.index("esperarConectar(conexao"), iniciar.index("rodando = true"))
+
+    def test_microfone_que_termina_e_queda(self):
+        js = self._js("audio_falar.js")
+        self.assertIn('t.onended = function () {', js)
+        self.assertIn('caiu("microfone")', js)
+
+    def test_o_whip_tem_tempo_maximo(self):
+        js = self._js("audio_falar.js")
+        self.assertIn("controle.abort(); }, 15000)", js)
+
+    def test_soluco_de_rede_reaproveita_a_conexao(self):
+        falar = self._js("audio_falar.js")
+        self.assertIn("reaproveitar: function ()", falar)
+        mesa = self._js("locutor.js")
+        religar = mesa[mesa.index("function religarVoz"):]
+        religar = religar[: religar.index("\n    }\n")]
+        self.assertLess(religar.index("AudioFalar.reaproveitar()"), religar.index("ligarVoz().then"))
+
+    def test_mudo_na_religacao_nao_diz_no_ar(self):
+        mesa = self._js("locutor.js")
+        clique = mesa[mesa.index("btnMudo.addEventListener"):]
+        clique = clique[: clique.index("});")]
+        self.assertIn("if (querNoAr && window.AudioFalar.ativo())", clique)
+
+    def test_a_espera_da_religacao_so_zera_com_a_voz_estavel(self):
+        mesa = self._js("locutor.js")
+        ligar = mesa[mesa.index("function ligarVoz"):mesa.index("function religarVoz")]
+        self.assertNotIn("quedasSeguidas = 0;\n                mostrarNoAr", ligar)
+        self.assertIn("relogioEstavel = setTimeout(", ligar)
+
+    def test_o_mudo_sobrevive_a_recarregar_a_mesa(self):
+        mesa = self._js("locutor.js")
+        self.assertIn('sessionStorage.getItem("leilao_mudo")', mesa)
+        self.assertIn("guardarMudo(mudo);", mesa)
+
+    # --- Quem escuta ------------------------------------------------------
+    def test_o_toque_destrava_o_audio_no_iphone(self):
+        js = self._js("audio_ouvir.js")
+        ligar = js[js.index("ligar: function (endereco, elementoAudio)"):]
+        ligar = ligar[: ligar.index("return conectar();")]
+        self.assertIn("destravar(elemento);", ligar)
+
+    def test_a_primeira_recusa_do_navegador_pede_o_toque(self):
+        js = self._js("audio_ouvir.js")
+        self.assertIn("let ouvindo = null;", js)
+        self.assertIn('ouvindo = null; avisar(false, "recusado");', js)
+
+    def test_oscilacao_curta_nao_derruba_quem_escuta(self):
+        js = self._js("audio_ouvir.js")
+        ice = js[js.index("conexao.oniceconnectionstatechange"):]
+        ice = ice[: ice.index("};")]
+        self.assertIn('s === "disconnected"', ice)
+        self.assertIn("vigiaIce = setTimeout(", ice)
+
+    def test_a_espera_de_quem_escuta_so_zera_conectado(self):
+        js = self._js("audio_ouvir.js")
+        self.assertIn('if (s === "connected") tentativas = 0;', js)
+        antes = js[js.index("await conexao.setRemoteDescription"):js.index("iniciarVigiaBytes(conexao);\n            log")]
+        self.assertNotIn("tentativas = 0", antes)
+
+    def test_locutor_fora_do_ar_nao_vira_alarme_no_publico(self):
+        js = self._js("leilao.js")
+        self.assertIn('if (!estaOuvindo && motivo === "silencio" && vozNoAr === false) return;', js)
+
+    def test_a_voz_no_ar_vai_no_estado(self):
+        leilao = criar_leilao()
+        est.VOZ["no_ar"] = True
+        try:
+            self.assertTrue(est.estado_publico(leilao)["leilao"]["voz_no_ar"])
+        finally:
+            est.VOZ["no_ar"] = False
+
+    def test_a_mesa_guarda_a_voz_no_ar(self):
+        leilao = criar_leilao()
+        User = get_user_model()
+        u = User.objects.create_user("voz_loc_ficticio", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        c = Client()
+        c.force_login(u)
+        try:
+            c.post("/equipe/acao/", json.dumps({"acao": "voz", "no_ar": True, "leilao": leilao.pk}),
+                   content_type="application/json")
+            self.assertTrue(est.VOZ["no_ar"])
+            c.post("/equipe/acao/", json.dumps({"acao": "voz", "no_ar": False, "leilao": leilao.pk}),
+                   content_type="application/json")
+            self.assertFalse(est.VOZ["no_ar"])
+        finally:
+            est.VOZ["no_ar"] = False

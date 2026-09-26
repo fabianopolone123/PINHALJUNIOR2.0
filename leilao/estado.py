@@ -81,6 +81,12 @@ def _parado_desde(lote):
     return ultimo or lote.aberto_em
 
 
+# A voz do locutor está no ar? Estado de PROCESSO (o serviço é de um worker só,
+# como o hub): reiniciar o serviço volta a "não", e a mesa avisa de novo na
+# próxima ligação.
+VOZ = {"no_ar": False}
+
+
 def lote_publico(lote):
     if not lote:
         return None
@@ -192,6 +198,11 @@ def estado_publico(leilao, *, com_chat=True):
             # todo mundo ao mesmo tempo, sem recarregar — e não conta segredo
             # nenhum: é o locutor anunciando "podem pagar".
             "pagamentos_liberados": leilao.pagamentos_liberados,
+            # O locutor está transmitindo? Em memória (um worker só), mudado
+            # pela ação `voz` da mesa. Pode ser dito em voz alta, e é o que
+            # deixa a tela de quem assiste distinguir "o som caiu no meu
+            # aparelho" de "o locutor parou" (revisão de 26/09).
+            "voz_no_ar": VOZ["no_ar"],
             # O som da sala não se desliga mais (26/09): `som_lance` e
             # `som_arremate` ficaram dormentes e saíram do broadcast.
         },

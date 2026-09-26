@@ -22,6 +22,59 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: revisão final da voz — microfone, mudo e escuta, com simulador
+
+### Resumo
+Pedido do clube: uma última revisão geral do leilão focada na voz (voz ativa, mudo), com o máximo
+de testes possível. Uma revisão independente do código de voz + um **simulador** novo, que abre as
+telas reais no Chrome com o WebRTC e o servidor de áudio falsos e roda cenário por cenário:
+**20 na mesa, 10 no público**.
+
+### O simulador (`ferramentas/simulador_voz/`)
+Antes de qualquer script da página, o `voz_mock.js` troca só o `RTCPeerConnection`, o servidor
+WHIP/WHEP e o relógio (10x mais rápido); o resto é o código real, com o servidor Django de
+verdade. Cada cenário termina conferindo conexões vivas, **microfone aberto sem querer**, o texto
+da mesa, o toque pedido ao público. **Prova de fogo**: os cenários dos defeitos corrigidos foram
+rodados também contra o código anterior — e falharam lá, todos. Ela pegou um cenário mal escrito
+(conferia só o estado final, e no código antigo a transmissão caía e voltava sozinha): passou a
+exigir que a conexão boa continue a mesma.
+
+### Corrigido — quem fala (mesa)
+1. **"No ar" só com a conexão de pé** (`esperarConectar`, 12 s): numa rede que passa o POST e barra
+   a mídia, a mesa dizia "No ar", avisava a sala para reconectar e caía — em laço.
+2. **Microfone que desconecta** (Bluetooth/USB, bateria) virou queda e religação com microfone novo;
+   antes a mesa seguia "No ar" sem ninguém ouvir.
+3. **Soluço de rede não republica**: a conexão antiga que voltou sozinha é reaproveitada — republicar
+   derrubava todos os ouvintes.
+4. **Mudo com a transmissão caída** não mostra mais "No ar".
+5. **A espera da religação só zera com 30 s de voz estável.**
+6. **WHIP com tempo máximo** (15 s): o Transmitir não fica travado.
+7. **O mudo sobrevive a recarregar a mesa** (mesma aba).
+
+### Corrigido — quem escuta (público)
+8. **iPhone**: o toque destrava o áudio (silêncio tocado dentro do gesto), e a primeira recusa do
+   navegador passou a pedir o toque — antes se perdia, e tocar no 🔊 **desligava** o som.
+9. **Locutor parando de propósito** não vira "som caiu, toque para voltar": a mesa guarda a voz no
+   ar (`estado.VOZ`, no estado como `voz_no_ar`) e o público segue religando em silêncio.
+10. **Oscilação curta** (`disconnected`) espera 3–5 s antes de religar; a espera entre tentativas
+    só zera com a conexão de pé.
+
+### Verificação
+- Simulador: **30/30** no código novo; os cenários dos defeitos **falham** no código anterior.
+- `RevisaoDaVozTests` (14 guardas estruturais) + suíte inteira do leilão.
+
+### Pendências
+- Ensaio com MediaMTX, rede do evento e iPhone real — a simulação prova a lógica, não o áudio.
+- Recomendado: saída por TCP no MediaMTX (`webrtcLocalTCPAddress`) para quem está em rede que barra
+  UDP (ver `docs/DEPLOY_LEILAO.md` §7.0).
+
+### Arquivos
+`static/leilao/js/audio_falar.js`, `audio_ouvir.js`, `locutor.js`, `leilao.js`,
+`leilao/estado.py`, `leilao/views.py`, `leilao/tests.py`, `ferramentas/simulador_voz/` (novo),
+`.gitignore`, `CLAUDE.md`, `docs/REGRAS_CODEX.md`, `docs/DEPLOY_LEILAO.md`.
+
+---
+
 ## 2026-09-26 - Leilão: revisão geral, lote D — robustez
 
 ### Resumo

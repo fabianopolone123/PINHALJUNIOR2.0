@@ -1421,6 +1421,29 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   `--disable-features=WebRtcHideLocalIpsWithMdns`) comandados por CDP a partir do Node. É o que
   prova o comportamento que os testes Python só guardam na estrutura.
 
+### A voz ao vivo: o que a revisão final de 26/09 fixou
+
+- **"No ar" só com a conexão de pé.** O `setRemoteDescription` volta antes do ICE/DTLS: o
+  `audio_falar.iniciar` espera `connectionState === "connected"` (12 s) antes de dizer que deu
+  certo. Sem isso, rede que passa o POST e barra a mídia fazia "No ar" → aviso à sala → queda →
+  laço.
+- **Microfone que termina é queda** (`track.onended`), e a religação refaz o `getUserMedia`.
+- **Soluço de rede não republica**: antes de religar, `AudioFalar.reaproveitar()` confere se a
+  conexão antiga voltou sozinha. Republicar troca o publicador e derruba todos os ouvintes.
+- **A espera da religação só zera com a voz estável** (30 s de pé), não no primeiro "ok".
+- **Mudo com a transmissão caída não diz "No ar"**: o texto confere `AudioFalar.ativo()`.
+- **O mudo sobrevive a recarregar a mesa** (`sessionStorage`, na mesma aba).
+- **WHIP com tempo máximo** (15 s): o botão Transmitir não fica travado.
+- **Quem escuta**: o toque destrava o elemento de áudio (`destravar`, silêncio tocado DENTRO do
+  gesto — o iPhone recusa o `play()` que acontece segundos depois); `ouvindo` começa `null`, e a
+  recusa do navegador é avisada SEMPRE (`motivo "recusado"`), senão a tela nunca pedia o toque;
+  `disconnected` espera 3–5 s antes de religar; a espera só zera quando a conexão fecha de verdade.
+- **Locutor fora do ar de propósito não é alarme**: a mesa guarda a voz no ar (`estado.VOZ`, vai no
+  estado como `voz_no_ar`), e o público não pede toque por **silêncio** com ela desligada — segue
+  religando quieto e volta sozinho. A recusa do navegador pede sempre.
+- **Teste com o simulador** (`ferramentas/simulador_voz/`), e cenário novo só vale se falha no
+  código antigo (a prova de fogo pegou um cenário que passava nos dois).
+
 ### O martelo em três tempos: dou-lhe uma, dou-lhe duas, VENDIDO (desde 26/09)
 
 - **"Dou-lhe" é anúncio, não cronômetro.** `servicos.dou_lhe` só publica `dou_lhe` no broadcast

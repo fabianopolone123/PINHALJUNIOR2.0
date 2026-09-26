@@ -284,6 +284,14 @@ curl -s -o /dev/null -w "%{http_code}
 " -X POST -H "Content-Type: application/sdp"      --data x https://pinhaljunior.com.br/leilao/audio/leilao/whip
 ```
 
+## 7.0 Recomendação para a voz: saída por TCP no MediaMTX
+
+Hoje o MediaMTX escuta a mídia só por UDP (`webrtcLocalUDPAddress: :8189`). Quem estiver numa
+rede que barra UDP (Wi-Fi corporativo ou de visitante) negocia o áudio mas nunca recebe a voz, e
+fica religando em silêncio. Acrescentar `webrtcLocalTCPAddress: :8189` (e liberar a porta TCP no
+firewall) dá uma segunda saída a essas pessoas. É mudança de configuração do servidor, não do
+código — fazer num dia sem leilão, com o ensaio de áudio logo depois (revisão de 26/09).
+
 ## 7.1 Atualizar o leilão depois de um deploy — ARMADILHA
 
 O `pinhaljunior2-deploy` faz `git reset --hard` em `/var/www/pinhaljunior2/current`, que é a pasta dos

@@ -909,6 +909,10 @@
     var querNoAr = false;
     var relogioVoz = null;
     var quedasSeguidas = 0;
+    // A espera da religação só volta ao começo depois de a transmissão ficar
+    // de pé por um tempo: zerar no primeiro "ok" fazia uma rede que cai a cada
+    // 30 s religar SEMPRE em 2 s, chamando a sala a reconectar a cada volta.
+    var relogioEstavel = null;
 
     function estadoMic(texto) { $("microEstado").textContent = texto; }
 
@@ -961,7 +965,10 @@
             }
             if (minha !== vezDaVoz) return "substituida";
             if (ok) {
-                quedasSeguidas = 0;
+                clearTimeout(relogioEstavel);
+                relogioEstavel = setTimeout(function () {
+                    if (querNoAr && window.AudioFalar.ativo()) quedasSeguidas = 0;
+                }, 30000);
                 mostrarNoAr();
                 // Avisa as telas: quem estava esperando reconecta JÁ, em vez
                 // de só na próxima tentativa agendada (até ~20 s depois).
@@ -982,6 +989,14 @@
         estadoMic("⚠️ A transmissão caiu — religando sozinha… (continue falando quando voltar)");
         relogioVoz = setTimeout(function () {
             if (!querNoAr) return;
+            // A conexão antiga voltou sozinha (soluço de rede): reaproveita, em
+            // vez de republicar e derrubar a sala inteira.
+            if (window.AudioFalar.reaproveitar && window.AudioFalar.reaproveitar()) {
+                mostrarNoAr();
+                toast("A transmissão voltou.", "success");
+                acao({ acao: "voz", no_ar: true });
+                return;
+            }
             ligarVoz().then(function (ok) {
                 if (ok === "substituida") return;
                 if (ok) toast("A transmissão voltou.", "success");
@@ -1026,16 +1041,38 @@
         });
     }
 
+    /* O mudo sobrevive a recarregar a mesa (na mesma aba): quem armou o mudo
+       e recarregou esperava continuar mudo. `sessionStorage`, não
+       `localStorage`: uma aba nova começa sem mudo, como sempre. */
+    function guardarMudo(valor) {
+        try { sessionStorage.setItem("leilao_mudo", valor ? "1" : "0"); } catch (e) { /* sem armazenamento */ }
+    }
+
     if (btnMudo && window.AudioFalar) {
+        var mudoGuardado = false;
+        try { mudoGuardado = sessionStorage.getItem("leilao_mudo") === "1"; } catch (e) { /* idem */ }
+        if (mudoGuardado) {
+            window.AudioFalar.mudo(true);
+            btnMudo.classList.add("ativo");
+            btnMudo.textContent = "🎙️ Voltar a falar";
+            if ($("microEstado")) estadoMic(textoDesligado());
+        }
         btnMudo.addEventListener("click", function () {
             var mudo = window.AudioFalar.mudo(!window.AudioFalar.estaMudo());
             btnMudo.classList.toggle("ativo", mudo);
             btnMudo.textContent = mudo ? "🎙️ Voltar a falar" : "🔇 Mudo";
+            guardarMudo(mudo);
             // Mudo NUNCA liga nem desliga a transmissão: só troca o texto do
             // estado. Com a voz fora do ar, ele fica armado para a próxima vez.
-            if (querNoAr) {
+            // "No ar" só se a transmissão ESTÁ de pé: durante a religação, dizer
+            // "No ar" era mentir para quem não lê a tela (revisão de 26/09).
+            if (querNoAr && window.AudioFalar.ativo()) {
                 mostrarNoAr();
                 toast(mudo ? "Microfone no mudo — a transmissão continua." : "Microfone de volta.", mudo ? "info" : "success");
+            } else if (querNoAr) {
+                estadoMic(mudo
+                    ? "⚠️ Religando a transmissão… (o MUDO vale quando ela voltar)"
+                    : "⚠️ Religando a transmissão… (continue falando quando voltar)");
             } else {
                 estadoMic(textoDesligado());
             }

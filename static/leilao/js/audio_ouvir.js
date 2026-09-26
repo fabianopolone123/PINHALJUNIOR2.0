@@ -43,7 +43,12 @@ window.AudioLeilao = (function () {
        voltou do bloqueio), o `play()` é recusado e só um **gesto** libera.
        Religar a conexão mil vezes não adianta; o que adianta é pedir um toque. */
     let aoMudar = null;
-    let ouvindo = false;
+    // `null` = ainda não se sabe. Começar em `false` engolia a PRIMEIRA recusa
+    // do navegador em tocar (autoplay): `avisar(false)` não era "virada", e a
+    // tela nunca pedia o toque — a pessoa ficava no silêncio (26/09).
+    let ouvindo = null;
+    let vigiaIce = null;       // espera antes de dar "disconnected" como queda
+    let destravado = false;
     // A espera da próxima tentativa, guardada para poder ser CANCELADA: sem
     // isto, uma reconexão pedida na hora (a voz voltou, a aba voltou) era
     // seguida pela tentativa que já estava agendada, e a conexão recém-aberta
@@ -55,12 +60,32 @@ window.AudioLeilao = (function () {
     // 1–2 s depois, derrubava a conexão nova que já estava tocando.
     let geracaoConexao = 0;
 
-    function avisar(estado) {
+    /* `motivo`: "silencio" (a voz parou de chegar) ou "recusado" (o navegador
+       não deixou tocar — só um toque resolve). A tela trata diferente: com o
+       locutor fora do ar de propósito, silêncio não é problema do aparelho. */
+    function avisar(estado, motivo) {
         if (ouvindo === estado) return;   // só na virada, nunca repetido
         ouvindo = estado;
         if (aoMudar) {
-            try { aoMudar(estado); } catch (e) { /* a tela não derruba o áudio */ }
+            try { aoMudar(estado, motivo || ""); } catch (e) { /* a tela não derruba o áudio */ }
         }
+    }
+
+    /* O `play()` de verdade acontece segundos depois do toque (depois do ICE,
+       do POST e da faixa chegar) — e o iPhone recusa, porque o gesto já
+       "passou". Tocar um silêncio DENTRO do toque libera o elemento; depois
+       disso a voz toca sozinha (revisão de 26/09). */
+    function destravar(el) {
+        if (!el || destravado) return;
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            const silencio = new AC().createMediaStreamDestination().stream;
+            if (!el.srcObject) el.srcObject = silencio;
+            const p = el.play();
+            if (p && p.then) p.then(function () { destravado = true; }).catch(function () { /* tenta no próximo toque */ });
+            else destravado = true;
+        } catch (e) { /* navegador sem isso: segue como antes */ }
     }
 
     function log(msg, erro) {
@@ -139,7 +164,7 @@ window.AudioLeilao = (function () {
                            só as tentativas seguintes. */
                         vigiaMudo = setTimeout(function () {
                             if (pc !== conexao || parado) return;
-                            avisar(false);
+                            avisar(false, "silencio");
                             religar();
                         }, 3000 + Math.random() * 2000);
                     };
@@ -162,9 +187,20 @@ window.AudioLeilao = (function () {
             conexao.oniceconnectionstatechange = function () {
                 if (pc !== conexao) return;
                 const s = conexao.iceConnectionState;
-                if (s === "failed" || s === "disconnected") {
+                clearTimeout(vigiaIce);
+                if (s === "failed") {
                     log("conexão de áudio caiu (" + s + ")", true);
                     religar();
+                } else if (s === "disconnected") {
+                    // "disconnected" costuma se curar em 1–2 s. Religar na hora
+                    // fazia uma oscilação do Wi-Fi do salão virar 100
+                    // renegociações juntas (26/09). Espera sorteada, como a do mute.
+                    vigiaIce = setTimeout(function () {
+                        if (pc !== conexao || parado) return;
+                        if (conexao.iceConnectionState === "connected" || conexao.iceConnectionState === "completed") return;
+                        log("conexão de áudio não voltou", true);
+                        religar();
+                    }, 3000 + Math.random() * 2000);
                 }
             };
 
@@ -173,6 +209,10 @@ window.AudioLeilao = (function () {
             conexao.onconnectionstatechange = function () {
                 if (pc !== conexao) return;
                 const s = conexao.connectionState;
+                // A espera volta ao começo só quando a conexão FECHOU de
+                // verdade — zerar no `setRemoteDescription` (antes do ICE) fazia
+                // quem está numa rede que barra UDP religar sempre em ~1 s.
+                if (s === "connected") tentativas = 0;
                 if (s === "failed" || s === "closed") {
                     log("conexão de áudio encerrada (" + s + ")", true);
                     religar();
@@ -196,7 +236,6 @@ window.AudioLeilao = (function () {
 
             const sdp = await resposta.text();
             await conexao.setRemoteDescription({ type: "answer", sdp: sdp });
-            tentativas = 0;
             iniciarVigiaBytes(conexao);
             log("ligado");
             return true;
@@ -242,7 +281,7 @@ window.AudioLeilao = (function () {
                 paradasSeguidas++;
                 if (paradasSeguidas >= 3) {
                     log("conectado, mas sem áudio chegando — religando", true);
-                    avisar(false);
+                    avisar(false, "silencio");
                     religar();
                 }
             }).catch(function () { /* getStats falhou; a próxima volta tenta */ });
@@ -295,6 +334,7 @@ window.AudioLeilao = (function () {
 
     function desligarConexao() {
         clearTimeout(vigiaMudo);
+        clearTimeout(vigiaIce);
         clearInterval(vigiaBytes);
         vigiaMudo = null;
         vigiaBytes = null;
@@ -315,9 +355,10 @@ window.AudioLeilao = (function () {
             p.then(function () { avisar(true); }).catch(function () {
                 // AQUI está o caso que nenhuma reconexão resolve: o navegador
                 // recusou tocar e só um gesto da pessoa libera. A tela precisa
-                // pedir esse gesto.
+                // pedir esse gesto — SEMPRE: a recusa é avisada mesmo que o
+                // estado já fosse "sem som" (senão ela se perdia).
                 log("navegador segurou o play — precisa de um toque", true);
-                if (!parado) avisar(false);
+                if (!parado) { ouvindo = null; avisar(false, "recusado"); }
             });
         } else {
             // Navegador antigo: `play()` sem promessa. Assume que foi.
@@ -355,6 +396,8 @@ window.AudioLeilao = (function () {
         ligar: function (endereco, elementoAudio) {
             url = endereco;
             elemento = elementoAudio;
+            // Chamado DENTRO do toque (porta do som, 🔊, "Voltar a ouvir").
+            destravar(elemento);
             // Tocar o 🔊 é um pedido EXPLÍCITO: começa do zero.
             //
             // Sem esta linha, o contador de tentativas sobrevivia às falhas
@@ -370,7 +413,7 @@ window.AudioLeilao = (function () {
             // A pessoa desligou de propósito: não é "perdi o som", e a tela
             // não pode pedir para religar o que ela acabou de calar.
             parado = true;
-            ouvindo = false;
+            ouvindo = null;
             desligarConexao();
             if (elemento) { elemento.srcObject = null; }
         },

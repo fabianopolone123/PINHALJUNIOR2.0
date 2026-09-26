@@ -1208,6 +1208,7 @@ def locutor_acao_view(request):
         # Só um aviso, sem estado no banco: quem está ouvindo reconecta já.
         # O stream é da sala do leilão no ar; de outro leilão, não há a quem avisar.
         if leilao.status == "ao_vivo":
+            est.VOZ["no_ar"] = bool(dados.get("no_ar"))
             HUB.publicar("voz", {"no_ar": bool(dados.get("no_ar"))})
         return JsonResponse({"ok": True})
 

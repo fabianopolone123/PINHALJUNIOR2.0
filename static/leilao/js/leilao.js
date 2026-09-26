@@ -49,6 +49,11 @@
     // de *nunca ter dado lance*. Sem isso, quem só assiste veria "te superaram".
     var euJaLiderei = false;
     var somLigado = false;
+    // O locutor está transmitindo? Vem do estado (`voz_no_ar`) e do evento
+    // `voz`. Com ele FORA do ar de propósito, o silêncio não é problema do
+    // aparelho: a tela não pede "toque para voltar" (revisão de 26/09).
+    var vozNoAr = estado && estado.leilao && typeof estado.leilao.voz_no_ar === "boolean"
+        ? estado.leilao.voz_no_ar : null;
     var gavetaAberta = false;
     var arremateAberto = null;
     // Cada abertura do QR ganha um número; a conferência do pagamento só
@@ -738,7 +743,9 @@
             : new EventSource(URLS.stream);
 
         fonte.addEventListener("estado", function (e) {
-            render(JSON.parse(e.data));
+            var novo = JSON.parse(e.data);
+            if (novo && novo.leilao && typeof novo.leilao.voz_no_ar === "boolean") vozNoAr = novo.leilao.voz_no_ar;
+            render(novo);
         });
 
         fonte.addEventListener("lance", function (e) {
@@ -866,7 +873,17 @@
         // todas no mesmo vCPU do servidor de áudio.
         fonte.addEventListener("voz", function (e) {
             var d = JSON.parse(e.data || "{}");
-            if (!d.no_ar || !somLigado || !window.AudioLeilao || !window.AudioLeilao.vozVoltou) return;
+            vozNoAr = !!d.no_ar;
+            if (!d.no_ar) {
+                // O locutor PAROU de propósito: a janela/o 🔊 piscando de "som
+                // caiu" não fazem sentido (não é o aparelho). A escuta segue
+                // tentando em silêncio e volta sozinha quando ele voltar.
+                if (modalSom) modalSom.fechar();
+                var bs = $("btnSom");
+                if (bs) bs.classList.remove("caiu");
+                return;
+            }
+            if (!somLigado || !window.AudioLeilao || !window.AudioLeilao.vozVoltou) return;
             setTimeout(function () { window.AudioLeilao.vozVoltou(); }, Math.random() * 4000);
         });
 
@@ -1047,8 +1064,11 @@
     }
 
     if (window.AudioLeilao && window.AudioLeilao.aoMudar) {
-        window.AudioLeilao.aoMudar(function (estaOuvindo) {
+        window.AudioLeilao.aoMudar(function (estaOuvindo, motivo) {
             somCaiu = !estaOuvindo;
+            // Silêncio com o locutor FORA do ar é esperado — não pede toque.
+            // A recusa do navegador ("recusado") pede sempre: só o toque resolve.
+            if (!estaOuvindo && motivo === "silencio" && vozNoAr === false) return;
             if (estaOuvindo) {
                 // Voltou: a janela some sozinha, sem a pessoa precisar fechar.
                 if (modalSom) modalSom.fechar();

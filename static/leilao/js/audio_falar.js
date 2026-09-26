@@ -73,6 +73,24 @@ window.AudioFalar = (function () {
         }
     }
 
+    /* "No ar" só quando a conexão está DE PÉ. O `setRemoteDescription` volta
+       antes de o ICE/DTLS terminar: numa rede que passa o POST (TCP) e barra a
+       mídia (UDP), a mesa dizia "No ar", avisava a sala inteira para
+       reconectar, caía ~30 s depois e recomeçava — em laço (revisão de 26/09).
+       Polling e não evento: é o mesmo em todo navegador. */
+    function esperarConectar(conexao, limite) {
+        return new Promise(function (resolve) {
+            var inicio = Date.now();
+            var vigia = setInterval(function () {
+                var s = conexao.connectionState;
+                if (s === "connected") { clearInterval(vigia); resolve(true); }
+                else if (s === "failed" || s === "closed" || Date.now() - inicio > limite) {
+                    clearInterval(vigia); resolve(false);
+                }
+            }, 100);
+        });
+    }
+
     /* O MediaMTX protege a PUBLICAÇÃO com usuário e senha (quem escuta é
        liberado). Sem este cabeçalho o servidor responde 401 e o locutor fica
        mudo sem entender por quê. A credencial só aparece na página do locutor,
@@ -109,6 +127,15 @@ window.AudioFalar = (function () {
             trilha = stream;
             aplicarMudo();
             ligarMedidor(stream, aoNivel);
+            // O MICROFONE que termina (Bluetooth/USB que desconecta, bateria,
+            // ligação telefônica tomando o microfone): a conexão segue
+            // "connected" e ninguém ouve nada — a mesa dizia "No ar". Agora é
+            // queda, e a religação refaz o `getUserMedia` (revisão de 26/09).
+            stream.getAudioTracks().forEach(function (t) {
+                t.onended = function () {
+                    if (minha === geracao && rodando) caiu("microfone");
+                };
+            });
 
             conexao = new RTCPeerConnection({ iceServers: [] });
             pc = conexao;
@@ -143,11 +170,21 @@ window.AudioFalar = (function () {
             var auth = autorizacao(usuario, senha);
             if (auth) cabecalhos["Authorization"] = auth;
 
-            var resposta = await fetch(url, {
-                method: "POST",
-                headers: cabecalhos,
-                body: conexao.localDescription.sdp
-            });
+            // Tempo máximo: sem resposta do servidor de áudio, o botão
+            // Transmitir ficava travado até o proxy desistir (60 s).
+            var controle = window.AbortController ? new AbortController() : null;
+            var relogio = controle ? setTimeout(function () { controle.abort(); }, 15000) : null;
+            var resposta;
+            try {
+                resposta = await fetch(url, {
+                    method: "POST",
+                    headers: cabecalhos,
+                    body: conexao.localDescription.sdp,
+                    signal: controle ? controle.signal : undefined
+                });
+            } finally {
+                if (relogio) clearTimeout(relogio);
+            }
             if (superada()) return false;
             if (resposta.status === 401) {
                 throw new Error("o servidor de audio recusou o usuario/senha de publicacao");
@@ -158,6 +195,9 @@ window.AudioFalar = (function () {
             if (superada()) return false;
             await conexao.setRemoteDescription({ type: "answer", sdp: sdp });
             if (superada()) return false;
+            var conectou = await esperarConectar(conexao, 12000);
+            if (superada()) return false;
+            if (!conectou) throw new Error("a conexão de voz não fechou (rede barrando a mídia?)");
             rodando = true;
             return true;
         } catch (e) {
@@ -196,6 +236,18 @@ window.AudioFalar = (function () {
         iniciar: iniciar,
         parar: parar,
         ativo: function () { return rodando; },
+        /* A queda foi um SOLUÇO: a conexão antiga voltou sozinha a
+           "connected" (e o microfone segue vivo). Reaproveita em vez de
+           publicar de novo — republicar troca o publicador no servidor e
+           derruba todos os ouvintes, que levam segundos para voltar (26/09). */
+        reaproveitar: function () {
+            var viva = trilha && trilha.getAudioTracks().some(function (t) { return t.readyState === "live"; });
+            if (pc && viva && pc.connectionState === "connected") {
+                rodando = true;
+                return true;
+            }
+            return false;
+        },
         /* Mudo sem derrubar a transmissão (ver `mudoAgora`). O medidor cai a
            zero junto — o locutor VÊ que está mudo. */
         mudo: function (valor) { mudoAgora = !!valor; aplicarMudo(); return mudoAgora; },
