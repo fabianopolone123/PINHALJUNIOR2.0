@@ -6913,7 +6913,7 @@ class DouLheTests(TestCase):
         self.assertIn("comLance && vale < 2", pintar, "o VENDIDO só depois do duas")
         lance = js[js.index('fonte.addEventListener("lance"'):]
         lance = lance[: lance.index("});")]
-        self.assertIn("martelo = { lote: null, vez: 0 }", lance, "lance novo tem de zerar o martelo")
+        self.assertIn("martelo = { lote: null, valor: null, vez: 0 }", lance, "lance novo tem de zerar o martelo")
 
 class DouLheNaTelaDoPublicoTests(TestCase):
     """O efeito do "dou-lhe" na tela de quem disputa (26/09).
@@ -7228,4 +7228,33 @@ class FundoSemFaixaTests(TestCase):
                 bloco = bloco[: bloco.index("\n}")]
                 self.assertIn("radial-gradient", bloco)
                 self.assertIn("background-repeat: no-repeat", bloco)
+
+
+class RevisaoDaMesaNovaTests(TestCase):
+    """Achados da revisão de 26/09 nas mudanças da mesa."""
+
+    def _js(self, nome):
+        return Path(settings.BASE_DIR, "static", "leilao", "js", nome).read_text(encoding="utf-8")
+
+    def test_a_escada_da_mesa_e_amarrada_ao_valor(self):
+        js = self._js("locutor.js")
+        pintar = js[js.index("function pintarMartelo"):]
+        pintar = pintar[: pintar.index("\n    }\n")]
+        self.assertIn("martelo.valor === String(lote.valor_atual)", pintar)
+
+    def test_resposta_atrasada_nao_rebaixa_o_degrau(self):
+        """O fetch que saiu antes do clique no "dou-lhe" chegava depois do aviso
+        do stream e zerava a escada: o "duas" apagava sozinho."""
+        js = self._js("locutor.js")
+        self.assertIn("Math.max(martelo.vez, d.martelo)", js)
+
+    def test_o_tremor_nao_fica_preso(self):
+        js = self._js("dou_lhe.js")
+        self.assertIn('corpo.classList.remove("treme", "treme-forte")', js)
+
+    def test_cada_lance_limpa_so_as_suas_moedas(self):
+        js = self._js("locutor.js")
+        festa = js[js.index("function festejarLance"):js.index("function esfriarMesa")]
+        self.assertNotIn("while (fx.firstChild)", festa)
+        self.assertIn("criadas.forEach", festa)
 

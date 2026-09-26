@@ -90,6 +90,10 @@
             void v.offsetWidth;
             v.classList.add(vez === 2 ? "duas" : "uma");
 
+            // As DUAS classes saem antes: a do "duas" ficava presa no body, e
+            // como a regra dela vem depois no CSS, o "uma" seguinte tremia
+            // forte (ou nem tremia, porque a animação não reiniciava).
+            corpo.classList.remove("treme", "treme-forte");
             if (!reduzido) reanimar(corpo, vez === 2 ? "treme-forte" : "treme");
         } catch (erro) { /* enfeite nunca derruba a tela */ }
     });

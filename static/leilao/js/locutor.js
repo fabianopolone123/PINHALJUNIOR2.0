@@ -168,16 +168,18 @@
         tick();
     }
 
-    /* Em que tempo do martelo o item está: {lote, vez} do último "dou-lhe".
-       Zera com lance novo, item novo ou martelo batido — o "dou-lhe duas" de
-       antes do lance não vale mais depois dele. */
-    var martelo = { lote: null, vez: 0 };
+    /* Em que tempo do martelo o item está: {lote, valor, vez} do último
+       "dou-lhe". Vale só para aquele item NAQUELE valor, como no servidor:
+       lance novo muda o valor e a escada recomeça. Zera também com item novo
+       ou martelo batido. */
+    var martelo = { lote: null, valor: null, vez: 0 };
 
-    function zerarMartelo() { martelo = { lote: null, vez: 0 }; pintarMartelo(); }
+    function zerarMartelo() { martelo = { lote: null, valor: null, vez: 0 }; pintarMartelo(); }
 
     function pintarMartelo() {
         var lote = estado && estado.ativo ? estado.lote : null;
-        var vale = lote && martelo.lote === lote.id ? martelo.vez : 0;
+        var vale = lote && martelo.lote === lote.id && martelo.valor === String(lote.valor_atual)
+            ? martelo.vez : 0;
         var card = document.querySelector(".cartao.lote-atual");
         if (card) {
             card.classList.toggle("martelo-1", vale === 1);
@@ -246,10 +248,14 @@
 
         var fx = $("mesaFx");
         if (!fx || reduzido) return;
+        // Cada lance limpa só o que ELE criou: limpar tudo cortava no meio as
+        // moedas do lance seguinte, numa disputa rápida.
+        var criadas = [];
         var mais = document.createElement("span");
         mais.className = "mais";
         mais.textContent = "+" + moeda(lote && lote.incremento ? lote.incremento : 5);
         fx.appendChild(mais);
+        criadas.push(mais);
         // Mais moedas quanto mais quente — mas com teto: a mesa pode estar
         // num notebook velho transmitindo voz ao mesmo tempo.
         var quantas = Math.min(14, 4 + ritmo * 2);
@@ -264,9 +270,10 @@
             m.style.setProperty("--giro", Math.round(Math.random() * 360 - 180) + "deg");
             m.style.animationDelay = Math.round(Math.random() * 180) + "ms";
             fx.appendChild(m);
+            criadas.push(m);
         }
         setTimeout(function () {
-            while (fx.firstChild) fx.removeChild(fx.firstChild);
+            criadas.forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
         }, 1400);
     }
 
@@ -554,10 +561,20 @@
                     render(d.estado);
                     desenharHistorico(d.historico);
                     desenharDisputa(d.disputa);
-                    // A escada do martelo vem do servidor: mesa recarregada não a perde.
+                    // A escada do martelo vem do servidor: mesa recarregada não a
+                    // perde. Mas esta resposta pode ter saído ANTES do clique no
+                    // "dou-lhe" que o stream já anunciou — então, no mesmo item e
+                    // no mesmo valor, ela nunca rebaixa o degrau (o servidor
+                    // também nunca rebaixa). Valor diferente é outra escada.
                     var emPregaoAgora = d.estado && d.estado.ativo ? d.estado.lote : null;
                     if (emPregaoAgora && typeof d.martelo === "number") {
-                        martelo = { lote: emPregaoAgora.id, vez: d.martelo };
+                        var valorAgora = String(emPregaoAgora.valor_atual);
+                        var mesmaEscada = martelo.lote === emPregaoAgora.id && martelo.valor === valorAgora;
+                        martelo = {
+                            lote: emPregaoAgora.id,
+                            valor: valorAgora,
+                            vez: mesmaEscada ? Math.max(martelo.vez, d.martelo) : d.martelo
+                        };
                         pintarMartelo();
                     }
                     desenharGente(d.gente);
@@ -578,14 +595,14 @@
 
     fonte.addEventListener("estado", function (e) { render(JSON.parse(e.data)); recarregarDados(); });
     fonte.addEventListener("lote_aberto", function (e) {
-        martelo = { lote: null, vez: 0 };
+        martelo = { lote: null, valor: null, vez: 0 };
         esfriarMesa();
         render(JSON.parse(e.data));
         recarregarDados();
     });
     fonte.addEventListener("lance", function (e) {
         var d = JSON.parse(e.data);
-        martelo = { lote: null, vez: 0 };      // lance novo recomeça o martelo
+        martelo = { lote: null, valor: null, vez: 0 };      // lance novo recomeça o martelo
         if (estado && estado.ativo) { estado.lote = d.lote; render(estado); }
         festejarLance(d.lote);
         recarregarDados();
@@ -594,7 +611,7 @@
        telas de mesa abertas ficam no mesmo tempo do martelo. */
     fonte.addEventListener("dou_lhe", function (e) {
         var d = JSON.parse(e.data);
-        martelo = { lote: d.lote, vez: d.vez };
+        martelo = { lote: d.lote, valor: String(d.valor), vez: d.vez };
         pintarMartelo();
         toast(d.vez === 2 ? "🔨🔨 Dou-lhe duas!" : "🔨 Dou-lhe uma!", "info");
     });

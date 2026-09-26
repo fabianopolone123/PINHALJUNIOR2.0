@@ -22,6 +22,35 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: correções da revisão da mesa nova
+
+### Resumo
+Revisão de código pedida pelo clube sobre as mudanças do dia (mudo, som, martelo em escada, efeitos,
+listas de gente).
+
+### Achados e correções
+1. **A escada do martelo voltava sozinha na mesa (bug).** A mesa recarrega os dados ~0,7 s depois de
+   cada lance; se o locutor apertasse o "dou‑lhe uma" nesse intervalo, a resposta (que saiu antes do
+   clique) chegava depois do aviso do stream e zerava a escada — o "duas" apagava. No sentido
+   contrário, uma resposta velha podia acender o VENDIDO por um instante depois de um lance novo (o
+   servidor recusava, mas confundia). Agora a escada da mesa é amarrada a **item + valor**, como a do
+   servidor, e no mesmo item e valor a resposta do fetch **nunca rebaixa** o degrau.
+2. **O tremor ficava preso (visual).** A classe do tremor forte do "duas" não saía do `body`, e como a
+   regra dela vem depois no CSS, o "uma" seguinte tremia forte ou nem tremia. As duas classes saem
+   antes de pôr a certa.
+3. **Moedas cortadas cedo (cosmético).** A limpeza de um lance apagava as moedas do lance seguinte;
+   cada lance agora limpa só as que criou.
+
+### Conferido e sem problema
+Travas da escada no servidor (recusa fora da ordem, lance novo recomeça, item sem lance encerra),
+listas de gente e disputa só pelo GET autenticado, mudo independente, som sempre ligado.
+
+### Arquivos alterados
+`static/leilao/js/locutor.js`, `static/leilao/js/dou_lhe.js`, `leilao/tests.py`
+(`RevisaoDaMesaNovaTests`).
+
+---
+
 ## 2026-09-26 - Leilão: some a faixa clara que atravessava a mesa do locutor
 
 ### Resumo
