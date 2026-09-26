@@ -6788,3 +6788,241 @@ class VozCorridasTests(TestCase):
         with self.assertRaises(CommandError):
             call_command("leilao_carga", url="http://exemplo.invalid", cadastrar=1, ouvintes=0,
                          stdout=open(os.devnull, "w"))
+
+
+class MesaShowTests(TestCase):
+    """A mesa "show" do locutor — EM TESTE ao lado da clássica (25/09).
+
+    Mesmo molde da tela show do público: **um motor só**. O `locutor.js`
+    continua fazendo tudo e a mesa nova é outro desenho, com os mesmos ids,
+    mais o `mesa_show.js` que só escuta e enfeita. O que se guarda aqui é o que
+    faria as duas mesas divergirem — um id que o motor procura e a nova não tem,
+    um enfeite que pega toque — e que a clássica continua sendo a padrão.
+    """
+
+    HTML = Path(settings.BASE_DIR, "templates", "leilao", "locutor_show.html")
+    JS_MOTOR = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js")
+    JS_SHOW = Path(settings.BASE_DIR, "static", "leilao", "js", "mesa_show.js")
+    CSS_SHOW = Path(settings.BASE_DIR, "static", "leilao", "css", "mesa_show.css")
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        self.lote = criar_lote(self.leilao, nome="Cesta fictícia A")
+        User = get_user_model()
+        u = User.objects.create_user("loc_show", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        grupo, _ = Group.objects.get_or_create(name="locutor")
+        u.groups.add(grupo)
+        self.c = Client()
+        self.c.login(username="loc_show", password="segredo-ficticio")
+
+    @staticmethod
+    def _sem_comentarios(js):
+        limpo = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    def _vender(self, lote, pessoa):
+        servicos.abrir_lote(lote)
+        servicos.dar_lance(lote.id, pessoa)
+        servicos.fechar_lote(Lote.objects.get(pk=lote.pk))
+
+    # --- As duas mesas convivem -------------------------------------------
+    def test_a_mesa_show_abre_no_endereco_nova(self):
+        r = self.c.get(f"/locutor/{self.leilao.pk}/nova/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, "leilao/locutor_show.html")
+
+    def test_a_classica_continua_a_padrao(self):
+        r = self.c.get(f"/locutor/{self.leilao.pk}/")
+        self.assertTemplateUsed(r, "leilao/locutor.html")
+        self.assertTemplateNotUsed(r, "leilao/locutor_show.html")
+
+    def test_sem_id_vai_para_a_mesa_show_do_leilao_padrao(self):
+        r = self.c.get("/locutor/nova/")
+        self.assertRedirects(r, f"/locutor/{self.leilao.pk}/nova/", fetch_redirect_response=False)
+
+    def test_quem_nao_e_da_equipe_nao_abre(self):
+        r = Client().get(f"/locutor/{self.leilao.pk}/nova/")
+        self.assertEqual(r.status_code, 302)
+
+    def test_as_duas_mesas_se_apontam(self):
+        classica = self.c.get(f"/locutor/{self.leilao.pk}/").content.decode()
+        show = self.c.get(f"/locutor/{self.leilao.pk}/nova/").content.decode()
+        self.assertIn(f"/locutor/{self.leilao.pk}/nova/", classica)
+        self.assertIn(f'href="/locutor/{self.leilao.pk}/"', show)
+
+    def test_o_seletor_da_show_fica_na_show(self):
+        outro = criar_leilao(nome="Leilão de rascunho", status="rascunho")
+        html = self.c.get(f"/locutor/{self.leilao.pk}/nova/").content.decode()
+        self.assertIn(f'value="/locutor/{outro.pk}/nova/"', html)
+
+    # --- O motor encontra tudo o que procura ------------------------------
+    def test_todo_id_que_o_motor_procura_existe_na_show(self):
+        js = self._sem_comentarios(self.JS_MOTOR.read_text(encoding="utf-8"))
+        html = self.HTML.read_text(encoding="utf-8")
+        ids = set(re.findall(r'\$\("([A-Za-z0-9_]+)"\)', js))
+        ids |= set(re.findall(r'getElementById\("([A-Za-z0-9_]+)"\)', js))
+        faltando = [
+            i for i in ids
+            if f'id="{i}"' not in html and f'json_script:"{i}"' not in html
+        ]
+        self.assertEqual(sorted(faltando), [], "o motor procura ids que a mesa show não tem")
+
+    def test_todo_id_que_os_efeitos_procuram_existe_na_show(self):
+        js = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        html = self.HTML.read_text(encoding="utf-8")
+        ids = set(re.findall(r'\$\("([A-Za-z0-9_]+)"\)', js))
+        ids |= set(re.findall(r'texto\("([A-Za-z0-9_]+)"', js))
+        faltando = [i for i in ids if f'id="{i}"' not in html]
+        self.assertEqual(sorted(faltando), [])
+
+    def test_os_botoes_da_mesa_sao_os_do_motor(self):
+        """Abrir e VENDIDO passam pelo `data-acao` do motor — é lá que moram a
+        confirmação do martelo e a pergunta de abrir com item em disputa."""
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertIn('data-acao="abrir"', html)
+        self.assertIn('data-acao="fechar"', html)
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        self.assertNotIn("fetch(", show, "a camada show não fala com o servidor")
+        self.assertNotIn("data-acao", show)
+
+    def test_os_efeitos_carregam_antes_do_motor(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertLess(html.index("leilao/js/mesa_show.js"), html.index("leilao/js/locutor.js"))
+        self.assertLess(html.index("leilao/js/fonte_viva.js"), html.index("leilao/js/locutor.js"))
+
+    # --- O motor avisa, e o aviso não pode derrubá-lo ---------------------
+    def test_o_motor_emite_os_avisos_que_a_show_escuta(self):
+        motor = self._sem_comentarios(self.JS_MOTOR.read_text(encoding="utf-8"))
+        show = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        for aviso in ("estado", "dados", "lance", "lote_aberto", "vendido", "tick", "voz", "online", "chat"):
+            self.assertIn(f'emitir("{aviso}"', motor, f"o motor não emite {aviso}")
+            self.assertIn(f'ouvir("{aviso}"', show, f"a show não escuta {aviso}")
+
+    def test_aviso_que_falha_nao_derruba_o_motor(self):
+        motor = self.JS_MOTOR.read_text(encoding="utf-8")
+        emitir = motor[motor.index("function emitir"):]
+        emitir = emitir[: emitir.index("\n    }\n")]
+        self.assertIn("try", emitir)
+        self.assertIn("catch", emitir)
+
+    # --- Nada flutua em cima de controle; grade sem buraco ----------------
+    def test_carimbo_e_confete_nao_pegam_toque(self):
+        css = self.CSS_SHOW.read_text(encoding="utf-8")
+        for seletor in (".tela-mesa-show .ms-carimbo {", ".tela-mesa-show .ms-confete {"):
+            bloco = css[css.index(seletor):]
+            bloco = bloco[: bloco.index("}")]
+            self.assertIn("pointer-events: none", bloco, f"{seletor} pegaria o toque")
+
+    def test_carimbo_mora_dentro_da_foto_longe_dos_botoes(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        foto = html[html.index('<div class="ms-foto">'):html.index('<div class="ms-item-corpo">')]
+        self.assertIn('id="msCarimbo"', foto)
+        self.assertIn('id="msConfete"', foto)
+        self.assertNotIn("data-acao", foto)
+
+    def test_colunas_da_grade_nunca_sao_1fr_puro(self):
+        """`1fr` não encolhe abaixo do conteúdo e cria rolagem horizontal."""
+        css = self.CSS_SHOW.read_text(encoding="utf-8")
+        for linha in css.splitlines():
+            if "grid-template-columns" not in linha or "repeat(auto-f" in linha:
+                continue
+            resto = re.sub(r"minmax\(0, [\d.]+fr\)", "", linha)
+            self.assertNotIn("fr", resto, linha)
+
+    def test_cada_faixa_de_baixo_tem_tres_cards(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        base = html[html.index('<div class="ms-base">'):html.index("{# ================= NOITE")]
+        self.assertEqual(base.count('<article class="ms-card'), 3)
+        noite = html[html.index('<div class="ms-noite">'):html.index("{# ================= ITENS")]
+        self.assertEqual(noite.count('<article class="ms-card'), 3)
+
+    def test_listas_tem_teto(self):
+        css = self.CSS_SHOW.read_text(encoding="utf-8")
+        for seletor in (".tela-mesa-show .ms-disputa {", ".tela-mesa-show .ms-historico {",
+                        ".tela-mesa-show .ms-fila-lista {", ".tela-mesa-show .ms-online-lista {",
+                        ".tela-mesa-show .ms-ultimos {"):
+            bloco = css[css.index(seletor):]
+            bloco = bloco[: bloco.index("}")]
+            self.assertIn("max-height", bloco, seletor)
+
+    def test_movimento_reduzido_desliga_os_efeitos(self):
+        self.assertIn("prefers-reduced-motion: reduce", self.CSS_SHOW.read_text(encoding="utf-8"))
+        self.assertIn("prefers-reduced-motion: reduce", self.JS_SHOW.read_text(encoding="utf-8"))
+
+    # --- O placar da noite ------------------------------------------------
+    def test_a_classica_nao_recebe_o_placar_da_noite(self):
+        """A padrão continua recebendo exatamente o que recebia."""
+        d = self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}").json()
+        self.assertNotIn("noite", d)
+        self.assertNotIn("foto", d["fila"][0])
+
+    def test_a_show_pede_o_placar_e_ele_soma_certo(self):
+        ana, joao = criar_pessoa("Ana Fictícia"), criar_pessoa("João Fictício")
+        b = criar_lote(self.leilao, nome="Cesta fictícia B", ordem=2)
+        criar_lote(self.leilao, nome="Cesta fictícia C", ordem=3)
+        self._vender(self.lote, ana)
+        self._vender(b, joao)
+
+        n = self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}&resumo=1").json()["noite"]
+        valor_a = Lote.objects.get(pk=self.lote.pk).valor_atual
+        valor_b = Lote.objects.get(pk=b.pk).valor_atual
+        self.assertEqual(Decimal(n["vendido"]), valor_a + valor_b)
+        self.assertEqual(Decimal(n["ticket_medio"]), ((valor_a + valor_b) / 2).quantize(Decimal("0.01")))
+        self.assertEqual(n["vendidos"], 2)
+        self.assertEqual(n["itens"], 3)
+        self.assertEqual(n["na_fila"], 1)
+        self.assertEqual(n["lances"], 2)
+        self.assertEqual(n["quem_deu_lance"], 2)
+        self.assertEqual(Decimal(n["recebido"]), Decimal("0"))
+        self.assertEqual(len(n["ultimos"]), 2)
+        self.assertEqual({t["quem"] for t in n["top"]}, {ana.nome_curto, joao.nome_curto})
+        self.assertIsNotNone(n["maior"])
+
+    def test_arremate_pago_entra_no_recebido_e_cancelado_sai_da_compra(self):
+        ana, joao = criar_pessoa("Ana Fictícia"), criar_pessoa("João Fictício")
+        b = criar_lote(self.leilao, nome="Cesta fictícia B", ordem=2)
+        self._vender(self.lote, ana)
+        self._vender(b, joao)
+        pago = Arremate.objects.get(lote=self.lote)
+        pago.status = "pago"
+        pago.save()
+        Arremate.objects.filter(lote=b).update(status="cancelado")
+
+        n = self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}&resumo=1").json()["noite"]
+        self.assertEqual(Decimal(n["recebido"]), pago.valor)
+        self.assertEqual([t["quem"] for t in n["top"]], [ana.nome_curto])
+        self.assertEqual(len(n["ultimos"]), 1)
+
+    def test_o_placar_e_do_leilao_da_url(self):
+        outro = criar_leilao(nome="Outro leilão", status="rascunho")
+        self._vender(self.lote, criar_pessoa())
+        n = self.c.get(f"/locutor/dados/?leilao={outro.pk}&resumo=1").json()["noite"]
+        self.assertEqual(n["vendidos"], 0)
+        self.assertEqual(Decimal(n["vendido"]), Decimal("0"))
+        self.assertIsNone(n["maior"])
+
+    def test_a_fila_da_show_leva_a_foto_e_as_medidas(self):
+        d = self.c.get(f"/locutor/dados/?leilao={self.leilao.pk}&resumo=1").json()
+        self.assertIn("foto", d["fila"][0])
+        self.assertTrue(d["fila"][0]["medidas"])
+
+    def test_o_placar_nao_vai_para_o_broadcast(self):
+        """Dinheiro não se diz em voz alta: o estado público não leva o placar."""
+        self._vender(self.lote, criar_pessoa())
+        publico = json.dumps(est.estado_publico(self.leilao), default=str)
+        for chave in ('"recebido"', '"top"', '"ultimos"', '"ticket_medio"'):
+            self.assertNotIn(chave, publico)
+
+    def test_numero_que_rola_usa_so_o_relogio_do_quadro_e_garante_o_final(self):
+        """Regra da tela show do público: `performance.now()` misturado com o
+        carimbo do `requestAnimationFrame` deu tempo negativo ("R$ -6,17"), e
+        aba no fundo para de dar quadros — o valor final vem por `setTimeout`."""
+        js = self._sem_comentarios(self.JS_SHOW.read_text(encoding="utf-8"))
+        rolar = js[js.index("function rolar"):js.index("function relogio")]
+        self.assertNotIn("performance.now", rolar)
+        self.assertIn("if (inicio === null) inicio = t;", rolar)
+        self.assertIn("_msGarantia = setTimeout(", rolar)
+

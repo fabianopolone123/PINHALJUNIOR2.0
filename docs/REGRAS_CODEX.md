@@ -1293,6 +1293,27 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
 - **Som que toca a cada lance é curto** (~0,35 s). Som que toca uma vez por item pode ser longo e
   caro — é a mesma regra de prioridade do módulo: o que se repete não pode pesar.
 
+### A "mesa show" do locutor: um motor, duas mesas (em teste desde 25/09)
+
+- **A clássica é a padrão (`/locutor/<id>/`) e a show está em teste (`/locutor/<id>/nova/`).** Virar
+  a padrão é decisão do clube, depois de usada num ensaio — como foi com a tela show do público.
+- **Não existe segundo motor.** Abrir, VENDIDO (com a confirmação), a pergunta de abrir outro com item
+  em disputa, microfone, mudo, chat, liberar pagamentos e sons são do `locutor.js`. Ele só **emite**
+  `mesa:*` (`emitir`, com `try/catch`) e o `mesa_show.js` desenha. Os botões da show usam o mesmo
+  `data-acao`; o `mesa_show.js` **não tem `fetch` nem `data-acao`** (há teste).
+- **Todo id que o motor procura existe nos DOIS templates** (há teste que varre `$("…")` e
+  `getElementById`). Mudou a mesa clássica? Replique o id na show.
+- **O placar da noite é `?resumo=1`**: só a show pede, então a mesa padrão não paga as consultas. É
+  dinheiro e nome de gente — sai pelo GET autenticado, **nunca** pelo broadcast. "Vendido" é a soma
+  dos itens `vendido` (o mesmo número da aba Itens); "recebido" é arremate `pago`; arremate cancelado
+  ou vencido não é compra de ninguém.
+- **As regras da mesa valem aqui**: organizada **por uso** (em cima o que se acompanha junto, embaixo o
+  que se usa uma vez), grade de áreas nomeadas **sem célula vazia** em nenhuma largura, coluna sempre
+  `minmax(0, …)`, **lista com teto e rolagem**. O carimbo e o confete moram **dentro da foto**, com
+  `pointer-events: none` — nunca por cima do VENDIDO.
+- **Número que rola segue a regra da tela show**: relógio só do `requestAnimationFrame` e garantia do
+  valor final por `setTimeout`. Na primeira pintura não rola (nada "aconteceu").
+
 ### A tela "show" do pregão: um motor, duas telas
 
 - **A "show" é a padrão (`/`) e a clássica é o backup (`/classico/`)** — decisão do clube, aprovada

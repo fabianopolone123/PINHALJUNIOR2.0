@@ -53,6 +53,7 @@ from .models import (
     AtribuicaoEntrega,
     ConfigLeilao,
     EntregadorLeilao,
+    Lance,
     Leilao,
     Lote,
     PagamentoLeilao,
@@ -669,17 +670,35 @@ def locutor_view(request, leilao_id=None):
     **Sem pagamentos**: quem bate o martelo não é quem confirma o recebimento, e
     o locutor já tem as mãos cheias falando e olhando o cronômetro.
     """
+    return _mesa(request, leilao_id, "leilao:locutor_leilao", "leilao/locutor.html")
+
+
+@papeis.exige("locutor")
+def locutor_show_view(request, leilao_id=None):
+    """A mesa "show" — EM TESTE ao lado da clássica (pedido de 25/09).
+
+    O mesmo caminho da tela show do público: **um motor só**. O `locutor.js`
+    continua fazendo tudo (ações, microfone, stream, as confirmações do
+    martelo) e esta tela é só outro desenho com os mesmos ids, mais o
+    `mesa_show.js`, que enfeita e monta os painéis da noite. A clássica segue
+    sendo a padrão em `/locutor/<id>/`; esta abre em `/locutor/<id>/nova/`.
+    """
+    return _mesa(request, leilao_id, "leilao:locutor_show", "leilao/locutor_show.html")
+
+
+def _mesa(request, leilao_id, rota, template):
+    """O miolo das duas mesas: mesma checagem, mesmo contexto, outro desenho."""
     if leilao_id is None:
         leilao = _leilao_padrao()
         if not leilao:
             return _sem_leilao(request)
-        return _ir_para_o_leilao(request, "leilao:locutor_leilao", leilao)
+        return _ir_para_o_leilao(request, rota, leilao)
 
     leilao = get_object_or_404(Leilao, pk=leilao_id)
 
     return render(
         request,
-        "leilao/locutor.html",
+        template,
         {
             "leilao": leilao,
             "leiloes": _leiloes_do_seletor(),
@@ -737,22 +756,31 @@ def locutor_dados_view(request):
         ]
     # A FILA vem por aqui, não pelo broadcast: o público não pode saber quantos
     # itens faltam (muda como a pessoa dá lance), mas a mesa precisa ver.
-    fila = [
-        {
+    # `resumo=1` é o pedido da mesa show: ela mostra a foto do próximo item e
+    # o placar da noite. A clássica não pede e recebe exatamente o que recebia
+    # — nenhuma consulta a mais na tela que é a padrão.
+    resumo = request.GET.get("resumo") == "1"
+    fila = []
+    for x in leilao.lotes.filter(status="fila").order_by("ordem", "id")[:40]:
+        item = {
             "id": x.id,
             "numero": x.numero,
             "nome": x.nome,
             "lance_inicial": str(x.lance_inicial),
             "voltas": x.voltas,
         }
-        for x in leilao.lotes.filter(status="fila").order_by("ordem", "id")[:40]
-    ]
+        if resumo:
+            item["foto"] = est._foto(x.foto_mini) or est._foto(x.foto)
+            item["medidas"] = x.medidas_texto
+        fila.append(item)
     # O número do item em pregão vem por AQUI, nunca pelo broadcast: "item 12"
     # conta que existem pelo menos 12 itens, e quantos faltam é justamente o que
     # o público não pode saber (muda como a pessoa dá lance).
     em_pregao = leilao.lote_atual
+    extra = {"noite": _resumo_da_noite(leilao)} if resumo else {}
     return JsonResponse(
         {
+            **extra,
             "ok": True,
             "estado": est.estado_publico(leilao),
             "historico": historico,
@@ -775,6 +803,81 @@ def locutor_dados_view(request):
             ][::-1],
         }
     )
+
+
+def _resumo_da_noite(leilao):
+    """O placar da noite para a mesa show: quanto já foi vendido, quanto entrou,
+    quem mais comprou, o que foi batido por último.
+
+    Sai só pelo `/locutor/dados/`, autenticado — é dinheiro e nome de gente, e
+    o broadcast só leva o que pode ser dito em voz alta.
+
+    **Vendido** é a soma dos itens batidos (`status="vendido"`), o mesmo número
+    que a aba Itens mostra item a item; item devolvido ao leilão volta para a
+    fila e sai da soma sozinho. **Recebido** é o que o caixa já confirmou
+    (arremate `pago`). Arremate cancelado ou vencido não conta como compra de
+    ninguém.
+    """
+    lotes = leilao.lotes.exclude(status="cancelado")
+    por_status = dict(lotes.order_by().values_list("status").annotate(n=Count("id")))
+    vendidos = lotes.filter(status="vendido")
+    vendido = vendidos.aggregate(s=Sum("valor_atual"))["s"] or Decimal("0")
+    n_vendidos = por_status.get("vendido", 0)
+
+    arremates = Arremate.objects.filter(lote__leilao=leilao).exclude(
+        status__in=("cancelado", "expirado")
+    )
+    recebido = arremates.filter(status="pago").aggregate(s=Sum("valor"))["s"] or Decimal("0")
+
+    maior = vendidos.select_related("lider").order_by("-valor_atual", "id").first()
+
+    top = list(
+        arremates.order_by().values("participante_id")
+        .annotate(total=Sum("valor"), n=Count("id"))
+        .order_by("-total", "participante_id")[:5]
+    )
+    nomes = {
+        p.pk: p.nome_curto
+        for p in Participante.objects.filter(pk__in=[t["participante_id"] for t in top])
+    }
+
+    ultimos = arremates.select_related("lote", "participante").order_by("-criado_em", "-id")[:6]
+    lances = Lance.objects.filter(lote__leilao=leilao, cancelado=False)
+    medio = (vendido / n_vendidos).quantize(Decimal("0.01")) if n_vendidos else Decimal("0")
+
+    return {
+        "vendido": str(vendido),
+        "recebido": str(recebido),
+        "ticket_medio": str(medio),
+        "itens": sum(por_status.values()),
+        "vendidos": n_vendidos,
+        "na_fila": por_status.get("fila", 0),
+        "sem_lance": por_status.get("sem_lance", 0),
+        "em_pregao": por_status.get("aberto", 0),
+        "lances": lances.count(),
+        "quem_deu_lance": lances.order_by().values("participante_id").distinct().count(),
+        "maior": {
+            "nome": maior.nome,
+            "numero": maior.numero,
+            "valor": str(maior.valor_atual),
+            "quem": maior.lider.nome_curto if maior.lider_id else "",
+        } if maior else None,
+        "top": [
+            {"quem": nomes.get(t["participante_id"], "—"), "total": str(t["total"]), "itens": t["n"]}
+            for t in top
+        ],
+        "ultimos": [
+            {
+                "item": a.lote.nome,
+                "numero": a.lote.numero,
+                "valor": str(a.valor),
+                "quem": a.participante.nome_curto,
+                "pago": a.status == "pago",
+                "em": a.criado_em.isoformat(),
+            }
+            for a in ultimos
+        ],
+    }
 
 
 # Qual área pode disparar cada ação da mesa. É aqui que "o locutor não mexe em

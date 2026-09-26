@@ -55,6 +55,9 @@ urlpatterns = [
     # saber qual leilão estava conduzindo.
     path("locutor/", views.locutor_view, name="locutor"),
     path("locutor/<int:leilao_id>/", views.locutor_view, name="locutor_leilao"),
+    # A mesa "show", EM TESTE ao lado da clássica (que continua a padrão).
+    path("locutor/nova/", views.locutor_show_view, name="locutor_show_padrao"),
+    path("locutor/<int:leilao_id>/nova/", views.locutor_show_view, name="locutor_show"),
     path("locutor/dados/", views.locutor_dados_view, name="locutor_dados"),
     # --- Área do caixa ---
     path("caixa/", views.caixa_view, name="caixa"),
