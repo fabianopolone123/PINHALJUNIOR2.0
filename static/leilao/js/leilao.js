@@ -30,19 +30,10 @@
 
     var estado = JSON.parse($("estadoInicial").textContent || "{}");
 
-    /* O locutor pode desligar o som da sala (a caixa registradora do lance e a
-       comemoração do martelo). A chave vem no broadcast, então o silêncio cai
-       em todas as telas ao mesmo tempo, sem ninguém recarregar nada.
-
-       O aviso de "te superaram" NÃO passa por aqui: é um alerta pessoal de
-       quem perdeu a ponta, não parte da festa, e é o som mais útil da tela
-       para quem está disputando. */
-    function somLiberado(qual) {
-        var l = estado && estado.leilao;
-        if (!l) return true;                       // sem estado, o padrão é soar
-        var chave = l["som_" + qual];
-        return chave === undefined ? true : !!chave;
-    }
+    /* O som da sala é SEMPRE ligado (pedido do clube em 26/09): a caixa
+       registradora do lance e a comemoração do martelo não têm mais
+       interruptor na mesa. Quem não quiser som em casa usa o 🔊 da própria
+       tela, que é o do aparelho dela. */
     var offset = 0;            // relógio do servidor − relógio daqui
     var fonte = null;          // EventSource
     var loteId = null;
@@ -746,7 +737,7 @@
                 // Perder a liderança tem som PRÓPRIO (descendo): a pessoa
                 // entende sem precisar olhar — é para isso que o som existe.
                 if (meTiraram) window.SomLeilao.superado();
-                else if (somLiberado("lance")) window.SomLeilao.lance();
+                else window.SomLeilao.lance();
             }
             vibrar(meTiraram ? [50, 60, 50] : meu ? 40 : 25);
             emitir("lance", {
@@ -766,7 +757,7 @@
             if (gavetaAberta) fecharGaveta();
             render(JSON.parse(e.data));
             toast("Novo item! 🔔", "info");
-            if (window.SomLeilao && somLiberado("lance")) window.SomLeilao.lance();
+            if (window.SomLeilao) window.SomLeilao.lance();
             vibrar([30, 40, 30]);
             emitir("lote_aberto", { lote: estado && estado.lote });
         });
@@ -785,13 +776,13 @@
                 // Sem prazo: o pagamento é no fim, num Pix só (21/09). O aviso
                 // ainda prometia "15 minutos" de um relógio que não existe.
                 toast("🏆 Você arrematou por " + moeda(d.valor) + "!", "success");
-                if (window.SomLeilao && somLiberado("arremate")) window.SomLeilao.arrematei();
+                if (window.SomLeilao) window.SomLeilao.arrematei();
                 if (window.Confete) window.Confete.soltar(3500);
                 vibrar([60, 50, 60, 50, 120]);
                 carregarArremates().then(function () { abrirGaveta(); });
             } else {
                 toast("Vendido para " + d.vencedor + " por " + moeda(d.valor) + ".", "info");
-                if (window.SomLeilao && somLiberado("arremate")) window.SomLeilao.vendido();
+                if (window.SomLeilao) window.SomLeilao.vendido();
             }
         });
 

@@ -509,29 +509,6 @@
         });
     }
 
-    /* Som da SALA: dois interruptores, um por efeito.
-
-       O som toca na tela de quem assiste, não aqui — o botão manda a decisão
-       para o servidor, que a publica no estado, e as telas obedecem sem
-       ninguém recarregar nada. Alavanca: o mesmo botão liga e desliga. */
-    document.querySelectorAll("[data-som]").forEach(function (botao) {
-        botao.addEventListener("click", function () {
-            var qual = botao.dataset.som;
-            var ligado = botao.dataset.ligado === "1";
-            botao.disabled = true;
-            acao({ acao: "som", qual: qual, ligar: !ligado }).then(function (d) {
-                botao.disabled = false;
-                if (!d || !d.ok) return;
-                var agora = !!d.ligado;
-                botao.dataset.ligado = agora ? "1" : "";
-                var rotulo = qual === "lance" ? "Lance" : "Arremate";
-                botao.textContent = agora
-                    ? "🔔 " + rotulo + ": ligado"
-                    : "🔕 " + rotulo + ": mudo";
-            });
-        });
-    });
-
     document.addEventListener("click", function (e) {
         var alvo = e.target.closest("[data-acao]");
         if (!alvo) return;

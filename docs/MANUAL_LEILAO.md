@@ -206,7 +206,8 @@ Duas linhas de cards. **Em cima**, o que você acompanha o tempo todo:
   lista aparece numa faixa logo abaixo)
 
 **Embaixo**, o que se usa uma vez na noite: **Fila** dos próximos, **🎙️ Sua voz**
-(o microfone) e **💳 Pagamentos** (liberar o pagamento e o som da sala).
+(o microfone, com o **🔇 Mudo** sempre ao lado do Transmitir) e **💳 Pagamentos**
+(liberar o pagamento).
 
 ### Os botões
 
@@ -256,10 +257,9 @@ e, se precisar, mostra **"🔊 Voltar a ouvir"**.
 
 ### O som da sala
 
-No card **💳 Pagamentos** há dois interruptores: **🔔 Lance** (a caixa
-registradora a cada lance) e **🔔 Arremate** (as palmas do martelo). Eles valem
-**para a tela de todo mundo** ao mesmo tempo. O aviso de **"te superaram"**
-continua tocando mesmo com eles desligados — é o alerta de quem perdeu a ponta.
+O som da sala é **sempre ligado**: a caixa registradora a cada lance e as palmas
+do martelo tocam na tela de todo mundo, e a mesa não tem mais botão para
+desligá-los. Quem não quiser som em casa usa o 🔊 da própria tela.
 
 ### O chat
 

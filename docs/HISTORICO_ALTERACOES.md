@@ -22,6 +22,33 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-26 - Leilão: o som da sala passa a ser sempre ligado
+
+### Resumo
+Pedido do clube: tirar a possibilidade de desligar o som na tela de quem assiste — o leilão soa
+sempre.
+
+### O que mudou
+- Saíram da mesa os botões **🔔 Lance** e **🔔 Arremate** (card 💳 Pagamentos) e o JS que os ligava.
+- A ação `som` saiu do `ACOES_AREAS` e do `locutor_acao_view`: um POST forjado é "ação desconhecida"
+  (400), então o som não se cala nem por fora da tela.
+- `som_lance`/`som_arremate` saíram do `estado_publico`, e o `leilao.js` perdeu o `somLiberado`: a
+  caixa registradora, as palmas e a fanfarra de quem arremata tocam sem portão. Um leilão com a coluna
+  antiga em `False` soa do mesmo jeito (há teste).
+- As colunas ficaram **dormentes** no model (apagar pediria migration por nada).
+
+### Arquivos alterados
+`templates/leilao/locutor.html`, `static/leilao/js/locutor.js`, `static/leilao/js/leilao.js`,
+`static/leilao/css/locutor.css` (a regra `.sons-sala`, órfã), `leilao/views.py`, `leilao/estado.py`,
+`leilao/models.py` (comentário), `leilao/tests.py` (`LocutorMutaOSomDaSalaTests` virou
+`SomDaSalaSempreLigadoTests`; saiu o teste do som em outro leilão, que usava a ação removida),
+`docs/REGRAS_CODEX.md`, `docs/MANUAL_LEILAO.md`.
+
+### Decisões tomadas
+- O 🔊 da tela de cada pessoa continua: é preferência do aparelho dela, não da sala.
+
+---
+
 ## 2026-09-26 - Leilão: o Mudo do locutor fica sempre à vista e independente do Transmitir
 
 ### Resumo

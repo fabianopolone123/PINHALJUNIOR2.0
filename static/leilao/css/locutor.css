@@ -1297,5 +1297,3 @@ button.mesa-online:hover {
 .quem-lista .nome { font-weight: 700; overflow-wrap: anywhere; }
 .quem-lista .vazio { justify-content: center; color: var(--palco-suave); }
 
-/* Os dois interruptores de som da sala, lado a lado. */
-.sons-sala { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }

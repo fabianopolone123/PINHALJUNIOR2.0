@@ -5398,105 +5398,57 @@ class SonsDoLeilaoTests(TestCase):
         self.assertNotIn("15 minutos", limpo)
 
 
-class LocutorMutaOSomDaSalaTests(TestCase):
-    """O locutor liga e desliga o som — e o efeito é para TODO MUNDO.
+class SomDaSalaSempreLigadoTests(TestCase):
+    """O som da sala é SEMPRE ligado (pedido do clube em 26/09).
 
-    Estes sons tocam na tela de quem assiste, não na mesa: quem os desliga é
-    quem conduz, e a chave viaja no **broadcast**, como o `pagamentos_liberados`
-    — é o que faz a sala emudecer (ou voltar a soar) de uma vez, sem ninguém
-    recarregar nada.
-
-    São **dois** interruptores porque incomodam de formas diferentes: a caixa
-    registradora toca a cada lance (numa disputa quente, sem parar) e a
-    comemoração toca uma vez por item, alto. Um botão só obrigaria a sacrificar
-    os dois juntos.
+    Até ali o locutor tinha dois interruptores — caixa registradora e palmas —
+    que calavam a tela de todo mundo. Saíram: o leilão soa sempre. As colunas
+    `som_lance`/`som_arremate` ficaram dormentes, e o que se guarda aqui é que
+    nada volte a ler delas nem a desligá-las.
     """
 
     def setUp(self):
         self.leilao = criar_leilao()
-        self.c = self._cliente("locutor")
-
-    def _cliente(self, *areas):
         User = get_user_model()
-        nome = "som_" + "_".join(areas or ["nada"])
-        u = User.objects.create_user(nome, password="segredo-ficticio")
+        u = User.objects.create_user("som_locutor", password="segredo-ficticio")
         u.is_staff = True
         u.save()
-        for area in areas:
-            grupo, _ = Group.objects.get_or_create(name=area)
-            u.groups.add(grupo)
-        c = Client()
-        c.login(username=nome, password="segredo-ficticio")
-        return c
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        self.c = Client()
+        self.c.login(username="som_locutor", password="segredo-ficticio")
 
-    def _acao(self, c, **extra):
-        corpo = {"acao": "som"}
-        corpo.update(extra)
-        return c.post(
-            "/equipe/acao/", data=json.dumps(corpo), content_type="application/json"
-        )
-
-    def test_nascem_ligados(self):
-        self.assertTrue(self.leilao.som_lance)
-        self.assertTrue(self.leilao.som_arremate)
-
-    def test_o_locutor_desliga_e_liga_de_novo(self):
-        for qual in ("lance", "arremate"):
-            with self.subTest(qual=qual):
-                r = self._acao(self.c, qual=qual, ligar=False)
-                self.assertEqual(r.status_code, 200)
-                self.leilao.refresh_from_db()
-                self.assertFalse(getattr(self.leilao, "som_" + qual))
-
-                self._acao(self.c, qual=qual, ligar=True)
-                self.leilao.refresh_from_db()
-                self.assertTrue(getattr(self.leilao, "som_" + qual))
-
-    def test_os_dois_sao_independentes(self):
-        """Mutar a caixa registradora não pode calar a comemoração."""
-        self._acao(self.c, qual="lance", ligar=False)
-        self.leilao.refresh_from_db()
-        self.assertFalse(self.leilao.som_lance)
-        self.assertTrue(self.leilao.som_arremate)
-
-    def test_a_chave_vai_no_broadcast(self):
-        """É o que faz a sala emudecer de uma vez, sem recarregar."""
-        self._acao(self.c, qual="lance", ligar=False)
-        self.leilao.refresh_from_db()
-        publico = est.estado_publico(self.leilao)
-        self.assertFalse(publico["leilao"]["som_lance"])
-        self.assertTrue(publico["leilao"]["som_arremate"])
-
-    def test_o_caixa_nao_mexe_no_som(self):
-        """Quem conduz o pregão é quem decide o som da sala."""
-        r = self._acao(self._cliente("caixa"), qual="lance", ligar=False)
-        self.assertEqual(r.status_code, 403)
-        self.leilao.refresh_from_db()
-        self.assertTrue(self.leilao.som_lance)
-
-    def test_som_desconhecido_e_recusado(self):
-        """Entrada da internet não vira `setattr` no model."""
-        for qual in ("superado", "musica", "", None, "som_lance"):
-            r = self._acao(self.c, qual=qual, ligar=False)
-            self.assertEqual(r.status_code, 400, repr(qual))
-
-    def test_a_mesa_tem_os_dois_botoes(self):
+    def test_a_mesa_nao_tem_mais_os_interruptores(self):
         html = self.c.get("/locutor/%d/" % self.leilao.pk).content.decode()
-        self.assertIn('data-som="lance"', html)
-        self.assertIn('data-som="arremate"', html)
+        self.assertNotIn("data-som=", html)
+        self.assertNotIn("Som na tela de quem assiste", html)
 
-    def test_a_tela_do_publico_obedece(self):
-        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("somLiberado", js)
-        # O "te superaram" continua soando: é o alerta de quem perdeu a ponta,
-        # não parte da festa, e é o som mais útil da tela para quem disputa.
-        # A asserção é sobre a LINHA dele — fatiar até a próxima chave pegava a
-        # linha seguinte, que é a do lance e essa sim tem o portão.
-        linha = [x for x in js.splitlines() if "SomLeilao.superado()" in x]
-        self.assertEqual(len(linha), 1, "o superado deveria ser chamado num lugar só")
-        self.assertNotIn("somLiberado", linha[0])
+    def test_a_acao_de_desligar_o_som_nao_existe_mais(self):
+        """Nem por POST forjado: o som não se cala."""
+        r = self.c.post("/equipe/acao/", data=json.dumps({"acao": "som", "qual": "lance", "ligar": False}),
+                        content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        self.assertNotIn("som", views.ACOES_AREAS)
+
+    def test_o_broadcast_nao_leva_mais_a_chave(self):
+        """Mesmo um leilão com a coluna antiga em False soa: a chave não viaja."""
+        self.leilao.som_lance = False
+        self.leilao.som_arremate = False
+        self.leilao.save()
+        publico = est.estado_publico(self.leilao)
+        self.assertNotIn("som_lance", publico["leilao"])
+        self.assertNotIn("som_arremate", publico["leilao"])
+
+    def test_a_tela_do_publico_toca_sem_portao(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "leilao.js").read_text(encoding="utf-8")
+        self.assertNotIn("somLiberado", js)
+        self.assertIn("window.SomLeilao.lance()", js)
+        self.assertIn("window.SomLeilao.vendido()", js)
+        self.assertIn("window.SomLeilao.arrematei()", js)
+
+    def test_a_mesa_nao_manda_mais_desligar(self):
+        js = Path(settings.BASE_DIR, "static", "leilao", "js", "locutor.js").read_text(encoding="utf-8")
+        self.assertNotIn('acao: "som"', js)
+        self.assertNotIn("[data-som]", js)
 
 
 class AudioVoltaQuandoOLocutorVoltaTests(TestCase):
@@ -6408,16 +6360,6 @@ class SegundaRevisaoTests(TestCase):
         rascunho = criar_leilao(nome="Leilão fictício 2", status="rascunho")
         with mock.patch.object(servicos.HUB, "publicar") as publicar:
             servicos.liberar_pagamentos(rascunho, True)
-        self.assertTrue(publicar.call_args[0][1]["ativo"])
-
-    def test_som_da_mesa_de_outro_leilao_nao_apaga_o_pregao(self):
-        from unittest import mock
-
-        rascunho = criar_leilao(nome="Leilão fictício 2", status="rascunho")
-        c = self._equipe("locutor", "loc_som2")
-        with mock.patch.object(servicos.HUB, "publicar") as publicar:
-            c.post("/equipe/acao/", json.dumps({"acao": "som", "qual": "lance", "ligar": False,
-                                                 "leilao": rascunho.pk}), content_type="application/json")
         self.assertTrue(publicar.call_args[0][1]["ativo"])
 
     # --- 6. Referência do Pix nunca repete --------------------------------

@@ -795,9 +795,8 @@ ACOES_AREAS = {
     # último item foi batido. Não mexe em dinheiro de ninguém — só destrava o
     # botão de pagar na tela de quem arrematou.
     "liberar": ("locutor",),
-    # Ligar/desligar o som da SALA. É do locutor pelo mesmo motivo do
-    # `liberar`: ele conduz, e o som toca na tela de quem está assistindo.
-    "som": ("locutor",),
+    # (A ação `som`, que desligava o som da sala, saiu em 26/09: o som é
+    # sempre ligado. Um POST com ela agora é "ação desconhecida".)
     "entregue": ("caixa",),
     # A voz do locutor voltou ao ar (ou saiu): avisa as telas para os ouvintes
     # reconectarem NA HORA, em vez de esperar a próxima tentativa agendada.
@@ -983,28 +982,6 @@ def locutor_acao_view(request):
         return JsonResponse(
             {"ok": True, "msg": f"“{lote.nome}” voltou para a fila do leilão."}
         )
-
-    if acao == "som":
-        qual = dados.get("qual")
-        if qual not in ("lance", "arremate"):
-            return JsonResponse({"ok": False, "msg": "Som desconhecido."}, status=400)
-        ligar = dados.get("ligar")
-        ligar = True if ligar is None else bool(ligar)
-        campo = "som_" + qual
-        setattr(leilao, campo, ligar)
-        leilao.save(update_fields=[campo])
-        # O estado inteiro, como sempre: as telas abertas emudecem (ou voltam a
-        # soar) sem ninguém recarregar nada. Sempre o do leilão NO AR (ver
-        # `servicos.publicar_estado`).
-        servicos.publicar_estado()
-        rotulo = "de lance" if qual == "lance" else "de arremate"
-        return JsonResponse({
-            "ok": True,
-            "qual": qual,
-            "ligado": ligar,
-            "msg": ("Som %s ligado para todos." % rotulo) if ligar
-                   else ("Som %s desligado para todos." % rotulo),
-        })
 
     if acao == "liberar":
         # Alavanca: o mesmo botão abre e fecha. O locutor pode ter apertado

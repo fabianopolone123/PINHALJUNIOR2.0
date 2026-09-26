@@ -1421,7 +1421,14 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   `--disable-features=WebRtcHideLocalIpsWithMdns`) comandados por CDP a partir do Node. É o que
   prova o comportamento que os testes Python só guardam na estrutura.
 
-### Quem controla o som da SALA é o locutor
+### O som da SALA é sempre ligado (desde 26/09)
+
+- **Não há mais interruptor.** Decisão do clube: o leilão soa sempre. Os botões "🔔 Lance" e
+  "🔔 Arremate" saíram da mesa, a ação `som` saiu do `ACOES_AREAS` (POST com ela é 400) e a chave
+  saiu do broadcast. As colunas `som_lance`/`som_arremate` ficaram **dormentes** — não religue.
+- Quem não quiser som em casa usa o 🔊 da própria tela, que é preferência do aparelho dela.
+
+### (Histórico) Quem controlava o som da SALA era o locutor
 
 - **Esses efeitos tocam na tela de quem assiste, não na mesa.** Então "mutar" não é preferência
   local: é decisão de quem conduz, e vale para todo mundo. A chave viaja no **broadcast**, como o

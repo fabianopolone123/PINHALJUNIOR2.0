@@ -214,33 +214,11 @@
                 </button>
 
                 {% comment %}
-                O som da SALA. Estes efeitos tocam na tela de quem está
-                assistindo, não aqui — por isso quem os desliga é você, e vale
-                para todo mundo de uma vez (o mesmo caminho do botão de
-                liberar: viaja no broadcast e as telas obedecem sem recarregar).
-
-                São dois interruptores porque incomodam de formas diferentes: a
-                caixa registradora toca a CADA lance, e a comemoração uma vez
-                por item, alto. Um botão só obrigaria a sacrificar os dois.
+                O som da sala NÃO se desliga mais (pedido do clube em 26/09): a
+                caixa registradora e as palmas tocam sempre na tela de quem
+                assiste. Os dois interruptores que moravam aqui saíram, e as
+                colunas `som_lance`/`som_arremate` ficaram dormentes.
                 {% endcomment %}
-                <div class="micro-separador"></div>
-                <p class="micro-ajuda">Som na tela de quem assiste:</p>
-                <div class="sons-sala">
-                    <button type="button" class="btn-mini" data-som="lance"
-                            data-ligado="{{ leilao.som_lance|yesno:"1," }}"
-                            title="A caixa registradora que toca a cada lance">
-                        {% if leilao.som_lance %}🔔 Lance: ligado{% else %}🔕 Lance: mudo{% endif %}
-                    </button>
-                    <button type="button" class="btn-mini" data-som="arremate"
-                            data-ligado="{{ leilao.som_arremate|yesno:"1," }}"
-                            title="As palmas e a gritaria quando o martelo bate">
-                        {% if leilao.som_arremate %}🔔 Arremate: ligado{% else %}🔕 Arremate: mudo{% endif %}
-                    </button>
-                </div>
-                <p class="micro-ajuda">
-                    O aviso de <b>“te superaram”</b> continua soando: ele é o alerta de quem perdeu
-                    a ponta, não parte da festa.
-                </p>
             </div>
         </div>
     </section>

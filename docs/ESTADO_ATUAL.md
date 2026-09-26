@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: o Mudo do locutor fica sempre à vista e independente do Transmitir**): o botão **🔇 Mudo** da mesa deixou de ficar escondido até a transmissão começar: agora mora ao lado do **🎤 Transmitir**, sempre visível, e nunca liga nem encerra a transmissão. Dá para armá-lo antes de transmitir (a voz entra no ar já no mudo), e "Parar" não o solta.
+**Última atualização:** 2026-09-26 (**Leilão: o som da sala passa a ser sempre ligado**): a mesa perdeu os dois interruptores de som da sala (🔔 Lance / 🔔 Arremate): a caixa registradora e as palmas tocam **sempre** na tela de quem assiste. A ação `som` saiu (POST com ela é 400), a chave saiu do broadcast e as colunas `som_lance`/`som_arremate` ficaram dormentes.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: o Mudo do locutor fica sempre à vista e independente do Transmitir**): o botão **🔇 Mudo** da mesa deixou de ficar escondido até a transmissão começar: agora mora ao lado do **🎤 Transmitir**, sempre visível, e nunca liga nem encerra a transmissão. Dá para armá-lo antes de transmitir (a voz entra no ar já no mudo), e "Parar" não o solta.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: a "mesa show" do locutor sai do ar**): testada e não
 aprovada pelo clube; desfeita por `git revert` (o código voltou ao do commit `dade1b7`). A mesa
@@ -180,6 +182,7 @@ ruído filtrado, dezenas delas com a densidade **caindo** — aplauso de verdade
 torcida é ruído de banda média com a frequência subindo e caindo). O ruído é gerado **uma vez** e
 reaproveitado.
 
+**(Até 26/09 — hoje o som da sala é sempre ligado e estas colunas estão dormentes.)**
 **O locutor liga e desliga o som, para a SALA** (`som_lance`/`som_arremate`, mig. **`leilao/0013`**):
 os efeitos tocam na tela de quem assiste, não na mesa, então mutar é decisão de quem conduz e vale
 para todo mundo — as chaves viajam no **broadcast**, como o `pagamentos_liberados`, e as telas
@@ -2763,7 +2766,7 @@ não está instalado (sem isso, virava erro de importação na suíte do clube).
 **Papéis da equipe** (`leilao/papeis.py`, grupos nativos do Django no banco do leilão) — três funções
 diferentes numa noite de leilão, e raramente a mesma pessoa:
 - **`preparacao`** 📦 — cadastra itens, monta a fila, cria leilões e configura (Mercado Pago, áudio).
-- **`locutor`** 🎤 — conduz o pregão: abre lote, martelo, chat, microfone, som da sala e a liberação dos pagamentos.
+- **`locutor`** 🎤 — conduz o pregão: abre lote, martelo, chat, microfone e a liberação dos pagamentos (o som da sala é sempre ligado desde 26/09).
 - **`caixa`** 💰 — confere pagamento e cuida da **entrega**.
 - **`diretor`** — enxerga as três e distribui os papéis (`is_superuser` também).
 

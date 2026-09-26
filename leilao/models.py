@@ -227,6 +227,9 @@ class Leilao(models.Model):
     # O aviso de "te superaram" NÃO entra aqui: ele é um alerta pessoal de quem
     # perdeu a ponta, não parte da festa, e é o som mais útil da tela para quem
     # está disputando.
+    # DORMENTES desde 26/09: o som da sala é sempre ligado e não há mais
+    # interruptor. As colunas ficam (apagar pediria migration por nada); não
+    # religue — o clube decidiu que o leilão soa sempre.
     som_lance = models.BooleanField(
         "Som de lance (caixa registradora)", default=True,
         help_text="Toca na tela de todo mundo a cada lance.",
