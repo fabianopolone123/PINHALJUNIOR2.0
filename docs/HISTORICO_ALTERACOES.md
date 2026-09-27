@@ -22,6 +22,51 @@ Descrição curta do que foi feito.
 
 ---
 
+## 2026-09-27 - Leilão: escolher o microfone da mesa
+
+### Resumo
+Pedido do clube: na mesa do locutor não havia como saber **qual microfone** o navegador estava
+usando (o PC tem webcam, fone e microfone de mão). O card **🎙️ Sua voz** ganhou a lista
+**Microfone** e a linha **"🎙️ Usando: …"**.
+
+### Como funciona
+- **Lista**: "Padrão do computador (nome do padrão)" + os microfones do aparelho. Sem a permissão do
+  microfone o navegador esconde os nomes; o **🔄** pede a permissão uma vez e mostra. Depois do
+  primeiro Transmitir os nomes aparecem sozinhos. Microfone USB/Bluetooth que entra ou sai atualiza a
+  lista (`devicechange`).
+- **Usando**: o rótulo da faixa que o navegador abriu **de fato** — é a resposta para "qual microfone ele
+  está usando".
+- **Guardada no computador** (`localStorage`, `leilao_microfone`): vale para a próxima noite.
+- **Trocar no ar não derruba ninguém**: `AudioFalar.escolher` troca a faixa na **mesma conexão**
+  (`RTCRtpSender.replaceTrack`); parar e transmitir de novo derrubaria todos os ouvintes. As trocas
+  andam em **fila** e conferem a vez depois do `replaceTrack` (Parar no meio da troca não deixa
+  microfone aberto). O Mudo continua valendo na faixa nova. Falhou a troca: segue o de antes e a
+  escolha volta.
+- **Escolhido que não está ligado**: a voz sai pelo **padrão** (silêncio é pior) e a mesa avisa em
+  âmbar "o microfone escolhido não foi achado". Vale também na religação automática, quando o
+  microfone USB saiu. Permissão negada não tem reserva (o erro aparece como antes).
+
+### Verificação
+- Simulador de voz: **26/26** da mesa, com os novos **m21–m26** (escolher antes, trocar no ar na mesma
+  conexão, escolhido sumido, troca no mudo, duas trocas seguidas, Parar no meio da troca). Os seis
+  **falham no código anterior**, e uma mutação (tirar a conferência depois do `replaceTrack`) faz o
+  m26 acusar microfone aberto. O `voz_mock.js` ganhou `getSenders`/`replaceTrack` e o registro dos
+  pedidos ao `getUserMedia`.
+- `MicrofoneEscolhidoTests` (7) + suíte do leilão.
+- Conferido na tela (1400 e 420 px): lista ao lado do rótulo, sem rolagem lateral.
+
+### Arquivos
+`static/leilao/js/audio_falar.js`, `static/leilao/js/locutor.js`, `templates/leilao/locutor.html`,
+`static/leilao/css/locutor.css`, `leilao/tests.py`, `ferramentas/simulador_voz/voz_mock.js`,
+`ferramentas/simulador_voz/cen_mesa.js`, `docs/MANUAL_LEILAO.md`, `docs/REGRAS_CODEX.md`,
+`docs/ESTADO_ATUAL.md`, `CLAUDE.md`.
+
+### Pendências
+- Conferir no PC da mesa, no ensaio, que a lista mostra os microfones dele e que a troca no ar não
+  corta o som de quem escuta.
+
+---
+
 ## 2026-09-26 - Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável
 
 ### Resumo

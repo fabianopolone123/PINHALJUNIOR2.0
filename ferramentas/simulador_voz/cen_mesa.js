@@ -233,4 +233,93 @@ window.__cenarios = {};
     var liberou = await esperar(function () { return /Não consegui/.test(estado()) && !$("btnMicrofone").disabled; }, 4000);
     return r(liberou && __sim.microfonesVivos() === 0, "botao_liberado=" + liberou + " " + resumo());
   };
+  // ---- Qual microfone (27/09) -----------------------------------------
+  function usando() { return ($("microUsando") || {}).textContent || ""; }
+  function envio() { var pc = __sim.vivas(true)[0]; return pc && pc.getSenders()[0]; }
+  function pedidoDe(i) { var p = __sim.pedidos[i]; return p && p.audio && p.audio.deviceId && p.audio.deviceId.exact; }
+  async function listaComNomes() {
+    $("btnMicrofones").click();
+    return esperar(function () { return $("microEscolha").options.length >= 3 && !/🔄/.test($("microEscolha").textContent); }, 3000);
+  }
+  function escolherNaLista(i) {
+    var sel = $("microEscolha");
+    sel.value = sel.options[i].value;
+    sel.dispatchEvent(new Event("change"));
+    return sel.options[i];
+  }
+
+  C.m21_escolhe_o_microfone_antes = async function () {
+    if (!(await listaComNomes())) return r(false, "a lista não mostrou os microfones: " + $("microEscolha").textContent);
+    var op = escolherNaLista(2);
+    await dormir(100);
+    var n = __sim.pedidos.length;
+    if (!(await noAr())) return r(false, "não entrou no ar: " + resumo());
+    var pediu = pedidoDe(n) === op.value;
+    var mostra = usando().indexOf(op.textContent) >= 0;
+    var guardou = localStorage.getItem("leilao_microfone") === op.value;
+    return r(pediu && mostra && guardou && __sim.microfonesVivos() === 1,
+      "pediu_o_escolhido=" + pediu + " mostra_em_uso=" + mostra + " guardou=" + guardou + " usando='" + usando() + "' " + resumo());
+  };
+
+  C.m22_troca_no_ar_sem_derrubar = async function () {
+    if (!(await noAr())) return r(false, "não entrou no ar");
+    if (!(await listaComNomes())) return r(false, "sem lista");
+    var pc = __sim.ultima(), n = __sim.pcs.length, velho = mic();
+    var op = escolherNaLista(2);
+    var trocou = await esperar(function () { return mic() !== velho && envio() && envio().track === mic(); }, 3000);
+    await dormir(300);
+    var firme = !pc.fechada && pc.connectionState === "connected" && __sim.pcs.length === n && vozes(false) === 0;
+    var velhoDesligado = velho.readyState === "ended";
+    var mostra = usando().indexOf(op.textContent) >= 0;
+    return r(trocou && firme && velhoDesligado && mostra && __sim.microfonesVivos() === 1 && /No ar/.test(estado()),
+      "trocou=" + trocou + " mesma_conexao=" + firme + " velho_desligado=" + velhoDesligado + " mostra=" + mostra + " " + resumo());
+  };
+
+  C.m23_escolhido_sumiu_usa_o_padrao = async function () {
+    localStorage.setItem("leilao_microfone", "microfone-que-saiu");
+    window.AudioFalar.escolher("microfone-que-saiu");
+    if (!(await noAr())) return r(false, "ficou sem voz com o microfone escolhido fora: " + resumo());
+    var avisa = $("microUsando").classList.contains("reserva") && /não foi achado/.test(usando());
+    return r(avisa && __sim.microfonesVivos() === 1, "no_ar_pelo_padrao=true avisa_reserva=" + avisa + " usando='" + usando() + "'");
+  };
+
+  C.m24_troca_no_mudo_continua_muda = async function () {
+    if (!(await noAr())) return r(false, "não entrou no ar");
+    $("btnMudo").click();
+    if (!(await listaComNomes())) return r(false, "sem lista");
+    var velho = mic();
+    escolherNaLista(2);
+    var trocou = await esperar(function () { return mic() !== velho && envio().track === mic(); }, 3000);
+    await dormir(100);
+    return r(trocou && mic().enabled === false && /MUDO/.test(estado()),
+      "trocou=" + trocou + " nova_faixa_muda=" + (mic().enabled === false) + " " + resumo());
+  };
+
+  C.m25_duas_trocas_seguidas_fica_a_ultima = async function () {
+    if (!(await noAr())) return r(false, "não entrou no ar");
+    if (!(await listaComNomes())) return r(false, "sem lista");
+    __sim.atrasoTroca = 300;                         // a 1ª troca ainda no meio quando vem a 2ª
+    var sel = $("microEscolha");
+    var a = sel.options[1].value, b = sel.options[2].value;
+    window.AudioFalar.escolher(a);
+    var fim = await window.AudioFalar.escolher(b);
+    await dormir(200);
+    var faixa = envio().track;
+    var certa = faixa.readyState === "live" && faixa.getSettings().deviceId === b;
+    return r(certa && __sim.microfonesVivos() === 1 && window.AudioFalar.escolhido() === b,
+      "no_ar_o_ultimo=" + certa + " faixa_viva=" + (faixa.readyState === "live") + " fim=" + JSON.stringify(fim) + " " + resumo());
+  };
+
+  C.m26_parar_no_meio_da_troca = async function () {
+    if (!(await noAr())) return r(false, "não entrou no ar");
+    if (!(await listaComNomes())) return r(false, "sem lista");
+    __sim.atrasoTroca = 300;
+    var troca = window.AudioFalar.escolher($("microEscolha").options[2].value);
+    await dormir(20);
+    $("btnMicrofone").click();                       // Parar com a troca a caminho
+    await troca;
+    await dormir(300);
+    return r(__sim.microfonesVivos() === 0 && __sim.vivas(true).length === 0,
+      "microfone_quente=" + __sim.microfonesVivos() + " " + resumo());
+  };
 })();

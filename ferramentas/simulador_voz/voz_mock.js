@@ -4,6 +4,7 @@
 (function () {
   // Cada cenário começa limpo: o mudo guardado na aba não vaza entre eles.
   try { sessionStorage.removeItem("leilao_mudo"); } catch (e) {}
+  try { localStorage.removeItem("leilao_microfone"); } catch (e) {}
   var sim = window.__sim = {
     escala: 0.1,                    // setTimeout/setInterval 10x mais rápidos
     whip: { status: 201, atraso: 60 },
@@ -25,7 +26,9 @@
   // ---- microfone: registra toda stream entregue (para achar "microfone quente")
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     var _gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    sim.pedidos = [];
     navigator.mediaDevices.getUserMedia = function (c) {
+      sim.pedidos.push(JSON.parse(JSON.stringify(c || {})));
       if (sim.negarMic) return Promise.reject(new DOMException("negado", "NotAllowedError"));
       return _gum(c).then(function (s) { sim.streams.push(s); return s; });
     };
@@ -69,7 +72,16 @@
   FakePC.prototype.removeEventListener = function (n, fn) {
     this._ouvintes[n] = (this._ouvintes[n] || []).filter(function (f) { return f !== fn; });
   };
-  FakePC.prototype.addTrack = function () { this.publica = true; };
+  FakePC.prototype.addTrack = function (t) {
+    this.publica = true;
+    // A faixa que sai: a troca de microfone no ar usa `replaceTrack` nela.
+    var envio = { track: t, trocas: 0, replaceTrack: function (nova) {
+      return new Promise(function (ok) { _st(function () { envio.track = nova; envio.trocas++; ok(); }, sim.atrasoTroca || 10); });
+    } };
+    this._envios = [envio];
+    return envio;
+  };
+  FakePC.prototype.getSenders = function () { return this._envios || []; };
   FakePC.prototype.addTransceiver = function () { this.publica = false; };
   FakePC.prototype.createOffer = function () {
     if (this.fechada) return Promise.reject(new DOMException("closed", "InvalidStateError"));

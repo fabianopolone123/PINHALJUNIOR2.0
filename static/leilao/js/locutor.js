@@ -933,6 +933,7 @@
     function estadoMic(texto) { $("microEstado").textContent = texto; }
 
     function mostrarNoAr() {
+        mostrarEmUso();
         btnMic.textContent = "⏹ Parar transmissão";
         btnMic.classList.add("ligado");
         estadoMic(window.AudioFalar.estaMudo()
@@ -946,6 +947,105 @@
         btnMic.textContent = "🎤 Transmitir";
         btnMic.classList.remove("ligado");
         $("microBarra").style.width = "0%";
+        mostrarEmUso();
+    }
+
+    /* ---------------------------------------------------------------
+       QUAL microfone (pedido do clube em 27/09): o PC da mesa tem webcam,
+       fone e microfone de mão, e ninguém sabia qual o navegador pegava. A
+       lista escolhe; "Usando" diz o que foi aberto DE FATO. A escolha fica
+       neste computador (`localStorage`: vale para a próxima noite também).
+       Trocar no ar não derruba ninguém (`AudioFalar.escolher` troca a faixa
+       na mesma conexão).
+       --------------------------------------------------------------- */
+    var selMic = $("microEscolha");
+    var btnMics = $("btnMicrofones");
+    var CHAVE_MIC = "leilao_microfone";
+
+    function micGuardado() {
+        try { return localStorage.getItem(CHAVE_MIC) || ""; } catch (e) { return ""; }
+    }
+    function guardarMic(id) {
+        try { localStorage.setItem(CHAVE_MIC, id || ""); } catch (e) { /* sem armazenamento */ }
+    }
+
+    function mostrarEmUso() {
+        var p = $("microUsando");
+        if (!p || !window.AudioFalar || !window.AudioFalar.emUso) return;
+        var uso = window.AudioFalar.emUso();
+        p.hidden = !uso;
+        if (!uso) return;
+        p.classList.toggle("reserva", uso.reserva);
+        p.textContent = uso.reserva
+            ? "⚠️ O microfone escolhido não foi achado — usando o padrão: "
+            : "🎙️ Usando: ";
+        var nome = document.createElement("b");
+        nome.textContent = uso.rotulo;
+        p.appendChild(nome);
+    }
+
+    function opcaoMic(valor, texto) {
+        var o = document.createElement("option");
+        o.value = valor;
+        o.textContent = texto;
+        selMic.appendChild(o);
+    }
+
+    function montarListaMic(pedir) {
+        if (!selMic || !window.AudioFalar || !window.AudioFalar.listar) return Promise.resolve();
+        return window.AudioFalar.listar(pedir).then(function (r) {
+            var atual = window.AudioFalar.escolhido();
+            selMic.innerHTML = "";
+            opcaoMic("", "Padrão do computador" + (r.padrao ? " (" + r.padrao + ")" : ""));
+            r.microfones.forEach(function (m) { opcaoMic(m.id, m.rotulo); });
+            if (atual && !r.microfones.some(function (m) { return m.id === atual; })) {
+                opcaoMic(atual, r.comNomes
+                    ? "O escolhido antes (não está ligado agora)"
+                    : "O escolhido antes (🔄 mostra o nome)");
+            }
+            selMic.value = atual;
+            if (btnMics) {
+                btnMics.title = r.comNomes
+                    ? "Atualizar a lista de microfones"
+                    : "Mostrar os nomes dos microfones (o navegador pede permissão)";
+            }
+            return r;
+        }).catch(function () { /* lista é conforto: o padrão continua valendo */ });
+    }
+
+    if (selMic && window.AudioFalar && window.AudioFalar.escolher) {
+        // Fora do ar, `escolher` só guarda: vale na próxima transmissão.
+        window.AudioFalar.escolher(micGuardado());
+        montarListaMic(false);
+        if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+            // Microfone USB/Bluetooth que entra ou sai aparece/some da lista.
+            navigator.mediaDevices.addEventListener("devicechange", function () { montarListaMic(false); });
+        }
+        if (btnMics) {
+            btnMics.addEventListener("click", function () {
+                btnMics.disabled = true;
+                montarListaMic(true).then(function () { btnMics.disabled = false; });
+            });
+        }
+        selMic.addEventListener("change", function () {
+            var id = selMic.value;
+            guardarMic(id);
+            selMic.disabled = true;
+            window.AudioFalar.escolher(id).then(function (r) {
+                selMic.disabled = false;
+                if (r.trocou) {
+                    mostrarEmUso();
+                    toast("Microfone trocado — a transmissão continuou.", "success");
+                } else if (r.erro) {
+                    guardarMic(r.anterior);
+                    selMic.value = r.anterior;
+                    mostrarEmUso();
+                    toast("Não consegui abrir esse microfone. Continua o de antes.", "error");
+                } else if (r.foraDoAr) {
+                    toast("Microfone escolhido. Vale quando transmitir.", "info");
+                }
+            });
+        });
     }
 
     function textoDesligado() {
@@ -986,6 +1086,7 @@
                     if (querNoAr && window.AudioFalar.ativo()) quedasSeguidas = 0;
                 }, 30000);
                 mostrarNoAr();
+                montarListaMic(false);      // com a permissão dada, os nomes aparecem
                 // Avisa as telas: quem estava esperando reconecta JÁ, em vez
                 // de só na próxima tentativa agendada (até ~20 s depois).
                 acao({ acao: "voz", no_ar: true });

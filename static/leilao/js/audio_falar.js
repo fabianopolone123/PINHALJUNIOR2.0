@@ -28,6 +28,73 @@ window.AudioFalar = (function () {
     // a que perdia a vez derrubava a outra no `catch` — ou deixava o microfone
     // de uma delas aberto e dois publicadores no mesmo caminho do servidor.
     var geracao = 0;
+    // O microfone ESCOLHIDO na mesa ("" = o padrão do computador) e o que está
+    // de fato EM USO. Pedido do clube (27/09): no PC da mesa há webcam, fone e
+    // microfone de mão, e ninguém sabia qual deles o navegador tinha pego.
+    var escolhido = "";
+    var emUso = null;          // { id, rotulo, reserva }
+    var aoNivelAtual = null;
+    // Cada troca de microfone no ar ganha um número: dois cliques seguidos na
+    // lista não podem deixar a primeira troca, que chegou por último, vencer.
+    var vezDaTroca = 0;
+
+    var FILTROS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
+    /* Abre o microfone escolhido. Se ele não existe mais (USB/Bluetooth que
+       saiu — é justamente o que derruba a transmissão), abre o PADRÃO em vez de
+       ficar mudo: no meio do leilão, voz por outro microfone é melhor que
+       silêncio. `emUso.reserva` avisa a mesa que não é o escolhido.
+       Permissão negada não tem reserva: o erro sobe. */
+    async function abrirMicrofone(id) {
+        var audio = Object.assign({}, FILTROS);
+        if (id) audio.deviceId = { exact: id };
+        try {
+            var s = await navigator.mediaDevices.getUserMedia({ audio: audio, video: false });
+            return { stream: s, reserva: false };
+        } catch (e) {
+            if (!id || e.name === "NotAllowedError" || e.name === "SecurityError") throw e;
+            if (window.console) console.warn("[audio-falar] microfone escolhido indisponível (" + e.name + "); usando o padrão");
+            var padrao = await navigator.mediaDevices.getUserMedia({ audio: Object.assign({}, FILTROS), video: false });
+            return { stream: padrao, reserva: true };
+        }
+    }
+
+    function registrarEmUso(stream, reserva) {
+        var t = stream.getAudioTracks()[0];
+        var cfg = t && t.getSettings ? t.getSettings() : {};
+        emUso = { id: cfg.deviceId || "", rotulo: (t && t.label) || "microfone sem nome", reserva: !!reserva };
+    }
+
+    /* O MICROFONE que termina (Bluetooth/USB que desconecta, bateria,
+       ligação telefônica tomando o microfone): a conexão segue "connected" e
+       ninguém ouve nada — a mesa dizia "No ar". Agora é queda, e a religação
+       refaz o `getUserMedia` (revisão de 26/09). Vale também para a faixa que
+       entrou por uma troca de microfone no ar. */
+    function vigiarTrilha(stream, minha) {
+        stream.getAudioTracks().forEach(function (t) {
+            t.onended = function () {
+                if (trilhaEmTroca === stream) { velhaMorreu = true; return; }
+                if (minha === geracao && rodando && trilha === stream) caiu("microfone");
+            };
+            // O iOS (ligação, Siri, troca de app) MUTA a trilha sem
+            // encerrá-la: a conexão segue "connected" e ninguém ouve. Muda
+            // por mais de 4 s é queda — o MUDO do locutor é outra coisa
+            // (`enabled = false`), e não dispara este evento.
+            var vigiaMuda = null;
+            t.onmute = function () {
+                clearTimeout(vigiaMuda);
+                vigiaMuda = setTimeout(function () {
+                    if (minha === geracao && rodando && trilha === stream && t.muted) caiu("microfone mudo pelo sistema");
+                }, 4000);
+            };
+            t.onunmute = function () { clearTimeout(vigiaMuda); };
+        });
+    }
+
+    function desligarMedidor() {
+        if (medidor) { clearInterval(medidor); medidor = null; }
+        if (contexto) { try { contexto.close(); } catch (e) { /* já fechado */ } contexto = null; }
+    }
 
     function esperarIce(conexao, limite) {
         return new Promise(function (resolve) {
@@ -114,40 +181,16 @@ window.AudioFalar = (function () {
             if (conexao) { try { conexao.close(); } catch (e) { /* já fechada */ } }
             return true;
         }
+        aoNivelAtual = aoNivel;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                },
-                video: false
-            });
+            var aberto = await abrirMicrofone(escolhido);
+            stream = aberto.stream;
             if (superada()) return false;
             trilha = stream;
+            registrarEmUso(stream, aberto.reserva);
             aplicarMudo();
             ligarMedidor(stream, aoNivel);
-            // O MICROFONE que termina (Bluetooth/USB que desconecta, bateria,
-            // ligação telefônica tomando o microfone): a conexão segue
-            // "connected" e ninguém ouve nada — a mesa dizia "No ar". Agora é
-            // queda, e a religação refaz o `getUserMedia` (revisão de 26/09).
-            stream.getAudioTracks().forEach(function (t) {
-                t.onended = function () {
-                    if (minha === geracao && rodando) caiu("microfone");
-                };
-                // O iOS (ligação, Siri, troca de app) MUTA a trilha sem
-                // encerrá-la: a conexão segue "connected" e ninguém ouve. Muda
-                // por mais de 4 s é queda — o MUDO do locutor é outra coisa
-                // (`enabled = false`), e não dispara este evento.
-                var vigiaMuda = null;
-                t.onmute = function () {
-                    clearTimeout(vigiaMuda);
-                    vigiaMuda = setTimeout(function () {
-                        if (minha === geracao && rodando && t.muted) caiu("microfone mudo pelo sistema");
-                    }, 4000);
-                };
-                t.onunmute = function () { clearTimeout(vigiaMuda); };
-            });
+            vigiarTrilha(stream, minha);
 
             conexao = new RTCPeerConnection({ iceServers: [] });
             pc = conexao;
@@ -221,6 +264,95 @@ window.AudioFalar = (function () {
         }
     }
 
+    /* Troca o microfone COM A TRANSMISSÃO NO AR, sem derrubar ninguém:
+       `replaceTrack` põe a faixa nova na mesma conexão. Parar e transmitir de
+       novo derrubaria todos os ouvintes (segundos para voltar). Fora do ar, só
+       guarda a escolha para a próxima transmissão.
+       As trocas andam em FILA: com duas pendentes, a que terminasse por último
+       podia pôr no ar uma faixa que a outra já tinha desligado (silêncio). */
+    var filaTroca = Promise.resolve();
+    var trilhaEmTroca = null;     // a faixa que está sendo substituída
+    var velhaMorreu = false;
+
+    function trocar(id) {
+        var anterior = escolhido;
+        escolhido = id || "";
+        var minhaTroca = ++vezDaTroca;
+        var feito = filaTroca.then(function () { return fazerTroca(minhaTroca, anterior); });
+        filaTroca = feito.catch(function () { /* a fila segue */ });
+        return feito;
+    }
+
+    async function fazerTroca(minhaTroca, anterior) {
+        if (minhaTroca !== vezDaTroca) return { trocou: false, superada: true };
+        if (!rodando || !pc || !trilha) return { trocou: false, foraDoAr: true };
+        var minha = geracao;
+        var conexao = pc;
+        var velha = trilha;
+        var novo = null;
+        function largar() { if (novo) novo.getTracks().forEach(function (t) { t.stop(); }); }
+        function vale() { return minha === geracao && pc === conexao && trilha === velha; }
+        trilhaEmTroca = velha;
+        velhaMorreu = false;
+        try {
+            var aberto = await abrirMicrofone(escolhido);
+            novo = aberto.stream;
+            if (!vale()) { largar(); return { trocou: false, superada: true }; }
+            var envios = conexao.getSenders ? conexao.getSenders() : [];
+            var envio = envios.filter(function (s) { return s.track && s.track.kind === "audio"; })[0] || envios[0];
+            if (!envio) throw new Error("sem faixa de envio para trocar");
+            await envio.replaceTrack(novo.getAudioTracks()[0]);
+            if (!vale()) { largar(); return { trocou: false, superada: true }; }
+            trilha = novo;
+            registrarEmUso(novo, aberto.reserva);
+            aplicarMudo();
+            vigiarTrilha(novo, minha);
+            velha.getTracks().forEach(function (t) { t.onended = null; t.onmute = null; t.stop(); });
+            desligarMedidor();
+            ligarMedidor(novo, aoNivelAtual);
+            return { trocou: true };
+        } catch (e) {
+            if (window.console) console.warn("[audio-falar] troca de microfone: " + e.message);
+            largar();
+            // Não abriu: a voz segue no microfone de antes, e a escolha volta
+            // para ele (senão a próxima religação tentaria o que não abre).
+            if (minhaTroca === vezDaTroca) escolhido = anterior;
+            return { trocou: false, erro: e.name || e.message, anterior: anterior };
+        } finally {
+            trilhaEmTroca = null;
+            // Aparelho que só abre um microfone por vez (iPhone) encerra o
+            // antigo ao abrir o novo; se a troca não vingou, é queda de verdade.
+            if (velhaMorreu && trilha === velha && minha === geracao && rodando) caiu("microfone");
+            velhaMorreu = false;
+        }
+    }
+
+    /* Os microfones do aparelho. Sem a permissão do microfone o navegador
+       esconde os nomes (e até os ids); `pedir` abre e fecha o microfone uma
+       vez para liberá-los. "default"/"communications" são apelidos do Windows
+       para um dos outros — a mesa já tem a opção "padrão". */
+    async function listar(pedir) {
+        var md = navigator.mediaDevices;
+        if (!md || !md.enumerateDevices) return { microfones: [], comNomes: false, padrao: "" };
+        if (pedir) {
+            try {
+                var s = await md.getUserMedia({ audio: true, video: false });
+                s.getTracks().forEach(function (t) { t.stop(); });
+            } catch (e) { /* negado: a lista sai sem nomes */ }
+        }
+        var todos = await md.enumerateDevices();
+        var entradas = todos.filter(function (d) { return d.kind === "audioinput"; });
+        var padrao = entradas.filter(function (d) { return d.deviceId === "default"; })[0];
+        var mics = entradas.filter(function (d) {
+            return d.deviceId && d.deviceId !== "default" && d.deviceId !== "communications";
+        });
+        return {
+            microfones: mics.map(function (d, i) { return { id: d.deviceId, rotulo: d.label || ("Microfone " + (i + 1)) }; }),
+            comNomes: mics.some(function (d) { return !!d.label; }),
+            padrao: padrao && padrao.label ? padrao.label.replace(/^(Padrão|Default)\s*-\s*/i, "") : ""
+        };
+    }
+
     function caiu(motivo) {
         rodando = false;
         if (aoCair) aoCair(motivo);
@@ -234,9 +366,9 @@ window.AudioFalar = (function () {
     function parar() {
         geracao++;          // qualquer `iniciar` a caminho perde a vez
         rodando = false;
+        emUso = null;
         clearTimeout(vigiaQueda);
-        if (medidor) { clearInterval(medidor); medidor = null; }
-        if (contexto) { try { contexto.close(); } catch (e) { /* já fechado */ } contexto = null; }
+        desligarMedidor();
         if (trilha) {
             trilha.getTracks().forEach(function (t) { t.stop(); });
             trilha = null;
@@ -262,6 +394,13 @@ window.AudioFalar = (function () {
         },
         /* Mudo sem derrubar a transmissão (ver `mudoAgora`). O medidor cai a
            zero junto — o locutor VÊ que está mudo. */
+        /* Microfone: `escolher` guarda a escolha e, no ar, troca na hora
+           (devolve {trocou}); `emUso` diz qual o navegador abriu DE FATO —
+           é o que a mesa mostra, e `reserva` avisa que não é o escolhido. */
+        listar: listar,
+        escolher: trocar,
+        escolhido: function () { return escolhido; },
+        emUso: function () { return emUso; },
         mudo: function (valor) { mudoAgora = !!valor; aplicarMudo(); return mudoAgora; },
         estaMudo: function () { return mudoAgora; },
         aoCair: function (fn) { aoCair = fn; }

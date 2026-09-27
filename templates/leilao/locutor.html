@@ -225,6 +225,22 @@
                 <h3>🎙️ Sua voz</h3>
                 {% if audio_ativo %}
                 <p class="micro-ajuda" id="microEstado">Desligado. Ninguém está ouvindo você pelo sistema.</p>
+                {% comment %}
+                QUAL microfone (pedido do clube em 27/09): o PC da mesa tem
+                webcam, fone e microfone de mão, e ninguém sabia qual o
+                navegador tinha pego. A escolha fica guardada neste computador;
+                trocar com a voz no ar NÃO derruba os ouvintes (a faixa é trocada
+                na mesma conexão). "Usando" é o que o navegador abriu DE FATO.
+                {% endcomment %}
+                <div class="micro-escolha">
+                    <label for="microEscolha">Microfone</label>
+                    <select id="microEscolha">
+                        <option value="">Padrão do computador</option>
+                    </select>
+                    <button type="button" class="btn-mini" id="btnMicrofones"
+                            title="Atualizar a lista (mostra os nomes dos microfones)">🔄</button>
+                </div>
+                <p class="micro-usando" id="microUsando" hidden></p>
                 <div class="micro-nivel"><span id="microBarra"></span></div>
                 {% comment %}
                 MUDO: para pausar (falar com alguém, tossir, resolver algo), use

@@ -8387,3 +8387,80 @@ class NumeroDoLoteEscolhidoTests(TestCase):
         este teste cai."""
         fonte = Path(settings.BASE_DIR, "leilao", "servicos.py").read_text(encoding="utf-8")
         self.assertIn('lote.save(update_fields=["valor_atual", "lider"])', fonte)
+
+
+class MicrofoneEscolhidoTests(TestCase):
+    """Escolher o microfone na mesa (pedido do clube em 27/09): o PC da mesa
+    tem vários, e ninguém sabia qual o navegador pegava.
+
+    O comportamento (escolher antes, trocar no ar sem derrubar a conexão,
+    escolhido que sumiu cai no padrão, mudo mantido na troca, duas trocas
+    seguidas, Parar no meio da troca) é provado no simulador de voz, cenários
+    m21–m26 — todos falham no código anterior. Aqui ficam as guardas de
+    estrutura.
+    """
+
+    @staticmethod
+    def _js(nome):
+        texto = Path(settings.BASE_DIR, "static", "leilao", "js", nome).read_text(encoding="utf-8")
+        limpo = re.sub(r"/\*.*?\*/", " ", texto, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", limpo)
+
+    def setUp(self):
+        servicos.limpar_limites()
+        self.leilao = criar_leilao()
+        cfg = ConfigLeilao.get_solo()
+        cfg.audio_ativo = True
+        cfg.save()
+        User = get_user_model()
+        u = User.objects.create_user("loc_mic", password="segredo-ficticio")
+        u.is_staff = True
+        u.save()
+        u.groups.add(Group.objects.get_or_create(name="locutor")[0])
+        self.c = Client()
+        self.c.login(username="loc_mic", password="segredo-ficticio")
+
+    def test_a_mesa_tem_a_lista_de_microfones_no_card_da_voz(self):
+        html = self.c.get(f"/locutor/{self.leilao.id}/").content.decode()
+        card = html[html.index("🎙️ Sua voz"):html.index('id="btnMicrofone"')]
+        for id_ in ('id="microEscolha"', 'id="btnMicrofones"', 'id="microUsando"'):
+            self.assertIn(id_, card)
+
+    def test_o_microfone_escolhido_e_o_que_se_pede_ao_navegador(self):
+        js = self._js("audio_falar.js")
+        abrir = js[js.index("async function abrirMicrofone"):js.index("function registrarEmUso")]
+        self.assertIn("audio.deviceId = { exact: id }", abrir)
+        iniciar = js[js.index("async function iniciar"):js.index("function trocar")]
+        self.assertIn("abrirMicrofone(escolhido)", iniciar)
+
+    def test_escolhido_que_sumiu_cai_no_padrao_mas_permissao_negada_nao(self):
+        js = self._js("audio_falar.js")
+        abrir = js[js.index("async function abrirMicrofone"):js.index("function registrarEmUso")]
+        self.assertIn('e.name === "NotAllowedError"', abrir)
+        self.assertIn("reserva: true", abrir)
+
+    def test_trocar_no_ar_troca_a_faixa_sem_republicar(self):
+        js = self._js("audio_falar.js")
+        troca = js[js.index("async function fazerTroca"):js.index("async function listar")]
+        self.assertIn("replaceTrack(", troca)
+        self.assertNotIn("iniciar(", troca)
+        self.assertNotIn("parar()", troca)
+        # A conferência DEPOIS do replaceTrack: sem ela, Parar no meio da troca
+        # deixava o microfone novo aberto (o simulador acusou).
+        depois = troca[troca.index("replaceTrack("):]
+        self.assertLess(depois.index("if (!vale())"), depois.index("trilha = novo"))
+
+    def test_as_trocas_andam_em_fila(self):
+        js = self._js("audio_falar.js")
+        self.assertIn("filaTroca.then(", js)
+
+    def test_a_escolha_fica_guardada_no_computador(self):
+        mesa = self._js("locutor.js")
+        self.assertIn('localStorage.getItem(CHAVE_MIC)', mesa)
+        self.assertIn('var CHAVE_MIC = "leilao_microfone"', mesa)
+        self.assertIn("AudioFalar.escolher(micGuardado())", mesa)
+
+    def test_a_mesa_mostra_o_microfone_em_uso(self):
+        mesa = self._js("locutor.js")
+        no_ar = mesa[mesa.index("function mostrarNoAr"):mesa.index("function mostrarDesligado")]
+        self.assertIn("mostrarEmUso();", no_ar)

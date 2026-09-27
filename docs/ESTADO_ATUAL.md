@@ -2,7 +2,9 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-26 (**Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável**): cadastro do item ganhou o campo **Nº do lote** ao lado do peso: vem com o próximo número, pode ser trocado (caixa já etiquetada), é conferido ao vivo e o sistema recusa número repetido no mesmo leilão.
+**Última atualização:** 2026-09-27 (**Leilão: escolher o microfone da mesa**): o card **🎙️ Sua voz** ganhou a lista **Microfone** (com 🔄 para atualizar e mostrar os nomes) e a linha **"🎙️ Usando: …"**, que diz qual microfone o navegador abriu de fato. A escolha fica guardada no computador; trocar com a voz no ar **não derruba os ouvintes** (a faixa é trocada na mesma conexão, `replaceTrack`). Se o escolhido não estiver ligado, a voz sai pelo **padrão** e a mesa avisa em âmbar.
+
+**Atualização anterior:** 2026-09-26 (**Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável**): cadastro do item ganhou o campo **Nº do lote** ao lado do peso: vem com o próximo número, pode ser trocado (caixa já etiquetada), é conferido ao vivo e o sistema recusa número repetido no mesmo leilão.
 
 **Atualização anterior:** 2026-09-26 (**Leilão: deploy da última revisão (regressões, aparelhos e jeitos de usar)**): em produção no commit `74e16a5` (26/09, 22h05), com um leilão ao vivo e **nenhum item em pregão** (conferido antes do deploy e antes do restart): as 20 correções da última revisão e a documentação consolidada.
 
@@ -2747,6 +2749,11 @@ cada uma está no `HISTORICO_ALTERACOES.md` (entradas de 26/09); aqui fica o **e
   o item visto e a disputa **dentro da transação** (`abrir_lote(visto=…, forcar=…)` →
   `AberturaRecusada`).
 - **Emoção a cada lance** (borda, valor que pula, "+R$ 5", moedas, selo de ritmo) — **sem som**.
+- **Qual microfone** (27/09): lista no card da voz (`#microEscolha`, 🔄 `#btnMicrofones`) e
+  "Usando" (`#microUsando`, o rótulo da faixa aberta de fato). Escolha em `localStorage`
+  (`leilao_microfone`); `AudioFalar.escolher` troca no ar por `replaceTrack` (em fila, conferindo a
+  vez depois da troca); escolhido fora do ar/desligado → abre o padrão (`reserva`, aviso âmbar);
+  permissão negada não tem reserva.
 - **Microfone**: 🔇 Mudo sempre à vista, independente do Transmitir, armável antes, guardado na aba
   (`sessionStorage`). "No ar" só com a conexão de pé; microfone que termina é queda; soluço de rede
   reaproveita a conexão; WHIP com tempo máximo; a espera da religação só zera com voz estável.
@@ -2797,7 +2804,7 @@ cada uma está no `HISTORICO_ALTERACOES.md` (entradas de 26/09); aqui fica o **e
 `RevisaoFinalEAparelhosTests`,
 `CorridaNaMesaTests` — lance×VENDIDO, VENDIDO×VENDIDO e lance×Abrir em threads, nas duas ordens —,
 `SemZoomNoIphoneTests`, `TremorNaoTiraOBotaoDoDedoTests` e as do dia) e o **simulador de voz**
-(`ferramentas/simulador_voz/`, 31 cenários). O que continua pedindo aparelho de verdade: o **ensaio
+(`ferramentas/simulador_voz/`, 37 cenários — 26 da mesa, m21–m26 são os do microfone escolhido). O que continua pedindo aparelho de verdade: o **ensaio
 de áudio** (MediaMTX, rede do evento, iPhone) e a saída por TCP do MediaMTX (`DEPLOY_LEILAO.md` §7.0).
 
 **Como rodar local**

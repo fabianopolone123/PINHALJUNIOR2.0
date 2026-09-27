@@ -291,6 +291,18 @@ A barrinha mostra que está saindo som: **se ela não mexe quando você fala, ni
 está te ouvindo**. A mesa só diz **"🔴 No ar"** quando a voz está saindo de
 verdade — antes disso ela diz que está conectando.
 
+**Qual microfone.** Acima dos botões há a lista **Microfone**. Escolha o que vai
+usar (o de mão, o do fone, o da webcam…). Se os nomes não aparecem, toque no
+**🔄**: o navegador pede a permissão do microfone e mostra os nomes. Com a voz no
+ar, a linha **"🎙️ Usando: …"** diz qual microfone está saindo **de verdade** —
+confira ali. A escolha fica guardada neste computador para a próxima vez.
+
+- Dá para **trocar com a voz no ar**: escolha outro na lista e a troca é feita
+  sem derrubar ninguém (quem está ouvindo nem percebe).
+- Se o escolhido **não estiver ligado** (microfone USB fora do lugar), a voz sai
+  pelo **padrão do computador** e a linha fica âmbar: "o microfone escolhido não
+  foi achado". Ligue o microfone e escolha de novo na lista.
+
 **Para pausar, use 🔇 Mudo — não "Parar transmissão".** O mudo silencia o
 microfone e **mantém a transmissão de pé**: ao apertar **🎙️ Voltar a falar**, o
 som volta **na hora** para todo mundo. "Parar" derruba a conexão de todos os

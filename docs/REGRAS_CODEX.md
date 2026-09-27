@@ -1391,7 +1391,7 @@ próprios). Antes de mexer nele, ler `docs/PLANEJAMENTO_LEILAO.md`.
   publicar o de outro leilão mandava "sem leilão" para a sala.
 - **Referência de Pix refeito em milissegundos, com laço até achar a livre**; o `IntegrityError`
   só devolve a outra cobrança se ela cobrir exatamente esta conta.
-- **O stream do público exige cadastro** e tem **teto de 6 conexões por pessoa**; `?equipe=1` só
+- **O stream do público exige cadastro** e tem **teto de conexões por pessoa** (6 em 24/09; **4** desde 26/09, ver "A revisão geral de 26/09"); `?equipe=1` só
   vale com login de equipe, e a equipe **não entra no teto** (a mesa nunca é barrada).
 - **Contagens do hub percorrem uma cópia** (`list(...)`): rodam em threads enquanto o laço de
   eventos mexe no dicionário.
@@ -1509,6 +1509,16 @@ e jeitos de usar**. O que cada uma mudou está no HISTORICO; aqui fica o que nã
   religando quieto e volta sozinho. A recusa do navegador pede sempre.
 - **Teste com o simulador** (`ferramentas/simulador_voz/`), e cenário novo só vale se falha no
   código antigo (a prova de fogo pegou um cenário que passava nos dois).
+
+### Qual microfone: escolher, trocar no ar, mostrar o que está em uso (27/09)
+- A mesa mostra **o que o navegador abriu de fato** ("Usando", rótulo da faixa) — não o que foi
+  escolhido. São coisas diferentes quando o escolhido não está ligado.
+- **Trocar com a voz no ar é `replaceTrack`, nunca parar e transmitir**: republicar derruba todos os
+  ouvintes. Troca em **fila**, e a vez é conferida **depois** do `replaceTrack` (sem isso, Parar no
+  meio da troca deixava o microfone novo aberto — m26 do simulador).
+- **Escolhido indisponível cai no padrão** (voz por outro microfone > silêncio), com aviso âmbar.
+  Permissão negada **não** cai: é erro, como antes.
+- A escolha é do **computador** (`localStorage`), o mudo é da **aba** (`sessionStorage`) — de propósito.
 
 ### O martelo em três tempos: dou-lhe uma, dou-lhe duas, VENDIDO (desde 26/09)
 

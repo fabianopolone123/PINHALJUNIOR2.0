@@ -51,11 +51,13 @@ As regras que não se negociam (todas com motivo em `docs/REGRAS_CODEX.md`):
   usa `_leilao_da_tela`. Ação nova da equipe: mande o leilão.
 - **Estado publicado é sempre o do leilão NO AR** (`servicos.publicar_estado`). **`chave_pessoa` é
   HMAC** (nunca hash puro de dado pessoal no broadcast). **Config do Mercado Pago/áudio só do
-  Diretor.** Stream do público exige cadastro, 6 conexões por pessoa, equipe fora do teto. Uvicorn
+  Diretor.** Stream do público exige cadastro, 4 conexões por pessoa, equipe fora do teto. Uvicorn
   com `--timeout-graceful-shutdown 3` (sem ele o reinício com público levava 90 s).
 - **Voz: pausar é 🔇 Mudo** (`AudioFalar.mudo`, a faixa desligada, a conexão de pé). A volta da voz é
   avisada pela ação/evento `voz` e o ouvinte reconecta já (`vozVoltou`, espalhado em até 4 s); a
-  transmissão do locutor tem vigia e religa sozinha. Caixa: a conta abre com os **dados completos da
+  transmissão do locutor tem vigia e religa sozinha. **Qual microfone** (27/09): lista no card da voz,
+  "Usando" mostra o aberto de fato, troca no ar por `replaceTrack` (nunca republicar), escolhido
+  ausente cai no padrão com aviso. Caixa: a conta abre com os **dados completos da
   pessoa** (`Participante.ficha_texto`/`mapa_link`).
 - **O broadcast só leva o que pode ser dito em voz alta** — Pix, telefone e endereço saem por `GET`
   autenticado.

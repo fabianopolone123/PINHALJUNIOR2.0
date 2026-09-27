@@ -410,6 +410,48 @@ body.tela-locutor {
 .micro-ajuda { font-size: 0.84rem; color: var(--palco-suave); line-height: 1.5; margin-bottom: 10px; }
 .alerta-texto { color: var(--ambar); }
 
+/* Qual microfone: lista + atualizar. O nome do microfone é comprido
+   ("Microfone (2- USB Audio Device)"), daí o `min-width: 0` no select. */
+.micro-escolha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.micro-escolha label {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--palco-suave);
+}
+.micro-escolha select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--palco-texto);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--palco-borda);
+    border-radius: 10px;
+    text-overflow: ellipsis;
+}
+.micro-escolha select:focus { outline: none; border-color: var(--azul-claro); }
+.micro-escolha select option { color: #1b2a3a; }
+.micro-escolha .btn-mini { flex-shrink: 0; }
+.micro-usando {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--palco-suave);
+    margin-bottom: 8px;
+    overflow-wrap: anywhere;
+}
+.micro-usando b { color: var(--palco-texto); }
+.micro-usando.reserva { color: var(--ambar); }
+
 .micro-nivel {
     height: 8px;
     margin-bottom: 10px;
