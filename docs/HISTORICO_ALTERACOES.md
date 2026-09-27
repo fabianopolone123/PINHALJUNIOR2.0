@@ -65,6 +65,12 @@ usando (o PC tem webcam, fone e microfone de mão). O card **🎙️ Sua voz** g
 - Conferir no PC da mesa, no ensaio, que a lista mostra os microfones dele e que a troca no ar não
   corta o som de quem escuta.
 
+### Deploy
+Publicado em 27/09 (`09fdd6a`), rodado pelo clube: `pinhaljunior2-deploy` + passo do leilão (migrate
+sem migrations novas, `collectstatic`, `chown`, restart do `pinhaljunior_leilao.service`). Pela
+internet: o `audio_falar.js` e o `locutor.js` servidos já têm a escolha do microfone, a mesa pede login
+(302) e o site do clube responde (200).
+
 ---
 
 ## 2026-09-26 - Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável

@@ -2,7 +2,7 @@
 
 > Resumo rápido do estado atual. Atualize este arquivo após qualquer alteração.
 
-**Última atualização:** 2026-09-27 (**Leilão: escolher o microfone da mesa**): o card **🎙️ Sua voz** ganhou a lista **Microfone** (com 🔄 para atualizar e mostrar os nomes) e a linha **"🎙️ Usando: …"**, que diz qual microfone o navegador abriu de fato. A escolha fica guardada no computador; trocar com a voz no ar **não derruba os ouvintes** (a faixa é trocada na mesma conexão, `replaceTrack`). Se o escolhido não estiver ligado, a voz sai pelo **padrão** e a mesa avisa em âmbar.
+**Última atualização:** 2026-09-27 (**Leilão: escolher o microfone da mesa**): o card **🎙️ Sua voz** ganhou a lista **Microfone** (com 🔄 para atualizar e mostrar os nomes) e a linha **"🎙️ Usando: …"**, que diz qual microfone o navegador abriu de fato. A escolha fica guardada no computador; trocar com a voz no ar **não derruba os ouvintes** (a faixa é trocada na mesma conexão, `replaceTrack`). Se o escolhido não estiver ligado, a voz sai pelo **padrão** e a mesa avisa em âmbar. **Em produção** desde 27/09 (`09fdd6a`).
 
 **Atualização anterior:** 2026-09-26 (**Leilão: campo "Nº do lote" no cadastro do item, preenchido e editável**): cadastro do item ganhou o campo **Nº do lote** ao lado do peso: vem com o próximo número, pode ser trocado (caixa já etiquetada), é conferido ao vivo e o sistema recusa número repetido no mesmo leilão.
 
